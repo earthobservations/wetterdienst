@@ -1,12 +1,12 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Tests for the options a request takes, and for the settings it falls back on (GH-2639).
+"""Tests for the options a request takes, and for the deprecated settings it still falls back on (GH-2639).
 
-A request reads how its values come back and how its stations are chosen from its options. Given
-none, it takes what its `Settings` carry as their `ts_*` settings, so that `Settings(ts_x=v)` and
-`options=Options(x=v)` are the same request, and each test here says so for every option on a frame
-a stubbed request gives. A parity that held for options nothing reads would pass too, so each one
-also asserts that the option changed the frame it is held to.
+A request reads how its values come back and how its stations are chosen from its options, and each
+test here says that a dict of options and an `Options` are the same request for every option, on a
+frame a stubbed request gives. A parity that held for options nothing reads would pass too, so each
+one also asserts that the option changed the frame it is held to. The `ts_*` settings are options
+no more but are still taken, with a warning, from the settings a request is given.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import dataclasses
 import datetime as dt
 import logging
 import os
+import warnings
 from io import BytesIO
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -28,7 +29,6 @@ from pydantic import ValidationError
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.options import options_from_settings
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
@@ -56,10 +56,10 @@ def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.chdir(tmp_path)
 
 
-# old route, removed in stage 5
 def _settings(changes: dict[str, Any]) -> Settings:
-    """Return settings carrying the changes as their `ts_*` settings."""
-    return Settings(cache_disable=True, **{f"ts_{name}": value for name, value in changes.items()})
+    """Return settings carrying the changes as their deprecated `ts_*` settings."""
+    with pytest.warns(DeprecationWarning, match="is deprecated"):
+        return Settings(cache_disable=True, **{f"ts_{name}": value for name, value in changes.items()})
 
 
 def _station(sentinel: str = "-999") -> str:
@@ -141,20 +141,17 @@ VALUES_CASES = {
 }
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize("name", VALUES_CASES)
-def test_values_through_settings_and_through_options_are_the_same_frame(
+def test_values_through_a_dict_and_through_options_are_the_same_frame(
     name: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Settings(ts_x=v) and options=Options(x=v) give the same values, and the option changes them."""
+    """A dict of options and an `Options` give the same values, and the option changes them."""
     changes, baseline = VALUES_CASES[name]
-    through_settings = _values(monkeypatch, settings=_settings(changes))
     through_options = _values(monkeypatch, options=Options(**changes))
     through_a_dict = _values(monkeypatch, options=changes)
     expected = _values(monkeypatch, options=Options(**baseline))
 
-    assert_frame_equal(through_settings, through_options)
     assert_frame_equal(through_a_dict, through_options)
     assert not through_options.equals(expected)
 
@@ -292,25 +289,22 @@ ESTIMATE_CASES = {
 }
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
 @pytest.mark.parametrize("name", ESTIMATE_CASES)
-def test_estimates_through_settings_and_through_options_are_the_same_frame(
+def test_estimates_through_a_dict_and_through_options_are_the_same_frame(
     name: str,
     method: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Interpolating and summarizing give the same answer through settings and through options."""
+    """Interpolating and summarizing give the same answer through a dict of options and through options."""
     pytest.importorskip("shapely")
     changes, baseline, changed_in = ESTIMATE_CASES[name]
-    through_settings, asked_settings = _estimate(monkeypatch, method, settings=_settings(changes))
     through_options, asked_options = _estimate(monkeypatch, method, options=Options(**changes))
     through_a_dict, asked_dict = _estimate(monkeypatch, method, options=changes)
     expected, _ = _estimate(monkeypatch, method, options=Options(**baseline))
 
-    assert_frame_equal(through_settings, through_options)
     assert_frame_equal(through_a_dict, through_options)
-    assert asked_settings == asked_options == asked_dict
+    assert asked_options == asked_dict
     if method in changed_in:
         assert not through_options.equals(expected)
 
@@ -350,10 +344,10 @@ def test_estimating_reads_the_request_itself_where_it_is_long_and_humanized() ->
     assert request._for_estimating() is request  # noqa: SLF001
 
 
-# the options a request takes from the settings it was given, and how it takes them
+# the options a request takes
 
 
-#: a value other than the default for every option, as the settings carry it
+#: a value other than the default for every option
 CARRIED = {
     "humanize": False,
     "shape": "wide",
@@ -388,10 +382,9 @@ def test_the_cases_name_every_option() -> None:
     assert set(CARRIED) == set(ESTIMATE_CASES)
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize("name", CARRIED)
-def test_a_request_takes_an_option_from_the_settings_it_carries_as(name: str) -> None:
-    """A request given settings and no options reads the settings' `ts_*` setting as its option."""
+def test_a_request_takes_an_option_from_the_ts_setting_it_was_given_as(name: str) -> None:
+    """A request given settings with a deprecated `ts_*` setting and no options reads it as its option."""
     request = _request(settings=_settings({name: CARRIED[name]}))
 
     assert isinstance(request.options, Options)
@@ -399,9 +392,8 @@ def test_a_request_takes_an_option_from_the_settings_it_carries_as(name: str) ->
     assert request.options.model_dump()[name] == CARRIED[name]
 
 
-# old route, removed in stage 5
-def test_a_request_takes_the_radii_the_settings_expand_to() -> None:
-    """The radius for a parameter and a resolution is the same through the settings and through the options."""
+def test_a_request_takes_the_radii_the_ts_settings_expand_to() -> None:
+    """The radius for a parameter and a resolution is the same through the `ts_*` settings and through the options."""
     changes = {
         "geo_station_distance_heterogeneous": 25.0,
         "geo_station_distance": {"temperature_air_mean_2m": 60.0},
@@ -452,7 +444,6 @@ def test_options_are_keyword_only(request_class: type[TimeseriesRequest]) -> Non
         assert positional.index("issue") == positional.index("periods") + 1
 
 
-# old route, removed in stage 5
 def test_a_request_copied_with_replace_keeps_its_options() -> None:
     """`dataclasses.replace` hands the resolved options back beside their settings, which is no conflict."""
     request = _request(settings=_settings({"shape": "wide"}))
@@ -525,7 +516,6 @@ def test_a_dict_of_options_notes_a_wide_shape_once(caplog: pytest.LogCaptureFixt
     ]
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize("options", [Options(), {}, {"shape": "long"}], ids=["options", "empty", "dict"])
 def test_options_beside_settings_that_carry_options_are_refused(options: Options | dict) -> None:
     """Settings that carry a `ts_*` setting and options are two answers to one question, and a caller is told."""
@@ -533,17 +523,19 @@ def test_options_beside_settings_that_carry_options_are_refused(options: Options
         _request(settings=_settings({"shape": "wide"}), options=options)
 
 
-# old route, removed in stage 5
 def test_options_beside_settings_given_as_a_dict_are_refused() -> None:
     """The settings are checked as they are once validated, whether they were given as a dict or not."""
-    with pytest.raises(ValueError, match="ts_humanize, ts_skip_empty"):
+    with (
+        pytest.warns(DeprecationWarning, match="is deprecated"),
+        pytest.raises(ValueError, match="ts_humanize, ts_skip_empty"),
+    ):
         _request(settings={"cache_disable": True, "ts_skip_empty": True, "ts_humanize": False}, options={})
 
 
-# old route, removed in stage 5
 def test_options_beside_settings_that_carry_none_are_taken() -> None:
-    """Settings of the host alone leave the options to the caller."""
-    settings = Settings(cache_disable=True, ts_shape="long", ts_humanize=True)
+    """Settings of the host alone leave the options to the caller, as do `ts_*` settings that are the defaults."""
+    assert _request(settings=Settings(cache_disable=True), options={"shape": "wide"}).options.shape == "wide"
+    settings = _settings({"shape": "long", "humanize": True})
     assert _request(settings=settings, options={"shape": "wide"}).options.shape == "wide"
 
 
@@ -556,12 +548,12 @@ def test_the_environment_is_no_settings_of_the_callers_to_refuse(monkeypatch: py
     assert _request(options={"humanize": False}).options.shape == "wide"
 
 
-# old route, removed in stage 5
 def test_a_request_keeps_the_options_it_was_built_with() -> None:
     """Options are fixed when the request is built: changing the settings afterwards does not reach them."""
     settings = Settings(cache_disable=True)
     request = _request(settings=settings)
-    settings.ts_shape = "wide"
+    with pytest.warns(DeprecationWarning, match="'ts_shape' is deprecated"):
+        settings.ts_shape = "wide"
 
     assert request.options.shape == "long"
     assert _request(settings=settings).options.shape == "wide"
@@ -581,19 +573,12 @@ def test_stations_result_has_the_options_of_its_request() -> None:
     assert stations.values.sr.options.humanize is False
 
 
-# old route, removed in stage 5
 def test_the_settings_of_a_request_are_the_hosts_alone_for_options() -> None:
     """Options are not read from `settings` once given: the request reads them from `options` only."""
     request = _request(settings=Settings(cache_disable=True), options={"shape": "wide"})
-    assert request.settings.ts_shape == "long"
+    assert not [name for name in Settings.model_fields if name.startswith("ts_")]
+    assert not [name for name in request.settings.model_dump() if name.startswith("ts_")]
     assert request.options.shape == "wide"
-
-
-# old route, removed in stage 5
-def test_options_from_settings_are_those_the_settings_dump() -> None:
-    """`options_from_settings` takes the settings' `ts_*` settings as the options of the same name."""
-    settings = _settings(CARRIED)
-    assert options_from_settings(settings).model_dump() == Options(**CARRIED).model_dump()
 
 
 @pytest.mark.parametrize(
@@ -609,3 +594,75 @@ def test_other_requests_take_options(request_class: type[TimeseriesRequest], par
     """The argument is the base request's, so a request of another provider takes it too."""
     request = request_class(parameters=[parameter], options={"shape": "wide"})
     assert request.options.shape == "wide"
+
+
+@pytest.mark.parametrize("name", CARRIED)
+def test_a_ts_setting_given_to_settings_warns_with_the_option_to_use(name: str) -> None:
+    """`Settings(ts_x=v)` still works and names `Options(x=...)` as what to use instead."""
+    with pytest.warns(DeprecationWarning, match=rf"'ts_{name}' is deprecated.*Options\({name}=\.\.\.\)") as warned:
+        settings = Settings(cache_disable=True, **{f"ts_{name}": CARRIED[name]})
+    assert len(warned) == 1
+    assert settings.model_dump().keys() == Settings(cache_disable=True).model_dump().keys()
+
+
+def test_ts_settings_given_in_a_dict_warn_and_are_taken() -> None:
+    """The `settings={...}` of a request takes a `ts_*` setting as `Settings(ts_x=v)` does."""
+    with pytest.warns(DeprecationWarning, match="'ts_skip_empty' is deprecated.*options="):
+        request = _request(settings={"cache_disable": True, "ts_skip_empty": True})
+    assert request.options.skip_empty
+
+
+def test_reading_and_assigning_a_ts_setting_warns_and_goes_through_the_options() -> None:
+    """The settings read and assign a `ts_*` setting, and its derived members, as the options of the same name."""
+    settings = Settings(cache_disable=True)
+    with pytest.warns(DeprecationWarning, match="'ts_shape' is deprecated"):
+        assert settings.ts_shape == "long"
+    with pytest.warns(DeprecationWarning, match="'ts_shape' is deprecated"):
+        settings.ts_shape = "wide"
+    with pytest.warns(DeprecationWarning, match=r"'ts_tidy' is deprecated.*request\.options\.tidy"):
+        assert not settings.ts_tidy
+    with pytest.warns(DeprecationWarning, match="'ts_drop_nulls_effective' is deprecated"):
+        assert not settings.ts_drop_nulls_effective
+    with pytest.warns(DeprecationWarning, match="'ts_geo_station_distance_resolution_factor' is deprecated"):
+        assert settings.ts_geo_station_distance_resolution_factor("daily") == 2.0
+
+
+def test_a_radius_assigned_through_the_ts_setting_takes_effect() -> None:
+    """An assigned `ts_geo_station_distance` was checked and then discarded; through the options it is kept."""
+    settings = Settings(cache_disable=True)
+    with pytest.warns(DeprecationWarning, match="'ts_geo_station_distance' is deprecated"):
+        settings.ts_geo_station_distance = {"temperature_air_mean_2m": 7.0}
+    assert _request(settings=settings).options.geo_station_distance_for("temperature_air_mean_2m", "daily") == 7.0
+
+
+def test_a_ts_setting_assigned_is_checked() -> None:
+    """A value out of bounds is refused where it is assigned, as it was."""
+    settings = Settings(cache_disable=True)
+    with (
+        pytest.warns(DeprecationWarning, match="'ts_skip_threshold' is deprecated"),
+        pytest.raises(ValidationError, match="skip_threshold"),
+    ):
+        settings.ts_skip_threshold = 2.0
+    with (
+        pytest.warns(DeprecationWarning, match="'ts_shape' is deprecated"),
+        pytest.raises(ValidationError, match="shape"),
+    ):
+        Settings(ts_shape="tall")
+
+
+def test_the_ts_variables_of_the_environment_are_options_and_never_warn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`WD_TS_*` is read by `Options` alone: it warns nowhere, and the settings do not read or refuse it."""
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        settings = Settings(cache_disable=True)
+        request = _request(settings=settings)
+    assert request.options.shape == "wide"
+    monkeypatch.setenv("WD_TS_SHAPE", "bogus")
+    assert Settings(cache_disable=True).cache_disable
+
+
+def test_a_ts_setting_that_never_existed_is_still_refused() -> None:
+    """Only the `ts_*` settings that existed are taken; another is the unknown setting it is."""
+    with pytest.raises(ValidationError, match="ts_nope"):
+        Settings(ts_nope=1)

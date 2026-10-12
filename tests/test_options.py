@@ -4,8 +4,10 @@
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from pydantic import ValidationError
@@ -93,33 +95,27 @@ def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.chdir(tmp_path)
 
 
-def _dump_settings(settings: Settings) -> dict[str, object]:
-    """Return the settings' request options as `Options` dumps them, by the name without ``ts_``."""
-    return {name.removeprefix("ts_"): value for name, value in settings.model_dump().items() if name.startswith("ts_")}
-
-
 def test_options_are_exported() -> None:
     """`Options` is part of the package's public names."""
     assert wetterdienst.Options is Options
     assert "Options" in wetterdienst.__all__
 
 
-def test_options_cover_the_request_half_of_the_settings() -> None:
-    """Every `ts_*` setting has an option of the same name without the prefix, and nothing else does."""
-    settings_ts = {name.removeprefix("ts_") for name in Settings.model_fields if name.startswith("ts_")}
-    assert set(Options.model_fields) == settings_ts == set(CASE_IDS)
+def test_the_cases_cover_every_option() -> None:
+    """Each option has a case, and the settings have none of them."""
+    assert set(Options.model_fields) == set(CASE_IDS)
+    assert not set(Settings.model_fields) & set(Options.model_fields)
 
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
 def test_options_default(case: Case) -> None:
-    """Each option has its default, which is the one the setting has."""
+    """Each option has its default."""
     assert Options().model_dump()[case.name] == case.default
-    assert _dump_settings(Settings())[case.name] == case.default
 
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
 def test_options_read_the_environment(case: Case, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Each option is read from ``WD_TS_<NAME>``, the variable the setting is read from."""
+    """Each option is read from ``WD_TS_<NAME>``."""
     monkeypatch.setenv(case.variable, case.env)
     assert Options().model_dump()[case.name] == case.parsed
 
@@ -152,12 +148,10 @@ def test_options_argument_is_merged_into_a_mapping_from_the_environment(monkeypa
     assert options.geo_station_distance["wind_speed"] == 43.0
 
 
-# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 def test_options_read_a_nested_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
     """An entry of a mapping is set by ``__`` and its key."""
     monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE__PRECIPITATION_AMOUNT", "25")
     assert Options().geo_station_distance["precipitation_amount"] == 25.0
-    assert Settings().ts_geo_station_distance["precipitation_amount"] == 25.0
 
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
@@ -353,72 +347,11 @@ def test_options_equality_is_by_value() -> None:
     assert Options(geo_station_distance={"wind_speed": 43}) != Options()
 
 
-# parity with the settings they are to replace
-
-
-# old route, removed in stage 5
-def test_options_equal_the_settings_for_every_variable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """With every ``WD_TS_*`` variable set, each setting `ts_x` that `Settings` reads equals option `x`."""
-    for case in CASES:
-        monkeypatch.setenv(case.variable, case.env)
-    options = Options().model_dump()
-    from_settings = _dump_settings(Settings())
-    assert options == from_settings
-    assert options == {case.name: case.parsed for case in CASES}
-
-
-def test_options_equal_the_settings_for_every_variable_in_dotenv(tmp_path: Path) -> None:
-    """The same from a ``.env``."""
-    (tmp_path / ".env").write_text("".join(f"{case.variable}={case.env}\n" for case in CASES))
-    assert Options().model_dump() == _dump_settings(Settings())
-    assert Options().model_dump() == {case.name: case.parsed for case in CASES}
-
-
-# old route, removed in stage 5
-@pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
-def test_options_and_settings_take_and_refuse_the_same_values(case: Case) -> None:
-    """A value one takes the other takes, and a value one refuses the other refuses, the dumps being equal."""
-    good = Options(**{case.name: case.parsed})
-    assert _dump_settings(Settings(**{f"ts_{case.name}": case.parsed})) == good.model_dump()
-    for bad in case.bad:
-        with pytest.raises(ValidationError):
-            Options(**{case.name: bad})
-        with pytest.raises(ValidationError):
-            Settings(**{f"ts_{case.name}": bad})
-
-
-# old route, removed in stage 5
-def test_options_and_settings_agree_on_the_radius_for_every_parameter_and_resolution() -> None:
-    """`geo_station_distance_for` is the same for any combination of radii, factors and overrides."""
-    given = {
-        "geo_station_distance_homogeneous": 55.0,
-        "geo_station_distance_heterogeneous": 12.5,
-        "geo_station_distance": {"wind_speed": 43, "precipitation_amount": 7},
-        "geo_station_distance_resolution_factors": {"daily": 3.0, Resolution.MINUTE_10.value: 0.5},
-    }
-    options = Options(**given)
-    settings = Settings(**{f"ts_{name}": value for name, value in given.items()})
-    assert set(_STATION_DISTANCE_RESOLUTION_FACTORS) == {resolution.value for resolution in Resolution}
-    for resolution in [*_STATION_DISTANCE_RESOLUTION_FACTORS, "not_a_resolution"]:
-        assert options.geo_station_distance_resolution_factor(resolution) == (
-            settings.ts_geo_station_distance_resolution_factor(resolution)
-        )
-        for parameter in [*PARAMETERS, "unknown_parameter"]:
-            assert options.geo_station_distance_for(parameter, resolution) == (
-                settings.ts_geo_station_distance_for(parameter, resolution)
-            )
-    assert dict(options.geo_station_distance) == dict(settings.ts_geo_station_distance)
-    assert options.tidy == settings.ts_tidy
-    assert options.drop_nulls_effective == settings.ts_drop_nulls_effective
-
-
 # the check of the environment
 
 
 def test_check_settings_tells_a_malformed_option_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A malformed ``WD_TS_*`` variable is told by its name, once, though both classes read it."""
+    """A malformed ``WD_TS_*`` variable is told by its name, once."""
     monkeypatch.setenv("WD_TS_SHAPE", "secret-ish")
     assert check_settings() == ["WD_TS_SHAPE is invalid: Input should be 'wide' or 'long'"]
 
@@ -499,13 +432,12 @@ def test_check_settings_gives_the_notices_of_an_option_once(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The check logs what `Settings` logs for its `ts_*` settings and nothing of its own for the same options."""
+    """The check logs the notices of the options once, as building them logs them."""
     never = next(name for name, parameter in PARAMETERS.items() if not parameter.interpolation)
     monkeypatch.setenv("WD_TS_SHAPE", "wide")
     monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", f'{{"{never}": 3}}')
     with caplog.at_level(logging.INFO):
         assert check_settings() == []
-    assert not [record for record in caplog.records if record.name == "wetterdienst.options"]
     assert sum("drop_nulls" in record.getMessage() for record in caplog.records) == 1
     assert sum("sets a radius" in record.getMessage() for record in caplog.records) == 1
 
@@ -519,24 +451,19 @@ def test_options_replace_does_not_repeat_the_warning_for_a_radius(caplog: pytest
     assert len([record for record in caplog.records if record.name == "wetterdienst.options"]) == 1
 
 
-# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
 def test_options_ignore_an_empty_variable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """An empty variable is no value, in the environment as in a ``.env``, as it is for the settings."""
     monkeypatch.setenv("WD_TS_SHAPE", "")
     assert Options().shape == "long"
-    assert Settings().ts_shape == "long"
     monkeypatch.delenv("WD_TS_SHAPE")
     (tmp_path / ".env").write_text("WD_TS_SKIP_THRESHOLD=\n")
     assert Options().skip_threshold == 0.95
 
 
-# old route, removed in stage 5 (the ts_* lines only; the rest of the test stays)
-def test_options_and_settings_take_none_where_it_means_unset() -> None:
+def test_options_take_none_where_it_means_unset() -> None:
     """No unit targets and no nearby-station distance can be given as none."""
     assert Options(unit_targets=None).unit_targets == {}
-    assert Settings(ts_unit_targets=None).ts_unit_targets == {}
     assert Options(geo_use_nearby_station_distance=None).geo_use_nearby_station_distance is None
-    assert Settings(ts_geo_use_nearby_station_distance=None).ts_geo_use_nearby_station_distance is None
 
 
 def test_options_are_hashable_by_value() -> None:
@@ -546,3 +473,337 @@ def test_options_are_hashable_by_value() -> None:
         Options(geo_station_distance={"wind_speed": 43})
     )
     assert len({Options(), Options(), Options(shape="wide")}) == 2
+
+
+# the options one by one, as the settings once held them
+
+
+def test_options_geo_station_distance_for_scales_with_resolution() -> None:
+    """Test that the radius of a heterogeneous parameter follows the accumulation period.
+
+    Precipitation decorrelates over roughly 8 km in ten minutes but tens of kilometres over a day,
+    which one fixed radius cannot express: it is too wide at `minute_10` and too tight at `daily`.
+    """
+    options = Options()
+    assert options.geo_station_distance_for("precipitation_amount", "10_minutes") == 15.0
+    assert options.geo_station_distance_for("precipitation_amount", "hourly") == 20.0
+    assert options.geo_station_distance_for("precipitation_amount", "6_hour") == 30.0
+    assert options.geo_station_distance_for("precipitation_amount", "daily") == 40.0
+    assert options.geo_station_distance_for("precipitation_amount", "annual") == 40.0
+    # a name from outside the resolution vocabulary is left as it is rather than guessed at
+    assert options.geo_station_distance_for("precipitation_amount", "every other tuesday") == 20.0
+
+
+def test_options_geo_station_distance_radii() -> None:
+    """Test that the two radii options move every parameter of their kind.
+
+    The radii used to be module constants, so the only way to widen the search was to name every
+    parameter individually in `geo_station_distance` -- 514 names to write out for a change that
+    is one number.
+    """
+    options = Options(geo_station_distance_homogeneous=50.0, geo_station_distance_heterogeneous=30.0)
+    # heterogeneous, from the parameter table
+    assert options.geo_station_distance["precipitation_amount"] == 30.0
+    assert options.geo_station_distance["snow_depth_new"] == 30.0
+    # homogeneous, from the defaultdict fallback
+    assert options.geo_station_distance["temperature_air_mean_2m"] == 50.0
+    assert options.geo_station_distance["humidity_relative"] == 50.0
+
+
+def test_options_geo_station_distance_radii_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the two radii are settable from the environment, next to the per-parameter dict."""
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS", "50")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS", "30")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", '{"precipitation_amount":25}')
+    options = Options()
+    assert options.geo_station_distance_homogeneous == 50.0
+    assert options.geo_station_distance_heterogeneous == 30.0
+    # the per-parameter override wins over the radius of its kind
+    assert options.geo_station_distance["precipitation_amount"] == 25.0
+    assert options.geo_station_distance["snow_depth_new"] == 30.0
+    assert options.geo_station_distance["temperature_air_mean_2m"] == 50.0
+
+
+def test_options_geo_station_distance_for_stops_widening_past_a_day() -> None:
+    """Test that the table stops at twice the base radius rather than following correlation up.
+
+    Past a day what binds is terrain and not correlation -- the interpolation reads UTM x/y and
+    never station elevation -- so the widest the defaults reach is the 40 km the homogeneous radius is
+    held to, which is why the two meet at `daily`.
+    """
+    options = Options()
+    assert options.geo_station_distance_for("precipitation_amount", "daily") == 40.0
+    assert options.geo_station_distance_for("precipitation_amount", "monthly") == 40.0
+    assert options.geo_station_distance_for("precipitation_amount", "annual") == 40.0
+    assert options.geo_station_distance_for("temperature_air_mean_2m", "daily") == 40.0
+
+
+def test_options_geo_station_distance_for_scales_the_radius_that_was_set() -> None:
+    """Test that the factors multiply whatever base radius the user set, at every resolution.
+
+    A radius raised by hand is followed rather than clipped: the user has made the terrain
+    judgement the factors encode, and a setting that silently does nothing is the failure this
+    module validates against everywhere else.
+    """
+    options = Options(geo_station_distance_heterogeneous=30.0)
+    assert options.geo_station_distance_for("precipitation_amount", "10_minutes") == 22.5
+    assert options.geo_station_distance_for("precipitation_amount", "hourly") == 30.0
+    assert options.geo_station_distance_for("precipitation_amount", "daily") == 60.0
+    # every step of the setting moves the radius, with no range where it does nothing
+    radii = [
+        Options(geo_station_distance_heterogeneous=base).geo_station_distance_for(
+            "precipitation_amount",
+            "daily",
+        )
+        for base in (20.0, 25.0, 30.0, 35.0)
+    ]
+    assert radii == [40.0, 50.0, 60.0, 70.0]
+
+
+def test_options_geo_station_distance_for_leaves_homogeneous_parameters_alone() -> None:
+    """Test that the homogeneous radius is the same at every resolution.
+
+    What bounds it is terrain rather than correlation -- daily temperature stays correlated over
+    hundreds of kilometres, while `apply_interpolation` works on UTM x/y and never reads station
+    elevation -- and terrain does not care how long the quantity was accumulated for.
+    """
+    options = Options()
+    for resolution in ("10_minutes", "hourly", "daily", "annual"):
+        assert options.geo_station_distance_for("temperature_air_mean_2m", resolution) == 40.0
+    # a name the table does not know falls back the same way the mapping does
+    assert options.geo_station_distance_for("not_a_parameter", "daily") == 40.0
+
+
+def test_options_geo_station_distance_for_takes_an_override_as_written() -> None:
+    """Test that a radius set by hand is not scaled.
+
+    A number written out for a parameter means that number; scaling it would answer a question the
+    user did not ask, and there would be no way to ask for a fixed radius at all.
+    """
+    options = Options(geo_station_distance={"precipitation_amount": 25.0})
+    assert options.geo_station_distance_for("precipitation_amount", "10_minutes") == 25.0
+    assert options.geo_station_distance_for("precipitation_amount", "daily") == 25.0
+    # the parameters that were not named still scale
+    assert options.geo_station_distance_for("snow_depth_new", "daily") == 40.0
+
+
+def test_options_geo_station_distance_resolution_factors() -> None:
+    """Test that the factors are settable, and that the ones left out keep their default."""
+    options = Options(geo_station_distance_resolution_factors={"daily": 3.0})
+    assert options.geo_station_distance_for("precipitation_amount", "daily") == 60.0
+    assert options.geo_station_distance_for("precipitation_amount", "10_minutes") == 15.0
+    # flattening every factor turns the scaling off
+    flat = Options(
+        geo_station_distance_resolution_factors=dict.fromkeys(
+            (
+                "1_minute",
+                "5_minutes",
+                "6_minutes",
+                "10_minutes",
+                "15_minutes",
+                "hourly",
+                "6_hour",
+                "subdaily",
+                "daily",
+                "monthly",
+                "annual",
+            ),
+            1.0,
+        ),
+    )
+    for resolution in ("10_minutes", "hourly", "daily", "annual"):
+        assert flat.geo_station_distance_for("precipitation_amount", resolution) == 20.0
+
+
+def test_options_geo_station_distance_resolution_factors_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the factors are settable from the environment, like the radii next to them."""
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE_RESOLUTION_FACTORS", '{"daily":3.0}')
+    options = Options()
+    assert options.geo_station_distance_resolution_factor("daily") == 3.0
+    assert options.geo_station_distance_for("precipitation_amount", "daily") == 60.0
+
+
+def test_options_geo_station_distance_resolution_factors_reject_unknown_resolution() -> None:
+    """Test that a resolution that does not exist is rejected rather than silently ignored."""
+    with pytest.raises(ValidationError, match=r"\['dayly'\] not in"):
+        Options(geo_station_distance_resolution_factors={"dayly": 2.0})
+
+
+def test_options_geo_station_distance_resolution_factors_reject_negative() -> None:
+    """Test that a negative factor is rejected, as a negative radius is."""
+    with pytest.raises(ValidationError, match="Negative factors in geo_station_distance_resolution_factors"):
+        Options(geo_station_distance_resolution_factors={"daily": -1.0})
+
+
+def test_options_geo_station_distance_rejects_unknown_parameter() -> None:
+    """Test that a parameter name that is not canonical is rejected rather than silently ignored."""
+    with pytest.raises(ValidationError, match=r"\['precipitation_heigt'\] not in the canonical parameters"):
+        Options(geo_station_distance={"precipitation_heigt": 25.0})
+
+
+def test_options_geo_station_distance_names_a_renamed_parameter() -> None:
+    """A key renamed for 1.0 is refused with the name it has now (GH-2036)."""
+    with pytest.raises(ValidationError, match=r"'humidity' is now 'humidity_relative'"):
+        Options(geo_station_distance={"humidity": 25.0})
+
+
+def test_options_geo_station_distance_rejects_default_key() -> None:
+    """Test that the retired "default" key names its replacements instead of quietly taking effect.
+
+    It used to rebuild the mapping around the given number, which threw away the shorter radius of
+    every heterogeneous parameter along with the fallback -- `{"default": 30}` gave precipitation
+    30 km too.
+    """
+    with pytest.raises(ValidationError, match="the 'default' key of geo_station_distance is gone"):
+        Options(geo_station_distance={"default": 30.0})
+
+
+def test_options_geo_station_distance_rejects_negative() -> None:
+    """Test that a negative radius is rejected, as it is for `geo_use_nearby_station_distance`."""
+    with pytest.raises(
+        ValidationError, match=r"Negative distances in geo_station_distance: \['precipitation_amount'\]"
+    ):
+        Options(geo_station_distance={"precipitation_amount": -5.0})
+
+
+def test_options_env_nested_delimiter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that WD_ env vars with __ delimiter set individual keys in dict fields."""
+    monkeypatch.setenv("WD_TS_UNIT_TARGETS__temperature", "degree_fahrenheit")
+    options = Options()
+    assert options.unit_targets["temperature"] == "degree_fahrenheit"
+
+
+def test_options_skip_empty_stands_on_its_own() -> None:
+    """Test that skip_empty survives a request that sets nothing else.
+
+    It used to be switched off unless `ts_complete` was on, and neither the CLI nor the REST API
+    ever set that -- so `--skip_empty`, `--skip_threshold` and `--skip_criteria`, and the three
+    REST parameters of the same names, were discarded on every request that passed them.
+    """
+    # the options the CLI and the REST API build a values request from, skip options included
+    options = Options(
+        humanize=True,
+        shape="long",
+        convert_units=True,
+        unit_targets={},
+        skip_empty=True,
+        skip_criteria="mean",
+        skip_threshold=0.9,
+        drop_nulls=True,
+    )
+
+    assert options.skip_empty
+    assert options.skip_criteria == "mean"
+    assert options.skip_threshold == 0.9
+
+
+@pytest.mark.parametrize(
+    ("unit_targets", "message"),
+    [
+        pytest.param(
+            {"temperature": "furlong"},
+            "Invalid unit targets: Unit furlong not supported for type temperature.",
+            id="unknown-unit",
+        ),
+        pytest.param(
+            {"temperature": "meter"},
+            "Invalid unit targets: Unit meter not supported for type temperature.",
+            id="unit-of-another-quantity",
+        ),
+        pytest.param(
+            {"precipitation_intensity": "millimeter_per_second"},
+            "Invalid unit targets: Unit millimeter_per_second is what a source publishes in and cannot be a "
+            "target for type precipitation_intensity",
+            id="source-only-unit",
+        ),
+    ],
+)
+def test_options_unit_targets_refuse_a_unit_the_converter_cannot_report_in(
+    monkeypatch: pytest.MonkeyPatch,
+    unit_targets: dict[str, str],
+    message: str,
+) -> None:
+    """A unit target is refused for its unit too, not only its quantity (GH-2306).
+
+    It used to pass here and be refused only once a values request had fetched its stations.
+    """
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        Options(unit_targets=unit_targets)
+
+
+def test_options_unit_targets_name_only_the_unknown_quantities(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The refusal names the unknown quantities, sorted, rather than every one given (GH-2306)."""
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    with pytest.raises(ValidationError) as excinfo:
+        Options(unit_targets={"temperature": "degree_fahrenheit", "foo": "bar", "abc": "x"})
+    # the message alone, without pydantic's echo of the input after it
+    message = str(excinfo.value).split(" [type=")[0]
+    assert "Invalid unit targets: quantities not supported: abc, foo. Supported quantities are: angle, " in message
+    assert "temperature" in message  # in the sorted list of supported ones
+    assert "'temperature'" not in message
+
+
+def test_options_skip_threshold_takes_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The upper bound is in the range: 1 asks for every reading (GH-2334)."""
+    monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "1")
+    assert Options().skip_threshold == 1
+
+
+@pytest.mark.parametrize("field", ["geo_station_distance", "geo_station_distance_resolution_factors"])
+@pytest.mark.parametrize("value", [5, "abc", [1.0]])
+def test_options_geo_station_distance_mappings_refuse_anything_but_a_mapping(field: str, value: object) -> None:
+    """A non-empty value that is not a mapping is refused by pydantic, named by its field (GH-2353).
+
+    The key checks used to look for keys in it, and failed with a bare `TypeError` naming nothing.
+    """
+    with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
+        Options(**{field: value})
+
+
+@pytest.mark.parametrize("field", ["geo_station_distance", "geo_station_distance_resolution_factors"])
+@pytest.mark.parametrize("value", ["5", '"abc"', "[1.0]"])
+def test_options_geo_station_distance_mappings_refuse_anything_but_a_mapping_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+) -> None:
+    """A `WD_*` variable holding JSON that is no object is refused the same way (GH-2353)."""
+    monkeypatch.setenv(f"WD_TS_{field.upper()}", value)
+    with pytest.raises(ValidationError, match=rf"{field}\n  Input should be a valid dictionary"):
+        Options()
+
+
+def test_options_geo_station_distance_survives_revalidation() -> None:
+    """Test that validating the same options twice does not turn the table into overrides.
+
+    `Options.model_validate(options)` re-runs every after-validator on the same instance.
+    Capturing the overrides again there would take the already-expanded mapping for what the user
+    wrote, and those 34 entries would then outrank a radius set afterwards.
+    """
+    options = Options(geo_station_distance_heterogeneous=30.0)
+    revalidated = Options.model_validate(options)
+    assert revalidated.model_dump()["geo_station_distance"] == {}
+    assert revalidated.geo_station_distance["precipitation_amount"] == 30.0
+    # a radius changed through a copy still reaches the mapping
+    wider = revalidated.replace(geo_station_distance_heterogeneous=50.0)
+    assert wider.geo_station_distance["precipitation_amount"] == 50.0
+
+
+def test_options_geo_station_distance_factors_name_every_resolution() -> None:
+    """Test that no resolution falls through to the unscaled default.
+
+    The default exists for a name from outside the vocabulary, not for a resolution the table
+    forgot: a resolution left out would hold a heterogeneous parameter to the hourly radius at
+    every interval, which is a fifth too wide at `10_minutes` and half as wide as it should be at
+    `daily`, and nothing about the result would say so.
+    """
+    assert set(_STATION_DISTANCE_RESOLUTION_FACTORS) == {resolution.value for resolution in Resolution}
+
+
+def test_options_unit_targets_build_no_converter_when_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The empty default, which every `Options()` has, is not resolved by a converter (GH-2306)."""
+    monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
+    with mock.patch("wetterdienst.options.UnitConverter") as converter:
+        Options()
+    converter.assert_not_called()

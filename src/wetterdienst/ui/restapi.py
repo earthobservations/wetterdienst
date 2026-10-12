@@ -45,8 +45,8 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.options import Options
-from wetterdienst.settings import SkipThreshold, check_settings
+from wetterdienst.options import Options, SkipThreshold
+from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     AlertsRequest,
@@ -963,7 +963,7 @@ def glossary(
 
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
-    including any ts_unit_targets override.
+    including any `unit_targets` option override.
     """
     set_logging_level(debug=request.debug)
     # a malformed server setting is the bare 500 FastAPI answers, as for the data endpoints

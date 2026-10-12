@@ -15,10 +15,10 @@ import re
 import shutil
 import tempfile
 import threading
-from collections import defaultdict  # noqa: TC003  # pydantic resolves the field annotation at runtime
+import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any, Self
 
 import platformdirs
 from pydantic import (
@@ -28,28 +28,15 @@ from pydantic import (
     PrivateAttr,
     SecretStr,
     ValidationError,
-    field_serializer,
     field_validator,
-    model_validator,
 )
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
 
 from wetterdienst.options import (
-    _STATION_DISTANCE_HETEROGENEOUS,
-    _STATION_DISTANCE_HOMOGENEOUS,
     Options,
-    SkipThreshold,
-    _build_geo_station_distance,
-    _checked_geo_station_distance_keys,
-    _checked_geo_station_distance_values,
-    _checked_resolution_factors_keys,
-    _checked_resolution_factors_values,
-    _checked_unit_targets,
     _decode_nested_as_json_would,
-    _note_drop_nulls_ignored,
     _quiet,
-    _resolution_factor,
-    _station_distance_for,
+    options_from_mapping,
 )
 
 log = logging.getLogger(__name__)
@@ -411,6 +398,74 @@ def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
+#: the ``ts_*`` settings the settings carried until options took them over (GH-2639), by the name of
+#: the option each became. Still accepted, with a warning, until they are dropped for good
+_REMOVED_SETTINGS: dict[str, str] = {f"ts_{name}": name for name in Options.model_fields}
+#: the members derived from them, which `Options` has by the same name
+_REMOVED_MEMBERS: dict[str, str] = {
+    f"ts_{name}": name
+    for name in ("tidy", "drop_nulls_effective", "geo_station_distance_for", "geo_station_distance_resolution_factor")
+}
+
+
+def _warn_removed(name: str, *, stacklevel: int) -> None:
+    """Warn that a ``ts_*`` setting is deprecated and what to use instead."""
+    if name in _REMOVED_MEMBERS:
+        use = f"read request.options.{_REMOVED_MEMBERS[name]}"
+    else:
+        option = _REMOVED_SETTINGS[name]
+        use = f"set options=Options({option}=...) on the request and read request.options.{option}"
+    warnings.warn(
+        f"the setting '{name}' is deprecated: it is an option of the request now; {use}. "
+        "The WD_TS_* variables are unchanged",
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
+
+def resolve_options(options: Options | Mapping[str, Any] | None, settings: Settings) -> Options:
+    """Settle the options of a request from what it was given.
+
+    None gives the options the removed ``ts_*`` settings made, where the settings were given or
+    assigned any, and otherwise those of the environment. A mapping gives `options_from_mapping`,
+    and an `Options` is used as it is.
+
+    Options given beside settings that carry ``ts_*`` settings of their own are refused: one of the
+    two would be ignored, and which one is not a thing to leave a caller to guess. What the settings
+    carry is compared with the options of the environment and ``.env``, so an operator's ``WD_TS_*``
+    never counts against a caller who passes options. Options that are the very ones the settings
+    carry are no conflict, which is what a request copied with `dataclasses.replace` gives.
+
+    Raises:
+        ValueError: Where both are given.
+
+    """
+    carried = settings._ts_options  # noqa: SLF001
+    if options is None:
+        return carried if carried is not None else Options()
+    baseline = None
+    if isinstance(options, Options):
+        given = options
+    else:
+        with _quiet():
+            baseline = Options()
+        given = options_from_mapping(options, baseline)
+    if carried is None or given.model_dump() == carried.model_dump():
+        return given
+    if baseline is None:
+        with _quiet():
+            baseline = Options()
+    baseline_dump = baseline.model_dump()
+    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline_dump[name]]
+    if differing:
+        msg = (
+            f"the request was given options and settings that carry {', '.join(differing)}; "
+            "set the request's options through options= alone"
+        )
+        raise ValueError(msg)
+    return given
+
+
 class Settings(BaseSettings):
     """Settings for the wetterdienst package."""
 
@@ -450,46 +505,9 @@ class Settings(BaseSettings):
     # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
     # the library and the CLI, whose caller is the host's own user, are not gated
     restapi_sql: bool = Field(default=False)
-    ts_humanize: bool = True
-    ts_shape: Literal["wide", "long"] = "long"
-    ts_convert_units: bool = True
-    ts_unit_targets: dict[str, str] = Field(default_factory=dict)
-    # skip a station whose requested parameters are covered too sparsely to be worth
-    # returning. The coverage is measured against how many readings the requested window can
-    # hold, so the option stands on its own and needs no particular shape of frame under it
-    ts_skip_empty: bool = False
-    ts_skip_threshold: SkipThreshold = 0.95
-    ts_skip_criteria: Literal["min", "mean", "max"] = "min"
-    ts_drop_nulls: bool = True
-    # how far a station may be from the target point to still be interpolated or summarized from.
-    # the two radii follow `CanonicalParameter.interpolation`: a homogeneous quantity such as air
-    # temperature varies slowly across a region and may be drawn from farther away than a
-    # heterogeneous one such as precipitation, which decorrelates within a few tens of kilometres
-    ts_geo_station_distance_homogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HOMOGENEOUS
-    ts_geo_station_distance_heterogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HETEROGENEOUS
-    # per-parameter overrides of the two radii above, given as canonical parameter names. holds the
-    # overrides alone while validating and the mapping -- radii, table and overrides -- from
-    # `expand_ts_geo_station_distance` on. that mapping is the radius at hourly resolution;
-    # `ts_geo_station_distance_for` gives the one a request actually uses
-    ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
-    # how the heterogeneous radius grows with the accumulation period, keyed by resolution. Only
-    # the resolutions named here differ from `_STATION_DISTANCE_RESOLUTION_FACTORS`; the rest keep
-    # their factor, so the setting stays the list of departures rather than all eleven
-    ts_geo_station_distance_resolution_factors: dict[str, float] = Field(default_factory=dict)
-    #: what was passed for `ts_geo_station_distance`, kept for serialization and re-expansion.
-    #: `None` until the field has been expanded once -- an empty dict is a valid set of overrides
-    _ts_geo_station_distance_overrides: dict[str, float] | None = PrivateAttr(default=None)
-    # this setting is used to define how far away a station can be so that no interpolation is done
-    # but instead the station is used directly
-    ts_geo_use_nearby_station_distance: Annotated[float, Field(ge=0)] | None = 1.0
-    # this rather complicated setting is used in the process of figuring out how many additional stations will be used
-    # the gain defines how many additional timestamps can be interpolated by adding the specific station and thus
-    # getting more timestamps with the required minimum of four values
-    # so basically this setting considers the extra effort against the gain of additional interpolated timestamps
-    ts_geo_min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
-    # this setting defines how many additional stations are used in the interpolation process independent of the gain
-    # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
-    ts_geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
+    #: what the removed ``ts_*`` settings were given or assigned as, laid over the options of the
+    #: environment. `None` until one is: a request then takes the options of the environment alone
+    _ts_options: Options | None = PrivateAttr(default=None)
 
     @classmethod
     def settings_customise_sources(
@@ -508,6 +526,67 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
+    def __init__(self, /, **values: Any) -> None:  # noqa: ANN401
+        """Build the settings, taking the removed ``ts_*`` settings that are given as the options they became (GH-2639).
+
+        They are no fields of the settings any more, and the environment's ``WD_TS_*`` is `Options`'
+        to read, so this is only what a caller wrote out: ``Settings(ts_shape="wide")``. They are
+        removed from the input before the settings validate it, so that they are not refused as
+        settings that do not exist. Taken here and not by a validator, which would turn an error of
+        a default (the cache directory) into one of the validation.
+        """
+        removed = {name: values.pop(name) for name in tuple(values) if name in _REMOVED_SETTINGS}
+        super().__init__(**values)
+        self._take_removed_ts_settings(removed)
+
+    @classmethod
+    def model_validate(cls, obj: Any, **kwargs: Any) -> Self:  # noqa: ANN401
+        """Validate settings from a mapping or an instance, taking the removed ``ts_*`` settings as `__init__` does."""
+        removed = {}
+        if isinstance(obj, Mapping):
+            removed = {name: obj[name] for name in obj if name in _REMOVED_SETTINGS}
+            obj = {name: value for name, value in obj.items() if name not in removed}
+        settings = super().model_validate(obj, **kwargs)
+        settings._take_removed_ts_settings(removed)  # noqa: SLF001
+        return settings
+
+    def _take_removed_ts_settings(self, removed: dict[str, Any]) -> None:
+        """Warn of the removed ``ts_*`` settings given, and keep them as the options they became."""
+        if not removed:
+            return
+        for name in removed:
+            _warn_removed(name, stacklevel=4)
+        self._ts_options = options_from_mapping({_REMOVED_SETTINGS[name]: value for name, value in removed.items()})
+
+    def __getattr__(self, name: str) -> object:
+        """Read a removed ``ts_*`` setting from the options it became, and say it is removed (GH-2639)."""
+        option = _REMOVED_SETTINGS.get(name) or _REMOVED_MEMBERS.get(name)
+        if option is None:
+            # pydantic defines `__getattr__` (private attributes and extras) outside the type-checking view
+            return super().__getattr__(name)  # ty: ignore[unresolved-attribute]
+        _warn_removed(name, stacklevel=3)
+        return getattr(self._options_of_ts_settings(), option)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Assign a removed ``ts_*`` setting to the options it became, and say it is removed (GH-2639).
+
+        The options are frozen, so this makes a changed copy: a request built from the settings
+        before keeps the options it had, and one built after has the changed ones.
+        """
+        option = _REMOVED_SETTINGS.get(name)
+        if option is None:
+            super().__setattr__(name, value)
+            return
+        _warn_removed(name, stacklevel=3)
+        self._ts_options = self._options_of_ts_settings().replace(**{option: value})
+
+    def _options_of_ts_settings(self) -> Options:
+        """Return the options of the environment with the removed ``ts_*`` settings laid over them."""
+        if self._ts_options is not None:
+            return self._ts_options
+        with _quiet():
+            return Options()
+
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod
     def merge_fsspec_client_kwargs(cls, value: object) -> object:
@@ -521,129 +600,13 @@ class Settings(BaseSettings):
         """
         return _merge_fsspec_client_kwargs(dict(value)) if isinstance(value, Mapping) else value
 
-    @field_validator("ts_unit_targets", mode="before")
-    @classmethod
-    def validate_ts_unit_targets_before(cls, values: dict[str, str] | None) -> dict[str, str]:
-        """Validate the unit targets."""
-        return values or {}
-
-    @field_validator("ts_unit_targets", mode="after")
-    @classmethod
-    def validate_ts_unit_targets_after(cls, values: dict[str, str]) -> dict[str, str]:
-        """Validate the unit targets, the units as well as the quantities."""
-        return _checked_unit_targets(values)
-
-    @field_validator("ts_geo_station_distance", mode="before")
-    @classmethod
-    def validate_ts_geo_station_distance_keys(cls, values: object) -> object:
-        """Check the overridden parameter names."""
-        return _checked_geo_station_distance_keys(values, "ts_", log)
-
-    @field_validator("ts_geo_station_distance", mode="after")
-    @classmethod
-    def validate_ts_geo_station_distance_values(cls, values: dict[str, float]) -> dict[str, float]:
-        """Reject negative radii, as `ts_geo_use_nearby_station_distance` next to it already does."""
-        return _checked_geo_station_distance_values(values, "ts_")
-
-    @field_validator("ts_geo_station_distance_resolution_factors", mode="before")
-    @classmethod
-    def validate_ts_geo_station_distance_resolution_factors_keys(cls, values: object) -> object:
-        """Check the resolutions, which are a closed vocabulary like the unit types are."""
-        return _checked_resolution_factors_keys(values, "ts_")
-
-    @field_validator("ts_geo_station_distance_resolution_factors", mode="after")
-    @classmethod
-    def validate_ts_geo_station_distance_resolution_factors_values(cls, values: dict[str, float]) -> dict[str, float]:
-        """Reject negative factors, which would turn a radius into a distance behind the point."""
-        return _checked_resolution_factors_values(values, "ts_")
-
-    @model_validator(mode="after")
-    def expand_ts_geo_station_distance(self) -> Settings:
-        """Layer the per-parameter overrides onto the two radii and the parameter table.
-
-        Built here rather than in the field's default so that the two radii, which are fields of
-        their own and may themselves be overridden, are already known.
-
-        Runs more than once on the same instance -- every assignment to a field re-runs it
-        (`validate_assignment`), as does `Settings.model_validate(settings)` -- so the overrides are
-        captured only the first time. Expanding the expansion would take the whole table for
-        overrides the user never wrote, which would then outrank a radius set afterwards. Re-running
-        on assignment is also what makes a radius assigned reach the mapping at once.
-
-        The mapping is written past validation: assigning it would validate it, which runs this
-        validator again without end.
-        """
-        if self._ts_geo_station_distance_overrides is None:
-            self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
-        self.__dict__["ts_geo_station_distance"] = _build_geo_station_distance(
-            self.ts_geo_station_distance_homogeneous,
-            self.ts_geo_station_distance_heterogeneous,
-            self._ts_geo_station_distance_overrides,
-        )
-        return self
-
-    @field_serializer("ts_geo_station_distance")
-    def serialize_ts_geo_station_distance(self, _value: dict[str, float]) -> dict[str, float]:
-        """Dump the overrides that were given, not the mapping they were expanded into.
-
-        Dumping the expanded mapping would make the settings unable to round-trip: every
-        heterogeneous parameter would come back as an explicit override and win over a
-        `ts_geo_station_distance_heterogeneous` set alongside it, which is the very "set a number,
-        nothing happens" failure the validation here is about.
-        """
-        return self._ts_geo_station_distance_overrides or {}
-
-    def ts_geo_station_distance_resolution_factor(self, resolution: str) -> float:
-        """Return the factor the heterogeneous radius is stretched by at this resolution."""
-        return _resolution_factor(self.ts_geo_station_distance_resolution_factors, resolution)
-
-    def ts_geo_station_distance_for(self, parameter_name: str, resolution: str) -> float:
-        """Return how far a station may be to still be used for this parameter at this resolution.
-
-        `ts_geo_station_distance` answers the same question without the resolution, which is the
-        radius before it is scaled -- the radius at hourly resolution. A radius the user set for the
-        parameter by hand is returned as it was given: a number written out means that number, at
-        every resolution.
-
-        The two radii and the factors are read here, so assigning to them on an existing `Settings`
-        object takes effect at once. `ts_geo_station_distance` is not: the overrides are taken when
-        the settings are built, and the mapping the field then holds is the expansion of them, so
-        a new mapping assigned to it afterwards is checked and then discarded, the expansion being
-        run again from the overrides the settings were built with. Build a new `Settings` to change
-        the per-parameter radii.
-        """
-        return _station_distance_for(
-            self._ts_geo_station_distance_overrides or {},
-            self.ts_geo_station_distance_homogeneous,
-            self.ts_geo_station_distance_heterogeneous,
-            self.ts_geo_station_distance_resolution_factors,
-            parameter_name,
-            resolution,
-        )
-
-    @property
-    def ts_tidy(self) -> bool:
-        """Return whether the time series is in tidy format."""
-        return self.ts_shape == "long"
-
-    @property
-    def ts_drop_nulls_effective(self) -> bool:
-        """Return whether rows without a value are dropped, which they are in the long shape alone.
-
-        `ts_drop_nulls` keeps what the caller gave, and the wide shape does not turn it off: the
-        field used to be rewritten to False, for good, so a `Settings` once wide dropped no nulls
-        once it was long again (GH-2388). This is the value in effect.
-        """
-        return self.ts_drop_nulls and self.ts_tidy
-
     def model_post_init(self, _context: object, /) -> None:
         """Log what the settings were built with, once, as they are built.
 
         Not a model validator: those run again for every assignment (`validate_assignment`) and for
         `Settings.model_validate(settings)`, and logged these lines each time. So a field assigned
-        afterwards -- `ts_shape` included -- logs nothing; the lines say how the settings began.
+        afterwards logs nothing; the lines say how the settings began.
         """
-        _note_drop_nulls_ignored(self.ts_shape, "ts_", log)
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:
@@ -708,22 +671,12 @@ def _describe_settings_error(error: ValidationError | SettingsError, prefix: str
 def check_settings() -> list[str]:
     """Build the settings and the options from the environment and `.env` alone, and tell what is wrong with them.
 
-    An empty list means they are valid. `Settings` still reads the ``WD_TS_*`` variables as well as
-    `Options`, which gives one problem twice, so a variable is told once, by the first to find it.
+    An empty list means they are valid.
     """
     lines: list[str] = []
-    # `Settings` gives the notices of the `ts_*` settings, so `Options` gives none of its own
-    with _quiet():
-        for build, prefix in ((Settings, "WD_"), (Options, "WD_TS_")):
-            try:
-                build()
-            except (ValidationError, SettingsError) as e:
-                lines.extend(_describe_settings_error(e, prefix))
-    told: set[str] = set()
-    unique = []
-    for line in lines:
-        variable = line.split(" is invalid", 1)[0]
-        if variable not in told:
-            told.add(variable)
-            unique.append(line)
-    return unique
+    for build, prefix in ((Settings, "WD_"), (Options, "WD_TS_")):
+        try:
+            build()
+        except (ValidationError, SettingsError) as e:
+            lines.extend(_describe_settings_error(e, prefix))
+    return lines

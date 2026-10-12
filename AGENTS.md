@@ -67,7 +67,8 @@ Layered flow: `Request → StationsResult → ValuesResult`.
 - **`TimeseriesRequest`** (`model/request.py`): abstract base dataclass all provider request classes extend — parameter parsing, date validation, station filtering.
 - **`TimeseriesValues`** (`model/values.py`): abstract base for fetching observation data, bound to a `StationsResult`.
 - **`StationsResult` / `ValuesResult`** (`model/result.py`): wrap polars DataFrames; provide `to_dict/to_json/to_ogc_feature_collection/to_file/to_target`, DuckDB SQL filtering, and plotting.
-- **`Settings`** (`settings.py`): pydantic settings; env vars prefixed `WD_` (caching, unit conversion, interpolation defaults, provider auth via `WD_AUTH__*`).
+- **`Settings`** (`settings.py`): the host's pydantic settings, process-wide and read by providers; env vars prefixed `WD_` (cache, network client, certifi, BUFR, REST SQL, provider auth via `WD_AUTH__*`). Per-request behaviour is not here.
+- **`Options`** (`options.py`): frozen pydantic settings per request, passed as `options=` (an `Options` or a dict); how values come back (shape, units, skipping) and the interpolation distances. Env vars prefixed `WD_TS_`. The old `Settings` `ts_*` paths are a deprecation shim in `settings.py` (warns, forwards to `Options`).
 
 ### Metadata system
 

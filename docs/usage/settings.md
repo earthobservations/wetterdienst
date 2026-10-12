@@ -31,10 +31,12 @@ Both read the environment, and `.env`, the same way. The variables of the option
 `WD_TS_` prefix, so `WD_TS_SHAPE="wide"` sets the `shape` option as before.
 
 ```{note}
-`Settings(ts_shape="long")` and the other `ts_*` settings are the old way to set what are options
-now. They are still read when a request is given no `options=`, but are deprecated and will be
-removed: pass `options=Options(shape="long")` instead. Giving `options=` beside settings that carry a
-non-default `ts_*` raises a `ValueError`. The `WD_TS_*` variables stay.
+`Settings(ts_shape="long")` and the other `ts_*` settings, reading or assigning `settings.ts_shape`,
+and a `settings={"ts_shape": "long"}` dict are the old way to set what are options now. `Settings`
+no longer has them as fields. They are still taken, with a `DeprecationWarning`, when a request is
+given no `options=`, but will be removed: pass `options=Options(shape="long")` instead. Giving
+`options=` beside settings that carry a non-default `ts_*` raises a `ValueError`. The `WD_TS_*`
+variables stay and are read by `Options` alone.
 ```
 
 ## Settings

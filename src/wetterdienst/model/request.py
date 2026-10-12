@@ -47,8 +47,7 @@ from wetterdienst.model.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.model.util import create_station_id_from_string
-from wetterdienst.options import resolve_options
-from wetterdienst.settings import Settings
+from wetterdienst.settings import Settings, resolve_options
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
