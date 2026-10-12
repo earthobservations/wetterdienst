@@ -37,6 +37,11 @@ Types of changes:
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
   writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
   came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+- A wind direction of 0 that means a calm wind is null, with `raw:0` in `quality_flags`, no longer
+  0 degrees (north, which a wind rose or a mean direction counted): `nws/observation` (METAR
+  `00000KT`), `smhi/observation` (both directions), `fmi/observation` `wd_10min`, and
+  `dmi/observation` `mean_wind_dir` where the mean wind speed of the same hour, day or month is 0.
+  North is 360 in these sources. A DMI 0 beside a wind that blows stays (GH-2794)
 
 ## [0.147.0] - 2026-10-12
 
