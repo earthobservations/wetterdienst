@@ -37,6 +37,10 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- The Docker image runs as the user `wetterdienst` (uid 10001), no longer as root, and its cache is
+  `/home/wetterdienst/.cache/wetterdienst`. A volume mounted at `/root/.cache/wetterdienst` is
+  mounted there instead, or anywhere with `WD_CACHE_DIR` pointing to it; a mounted host directory,
+  for the cache or a file `--target`, must be writable by uid 10001 (GH-2770)
 
 ### Removed
 
