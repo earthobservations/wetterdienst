@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
@@ -21,11 +21,11 @@ UTC = ZoneInfo("UTC")
 
 
 @pytest.mark.remote
-def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> None:
+def test_dwd_mosmix_l(options_humanize_false_drop_nulls_false: Options) -> None:
     """Test some details of a typical MOSMIX-L response."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "large")],
-        settings=settings_humanize_false_drop_nulls_false,
+        options=options_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=["01001"],
     )
@@ -175,11 +175,11 @@ def test_dwd_mosmix_l(settings_humanize_false_drop_nulls_false: Settings) -> Non
 
 @pytest.mark.remote
 @pytest.mark.slow
-def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> None:
+def test_dwd_mosmix_s(options_humanize_false_drop_nulls_false: Options) -> None:
     """Test some details of a typical MOSMIX-S response."""
     request = DwdMosmixRequest(
         parameters=[("hourly", "small")],
-        settings=settings_humanize_false_drop_nulls_false,
+        options=options_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=["01028"],
     )
@@ -248,7 +248,7 @@ def test_dwd_mosmix_s(settings_humanize_false_drop_nulls_false: Settings) -> Non
 
 
 @pytest.mark.remote
-def test_mosmix_date_filter(settings_drop_nulls_false: Settings) -> None:
+def test_mosmix_date_filter(options_drop_nulls_false: Options) -> None:
     """Test a MOSMIX request with date filter."""
     now = dt.datetime.now(tz=ZoneInfo("UTC"))
     request = DwdMosmixRequest(
@@ -256,21 +256,21 @@ def test_mosmix_date_filter(settings_drop_nulls_false: Settings) -> None:
         start=now - dt.timedelta(hours=1),
         end=now,
         issue=now - dt.timedelta(hours=5),
-        settings=settings_drop_nulls_false,
+        options=options_drop_nulls_false,
     ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
     given_df = request.values.all().df
     assert len(given_df) == 40
 
 
 @pytest.mark.remote
-def test_mosmix_l_parameters(settings_humanize_false_drop_nulls_false: Settings) -> None:
+def test_mosmix_l_parameters(options_humanize_false_drop_nulls_false: Options) -> None:
     """Test some details of a MOSMIX-L response when queried for specific parameters."""
     request = DwdMosmixRequest(
         parameters=[
             ("hourly", "large", "dd"),
             ("hourly", "large", "ww"),
         ],
-        settings=settings_humanize_false_drop_nulls_false,
+        options=options_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=("01001", "123"),
     )

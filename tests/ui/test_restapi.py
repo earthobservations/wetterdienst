@@ -4386,7 +4386,7 @@ def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_caller
     """A malformed `WD_TS_UNIT_TARGETS` is the server's 500, without its value, not the caller's 400 (GH-2312).
 
     pydantic-settings merges the dict the environment sets into the one the request gives, so it
-    failed at `ts_unit_targets`, where a refusal of the caller's fails, and came back as their 400
+    failed at the `unit_targets` field, where a refusal of the caller's fails, and came back as their 400
     reading the server's value back.
     """
     from fastapi.testclient import TestClient  # noqa: PLC0415

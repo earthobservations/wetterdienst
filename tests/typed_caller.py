@@ -25,16 +25,19 @@ from wetterdienst.model.result import (
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-# settings are accepted as the model or as a dict of its fields
-settings = Settings(ts_humanize=True)
+# settings (the host's) and options (the request's) are accepted as the model or as a dict of its fields
+settings = Settings(cache_disable=True)
 request = DwdObservationRequest(
     parameters=[("daily", "climate_summary", "precipitation_amount")],
     start="2002-08-11",
     end="2002-08-13",
     settings=settings,
+    options=Options(humanize=True),
 )
 assert_type(request, DwdObservationRequest)
-DwdObservationRequest(parameters="daily/climate_summary", periods=["historical", Period.RECENT], settings={})
+DwdObservationRequest(
+    parameters="daily/climate_summary", periods=["historical", Period.RECENT], settings={}, options={}
+)
 
 # the request class of a provider, looked up by name
 api = Wetterdienst.resolve("dwd", "observation")

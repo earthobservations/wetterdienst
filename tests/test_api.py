@@ -231,7 +231,7 @@ def test_every_resolution_and_period_is_served_by_a_provider() -> None:
     """Test that neither vocabulary carries a member no provider declares.
 
     Both are closed vocabularies rather than free labels: `Resolution` validates the keys of
-    `ts_geo_station_distance_resolution_factors`, is looked up by name in `Frequency`, and is
+    `geo_station_distance_resolution_factors`, is looked up by name in `Frequency`, and is
     restated in the app's types. A member nothing serves is therefore a setting that can be
     written and never read, and a value the app can offer that no request answers. That is what
     `undefined` and `dynamic` became once the providers resolving to them started reporting the

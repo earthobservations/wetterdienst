@@ -79,7 +79,7 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     """Serve the sentinels again with the null rows kept, and find each one as a `raw:` token on its value.
 
     The default drops the rows without a value, and with them their flags: a caller sees the text with
-    `ts_drop_nulls=False` or in the wide shape.
+    `drop_nulls=False` or in the wide shape.
     """
     assert stub.tokens, f"{stub.provider}: a stub of a reader that maps a sentinel names the tokens it must carry"
     df = stub.build(monkeypatch, drop_nulls=False)

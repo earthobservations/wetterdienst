@@ -275,7 +275,7 @@ def test_knmi_parse_netcdf_trace_precipitation_becomes_zero(netcdf_payload: byte
 def test_knmi_parse_netcdf_fill_value_becomes_null_not_nan(netcdf_payload: bytes) -> None:
     """A NaN _FillValue is emitted as a null value, not a NaN.
 
-    A NaN would slip past the framework's ts_drop_nulls handling and make to_json emit an
+    A NaN would slip past the framework's drop_nulls handling and make to_json emit an
     invalid bare `NaN` token. The row is still present -- with a null value -- so downstream
     null handling (drop or keep) applies uniformly.
     """

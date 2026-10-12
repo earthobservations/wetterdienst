@@ -15,6 +15,7 @@ from dirty_equals import IsNumeric
 from freezegun import freeze_time
 
 from wetterdienst.exceptions import NoInternetError
+from wetterdienst.options import Options
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
 from wetterdienst.provider.geosphere.observation.api import _time_windows
 from wetterdienst.settings import Settings
@@ -400,7 +401,7 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     requests = _serve_archive_of_parameters(monkeypatch, step, archive_start, archive_end)
     request = GeosphereObservationRequest(
         parameters=[(resolution, "data")],
-        settings=Settings(ts_humanize=False, ts_convert_units=False),
+        options=Options(humanize=False, convert_units=False),
     )
     names = [parameter.name_original for parameter in request.parameters]
     df = request.filter_by_station_id("4821").values.all().df
@@ -430,7 +431,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
         ],
         start=start,
         end=end,
-        settings=Settings(ts_humanize=False, ts_convert_units=False),
+        options=Options(humanize=False, convert_units=False),
     )
     df = request.filter_by_station_id("4821").values.all().df
     assert [(names, dataset) for _, _, names, dataset in requests] == [
@@ -530,7 +531,8 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
         ],
         start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
-        settings=Settings(cache_disable=True, ts_unit_targets=unit_targets),
+        settings=Settings(cache_disable=True),
+        options=Options(unit_targets=unit_targets),
     )
     df = request.filter_by_station_id("4821").values.all().df.sort("parameter", "timestamp")
     values = {
