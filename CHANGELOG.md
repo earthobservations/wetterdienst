@@ -37,12 +37,13 @@ Types of changes:
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
   writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
   came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
-- A wind direction of 0 that means a calm wind is null, with the source's text (`raw:0`) in
-  `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
-  `noaa/ghcn` hourly `wind_direction` (the documentation's "000"), `geosphere/observation` `dd` of
-  the 10 minute and hourly data, and `dwd/poi` `wind_direction_last_10min`, where the 0 is a calm
-  or a variable wind (it comes with speeds up to 22 km/h). North is 360 in these sources. The gust
-  direction `ddx` of Geosphere has no 0 and is unchanged (GH-2794)
+- A wind direction of 0 that is no bearing (a calm wind) is null, with the source's text (`raw:0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `noaa/ghcn` hourly `wind_direction` (the documentation's "000"), `geosphere/observation`
+  `wind_direction` (`dd`) of the 10 minute and hourly data, and `dwd/poi`
+  `wind_direction_last_10min`, where the 0 is a calm or a variable wind (it comes with speeds up to
+  22 km/h). North is 360 in these sources. The gust direction of Geosphere has no 0 and is
+  unchanged (GH-2794)
 
 ## [0.147.0] - 2026-10-12
 

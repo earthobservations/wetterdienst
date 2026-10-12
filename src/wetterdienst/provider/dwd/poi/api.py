@@ -61,7 +61,8 @@ _HEADER_ROWS = 2
 # neither. Neither is an amount of cloud.
 _CLOUD_COVER_CODES = (Sentinel("113", "126", where=pl.col("parameter").eq("cloud_cover_total")),)
 
-# The wind direction is on a grid of 10 degrees with north as 360 and 0 for no direction: in 11,364 reports with a
+# The wind direction is mostly on a grid of 10 degrees (some stations write single degrees, where a 0 is no bearing
+# either) with north as 360 and 0 for no direction: in 11,364 reports with a
 # direction of 937 files (2026-10-12) 141 read 360, 141 read 10 and 155 read 350, but 747 read 0. 401 of those have a
 # wind speed of 0 (of the 465 reports with a speed of 0), and 346, of 68 stations, a speed above 0 (4 km/h in 184, 7
 # in 67, 5 in 32, 11 in 21, 2 in 19, and 23 from 8 to 22): a wind with no direction, a calm or a variable one, which

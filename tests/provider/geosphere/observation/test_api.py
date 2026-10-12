@@ -587,11 +587,11 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
     The values of Aflenz (id 1) in klima-v2-1h for 2024-01-02 18:00 to 20:00 (checked 2026-10-12), served on the
     dates of the helper: `dd` [9, 0, 38] beside `ff` [0.3, 0.0, 0.5], and `ddx` [12, 358, 356]. The description of `dd`
     is "Windrichtung [360°]", and in the hourly dataset of 25 stations all 816 hours with a `dd` of 0 have an `ff`
-    of 0.0. The 360 is made up.
+    of 0.0. The 360, and the 0 of `ddx` (the source has none; it shows that only `dd` is mapped), are made up.
     """
     _serve_values(
         monkeypatch,
-        {"dd": [9, 0, 360], "ddx": [12, 358, 356], "ff": [0.3, 0.0, 0.5]},
+        {"dd": [9, 0, 360], "ddx": [12, 0, 356], "ff": [0.3, 0.0, 0.5]},
     )
     request = GeosphereObservationRequest(
         parameters=[
@@ -612,6 +612,6 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
     }
     assert rows == {
         "wind_direction": [(9.0, None), (None, "raw:0"), (360.0, None)],
-        "wind_direction_gust_max": [(12.0, None), (358.0, None), (356.0, None)],
+        "wind_direction_gust_max": [(12.0, None), (0.0, None), (356.0, None)],
         "wind_speed": [(0.3, None), (0.0, None), (0.5, None)],
     }
