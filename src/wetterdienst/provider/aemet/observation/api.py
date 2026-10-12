@@ -28,7 +28,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings, reveal
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -190,22 +190,25 @@ def _download_with_rate_limit_retry(
     return last_file
 
 
-def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
-    """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
-
-    A failure is returned, not raised. `AemetKeyRejectedError` is the one that says AEMET refuses the
-    key: a 401 or 403 of the envelope request, or an `estado` of 401 or 403 in it. The "datos" URL is
-    pre-signed and takes no key, so a refusal of it says nothing about the key.
+def _client_kwargs(settings: Settings) -> dict:
+    """Build the client kwargs of AEMET's requests: the settings' own and the key as a request header.
 
     The api_key is sent as a request header (rather than a URL query parameter) so it
     never ends up embedded in a URL that gets logged. AEMET accepts the key either way;
     the "datos" URL from the envelope is a pre-signed link that doesn't need auth at all.
     """
-    client_kwargs = {
+    return {
         **settings.fsspec_client_kwargs,
         "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "api_key": reveal(settings.auth.aemet)},
     }
-    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
+
+
+def _read_envelope(file: File) -> dict | Exception:
+    """Read the envelope AEMET answered a request with: the envelope if its `estado` is 200, else why not.
+
+    A failure is returned, not raised. `AemetKeyRejectedError` is the one that says AEMET refuses the
+    key: a 401 or 403 of the envelope request, or an `estado` of 401 or 403 in it.
+    """
     if isinstance(file.content, Exception):
         if file.status in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(f"AEMET answered HTTP {file.status}: {file.content}")
@@ -221,6 +224,19 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         if estado in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(description)
         return Exception(description)
+    return envelope
+
+
+def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
+    """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
+
+    A failure is returned, not raised (see `_read_envelope` for the one that says the key is refused).
+    The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
+    """
+    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=_client_kwargs(settings))
+    envelope = _read_envelope(file)
+    if isinstance(envelope, Exception):
+        return envelope
     if not isinstance(envelope.get("datos"), str):
         return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
@@ -231,20 +247,33 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
 
 
 def _probe_aemet_credentials(settings: Settings) -> bool | None:
-    """Probe the AEMET API; an answer is cached on disk for ONE_HOUR via download_file.
+    """Probe the AEMET API with the envelope of one request; an answer is cached on disk for ONE_HOUR.
 
-    Returns False only when AEMET refuses the key (see `_fetch_datos`), True when it answers, and None
-    for any other failure -- no network, a failed TLS verification, a timeout, a 429 ("wait for the
-    next minute"), a 5xx -- which says nothing about the key.
+    Asked while a page waits for it, so it is bounded (GH-2564): one request, one attempt, for
+    `PROBE_TIMEOUT_SECONDS`, and not through `_download_with_rate_limit_retry`, whose waits made a
+    failing AEMET take over a minute to answer. Nor is the "datos" link followed: an `estado` of 200
+    says the key is accepted, and what is behind the link is the whole station inventory.
+
+    Returns False only when AEMET refuses the key (see `_read_envelope`), True when it answers, and
+    None for any other failure -- no network, a failed TLS verification, a timeout, a 429 ("wait for
+    the next minute"), a 5xx -- which says nothing about the key.
     """
     if not settings.auth.aemet:
         return False
-    url = f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones"
-    payload = _fetch_datos(url, settings, CacheExpiry.ONE_HOUR)
-    if isinstance(payload, AemetKeyRejectedError):
+    file = download_file(
+        url=f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones",
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.ONE_HOUR,
+        client_kwargs={**_client_kwargs(settings), "timeout": PROBE_TIMEOUT_SECONDS},
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+        attempts=1,
+    )
+    envelope = _read_envelope(file)
+    if isinstance(envelope, AemetKeyRejectedError):
         return False
-    if isinstance(payload, Exception):
-        log.warning("Could not check the AEMET API key: %s", payload)
+    if isinstance(envelope, Exception):
+        log.warning("Could not check the AEMET API key: %s", envelope)
         return None
     return True
 

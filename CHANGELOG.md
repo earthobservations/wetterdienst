@@ -37,6 +37,13 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- **Breaking**: `Wetterdienst.discover()`, `GET /api/coverage` and `wetterdienst about coverage`
+  download nothing, so they answer at once (a configured AEMET could take over a minute). `valid` is
+  `null` for a network whose credentials are configured, where it was `true` or `false` after a
+  probe; it stays `false` where they are missing. Ask `GET /api/auth` per network, or
+  `Wetterdienst.is_valid(api)`, whether they are accepted. That probe is one attempt that gives up
+  after 5 s, and AEMET's reads only the envelope. The app lists the networks at once and hides one
+  when `/api/auth` says its credentials are rejected (GH-2564)
 
 ### Removed
 
