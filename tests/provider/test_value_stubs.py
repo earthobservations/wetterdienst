@@ -1,6 +1,9 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""A source's way of writing a missing value leaves no sentinel in the values a provider returns (GH-2615)."""
+"""A source's way of writing a missing value leaves no sentinel in the values a provider returns (GH-2615).
+
+What the source wrote is not lost with it: the value carries the text as a `raw:` token in `quality_flags` (GH-2759).
+"""
 
 import polars as pl
 import pytest
@@ -60,6 +63,46 @@ def test_a_stub_source_leaves_no_sentinel_in_the_values(
         physical_range_findings.clear()
         return
     assert carried == [], f"{stub.provider}: the sentinel {carried} reached the output"
+
+
+@pytest.mark.parametrize("stub", STUBS, ids=lambda stub: stub.provider)
+def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
+    stub: ValueStub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Serve the sentinels again with the null rows kept, and find each one as a `raw:` token on its value.
+
+    The default drops the rows without a value, and with them their flags: a caller sees the text with
+    `ts_drop_nulls=False` or in the wide shape.
+    """
+    df = stub.build(monkeypatch, drop_nulls=False)
+    # a sentinel the stub says the source writes has its text named, or the reader maps it and forgets it
+    without_text = {name for name, _ in stub.sentinels} - {parameter for parameter, _, _ in stub.tokens}
+    assert without_text == set(), f"{stub.provider}: no `raw:` token is named for {sorted(without_text)}"
+    flags = pl.col("quality_flags").str.split(",")
+    df = df.with_columns(
+        pl.col("parameter").cast(pl.String),
+        flags.list.last().alias("last"),
+        flags.list.eval(pl.element().str.starts_with("raw:")).list.sum().alias("raws"),
+    )
+    for name, text, value in stub.tokens:
+        mapped = df.filter(
+            (pl.col("parameter") == name)
+            & (pl.col("last") == f"raw:{text}")
+            & (pl.col("value").is_null() if value is None else (pl.col("value") == value))
+        )
+        assert not mapped.is_empty(), (
+            f"{stub.provider}: no {name} read as {value} with `raw:{text}`, got "
+            f"{df.filter(pl.col('parameter') == name).select('value', 'quality_flags').unique().to_dicts()}"
+        )
+    # the token is the last kind and there is one: a caller reads `split(",")[-1]`
+    assert df.filter(pl.col("raws") > 1).is_empty()
+    assert df.filter((pl.col("raws") == 1) & ~pl.col("last").str.starts_with("raw:")).is_empty()
+    if stub.empty_at:
+        at = df.filter(pl.col("timestamp") == stub.empty_at)
+        assert not at.is_empty(), f"{stub.provider}: no values at {stub.empty_at}"
+        silent = at.filter(pl.col("raws").fill_null(0) == 0)
+        assert silent.is_empty(), f"{stub.provider}: {silent.height} values at {stub.empty_at} carry no `raw:` token"
 
 
 def test_the_parameters_a_stub_names_are_canonical() -> None:

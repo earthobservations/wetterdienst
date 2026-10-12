@@ -14,7 +14,7 @@ import polars.selectors as cs
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import group_parameters_by_dataset
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -36,9 +36,10 @@ log = logging.getLogger(__name__)
 # how far apart the hourly and the daily list may put a station and still be taken to mean one place
 MAX_DISTANCE_KM_SAME_STATION = 5.0
 
-# what the hourly files write for a reading they do not have
-GHCNH_WIND_DIRECTION_MISSING = 999.0
-GHCNH_PRECIPITATION_MISSING = -9999.0
+# what the hourly files write for a reading they do not have, as text: the reading keeps it as `raw:` (GH-2759)
+GHCNH_WIND_DIRECTION_MISSING = "999"
+GHCNH_PRECIPITATION_MISSING = "-9999"
+GHCNH_NONE = "-None"
 
 
 class NoaaGhcnValues(TimeseriesValues):
@@ -99,16 +100,18 @@ class NoaaGhcnValues(TimeseriesValues):
             # GHCNh provides a ready-made ISO-8601 timestamp column; parse it directly rather than
             # reconstructing from the separate year/month/day/hour/minute fields
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
-            pl.col("value").replace("-None", None).cast(pl.Float64),
         )
         # a wind direction is 0 to 360 degrees ("000" is calm, per the documentation), yet the older
         # reports write 999, mostly with the measurement code C (calm) but also on an hour with a wind
         # speed of 4.1 m/s: no direction was given (GH-2672). The documentation names -9999 as the
         # missing value of the precipitation value, which is the column "precipitation" (none seen so far)
-        sentinel = (pl.col("parameter").eq("wind_direction") & pl.col("value").eq(GHCNH_WIND_DIRECTION_MISSING)) | (
-            pl.col("parameter").eq("precipitation") & pl.col("value").eq(GHCNH_PRECIPITATION_MISSING)
+        value, raw = null_sentinels(
+            pl.col("value"),
+            Sentinel(GHCNH_NONE),
+            Sentinel(GHCNH_WIND_DIRECTION_MISSING, where=pl.col("parameter").eq("wind_direction")),
+            Sentinel(GHCNH_PRECIPITATION_MISSING, where=pl.col("parameter").eq("precipitation")),
         )
-        return df.with_columns(pl.when(sentinel).then(None).otherwise(pl.col("value")).alias("value"))
+        return df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
 
     def _collect_station_parameter_for_daily(
         self,

@@ -31,7 +31,7 @@ from wetterdienst.model.history import (
     _ParameterHistory,
 )
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation.download import (
@@ -179,6 +179,8 @@ class DwdObservationValues(TimeseriesValues):
         data = []
         series_quality = pl.Series()
         for column in df.columns[2:]:
+            if column.endswith(RAW_SUFFIX):
+                continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
             else:
@@ -188,15 +190,20 @@ class DwdObservationValues(TimeseriesValues):
                     pl.lit(column, dtype=pl.String).alias("parameter"),
                     pl.col(column).alias("value"),
                     series_quality.alias("quality_flags"),
+                    # the text of the sentinel the parser mapped to null, if it did
+                    (pl.col(raw_column(column)) if raw_column(column) in df.columns else pl.lit(None, pl.String)).alias(
+                        "raw"
+                    ),
                 )
                 data.append(df_parameter)
         df = pl.concat(data)
-        # QN as DWD writes it, "3": the flag of a reading is kept only where there is a reading
+        # QN as DWD writes it, "3": the flag of a reading is kept only where there is a reading or a sentinel, whose
+        # text follows it (`3,raw:-999`)
         return df.with_columns(
-            pl.when(pl.col("value").is_not_null())
-            .then(join_quality_flags(pl.col("quality_flags")))
+            pl.when(pl.col("value").is_not_null() | pl.col("raw").is_not_null())
+            .then(join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")))
             .alias("quality_flags")
-        )
+        ).drop("raw")
 
     def _get_historical_date_ranges(
         self,

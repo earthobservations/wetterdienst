@@ -14,6 +14,7 @@ from polars import selectors as cs
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -124,6 +125,32 @@ WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.minute_10.wind, DwdObservationMetadata.minute_10.wind.wind_direction.name_original),
 )
 
+# the sentinels, as the files write them. -999 is the one every description documents, for every column; the others are
+# what the notes above found in the files of one dataset or a few of its columns
+_MISSING_VALUE = Sentinel("-999")
+_SKY_OBSCURED = Sentinel(SKY_OBSCURED)
+_MOISTURE_MISSING = Sentinel(str(MOISTURE_MISSING))
+_WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
+_WIND_DIRECTION_VARIABLE = Sentinel(str(WIND_DIRECTION_VARIABLE))
+# the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
+_NO_RAW_COLUMNS = {
+    "stations_id",
+    "mess_datum",
+    "mess_datum_beginn",
+    "mess_datum_ende",
+    "stationshoehe",
+    "geobreite",
+    "geogr.breite",
+    "geolaenge",
+    "geogr.laenge",
+}
+
+
+def _is_quality(column: str) -> bool:
+    """Tell the quality level column of a file (`QN_3`, `QUALITAETS_NIVEAU`) from a parameter."""
+    return column.startswith(("qn", "qualitaet"))
+
+
 CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
@@ -230,10 +257,13 @@ def _parse_climate_observations_data(  # noqa: C901
         file.content = BytesIO(file.content.read().decode("latin1").encode("utf8"))
 
     try:
+        # every column as text, as it is cast at the very end: with `null_values=["-999"]`, which this read had, a
+        # sentinel did not take part in the dtype of its column, and without it a column that opens with -999
+        # is an integer one that the first padded value fails (GH-2759)
         df = pl.scan_csv(
             source=file.content,
             separator=";",
-            null_values=["-999"],
+            infer_schema=False,
         )
     except pl.exceptions.SchemaError:
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
@@ -242,47 +272,31 @@ def _parse_climate_observations_data(  # noqa: C901
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
-    df = df.with_columns(cs.string().replace("-999", None), cs.numeric().replace(-999, None))
     # Column names contain spaces, so strip them away.
     df = df.rename(mapping=lambda col: col.strip().lower())
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
+    columns = set(df.collect_schema().names())
+    # every sentinel DWD writes is mapped to null here, with the text it was written as in `<column>__raw`, which
+    # `DwdObservationValues._tidy_up_df` carries into `quality_flags` (GH-2759). The index and quality columns are
+    # cleaned as before and keep no text.
+    data_columns = sorted(column for column in columns if column not in _NO_RAW_COLUMNS and not _is_quality(column))
+    df = clear_sentinels(df, sorted(columns), _MISSING_VALUE)
+    df = df.drop(*(f"{column}{RAW_SUFFIX}" for column in sorted(columns) if column not in data_columns))
     # turn what the file writes as text into the numbers the value column can hold, before anything
     # downstream expects a number
-    columns = set(df.collect_schema().names())
     df = df.with_columns(
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
-    df = df.with_columns(
-        pl.col(parameter).replace(SKY_OBSCURED, None) for parameter in sorted(CLOUD_COVER_PARAMETERS & columns)
-    )
+    df = clear_sentinels(df, sorted(CLOUD_COVER_PARAMETERS & columns), _SKY_OBSCURED)
     if dataset == DwdObservationMetadata.hourly.moisture:
-        # compared as a number, so that it holds whether the column was read as text or as Float64
-        df = df.with_columns(
-            pl.when(pl.col(parameter).cast(pl.Float64, strict=False) == MOISTURE_MISSING)
-            .then(None)
-            .otherwise(pl.col(parameter))
-            .alias(parameter)
-            for parameter in sorted(MOISTURE_MISSING_PARAMETERS & columns)
-        )
+        df = clear_sentinels(df, sorted(MOISTURE_MISSING_PARAMETERS & columns), _MOISTURE_MISSING)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
-        df = df.with_columns(
-            pl.when(pl.col(parameter).cast(pl.Float64, strict=False) == WEATHER_NOT_REPORTED)
-            .then(None)
-            .otherwise(pl.col(parameter))
-            .alias(parameter)
-            for parameter in sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns)
-        )
+        df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
     for wind_dataset, parameter in WIND_DIRECTION_PARAMETERS:
         if dataset == wind_dataset and parameter in columns:
-            direction = pl.col(parameter)
-            df = df.with_columns(
-                pl.when(direction.cast(pl.Float64, strict=False) == WIND_DIRECTION_VARIABLE)
-                .then(None)
-                .otherwise(direction)
-                .alias(parameter),
-            )
+            df = clear_sentinels(df, [parameter], _WIND_DIRECTION_VARIABLE)
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
             pl.struct("mess_datum", TRUE_LOCAL_TIME)

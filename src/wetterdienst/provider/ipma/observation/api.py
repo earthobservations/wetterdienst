@@ -107,6 +107,7 @@ class IpmaObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
+            pl.col("quality_flags"),
         )
 
 

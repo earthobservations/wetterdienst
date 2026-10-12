@@ -12,6 +12,11 @@ reading arrives, that the sentinel is nowhere in the values, and holds them to t
 A provider that is known to let a sentinel through says so with `leak`, the issue that tracks it. The test then
 asserts that the sentinel *is* still in the output, so fixing the provider fails it, and the fix removes the `leak`.
 
+A sentinel a reader maps to null (or to the value the source documents it to mean) is not lost: the value carries the
+text the source wrote in `quality_flags`, as a last `raw:<text>` token (GH-2759). `tokens` names, per stub, each
+(parameter, text, value) that has to arrive, with `ts_drop_nulls=False` since the default drops the null rows; the test
+holds every sentinel of `sentinels` to having one, so a reader that maps a sentinel and keeps no text fails it.
+
 To hold another provider to this, add a stub to `STUBS`: serve what the source answers, write the missing value as the
 source does, and name the parameter and value that must arrive. A network that has no stub is named in `NO_STUB` with
 the reason, and `test_every_network_has_a_stub_or_a_reason` fails for one that is in neither.
@@ -57,12 +62,17 @@ class ValueStub:
     """The values a provider's reader gives for a stub of its source, and what they must and must not hold."""
 
     provider: str
-    build: Callable[[pytest.MonkeyPatch], pl.DataFrame]
+    # `build(monkeypatch)` gives the values as a caller gets them, `build(monkeypatch, drop_nulls=False)` with the rows
+    # that have no value kept
+    build: Callable[..., pl.DataFrame]
     # a (canonical parameter, value) that has to arrive, so that the stub is no empty frame
     reading: tuple[str, float]
     # the numbers the source writes for a missing value, as the output would carry them; (parameter, value) where the
     # number is a sentinel for one parameter and a reading for another
     sentinels: tuple[tuple[str, float], ...]
+    # the `raw:` tokens that have to arrive, as (canonical parameter, the text the source wrote, the value it was mapped
+    # to: None for null). The text is verbatim: `-999`, not `-999.0`, wherever the source writes it so
+    tokens: tuple[tuple[str, str, float | None], ...] = ()
     # the issue that tracks a sentinel the provider lets through
     leak: str | None = None
     # an instant at which the source has no reading at all, so that the output has no row for it, whatever the unit
@@ -115,11 +125,16 @@ def stations_result(request: Any, resolution: str, dataset: str, station_id: str
     return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
+def _settings(drop_nulls: bool) -> Settings:  # noqa: FBT001
+    """Give the settings of a stub: the rows without a value are dropped as by default, or kept to see their flags."""
+    return Settings(cache_disable=True, ts_drop_nulls=drop_nulls)
+
+
 def _day(year: int, month: int, day: int, hour: int = 0) -> dt.datetime:
     return dt.datetime(year, month, day, hour, tzinfo=_UTC)
 
 
-def _ipma(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     stations = [
         {
             "geometry": {"type": "Point", "coordinates": [-9.1333, 38.7667]},
@@ -140,6 +155,8 @@ def _ipma(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     feed = {
         "2026-10-10T12:00": {"1200579": reading},
         "2026-10-10T13:00": {"1200579": dict.fromkeys(reading, -99.0)},
+        # code 0 is "no direction (calm)", which the feed writes as the integer 0 (checked on the live feed)
+        "2026-10-10T14:00": {"1200579": {**reading, "idDireccVento": 0}},
     }
     serve(
         monkeypatch,
@@ -150,7 +167,7 @@ def _ipma(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         parameters=[("hourly", "data")],
         start=_day(2026, 10, 10, 11),
         end=_day(2026, 10, 10, 14),
-        settings=Settings(cache_disable=True),
+        settings=_settings(drop_nulls),
     )
     return request.filter_by_station_id("1200579").values.all().df
 
@@ -162,6 +179,8 @@ def _dwd_observation(
     product: str,
     station_id: str = "00044",
     year: int = 2025,
+    *,
+    drop_nulls: bool = True,
 ) -> pl.DataFrame:
     """Give the values of one station from a product file of DWD, as the parser and the framework make them."""
     monkeypatch.setattr(
@@ -181,12 +200,12 @@ def _dwd_observation(
         periods={Period.RECENT},
         start=_day(year, 1, 1),
         end=_day(year, 12, 31),
-        settings=Settings(cache_disable=True),
+        settings=_settings(drop_nulls),
     )
     return stations_result(request, resolution, dataset, station_id).values.all().df
 
 
-def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `missing_value=-999` in the description of every DWD dataset that states one, in every column
     columns = [
         "STATIONS_ID",
@@ -231,10 +250,10 @@ def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     missing = ["44", "20250102", "10", "-999", "-999", "3", *["-999"] * 12]
     # DWD pads every field, which is what makes a column text for the reader
     lines = [";".join(f"{cell:>8}" for cell in row) + ";eor" for row in (columns, reading, missing)]
-    return _dwd_observation(monkeypatch, "daily", "climate_summary", "\n".join(lines) + "\n")
+    return _dwd_observation(monkeypatch, "daily", "climate_summary", "\n".join(lines) + "\n", drop_nulls=drop_nulls)
 
 
-def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the description says `missing value = -999`; the files write -99.9
     # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
     # in stundenwerte_TF_14006_20201104_20251231_hist.zip)
@@ -243,10 +262,10 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor\n"
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor\n"
     )
-    return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006")
+    return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006", drop_nulls=drop_nulls)
 
 
-def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/stundenwerte_FF_00003_19370101_20110331_hist.zip: the description says `missing value=-999`, the files
     # of 1975 to 1994 write 990 for a direction there is none of
     product = (
@@ -254,26 +273,27 @@ def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "          3;1975101607;    5;   2.1;  250;eor\n"
         "          3;1975101608;    5;   1.3;  990;eor\n"
     )
-    return _dwd_observation(monkeypatch, "hourly", "wind", product, "00003", year=1975)
+    return _dwd_observation(monkeypatch, "hourly", "wind", product, "00003", year=1975, drop_nulls=drop_nulls)
 
 
-def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # station 01869: `WW_Text` says "Wetter wurde nicht gemeldet" for the -1
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;  WW;WW_Text;eor\n"
         "       1869;2025040800;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
         "       1869;2025040801;    3;  61;Regen;eor\n"
     )
-    return _dwd_observation(monkeypatch, "hourly", "weather_phenomena", product, "01869")
+    return _dwd_observation(monkeypatch, "hourly", "weather_phenomena", product, "01869", drop_nulls=drop_nulls)
 
 
-def _geosphere_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     stations = (
         "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
         "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
     ).encode()
     # klima-v2-1d: "-1=kein Niederschlag, 0=weniger als 1/10 mm" for rr, "-1=kein Schnee" for sh_manu
-    series = {"rr": [0.3, -1.0, 0.0], "sh_manu": [4.0, -1.0, 2.0]}
+    # (checked on the live API for station 5904: rr is written -1.0, the whole-number sh_manu -1)
+    series = {"rr": [0.3, -1.0, 0.0], "sh_manu": [4, -1, 2]}
 
     def data(url: str) -> bytes:
         names = parse_qs(urlparse(url).query)["parameters"][0].split(",")
@@ -287,12 +307,12 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         parameters=[("daily", "data", "precipitation_amount"), ("daily", "data", "snow_depth_manual")],
         start=_day(2024, 1, 8),
         end=_day(2024, 1, 10),
-        settings=Settings(cache_disable=True),
+        settings=_settings(drop_nulls),
     )
     return request.filter_by_station_id("1").values.all().df
 
 
-def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # GHCNh_ACM00078861_por.psv, 1942-01-17 02:00: the direction reads 999 with the measurement code C (calm) and a
     # wind speed of 0.0; the documentation gives "000" for calm. 1942-01-28 14:00 reads 999 too, with no code and a
     # wind speed of 4.1 (the stub puts it on the 17th): no direction given. The documentation: "the most consistent
@@ -303,15 +323,17 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
         b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
     )
-    hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=Settings(cache_disable=True))
+    hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(drop_nulls))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
     rows = [
         {"temperature": "23.5", "wind_direction": "999", "wind_speed": "0.0", "precipitation": "-9999"},
         {"temperature": "23.0", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
         {"temperature": "24.0", "wind_direction": "999", "wind_speed": "4.1", "precipitation": "-9999"},
+        # the reader maps `-None` to null in every column; this row pins that
+        {"temperature": "-None", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
     ]
     lines = ["|".join(["STATION", "DATE", *columns])]
-    for hour, row in zip((2, 3, 14), rows, strict=True):
+    for hour, row in zip((2, 3, 14, 15), rows, strict=True):
         cells = [row.get(column, "") for column in columns]
         lines.append("|".join(["ACM00078861", f"1942-01-17T{hour:02d}:00:00", *cells]))
     serve(
@@ -323,12 +345,12 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         parameters=[("hourly", "data")],
         start=_day(1942, 1, 17),
         end=_day(1942, 1, 18),
-        settings=Settings(cache_disable=True),
+        settings=_settings(drop_nulls),
     )
     return request.filter_by_station_id("ACM00078861").values.all().df
 
 
-def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     rows = [
@@ -345,7 +367,7 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
-        settings=Settings(cache_disable=True),
+        settings=_settings(drop_nulls),
     )
     return stations_result(request, "subdaily", "data", "07005").values.all().df
 
@@ -357,6 +379,14 @@ STUBS = [
         reading=("temperature_air_mean_2m", 21.5),
         # the humidity is converted from percent to a decimal on its way
         sentinels=(("temperature_air_mean_2m", -99.0), ("humidity_relative", -0.99), ("precipitation_amount", -99.0)),
+        tokens=(
+            ("temperature_air_mean_2m", "-99.0", None),
+            ("humidity_relative", "-99.0", None),
+            ("precipitation_amount", "-99.0", None),
+            ("wind_direction", "-99.0", None),
+            # the calm code, which is no direction
+            ("wind_direction", "0", None),
+        ),
         empty_at=_day(2026, 10, 10, 13),
     ),
     ValueStub(
@@ -364,6 +394,7 @@ STUBS = [
         _dwd_daily_climate_summary,
         reading=("temperature_air_mean_2m", 2.9),
         sentinels=(("temperature_air_mean_2m", -999.0), ("precipitation_amount", -999.0)),
+        tokens=(("temperature_air_mean_2m", "-999", None), ("precipitation_amount", "-999", None)),
         empty_at=_day(2025, 1, 2),
     ),
     ValueStub(
@@ -377,36 +408,57 @@ STUBS = [
             ("temperature_dew_point_2m", -99.9),
             ("temperature_wet_2m", -99.9),
         ),
+        tokens=(
+            ("humidity_absolute", "-99.9", None),
+            ("humidity_relative", "-99.9", None),
+            ("pressure_vapor", "-99.9", None),
+            ("temperature_dew_point_2m", "-99.9", None),
+            ("temperature_wet_2m", "-99.9", None),
+        ),
     ),
     ValueStub(
         "dwd/observation hourly/wind",
         _dwd_hourly_wind,
         reading=("wind_direction", 250.0),
         sentinels=(("wind_direction", 990.0),),
+        tokens=(("wind_direction", "990", None),),
     ),
     ValueStub(
         "dwd/observation hourly/weather_phenomena",
         _dwd_hourly_weather_phenomena,
         reading=("weather", 61.0),
         sentinels=(("weather", -1.0),),
+        tokens=(("weather", "-1", None),),
     ),
     ValueStub(
         "geosphere/observation daily/data",
         _geosphere_daily,
         reading=("precipitation_amount", 0.3),
         sentinels=(("precipitation_amount", -1.0), ("snow_depth_manual", -1.0)),
+        # a day without precipitation or snow reads 0.0, and the code stays beside it as the source writes it
+        tokens=(("precipitation_amount", "-1.0", 0.0), ("snow_depth_manual", "-1", 0.0)),
     ),
     ValueStub(
         "noaa/ghcn hourly/data",
         _ghcn_hourly,
         reading=("wind_direction", 90.0),
         sentinels=(("wind_direction", 999.0), ("precipitation_amount", -9999.0)),
+        tokens=(
+            ("wind_direction", "999", None),
+            ("precipitation_amount", "-9999", None),
+            ("temperature_air_2m", "-None", None),
+        ),
     ),
     ValueStub(
         "meteofrance/synop subdaily/data",
         _meteofrance_synop,
         reading=("precipitation_amount_last_1h", 0.4),
         sentinels=(("precipitation_amount_last_6h", -0.1), ("cloud_cover_total", 1.01)),
+        # a trace is 0.0 with the code beside it; an obscured sky has no amount
+        tokens=(
+            ("precipitation_amount_last_6h", "-0.1", 0.0),
+            ("cloud_cover_total", "101", None),
+        ),
     ),
 ]
 
