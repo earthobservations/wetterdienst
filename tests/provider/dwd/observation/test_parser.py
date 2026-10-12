@@ -367,8 +367,8 @@ def test_parse_dwd_data_drops_variable_wind_direction(payload: str) -> None:
     """Test that 990 in the hourly wind direction becomes null, with the wind speed beside it kept.
 
     The files write 990 where there is no direction (station 00003, 1975-10-16 08:00) next to a real
-    speed of 1.3 m/s; the description documents only -999. A direction of 0 is a
-    direction and has to survive.
+    speed of 1.3 m/s; the description documents only -999. The 0 beside a speed of 0 is a calm, null as
+    well (GH-2805).
     """
     file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
     df = parse_climate_observations_data(
@@ -376,7 +376,7 @@ def test_parse_dwd_data_drops_variable_wind_direction(payload: str) -> None:
         dataset=DwdObservationMetadata.hourly.wind,
         period=Period.HISTORICAL,
     ).collect()
-    assert df.get_column("d").cast(pl.Float64).to_list() == [250.0, None, 0.0, None]
+    assert df.get_column("d").cast(pl.Float64).to_list() == [250.0, None, None, None]
     assert df.get_column("f").cast(pl.Float64).to_list() == [2.1, 1.3, 0.0, 4.0]
 
 
@@ -400,3 +400,91 @@ def test_parse_dwd_data_drops_variable_wind_direction_10_minutes() -> None:
     ).collect()
     assert df.get_column("dd_10").cast(pl.Float64).to_list() == [120.0, None, None]
     assert df.get_column("ff_10").cast(pl.Float64).to_list() == [1.1, 1.1, None]
+
+
+# Lines of the historical files, read 2026-10-12, as DWD writes them (GH-2805): the dataset, the header, the lines, the
+# direction column and, per line, the direction and the `raw` text that arrive.
+_CALM_WIND_FILES = {
+    # hourly wind D is on a rose without a 0: every 0 is null, whatever the speed beside it
+    "hourly/wind": (
+        DwdObservationMetadata.hourly.wind,
+        "STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor",
+        [
+            "          3;1975010115;    5;   4.3; 250;eor",
+            "          3;1975010215;    5;   1.2; 360;eor",
+            "          3;1975020807;    5;   0.0;   0;eor",
+            "          3;1997081708;    3;   0.4;   0;eor",
+        ],
+        "d",
+        [("250", None), ("360", None), (None, "0"), (None, "0")],
+    ),
+    # DWD names the column "Windrichtung uml.,windstill DD=00": every 0 is null, with the speed of 0 or of 1.0 m/s
+    # or of the gale of Büsum (00785) on 1986-02-14
+    "hourly/wind_synop": (
+        DwdObservationMetadata.hourly.wind_synoptic,
+        "STATIONS_ID;MESS_DATUM;QN_8;  FF;  DD;eor",
+        [
+            "          3;1950041503;    1;   0.5; 360;eor",
+            "          3;1950050406;    1;   0.0;   0;eor",
+            "          3;1954021915;    1;   1.0;   0;eor",
+            "        785;1986021410;    1;   7.7;   0;eor",
+        ],
+        "dd",
+        [("360", None), (None, "0"), (None, "0"), (None, "0")],
+    ),
+    # the "32-teilige Windrose" has no point 0; 32 is north
+    "subdaily/wind": (
+        DwdObservationMetadata.subdaily.wind,
+        "STATIONS_ID;MESS_DATUM;QN_4;DK_TER;FK_TER;eor",
+        [
+            "          1;1937010114;    5;  24;   3;eor",
+            "          1;1937011007;    5;  32;   3;eor",
+            "          1;1937010107;    5;   0;   0;eor",
+            "       1001;2001070506;   10;   0;   1;eor",
+        ],
+        "dk_ter",
+        [("24", None), ("32", None), (None, "0"), (None, "0")],
+    ),
+    # 0 is also north at some stations (01691 on 1994-05-01 reads 360 at 15:40 and 0 at 15:50 at 6 m/s), so only the
+    # 0 of a speed of 0 is null; a speed of 0.1 or a missing one is not known to be a calm
+    "10_minutes/wind": (
+        DwdObservationMetadata.minute_10.wind,
+        "STATIONS_ID;MESS_DATUM;  QN;FF_10;DD_10;eor",
+        [
+            "       1691;199405011540;    1;   6.0; 360;eor",
+            "       1691;199405011550;    1;   6.1;   0;eor",
+            "          3;199304281230;    1;   0.0;   0;eor",
+            "        298;199811210010;    1;   0.1;   0;eor",
+            "          3;199908122130;    1;  -999;   0;eor",
+        ],
+        "dd_10",
+        [("360", None), ("0", None), (None, "0"), ("0", None), ("0", None)],
+    ),
+    # the speed of the direction is the gust: 00003 on 1993-06-15 15:30 has a 0 beside a gust of 4.1 m/s
+    "10_minutes/extreme_wind": (
+        DwdObservationMetadata.minute_10.wind_extreme,
+        "STATIONS_ID;MESS_DATUM;  QN;FX_10;FNX_10;FMX_10;DX_10;eor",
+        [
+            "          3;199306150700;    1;   4.5;  -999;  -999; 360;eor",
+            "          3;199306151530;    1;   4.1;  -999;  -999;   0;eor",
+            "          3;199304281230;    1;   0.0;  -999;  -999;   0;eor",
+        ],
+        "dx_10",
+        [("360", None), ("0", None), (None, "0")],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(_CALM_WIND_FILES))
+def test_parse_dwd_data_nulls_the_wind_direction_0_of_a_calm_and_keeps_the_text(name: str) -> None:
+    """Test that a direction of 0 DWD writes for a calm is null with `0` as its raw text, and 360 stays (GH-2805).
+
+    Where the sheet gives the column a code or a rose without a 0 (hourly wind and wind_synop, subdaily wind) every 0
+    is null; in the 10 minute files 0 is also a bearing, so only a 0 beside a speed of exactly 0 is.
+    """
+    dataset, header, rows, column, expected = _CALM_WIND_FILES[name]
+    file = File(url="", content=BytesIO(("\n".join([header, *rows]) + "\n").encode("utf8")), status=200)
+    df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.HISTORICAL).collect()
+    assert list(zip(df.get_column(column).to_list(), df.get_column(f"{column}__raw").to_list(), strict=True)) == [
+        (value, raw) for value, raw in expected
+    ]
