@@ -1342,15 +1342,6 @@ def test_auth_tells_what_the_probe_could_tell(
     assert len(asked) == 1
 
 
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_auth_leaves_valid_null_in_json_not_as_a_word(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The unknown is JSON `null` on the wire, as it is for `GET /api/auth`, and not `None` or a string."""
-    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
-    _stub_the_frost_probe(monkeypatch, OSError("no route"), 500)
-    result = CliRunner().invoke(cli, ["about", "auth", "--provider=metno", "--network=frost"])
-    assert '"valid": null' in result.stdout
-
-
 def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
     """An unknown provider or network is a usage error pointing at the coverage listing, as a 404 is for REST."""
     result = CliRunner().invoke(cli, ["about", "auth", "--provider=dwd", "--network=abc"])

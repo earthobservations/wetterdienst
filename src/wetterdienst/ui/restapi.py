@@ -210,10 +210,10 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
     the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
     pass by itself. This is what `configured: false` reports, without the setting's name; the body
-    points at `coverage` for it. The request's window
-    and parameters are parsed by the time this is raised, its stations are not, so the body does
-    not vouch for the request. The message is not lost, it moves to the server log, as a warning:
-    a state that lasts until someone configures the key is no incident.
+    points at `coverage` for it. The request's window and parameters are parsed by the time this is
+    raised, its stations are not, so the body does not vouch for the request. The message is not
+    lost, it moves to the server log, as a warning: a state that lasts until someone configures the
+    key is no incident.
     """
     log.warning(f"Failed to {what}, no credential is configured for the provider: {e}")
     provider, network = getattr(request, "provider", None), getattr(request, "network", None)

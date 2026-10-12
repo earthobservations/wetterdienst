@@ -186,10 +186,10 @@ The limit holds for the REST API and the MCP tools; the library and the CLI have
 ## MCP endpoint
 
 The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)
-(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, auth, stations, values,
-interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the streamable-HTTP
-transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own routes and running
-in the same process.
+(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, auth, stations,
+values, interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the
+streamable-HTTP transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own
+routes and running in the same process.
 
 The generated tools are made agent-friendly so even small models use them correctly: a workflow
 `instructions` block (find a station, then query its values) is attached to the server, the tools

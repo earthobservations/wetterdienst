@@ -20,8 +20,8 @@ Types of changes:
 
 - `wetterdienst about auth --provider=... --network=...` and the MCP tool `auth` check one
   network's credentials, as `GET /api/auth` does and with the same answer: `valid` is `true`,
-  `false` (rejected, or not configured) or `null` when the probe could not tell, one attempt that
-  gives up after a few seconds. `coverage` does not probe, so this is the check from the command
+  `false` (rejected, or not configured) or `null` when the probe (one attempt, given up after a
+  few seconds) could not tell. `coverage` does not probe, so this is the check from the command
   line and from an MCP client. The command exits 0 whatever `valid` is; read the JSON (GH-2773)
 
 ## [0.147.0] - 2026-10-12
