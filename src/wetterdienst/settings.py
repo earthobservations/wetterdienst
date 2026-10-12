@@ -47,6 +47,7 @@ from wetterdienst.options import (
     _checked_unit_targets,
     _decode_nested_as_json_would,
     _note_drop_nulls_ignored,
+    _quiet,
     _resolution_factor,
     _station_distance_for,
 )
@@ -707,11 +708,13 @@ def check_settings() -> list[str]:
     `Options`, which gives one problem twice, so a variable is told once, by the first to find it.
     """
     lines: list[str] = []
-    for build, prefix in ((Settings, "WD_"), (Options, "WD_TS_")):
-        try:
-            build()
-        except (ValidationError, SettingsError) as e:
-            lines.extend(_describe_settings_error(e, prefix))
+    # `Settings` gives the notices of the `ts_*` settings, so `Options` gives none of its own
+    with _quiet():
+        for build, prefix in ((Settings, "WD_"), (Options, "WD_TS_")):
+            try:
+                build()
+            except (ValidationError, SettingsError) as e:
+                lines.extend(_describe_settings_error(e, prefix))
     told: set[str] = set()
     unique = []
     for line in lines:

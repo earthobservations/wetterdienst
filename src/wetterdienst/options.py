@@ -3,13 +3,14 @@
 """Options of a request: how the values come back, and how far a station may be to be interpolated from.
 
 `Settings` is the host's configuration -- cache, network client, credentials -- and is read by the
-providers. What is here is the request's: nothing in a provider reads it, only the values, the
-interpolation and the summary do. The two are read from different environment variables, so an
-operator who set ``WD_TS_SHAPE`` changes nothing by it being read here.
+providers. What is here is the request's: no provider reads it, only the values, the interpolation
+and the summary will. The defaults come from the same ``WD_TS_*`` variables that `Settings` reads
+as its ``ts_*`` settings, so an operator who set ``WD_TS_SHAPE`` changes nothing.
 """
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import functools
 import logging
@@ -85,6 +86,20 @@ _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
 #: whether `Options.replace` is building a copy, which reads from its fields alone and says nothing
 #: a first instance has already said. A context variable so that threads and tasks do not see each other's
 _REPLACING: contextvars.ContextVar[bool] = contextvars.ContextVar("wetterdienst_options_replacing", default=False)
+#: whether the notices an instance gives as it is built -- the ignored `drop_nulls`, a radius for a
+#: parameter never interpolated -- are held back, as for a copy and for the check of the environment,
+#: which builds options only to see whether they are valid
+_QUIET: contextvars.ContextVar[bool] = contextvars.ContextVar("wetterdienst_options_quiet", default=False)
+
+
+@contextlib.contextmanager
+def _quiet() -> Iterator[None]:
+    """Build options without the notices they give as they are built, in this context alone."""
+    token = _QUIET.set(True)
+    try:
+        yield
+    finally:
+        _QUIET.reset(token)
 
 
 @functools.cache
@@ -160,7 +175,7 @@ def _checked_unit_targets(values: dict[str, str]) -> dict[str, str]:
     return values
 
 
-def _checked_geo_station_distance_keys(values: object, prefix: str, logger: logging.Logger) -> object:
+def _checked_geo_station_distance_keys(values: object, prefix: str, logger: logging.Logger | None) -> object:
     """Check the overridden parameter names, which used to be taken on trust.
 
     A name that is not a canonical parameter can never be looked up, so the override silently
@@ -170,7 +185,8 @@ def _checked_geo_station_distance_keys(values: object, prefix: str, logger: logg
     for keys in it failed with a bare `TypeError` that named nothing (GH-2353).
 
     `prefix` is what the field's name starts with where it is given, so that the message names it
-    as the caller wrote it.
+    as the caller wrote it. `logger` is where a radius for a parameter never interpolated is
+    warned about, none to say nothing.
     """
     if not values:
         return {}
@@ -191,7 +207,7 @@ def _checked_geo_station_distance_keys(values: object, prefix: str, logger: logg
             msg += f" ({', '.join(renamed)})"
         raise ValueError(msg)
     never_interpolated = sorted(name for name in values if not PARAMETERS[name].interpolation)
-    if never_interpolated:
+    if never_interpolated and logger is not None:
         logger.warning(
             f"option '{prefix}geo_station_distance' sets a radius for {never_interpolated}, which are never "
             "interpolated, and is thus ignored for them in this request.",
@@ -277,9 +293,9 @@ class Options(BaseSettings):
     """How the values of a request come back and how its stations are chosen.
 
     The defaults are read from ``WD_TS_*`` (``WD_TS_SHAPE`` for `shape`), from the environment and
-    from a ``.env``, so that an operator sets them once for the host; a request is given its own
-    where it differs. An instance is frozen: `replace` makes a changed copy, validated as a new one.
-    The mappings it holds are not copied, so change them through `replace` and not in place.
+    from a ``.env``, so that an operator sets them once for the host. An instance is frozen:
+    `replace` makes a changed copy, validated as a new one. The mappings it holds are not copied,
+    so change them through `replace` and not in place.
     """
 
     model_config = SettingsConfigDict(
@@ -375,7 +391,7 @@ class Options(BaseSettings):
     @classmethod
     def validate_geo_station_distance_keys(cls, values: object) -> object:
         """Check the overridden parameter names."""
-        return _checked_geo_station_distance_keys(values, "", log)
+        return _checked_geo_station_distance_keys(values, "", None if _QUIET.get() else log)
 
     @field_validator("geo_station_distance", mode="after")
     @classmethod
@@ -475,7 +491,8 @@ class Options(BaseSettings):
             return self
         token = _REPLACING.set(True)
         try:
-            return type(self)(**{**self.model_dump(), **changes})
+            with _quiet():
+                return type(self)(**{**self.model_dump(), **changes})
         finally:
             _REPLACING.reset(token)
 
@@ -485,8 +502,12 @@ class Options(BaseSettings):
         Not a model validator: those run again for `Options.model_validate(options)`, and logged
         this line each time.
         """
-        if not _REPLACING.get():
+        if not _QUIET.get():
             _note_drop_nulls_ignored(self.shape, "", log)
+
+    def __hash__(self) -> int:
+        """Hash the options by what they dump, the mappings they hold keeping the fields from being hashed."""
+        return hash(self.model_dump_json())
 
     def __repr_args__(self) -> Iterator[tuple[str | None, Any]]:
         """Show the overrides that were given for `geo_station_distance`, not the table they expand into."""

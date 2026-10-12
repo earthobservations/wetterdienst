@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from pydantic_settings import SettingsError
 
 import wetterdienst
 from wetterdienst import Options
@@ -453,3 +454,89 @@ def test_describe_settings_error_names_an_option_by_its_variable() -> None:
         Options(geo_station_distance={"nonsense": 1})
     (line,) = _describe_settings_error(error.value, "WD_TS_")
     assert line.startswith("WD_TS_GEO_STATION_DISTANCE is invalid: Invalid parameters in geo_station_distance: ")
+
+
+def test_check_settings_tells_an_option_that_is_not_told_by_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An option is checked though `Settings` could not be built, which it stops at before validating anything."""
+    monkeypatch.setenv("WD_FSSPEC_CLIENT_KWARGS", "secret-ish")
+    monkeypatch.setenv("WD_TS_SHAPE", "tall")
+    assert check_settings() == [
+        "WD_FSSPEC_CLIENT_KWARGS is invalid: not valid JSON",
+        "WD_TS_SHAPE is invalid: Input should be 'wide' or 'long'",
+    ]
+
+
+@pytest.mark.parametrize("from_dotenv", [False, True], ids=["environment", "dotenv"])
+def test_options_refuse_a_value_nested_too_deeply_to_decode(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    from_dotenv: bool,
+) -> None:
+    """A mapping nested too deeply is refused as one that is not JSON, not raised as a `RecursionError` (GH-2543).
+
+    `check_settings()` builds the options after the settings and no longer stops at the settings'
+    own refusal of the same variable, so the options must refuse it themselves.
+    """
+    value = "[" * 30_000 + "TOPSECRET"
+    if from_dotenv:
+        (tmp_path / ".env").write_text(f"WD_TS_UNIT_TARGETS={value}\n")
+    else:
+        monkeypatch.setenv("WD_TS_UNIT_TARGETS", value)
+    with pytest.raises(SettingsError) as error:
+        Options()
+    assert "TOPSECRET" not in str(error.value)
+    assert check_settings() == ["WD_TS_UNIT_TARGETS is invalid: not valid JSON"]
+    # told by the options alone
+    assert _describe_settings_error(error.value, "WD_TS_") == ["WD_TS_UNIT_TARGETS is invalid: not valid JSON"]
+
+
+def test_check_settings_gives_the_notices_of_an_option_once(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The check logs what `Settings` logs for its `ts_*` settings and nothing of its own for the same options."""
+    never = next(name for name, parameter in PARAMETERS.items() if not parameter.interpolation)
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", f'{{"{never}": 3}}')
+    with caplog.at_level(logging.INFO):
+        assert check_settings() == []
+    assert not [record for record in caplog.records if record.name == "wetterdienst.options"]
+    assert sum("drop_nulls" in record.getMessage() for record in caplog.records) == 1
+    assert sum("sets a radius" in record.getMessage() for record in caplog.records) == 1
+
+
+def test_options_replace_does_not_repeat_the_warning_for_a_radius(caplog: pytest.LogCaptureFixture) -> None:
+    """A copy does not warn again about a radius for a parameter that is never interpolated."""
+    never = next(name for name, parameter in PARAMETERS.items() if not parameter.interpolation)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.options"):
+        options = Options(geo_station_distance={never: 10})
+        options.replace(shape="wide").replace(shape="long")
+    assert len([record for record in caplog.records if record.name == "wetterdienst.options"]) == 1
+
+
+def test_options_ignore_an_empty_variable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """An empty variable is no value, in the environment as in a ``.env``, as it is for the settings."""
+    monkeypatch.setenv("WD_TS_SHAPE", "")
+    assert Options().shape == "long"
+    assert Settings().ts_shape == "long"
+    monkeypatch.delenv("WD_TS_SHAPE")
+    (tmp_path / ".env").write_text("WD_TS_SKIP_THRESHOLD=\n")
+    assert Options().skip_threshold == 0.95
+
+
+def test_options_and_settings_take_none_where_it_means_unset() -> None:
+    """No unit targets and no nearby-station distance can be given as none."""
+    assert Options(unit_targets=None).unit_targets == {}
+    assert Settings(ts_unit_targets=None).ts_unit_targets == {}
+    assert Options(geo_use_nearby_station_distance=None).geo_use_nearby_station_distance is None
+    assert Settings(ts_geo_use_nearby_station_distance=None).ts_geo_use_nearby_station_distance is None
+
+
+def test_options_are_hashable_by_value() -> None:
+    """Frozen options can be a key: equal options hash alike, and the mappings they hold do not stand in the way."""
+    assert hash(Options()) == hash(Options())
+    assert hash(Options(geo_station_distance={"wind_speed": 43})) == hash(
+        Options(geo_station_distance={"wind_speed": 43})
+    )
+    assert len({Options(), Options(), Options(shape="wide")}) == 2
