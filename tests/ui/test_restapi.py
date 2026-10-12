@@ -7070,7 +7070,6 @@ def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monke
 
 def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
-    # discover() probes the providers whose credentials are configured, which reaches upstream
     monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
     compact = client.get("/api/coverage")
     pretty = client.get("/api/coverage", params={"pretty": "true"})
@@ -7417,22 +7416,33 @@ def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, mo
 def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550)."""
+    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550).
+
+    Only `/api/auth` probes. `/api/coverage` leaves `valid` null for a configured network whatever
+    the provider would say, and never asks it (GH-2564).
+    """
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
     answer = {"status": 500, "content": OSError("certificate verify failed")}
-    monkeypatch.setattr(
-        "wetterdienst.provider.metno.frost.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=answer["content"], status=answer["status"]),
-    )
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=answer["content"], status=answer["status"])
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
     expected = {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": None}
     params = {"provider": "metno", "network": "frost"}
     assert client.get("/api/auth", params=params).json() == expected
+    assert len(asked) == 1
     assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
     answer.update(status=401, content=Exception("401, message='Unauthorized'"))
     assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
-    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is False
+    assert len(asked) == 2
+    # the listing neither asks nor learns: a rejected client ID is told by `/api/auth` only
+    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
+    assert len(asked) == 2
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -7574,7 +7584,7 @@ def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
 def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> None:
     """The list of every provider and its networks validates, and is sent as `discover()` builds it (GH-2090).
 
-    With no credential set, no credentialed provider is probed, so nothing reaches upstream.
+    The listing probes no provider, so nothing reaches upstream whatever credentials are set.
     """
     response = client.get("/api/coverage")
     assert response.status_code == 200

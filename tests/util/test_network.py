@@ -274,6 +274,34 @@ def test_download_file_returns_file_after_exhausting_retries() -> None:
     assert isinstance(result.content, ClientResponseError)
 
 
+def test_download_file_asks_once_where_it_is_told_to() -> None:
+    """A download told to make one attempt does not ask again for a failure it would otherwise retry (GH-2564).
+
+    A check of a credential is asked while someone waits for it, and a second attempt after the timeout
+    is the wait doubled. (Not under `stamina.set_testing(attempts=...)`, which sets the attempts itself.)
+    """
+    error_500 = ClientResponseError(request_info=MagicMock(), history=(), status=500)
+
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = [error_500, b"data"]
+
+    default_settings = Settings(cache_disable=True)
+
+    with patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs):
+        result = download_file(
+            url="http://example.com/file.txt",
+            cache_dir=default_settings.cache_dir,
+            ttl=CacheExpiry.NO_CACHE,
+            client_kwargs=default_settings.fsspec_client_kwargs,
+            cache_disable=default_settings.cache_disable,
+            attempts=1,
+        )
+
+    assert mock_fs.cat_file.call_count == 1
+    assert result.status == 500
+    assert isinstance(result.content, ClientResponseError)
+
+
 class _RacyDirCache(MutableMapping):
     """dircache whose entry expires between ``__contains__`` and ``__getitem__``.
 

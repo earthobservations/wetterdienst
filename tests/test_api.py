@@ -1379,3 +1379,56 @@ def test_is_valid_passes_on_what_the_probe_tells() -> None:
 
     assert [Wetterdienst.is_valid(_Probe(answer)) for answer in (True, False, None)] == [True, False, None]
     assert Wetterdienst.is_valid(object()) is True
+
+
+def test_discover_downloads_nothing_with_every_credential_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The listing of every provider makes no request, however many credentials are configured (GH-2564).
+
+    It probed each configured provider in turn, inside the request that the app's parameter selection
+    waits for: 76 s on a cold cache with AEMET failing. A configured network is listed with `valid`
+    null, and `Wetterdienst.is_valid` is how it is checked.
+    """
+    import sys  # noqa: PLC0415
+
+    from wetterdienst.util import network  # noqa: PLC0415
+
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+    # every provider's module loaded, so that the download each one imports can be found and replaced
+    Wetterdienst.discover()
+    downloads: list[str] = []
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        downloads.append(str(kwargs.get("url") or args))
+        msg = "the listing of providers downloaded something"
+        raise AssertionError(msg)
+
+    for module in list(sys.modules.values()):
+        for name in ("download_file", "download_files"):
+            if module is not None and getattr(module, name, None) is getattr(network, name):
+                monkeypatch.setattr(module, name, refuse)
+    # and a filesystem is what any other way of fetching goes through
+    monkeypatch.setattr(network.NetworkFilesystemManager, "get", refuse)
+    monkeypatch.setenv("WD_AUTH__AEMET", "key")
+    monkeypatch.setenv("WD_AUTH__KNMI", "key")
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    monkeypatch.setenv("WD_AUTH__CEDA", "user:password")
+
+    discovered = Wetterdienst.discover()
+
+    assert downloads == []
+    auth = {
+        (provider, network_name): entry
+        for provider, networks in discovered.items()
+        for network_name, entry in networks.items()
+        if entry["auth"]
+    }
+    assert set(auth) == {
+        ("aemet", "observation"),
+        ("knmi", "observation"),
+        ("metno", "frost"),
+        ("metoffice", "observation"),
+    }
+    assert all(entry["configured"] is True and entry["valid"] is None for entry in auth.values())

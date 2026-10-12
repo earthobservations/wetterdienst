@@ -758,6 +758,10 @@ def auth(
     the probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is
     not a rejection, so treat null as unknown.
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
+
+    This is the one call that probes the provider, for the one network asked about: one attempt that
+    gives up after a few seconds. `/api/coverage` does not probe, so ask here for the networks whose
+    `valid` it leaves null.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
@@ -800,7 +804,8 @@ class CoverageNetwork(TypedDict):
 
     auth: bool
     configured: bool
-    # null when the credentials could not be checked (the probe failed for a reason other than a rejection)
+    # null where the credentials are configured: this listing does not check them, `/api/auth` does
+    # (GH-2564); `/api/auth` itself is null as well when its probe could not tell
     valid: bool | None
     date_required: bool
 
@@ -854,6 +859,10 @@ def coverage(
     Call with no arguments to list every provider and its networks. Pass provider+network (e.g.
     provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
+
+    The list of every provider downloads nothing, so it answers at once. For a network that needs
+    credentials, `configured` says whether they are present, and `valid` is false where they are not
+    and null where they are: this list does not check whether the provider accepts them.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network

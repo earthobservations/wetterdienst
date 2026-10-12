@@ -33,13 +33,21 @@ Types of changes:
 - **Breaking**: `metno/frost` and `aemet/observation` `is_valid()` is `False` only when the provider
   rejects the credential (HTTP 401/403, for AEMET also an `estado` of 401/403), `True` when it
   accepts it, and `None` when the probe could not tell (no network, a TLS failure, a timeout, a 429,
-  a 5xx), which used to read as `False`. `valid` in `/api/auth` and `/api/coverage` is `true`,
+  a 5xx), which used to read as `False`. `valid` in `/api/auth` is `true`,
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
-- A `.env` file is read as UTF-8 on every Python, where the encoding was the locale's (the ANSI
-  code page on Windows) until Python 3.15 made UTF-8 the default. Re-save a `.env` that holds a
-  non-ASCII value in a Windows code page as UTF-8 (GH-2568)
+- **Breaking**: `Wetterdienst.discover()`, `GET /api/coverage` (and the MCP `coverage` tool) and
+  `wetterdienst about coverage` download nothing, so they answer at once. `valid` is `null` for a
+  network whose credentials are configured, where it was `true` or `false` after a probe; it stays
+  `false` where they are missing. Ask `GET /api/auth` per network, or `Wetterdienst.is_valid(api)`,
+  whether they are accepted. That probe is one attempt that takes at most 5 s, and AEMET's probe
+  reads only the envelope: an `estado` of 200 is accepted, whatever follows. The app lists the
+  networks at once and hides one when `/api/auth` says its credentials are rejected (GH-2564)
+- **Breaking**: a `.env` file is read as UTF-8 on every Python, where the encoding was the locale's
+  (the ANSI code page on Windows) until Python 3.15 made UTF-8 the default. A `.env` saved in a
+  Windows code page with a non-ASCII value now raises `UnicodeDecodeError` on `Settings()`:
+  re-save it as UTF-8 (GH-2568)
 
 ### Removed
 
