@@ -294,7 +294,9 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
     300 px tall for each, and before the browser is started.
     """
     log.info(f"Refused {request.url.path}: {exc}")
-    return JSONResponse(status_code=400, content={"detail": f"{exc} Lower scale, or ask for fewer parameters."})
+    return JSONResponse(
+        status_code=400, content={"detail": f"{exc} Lower scale, give a smaller height, or ask for fewer parameters."}
+    )
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type

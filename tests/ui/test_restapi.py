@@ -8022,7 +8022,7 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
     assert response.status_code == 400
     assert response.json()["detail"] == (
         "The image would be 7000 x 9000 px, and this server renders no side longer than 8192 px. "
-        "Lower scale, or ask for fewer parameters."
+        "Lower scale, give a smaller height, or ask for fewer parameters."
     )
 
 
@@ -8044,3 +8044,37 @@ def test_check_image_size_measures_the_figure_then_the_default() -> None:
         check_image_size(go.Figure(), None, None, 12, 8_192)
     # the library and the CLI set no limit
     check_image_size(figure, 100_000, 100_000, 100, None)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str
+) -> None:
+    """Each endpoint hands the limit to the chart it draws: a chart 900 px tall is refused at `scale=10`."""
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    from wetterdienst.model.result import (  # noqa: PLC0415
+        InterpolatedValuesResult,
+        SummarizedValuesResult,
+        ValuesResult,
+    )
+
+    _stub_result(monkeypatch, endpoint)
+    for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: go.Figure(layout={"height": 900}))
+    monkeypatch.setattr(go.Figure, "to_image", _unreached)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "01048",
+            "timestamp": "2020-06-30",
+            "format": "png",
+            "scale": 10,
+        },
+    )
+    assert response.status_code == 400, response.text
+    assert "The image would be 7000 x 9000 px" in response.json()["detail"]
