@@ -690,3 +690,20 @@ def test_noaa_ghcn_daily_stations_minus_100_elevation(
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
     assert df.select("station_id", "elevation").rows() == [("SWE00140942", None), ("USC00042319", -59.1)]
+
+
+def test_noaa_ghcn_daily_stations_are_fetched_over_https(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The station list and the inventory come from the bucket over https, as does the URL it names (GH-2766)."""
+    fetched: list[str] = []
+
+    def fake_download_file(url: str, **kwargs: object) -> File:
+        fetched.append(url)
+        return _fake_ghcn_download_file(url, **kwargs)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all()
+    assert sorted(url.rsplit("/", 1)[-1] for url in fetched) == ["ghcnd-inventory.txt", "ghcnd-stations.txt"]
+    assert all(url.startswith("https://") for url in fetched)
+    assert NoaaGhcnMetadata.url.startswith("https://")
