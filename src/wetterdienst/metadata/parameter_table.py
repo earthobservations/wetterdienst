@@ -1356,11 +1356,11 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "quality",
         "dimensionless",
-        "Quality mark for the values in the same dataset, in whatever the source publishes or, "
-        "where the source publishes a flag the library decodes, what that decoding says. The scale "
-        "is the provider's own and does not compare between them -- DWD observation carries its "
-        "`qn` codes, where a larger number is a more thorough check, and DWD road a 1 where the "
-        "station reports a reading suspect. See the provider's page for what its numbers mean.",
+        "Quality mark the source publishes for the values in the same dataset. It is not requested as a "
+        "parameter: it is returned in the `quality_flags` column of the values next to the readings it "
+        "qualifies, as the string the source writes. The codes are the provider's own and do not "
+        "compare between providers -- DWD observation carries its `qn` codes, where a larger number is "
+        "a more thorough check. See the provider's page for what its codes mean.",
     ),
     CanonicalParameter(
         "quality_3", "dimensionless", "Quality flag for the 3-hourly maximum wind gust reported in the same dataset."
