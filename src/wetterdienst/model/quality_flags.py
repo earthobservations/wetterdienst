@@ -122,14 +122,14 @@ def null_sentinels(
         text: whether ``value`` is the text of the source. Then the ``raw`` text is the stripped cell as it was
             written (``-999.0`` stays ``-999.0``); from a number it is the text the matching sentinel was
             declared with.
-        non_numeric: also map every non-blank text that is no number (``mq``, ``---``, ``Ip``) to null, with the
-            text as its ``raw`` token (a comma in it is written as a semicolon, as the tokens are separated by
-            commas). Needs ``text=True``.
+        non_numeric: also map every non-blank text that is no number (``mq``, ``---``, ``Ip``, ``nan``, ``inf``) to
+            null, with the text as its ``raw`` token (a comma in it is written as a semicolon, as the tokens are
+            separated by commas). Needs ``text=True``.
 
     Returns:
         ``(cleaned, raw)``. With ``text=True`` the cleaned value is the stripped text, String, unless
         ``non_numeric`` or a sentinel's ``to`` is set, which make it Float64; with ``text=False`` it is the
-        number as it was, an integer staying one.
+        number as it was, an integer staying one unless a sentinel's ``to`` is set, which makes it Float64.
 
     """
     if non_numeric and not text:
@@ -152,7 +152,9 @@ def null_sentinels(
             branches.append((hit.fill_null(value=False), mapped, cell if text else pl.lit(sentinel_text)))
     if non_numeric:
         # a free text may hold the separator of the tokens
-        branches.append(((cell.str.len_chars() > 0) & number.is_null(), null, cell.str.replace_all(",", ";")))
+        # (a NaN or an infinity is no reading either; `cast` takes `nan` and `inf` for numbers)
+        no_number = number.is_null() | number.is_nan() | number.is_infinite()
+        branches.append(((cell.str.len_chars() > 0) & no_number, null, cell.str.replace_all(",", ";")))
     return _first_hit(branches, 1, base), _first_hit(branches, 2, pl.lit(None, dtype=pl.String))
 
 

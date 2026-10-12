@@ -3963,7 +3963,7 @@ def test_export_influxdb1_tidy_writes_the_quality_flags_beside_the_value() -> No
     assert [point["fields"] for point in points] == [{"value": 1.5, "quality_flags": "E"}, {"value": 2.5}]
 
 
-def test_export_influxdb1_wide_does_not_write_the_flags_of_a_missing_value_alone() -> None:
+def test_export_influxdb1_wide_does_not_write_the_raw_flags_of_a_missing_value_alone() -> None:
     """Test that `raw:-999` of a value mapped from a sentinel is not written as a field of its own (GH-2759)."""
     pytest.importorskip("influxdb")
     df = pl.DataFrame(
@@ -3976,6 +3976,9 @@ def test_export_influxdb1_wide_does_not_write_the_flags_of_a_missing_value_alone
             "temperature_air_mean_2m_quality_flags": ["3", "3,raw:-999", None],
             "wind_speed": [2.0, None, 3.0],
             "wind_speed_quality_flags": ["3", "3,raw:-999", "3"],
+            # the flag of a missing value that is no sentinel is written as it was
+            "pressure_vapor": [None, None, None],
+            "pressure_vapor_quality_flags": [None, "4", None],
         },
     )
     values = ValuesResult(stations=None, values=None, df=df)  # ty: ignore[invalid-argument-type]
@@ -3983,7 +3986,7 @@ def test_export_influxdb1_wide_does_not_write_the_flags_of_a_missing_value_alone
     with mock.patch("influxdb.InfluxDBClient", side_effect=[mock_client], create=True):
         values.to_target("influxdb://localhost/?database=dwd&table=weather")
     points = mock_client.write_points.call_args.kwargs["points"]
-    # the second day has nothing but the flags of its missing values, so it is not written at all
+    # the `raw:` flags of the missing values are not written alone; the second day keeps the other flag it had
     assert [point["fields"] for point in points] == [
         {
             "temperature_air_mean_2m": 1.5,
@@ -3991,5 +3994,6 @@ def test_export_influxdb1_wide_does_not_write_the_flags_of_a_missing_value_alone
             "wind_speed": 2.0,
             "wind_speed_quality_flags": "3",
         },
+        {"pressure_vapor_quality_flags": "4"},
         {"wind_speed": 3.0, "wind_speed_quality_flags": "3"},
     ]

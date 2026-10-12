@@ -36,7 +36,11 @@ log = logging.getLogger(__name__)
 # what the files write for a reading they do not have, by column: 9999 (stage), 99999.999 (discharge), 99.9 (water
 # temperature), e.g. `149180020;CHAŁUPKI;Odra (1);2023;01;01;88;14.200;99.9;11` in codz_2023.zip. The reading keeps the
 # text as `raw:` in `quality_flags` (GH-2759)
-_MISSING = Sentinel("9999", "99999.999", "99.9")
+_MISSING = (
+    Sentinel("9999", where=pl.col("parameter") == "stan wody"),
+    Sentinel("99999.999", where=pl.col("parameter") == "przepływ"),
+    Sentinel("99.9", where=pl.col("parameter") == "temperatura wody"),
+)
 
 
 ImgwHydrologyMetadata = {
@@ -340,7 +344,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             index = ["station_id", "timestamp", "extremity"]
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
         # the values the files write for a reading they do not have, nulled with their text kept as `raw:` (GH-2759)
-        value, raw = null_sentinels(pl.col("value"), _MISSING)
+        value, raw = null_sentinels(pl.col("value"), *_MISSING)
         df = df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
         if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(

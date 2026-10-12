@@ -376,8 +376,8 @@ class DwdSwsmosValues(TimeseriesValues):
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         columns = [p.name_original for p in dataset.parameters if p.name_original in df.columns]
-        # the file writes `---` for a value it does not have, and a text that is no number is none either: both become
-        # null, and the text stays beside the value as `raw:` (GH-2759)
+        # a text that is no number is no reading (the run file read on 2026-10-12 holds none): it becomes null, and the
+        # text stays beside the value as `raw:` (GH-2759)
         cleaned = {column: null_sentinels(pl.col(column), non_numeric=True) for column in columns}
         df = df.select(
             pl.col("YYYYMMDDHHmm")

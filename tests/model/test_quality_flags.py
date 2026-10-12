@@ -126,6 +126,13 @@ def test_text_that_is_no_number_can_be_a_sentinel_too() -> None:
     assert raw == ["mq", "---", None, None, None, None, "-999"]
 
 
+def test_a_nan_or_an_infinity_in_a_text_is_no_reading_either() -> None:
+    """Test that `cast` taking `nan` and `inf` for numbers does not let them through as values."""
+    cleaned, raw = _clean(["nan", "-inf", "1.5"], non_numeric=True)
+    assert cleaned == [None, None, 1.5]
+    assert raw == ["nan", "-inf", None]
+
+
 def test_a_text_with_the_separator_of_the_tokens_is_kept_without_it() -> None:
     """Test that a free text cannot split the string: its comma is written as a semicolon."""
     cleaned, raw = _clean(["n/a, see note"], non_numeric=True)

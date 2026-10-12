@@ -314,6 +314,16 @@ def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
     return _dwd_observation(monkeypatch, "hourly", "weather_phenomena", product, "01869", drop_nulls=drop_nulls)
 
 
+def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # station 00003 (hourly cloud_type, read 2026-10-12): -1 where the sky could not be seen, 43 times in 2005
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;V_N_I;V_N;eor\n"
+        "          3;2025040800;    3;    I;   4;eor\n"
+        "          3;2025040801;    3;    I;  -1;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "cloudiness", product, "00003", drop_nulls=drop_nulls)
+
+
 def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     stations = (
         "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
@@ -378,24 +388,12 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     return request.filter_by_station_id("ACM00078861").values.all().df
 
 
-def _meteofrance_observation_hourly(
-    monkeypatch: pytest.MonkeyPatch,
-    dataset: str,
-    parameters: list[str],
-    *,
-    drop_nulls: bool,
-) -> pl.DataFrame:
-    # HOR_departement_07_periode_2020-2024 of data.gouv.fr: the descriptions of the hourly dataset give N = 9 for a sky
-    # that could not be seen, and the audit of GH-2720 found a wind direction of 0 where there is none (and 999 in six
-    # rows of 1965 to 1967); the rows are worded by the stub, with the validation code beside each value
-    schema = list(observation_api._CLIMATE_SCHEMAS["hourly", dataset])  # noqa: SLF001
-    rows = [
-        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010100", "T": "2.1", "N": "4", "DD": "250", "QN": "1", "QDD": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010101", "T": "2.0", "N": "9", "DD": "0", "QN": "1", "QDD": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010102", "T": "1.9", "N": "5", "DD": "999", "QN": "1", "QDD": "1"},
-    ]
+def _serve_meteofrance(
+    monkeypatch: pytest.MonkeyPatch, resolution: str, dataset: str, title: str, rows: list[dict[str, str]]
+) -> None:
+    """Serve the one period file of a department, by the title of its resource, with these rows."""
+    schema = list(observation_api._CLIMATE_SCHEMAS[resolution, dataset])  # noqa: SLF001
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
-    title = "HOR_departement_07_periode_2020-2024"
     body = gzip.compress("\n".join(lines).encode("utf8"))
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
@@ -408,6 +406,24 @@ def _meteofrance_observation_hourly(
 
     monkeypatch.setattr(observation_api, "download_file", download_file)
     monkeypatch.setattr(observation_api, "download_files", download_files)
+
+
+def _meteofrance_observation_hourly(
+    monkeypatch: pytest.MonkeyPatch,
+    dataset: str,
+    parameters: list[str],
+    *,
+    drop_nulls: bool,
+) -> pl.DataFrame:
+    # HOR_departement_07_periode_2020-2024 of data.gouv.fr: the descriptions of the hourly dataset give N = 9 for a sky
+    # that could not be seen, and the audit of GH-2720 found a wind direction of 0 where there is none (and 999 in six
+    # rows of 1965 to 1967); the rows are worded by the stub, with the validation code beside each value
+    rows = [
+        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010100", "T": "2.1", "N": "4", "DD": "250", "QN": "1", "QDD": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010101", "T": "2.0", "N": "9", "DD": "0", "QN": "1", "QDD": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010102", "T": "1.9", "N": "5", "DD": "999", "QN": "1", "QDD": "1"},
+    ]
+    _serve_meteofrance(monkeypatch, "hourly", dataset, "HOR_departement_07_periode_2020-2024", rows)
     request = MeteoFranceObservationRequest(
         parameters=[("hourly", dataset, parameter) for parameter in parameters],
         start=_day(2024, 1, 1),
@@ -415,6 +431,24 @@ def _meteofrance_observation_hourly(
         settings=_settings(drop_nulls),
     )
     return stations_result(request, "hourly", dataset, "07005001").values.all().df
+
+
+def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # QUOT_departement_07_periode_2020-2024_RR-T-Vent: the daily DXI holds the same codes 0 and 999 (GH-2720); worded by
+    # the stub, with the validation code beside each value
+    rows = [
+        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240101", "TN": "-1.0", "DXI": "250", "QDXI": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240102", "TN": "-0.5", "DXI": "0", "QDXI": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240103", "TN": "0.5", "DXI": "999", "QDXI": "1"},
+    ]
+    _serve_meteofrance(monkeypatch, "daily", "core", "QUOT_departement_07_periode_2020-2024_RR-T-Vent", rows)
+    request = MeteoFranceObservationRequest(
+        parameters=[("daily", "core", "temperature_air_min_2m"), ("daily", "core", "wind_direction_gust_max")],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 3),
+        settings=_settings(drop_nulls),
+    )
+    return stations_result(request, "daily", "core", "07005001").values.all().df
 
 
 def _meteofrance_observation_hourly_core(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -459,6 +493,8 @@ def _dwd_derived_radiation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
         "STATIONS_ID;MESS_DATUM;QN_952;FG_DUETT;FG_UN_DUETT;eor\n"
         "      18001;2025040900;  500;  103;   10;eor\n"
         "      18001;2025040901;  500; -999;-999;eor\n"
+        # the derived datasets add -9999 to the -999 of the descriptions
+        "      18001;2025040902;  500;-9999;-9999;eor\n"
     )
     monkeypatch.setattr(
         dwd_derived_api,
@@ -725,6 +761,8 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) ->
         "149180020;CHALUPKI;Odra (1);2023;01;01;88;14.200;4.1;11\n"
         "149180020;CHALUPKI;Odra (1);2023;01;02;89;13.700;99.9;11\n"
         "149180020;CHALUPKI;Odra (1);2023;01;03;9999;99999.999;99.9;11\n"
+        # 99.900 m3/s is a discharge, and 99.9 is the sentinel of the temperature column alone (GH-2759)
+        "149180020;CHALUPKI;Odra (1);2023;01;04;90;99.900;4.0;11\n"
     )
     archive = BytesIO()
     with zipfile.ZipFile(archive, "w") as zf:
@@ -744,7 +782,7 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) ->
     request = ImgwHydrologyRequest(
         parameters=[("daily", "hydrology")],
         start=_day(2022, 11, 1),
-        end=_day(2022, 11, 3),
+        end=_day(2022, 11, 4),
         settings=_settings(drop_nulls),
     )
     return stations_result(request, "daily", "hydrology", "149180020").values.all().df
@@ -809,6 +847,14 @@ STUBS = [
         tokens=(("weather", "-1", None),),
     ),
     ValueStub(
+        "dwd/observation hourly/cloudiness",
+        _dwd_hourly_cloudiness,
+        reading=("cloud_cover_total", 0.5),
+        # in eighths the -1 converts to -0.125 of the sky
+        sentinels=(("cloud_cover_total", -0.125),),
+        tokens=(("cloud_cover_total", "-1", None),),
+    ),
+    ValueStub(
         "geosphere/observation daily/data",
         _geosphere_daily,
         reading=("precipitation_amount", 0.3),
@@ -859,7 +905,7 @@ STUBS = [
     ValueStub(
         "imgw/hydrology daily/hydrology",
         _imgw_hydrology,
-        reading=("discharge", 14.2),
+        reading=("discharge", 99.9),
         tokens=(
             ("stage", "9999", None),
             ("discharge", "99999.999", None),
@@ -877,8 +923,12 @@ STUBS = [
         "dwd/derived hourly/radiation_global",
         _dwd_derived_radiation,
         reading=("radiation_global", 103.0),
-        sentinels=(("radiation_global", -999.0),),
-        tokens=(("radiation_global", "-999", None), ("radiation_global_uncertainty", "-999", None)),
+        sentinels=(("radiation_global", -999.0), ("radiation_global", -9999.0)),
+        tokens=(
+            ("radiation_global", "-999", None),
+            ("radiation_global_uncertainty", "-999", None),
+            ("radiation_global", "-9999", None),
+        ),
         empty_at=_day(2025, 4, 9, 1),
     ),
     ValueStub(
@@ -922,6 +972,13 @@ STUBS = [
         reading=("temperature_air_2m", 2.1),
         sentinels=(("wind_direction_last_10min", 0.0), ("wind_direction_last_10min", 999.0)),
         tokens=(("wind_direction_last_10min", "0", None), ("wind_direction_last_10min", "999", None)),
+    ),
+    ValueStub(
+        "meteofrance/observation daily/core",
+        _meteofrance_observation_daily,
+        reading=("temperature_air_min_2m", -1.0),
+        sentinels=(("wind_direction_gust_max", 0.0), ("wind_direction_gust_max", 999.0)),
+        tokens=(("wind_direction_gust_max", "0", None), ("wind_direction_gust_max", "999", None)),
     ),
     ValueStub(
         "meteofrance/observation hourly/others",

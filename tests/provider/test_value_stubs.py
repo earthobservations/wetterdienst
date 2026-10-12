@@ -81,6 +81,7 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     The default drops the rows without a value, and with them their flags: a caller sees the text with
     `ts_drop_nulls=False` or in the wide shape.
     """
+    assert stub.tokens, f"{stub.provider}: a stub of a reader that maps a sentinel names the tokens it must carry"
     df = stub.build(monkeypatch, drop_nulls=False)
     # a sentinel the stub says the source writes has its text named, or the reader maps it and forgets it
     without_text = {name for name, _ in stub.sentinels} - {parameter for parameter, _, _ in stub.tokens}

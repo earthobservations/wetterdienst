@@ -535,7 +535,8 @@ unless the table says so.
   these rows then.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
-  value with several tokens become null. The sentinel of a reading is
+  value with several tokens become null, so take the first token of a code that can be followed by
+  `raw:` or a further kind: `pl.col("quality_flags").str.split(",").list.first().cast(pl.Int64, strict=False)`. The sentinel of a reading is
   `pl.col("quality_flags").str.extract(r"raw:([^,]*)$")`.
 
 The table lists the plain codes and the further kinds; the `raw:` tokens are in the second table below it.
@@ -546,17 +547,17 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
 | DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
 | DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](../data/provider/dwd/road/15_minutes.md)) |
-| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null |
+| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null (apart from `raw:`) |
 | Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
 | RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
 | IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
-| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, DMI, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null |
+| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, DMI, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null (apart from `raw:`) |
 | Hubeau (Eaufrance) | `code_qualification_obs`: `0` neutre, `4` faible, `8` forte, `12` douteuse, `16` non qualifiée, `20` bonne, `30` estimée |
 | MET Norway Frost | `qualityCode`: `0` controlled and found O.K., `1` controlled and corrected or interpolated, `2` slightly uncertain, not controlled, `4` slightly uncertain, not corrected, `5` very uncertain, not corrected, `6` very uncertain, model data, `7` erroneous, not corrected |
 | ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |
 | EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing` |
 | Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
-| NOAA GHCN daily | `QFLAG,measurement:MFLAG,source:SFLAG` of the value's attributes: the check it failed (`X` bounds, `G` gap, ...), how the value was made (`T` trace, ...) and where it came from (`0` U.S. Cooperative Summary of the Day, ...), as in the GHCN-Daily `readme.txt`. Hourly (GHCNh) is null |
+| NOAA GHCN daily | `QFLAG,measurement:MFLAG,source:SFLAG` of the value's attributes: the check it failed (`X` bounds, `G` gap, ...), how the value was made (`T` trace, ...) and where it came from (`0` U.S. Cooperative Summary of the Day, ...), as in the GHCN-Daily `readme.txt`. Hourly (GHCNh) is null (apart from `raw:`) |
 | CHMI (daily, 10 minutes, hourly) | `QUALITY`, then `element:FLAG`: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown (`meta4.csv`), and the letter of the element's own table (`meta3.csv`: SRA `T` an amount too small to measure, ...); the aggregate `FLAG_REPEAT` and `FLAG_INTERRUPTED` of monthly and annual files are not carried |
 | NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
 | SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
@@ -568,7 +569,8 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null) |
 | DWD derived | `-999` and `-9999` (null) |
 | DWD mosmix, dmo | `-` for a value the run does not have (null) |
-| DWD poi, swsmos | `---` and any text that is no number (null) |
+| DWD poi | `---`, and any text that is no number (null) |
+| DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
 | Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
@@ -577,13 +579,15 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount`, a trace (0.0) |
 | Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
-| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` and `DXY` (hourly) and `DXI` (daily), no direction (null) |
-| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null) |
+| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` and `DXY` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
+| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code
 already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
-missing value.
+missing value. CHMI, MeteoSwiss, SMHI, DWD phenology and the real-time values of AEMET read a text that is no
+number as null without a token; none was found in their files, and DWD observation does the same for a letter
+outside `P` and `I` in a measurement method.
 
 ### Interpolation & Summary
 
