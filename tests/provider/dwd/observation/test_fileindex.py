@@ -116,7 +116,7 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
     """Test that a file spans the UTC (or, before 2000, MEZ) days its name gives, not Berlin days.
 
     The stamps of the 10 minute files are UTC from 2000 and MEZ, the fixed UTC+1, before, so the file
-    of 2010 to 2019 ends at 00:00 UTC on 2020-01-01 and one that ends in 1998 at 23:00 UTC on 31 December,
+    of 2010 to 2019 ends at 00:00 UTC on 2020-01-01 and one that ends in summer 1991 at 23:00 UTC on 30 June,
     whatever Europe/Berlin does with summer time (GH-2811). The files at the turn of 1999 to 2000 reach into
     each other's hour (GH-2815).
     """
@@ -243,7 +243,7 @@ def test_the_one_and_five_minute_files_meet_at_midnight_utc_and_reach_into_it(
     The file of January 2000 begins at 00:00 UTC, unlike the 10 minute one. The file of December 1999 is MEZ and
     holds stamps past its MEZ midnight (1-minute: to 00:59, 5-minute: 00:00; station 00003 and 01048, read
     2026-10-13), which are 23:00 to 23:59 UTC, so it ends at 00:00 UTC of 2000-01-01 and a request for that hour
-    gets both files.
+    gets the December file.
     """
     base = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{directory}/"
     listing = pl.DataFrame({"url": [base + december, base + january], "filename": [december, january]}).lazy()

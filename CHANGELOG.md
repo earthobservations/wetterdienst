@@ -101,7 +101,7 @@ Types of changes:
   23:50 UTC and no longer competes with the real values of 00:00 to 00:50 UTC. The same holds for
   the stamps past MEZ midnight in the December 1999 files of `1_minute` (23:00 to 23:59 UTC) and
   `5_minutes` (one row, 23:00 UTC; whether it is a misstamped 23:55 is open, GH-2827). A request
-  for that hour gets both files (GH-2815)
+  for that hour returns these values (GH-2815)
 
 ## [0.147.0] - 2026-10-12
 
