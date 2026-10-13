@@ -1632,7 +1632,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature (whole percent)"
         ),
         ("hourly", "data", "sea_level_pressure"): "Sea level pressure (hectopascals)",
-        ("hourly", "data", "snow_depth"): "depth of snowpack on the ground (centimeters/m)",
+        ("hourly", "data", "snow_depth"): "depth of snowpack on the ground (millimeters)",
         ("hourly", "data", "station_level_pressure"): "Station pressure (hectopascals)",
         ("hourly", "data", "temperature"): (
             "2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)"
@@ -2221,7 +2221,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     # and "ff vitesse du vent moyen 10 min" (réel, m/s), though the files hold whole numbers only (2927 of 2927
     # stamps of Orly 2024 equal the hourly FF of the climatological base cut to the integer)
     "MeteoFranceSynopMetadata": {
-        ("subdaily", "data", "dd"): "Direction of the mean wind over 10 minutes, in steps of 10 degrees.",
+        ("subdaily", "data", "dd"): (
+            "Direction of the mean wind over 10 minutes, in steps of 10 degrees, north being 360. "
+            "The source's 0 (a calm wind, or no bearing) is null."
+        ),
         (
             "subdaily",
             "data",

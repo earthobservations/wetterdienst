@@ -579,11 +579,28 @@ def _meteofrance_observation_hourly_others(
 
 
 def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101
+    # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101;
+    # a calm is dd=0 beside ff=0 (3495 rows, all with ff=0) and north is dd=360 (3230 rows), as the WMO table has it
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     rows = [
-        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T18:00:00Z", "rr1": "0.0", "rr6": "-0.1", "n": "90"},
-        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T21:00:00Z", "rr1": "0.4", "rr6": "1.2", "n": "101"},
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T18:00:00Z",
+            "rr1": "0.0",
+            "rr6": "-0.1",
+            "n": "90",
+            "dd": "0",
+            "ff": "0",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T21:00:00Z",
+            "rr1": "0.4",
+            "rr6": "1.2",
+            "n": "101",
+            "dd": "360",
+            "ff": "2",
+        },
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
     serve(monkeypatch, synop_api, {"synop_2024": gzip.compress("\n".join(lines).encode("utf8"))})
@@ -592,6 +609,7 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             ("subdaily", "data", "precipitation_amount_last_1h"),
             ("subdaily", "data", "precipitation_amount_last_6h"),
             ("subdaily", "data", "cloud_cover_total"),
+            ("subdaily", "data", "wind_direction_last_10min"),
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
@@ -677,9 +695,15 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "hourly", "small", "01001").values.all().df
 
 
-def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the same KML as MOSMIX's, with the same `-`
-    kml = _forecast_kml("01001", {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"})
+def dwd_dmo_values(
+    monkeypatch: pytest.MonkeyPatch,
+    elements: dict[str, str],
+    parameters: list[tuple[str, str, str]],
+    lead_time: str = "short",
+    options: Options | None = None,
+) -> pl.DataFrame:
+    """Give the values of station 01001 from a DMO run that holds the given elements, as a caller gets them."""
+    kml = _forecast_kml("01001", elements)
     monkeypatch.setattr(
         dwd_dmo_api.DwdDmoValues,
         "get_url_for_date",
@@ -687,12 +711,22 @@ def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     )
     monkeypatch.setattr(dwd_dmo_api.KMLReader, "fetch", lambda _self, _url: BytesIO(kml))
     request = DwdDmoRequest(
-        parameters=[("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
-        lead_time="short",
+        parameters=parameters,
+        lead_time=lead_time,
         settings=_settings(),
-        options=_options(drop_nulls),
+        options=options or _options(drop_nulls=True),
     )
     return stations_result(request, "hourly", "icon", "01001").values.all().df
+
+
+def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the same KML as MOSMIX's, with the same `-`
+    return dwd_dmo_values(
+        monkeypatch,
+        {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"},
+        [("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
+        options=_options(drop_nulls),
+    )
 
 
 def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1337,11 +1371,16 @@ STUBS = [
         "meteofrance/synop subdaily/data",
         _meteofrance_synop,
         reading=("precipitation_amount_last_1h", 0.4),
-        sentinels=(("precipitation_amount_last_6h", -0.1), ("cloud_cover_total", 1.01)),
-        # a trace is 0.0 with the code beside it; an obscured sky has no amount
+        sentinels=(
+            ("precipitation_amount_last_6h", -0.1),
+            ("cloud_cover_total", 1.01),
+            ("wind_direction_last_10min", 0.0),
+        ),
+        # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm is no direction (north is 360)
         tokens=(
             ("precipitation_amount_last_6h", "-0.1", 0.0),
             ("cloud_cover_total", "101", None),
+            ("wind_direction_last_10min", "0", None),
         ),
     ),
 ]

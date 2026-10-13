@@ -202,3 +202,42 @@ def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_
         ("wind_speed", 1.5, None),
         ("wind_speed", 0.0, None),
     ]
+
+
+def test_api_hourly_snow_depth_is_millimeters(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GHCNh writes the snow depth in millimeters: "depth of snowpack on the ground (millimeters)" (GH-2848).
+
+    Rows of the by-year file GHCNh_USW00026451_2023.psv (Anchorage), read on 2026-10-13: 2023-02-13 reads 910 as the
+    day's highest hourly depth, which the GHCN-daily SNWD (mm) of the station gives as 910 too. The reader hands the
+    number on, so the declared unit is what says what it is: millimeters, which the default unit target
+    (centimeters) turns into 91.0.
+    """
+    from tests.provider.value_stubs import serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"USW00026451,61.169,-150.0278,38.0,AK,ANCHORAGE TED STEVENS INTL AP,,,70273,PANC,US\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data", "snow_depth")], settings=settings).metadata
+    parameters = {parameter.name: parameter for parameter in metadata["hourly"]["data"]}
+    assert parameters["snow_depth"].unit == "millimeter"
+    columns = [parameter.name_original for parameter in parameters.values()]
+    rows = [("2023-02-13T12:53:00", {"snow_depth": "910"}), ("2023-02-13T13:53:00", {"snow_depth": "-None"})]
+    lines = ["|".join(["STATION", "DATE", *columns])]
+    lines += ["|".join(["USW00026451", date, *[row.get(column, "") for column in columns]]) for date, row in rows]
+    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_USW00026451": "\n".join(lines).encode("utf8")})
+
+    def values(options: Options) -> list[float]:
+        request = NoaaGhcnRequest(
+            parameters=[("hourly", "data", "snow_depth")],
+            start=dt.datetime(2023, 2, 13, tzinfo=ZoneInfo("UTC")),
+            end=dt.datetime(2023, 2, 14, tzinfo=ZoneInfo("UTC")),
+            settings=settings,
+            options=options,
+        ).filter_by_station_id("USW00026451")
+        return request.values.all().df.get_column("value").to_list()
+
+    assert values(Options(convert_units=False)) == [910.0]
+    assert values(Options()) == [91.0]

@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 from freezegun import freeze_time
 
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.dmo.api import (
     _ELEVATION_IN_FEET,
@@ -1829,3 +1829,44 @@ def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() ->
     assert icon["precipitation_amount_last_3h"] == ["long"]
     assert icon["precipitation_amount_last_1h"] == ["short"]
     assert icon["temperature_air_2m"] == ["short", "long"]
+
+
+@pytest.mark.parametrize(
+    ("parameter", "element", "lead_time"),
+    [
+        pytest.param("radiation_global", "Rad1h", "short", id="rad1h"),
+        pytest.param("radiation_global_last_3h", "RadS3", "long", id="rads3"),
+    ],
+)
+def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    element: str,
+    lead_time: Literal["short", "long"],
+) -> None:
+    """The DMO radiation fields are J/cm2, not kJ/m2 as MOSMIX's MetElementDefinition.xml has them (GH-2821).
+
+    Frankfurt (10637), run 2026-10-12 00Z: `Rad1h` is 142.09 for the hour ending 11 UTC, where the
+    observed sum of the 10-minute global radiation of 01420 is 182.9 J/cm2 (1829 kJ/m2). Read as
+    kJ/m2 it came back as 14.2 J/cm2.
+    """
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    elements = {element: "142.09 0.00 -"}
+    parameters = [("hourly", "icon", parameter)]
+
+    df = dwd_dmo_values(monkeypatch, elements, parameters, lead_time, Options(drop_nulls=False))
+    assert df.get_column("value").to_list() == pytest.approx([142.09, 0.0, None])
+
+    in_kilojoule = Options(drop_nulls=False, unit_targets={"energy_per_area": "kilojoule_per_square_meter"})
+    df = dwd_dmo_values(monkeypatch, elements, parameters, lead_time, in_kilojoule)
+    assert df.get_column("value").to_list() == pytest.approx([1420.9, 0.0, None])
+
+
+def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_products() -> None:
+    """`icon_eu` serves `Rad1h` in the unit `icon` does; `radl3`, the long-wave balance, stays kJ/m2."""
+    hourly = DwdDmoRequest.metadata.hourly
+    assert hourly.icon_eu.rad1h.unit == "joule_per_square_centimeter"
+    assert hourly.icon.rad1h.unit == "joule_per_square_centimeter"
+    assert hourly.icon.rads3.unit == "joule_per_square_centimeter"
+    assert hourly.icon.radl3.unit == "kilojoule_per_square_meter"

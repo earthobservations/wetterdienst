@@ -61,7 +61,10 @@ DwdDmoMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "rad1h",
-                            "unit": "kilojoule_per_square_meter",
+                            # J/cm2 although MetElementDefinition.xml (MOSMIX) says kJ/m2: the DMO value is a tenth
+                            # of MOSMIX's at the same station and hour, and as J/cm2 it matches the observed hourly
+                            # sum of global radiation (GH-2821)
+                            "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "temperature_air_max_2m_last_12h",
@@ -168,12 +171,16 @@ DwdDmoMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "rad1h",
-                            "unit": "kilojoule_per_square_meter",
+                            # J/cm2 although MetElementDefinition.xml (MOSMIX) says kJ/m2: the DMO value is a tenth
+                            # of MOSMIX's at the same station and hour, and as J/cm2 it matches the observed hourly
+                            # sum of global radiation (GH-2821)
+                            "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_global_last_3h",
                             "name_original": "rads3",
-                            "unit": "kilojoule_per_square_meter",
+                            # J/cm2 like rad1h: 0.9 of the global radiation rad3h of the same run (GH-2821)
+                            "unit": "joule_per_square_centimeter",
                         },
                         {
                             "name": "radiation_sky_long_wave_last_3h",
