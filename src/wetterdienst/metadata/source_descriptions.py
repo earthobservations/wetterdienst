@@ -635,10 +635,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "urban_wind_extreme",
             "fx_st_10",
         ): 'Maximum wind per 10-minute interval (DWD: "momentane MaxWind").',
-        ("10_minutes", "wind", "dd_10"): "Mean wind direction during the previous 10 minutes.",
+        ("10_minutes", "wind", "dd_10"): (
+            "Mean wind direction during the previous 10 minutes. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
+        ),
         ("10_minutes", "wind", "ff_10"): "Mean wind speed during the previous 10 minutes.",
         ("10_minutes", "wind_extreme", "dx_10"): (
-            "Wind direction of the maximum wind speed during the previous 10 minutes."
+            "Wind direction of the maximum wind speed during the previous 10 minutes. "
+            "The source's 0 beside a gust of 0 (a calm wind) is null."
         ),
         ("10_minutes", "wind_extreme", "fmx_10"): (
             "Maximum of the wind speed from the 1 minute mean values of the 3-second maxima of the previous 10 minutes."
@@ -967,10 +971,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Returned as 1 for P and 2 for I."
         ),
         ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
-        ("hourly", "wind", "d"): "Mean wind direction.",
+        ("hourly", "wind", "d"): "Mean wind direction. The source's 0 (a calm or variable wind) is null.",
         ("hourly", "wind", "f"): "Mean wind speed.",
         ("hourly", "wind_extreme", "fx_911"): "Wind speed, wind gust: the highest wind peak of the last hour.",
-        ("hourly", "wind_synoptic", "dd"): 'Wind direction (DWD: "Windrichtung uml.,windstill DD=00").',
+        ("hourly", "wind_synoptic", "dd"): (
+            'Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). '
+            "The source's 0 (a calm or variable wind) is null."
+        ),
         ("hourly", "wind_synoptic", "ff"): (
             '10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit").'
         ),
@@ -1069,7 +1076,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "temperature_air", "rf_ter"): "2m relative humidity.",
         ("subdaily", "temperature_air", "tt_ter"): "2m air temperature.",
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
-        ("subdaily", "wind", "dk_ter"): "Wind direction.",
+        ("subdaily", "wind", "dk_ter"): "Wind direction. The source's 0 (a calm or variable wind) is null.",
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
         (
             "subdaily",
