@@ -115,11 +115,11 @@ NoaaGhcnMetadata = {
                             "name_original": "altimeter",
                             "unit": "hectopascal",
                         },
-                        # depth of snowpack on the ground (centimeters/m)
+                        # depth of snowpack on the ground (millimeters)
                         {
                             "name": "snow_depth",
                             "name_original": "snow_depth",
-                            "unit": "centimeter",
+                            "unit": "millimeter",
                         },
                         # 2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)
                         {

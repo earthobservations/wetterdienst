@@ -23,6 +23,13 @@ Types of changes:
   no `start` and `end`. It asked for every year of the station and got empty answers, one request
   per year. Such a station has no values in the years asked for; a null-valued row (flag `M`) of
   one is no longer returned with `drop_nulls` off. Requests with dates are unchanged (GH-2820)
+- **Breaking**: `noaa/ghcn` hourly `snow_depth` is declared in millimeters, as GHCNh publishes it
+  ("depth of snowpack on the ground (millimeters)"), no longer in centimeters. The numbers in the
+  files are unchanged, but they were taken for centimeters, so values came back ten times too
+  large (Anchorage: 910 cm where the GHCN-daily `SNWD` gives 910 mm). With the default unit
+  targets the value is still in centimeters but a tenth of what it was (91.0 for 910 mm);
+  `unit_targets` for `length_short` picks another unit. Values you stored from before are ten
+  times too large in whatever unit they carry; divide them by 10 (GH-2848)
 
 ## [0.149.0] - 2026-10-13
 
