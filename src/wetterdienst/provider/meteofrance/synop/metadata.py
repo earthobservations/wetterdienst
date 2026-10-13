@@ -28,12 +28,12 @@ MeteoFranceSynopMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "dd",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_10min",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },

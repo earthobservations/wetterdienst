@@ -18,6 +18,13 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `meteofrance/synop` `subdaily/data` `dd` and `ff`, Météo-France's direction and
+  speed of the wind averaged over 10 minutes, are named `wind_direction_last_10min` and
+  `wind_speed_last_10min`, no longer `wind_direction` and `wind_speed`. Request the new names; the
+  old ones are not found in `subdaily/data` (logged and dropped, or `NoParametersFoundError` when
+  no other parameter is requested). `ff` is the 10-minute mean cut to whole m/s (2.4 m/s in the
+  hourly `meteofrance/observation` `FF` is 2 in `ff`), so it reads up to 0.9 m/s below it
+  (GH-2733)
 - **Breaking**: `knmi/observation` hourly `DD`, KNMI's mean wind direction over the last 10 minutes
   of the hour ("Past 10 minute mean wind direction"), is named `wind_direction_last_10min`, no
   longer `wind_direction`, which is the mean over the row's interval. Request the new name; the old
