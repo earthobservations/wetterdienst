@@ -1,8 +1,8 @@
 name: App Tests
 
 # Type check and lint read nothing but the app, so they stay on app/**. The vitest suite also reads
-# the backend's canonical parameter table and resolution enum (tests/unit/glossary-translations.test.ts),
-# so those two files are in the filter too.
+# the backend's canonical parameter table and resolution enum
+# (tests/unit/glossary-translations.test.ts), so those two files are in the filter too.
 # The E2E suite also drives a backend started from src/ and lives in app-e2e.yml, which
 # carries the wider filter.
 on:

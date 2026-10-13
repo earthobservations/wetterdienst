@@ -2579,13 +2579,13 @@ describe('dataViewer names what it shows in the active locale', () => {
       expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
     })
   })
+
   it('names the chart again where the language is changed while it is shown', async () => {
-    const { wrapper } = await mountIn('en', false)
+    await mountIn('en', false)
     const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
     await vi.waitFor(() => expect(drawn()).toEqual(['01048 - Mean wind direction (last 10 min)', '01048 - Mean wind speed (last 10 min)']))
     await setLocale('de')
     await vi.waitFor(() => expect(drawn()).toEqual([`01048 - ${names.de.direction}`, `01048 - ${names.de.speed}`]))
-    expect(wrapper.exists()).toBe(true)
   })
 
   // "Plain-language labels" off: the ids as the API names them, joined by "/", where they were drawn
@@ -2596,9 +2596,9 @@ describe('dataViewer names what it shows in the active locale', () => {
     })
 
     it.each([
-      { format: 'parameter', ids: ['wind_direction_last_10min', 'wind_speed_last_10min'], lines: (id: string) => [id] },
-      { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_last_10min', 'urban_wind/wind_speed_last_10min'], lines: (id: string) => ['urban_wind', id] },
-      { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_last_10min', '10_minutes/urban_wind/wind_speed_last_10min'], lines: (id: string) => ['10_minutes', 'urban_wind', id] },
+      { format: 'parameter', ids: ['wind_direction_last_10min', 'wind_speed_last_10min'] },
+      { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_last_10min', 'urban_wind/wind_speed_last_10min'] },
+      { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_last_10min', '10_minutes/urban_wind/wind_speed_last_10min'] },
     ])('keeps the ids in the series, the facets and their axes, format $format', async ({ format, ids }) => {
       useSettings().settings.value.friendlyLabels = false
       const single = await mountIn('de', false)

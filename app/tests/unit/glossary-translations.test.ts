@@ -103,7 +103,7 @@ describe('the glossary reads the backend\'s names from where they are declared',
 describe.each(records)('%s', (record) => {
   const ids = required[record]()
 
-  it.each(record === 'datasets' ? others : locales)('are all labelled in %s', (locale) => {
+  it.each(locales)('are all labelled in %s', (locale) => {
     const labels = glossaries[locale]![record]
     expect(ids.filter(id => !(id in labels)), `${locale} has no ${record} label for these`).toEqual([])
     expect(ids.filter(id => !labels[id]?.trim()), `${locale} has an empty ${record} label for these`).toEqual([])
