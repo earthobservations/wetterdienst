@@ -22,6 +22,10 @@ Types of changes:
   of the year as the docs said: in leap years since about 1952 it counts 365 days (1 March is 60)
   and a date before the reference year is a negative number of days. The timestamp plus `Jultag`
   does not always give the entry date; the values are unchanged (GH-2822)
+- `rmi/observation` returns the stamp of a request with `start == end` (the one-day form) at all
+  three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
+  `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
+  otherwise (GH-2823)
 
 ## [0.148.0] - 2026-10-13
 

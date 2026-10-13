@@ -7,8 +7,8 @@ RMI's open data service provides observations from its network of automatic weat
 key-less GeoServer WFS endpoint (GeoJSON); no authentication is required.
 
 Each resolution is exposed as its own feature type (`aws_10min`, `aws_1hour`, `aws_1day`). The
-provider queries one feature type with a CQL filter (`code = <station> AND timestamp DURING
-<start>/<end>`), which returns every parameter for that station in the requested window as one
+provider queries one feature type with a CQL filter (`code = <station> AND timestamp >= <start>
+AND timestamp <= <end>`), which returns every parameter for that station in the requested window as one
 wide feature per timestamp. Station metadata comes from the `aws_station` feature type.
 
 All timestamps are true UTC instants; daily aggregates are labelled at UTC midnight. The values

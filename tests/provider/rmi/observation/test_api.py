@@ -246,6 +246,44 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     assert quality_by_parameter[names[1]] == "0"
 
 
+def test_collect_filters_a_zero_length_window_without_a_during_period() -> None:
+    """A request with start == end (the one-day form) must not send `DURING X/X` (HTTP 400, GH-2823)."""
+    dataset = _hourly_dataset()
+    stamp = dt.datetime(2024, 6, 10, 2, tzinfo=ZoneInfo("Europe/Brussels"))  # 00:00 UTC
+    values = object.__new__(rmi_api.RmiObservationValues)
+    values.sr = SimpleNamespace(
+        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        start=stamp,
+        end=stamp,
+    )
+    filters: list[str] = []
+
+    def fake_pages(_layer: str, cql_filter: str, *_args: object, **_kwargs: object) -> list[pl.DataFrame]:
+        filters.append(cql_filter)
+        return []
+
+    values._iter_value_pages = fake_pages  # noqa: SLF001
+    df = values._collect_station_parameter_or_dataset(UCCLE, dataset)  # noqa: SLF001
+    assert df.is_empty()
+    # bounds in UTC, both inclusive, and no period the GeoServer could reject as zero-length
+    assert filters == [f"code = {UCCLE} AND timestamp >= 2024-06-10T00:00:00Z AND timestamp <= 2024-06-10T00:00:00Z"]
+    assert "DURING" not in filters[0]
+
+
+@pytest.mark.remote
+def test_rmi_observation_values_start_equals_end() -> None:
+    """Start == end returns the stamp at that instant for every resolution instead of raising (GH-2823)."""
+    for resolution, hour in (("daily", 0), ("hourly", 12), ("10_minutes", 12)):
+        instant = dt.datetime(2024, 6, 10, hour, tzinfo=UTC)
+        request = rmi_api.RmiObservationRequest(
+            parameters=[(resolution, "data", "temperature_air_mean_2m")],
+            start=instant,
+            end=instant,
+        ).filter_by_station_id([UCCLE])
+        values = request.values.all().df
+        assert values.get_column("timestamp").unique().to_list() == [instant]
+
+
 @pytest.mark.remote
 def test_rmi_observation_stations() -> None:
     """Station discovery returns one row per station with usable metadata."""
