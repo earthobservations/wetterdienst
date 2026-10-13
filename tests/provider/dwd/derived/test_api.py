@@ -5,6 +5,7 @@
 import datetime
 from collections.abc import Collection
 from io import BytesIO
+from itertools import permutations
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -16,6 +17,7 @@ from wetterdienst import Options, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
+from wetterdienst.provider.dwd.derived import api as dwd_derived_api
 from wetterdienst.provider.dwd.derived.api import DwdDerivedValues
 from wetterdienst.util.network import File
 
@@ -1332,3 +1334,61 @@ def test_dwd_derived_monthly_values_are_stamped_at_the_first_of_their_month(
         df = values.all().df
     assert df.get_column("timestamp").to_list() == expected_months
     assert df.get_column("value").to_list() == [expected_values[month] for month in expected_months]
+
+
+# The two period files of one station that both carry 2024-05-05 08:00 and 09:00, in the layout DWD serves. The
+# frames are aligned on station, timestamp and quality before any value, so the recent file's quality (100) sorts
+# ahead of the historical one's (500) and a leftover sort would take the recent record; the historical one has a
+# `-999` at 09:00 where the recent file has a reading, which must not be quietly filled from the later period.
+_OVERLAPPING_PERIOD_FILES = {
+    "https://example.invalid/historical.txt": (
+        "STATIONS_ID;MESS_DATUM;QN_952;FG_DUETT;FG_UN_DUETT;eor\n"
+        "      18001;2024050508;  500;  103;   10;eor\n"
+        "      18001;2024050509;  500; -999;   10;eor\n"
+    ),
+    "https://example.invalid/recent.txt": (
+        "STATIONS_ID;MESS_DATUM;QN_952;FG_DUETT;FG_UN_DUETT;eor\n"
+        "      18001;2024050508;  100;    5;   10;eor\n"
+        "      18001;2024050509;  100;    7;   10;eor\n"
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    "periods",
+    list(permutations([Period.HISTORICAL, Period.RECENT])),
+    ids=lambda periods: "-".join(period.value for period in periods),
+)
+def test_dwd_derived_period_precedence_does_not_depend_on_the_order_of_the_periods(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    periods: tuple[Period, ...],
+) -> None:
+    """Where two periods report the same timestamp, the historical record wins, whatever order they are visited in.
+
+    The request keeps its periods in a set, whose iteration order varies from one interpreter run to the next, and
+    the values used to keep one row per timestamp in the order they had been read in (GH-2792).
+    """
+    monkeypatch.setattr(
+        dwd_derived_api,
+        "create_file_list_for_climate_derived",
+        lambda _station_id, _dataset, period, _settings: pl.Series([f"https://example.invalid/{period.value}.txt"]),
+    )
+    monkeypatch.setattr(
+        dwd_derived_api,
+        "download_climate_derived_data",
+        lambda files, _settings: [
+            File(url=url, content=BytesIO(_OVERLAPPING_PERIOD_FILES[url].encode("latin-1")), status=200)
+            for url in files
+        ],
+    )
+    request = DwdDerivedRequest(parameters=[("hourly", "radiation_global")], periods=periods, settings=default_settings)
+    # the order the periods are iterated in: a set takes the order of its hashes, a list the one it is given
+    request.periods = list(periods)
+    values = _values_of(request, station_id="18001")
+    given_df = values._collect_station_parameter_or_dataset("18001", DwdDerivedMetadata.hourly.radiation_global)  # noqa: SLF001
+    given_df = given_df.filter(pl.col("parameter") == "fg_duett").sort("timestamp")
+    # the historical 103 over the recent 5, and its null over the recent 7: `_tidy_up_df` keeps the flag of a
+    # reading that is a sentinel, with the text DWD wrote beside it
+    assert given_df.get_column("value").to_list() == [103.0, None]
+    assert given_df.get_column("quality_flags").to_list() == ["500", "500,raw:-999"]

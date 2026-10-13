@@ -51,6 +51,12 @@ qualified by a status means either that there was no snow cover in the month or 
 could not be determined; `k_m_d_format.txt` says so in as many words. It is common -- 96 of the 196
 rows of 2024 -- and is returned as 0 cm.
 
+IMGW stopped publishing two files in 2024: `k_d_t` of `daily/climate` with May 2024 and `s_d_t` of
+`daily/synop` with July 2024. They carried `cloud_cover_total`, `humidity_relative` and `wind_speed`
+(and, in synop, the vapour and air pressures and the day and night precipitation), and no other file
+does, so these have rows up to April and June 2024 respectively and none after; the temperatures,
+precipitation and snow depth, all in `k_d` and `s_d`, continue.
+
 ```{toctree}
 :hidden:
 
