@@ -1076,7 +1076,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "temperature_air", "rf_ter"): "2m relative humidity.",
         ("subdaily", "temperature_air", "tt_ter"): "2m air temperature.",
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
-        ("subdaily", "wind", "dk_ter"): "Wind direction. The source's 0 (a calm or variable wind) is null.",
+        ("subdaily", "wind", "dk_ter"): (
+            "Wind direction. The source gives the point of a 32-point wind rose (32 is north), returned in degrees. "
+            "The source's 0 (a calm or variable wind) is null."
+        ),
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
         (
             "subdaily",

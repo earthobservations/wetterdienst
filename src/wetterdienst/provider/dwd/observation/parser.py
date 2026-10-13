@@ -167,6 +167,17 @@ CALM_WIND_DIRECTION_PARAMETERS = (
     ),
 )
 
+# The subdaily wind direction is the point of a 32-point wind rose, not degrees (GH-2808; read 2026-10-13 in
+# terminwerte_FK_00096_akt.zip against stundenwerte_F_00096_akt.zip, the hourly wind_synop DD in degrees, at the same
+# hours: all 1799 pairs agree within 20 degrees once multiplied by 11.25): 24 beside DD 270 and 290, 20 beside 220
+# and 230, 16 beside 170 and 190, 8 beside 100. The points run 0 to 32 in steps of 11.25 degrees, 32 is north, 24
+# west, 16 south, 8 east. The 0 of a calm is null before this (see above), so every value left is a point from 1 to
+# 32, 32 giving 360 degrees.
+WIND_ROSE_DEGREES = 360 / 32
+WIND_ROSE_PARAMETERS = (
+    (DwdObservationMetadata.subdaily.wind, DwdObservationMetadata.subdaily.wind.wind_direction.name_original),
+)
+
 # the sentinels, as the files write them. -999 is the one every description documents, for every column; the others are
 # what the notes above found in the files of one dataset or a few of its columns
 _MISSING_VALUE = Sentinel("-999")
@@ -350,6 +361,12 @@ def _parse_climate_observations_data(  # noqa: C901
                 else Sentinel("0", where=pl.col(speed).cast(pl.Float64, strict=False).eq(0))
             )
             df = clear_sentinels(df, [parameter], calm)
+    # after the sentinels: a rose point is only turned into degrees where it is a value (GH-2808)
+    for rose_dataset, parameter in WIND_ROSE_PARAMETERS:
+        if dataset == rose_dataset and parameter in columns:
+            df = df.with_columns(
+                (pl.col(parameter).cast(pl.Float64, strict=False) * WIND_ROSE_DEGREES).cast(pl.String).alias(parameter)
+            )
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
             pl.struct("mess_datum", TRUE_LOCAL_TIME)

@@ -94,6 +94,10 @@ Types of changes:
   summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
   those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
   UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
+- `dwd/observation` `subdaily/wind` `wind_direction` (`DK_TER`) is in degrees. The file holds the
+  point of a 32-point wind rose (DWD: "32-teilige Windrose"), and 24 was returned as 24 degrees for
+  a west wind. A value is now multiplied by 11.25: 8 is 90 degrees, 16 is 180, 24 is 270, 32 is 360
+  (GH-2808)
 
 ## [0.147.0] - 2026-10-12
 
