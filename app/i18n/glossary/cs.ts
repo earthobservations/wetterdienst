@@ -618,6 +618,7 @@ export const parameters: Record<string, string> = {
 export const resolutions: Record<string, string> = {
   '1_minute': 'Každou minutu',
   '5_minutes': 'Každých 5 minut',
+  '6_minutes': 'Každých 6 minut',
   '10_minutes': 'Každých 10 minut',
   '15_minutes': 'Každých 15 minut',
   'hourly': 'Hodinově',
@@ -673,4 +674,15 @@ export const datasets: Record<string, string> = {
   climate: 'Klima',
   synop: 'SYNOP',
   data: 'Pozorování',
+  // Météo-France, Met Office, DWD urban climate
+  core: 'Základní parametry',
+  others: 'Ostatní parametry',
+  rain: 'Déšť',
+  radiation: 'Záření',
+  weather: 'Počasí',
+  temperature: 'Teplota',
+  soil_temperature: 'Teplota půdy',
+  urban_solar: 'Městské sluneční záření',
+  urban_temperature_extreme: 'Městské teplotní extrémy',
+  urban_wind_extreme: 'Městské nárazy větru',
 }

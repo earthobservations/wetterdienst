@@ -76,6 +76,56 @@ test.describe('the app can name what the backend serves', () => {
     expect(missing, 'unit types with no app label -- add settings.unit* to i18n/locales/*.json').toEqual([])
   })
 
+  // The resolutions and datasets of every network, by the networks that serve them. The coverage of
+  // a network is metadata the backend holds, so asking for all of them downloads nothing. A network
+  // without timeseries (radar, alerts) has none to answer with.
+  async function served(request: { get: (url: string, options?: object) => Promise<{ ok: () => boolean, json: () => Promise<unknown> }> }) {
+    const providers = await (await request.get(`${BACKEND_URL}/api/coverage`, SLOW)).json() as Record<string, Record<string, unknown>>
+    const resolutions = new Map<string, string[]>()
+    const datasets = new Map<string, string[]>()
+    for (const [provider, networks] of Object.entries(providers)) {
+      for (const network of Object.keys(networks)) {
+        const response = await request.get(`${BACKEND_URL}/api/coverage?provider=${provider}&network=${network}`, SLOW)
+        if (!response.ok())
+          continue
+        const coverage = await response.json() as Record<string, { datasets: Record<string, unknown> }>
+        for (const [resolution, { datasets: named }] of Object.entries(coverage)) {
+          resolutions.set(resolution, [...resolutions.get(resolution) ?? [], `${provider}/${network}`])
+          for (const dataset of Object.keys(named))
+            datasets.set(dataset, [...datasets.get(dataset) ?? [], `${provider}/${network}/${resolution}`])
+        }
+      }
+    }
+    return { resolutions, datasets }
+  }
+
+  test('every resolution has a label', async ({ request }) => {
+    const { resolutions } = await served(request)
+    expect(resolutions.size, 'no resolutions came back').toBeGreaterThan(0)
+    const labelled = glossaryKeys('resolutions')
+
+    const unlabelled = [...resolutions.keys()].filter(name => !labelled.has(name)).sort()
+    const stale = [...labelled].filter(name => !resolutions.has(name)).sort()
+    expect(unlabelled, 'resolutions with no app label -- add them to i18n/glossary/*.ts').toEqual([])
+    expect(stale, 'app labels for resolutions no network serves').toEqual([])
+  })
+
+  test('every dataset has a label', async ({ request }) => {
+    const { datasets } = await served(request)
+    expect(datasets.size, 'no datasets came back').toBeGreaterThan(0)
+    const labelled = glossaryKeys('datasets')
+
+    // the 110 phenology datasets are not labelled yet (GH-2866): they are named here as the one
+    // network left out, so that no other network's dataset goes unlabelled in the meantime
+    const unlabelled = [...datasets.entries()]
+      .filter(([name, sources]) => !labelled.has(name) && !sources.every(source => source.startsWith('dwd/phenology/')))
+      .map(([name]) => name)
+      .sort()
+    const stale = [...labelled].filter(name => !datasets.has(name)).sort()
+    expect(unlabelled, 'datasets with no app label -- add them to i18n/glossary/*.ts').toEqual([])
+    expect(stale, 'app labels for datasets no network serves').toEqual([])
+  })
+
   test('the home page lists every provider', async ({ request }) => {
     const response = await request.get(`${BACKEND_URL}/api/coverage`, SLOW)
     expect(response.ok(), 'the backend did not serve /api/coverage').toBeTruthy()

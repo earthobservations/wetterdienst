@@ -10,7 +10,8 @@ const Harness = defineComponent({
   setup() {
     const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
     const { settings, reset } = useSettings()
-    return { parameterLabel, resolutionLabel, datasetLabel, settings, reset }
+    const { locales, setLocale } = useI18n()
+    return { parameterLabel, resolutionLabel, datasetLabel, settings, reset, locales, setLocale }
   },
   render: () => h('div'),
 })
@@ -69,6 +70,31 @@ describe('useParameterLabel', () => {
     expect(wrapper.vm.parameterLabel('temperature_air_2m')).toBe('Air temperature (2 m)')
     expect(wrapper.vm.resolutionLabel('daily')).toBe('Daily')
     expect(wrapper.vm.datasetLabel('climate_summary')).toBe('Climate summary')
+  })
+
+  // The composable keeps a table of the glossaries of its own, beside the locales the app offers: a
+  // locale in one and not the other labelled everything in English (the lookup falls back to it),
+  // which no check of the glossaries alone can see (GH-2865)
+  it('has a glossary for every locale the app offers, and says what it says', async () => {
+    const modules = import.meta.glob<{ parameters: Record<string, string>, resolutions: Record<string, string>, datasets: Record<string, string> }>('../../../i18n/glossary/*.ts', { eager: true })
+    const glossaries = Object.fromEntries(Object.entries(modules).map(([path, glossary]) => [path.slice(path.lastIndexOf('/') + 1, -'.ts'.length), glossary]))
+    const wrapper = await mount()
+    const codes = wrapper.vm.locales.map(locale => typeof locale === 'string' ? locale : locale.code).sort()
+    expect(codes).toEqual(Object.keys(glossaries).sort())
+    try {
+      for (const code of codes) {
+        await wrapper.vm.setLocale(code)
+        await nextTick()
+        const glossary = glossaries[code]!
+        // a long id, the one the app showed prettified
+        expect(wrapper.vm.parameterLabel('wind_direction_last_10min'), code).toBe(glossary.parameters.wind_direction_last_10min)
+        expect(wrapper.vm.resolutionLabel('10_minutes'), code).toBe(glossary.resolutions['10_minutes'])
+        expect(wrapper.vm.datasetLabel('urban_wind'), code).toBe(glossary.datasets.urban_wind)
+      }
+    }
+    finally {
+      await wrapper.vm.setLocale('en')
+    }
   })
 
   it('prettifies unknown ids as a fallback', async () => {

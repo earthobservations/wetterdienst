@@ -5,9 +5,12 @@
  * `name`, resolution and dataset ids). `parameters` holds every canonical
  * parameter name and nothing else: tests/e2e/i18n-coverage.spec.ts compares it
  * with the backend's /api/glossary, and tests/unit/meteogram.test.ts relies on
- * it. Resolutions and datasets are a curated set; anything not listed falls
- * back to a prettified version of the raw id (see `useParameterLabel`). Keep
- * entries plain so non-experts understand them. Mirrors the keys in `de.ts`.
+ * it. Resolutions and datasets are held to the backend the same way, bar the
+ * dwd/phenology datasets (GH-2866); anything not listed falls back to a
+ * prettified version of the raw id (see `useParameterLabel`).
+ * tests/unit/glossary-translations.test.ts holds every locale to these keys
+ * and to being translated. Keep entries plain so non-experts understand them.
+ * Mirrors the keys in `de.ts`.
  */
 
 export const parameters: Record<string, string> = {
@@ -638,6 +641,7 @@ export const parameters: Record<string, string> = {
 export const resolutions: Record<string, string> = {
   '1_minute': 'Every minute',
   '5_minutes': 'Every 5 minutes',
+  '6_minutes': 'Every 6 minutes',
   '10_minutes': 'Every 10 minutes',
   '15_minutes': 'Every 15 minutes',
   'hourly': 'Hourly',
@@ -700,4 +704,15 @@ export const datasets: Record<string, string> = {
   synop: 'SYNOP',
   // Generic (NOAA, Geosphere, ECCC, …)
   data: 'Observations',
+  // Météo-France, Met Office, DWD urban climate
+  core: 'Core parameters',
+  others: 'Other parameters',
+  rain: 'Rain',
+  radiation: 'Radiation',
+  weather: 'Weather',
+  temperature: 'Temperature',
+  soil_temperature: 'Soil temperature',
+  urban_solar: 'Urban solar radiation',
+  urban_temperature_extreme: 'Urban temperature extremes',
+  urban_wind_extreme: 'Urban wind gusts',
 }

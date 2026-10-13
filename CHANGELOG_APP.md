@@ -31,6 +31,18 @@ Types of changes:
   row in the release following 0.146.0 in place of `quality`: against an older backend the numeric
   `quality` column moves to the end of the table (GH-2758)
 
+### Fixed
+
+- `[DataViewer]` The chart names its series, facets and their axes by the plain-language label of
+  the active language, as the table of statistics already did, where it showed the raw id (or the
+  prettified id for an unlabelled one): "Mittlere Windrichtung (letzte 10 min)", no longer
+  `wind_direction_last_10min`. The label format choice joins resolution, dataset and parameter
+  labels with " / ". The raw ids stay with "Plain-language labels" off (GH-2865)
+- `[Glossary]` `6_minutes` (Météo-France) and the datasets `core`, `others`, `rain`, `radiation`,
+  `weather`, `temperature`, `soil_temperature`, `urban_solar`, `urban_temperature_extreme` and
+  `urban_wind_extreme` have a label in all 11 languages, where the select showed their prettified
+  ids. The `dwd/phenology` datasets are still unlabelled (GH-2866) (GH-2865)
+
 ### Security
 
 - `[Build]` The `katex` advisory (low: prototype pollution) is resolved with 0.19.0 through a
