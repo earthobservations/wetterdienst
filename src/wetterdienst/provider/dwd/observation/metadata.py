@@ -1194,6 +1194,8 @@ DwdObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
+                            # the file holds the point of a 32-point wind rose (0 to 32, 11.25 degrees each); the
+                            # parser returns degrees (GH-2808)
                             "name": "wind_direction",
                             "name_original": "dk_ter",
                             "unit": "degree",

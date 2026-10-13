@@ -335,7 +335,7 @@ def _dwd_hourly_wind_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
 
 def _dwd_subdaily_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/terminwerte_FK_00001_19370101_19860630_hist.zip: "Terminwerte der Windrichtung (32-teilige Windrose)",
-    # whose 0 is a calm (Beaufort 0) and whose north is 32 (GH-2805, GH-2808)
+    # whose 0 is a calm (Beaufort 0) and whose north is 32 (GH-2805, GH-2808): 24 is a west wind, 270 degrees
     product = (
         "STATIONS_ID;MESS_DATUM;QN_4;DK_TER;FK_TER;eor\n"
         "          1;1937010107;    5;   0;   0;eor\n"
@@ -1088,8 +1088,8 @@ STUBS = [
     ValueStub(
         "dwd/observation subdaily/wind",
         _dwd_subdaily_wind,
-        # the Beaufort number, not the direction, whose unit is GH-2808
-        reading=("wind_force_beaufort", 3.0),
+        # 24 of the 32-point rose is a west wind, 270 degrees (GH-2808)
+        reading=("wind_direction", 270.0),
         sentinels=(("wind_direction", 0.0),),
         tokens=(("wind_direction", "0", None),),
     ),

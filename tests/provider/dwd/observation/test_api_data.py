@@ -3,6 +3,7 @@
 """Tests for DWD observation metadata."""
 
 import datetime as dt
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -11,6 +12,7 @@ from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
 from tests.conftest import IS_CI, IS_WINDOWS
+from tests.provider.value_stubs import stations_result
 from wetterdienst import Options, Resolution, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel
@@ -20,6 +22,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationRequest, Dwd
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
+from wetterdienst.util.network import File
 
 
 @pytest.fixture
@@ -920,6 +923,120 @@ def test_period_precedence_on_overlapping_timestamps(
     # `_tidy_up_df` drops the quality flags wherever the value is null, hence the None beside it
     assert given_df.get_column("value").to_list() == [9.9, None]
     assert given_df.get_column("quality_flags").to_list() == ["3", None]
+
+
+def _serve_historical_files(monkeypatch: pytest.MonkeyPatch, files: dict[str, str]) -> None:
+    """Serve the historical product files of one station, by the name of their zip, from the test."""
+    monkeypatch.setattr(DwdObservationValues, "_get_historical_date_ranges", lambda *_, **__: None)
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_, **__: pl.Series([f"https://example.invalid/{name}" for name in files]),
+    )
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "download_climate_observations_data",
+        lambda *_, **__: [
+            File(url=f"https://example.invalid/{name}", content=BytesIO(product.encode("latin-1")), status=200)
+            for name, product in files.items()
+        ],
+    )
+
+
+def _seam_values(resolution: str, dataset: str, parameter: str, station_id: str, settings: Settings) -> pl.DataFrame:
+    """Give the values of one parameter around the turn of the year 2000 of the files served."""
+    request = DwdObservationRequest(
+        parameters=[(resolution, dataset, parameter)],
+        periods={Period.HISTORICAL},
+        start=dt.datetime(1999, 12, 31, 20, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2000, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False),
+    )
+    return stations_result(request, resolution, dataset, station_id).values.all().df.sort("timestamp")
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_dwd_10_minutes_historical_files_meet_at_the_year_2000_without_loss(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, *, reverse: bool
+) -> None:
+    """Test that the UTC stamps 1999-12-31 23:00 to 23:50 of the 2000 file are not dropped as MEZ ones (GH-2815).
+
+    The file that ends in 1999 stamps in MEZ (last stamp 199912312350 = 22:50 UTC) and the one of 2000 in UTC,
+    beginning with 199912312300: both hold the same digits, which are not the same instants. Station 01048,
+    read 2026-10-13: -0.7 degC at 23:50 MEZ, -0.8 degC at 23:00 UTC.
+    """
+    before = (
+        "STATIONS_ID;MESS_DATUM;QN;PP_10;TT_10;TM5_10;RF_10;TD_10\n"
+        "       1048;199912312330;    1;  996.2;  -0.6;  -2.3;  92.0;  -1.8\n"
+        "       1048;199912312340;    1;  996.3;  -0.6;  -2.2;  92.0;  -1.8\n"
+        "       1048;199912312350;    1;  996.4;  -0.7;  -2.7;  92.0;  -1.8\n"
+    )
+    after = "STATIONS_ID;MESS_DATUM;  QN;PP_10;TT_10;TM5_10;RF_10;TD_10;eor\n" + "".join(
+        f"       1048;{stamp};    1;  996.4;  {value};  -1.4;  94.0;  -1.7;eor\n"
+        for stamp, value in [
+            ("199912312300", "-0.8"),
+            ("199912312310", "-0.8"),
+            ("199912312320", "-0.8"),
+            ("199912312330", "-0.8"),
+            ("199912312340", "-0.9"),
+            ("199912312350", "-0.9"),
+            ("200001010000", "-1.0"),
+        ]
+    )
+    files = {
+        "10minutenwerte_TU_01048_19911119_19991231_hist.zip": before,
+        "10minutenwerte_TU_01048_20000101_20091231_hist.zip": after,
+    }
+    if reverse:
+        files = dict(reversed(files.items()))
+    _serve_historical_files(monkeypatch, files)
+    df = _seam_values("10_minutes", "air_temperature", "temperature_air_2m", "01048", default_settings)
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime(1999, 12, 31, h, m, tzinfo=ZoneInfo("UTC")) for h, m in [(22, 30), (22, 40), (22, 50)]
+    ] + [dt.datetime(1999, 12, 31, 23, m, tzinfo=ZoneInfo("UTC")) for m in range(0, 60, 10)] + [
+        dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC"))
+    ]
+    assert df.get_column("value").to_list() == [-0.6, -0.6, -0.7, -0.8, -0.8, -0.8, -0.8, -0.9, -0.9, -1.0]
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_dwd_10_minutes_historical_wind_stamps_of_1999_file_beyond_midnight_are_mez(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, *, reverse: bool
+) -> None:
+    """Test that the stamps 2000-01-01 00:00 to 00:50 in the MEZ file of 1999 are told from the UTC ones (GH-2815).
+
+    The wind file of 1999 goes on into 2000 in MEZ (station 01048, read 2026-10-13: 200001010000 reads 2.4 m/s there
+    and 199912312300 in the 2000 file reads the same 2.4, that is the instant 23:00 UTC; the UTC 00:00 reads 3.4).
+    The year of the stamp took the former as UTC and had it compete with the latter for 00:00 UTC.
+    """
+    before = (
+        "STATIONS_ID;MESS_DATUM;  QN;FF_10;DD_10;eor\n"
+        "       1048;199912312350;    1;   2.7; 170;eor\n"
+        "       1048;200001010000;    1;   2.4; 170;eor\n"
+        "       1048;200001010010;    1;   2.5; 170;eor\n"
+    )
+    after = (
+        "STATIONS_ID;MESS_DATUM;  QN;FF_10;DD_10;eor\n"
+        "       1048;199912312300;    1;   2.4; 170;eor\n"
+        "       1048;199912312310;    1;   2.5; 170;eor\n"
+        "       1048;200001010000;    1;   3.4; 160;eor\n"
+    )
+    files = {
+        "10minutenwerte_wind_01048_19911122_19991231_hist.zip": before,
+        "10minutenwerte_wind_01048_20000101_20091231_hist.zip": after,
+    }
+    if reverse:
+        files = dict(reversed(files.items()))
+    _serve_historical_files(monkeypatch, files)
+    df = _seam_values("10_minutes", "wind", "wind_speed", "01048", default_settings)
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime(1999, 12, 31, 22, 50, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(1999, 12, 31, 23, 0, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(1999, 12, 31, 23, 10, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
+    ]
+    assert df.get_column("value").to_list() == [2.7, 2.4, 2.5, 3.4]
 
 
 @pytest.mark.remote
