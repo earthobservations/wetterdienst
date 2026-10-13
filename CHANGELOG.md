@@ -27,6 +27,17 @@ Types of changes:
   (`RadS3`) are ten times larger than before. DWD writes them in J/cm2, not the kJ/m2 of the MOSMIX
   element table that was assumed (142.09 in the file is 142.09 J/cm2, 1421 kJ/m2, not 14.2 J/cm2).
   Values stored from earlier versions are a tenth of the true ones: multiply them by 10 (GH-2821)
+- **Breaking**: `noaa/ghcn` hourly `snow_depth` is declared in millimeters, as GHCNh publishes it
+  ("depth of snowpack on the ground (millimeters)"), no longer in centimeters. The numbers in the
+  files are unchanged, but they were taken for centimeters, so values came back ten times too
+  large (Anchorage: 910 cm where the GHCN-daily `SNWD` gives 910 mm). With the default unit
+  targets the value is still in centimeters but a tenth of what it was (91.0 for 910 mm);
+  `unit_targets` for `length_short` picks another unit. Values you stored from before are ten
+  times too large in whatever unit they carry; divide them by 10 (GH-2848)
+- `meteofrance/synop` `wind_direction_last_10min` (`dd`) is null where the file writes 0, with
+  `raw:0` in `quality_flags`, no longer 0 degrees (north). 0 is the WMO code of a calm wind (all
+  3495 zeros of the 2024 file have `ff` 0) and north is 360. `wind_speed_last_10min` is unchanged
+  (GH-2856)
 
 ## [0.149.0] - 2026-10-13
 
