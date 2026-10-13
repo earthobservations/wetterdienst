@@ -1632,7 +1632,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity is calculated from air (dry bulb) temperature and dewpoint temperature (whole percent)"
         ),
         ("hourly", "data", "sea_level_pressure"): "Sea level pressure (hectopascals)",
-        ("hourly", "data", "snow_depth"): "depth of snowpack on the ground (centimeters/m)",
+        ("hourly", "data", "snow_depth"): "depth of snowpack on the ground (millimeters)",
         ("hourly", "data", "station_level_pressure"): "Station pressure (hectopascals)",
         ("hourly", "data", "temperature"): (
             "2 meter (circa) Above Ground Level Air (dry bulb) Temperature (⁰C to tenths)"
