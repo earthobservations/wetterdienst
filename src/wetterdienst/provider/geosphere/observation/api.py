@@ -15,7 +15,8 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.geosphere.observation.metadata import GeosphereObservationMetadata
@@ -25,7 +26,7 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -34,10 +35,21 @@ log = logging.getLogger(__name__)
 # rr: "..., -1=kein Niederschlag, 0=weniger als 1/10 mm" and sh_manu: "..., -1=kein Schnee". The 10-minute, hourly and
 # monthly datasets state no such code. -1 is no gap but a dry day or a day without snow, so it is 0.0 and not null:
 # a null would drop the day from a sum and leave the series with holes. The columns declared by the provider are
-# listed (rr_i and rr_iii carry the same code in the source and are not declared).
+# listed (rr_i and rr_iii carry the same code in the source and are not declared). The value keeps the code as the
+# `raw` token of its `quality_flags` (GH-2759), written as the source writes it: -1.0 in the columns of decimals
+# (rr and sh) and -1 in the integer ones (sh_manu and shneu_manu), checked on the live API for station 5904.
 _NONE_IS_MINUS_ONE = {
-    "klima-v2-1d": ("rr", "sh", "sh_manu", "shneu_manu"),
+    "klima-v2-1d": {"rr": "-1.0", "sh": "-1.0", "sh_manu": "-1", "shneu_manu": "-1"},
 }
+
+# The mean wind direction `dd` is "Windrichtung [360°]" (the API's description of the 10 minute and the hourly dataset)
+# and is written 0 for a calm wind (the array of a response is written with decimals, `0.0`, when it holds a gap, and
+# without, `0`, when it holds none): in the hourly dataset of 2024 for 25 stations spread over the list, and the 10
+# minute dataset of June 2024, 816 of 170,385 hours and 638 of 99,019 intervals have a direction of 0, **all** of them
+# with a wind speed `ff` of 0.0 (Aflenz, 2024-01-02 19:00: dd 0, ff 0.0), and 292 and 291 have 360. The direction of
+# the gust, `ddx`, has no 0 in 170,280 and 99,014 values (the same hour has ddx 358 and ffx 2.1). The 0 is no bearing,
+# so it is null (GH-2794).
+_CALM_WIND = Sentinel("0", where=pl.col("parameter") == "dd")
 
 # the year of the end date the station list gives to a station that still reports (2100-12-31)
 _OPEN_END_YEAR = 2100
@@ -60,7 +72,7 @@ def _time_windows(start: dt.datetime, end: dt.datetime, span: timedelta) -> Iter
         cursor += span
 
 
-class GeosphereObservationValues(TimeseriesValues):
+class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
     """Values class for geosphere observation data."""
 
     _endpoint = (
@@ -109,7 +121,7 @@ class GeosphereObservationValues(TimeseriesValues):
             timestamps = min(timestamps, self._window_timestamps[resolution])
         return timestamps * self._timesteps[resolution]
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -208,21 +220,20 @@ class GeosphereObservationValues(TimeseriesValues):
         )
         df = df.explode(["value", "timestamp"], empty_as_null=True)
         # before the unit conversion, which would take the -1 for an amount of one unit
-        none_coded = _NONE_IS_MINUS_ONE.get(dataset.name_original, ())
-        if none_coded:
-            df = df.with_columns(
-                pl.when(pl.col("parameter").is_in(none_coded) & (pl.col("value") == -1.0))
-                .then(pl.lit(0.0, dtype=pl.Float64))
-                .otherwise(pl.col("value"))
-                .alias("value"),
-            )
+        none_coded = [
+            Sentinel(text, where=pl.col("parameter") == parameter, to=0.0)
+            for parameter, text in _NONE_IS_MINUS_ONE.get(dataset.name_original, {}).items()
+        ]
+        value, raw = null_sentinels(pl.col("value"), *none_coded, _CALM_WIND, text=False)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
-            pl.col("value"),
+            value.alias("value"),
+            # the -1 the 0.0 was made from, as the source writes it
+            join_quality_flags(None, raw=raw),
         )
 
 

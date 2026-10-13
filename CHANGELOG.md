@@ -16,6 +16,105 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst about auth --provider=... --network=...` and the MCP tool `auth` check one
+  network's credentials, as `GET /api/auth` does and with the same answer: `valid` is `true`,
+  `false` (rejected, or not configured) or `null` when the probe (one attempt, given up after a
+  few seconds) could not tell. `coverage` does not probe, so this is the check from the command
+  line and from an MCP client. The command exits 0 whatever `valid` is; read the JSON (GH-2773)
+
+### Changed
+
+- `chmi/observation`: the monthly and annual values carry the files' `FLAG_INTERRUPTED` in
+  `quality_flags` (null before) as `interrupted:I`: the value is computed although daily values of
+  the period are missing. A filter on a null `quality_flags` as "no flag" no longer holds for these
+  rows. `FLAG_REPEAT` is carried as `repeat:*` too, but only `MAX`/`MIN` rows have it and none of
+  the parameters is one (GH-2763)
+- `Settings` no longer holds the 15 `ts_*` settings: they are gone from `model_fields`,
+  `model_dump()` (so `Settings(**s.model_dump())` carries none) and the repr, and a malformed
+  `WD_TS_*` is refused when `Options` is built, not by `Settings()`. `Settings(_env_file=...)` no
+  longer sets options: use `Options(_env_file=...)`. `SkipThreshold` is imported from
+  `wetterdienst.options`, where `resolve_options` and `options_from_settings` of 0.147.0 are gone;
+  `resolve_options` is in `wetterdienst.settings` (GH-2639)
+
+### Deprecated
+
+- `Settings(ts_shape=...)` and the other `ts_*` settings, reading or assigning `settings.ts_*`
+  (`ts_tidy` and the other derived members too), and a `settings={"ts_...": ...}` dict now warn
+  with a `DeprecationWarning` and are forwarded to the options of a request given no `options=`.
+  Use `options=Options(shape=...)` and read `request.options`. A request keeps the options it was
+  built with, and `options=` beside `ts_*` settings that differ from the environment's options is a
+  `ValueError`. `Settings.model_construct(ts_...)` is not forwarded. Assigning
+  `settings.ts_geo_station_distance` takes effect now (it was checked and then discarded). The
+  `WD_TS_*` variables stay and do not warn (GH-2639)
+
+### Fixed
+
+- `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
+  writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
+  came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+- `dwd/observation` wind direction: a 0 that DWD writes for a calm or variable wind is null, with
+  `raw:0` in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction
+  counted). Every 0 of `hourly/wind`, `hourly/wind_synoptic` (DWD: "windstill DD=00") and
+  `subdaily/wind`; in `10_minutes/wind` and `10_minutes/wind_extreme` only a 0 beside a wind speed
+  (a gust) of 0, as some stations write north as 0 there and a 0 beside a wind that blows stays
+  (GH-2805)
+- `dwd/derived` and `eccc/observation` values collect with the in-memory engine, as on polars 1,
+  not with the streaming engine polars 2 uses by default: it took 6 times as long for the hourly
+  radiation of one station and 4 times for 60 years of daily rows of one ECCC station, for the
+  same rows (GH-2781)
+- A wind direction of 0 that is no bearing (a calm wind) is null, with the source's text (`raw:0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `noaa/ghcn` hourly `wind_direction` (the documentation's "000"), `geosphere/observation`
+  `wind_direction` (`dd`) of the 10 minute and hourly data, and `dwd/poi`
+  `wind_direction_last_10min`, where the 0 is a calm or a variable wind (it comes with speeds up to
+  22 km/h). North is 360 in these sources. The gust direction of Geosphere has no 0 and is
+  unchanged (GH-2794)
+- A wind direction of 0 that means a calm wind is null, with the source's text (`raw:0`, `raw:0.0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `nws/observation` (METAR `00000KT`), `smhi/observation` (both directions), `fmi/observation`
+  `wd_10min`, and `dmi/observation` `mean_wind_dir` where the mean wind speed of the same hour,
+  day, month or year is 0. North is 360 in these sources. A DMI 0 beside a wind that blows stays
+  (GH-2794)
+- `GET /api/auth` and `GET /api/coverage?provider=...&network=...`, and so the MCP tools `auth`
+  and `coverage`, answer a network whose optional extra is not installed with the 501 the data
+  routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
+  The install line is in the server log (GH-2788)
+- `eccc/observation` daily `wind_gust_max` and `wind_direction_gust_max` are null, with `raw:0` in
+  `quality_flags`, where ECCC writes 0: the gust is not reported below 31 km/h, and a direction of 0
+  is no bearing (north is 36 tens of degrees). They were 0 m/s and 0 degrees on over a third of the
+  days with a gust value. Use the gust only where it is not null (GH-2615)
+- `eccc/observation` `start_timestamp` and `end_timestamp` of a station with hourly values were one
+  hour early when the station's first or last date fell in the daylight-saving season (Toronto Intl
+  A started 2013-06-11 13:00 UTC, not 14:00). The dates are Local Standard Time, so they are now
+  converted with the fixed offset of the `TIMEZONE` code (no more 17 min 32 s from the local mean
+  time of a station that began before 1895), and an unknown code raises (GH-2693)
+- `dwd/observation` 1-, 5- and 10-minute `historical` values: a request for the last hour (two in
+  summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
+  those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
+  UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
+
+## [0.147.0] - 2026-10-12
+
+### Added
+
+- polars 2 is supported: the dependency is now `polars[calamine]>=1.43.0,<3` (it was `<2`), so
+  wetterdienst installs next to packages that need polars 2. `dwd/observation` collects with the
+  in-memory engine, as on polars 1, not with the streaming engine polars 2 uses by default
+  (GH-2570)
+- `wetterdienst.Options`: the per-request options (`shape`, `humanize`, `convert_units`,
+  `unit_targets`, `skip_*`, `drop_nulls` and the `geo_*` distances), the request half of what
+  `Settings` holds as `ts_*`, as a frozen class of their own. They read the same `WD_TS_*`
+  variables and `.env`, so no host configuration changes; `replace(**changes)` makes a validated
+  copy. `Settings` is unchanged; `check_settings()` now checks them too (GH-2639)
+- Every timeseries request takes the keyword `options=` (an `Options`, or a dict naming some of
+  them), and `StationsResult.options` carries them to the values, `interpolate` and `summarize`.
+  Given none, a request takes the `ts_*` settings of its `Settings` as before, so nothing changes
+  for a caller who passes none -- except that assigning `settings.ts_*` after the request is built
+  no longer reaches it. Passing `options=` beside settings that carry a non-default `ts_*` raises
+  a `ValueError`: set the options in `options=` alone (GH-2639)
+
 ### Changed
 
 - **Breaking**: the `quality` number of every values frame is replaced by one nullable string
@@ -33,7 +132,7 @@ Types of changes:
 - **Breaking**: `metno/frost` and `aemet/observation` `is_valid()` is `False` only when the provider
   rejects the credential (HTTP 401/403, for AEMET also an `estado` of 401/403), `True` when it
   accepts it, and `None` when the probe could not tell (no network, a TLS failure, a timeout, a 429,
-  a 5xx), which used to read as `False`. `valid` in `/api/auth` and `/api/coverage` is `true`,
+  a 5xx), which used to read as `False`. `valid` in `/api/auth` is `true`,
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
@@ -43,6 +142,39 @@ Types of changes:
   with `WD_CACHE_DIR` pointing to it, and make a volume or host directory that root filled (the
   cache, a file `--target`) writable by uid 10001 once: `docker run --rm --user 0 -v <volume>:/c
   ghcr.io/earthobservations/wetterdienst chown -R 10001:10001 /c` (GH-2770)
+- The REST API and the MCP tools refuse a chart image with a side over 8192 px, `scale` (or the
+  stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
+  seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The
+  library and the CLI are not limited (GH-2765)
+- **Breaking**: `Wetterdienst.discover()`, `GET /api/coverage` (and the MCP `coverage` tool) and
+  `wetterdienst about coverage` download nothing, so they answer at once. `valid` is `null` for a
+  network whose credentials are configured, where it was `true` or `false` after a probe; it stays
+  `false` where they are missing. Ask `GET /api/auth` per network, or `Wetterdienst.is_valid(api)`,
+  whether they are accepted. That probe is one attempt that takes at most 5 s, and AEMET's probe
+  reads only the envelope: an `estado` of 200 is accepted, whatever follows. The app lists the
+  networks at once and hides one when `/api/auth` says its credentials are rejected (GH-2564)
+- The package ships `py.typed` (PEP 561): mypy and pyright now read the annotations of the public
+  API instead of taking all of it for `Any`, so code they passed before may report errors. For
+  that the annotations were made true: every provider package lists its classes in `__all__`
+  (strict mode refuses `from wetterdienst.provider.dwd.observation import DwdObservationRequest`
+  otherwise), `to_plot(**kwargs)` takes any values (it said `dict`), `discover()` is
+  `dict[str, Any]`, and `TimeseriesValues` is generic over the model a provider collects by (a bare
+  `TimeseriesValues` still means any). A request's `metadata`, `_values` and `_history` are class
+  variables, no longer in `dataclasses.fields()` (GH-2622)
+- **Breaking**: a `.env` file is read as UTF-8 on every Python, where the encoding was the locale's
+  (the ANSI code page on Windows) until Python 3.15 made UTF-8 the default. A `.env` saved in a
+  Windows code page with a non-ASCII value now raises `UnicodeDecodeError` on `Settings()`:
+  re-save it as UTF-8 (GH-2568)
+- A value a provider maps from a missing-value sentinel is no longer a null with no trace: the text
+  the source wrote is the last token of `quality_flags`, `raw:<text>` (`3,raw:-999`, `raw:-99.0`,
+  `raw:NaN`), for the `dwd` networks that read one, `aemet`, `fmi`, `geosphere`, `imgw/hydrology`,
+  `ipma`, `knmi`, `meteofrance`, `metoffice`, `metno/frost` and `noaa/ghcn` hourly. Where the source
+  documents the code (FMI's `-1.0`), the value is what it stands for (`0.0`) and the token stays.
+  The long frame drops null rows by default, so read the token with `ts_drop_nulls=False` or in the
+  wide shape, where a null `quality_flags` no longer means "no flag" for these rows.
+  `metoffice/observation` returns a day whose reports are all `NA` as a null row, and
+  `imgw/hydrology` nulls `9999` in the stage, `99999.999` in the discharge and `99.9`, `9999` in
+  the water temperature, no longer all three in every column (GH-2759)
 
 ### Removed
 
@@ -79,6 +211,8 @@ Types of changes:
   way); the CLI prints that line, and `/api/stations`, `/api/values`, `/api/interpolate` and
   `/api/summarize` answer 501 with the line in the server log, no longer a 500 with a traceback
   (GH-2545)
+- `noaa/ghcn` reads its daily station list and inventory over https, no longer plain http
+  (GH-2766)
 
 ## [0.146.0] - 2026-10-11
 
@@ -4544,7 +4678,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.147.0...HEAD
+[0.147.0]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...v0.147.0
 [0.146.0]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...v0.146.0
 [0.145.0]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...v0.145.0
 [0.144.0]: https://github.com/earthobservations/wetterdienst/compare/v0.143.0...v0.144.0

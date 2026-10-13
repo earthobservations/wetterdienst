@@ -23,6 +23,7 @@ from starlette.testclient import TestClient
 from wetterdienst import Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.options import Options
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
@@ -212,14 +213,14 @@ def test_glossary_limit(client: TestClient) -> None:
 
 
 def test_glossary_reports_unit_target_override() -> None:
-    """Test that the reported unit follows ts_unit_targets rather than the built-in default.
+    """Test that the reported unit follows the unit_targets option rather than the built-in default.
 
     Reporting degree_celsius while a values request hands back Fahrenheit would make the glossary
     actively misleading, which is worse than it not existing.
     """
     entries = get_glossary(
         parameter="temperature_air_mean_2m",
-        settings=Settings(ts_unit_targets={"temperature": "degree_fahrenheit"}),
+        options=Options(unit_targets={"temperature": "degree_fahrenheit"}),
     )
     assert entries
     assert {entry["unit"] for entry in entries if entry["unit_type"] == "temperature"} == {"degree_fahrenheit"}
@@ -1062,14 +1063,14 @@ def test_interpolate_dwd_image_pdf(client: TestClient) -> None:
     assert response.headers["Content-Type"] == "application/pdf"
 
 
-def test_geo_settings_radii_reach_the_settings() -> None:
-    """Test that the two radii given to an endpoint end up on the settings.
+def test_geo_settings_radii_reach_the_options() -> None:
+    """Test that the two radii given to an endpoint end up on the options.
 
     The per-parameter dict is layered on top of them, so a request may widen a whole kind and still
     treat one parameter differently.
     """
     from wetterdienst.ui.core import InterpolationRequest  # noqa: PLC0415
-    from wetterdienst.ui.restapi import _geo_settings  # noqa: PLC0415
+    from wetterdienst.ui.restapi import _geo_options  # noqa: PLC0415
 
     request = InterpolationRequest.model_validate(
         {
@@ -1082,11 +1083,11 @@ def test_geo_settings_radii_reach_the_settings() -> None:
             "interpolation_station_distance": {"precipitation_amount": 25.0},
         },
     )
-    settings = _geo_settings(request, request.model_fields_set, "interpolation")
-    assert settings.ts_geo_station_distance["temperature_air_mean_2m"] == 60.0
-    assert settings.ts_geo_station_distance["precipitation_amount"] == 25.0
+    options = _geo_options(request, request.model_fields_set, "interpolation")
+    assert options.geo_station_distance["temperature_air_mean_2m"] == 60.0
+    assert options.geo_station_distance["precipitation_amount"] == 25.0
     # the radius that was not given keeps its default rather than being reset
-    assert settings.ts_geo_station_distance["snow_depth_new"] == 20.0
+    assert options.geo_station_distance["snow_depth_new"] == 20.0
 
 
 def test_interpolate_negative_radius_rejected(client: TestClient) -> None:
@@ -2369,11 +2370,12 @@ def test_mcp_server_is_agent_friendly() -> None:
 
     tools, instructions = asyncio.run(_introspect())
     # data endpoints exposed under clean, agent-friendly names
-    assert {"coverage", "glossary", "stations", "values", "alerts"} <= tools
+    # (`auth` is the credential check, GH-2773)
+    assert {"auth", "coverage", "glossary", "stations", "values", "alerts"} <= tools
     # the ugly auto-generated names are gone
-    assert "values_api_values_get" not in tools
+    assert not tools & {"values_api_values_get", "auth_api_auth_get"}
     # non-data/noise endpoints are excluded
-    assert not tools & {"index", "health_health_get", "version_api_version_get", "auth_api_auth_get"}
+    assert not tools & {"index", "health_health_get", "version_api_version_get"}
     # a workflow instructions block is attached and describes the station -> values path
     assert instructions is not None
     assert "stations" in instructions
@@ -4384,7 +4386,7 @@ def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_caller
     """A malformed `WD_TS_UNIT_TARGETS` is the server's 500, without its value, not the caller's 400 (GH-2312).
 
     pydantic-settings merges the dict the environment sets into the one the request gives, so it
-    failed at `ts_unit_targets`, where a refusal of the caller's fails, and came back as their 400
+    failed at the `unit_targets` field, where a refusal of the caller's fails, and came back as their 400
     reading the server's value back.
     """
     from fastapi.testclient import TestClient  # noqa: PLC0415
@@ -4460,10 +4462,10 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
     assert "deprecated" not in field
 
-    taken: list[Settings] = []
+    taken: list[Options] = []
 
-    def take(*, settings: Settings, **_kwargs: object) -> None:
-        taken.append(settings)
+    def take(*, options: Options, **_kwargs: object) -> None:
+        taken.append(options)
         msg = "taken"
         raise ValueError(msg)
 
@@ -4488,7 +4490,7 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     assert [response.status_code for response in responses] == [500, 500]
     # the warnings only: the stub's failures are logged with their tracebacks as errors
     assert not [record for record in caplog.records if record.levelno == logging.WARNING]
-    assert [settings.ts_geo_use_nearby_station_distance for settings in taken] == [3.0, 3.0, 0.5]
+    assert [options.geo_use_nearby_station_distance for options in taken] == [3.0, 3.0, 0.5]
 
 
 @pytest.fixture
@@ -4510,20 +4512,20 @@ _FETCH_OF_ENDPOINT = {
 }
 
 
-def _settings_of(monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, str]) -> Settings:
-    """Answer a request up to its fetch, and return the settings it would fetch with."""
-    taken: list[Settings] = []
+def _settings_of(monkeypatch: pytest.MonkeyPatch, endpoint: str, params: dict[str, str]) -> Options:
+    """Answer a request up to its fetch, and return the options it would fetch with."""
+    taken: list[Options] = []
 
-    def take(*, settings: Settings, **_kwargs: object) -> None:
-        taken.append(settings)
+    def take(*, options: Options, **_kwargs: object) -> None:
+        taken.append(options)
         raise RuntimeError
 
     monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], take)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     response = client.get(endpoint, params=params)
     assert response.status_code == 500, response.text
-    (settings,) = taken
-    return settings
+    (options,) = taken
+    return options
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -4548,17 +4550,17 @@ def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeyp
         monkeypatch.setenv(name, value)
     params = {**_OBSERVATION, "station": "01048"}
 
-    settings = _settings_of(monkeypatch, "/api/values", params)
-    assert settings.ts_shape == "wide"
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
-    assert settings.ts_skip_empty is True
-    assert settings.ts_skip_criteria == "max"
-    assert settings.ts_skip_threshold == 0.5
-    assert settings.ts_drop_nulls is False
+    options = _settings_of(monkeypatch, "/api/values", params)
+    assert options.shape == "wide"
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.unit_targets == {"temperature": "degree_fahrenheit"}
+    assert options.skip_empty is True
+    assert options.skip_criteria == "max"
+    assert options.skip_threshold == 0.5
+    assert options.drop_nulls is False
 
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch,
         "/api/values",
         {
@@ -4572,13 +4574,13 @@ def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeyp
             "drop_nulls": "true",
         },
     )
-    assert settings.ts_shape == "long"
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_skip_empty is False
-    assert settings.ts_skip_criteria == "min"
-    assert settings.ts_skip_threshold == 0.95
-    assert settings.ts_drop_nulls is True
+    assert options.shape == "long"
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.skip_empty is False
+    assert options.skip_criteria == "min"
+    assert options.skip_threshold == 0.95
+    assert options.drop_nulls is True
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -4605,16 +4607,16 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
         monkeypatch.setenv(name, value)
     params = {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}
 
-    settings = _settings_of(monkeypatch, endpoint, params)
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_geo_station_distance_homogeneous == 60
-    assert settings.ts_geo_station_distance_heterogeneous == 15
-    assert settings.ts_geo_use_nearby_station_distance == 0
-    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
-    assert settings.ts_geo_num_additional_stations == 5
+    options = _settings_of(monkeypatch, endpoint, params)
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.geo_station_distance_homogeneous == 60
+    assert options.geo_station_distance_heterogeneous == 15
+    assert options.geo_use_nearby_station_distance == 0
+    assert options.geo_min_gain_of_value_pairs == 0.5
+    assert options.geo_num_additional_stations == 5
 
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch,
         endpoint,
         {
@@ -4628,14 +4630,14 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
             "num_additional_stations": "3",
         },
     )
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_geo_station_distance_homogeneous == 40
-    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.geo_station_distance_homogeneous == 40
+    assert options.geo_station_distance_heterogeneous == 20
     # a summary does not pass it on, as it reads none (GH-2333): the server's stays
-    assert settings.ts_geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
-    assert settings.ts_geo_min_gain_of_value_pairs == 0.1
-    assert settings.ts_geo_num_additional_stations == 3
+    assert options.geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
+    assert options.geo_min_gain_of_value_pairs == 0.1
+    assert options.geo_num_additional_stations == 3
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -4661,7 +4663,7 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
                 "timestamp": "2020-06-30",
                 "interpolation_station_distance": '{"temperature_air_mean": 10}',
             },
-            "Invalid value for 'interpolation_station_distance': Invalid parameters in ts_geo_station_distance: "
+            "Invalid value for 'interpolation_station_distance': Invalid parameters in geo_station_distance: "
             "['temperature_air_mean'] not in the canonical parameters (got {\"temperature_air_mean\": 10.0})",
             id="interpolate-station-distance",
         ),
@@ -4996,8 +4998,8 @@ def test_settings_reports_the_servers_wd_ts_variables(client: TestClient, monkey
         assert settings["station_distance_resolution_factors"]["hourly"] == 1.0
 
 
-def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: str | None = None) -> list[Settings]:
-    """Answer `endpoint` with a result of one row, and return the settings it is fetched with, once it is."""
+def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: str | None = None) -> list[Options]:
+    """Answer `endpoint` with a result of one row, and return the options it is fetched with, once it is."""
     import datetime as dt  # noqa: PLC0415
 
     import polars as pl  # noqa: PLC0415
@@ -5026,10 +5028,10 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
     else:
         df = pl.DataFrame([{**row, "distance": 5.0, "taken_station_id": "01048"}])
         result = SummarizedValuesResult(stations=values.stations, df=df, latlon=(51.1, 13.8))
-    taken: list[Settings] = []
+    taken: list[Options] = []
 
-    def fetch(*, settings: Settings, **_kwargs: object) -> object:
-        taken.append(settings)
+    def fetch(*, options: Options, **_kwargs: object) -> object:
+        taken.append(options)
         return result
 
     monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], fetch)
@@ -5071,8 +5073,8 @@ def test_data_endpoints_report_the_settings_they_used(
     assert payload["settings"] == {**defaults, "humanize": False}
     assert payload["settings"]["convert_units"] is False
     assert payload["settings"]["unit_targets"]["temperature"] == "degree_fahrenheit"
-    (settings,) = taken
-    assert settings.ts_humanize is False
+    (options,) = taken
+    assert options.humanize is False
     schema_name = {
         ("/api/values", "json"): "_ValuesWithSettingsDict",
         ("/api/values", "geojson"): "_ValuesWithSettingsOgcFeatureCollection",
@@ -5230,7 +5232,7 @@ def test_each_reported_setting_is_a_field_of_the_request_but_the_servers_own(
     requested = set(getattr(core, request_model).model_fields)
     assert reported - requested == server_only
     # each read off the setting its alias names
-    assert {field.validation_alias for field in model.model_fields.values()} <= Settings.model_fields.keys()
+    assert {field.validation_alias for field in model.model_fields.values()} <= Options.model_fields.keys()
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -5248,7 +5250,7 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
     escaping of a station's name included, stays the one `to_json` or `to_geojson` writes.
     """
     _stub_result(monkeypatch, endpoint, station_name="Görlitz")
-    result = getattr(restapi, _FETCH_OF_ENDPOINT[endpoint])(settings=Settings())
+    result = getattr(restapi, _FETCH_OF_ENDPOINT[endpoint])(settings=Settings(), options=Options())
     params = {
         **_OBSERVATION,
         "station": "01048",
@@ -5285,8 +5287,8 @@ def test_settings_and_a_values_request_leaving_the_shape_out_agree_under_a_wide_
     params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
     applied = client.get("/api/values", params=params).json()["settings"]
 
-    (settings,) = taken
-    assert settings.ts_drop_nulls_effective is False
+    (options,) = taken
+    assert options.drop_nulls_effective is False
     assert applied["drop_nulls"] is False
     assert reported["drop_nulls"] is False
     assert reported == applied
@@ -5302,7 +5304,7 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
     """The estimating endpoints report the `drop_nulls` their stations' values are read with (GH-2359).
 
     They read the values in the long shape whatever the server's (`_for_estimating`), on a copy of
-    the settings that takes the `drop_nulls` in effect, which the server's wide shape turns off.
+    the options that takes the `drop_nulls` in effect, which the server's wide shape turns off.
     """
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
@@ -5311,11 +5313,11 @@ def test_geo_settings_report_the_drop_nulls_the_estimate_reads_with(
     params = {**_OBSERVATION, "station": "01048", "timestamp": "2026-01-01", "with_metadata": "true"}
     reported = client.get(endpoint, params=params).json()["settings"]["drop_nulls"]
 
-    (settings,) = taken
-    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], settings=settings)
-    read_with = request._for_estimating().settings  # noqa: SLF001
-    assert read_with.ts_shape == "long"
-    assert read_with.ts_drop_nulls is reported
+    (options,) = taken
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary")], options=options)
+    read_with = request._for_estimating().options  # noqa: SLF001
+    assert read_with.shape == "long"
+    assert read_with.drop_nulls is reported
 
 
 def test_with_metadata_names_the_settings_block_where_it_comes() -> None:
@@ -5382,16 +5384,16 @@ def test_an_infinite_radius_is_reported_as_valid_json(
     jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
 
 
-@pytest.mark.parametrize(("field", "setting"), [("shape", "ts_shape"), ("skip_criteria", "ts_skip_criteria")])
-def test_reported_choices_are_the_settings_choices(field: str, setting: str) -> None:
-    """A setting reported as one of a set of choices offers the choices `Settings` takes (GH-2359).
+@pytest.mark.parametrize(("field", "option"), [("shape", "shape"), ("skip_criteria", "skip_criteria")])
+def test_reported_choices_are_the_settings_choices(field: str, option: str) -> None:
+    """A setting reported as one of a set of choices offers the choices `Options` takes (GH-2359).
 
-    One `Settings` takes and the report does not would fail every report built with it.
+    One `Options` takes and the report does not would fail every report built with it.
     """
     from typing import get_args  # noqa: PLC0415
 
     reported = set(get_args(restapi.ValuesSettings.model_fields[field].annotation))
-    assert reported == set(get_args(Settings.model_fields[setting].annotation))
+    assert reported == set(get_args(Options.model_fields[option].annotation))
 
 
 @pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
@@ -5672,12 +5674,12 @@ def test_settings_without_parameters_reports_the_servers(client: TestClient, mon
     """With no parameters, `/api/settings` reports the server's settings, as it did before it took any (GH-2383)."""
     for name, setting in _SETTINGS_SERVER.items():
         monkeypatch.setenv(name, setting)
-    settings = Settings()
+    options = Options()
 
     reported = client.get("/api/settings").json()
 
     assert reported == {
-        endpoint: json.loads(restapi._applied_settings(model, settings).model_dump_json())  # noqa: SLF001
+        endpoint: json.loads(restapi._applied_settings(model, options).model_dump_json())  # noqa: SLF001
         for endpoint, model in (
             ("values", restapi.ValuesSettings),
             ("interpolate", restapi.InterpolationSettings),
@@ -5706,21 +5708,24 @@ def test_settings_with_parameters_reports_no_credential_or_cache_setting(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_settings_without_parameters_builds_the_settings_once(
+def test_settings_without_parameters_builds_the_options_once(
     client: TestClient,
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With no parameters, `/api/settings` builds the server's settings once, logging the cache once (GH-2383).
+    """With no parameters, `/api/settings` builds the server's options once, noting the wide shape once (GH-2383).
 
     No parameter applies to any endpoint, so each reports the server's, read once rather than twice
-    per endpoint.
+    per endpoint. A wide shape is what makes a build say so: the options, as they are built, note that
+    `drop_nulls` is then ignored.
     """
-    caplog.set_level(logging.INFO, logger="wetterdienst.settings")
+    monkeypatch.setenv("WD_TS_SHAPE", "wide")
+    caplog.set_level(logging.INFO, logger="wetterdienst.options")
 
     response = client.get("/api/settings")
 
     assert response.status_code == 200, response.text
-    assert sum(record.getMessage().startswith("Wetterdienst cache is") for record in caplog.records) == 1
+    assert sum("is only available with option 'shape=long'" in record.getMessage() for record in caplog.records) == 1
 
 
 # server variables setting each settings parameter the schema gives a default for, and some it gives
@@ -7070,7 +7075,6 @@ def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monke
 
 def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
-    # discover() probes the providers whose credentials are configured, which reaches upstream
     monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
     compact = client.get("/api/coverage")
     pretty = client.get("/api/coverage", params={"pretty": "true"})
@@ -7417,22 +7421,176 @@ def test_coverage_and_auth_survive_a_malformed_credential(client: TestClient, mo
 def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550)."""
+    """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550).
+
+    Only `/api/auth` probes. `/api/coverage` leaves `valid` null for a configured network whatever
+    the provider would say, and never asks it (GH-2564).
+    """
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
     answer = {"status": 500, "content": OSError("certificate verify failed")}
-    monkeypatch.setattr(
-        "wetterdienst.provider.metno.frost.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=answer["content"], status=answer["status"]),
-    )
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=answer["content"], status=answer["status"])
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
     expected = {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": None}
     params = {"provider": "metno", "network": "frost"}
     assert client.get("/api/auth", params=params).json() == expected
+    assert len(asked) == 1
     assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
     answer.update(status=401, content=Exception("401, message='Unauthorized'"))
     assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
-    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is False
+    assert len(asked) == 2
+    # the listing neither asks nor learns: a rejected client ID is told by `/api/auth` only
+    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
+    assert len(asked) == 2
+
+
+def _call_mcp_auth(arguments: dict[str, str]) -> dict[str, object]:
+    """Call the MCP `auth` tool and return its structured answer."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def _call() -> dict[str, object]:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool("auth", arguments)
+        return result.structured_content
+
+    return asyncio.run(_call())
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("content", "status", "valid"),
+    [
+        pytest.param(io.BytesIO(b"{}"), 200, True, id="accepted"),
+        pytest.param(Exception("401, message='Unauthorized'"), 401, False, id="rejected"),
+        pytest.param(OSError("certificate verify failed"), 500, None, id="could-not-tell"),
+    ],
+)
+def test_mcp_auth_tool_answers_as_the_route_does(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, content: object, status: int, *, valid: bool | None
+) -> None:
+    """The MCP `auth` tool is `/api/auth`: true, false or null, and the probe asked once per call (GH-2773)."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=content, status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
+    arguments = {"provider": "metno", "network": "frost"}
+    expected = {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": valid}
+
+    assert _call_mcp_auth(arguments) == expected
+    assert len(asked) == 1
+    assert client.get("/api/auth", params=arguments).json() == expected
+    assert len(asked) == 2
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_auth_tool_without_a_credential_is_not_valid() -> None:
+    """A network whose credentials are not configured is `configured: false` and `valid: false` (GH-2773)."""
+    assert _call_mcp_auth({"provider": "knmi", "network": "observation"}) == {
+        "provider": "knmi",
+        "network": "observation",
+        "auth": True,
+        "configured": False,
+        "valid": False,
+    }
+
+
+def test_mcp_auth_tool_refuses_an_unknown_network_as_the_route_does() -> None:
+    """An unknown provider or network is the route's 404, pointing at `coverage` (GH-2773)."""
+    pytest.importorskip("fastmcp")
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    with pytest.raises(ToolError, match=r"/api/coverage"):
+        _call_mcp_auth({"provider": "nonexistent", "network": "fake"})
+
+
+_MISSING_EXTRA = (
+    "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+)
+
+
+def _stub_a_network_whose_extra_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make `Wetterdienst.resolve` raise what it raises for a network whose optional extra is not installed."""
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    def resolve(*_args: object) -> None:
+        raise MissingDependencyError(_MISSING_EXTRA)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", resolve)
+
+
+_LISTED_NETWORK_ROUTES = [
+    pytest.param("auth", {"provider": "knmi", "network": "observation"}, id="auth"),
+    pytest.param("coverage", {"provider": "knmi", "network": "observation"}, id="coverage"),
+]
+
+
+@pytest.mark.parametrize(("route", "params"), _LISTED_NETWORK_ROUTES)
+def test_a_network_whose_extra_is_missing_is_a_501_on_auth_and_coverage(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    route: str,
+    params: dict[str, str],
+) -> None:
+    """A listed network whose extra is not installed is the data routes' 501, not an unknown network's 404 (GH-2788).
+
+    `MissingDependencyError` is an `ImportError`, which both routes answered with "Choose provider and
+    network from /api/coverage" -- for a network that coverage lists. The install line goes to the
+    log, as for the data routes, and the body does not carry it.
+    """
+    _stub_a_network_whose_extra_is_missing(monkeypatch)
+    with caplog.at_level(logging.ERROR):
+        response = client.get(f"/api/{route}", params=params)
+
+    assert response.status_code == 501, response.text
+    detail = response.json()["detail"]
+    assert "optional dependency" in detail
+    assert "pip install" not in detail
+    assert "Choose provider and network" not in detail
+    assert "pip install wetterdienst[knmi]" in caplog.text
+
+
+@pytest.mark.parametrize(("route", "params"), _LISTED_NETWORK_ROUTES)
+def test_mcp_tool_for_a_network_whose_extra_is_missing_says_what_the_route_says(
+    monkeypatch: pytest.MonkeyPatch, route: str, params: dict[str, str]
+) -> None:
+    """The MCP `auth` and `coverage` tools are the routes, and answer a missing extra as the 501 they do (GH-2788)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_a_network_whose_extra_is_missing(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as mcp_client:
+            await mcp_client.call_tool(route, params)
+
+    with pytest.raises(ToolError, match="HTTP error 501") as error:
+        asyncio.run(_call())
+    assert "optional dependency" in str(error.value)
+    assert "Choose provider and network" not in str(error.value)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -7574,7 +7732,7 @@ def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
 def test_coverage_of_every_provider_matches_its_model(client: TestClient) -> None:
     """The list of every provider and its networks validates, and is sent as `discover()` builds it (GH-2090).
 
-    With no credential set, no credentialed provider is probed, so nothing reaches upstream.
+    The listing probes no provider, so nothing reaches upstream whatever credentials are set.
     """
     response = client.get("/api/coverage")
     assert response.status_code == 200
@@ -7821,7 +7979,6 @@ def test_a_missing_credential_is_a_501_that_does_not_name_the_setting(
     assert f"for {provider}/{network}" in detail
     assert "WD_AUTH" not in detail
     assert "Settings(" not in detail
-    # a route the MCP tools have too, which `/api/auth` is not
     assert "/api/coverage" in detail
     assert setting in caplog.text
 
@@ -7856,3 +8013,225 @@ def test_mcp_tool_without_a_credential_is_refused_without_naming_the_setting() -
     message = asyncio.run(_call())
     assert "no credential for knmi/observation" in message
     assert "WD_AUTH" not in message
+
+
+# each REST endpoint rendering a chart to an image, with the rest of a request it would serve
+_IMAGE_ROUTES = [
+    ("stations", {"all": "true"}),
+    ("values", {"station": "01048"}),
+    ("interpolate", {"station": "01048", "timestamp": "2020-06-30"}),
+    ("summarize", {"station": "01048", "timestamp": "2020-06-30"}),
+]
+
+
+def _unreached(*_args: object, **_kwargs: object) -> None:
+    """Stand in for what a request refused for the size of its image must not reach."""
+    msg = "a request refused for the size of its image went on"
+    raise AssertionError(msg)
+
+
+def _image_params(query: dict[str, object], **given: object) -> dict[str, object]:
+    return {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        **query,
+        **given,
+    }
+
+
+def test_image_routes_cover_every_route_rendering_an_image() -> None:
+    """Every route offering `width`, `height` and `scale` is in the size limit's tests, so none slips by."""
+    offered = {
+        path.removeprefix("/api/")
+        for path, operations in restapi.app.openapi()["paths"].items()
+        for operation in operations.values()
+        if {"width", "height", "scale"} <= {parameter["name"] for parameter in operation.get("parameters", [])}
+    }
+    assert offered == {endpoint for endpoint, _ in _IMAGE_ROUTES}
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        {"width": 100_000},
+        {"height": 8_193},
+        {"width": 1_000, "height": 1_000, "scale": 9},
+        # no size at all, scaled: plotly's 700 x 500 times 12 is 8400 x 6000
+        {"scale": 12},
+    ],
+    ids=["width", "height", "scaled", "default-size-scaled"],
+)
+@pytest.mark.parametrize(("endpoint", "query"), _IMAGE_ROUTES, ids=[endpoint for endpoint, _ in _IMAGE_ROUTES])
+def test_oversized_image_is_refused_before_anything_is_fetched(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    query: dict[str, str],
+    size: dict[str, int],
+) -> None:
+    """An image with a side over 8192 px is refused with a 400 that names the limit, before the provider is reached."""
+    monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        f"/api/{endpoint}", params=_image_params(query, format="png", **size)
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "renders no side longer than 8192 px" in detail
+    assert "Lower width, height or scale" in detail
+
+
+@pytest.mark.parametrize("fmt", ["png", "jpg", "webp", "svg", "pdf"])
+def test_oversized_image_is_refused_in_every_image_format(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """Each format the browser renders is measured."""
+    monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations", params=_image_params({"all": "true"}, format=fmt, width=100_000)
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv", "html"])
+def test_size_is_not_measured_where_no_image_is_rendered(fmt: str) -> None:
+    """A format that is not rendered to an image has no size: the request goes on, here to a network not served."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations", params=_image_params({"all": "true"}, network="nowhere", format=fmt, width=100_000)
+    )
+    assert response.status_code == 404
+    assert "No API available" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        {},
+        {"width": 8_192, "height": 8_192},
+        {"width": 1_000, "height": 1_000, "scale": 8},
+        {"scale": 11},
+    ],
+    ids=["default", "at-the-limit", "scaled", "default-size-scaled"],
+)
+def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) -> None:
+    """An image up to 8192 px on a side is not refused: the request goes on, here to a network not served."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations", params=_image_params({"all": "true"}, network="nowhere", format="png", **size)
+    )
+    assert response.status_code == 404
+    assert "No API available" in response.json()["detail"]
+
+
+def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
+    monkeypatch.setattr(restapi, "_plot_stripes", _unreached)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+    params = {"kind": "temperature", "station": "01048"}
+
+    response = client.get("/api/stripes/image", params={**params, "dpi": 100_000})
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "renders no side longer than 8192 px" in detail
+    assert "Lower dpi" in detail
+
+    # 1170 dpi is 8190 px wide, 1171 is 8197: the first is not refused, so it reaches the stub
+    assert client.get("/api/stripes/image", params={**params, "dpi": 1_171}).status_code == 400
+    assert client.get("/api/stripes/image", params={**params, "dpi": 1_170}).status_code == 500
+
+
+def test_mcp_oversized_image_is_refused() -> None:
+    """The MCP tools are the REST API's routes, and refuse an image it refuses."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("stations", _image_params({"all": True}, format="png", width=100_000))
+
+    with pytest.raises(ToolError, match="renders no side longer than 8192 px"):
+        asyncio.run(_call())
+
+
+@pytest.mark.usefixtures("stubbed_values")
+def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A chart is 300 px tall for each parameter, which the request cannot know: it is measured once drawn.
+
+    Three parameters make the chart 900 px tall, so a `scale` of 10 passes the check of the request
+    (7000 x 5000) and not that of the figure (7000 x 9000). The refusal comes before the browser is
+    started, which `to_image` is stubbed to fail on.
+    """
+    monkeypatch.setattr("plotly.graph_objects.Figure.to_image", _unreached)
+    response = client.get(
+        "/api/values",
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount,daily/more_precip/snow_depth",
+            "station": "00002,00001",
+            "format": "png",
+            "scale": 10,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "The image would be 7000 x 9000 px, and this server renders no side longer than 8192 px. "
+        "Lower scale, give a smaller height, or ask for fewer parameters."
+    )
+
+
+def test_check_image_size_measures_the_figure_then_the_default() -> None:
+    """The caller's size wins over the figure's, which wins over plotly's 700 x 500; no limit, no check."""
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    from wetterdienst.exceptions import ImageTooLargeError  # noqa: PLC0415
+    from wetterdienst.io.export import check_image_size  # noqa: PLC0415
+
+    figure = go.Figure(layout={"height": 9_000})
+    with pytest.raises(ImageTooLargeError, match=r"7000 x 90000 px.*no side longer than 8192 px"):
+        check_image_size(figure, None, None, 10, 8_192)
+    # the caller's height replaces the figure's
+    check_image_size(figure, None, 800, 10, 8_192)
+    # a figure of its own size is measured at plotly's default without it
+    check_image_size(go.Figure(), None, None, 11, 8_192)
+    with pytest.raises(ImageTooLargeError):
+        check_image_size(go.Figure(), None, None, 12, 8_192)
+    # the library and the CLI set no limit
+    check_image_size(figure, 100_000, 100_000, 100, None)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str
+) -> None:
+    """Each endpoint hands the limit to the chart it draws: a chart 900 px tall is refused at `scale=10`."""
+    import plotly.graph_objects as go  # noqa: PLC0415
+
+    from wetterdienst.model.result import (  # noqa: PLC0415
+        InterpolatedValuesResult,
+        SummarizedValuesResult,
+        ValuesResult,
+    )
+
+    _stub_result(monkeypatch, endpoint)
+    for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: go.Figure(layout={"height": 900}))
+    monkeypatch.setattr(go.Figure, "to_image", _unreached)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            "station": "01048",
+            "timestamp": "2020-06-30",
+            "format": "png",
+            "scale": 10,
+        },
+    )
+    assert response.status_code == 400, response.text
+    assert "The image would be 7000 x 9000 px" in response.json()["detail"]

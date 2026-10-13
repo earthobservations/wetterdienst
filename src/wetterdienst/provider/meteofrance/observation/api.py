@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
@@ -611,7 +611,7 @@ _CLIMATE_SCHEMAS = {
 
 # hourly `N` (octas) is 9 when the sky could not be seen, "9=ciel invisible par brouillard et/ou autre phénomène
 # météorologique" in the field descriptions of the dataset: no amount, where the unit conversion would make 1.125 of it
-_HOURLY_SKY_INVISIBLE = 9.0
+_HOURLY_SKY_INVISIBLE = "9"
 
 # The wind directions are "en rose de 360", north being 360, and the files audited (GH-2720) write 0 where there is no
 # direction: next to FF = 0 in 99.97 % of the 11.2 million zeros of DD, next to FXY = 0 in 99.9 % of those of DXY and
@@ -619,7 +619,7 @@ _HOURLY_SKY_INVISIBLE = 9.0
 # "variable", in six hourly DD of 1965 to 1967 (Kerguelen, Nouvelle-Amsterdam). Neither is a direction.
 _HOURLY_WIND_DIRECTIONS = ("DD", "DXY")
 _DAILY_WIND_DIRECTIONS = ("DXI",)
-_NO_WIND_DIRECTION = (0.0, 999.0)
+_NO_WIND_DIRECTION = ("0", "999")
 
 
 def _department_from_station_id(station_id: str) -> str:
@@ -939,6 +939,10 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("value").struct.field("quality_flags"),
             pl.col("value").struct.field("value"),
         )
+        # the codes the source writes in place of a number become null before the unit conversion (GH-2687, GH-2720),
+        # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
+        # alone (the files hold none: GH-2719) and now keeps its text too
+        value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name), non_numeric=True)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -948,28 +952,23 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
-            _map_codes(pl.col("parameter"), pl.col("value").cast(pl.Float64, strict=False), resolution_name).alias(
-                "value"
-            ),
+            value.alias("value"),
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the
             # source leaves it blank (GH-2018)
-            join_quality_flags(pl.col("quality_flags")),
+            join_quality_flags(pl.col("quality_flags"), raw=raw),
         )
 
 
-def _map_codes(parameter: pl.Expr, value: pl.Expr, resolution_name: str) -> pl.Expr:
-    """Map the codes the source writes in place of a number to null, before the unit conversion (GH-2687, GH-2720)."""
+def _sentinels(resolution_name: str) -> list[Sentinel]:
+    """List the codes the source writes in place of a number, for the files of a resolution."""
     if resolution_name == "hourly":
-        invisible_sky = parameter.eq("N") & value.eq(_HOURLY_SKY_INVISIBLE)
-        no_direction = parameter.is_in(_HOURLY_WIND_DIRECTIONS) & value.is_in(_NO_WIND_DIRECTION)
-        return pl.when(invisible_sky | no_direction).then(pl.lit(None, pl.Float64)).otherwise(value)
+        return [
+            Sentinel(_HOURLY_SKY_INVISIBLE, where=pl.col("parameter").eq("N")),
+            Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_HOURLY_WIND_DIRECTIONS)),
+        ]
     if resolution_name == "daily":
-        return (
-            pl.when(parameter.is_in(_DAILY_WIND_DIRECTIONS) & value.is_in(_NO_WIND_DIRECTION))
-            .then(pl.lit(None, pl.Float64))
-            .otherwise(value)
-        )
-    return value
+        return [Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_DAILY_WIND_DIRECTIONS))]
+    return []
 
 
 @dataclass

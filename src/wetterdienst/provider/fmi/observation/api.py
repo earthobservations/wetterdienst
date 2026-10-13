@@ -156,6 +156,7 @@ class FmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value").cast(pl.Float64, strict=False),
+            pl.col("quality_flags"),
         )
 
     def _collect_window(
@@ -206,6 +207,7 @@ class FmiObservationValues(TimeseriesValues):
                     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
                     "parameter": pl.String,
                     "value": pl.Float64,
+                    "quality_flags": pl.String,
                 }
             )
         content = file.content.read()

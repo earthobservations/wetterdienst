@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.core.util import DroppedForElevation, StationsInReach, build_date_grid
 from wetterdienst.metadata.resolution import Resolution, reading_interval
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -335,7 +335,7 @@ def test_count_stations_in_reach_asks_per_parameter_radius() -> None:
             ],
         ]
     )
-    counts = count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE)
+    counts = count_stations_in_reach(df_stations_ranked, parameters, Options(), INTERPOLATABLE)
     # 40 km for temperature: three stations, the furthest of them the only one with an elevation
     assert counts[("hourly", "temperature_air", "temperature_air_2m")] == (3, 1, 35.0)
     # 20 km for precipitation: two stations, and the station that has an elevation is outside it
@@ -413,7 +413,7 @@ def test_count_stations_in_reach_reads_the_nearest_row_of_a_station() -> None:
             {"station_id": "00001", "distance": 5.2, "elevation": None},
         ],
     )
-    assert count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE) == {
+    assert count_stations_in_reach(df_stations_ranked, parameters, Options(), INTERPOLATABLE) == {
         ("hourly", "temperature_air", "temperature_air_2m"): (1, 1, 5.0),
     }
 
@@ -468,7 +468,7 @@ def test_count_stations_in_reach_passes_over_what_the_walk_would_not_collect() -
     # precipitation_form is the one member of daily/kl that is not interpolatable
     parameters = [metadata["temperature_air_mean_2m"], metadata["precipitation_form"]]
     df_stations_ranked = _ranked("climate_summary", [{"station_id": "00001", "distance": 5.0, "elevation": None}])
-    counts = count_stations_in_reach(df_stations_ranked, parameters, Settings(), INTERPOLATABLE)
+    counts = count_stations_in_reach(df_stations_ranked, parameters, Options(), INTERPOLATABLE)
     assert set(counts) == {("daily", "climate_summary", "temperature_air_mean_2m")}
 
 
@@ -545,7 +545,7 @@ def test_count_stations_in_reach_counts_a_station_under_its_own_dataset() -> Non
             _ranked("temperature_air", [{"station_id": "00002", "distance": 39.0, "elevation": 210.0}]),
         ],
     )
-    counts = count_stations_in_reach(df_stations_ranked, [daily], Settings(), INTERPOLATABLE)
+    counts = count_stations_in_reach(df_stations_ranked, [daily], Options(), INTERPOLATABLE)
     # one station, no elevation, and nothing to walk out to 39 km for
     assert counts[("daily", "climate_summary", "temperature_air_mean_2m")] == (1, 0, None)
 
@@ -604,7 +604,7 @@ def test_count_stations_in_reach_reads_the_elevation_the_walk_will_read() -> Non
             _ranked("climate_summary", [{"station_id": "00001", "distance": 5.0, "elevation": None}]),
         ],
     )
-    counts = count_stations_in_reach(df_stations_ranked, [daily], Settings(), INTERPOLATABLE)
+    counts = count_stations_in_reach(df_stations_ranked, [daily], Options(), INTERPOLATABLE)
     # the station holds the daily dataset, so it counts -- and it has an elevation, so nothing is refused
     assert counts[("daily", "climate_summary", "temperature_air_mean_2m")] == (1, 1, 4.0)
 

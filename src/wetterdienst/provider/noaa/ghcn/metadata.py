@@ -11,7 +11,7 @@ NoaaGhcnMetadata = {
     "name_local": "National Oceanic And Atmospheric Administration",
     "country": "United States Of America",
     "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
-    "url": "http://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
+    "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
     "kind": "observation",
     "timezone": "America/New_York",
     "resolutions": [

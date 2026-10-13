@@ -33,6 +33,7 @@ from aiohttp import (
     ClientPayloadError,
     ClientResponseError,
     ClientSSLError,
+    ClientTimeout,
 )
 from aiohttp.client_reqrep import ConnectionKey
 from fsspec.asyn import sync, sync_wrapper
@@ -1270,6 +1271,14 @@ def list_remote_directory_fsspec(
     raise failure
 
 
+#: How long a probe of a provider's credentials may take in all, connecting and reading the answer.
+#: A probe is asked while someone waits for a page, so it gives up where a download that is going to
+#: be read would not (GH-2564). A total, which a numeric client timeout is not (it bounds each
+#: silence, GH-2258): the answer to a probe is a few hundred bytes, so there is no slow link to fail.
+PROBE_TIMEOUT_SECONDS = 5
+PROBE_TIMEOUT = ClientTimeout(total=PROBE_TIMEOUT_SECONDS)
+
+
 def download_file(
     url: str,
     cache_dir: Path,
@@ -1278,6 +1287,7 @@ def download_file(
     *,
     cache_disable: bool = False,
     use_certifi: bool = False,
+    attempts: int = 2,
 ) -> File:
     """Download a specified file from the server.
 
@@ -1288,6 +1298,9 @@ def download_file(
         client_kwargs: Additional keyword arguments for the client.
         cache_disable: If True, the cache is disabled.
         use_certifi: If True, use certifi certificate bundle instead of system certificates.
+        attempts: How often a failure worth retrying is tried. One is a download that is not asked
+            again, which a check of a credential wants: it is a question about now, and an answer
+            late is worth no more than none.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -1316,7 +1329,7 @@ def download_file(
         # Two attempts and no time budget: stamina's default of 45 seconds would deny the second
         # attempt to a download that streamed for longer than that before failing, and a numeric
         # timeout no longer ends an attempt after that many seconds (GH-2258)
-        for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=2, timeout=None):
+        for attempt in stamina.retry_context(on=_worth_retrying_download, attempts=attempts, timeout=None):
             with attempt:
                 try:
                     # asked per attempt and before the read, because reading is what populates the

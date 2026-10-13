@@ -268,16 +268,16 @@ def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]
         },
         schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
     )
-    # read with the parameter and settings of the real request, which the metadata names the unit by
+    # read with the parameter and options of the real request, which the metadata names the unit by
     real = core._get_stripes_temperature_request()  # noqa: SLF001
     # as the values build theirs
     unit_converter = UnitConverter()
-    unit_converter.update_targets(real.settings.ts_unit_targets)
+    unit_converter.update_targets(real.options.unit_targets)
     stations = SimpleNamespace(
         to_dict=lambda: {"stations": [{"station_id": "01048", "name": "Dresden-Klotzsche"}]},
         values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame), unit_converter=unit_converter),
         parameters=real.parameters,
-        settings=real.settings,
+        options=real.options,
     )
     request = SimpleNamespace(filter_by_station_id=lambda _station: stations)
     monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
@@ -528,7 +528,7 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
-    # two years of five missing, well below the 0.95 `ts_skip_threshold` asks for by default
+    # two years of five missing, well below the 0.95 `skip_threshold` asks for by default
     values = [1.0, None, None, 4.0, 5.0]
     years = list(range(2000, 2000 + len(values)))
     stations = pl.DataFrame(

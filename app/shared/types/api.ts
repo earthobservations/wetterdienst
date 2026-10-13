@@ -65,7 +65,10 @@ export interface GlossaryEntry {
 export interface CoverageNetworkInfo {
   auth: boolean
   configured: boolean
-  /** `null` when the credentials could not be checked: not a rejection, so unknown */
+  /**
+   * `false` where the credentials are missing, `null` where they are configured: the list does not
+   * check them (that is a request to the provider), `GET /api/auth` does. Not a rejection, so unknown
+   */
   valid: boolean | null
   date_required: boolean
 }

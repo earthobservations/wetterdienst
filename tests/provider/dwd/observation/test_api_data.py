@@ -11,7 +11,7 @@ from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
 from tests.conftest import IS_CI, IS_WINDOWS
-from wetterdienst import Resolution, Settings
+from wetterdienst import Options, Resolution, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.result import StationsFilter, StationsResult
@@ -205,7 +205,7 @@ def test_request_period_empty(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_leaves_out_dates_the_station_did_not_record(settings_drop_nulls_false: Settings) -> None:
+def test_dwd_observation_data_leaves_out_dates_the_station_did_not_record(options_drop_nulls_false: Options) -> None:
     """Test that a request reaching back before a station started returns only what it recorded.
 
     Station 01048 begins on 1934-01-01 and the request opens five days earlier. Those five days
@@ -217,7 +217,7 @@ def test_dwd_observation_data_leaves_out_dates_the_station_did_not_record(settin
         parameters=[("daily", "climate_summary")],
         start="1933-12-27",  # few days before official start
         end="1934-01-04",  # few days after official start,
-        settings=settings_drop_nulls_false,
+        options=options_drop_nulls_false,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -228,7 +228,7 @@ def test_dwd_observation_data_leaves_out_dates_the_station_did_not_record(settin
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false: Settings) -> None:
+def test_dwd_observation_data_result_missing_data(options_drop_nulls_false: Options) -> None:
     """Test that a window the station has no reading for comes back empty rather than as a null.
 
     Not dropping nulls keeps the nulls a provider reports; it does not invent a row for a
@@ -238,7 +238,7 @@ def test_dwd_observation_data_result_missing_data(settings_drop_nulls_false: Set
         parameters=[("hourly", "temperature_air", "temperature_air_2m")],
         start="2020-06-09 12:00:00",  # no data at this time (reason unknown)
         end="2020-06-09 12:00:00",
-        settings=settings_drop_nulls_false,
+        options=options_drop_nulls_false,
     ).filter_by_station_id(
         station_id=["03348"],
     )
@@ -261,19 +261,23 @@ def test_dwd_observation_data_result_all_missing_data(default_settings: Settings
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_single_dataset(
-    settings_humanize_false_convert_units_false_wide_shape: Settings,
+    options_humanize_false_convert_units_false_wide_shape: Options,
     dwd_climate_summary_wide_columns: list[str],
 ) -> None:
     """Test for actual values (wide).
 
     The request opens the day before the station's first, which returns no row of its own -- what
     a station did not record is absent from the frame rather than spelled out as a row of nulls.
+
+    The `quality_flags` column of a null value carries the text the file wrote for it as its last
+    token: `raw:-999` where the file writes -999 for the quality byte too, `1,raw:-999` where it
+    has one.
     """
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="1933-12-31",  # few days before official start
         end="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false_convert_units_false_wide_shape,
+        options=options_humanize_false_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -286,15 +290,15 @@ def test_dwd_observation_data_result_wide_single_dataset(
             "dataset": ["climate_summary"],
             "timestamp": [dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))],
             "fx": [None],
-            "fx_quality_flags": [None],
+            "fx_quality_flags": ["raw:-999"],
             "fm": [None],
-            "fm_quality_flags": [None],
+            "fm_quality_flags": ["raw:-999"],
             "rsk": [0.2],
             "rsk_quality_flags": ["1"],
             "rskf": [8.0],
             "rskf_quality_flags": ["1"],
             "sdk": [None],
-            "sdk_quality_flags": [None],
+            "sdk_quality_flags": ["1,raw:-999"],
             "shk_tag": [0.0],
             "shk_tag_quality_flags": ["1"],
             "nm": [8.0],
@@ -312,7 +316,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
             "tnk": [0.2],
             "tnk_quality_flags": ["1"],
             "tgk": [None],
-            "tgk_quality_flags": [None],
+            "tgk_quality_flags": ["1,raw:-999"],
         },
         schema={
             "station_id": pl.Enum(["01048"]),
@@ -358,7 +362,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_single_parameter(
-    settings_humanize_false_convert_units_false_wide_shape: Settings,
+    options_humanize_false_convert_units_false_wide_shape: Options,
 ) -> None:
     """Test for actual values (wide).
 
@@ -369,7 +373,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
         parameters=[("daily", "climate_summary", "precipitation_amount")],
         start="1933-12-31",  # few days before official start
         end="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false_convert_units_false_wide_shape,
+        options=options_humanize_false_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -406,7 +410,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_convert_units(
-    settings_humanize_false_wide_shape: Settings,
+    options_humanize_false_wide_shape: Options,
     dwd_climate_summary_wide_columns: list[str],
 ) -> None:
     """Test for actual values (wide) in metric units.
@@ -417,7 +421,7 @@ def test_dwd_observation_data_result_wide_convert_units(
         parameters=[("daily", "climate_summary")],
         start="1933-12-31",  # few days before official start
         end="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false_wide_shape,
+        options=options_humanize_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -430,15 +434,15 @@ def test_dwd_observation_data_result_wide_convert_units(
             "dataset": ["climate_summary"],
             "timestamp": [dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))],
             "fx": [None],
-            "fx_quality_flags": [None],
+            "fx_quality_flags": ["raw:-999"],
             "fm": [None],
-            "fm_quality_flags": [None],
+            "fm_quality_flags": ["raw:-999"],
             "rsk": [0.2],
             "rsk_quality_flags": ["1"],
             "rskf": [8.0],
             "rskf_quality_flags": ["1"],
             "sdk": [None],
-            "sdk_quality_flags": [None],
+            "sdk_quality_flags": ["1,raw:-999"],
             "shk_tag": [0.0],
             "shk_tag_quality_flags": ["1"],
             "nm": [1.0],
@@ -456,7 +460,7 @@ def test_dwd_observation_data_result_wide_convert_units(
             "tnk": [0.2],
             "tnk_quality_flags": ["1"],
             "tgk": [None],
-            "tgk_quality_flags": [None],
+            "tgk_quality_flags": ["1,raw:-999"],
         },
         schema={
             "station_id": pl.Enum(["01048"]),
@@ -499,7 +503,7 @@ def test_dwd_observation_data_result_wide_convert_units(
 
 @pytest.mark.remote
 def test_dwd_observation_data_result_wide_two_datasets(
-    settings_humanize_false_convert_units_false_wide_shape: Settings,
+    options_humanize_false_convert_units_false_wide_shape: Options,
 ) -> None:
     """Test that two datasets at one resolution share a row rather than duplicating it.
 
@@ -513,7 +517,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
         parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
         start="1933-12-31",  # few days before official start
         end="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false_convert_units_false_wide_shape,
+        options=options_humanize_false_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -528,15 +532,15 @@ def test_dwd_observation_data_result_wide_two_datasets(
                 dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
             ],
             "climate_summary_fx": [None, None],
-            "climate_summary_fx_quality_flags": [None, None],
+            "climate_summary_fx_quality_flags": [None, "raw:-999"],
             "climate_summary_fm": [None, None],
-            "climate_summary_fm_quality_flags": [None, None],
+            "climate_summary_fm_quality_flags": [None, "raw:-999"],
             "climate_summary_rsk": [None, 0.2],
             "climate_summary_rsk_quality_flags": [None, "1"],
             "climate_summary_rskf": [None, 8.0],
             "climate_summary_rskf_quality_flags": [None, "1"],
             "climate_summary_sdk": [None, None],
-            "climate_summary_sdk_quality_flags": [None, None],
+            "climate_summary_sdk_quality_flags": [None, "1,raw:-999"],
             "climate_summary_shk_tag": [None, 0.0],
             "climate_summary_shk_tag_quality_flags": [None, "1"],
             "climate_summary_nm": [None, 8.0],
@@ -554,7 +558,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
             "climate_summary_tnk": [None, 0.2],
             "climate_summary_tnk_quality_flags": [None, "1"],
             "climate_summary_tgk": [None, None],
-            "climate_summary_tgk_quality_flags": [None, None],
+            "climate_summary_tgk_quality_flags": [None, "1,raw:-999"],
             "precipitation_more_rs": [0.6, 0.2],
             "precipitation_more_rs_quality_flags": ["1", "1"],
             "precipitation_more_rsf": [1.0, 8.0],
@@ -562,7 +566,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
             "precipitation_more_sh_tag": [0.0, 0.0],
             "precipitation_more_sh_tag_quality_flags": ["1", "1"],
             "precipitation_more_nsh_tag": [None, None],
-            "precipitation_more_nsh_tag_quality_flags": [None, None],
+            "precipitation_more_nsh_tag_quality_flags": ["1,raw:-999", "1,raw:-999"],
         },
         schema={
             "station_id": pl.Enum(["01048"]),
@@ -612,13 +616,18 @@ def test_dwd_observation_data_result_wide_two_datasets(
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_drop_nulls_false: Settings) -> None:
-    """Test for actual values (tidy) in metric units."""
+def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_drop_nulls_false: Options) -> None:
+    """Test for actual values (tidy) in metric units.
+
+    The nulls stay (`drop_nulls=False`) and each carries the text the file wrote for it as the last
+    `quality_flags` token: `raw:-999`, after the quality byte where the file has one (`1,raw:-999`);
+    a file that writes -999 for the quality byte too leaves `raw:-999` alone.
+    """
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
         start="1933-12-31",  # few days before official start
         end="1934-01-01",  # few days after official start,
-        settings=settings_humanize_false_drop_nulls_false,
+        options=options_humanize_false_drop_nulls_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -641,7 +650,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "fm",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "raw:-999",
             },
             {
                 "station_id": "01048",
@@ -650,7 +659,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "fx",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "raw:-999",
             },
             {
                 "station_id": "01048",
@@ -695,7 +704,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "sdk",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "1,raw:-999",
             },
             {
                 "station_id": "01048",
@@ -713,7 +722,7 @@ def test_dwd_observation_data_result_tidy_convert_units(settings_humanize_false_
                 "parameter": "tgk",
                 "timestamp": dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": None,
-                "quality_flags": None,
+                "quality_flags": "1,raw:-999",
             },
             {
                 "station_id": "01048",
@@ -969,13 +978,13 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_10_minutes_result_tidy(settings_humanize_false_convert_units_false: Settings) -> None:
+def test_dwd_observation_data_10_minutes_result_tidy(options_humanize_false_convert_units_false: Options) -> None:
     """Test for actual values (format) in metric units."""
     request = DwdObservationRequest(
         parameters=[("minute_10", "temperature_air", "pressure_air_site")],
         start="1999-12-31 21:00",
         end="1999-12-31 22:00",
-        settings=settings_humanize_false_convert_units_false,
+        options=options_humanize_false_convert_units_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -1232,13 +1241,13 @@ def test_create_humanized_column_names_mapping() -> None:
 
 
 @pytest.mark.remote
-def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> None:
+def test_tidy_up_data(options_humanize_false_drop_nulls_false: Options) -> None:
     """Test tidy up data."""
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
         periods="historical",
         start="2019-01-23 00:00:00",
-        settings=settings_humanize_false_drop_nulls_false,
+        options=options_humanize_false_drop_nulls_false,
     ).filter_by_station_id(("01048",))
     df = pl.DataFrame(
         [
@@ -1382,7 +1391,7 @@ def test_tidy_up_data(settings_humanize_false_drop_nulls_false: Settings) -> Non
 
 
 @pytest.mark.remote
-def test_dwd_observation_weather_phenomena(settings_humanize_false_convert_units_false: Settings) -> None:
+def test_dwd_observation_weather_phenomena(options_humanize_false_convert_units_false: Options) -> None:
     """Test for DWD weather phenomena data.
 
     Thanks, @saschnet, for providing the sample!
@@ -1392,7 +1401,7 @@ def test_dwd_observation_weather_phenomena(settings_humanize_false_convert_units
         parameters=[("hourly", "weather_phenomena")],
         start=dt.datetime(year=2022, month=3, day=1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(year=2022, month=3, day=31, tzinfo=ZoneInfo("UTC")),
-        settings=settings_humanize_false_convert_units_false,
+        options=options_humanize_false_convert_units_false,
     )
     given_df = request.all().df.drop_nulls()
     assert len(given_df) > 0
@@ -1410,12 +1419,12 @@ def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings: Setti
 
 
 @pytest.mark.remote
-def test_dwd_observation_not_tidy_empty_df_no_start_end_date(settings_wide_shape: Settings) -> None:
+def test_dwd_observation_not_tidy_empty_df_no_start_end_date(options_wide_shape: Options) -> None:
     """Test for DWD observation data with expected empty df for the case that no start and end date is given."""
     request = DwdObservationRequest(
         parameters=[("minute_10", "wind")],
         periods="now",
-        settings=settings_wide_shape,
+        options=options_wide_shape,
     ).filter_by_station_id("01736")
     assert request.values.all().df.is_empty()
 
@@ -1436,7 +1445,7 @@ def test_dwd_observation_solar_daily(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_dwd_observation_solar_hourly(settings_convert_units_false: Settings) -> None:
+def test_dwd_observation_solar_hourly(options_convert_units_false: Options) -> None:
     """Test DWD observation solar hourly data.
 
     Thanks, @lasinludwig, for providing the snippet.
@@ -1447,7 +1456,7 @@ def test_dwd_observation_solar_hourly(settings_convert_units_false: Settings) ->
         parameters=[("hourly", "solar", "radiation_global")],
         start=dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2022, 12, 31, 23, 59, tzinfo=ZoneInfo("UTC")),
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_distance(latlon_bremen, 500)
     values_df = next(request.values.query()).df
     assert values_df.get_column("value").sum() == 417914.0
@@ -1473,13 +1482,13 @@ def test_dwd_observation_solar_hourly_timestamps_off(default_settings: Settings)
 
 
 @pytest.mark.remote
-def test_dwd_observation_data_10_minutes_missing_data(settings_humanize_false_convert_units_false: Settings) -> None:
+def test_dwd_observation_data_10_minutes_missing_data(options_humanize_false_convert_units_false: Options) -> None:
     """Test for actual values with correctly dropped -999 values."""
     request = DwdObservationRequest(
         parameters=[("minute_10", "precipitation", "precipitation_amount")],
         start="1991-01-01 00:00",
         end="1992-12-31 23:00",
-        settings=settings_humanize_false_convert_units_false,
+        options=options_humanize_false_convert_units_false,
     ).filter_by_station_id(
         station_id=(1048,),
     )
@@ -1594,7 +1603,7 @@ def test_dwd_observation_measurement_method_indicators(
 
 
 @pytest.mark.remote
-def test_dwd_observation_true_local_time_offset(settings_convert_units_false: Settings) -> None:
+def test_dwd_observation_true_local_time_offset(options_convert_units_false: Options) -> None:
     """Test that the true local time offset carries the seasonal solar correction.
 
     The offset is the longitude correction plus the equation of time, so it has to *move* over the
@@ -1607,7 +1616,7 @@ def test_dwd_observation_true_local_time_offset(settings_convert_units_false: Se
             parameters=[("hourly", "solar", "true_local_time_offset")],
             start=dt.datetime(2023, month, 10, 0, 0, tzinfo=ZoneInfo("UTC")),
             end=dt.datetime(2023, month, 10, 6, 0, tzinfo=ZoneInfo("UTC")),
-            settings=settings_convert_units_false,
+            options=options_convert_units_false,
         ).filter_by_station_id("00183")
         return request.values.all().df.get_column("value").to_list()
 
@@ -1633,7 +1642,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
     request = DwdObservationRequest(
         parameters=[("daily", "kl")],
         start="2022-01-01",
-        settings=Settings(ts_unit_targets=unit_targets),
+        options=Options(unit_targets=unit_targets),
     ).filter_by_station_id("1048")
     given_df = request.values.all().df
     expected_df = pl.DataFrame(

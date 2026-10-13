@@ -11,27 +11,32 @@ machinery would be dead weight here.
 from __future__ import annotations
 
 import io
-import math
 from typing import TYPE_CHECKING
 
 import polars as pl
 
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
     import datetime as dt
     from collections.abc import Sequence
 
-_EMPTY_SCHEMA = {
+_ROW_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
 }
+_EMPTY_SCHEMA = _ROW_SCHEMA | {"quality_flags": pl.String}
+
+# the _FillValue of a missing observation
+_FILL_VALUE = "NaN"
 
 # KNMI encodes "trace precipitation" (measured but below the 0.05mm resolution) as a
 # literal -1 rather than a small positive value or a missing-value flag -- treated as
 # effectively zero here rather than surfaced as a physically-nonsensical negative amount.
 _TRACE_PRECIPITATION_PARAMETERS = ("RH",)
+_TRACE = "-1"
 
 
 def decode_str(value: object) -> str:
@@ -80,11 +85,16 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
             # data variables are (station, time) with a single time step per file
             cell = variables[parameter][row]
             value = float(cell[0]) if getattr(cell, "shape", ()) else float(cell)
-            # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the
-            # framework's ts_drop_nulls handling treats it as missing and to_json stays valid.
-            if math.isnan(value):
-                value = None
-            elif parameter in _TRACE_PRECIPITATION_PARAMETERS and value == -1:
-                value = 0.0
             rows.append({"timestamp": moment, "parameter": parameter, "value": value})
-    return pl.DataFrame(rows, schema=_EMPTY_SCHEMA, orient="row")
+    # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
+    # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0. Both keep what
+    # the file held as the `raw` token of `quality_flags` (GH-2759)
+    value, raw = null_sentinels(
+        pl.col("value"),
+        Sentinel(_FILL_VALUE),
+        Sentinel(_TRACE, where=pl.col("parameter").is_in(_TRACE_PRECIPITATION_PARAMETERS), to=0.0),
+        text=False,
+    )
+    return pl.DataFrame(rows, schema=_ROW_SCHEMA, orient="row").select(
+        "timestamp", "parameter", value.alias("value"), join_quality_flags(None, raw=raw)
+    )

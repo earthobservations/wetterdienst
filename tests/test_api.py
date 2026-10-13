@@ -231,7 +231,7 @@ def test_every_resolution_and_period_is_served_by_a_provider() -> None:
     """Test that neither vocabulary carries a member no provider declares.
 
     Both are closed vocabularies rather than free labels: `Resolution` validates the keys of
-    `ts_geo_station_distance_resolution_factors`, is looked up by name in `Frequency`, and is
+    `geo_station_distance_resolution_factors`, is looked up by name in `Frequency`, and is
     restated in the app's types. A member nothing serves is therefore a setting that can be
     written and never read, and a value the app can offer that no request answers. That is what
     `undefined` and `dynamic` became once the providers resolving to them started reporting the
@@ -292,7 +292,7 @@ def test_interpolation_behaviour_derives_from_parameter_table() -> None:
     a list written out again by hand would drift from the table exactly as before.
     """
     from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
-    from wetterdienst.settings import (  # noqa: PLC0415
+    from wetterdienst.options import (  # noqa: PLC0415
         _STATION_DISTANCE_HETEROGENEOUS,
         _STATION_DISTANCE_HOMOGENEOUS,
         _build_geo_station_distance,
@@ -1379,3 +1379,56 @@ def test_is_valid_passes_on_what_the_probe_tells() -> None:
 
     assert [Wetterdienst.is_valid(_Probe(answer)) for answer in (True, False, None)] == [True, False, None]
     assert Wetterdienst.is_valid(object()) is True
+
+
+def test_discover_downloads_nothing_with_every_credential_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The listing of every provider makes no request, however many credentials are configured (GH-2564).
+
+    It probed each configured provider in turn, inside the request that the app's parameter selection
+    waits for: 76 s on a cold cache with AEMET failing. A configured network is listed with `valid`
+    null, and `Wetterdienst.is_valid` is how it is checked.
+    """
+    import sys  # noqa: PLC0415
+
+    from wetterdienst.util import network  # noqa: PLC0415
+
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+    # every provider's module loaded, so that the download each one imports can be found and replaced
+    Wetterdienst.discover()
+    downloads: list[str] = []
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        downloads.append(str(kwargs.get("url") or args))
+        msg = "the listing of providers downloaded something"
+        raise AssertionError(msg)
+
+    for module in list(sys.modules.values()):
+        for name in ("download_file", "download_files"):
+            if module is not None and getattr(module, name, None) is getattr(network, name):
+                monkeypatch.setattr(module, name, refuse)
+    # and a filesystem is what any other way of fetching goes through
+    monkeypatch.setattr(network.NetworkFilesystemManager, "get", refuse)
+    monkeypatch.setenv("WD_AUTH__AEMET", "key")
+    monkeypatch.setenv("WD_AUTH__KNMI", "key")
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    monkeypatch.setenv("WD_AUTH__CEDA", "user:password")
+
+    discovered = Wetterdienst.discover()
+
+    assert downloads == []
+    auth = {
+        (provider, network_name): entry
+        for provider, networks in discovered.items()
+        for network_name, entry in networks.items()
+        if entry["auth"]
+    }
+    assert set(auth) == {
+        ("aemet", "observation"),
+        ("knmi", "observation"),
+        ("metno", "frost"),
+        ("metoffice", "observation"),
+    }
+    assert all(entry["configured"] is True and entry["valid"] is None for entry in auth.values())

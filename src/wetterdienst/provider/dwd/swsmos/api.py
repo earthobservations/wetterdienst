@@ -30,6 +30,7 @@ import polars as pl
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError, IssueNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels, raw_column, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
@@ -375,14 +376,18 @@ class DwdSwsmosValues(TimeseriesValues):
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         columns = [p.name_original for p in dataset.parameters if p.name_original in df.columns]
+        # a text that is no number is no reading (the run file read on 2026-10-12 holds none): it becomes null, and the
+        # text stays beside the value as `raw:` (GH-2759)
+        cleaned = {column: null_sentinels(pl.col(column), non_numeric=True) for column in columns}
         df = df.select(
             pl.col("YYYYMMDDHHmm")
             .str.to_datetime("%Y%m%d%H%M", time_unit="us")
             .dt.replace_time_zone("UTC")
             .alias("timestamp"),
-            *[pl.col(c).cast(pl.Float64, strict=False) for c in columns],
+            *[value.alias(column) for column, (value, _) in cleaned.items()],
+            *[raw.alias(raw_column(column)) for column, (_, raw) in cleaned.items()],
         )
-        df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
+        df = unpivot_with_raw(df, index=["timestamp"])
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -390,6 +395,7 @@ class DwdSwsmosValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
 
@@ -406,8 +412,10 @@ class DwdSwsmosRequest(TimeseriesRequest):
         """Resolve the ``issue`` (model run) to LATEST or a UTC hour."""
         super().__post_init__()
         issue: str | dt.datetime | DwdForecastDate = self.issue
-        with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
+        # a datetime names no member of the enumeration, so only a string or a member is looked up
+        if not isinstance(issue, dt.datetime):
+            with contextlib.suppress(InvalidEnumerationError):
+                issue = parse_enumeration_from_template(issue, DwdForecastDate)
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 try:

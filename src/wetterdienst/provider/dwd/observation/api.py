@@ -31,7 +31,7 @@ from wetterdienst.model.history import (
     _ParameterHistory,
 )
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation.download import (
@@ -145,7 +145,10 @@ class DwdObservationValues(TimeseriesValues):
         # was, not resorted.
         parameter_df = parameter_df.sort(_PERIOD_RANK, maintain_order=True).unique(subset=["timestamp"], keep="first")
         parameter_df = parameter_df.drop(_PERIOD_RANK)
-        result = parameter_df.collect(background=False)
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which
+        # takes the `datetime_ranges` + `explode` of the historical 1 minute precipitation 13 times (one
+        # station-year) to 200 times (ten) as long as the in-memory engine does
+        result = parameter_df.collect(engine="in-memory", background=False)
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame from collect()"
             raise TypeError(msg)
@@ -179,6 +182,8 @@ class DwdObservationValues(TimeseriesValues):
         data = []
         series_quality = pl.Series()
         for column in df.columns[2:]:
+            if column.endswith(RAW_SUFFIX):
+                continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
             else:
@@ -188,15 +193,20 @@ class DwdObservationValues(TimeseriesValues):
                     pl.lit(column, dtype=pl.String).alias("parameter"),
                     pl.col(column).alias("value"),
                     series_quality.alias("quality_flags"),
+                    # the text of the sentinel the parser mapped to null, if it did
+                    (pl.col(raw_column(column)) if raw_column(column) in df.columns else pl.lit(None, pl.String)).alias(
+                        "raw"
+                    ),
                 )
                 data.append(df_parameter)
         df = pl.concat(data)
-        # QN as DWD writes it, "3": the flag of a reading is kept only where there is a reading
+        # QN as DWD writes it, "3": the flag of a reading is kept only where there is a reading or a sentinel, whose
+        # text follows it (`3,raw:-999`)
         return df.with_columns(
-            pl.when(pl.col("value").is_not_null())
-            .then(join_quality_flags(pl.col("quality_flags")))
+            pl.when(pl.col("value").is_not_null() | pl.col("raw").is_not_null())
+            .then(join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")))
             .alias("quality_flags")
-        )
+        ).drop("raw")
 
     def _get_historical_date_ranges(
         self,
@@ -218,10 +228,14 @@ class DwdObservationValues(TimeseriesValues):
 
         interval = cast("DwdObservationRequest", self.sr.stations).interval
         start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
-        if start_date_min:
+        if start_date_min and end_date_max:
+            # the interval is in the zone of the network, the bounds of the files are UTC
+            start_date_min, end_date_max = start_date_min.astimezone(dt.UTC), end_date_max.astimezone(dt.UTC)
+            # a file covers [start_timestamp, end_timestamp) and the request [start, end], both ends in
+            # UTC: a request that ends at the first stamp of a file needs that file
             file_index = file_index.filter(
                 pl.col("station_id").eq(station_id)
-                & pl.col("start_timestamp").ge(end_date_max).not_()
+                & pl.col("start_timestamp").gt(end_date_max).not_()
                 & pl.col("end_timestamp").le(start_date_min).not_(),
             )
         result = file_index.collect(background=False)
@@ -593,10 +607,8 @@ class DwdObservationRequest(TimeseriesRequest):
     """Request class for DWD observation data."""
 
     metadata = DwdObservationMetadata
-    # _values and _history are class objects (subclasses of TimeseriesValues/TimeseriesHistory).
-    # Use cast to satisfy the static typechecker which expects instances of those types.
-    _values = cast("TimeseriesValues", DwdObservationValues)
-    _history = cast("TimeseriesHistory", DwdObservationHistory)
+    _values = DwdObservationValues
+    _history = DwdObservationHistory
     _selects_by_period = True
 
     @property

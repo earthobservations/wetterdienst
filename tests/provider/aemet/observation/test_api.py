@@ -20,8 +20,13 @@ from wetterdienst.provider.aemet.observation.api import (
     AemetObservationValues,
     _download_with_rate_limit_retry,
 )
+from wetterdienst.provider.aemet.observation.parser import (
+    parse_decimal_comma,
+    parse_monthly_value,
+    parse_wind_direction,
+)
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import File
+from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
 
 MADRID_RETIRO = "3195"
 UTC = ZoneInfo("UTC")
@@ -131,7 +136,7 @@ def test_aemet_observation_values_daily() -> None:
 
     # 2020-01-02 has dir=99 (calm/variable), which AEMET encodes with a sentinel value
     # rather than an actual direction. The parser must turn that into a null rather than
-    # a bogus 990°; with the default ts_drop_nulls=True, a null value means no row at all.
+    # a bogus 990°; with the default drop_nulls=True, a null value means no row at all.
     day2 = dt.datetime(2020, 1, 2, tzinfo=UTC)
     assert df.filter(pl.col("parameter").eq("wind_direction"), pl.col("timestamp").eq(day2)).is_empty()
 
@@ -583,17 +588,25 @@ def test_aemet_observation_values_failed_chunk_is_skipped_and_logged(
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == chunks
 
 
-def _fetch_datos_answering(monkeypatch: pytest.MonkeyPatch, *files: File) -> list[str]:
-    """Have AEMET's downloads, retries aside, answer with `files` in order; return the URLs requested."""
-    requested: list[str] = []
+def _probe_answering(monkeypatch: pytest.MonkeyPatch, *files: File) -> list[dict]:
+    """Have the probe's download answer with `files` in order, and fail a probe that goes through the retry loop.
+
+    Returns what the download was called with.
+    """
+    calls: list[dict] = []
     answers = iter(files)
 
-    def download(url: str, *_args: object, **_kwargs: object) -> File:
-        requested.append(url)
+    def download(**kwargs: object) -> File:
+        calls.append(kwargs)
         return next(answers)
 
-    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._download_with_rate_limit_retry", download)
-    return requested
+    def retried(*_args: object, **_kwargs: object) -> File:
+        msg = "a probe is not retried (GH-2564)"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api.download_file", download)
+    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api._download_with_rate_limit_retry", retried)
+    return calls
 
 
 def _envelope(estado: int, **extra: str) -> File:
@@ -608,81 +621,92 @@ def _aemet_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("_aemet_key")
 @pytest.mark.parametrize(
-    "answers",
+    "answer",
     [
-        pytest.param([File(url="u", content=Exception("401, message='Unauthorized'"), status=401)], id="http-401"),
-        pytest.param([File(url="u", content=Exception("403, message='Forbidden'"), status=403)], id="http-403"),
-        pytest.param([_envelope(401)], id="estado-401"),
-        pytest.param([_envelope(403)], id="estado-403"),
+        pytest.param(File(url="u", content=Exception("401, message='Unauthorized'"), status=401), id="http-401"),
+        pytest.param(File(url="u", content=Exception("403, message='Forbidden'"), status=403), id="http-403"),
+        pytest.param(_envelope(401), id="estado-401"),
+        pytest.param(_envelope(403), id="estado-403"),
     ],
 )
-def test_aemet_observation_is_valid_is_false_for_a_rejected_key(
-    monkeypatch: pytest.MonkeyPatch, answers: list[File]
-) -> None:
+def test_aemet_observation_is_valid_is_false_for_a_rejected_key(monkeypatch: pytest.MonkeyPatch, answer: File) -> None:
     """AEMET refuses a key with an HTTP 401/403 or an envelope `estado` of 401/403 (GH-2562)."""
-    requested = _fetch_datos_answering(monkeypatch, *answers)
+    calls = _probe_answering(monkeypatch, answer)
     assert AemetObservationRequest.is_valid() is False
-    assert len(requested) == 1
+    assert len(calls) == 1
 
 
 @pytest.mark.usefixtures("_aemet_key")
-def test_aemet_observation_is_valid_is_true_for_an_accepted_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An envelope `estado` of 200 and the datos behind it are the key accepted."""
-    datos = File(url="datos", content=BytesIO(b"[]"), status=200)
-    _fetch_datos_answering(monkeypatch, _envelope(200, datos="https://opendata.aemet.es/datos"), datos)
+@pytest.mark.parametrize("datos", [{"datos": "https://opendata.aemet.es/datos"}, {}], ids=["datos-link", "no-link"])
+def test_aemet_observation_is_valid_is_true_for_an_accepted_key(
+    monkeypatch: pytest.MonkeyPatch, datos: dict[str, str]
+) -> None:
+    """An envelope `estado` of 200 is the key accepted; what its link leads to is not fetched (GH-2564)."""
+    calls = _probe_answering(monkeypatch, _envelope(200, **datos))
     assert AemetObservationRequest.is_valid() is True
+    assert [call["url"] for call in calls] == [
+        "https://opendata.aemet.es/opendata/api/valores/climatologicos/inventarioestaciones/todasestaciones"
+    ]
+
+
+@pytest.mark.usefixtures("_aemet_key")
+def test_aemet_observation_is_valid_is_one_short_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The probe asks once and gives up after `PROBE_TIMEOUT_SECONDS`, not as long as a values request (GH-2564).
+
+    Asked through the retry loop it took 73 s on a cold cache with AEMET answering 408 and 503, and
+    a page waited for it.
+    """
+    calls = _probe_answering(monkeypatch, _envelope(200))
+    assert AemetObservationRequest.is_valid() is True
+    assert len(calls) == 1
+    assert calls[0]["attempts"] == 1
+    assert calls[0]["client_kwargs"]["timeout"].total == PROBE_TIMEOUT_SECONDS
+    assert Settings().fsspec_client_kwargs["timeout"] > PROBE_TIMEOUT_SECONDS
 
 
 @pytest.mark.usefixtures("_aemet_key")
 @pytest.mark.parametrize(
-    "answers",
+    "answer",
     [
-        pytest.param([File(url="u", content=OSError("certificate verify failed"), status=500)], id="ssl"),
-        pytest.param([File(url="u", content=NoInternetError("no route to host"), status=503)], id="no-network"),
-        pytest.param([File(url="u", content=TimeoutError("timed out"), status=408)], id="timeout"),
-        pytest.param([File(url="u", content=Exception("503"), status=503)], id="http-503"),
-        pytest.param([_envelope(429)], id="estado-429"),
-        pytest.param([_envelope(500)], id="estado-500"),
-        pytest.param([File(url="u", content=BytesIO(b"<html>maintenance</html>"), status=200)], id="html-200"),
-        pytest.param([File(url="u", content=BytesIO(b"[]"), status=200)], id="json-no-object"),
-        pytest.param([_envelope(200)], id="no-datos-link"),
-        pytest.param(
-            [
-                _envelope(200, datos="https://opendata.aemet.es/datos"),
-                File(url="u", content=Exception("503"), status=503),
-            ],
-            id="datos-503",
-        ),
-        # the datos link is pre-signed and takes no key, so its refusal says nothing about the key
-        pytest.param(
-            [
-                _envelope(200, datos="https://opendata.aemet.es/datos"),
-                File(url="u", content=Exception("401"), status=401),
-            ],
-            id="datos-401",
-        ),
+        pytest.param(File(url="u", content=OSError("certificate verify failed"), status=500), id="ssl"),
+        pytest.param(File(url="u", content=NoInternetError("no route to host"), status=503), id="no-network"),
+        pytest.param(File(url="u", content=TimeoutError("timed out"), status=408), id="timeout"),
+        pytest.param(File(url="u", content=Exception("503"), status=503), id="http-503"),
+        pytest.param(_envelope(429), id="estado-429"),
+        pytest.param(_envelope(500), id="estado-500"),
+        pytest.param(File(url="u", content=BytesIO(b"<html>maintenance</html>"), status=200), id="html-200"),
+        pytest.param(File(url="u", content=BytesIO(b"[]"), status=200), id="json-no-object"),
     ],
 )
 def test_aemet_observation_is_valid_is_unknown_when_the_probe_could_not_tell(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, answers: list[File]
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, answer: File
 ) -> None:
     """Any failure but a refused key says nothing about the key, so it is None, not False, and logged (GH-2562)."""
-    _fetch_datos_answering(monkeypatch, *answers)
+    calls = _probe_answering(monkeypatch, answer)
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.aemet"):
         assert AemetObservationRequest.is_valid() is None
+    assert len(calls) == 1
     assert any(record.getMessage().startswith("Could not check the AEMET API key") for record in caplog.records)
 
 
-@pytest.mark.usefixtures("_aemet_key")
-@pytest.mark.parametrize("status", [401, 403])
-def test_aemet_observation_is_valid_does_not_retry_a_rejected_key(monkeypatch: pytest.MonkeyPatch, status: int) -> None:
-    """A refusal reaches the probe at the first request: it is not slept on through the retry loop (GH-2562)."""
-    calls = []
+def test_aemet_observation_monthly_value_keeps_the_text_of_what_is_no_number() -> None:
+    """Test that `24.2(20)` is 24.2 and a text with no number in front is null with its text as `raw` (GH-2759)."""
+    value, raw = parse_monthly_value("v")
+    df = pl.DataFrame({"v": ["24.2(20)", "39.4(27/jul)", "-3.0", "Ip", "", None]}).select(
+        value.alias("value"), raw.alias("raw")
+    )
+    assert df.get_column("value").to_list() == [24.2, 39.4, -3.0, None, None, None]
+    assert df.get_column("raw").to_list() == [None, None, None, "Ip", None, None]
 
-    def rejected(**_kwargs: object) -> File:
-        calls.append(1)
-        return File(url="url", content=Exception(f"{status}, message='refused'"), status=status)
 
-    monkeypatch.setattr("wetterdienst.provider.aemet.observation.api.download_file", rejected)
-    assert AemetObservationRequest.is_valid() is False
-    assert len(calls) == 1
+def test_aemet_observation_daily_values_keep_the_text_of_what_is_no_number() -> None:
+    """Test the decimal comma, the wind direction in tens of degrees with its 99, and a text that is no number."""
+    value, raw = parse_decimal_comma("v")
+    direction, direction_raw = parse_wind_direction("v")
+    df = pl.DataFrame({"v": ["28,0", "Ip", "99", "23", None]}).select(
+        value.alias("value"), raw.alias("raw"), direction.alias("direction"), direction_raw.alias("direction_raw")
+    )
+    assert df.get_column("value").to_list() == [28.0, None, 99.0, 23.0, None]
+    assert df.get_column("raw").to_list() == [None, "Ip", None, None, None]
+    assert df.get_column("direction").to_list() == [280.0, None, None, 230.0, None]
+    assert df.get_column("direction_raw").to_list() == [None, "Ip", "99", None, None]

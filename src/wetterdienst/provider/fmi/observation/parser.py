@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 import polars as pl
 from lxml.etree import XMLParser, fromstring
 
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+
 if TYPE_CHECKING:
     from lxml.etree import _Element
 
@@ -26,12 +28,22 @@ _EMPTY_OBSERVATIONS_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "parameter": pl.String,
     "value": pl.Float64,
+    "quality_flags": pl.String,
 }
 
 # FMI encodes "no precipitation" / "no snow cover" as the sentinel -1 (rather than 0) for these
 # parameter codes; normalise it to 0.0 so aggregations are not corrupted by negative amounts
 # (mirroring the KNMI trace-precipitation handling).
 _NO_VALUE_SENTINEL_PARAMETERS = ("r_1h", "rrday", "snow_aws", "snow")
+_NO_VALUE_SENTINEL = "-1"
+# how a missing reading is written
+_NAN = "NaN"
+# FMI writes a wind direction of 0.0 for a calm wind and north as 360.0: over 15 stations in a week each of January
+# 2025, July 2025 and October 2026 (read 2026-10-12), 17 of the 18 hours with a direction of 0 have a 10 minute wind
+# speed of 0.0 (the 18th 0.2 m/s), every hour with a speed of 0.0 has a direction of 0, and 13 hours read 360. FMI
+# documents neither; a 0 is no bearing, so it is null (GH-2794).
+_NO_DIRECTION_SENTINEL = "0"
+_WIND_DIRECTION_PARAMETER = "wd_10min"
 
 # Disable entity resolution and network access -- FMI is first-party, but there is no reason to
 # fetch external entities/DTDs and it guards against XXE (matching the DWD mosmix KML reader).
@@ -185,12 +197,23 @@ def parse_fmi_observations(content: bytes) -> pl.DataFrame:
             values.append(value)
     if not times:
         return pl.DataFrame(schema=_EMPTY_OBSERVATIONS_SCHEMA)
-    value = pl.col("value").cast(pl.Float64, strict=False).fill_nan(None)
-    return pl.DataFrame({"timestamp": times, "parameter": names, "value": values}).select(
+    # the readings are text; the `NaN` of a missing one is null, a -1 of the four parameters is 0.0, the 0 of a wind
+    # direction is null, and each keeps the text FMI wrote as `raw:` in `quality_flags` (GH-2759, GH-2794). A text that
+    # is no number is null with its text as well
+    value, raw = null_sentinels(
+        pl.col("value"),
+        Sentinel(_NO_VALUE_SENTINEL, where=pl.col("parameter").is_in(_NO_VALUE_SENTINEL_PARAMETERS), to=0.0),
+        Sentinel(_NAN),
+        Sentinel(_NO_DIRECTION_SENTINEL, where=pl.col("parameter").eq(_WIND_DIRECTION_PARAMETER)),
+        non_numeric=True,
+    )
+    frame = pl.DataFrame(
+        {"timestamp": times, "parameter": names, "value": values},
+        schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.String},
+    )
+    return frame.select(
         pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us").dt.replace_time_zone("UTC"),
         pl.col("parameter").cast(pl.String),
-        pl.when(pl.col("parameter").is_in(_NO_VALUE_SENTINEL_PARAMETERS) & (value == -1.0))
-        .then(pl.lit(0.0, dtype=pl.Float64))
-        .otherwise(value)
-        .alias("value"),
+        value.alias("value"),
+        join_quality_flags(None, raw=raw),
     )

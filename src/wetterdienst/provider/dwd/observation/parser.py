@@ -14,6 +14,7 @@ from polars import selectors as cs
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -124,6 +125,75 @@ WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.minute_10.wind, DwdObservationMetadata.minute_10.wind.wind_direction.name_original),
 )
 
+# The wind files write a direction of 0 where there is no direction, and mostly 360 for north (GH-2805; read
+# 2026-10-12 in 24 station files per dataset and period of opendata.dwd.de). Left alone it is returned as 0 degrees,
+# north, which a wind rose or a mean direction counts. Where DWD's sheets say what 0 is, every 0 is null; where they
+# do not and the files use it for north too, only a 0 beside a speed of 0 is:
+#
+# - hourly wind_synop DD: the sheet names the column "Windrichtung uml.,windstill DD=00", the code of a variable or
+#   calm wind. 129,350 of the 129,420 historical hours with a speed of 0 have DD 0, and 27,714 more a speed above 0
+#   (11,892 at 1.0 m/s). A few stations also write it at 7 m/s for hours (00785, 1986-02-14), where `raw:0` keeps it.
+# - hourly wind D: the sheet gives a "36-teilige Windrose", which has no point 0. 141,852 of the 141,873 historical
+#   hours with a speed of 0 have D 0; beside a wind that blows it falls from 1,447 of 180,845 hours below 0.5 m/s to 1
+#   of 1,487,127 at 3 to 5 m/s, while 360 stays at 1.6 to 4.6 % of the hours up to 5 m/s. The hourly files of 01691
+#   and 03761, which write north as 0 at 10 minutes, hold 0 to 3 zeros a year (1993 to 2007) at 1 m/s or more against
+#   33 to 257 of 360.
+# - subdaily wind DK_TER: the sheet gives a "32-teilige Windrose" (a point is 11.25 degrees, 32 north, GH-2808), which
+#   has no point 0. 97,605 of the 97,610 terms with Beaufort 0 have 0, and 798 of the 1,284 in the recent files
+#   Beaufort 1 or 2.
+# - 10 minute wind DD_10 and extreme_wind DX_10 have no sheet text on it. 81,158 of the 82,475 historical 10 minutes
+#   with a speed of 0 have DD_10 0 (DX_10: 68,166 of 70,458), but some stations also write north as 0 (DD_10: 01691,
+#   1993 to 1999, and 03761, 2000 to 2006; DX_10: 00003): 01691 on 1994-05-01 reads 360, 360, 0, 360, 0, 360, 360 from
+#   15:30 to 16:30 at 4 to 6 m/s, and from 1 m/s on 492 rows read 0 against 94,042 of 360. DWD documents no limit
+#   between a calm and a wind (1,457 of the 29,704 10 minutes from 0.05 to 0.25 m/s read 0), so only a 0 beside a
+#   speed of exactly 0 is null, with the gust for extreme_wind. A 0 beside a missing speed stays.
+CALM_WIND_DIRECTION_PARAMETERS = (
+    (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
+    (
+        DwdObservationMetadata.hourly.wind_synoptic,
+        DwdObservationMetadata.hourly.wind_synoptic.wind_direction.name_original,
+        None,
+    ),
+    (DwdObservationMetadata.subdaily.wind, DwdObservationMetadata.subdaily.wind.wind_direction.name_original, None),
+    (
+        DwdObservationMetadata.minute_10.wind,
+        DwdObservationMetadata.minute_10.wind.wind_direction.name_original,
+        DwdObservationMetadata.minute_10.wind.wind_speed.name_original,
+    ),
+    (
+        DwdObservationMetadata.minute_10.wind_extreme,
+        DwdObservationMetadata.minute_10.wind_extreme.wind_direction_gust_max.name_original,
+        DwdObservationMetadata.minute_10.wind_extreme.wind_gust_max.name_original,
+    ),
+)
+
+# the sentinels, as the files write them. -999 is the one every description documents, for every column; the others are
+# what the notes above found in the files of one dataset or a few of its columns
+_MISSING_VALUE = Sentinel("-999")
+_SKY_OBSCURED = Sentinel(SKY_OBSCURED)
+_MOISTURE_MISSING = Sentinel(str(MOISTURE_MISSING))
+_WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
+_WIND_DIRECTION_VARIABLE = Sentinel(str(WIND_DIRECTION_VARIABLE))
+_NO_WIND_DIRECTION = Sentinel("0")
+# the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
+_NO_RAW_COLUMNS = {
+    "stations_id",
+    "mess_datum",
+    "mess_datum_beginn",
+    "mess_datum_ende",
+    "stationshoehe",
+    "geobreite",
+    "geogr.breite",
+    "geolaenge",
+    "geogr.laenge",
+}
+
+
+def _is_quality(column: str) -> bool:
+    """Tell the quality level column of a file (`QN_3`, `QUALITAETS_NIVEAU`) from a parameter."""
+    return column.startswith(("qn", "qualitaet"))
+
+
 CODED_STRING_PARAMETERS = {
     DwdObservationMetadata.hourly.cloud_type.cloud_cover_total_measurement_method.name_original,
     DwdObservationMetadata.hourly.cloudiness.cloud_cover_total_measurement_method.name_original,
@@ -230,10 +300,13 @@ def _parse_climate_observations_data(  # noqa: C901
         file.content = BytesIO(file.content.read().decode("latin1").encode("utf8"))
 
     try:
+        # every column as text, as it is cast at the very end: with `null_values=["-999"]`, which this read had, a
+        # sentinel did not take part in the dtype of its column, and without it a column that opens with -999
+        # is an integer one that the first padded value fails (GH-2759)
         df = pl.scan_csv(
             source=file.content,
             separator=";",
-            null_values=["-999"],
+            infer_schema=False,
         )
     except pl.exceptions.SchemaError:
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
@@ -242,47 +315,41 @@ def _parse_climate_observations_data(  # noqa: C901
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
-    df = df.with_columns(cs.string().replace("-999", None), cs.numeric().replace(-999, None))
     # Column names contain spaces, so strip them away.
     df = df.rename(mapping=lambda col: col.strip().lower())
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
+    columns = set(df.collect_schema().names())
+    # every sentinel DWD writes is mapped to null here, with the text it was written as in `<column>__raw`, which
+    # `DwdObservationValues._tidy_up_df` carries into `quality_flags` (GH-2759). The index and quality columns are
+    # cleaned as before and keep no text.
+    data_columns = sorted(column for column in columns if column not in _NO_RAW_COLUMNS and not _is_quality(column))
+    df = clear_sentinels(df, sorted(columns), _MISSING_VALUE)
+    df = df.drop(*(f"{column}{RAW_SUFFIX}" for column in sorted(columns) if column not in data_columns))
     # turn what the file writes as text into the numbers the value column can hold, before anything
     # downstream expects a number
-    columns = set(df.collect_schema().names())
     df = df.with_columns(
         pl.col(parameter).map_batches(_decode_measurement_method, return_dtype=pl.String)
         for parameter in sorted(CODED_STRING_PARAMETERS & columns)
     )
-    df = df.with_columns(
-        pl.col(parameter).replace(SKY_OBSCURED, None) for parameter in sorted(CLOUD_COVER_PARAMETERS & columns)
-    )
+    df = clear_sentinels(df, sorted(CLOUD_COVER_PARAMETERS & columns), _SKY_OBSCURED)
     if dataset == DwdObservationMetadata.hourly.moisture:
-        # compared as a number, so that it holds whether the column was read as text or as Float64
-        df = df.with_columns(
-            pl.when(pl.col(parameter).cast(pl.Float64, strict=False) == MOISTURE_MISSING)
-            .then(None)
-            .otherwise(pl.col(parameter))
-            .alias(parameter)
-            for parameter in sorted(MOISTURE_MISSING_PARAMETERS & columns)
-        )
+        df = clear_sentinels(df, sorted(MOISTURE_MISSING_PARAMETERS & columns), _MOISTURE_MISSING)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
-        df = df.with_columns(
-            pl.when(pl.col(parameter).cast(pl.Float64, strict=False) == WEATHER_NOT_REPORTED)
-            .then(None)
-            .otherwise(pl.col(parameter))
-            .alias(parameter)
-            for parameter in sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns)
-        )
+        df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
     for wind_dataset, parameter in WIND_DIRECTION_PARAMETERS:
         if dataset == wind_dataset and parameter in columns:
-            direction = pl.col(parameter)
-            df = df.with_columns(
-                pl.when(direction.cast(pl.Float64, strict=False) == WIND_DIRECTION_VARIABLE)
-                .then(None)
-                .otherwise(direction)
-                .alias(parameter),
+            df = clear_sentinels(df, [parameter], _WIND_DIRECTION_VARIABLE)
+    for wind_dataset, parameter, speed in CALM_WIND_DIRECTION_PARAMETERS:
+        if dataset == wind_dataset and parameter in columns and (speed is None or speed in columns):
+            # where the file has the speed, a 0 is only a calm beside a speed of exactly 0; a speed that is missing is
+            # no calm
+            calm = (
+                _NO_WIND_DIRECTION
+                if speed is None
+                else Sentinel("0", where=pl.col(speed).cast(pl.Float64, strict=False).eq(0))
             )
+            df = clear_sentinels(df, [parameter], calm)
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
             pl.struct("mess_datum", TRUE_LOCAL_TIME)

@@ -19,6 +19,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.metaindex import (
     _create_csv_line,
+    _read_meta_df,
     _read_meta_df_urban,
     create_meta_index_for_climate_observations,
 )
@@ -101,6 +102,32 @@ def test_create_csv_line() -> None:
         )
         == """01332,19660701,20240514,471,48.4832,12.7241,"Falkenberg,Kr.Rottal-Inn",Bayern"""
     )
+
+
+def test_read_meta_df_names_the_columns_of_a_headerless_table() -> None:
+    """Test that the station list is read into the columns it is documented to have.
+
+    The rows are rebuilt as headerless CSV, and polars names such columns from ``column_1`` in
+    version 1 and from ``column_0`` in version 2, so the names are set rather than taken.
+    """
+    content = (
+        "Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland\n"
+        "----------- --------- --------- ------------- --------- --------- ----------- ----------\n"
+        "00001 19370101 19860630 478 47.8413 8.8493 Aach Baden-Württemberg\n"
+        "00044 20070401 20260724 44 52.9336 8.2370 Großenkneten Niedersachsen\n"
+    ).encode("latin-1")
+    df = _read_meta_df(File(url="https://example.invalid/list.txt", content=BytesIO(content), status=200)).collect()
+    assert df.columns == [
+        "station_id",
+        "start_timestamp",
+        "end_timestamp",
+        "elevation",
+        "latitude",
+        "longitude",
+        "name",
+        "region",
+    ]
+    assert df.row(1) == ("00044", "20070401", "20260724", "44", "52.9336", "8.2370", "Großenkneten", "Niedersachsen")
 
 
 def test_read_meta_df_urban() -> None:

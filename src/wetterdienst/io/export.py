@@ -16,15 +16,39 @@ from typing import TYPE_CHECKING, Any, Literal
 import polars as pl
 import polars.selectors as cs
 
-from wetterdienst.exceptions import ExportRefusedError
+from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError
 from wetterdienst.metadata.renamed import renamed_column
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import plotly.graph_objs as go
 
 log = logging.getLogger(__name__)
+
+
+#: the size plotly renders a figure at when neither the figure nor the caller names one
+_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
+
+
+def check_image_size(
+    fig: go.Figure, width: int | None, height: int | None, scale: float | None, max_side: int | None
+) -> None:
+    """Raise `ImageTooLargeError` when the image of `fig` would have a side over `max_side` pixels.
+
+    Measured as the browser will paint it: a size the caller gives wins over the figure's own, which
+    wins over plotly's default, and `scale` multiplies the result. Nothing is checked without
+    `max_side`, which is what the library and the CLI do.
+    """
+    if max_side is None:
+        return
+    factor = 1 if scale is None else scale
+    rendered_width = (width or fig.layout.width or _DEFAULT_IMAGE_WIDTH) * factor
+    rendered_height = (height or fig.layout.height or _DEFAULT_IMAGE_HEIGHT) * factor
+    if max(rendered_width, rendered_height) > max_side:
+        raise ImageTooLargeError(rendered_width, rendered_height, max_side)
 
 
 @dataclass
@@ -41,8 +65,11 @@ class ExportMixin:
         self.df = self._filter_by_sql(self.df, sql)
         return self.df
 
+    # The three formatters below are declared as narrowly as every subclass keeps them: each takes
+    # `with_metadata` (and may take more, keyword-only with a default) and returns a mapping, which a
+    # TypedDict is and a `dict` is not. A wider declaration made every subclass an invalid override.
     @abstractmethod
-    def to_dict(self, *args: Any, **kwargs: Any) -> dict:  # noqa: ANN401
+    def to_dict(self, *, with_metadata: bool = False) -> Mapping[str, object]:
         """Convert station information into dictionary format."""
 
     @abstractmethod
@@ -50,7 +77,7 @@ class ExportMixin:
         """Convert station information into JSON format."""
 
     @abstractmethod
-    def to_ogc_feature_collection(self, *args: Any, with_metadata: bool, **kwargs: Any) -> dict:  # noqa: ANN401
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> Mapping[str, object]:
         """Convert station information into OGC Feature Collection format.
 
         Abstract method implementation.
@@ -184,7 +211,15 @@ class ExportMixin:
         """Create a plotly figure from the DataFrame."""
 
     @abstractmethod
-    def _to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
+    def _to_image(
+        self,
+        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        max_side: int | None = None,
+        **kwargs: object,
+    ) -> bytes | str:
         """Create an image from the plotly figure."""
 
     def to_image(self, **kwargs: Any) -> bytes | str:  # noqa: ANN401
@@ -635,7 +670,7 @@ class ExportMixin:
             if version == 1:
                 from influxdb import InfluxDBClient  # noqa: PLC0415
 
-                client = InfluxDBClient(
+                client_v1 = InfluxDBClient(
                     host=netloc,
                     port=connspec.port or 8086,
                     username=connspec.username,
@@ -643,15 +678,15 @@ class ExportMixin:
                     database=database,
                     ssl=protocol.endswith("s"),
                 )
-                client.create_database(database)
+                client_v1.create_database(database)
             elif version == 2:
                 from influxdb_client import InfluxDBClient as InfluxDBClientV2  # noqa: PLC0415
                 from influxdb_client import Point as PointV2  # noqa: PLC0415
                 from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
 
                 url = f"{scheme}://{netloc}:{connspec.port or 8086}"
-                client = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
-                write_api = client.write_api(write_options=SYNCHRONOUS)
+                client_v2 = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
+                write_api = client_v2.write_api(write_options=SYNCHRONOUS)
             elif version == 3:
                 from influxdb_client_3 import (  # noqa: PLC0415
                     InfluxDBClient3 as InfluxDBClientV3,
@@ -694,6 +729,17 @@ class ExportMixin:
                 quality_flags = record.pop("quality_flags", None)
                 # fields is a dict of either a single value (long format) or multiple values (wide format).
                 fields = {k: v for k, v in record.items() if v is not None}
+                # the same for a wide row, for the flags `raw:` gives a value mapped from a sentinel: they are not
+                # written without the value (GH-2759). Any other flag of a missing value is written as before
+                fields = {
+                    k: v
+                    for k, v in fields.items()
+                    if not (
+                        k.endswith("_quality_flags")
+                        and "raw:" in str(v)
+                        and record.get(k.removesuffix("_quality_flags")) is None
+                    )
+                }
                 if not fields:
                     continue
                 if version == 1:
@@ -741,7 +787,7 @@ class ExportMixin:
 
             # Write to InfluxDB.
             if version == 1:
-                client.write_points(  # ty: ignore[unresolved-attribute]
+                client_v1.write_points(
                     points=points,
                     batch_size=50000,
                 )

@@ -4,3 +4,8 @@ from wetterdienst.provider.meteofrance.synop.api import (
     MeteoFranceSynopMetadata,
     MeteoFranceSynopRequest,
 )
+
+__all__ = [
+    "MeteoFranceSynopMetadata",
+    "MeteoFranceSynopRequest",
+]

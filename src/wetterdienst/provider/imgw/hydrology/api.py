@@ -20,17 +20,30 @@ from fsspec.implementations.zip import ZipFileSystem
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_metadata_model
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# what the files write for a reading they do not have, by column: 9999 (stage), 99999.999 (discharge), 99.9 and 9999
+# (water temperature), e.g. `149180020;CHAŁUPKI;Odra (1);2023;01;01;88;14.200;99.9;11` in codz_2023.zip (live: 99.9 in
+# the temperature of 265311 rows, 99999.999 in the discharge of 46895). A sentinel is matched by number, so each holds
+# in its own column: a discharge of 99.900 m3/s is a reading and 99.9 is not one there. The reading keeps the text as
+# `raw:` in `quality_flags` (GH-2759)
+_MISSING = (
+    Sentinel("9999", where=pl.col("parameter") == "stan wody"),
+    Sentinel("99999.999", where=pl.col("parameter") == "przepływ"),
+    Sentinel("99.9", "9999", where=pl.col("parameter") == "temperatura wody"),
+)
 
 
 ImgwHydrologyMetadata = {
@@ -181,7 +194,7 @@ def _normalize_hydrology_csv(data: bytes) -> tuple[bytes, str]:
     return body, ","
 
 
-class ImgwHydrologyValues(TimeseriesValues):
+class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
     """Values class for hydrological data from IMGW."""
 
     _endpoint = "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/{resolution}/"
@@ -214,7 +227,7 @@ class ImgwHydrologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -262,6 +275,7 @@ class ImgwHydrologyValues(TimeseriesValues):
             pl.col("station_id"),
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
+            pl.col("quality_flags"),
         )
 
     def _parse_file(
@@ -300,13 +314,11 @@ class ImgwHydrologyValues(TimeseriesValues):
     def __parse_file(self, file: bytes, station_id: str, dataset: DatasetModel, schema: dict) -> pl.DataFrame:
         """Parse hydrological data from a single file."""
         normalized, separator = _normalize_hydrology_csv(file)
-        df = pl.read_csv(
+        df = read_csv_without_header(
             normalized,
             encoding="latin-1",
             separator=separator,
-            has_header=False,
             infer_schema_length=0,
-            null_values=["9999", "99999.999", "99.9"],
         )
         df = df.select(list(schema.keys())).rename(schema)
         df = df.with_columns(pl.col("station_id").str.strip_chars())
@@ -333,7 +345,9 @@ class ImgwHydrologyValues(TimeseriesValues):
             # monthly data includes extrimity column (1: min, 2: mean, 3: max)
             index = ["station_id", "timestamp", "extremity"]
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
-        df = df.with_columns(pl.col("value").cast(pl.Float64))
+        # the values the files write for a reading they do not have, nulled with their text kept as `raw:` (GH-2759)
+        value, raw = null_sentinels(pl.col("value"), *_MISSING)
+        df = df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
         if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(
                 pl.col("station_id"),
@@ -346,6 +360,7 @@ class ImgwHydrologyValues(TimeseriesValues):
                     separator=" ",
                 ).alias("parameter"),
                 pl.col("value"),
+                pl.col("quality_flags"),
             )
         return df
 

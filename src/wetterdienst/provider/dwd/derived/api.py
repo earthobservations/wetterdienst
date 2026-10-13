@@ -19,7 +19,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.derived.download import download_climate_derived_data
@@ -578,10 +578,9 @@ class DwdDerivedValues(TimeseriesValues):
         """
         from typing import cast  # noqa: PLC0415
 
-        if (isinstance(parameter_or_dataset, DatasetModel) and parameter_or_dataset in TECHNICAL_DATASETS) or (
-            isinstance(parameter_or_dataset, ParameterModel) and parameter_or_dataset.dataset in TECHNICAL_DATASETS
-        ):
-            return self._collect_station_param_technical_dataset(station_id, parameter_or_dataset)  # ty: ignore[invalid-argument-type]
+        # the technical datasets are not grouped, so they arrive one parameter at a time
+        if isinstance(parameter_or_dataset, ParameterModel) and parameter_or_dataset.dataset in TECHNICAL_DATASETS:
+            return self._collect_station_param_technical_dataset(station_id, parameter_or_dataset)
 
         dataset = cast("DatasetModel", parameter_or_dataset)
         stations = cast("DwdDerivedRequest", self.sr.stations)
@@ -606,7 +605,9 @@ class DwdDerivedValues(TimeseriesValues):
             return pl.DataFrame()
 
         parameter_df = parameter_df.unique(subset=["timestamp"])
-        result = parameter_df.collect(background=False)
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
+        # the parse and full join of the hourly radiation of one station 6 times as long (GH-2781)
+        result = parameter_df.collect(engine="in-memory", background=False)
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame, got InProcessQuery"
             raise TypeError(msg)
@@ -626,22 +627,23 @@ class DwdDerivedValues(TimeseriesValues):
     @staticmethod
     def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:
         """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
-        q_col_list = list(filter(lambda x: x.startswith(("qn", "qualitaet")), df.collect_schema().names()))
+        names = [name for name in df.collect_schema().names() if not name.endswith(RAW_SUFFIX)]
+        q_col_list = list(filter(lambda x: x.startswith(("qn", "qualitaet")), names))
         q_col = q_col_list[0] if q_col_list else None
         id_vars = ["station_id", "timestamp"]
         if q_col is not None:
             id_vars = [*id_vars, q_col]
-        on = [col for col in df.collect_schema().names()[2:] if not col.startswith(("qn", "qualitaet"))]
+        on = [col for col in names[2:] if not col.startswith(("qn", "qualitaet"))]
 
-        return (
-            df.unpivot(on=on, index=id_vars, variable_name="parameter", value_name="value")
-            .rename({q_col: "quality_flags"} if q_col else {})
-            .with_columns(
-                pl.when(pl.col("value").is_not_null()).then(join_quality_flags(pl.col("quality_flags")))
-                if q_col
-                else pl.lit(None, dtype=pl.String).alias("quality_flags")
-            )
+        long = unpivot_with_raw(df, index=id_vars, on=on).rename({q_col: "quality_flags"} if q_col else {})
+        # the flag of a reading is kept where there is a reading or a sentinel, whose text follows it (`500,raw:-999`)
+        has_value_or_sentinel = pl.col("value").is_not_null() | pl.col("raw").is_not_null()
+        flags = (
+            pl.when(has_value_or_sentinel).then(join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")))
+            if q_col
+            else pl.when(has_value_or_sentinel).then(join_quality_flags(None, raw=pl.col("raw")))
         )
+        return long.with_columns(flags.alias("quality_flags")).drop("raw")
 
 
 @dataclass

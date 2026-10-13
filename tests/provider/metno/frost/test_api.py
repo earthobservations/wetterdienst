@@ -208,9 +208,13 @@ def test_metno_frost_decodes_sentinels() -> None:
                 "air_temperature",
             ],
             "value": [-1.0, 12.0, -3.0, 9.0, 4.0, -1.0],
+            "quality_flags": ["0"] * 6,
         },
     )
-    values = _decode_sentinels(given).get_column("value").to_list()
+    decoded = _decode_sentinels(given)
+    values = decoded.get_column("value").to_list()
+    # the code stays beside the value it stood for, after the quality code (GH-2759)
+    assert decoded.get_column("quality_flags").to_list() == ["0,raw:-1", "0", "0,raw:-3", "0,raw:9", "0", "0"]
     # "no snow" is a depth of zero; a measured depth is untouched
     assert values[:2] == [0.0, 12.0]
     # both codes for "could not be estimated" become null; a real eighth is untouched

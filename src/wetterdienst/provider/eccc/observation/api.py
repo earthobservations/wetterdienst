@@ -8,13 +8,12 @@ import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
-from zoneinfo import ZoneInfo
 
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
@@ -31,19 +30,49 @@ _STATIONS_LIMIT = 10000
 # the collections page at 500 features by default, which silently truncates a station-year
 _PAGE_SIZE = 10000
 
+# The daily gust is published only when it exceeds 30 km/h ("The stations do not report if less than 31 km/h", ECCC's
+# glossary under "Speed of Maximum Gust"), and the direction, in tens of degrees where "36 means 360 degrees true" and
+# so north, "only if the maximum gust speed for the day exceeds 29 km/h". A day below that has 0 in both fields of the
+# collection on most days, where the bulk CSV of the same day (ALERT, 1975-07-01) writes "<31" for the speed. In the
+# first 60,000 rows of each of 1975, 1995 and 2019, 4597 of the 8885 days with a gust read 0 for the speed and 0 for
+# the direction, without a flag. Neither 0 is a measurement: no gust is 0 km/h, and no direction of 0 exists. The
+# direction is 0 on a few days with a reported speed as well (ST CATHARINES A, 1974-11-26: 42 km/h). The reverse also
+# exists and is left alone: 14,128 days with a speed of 0 and a direction (CHURCHILL A, 1973-05-13: 340 degrees).
+_GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_gust", "direction_max_gust"]))
+
+
+#: Local Standard Time of the station list's TIMEZONE codes, as the offset from UTC all year: the codes name
+#: standard time, which the station keeps whether or not daylight saving time is adopted for other purposes
+#: (https://climate.weather.gc.ca/glossary_e.html). The civil zones of the same name have summer time, which
+#: moved a date in the summer months one hour early (GH-2693); Saskatchewan's CST stations keep no summer time at all.
+_STANDARD_TIME_OFFSETS = {
+    "AST": dt.timedelta(hours=-4),
+    "EST": dt.timedelta(hours=-5),
+    "CST": dt.timedelta(hours=-6),
+    "MST": dt.timedelta(hours=-7),
+    "PST": dt.timedelta(hours=-8),
+    "NST": dt.timedelta(hours=-3, minutes=-30),
+}
+
 
 def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
-    """Attach the station's timezone and convert to UTC.
+    """Read a date of the station list as Local Standard Time of the station and convert it to UTC.
 
-    Converted here in Python rather than handed to polars tz-aware: stations opened before
-    standard time carry an LMT offset that is not a whole number of minutes (America/Toronto is
-    -5:17:32 in 1895), which polars rejects outright. A handful of stations publish no timezone at
-    all, which only shows up once the full catalogue is fetched rather than its first 500 rows.
+    A fixed offset, not a zone: the dates are on the LST clock of the hourly ``LOCAL_DATE``, and a zone
+    such as America/Toronto would add the hour of summer time. A handful of stations publish no timezone at
+    all, which only shows up once the full catalogue is fetched rather than its first 500 rows; their dates
+    are read as UTC.
     """
     if value is None:
         return None
-    tz = ZoneInfo(timezone) if timezone else dt.UTC
-    return value.replace(tzinfo=tz).astimezone(dt.UTC)
+    if not timezone:
+        return value.replace(tzinfo=dt.UTC)
+    if timezone not in _STANDARD_TIME_OFFSETS:
+        msg = (
+            f"Unknown TIMEZONE {timezone!r} in the ECCC station list, expected one of {sorted(_STANDARD_TIME_OFFSETS)}"
+        )
+        raise ValueError(msg)
+    return value.replace(tzinfo=dt.timezone(_STANDARD_TIME_OFFSETS[timezone])).astimezone(dt.UTC)
 
 
 class EcccObservationValues(TimeseriesValues):
@@ -115,8 +144,6 @@ class EcccObservationValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
-        from typing import cast  # noqa: PLC0415
-
         settings = cast("Settings", self.sr.stations.settings)
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
@@ -209,6 +236,10 @@ class EcccObservationValues(TimeseriesValues):
                 offset += _PAGE_SIZE
             df = pl.concat(pages).lazy()
             df = self._tidy_up_df(df)
+            # the sentinel is mapped before the tens of degrees are decoded and the unit is converted, and the 0 the
+            # source wrote stays on the value as a `raw:` token
+            value, raw = null_sentinels(pl.col("value"), _GUST_NOT_REPORTED, text=False)
+            df = df.with_columns(value.alias("value"), raw.alias("raw"))
             # ECCC publishes both gust direction (daily) and wind direction (hourly) in tens of degrees --
             # its own docs call the daily column
             # "Dir of Max Gust (10s deg)" -- so 23 means 230 degrees. Decoded here rather than
@@ -240,10 +271,12 @@ class EcccObservationValues(TimeseriesValues):
                 pl.lit(station_id, dtype=pl.String).alias("station_id"),
                 timestamp.alias("timestamp"),
                 "value",
-                join_quality_flags(pl.col("quality_flags")),
+                join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")),
             )
             data.append(df)
-        return pl.concat(data).collect()
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
+        # the unpivot and join of 60 years of daily rows 4 times as long, for the same rows (GH-2781)
+        return pl.concat(data).collect(engine="in-memory")
 
 
 @dataclass
@@ -261,30 +294,9 @@ class EcccObservationRequest(TimeseriesRequest):
     _endpoint = "https://api.weather.gc.ca"
 
     metadata = EcccObservationMetadata
-    # _values is a class object (subclass of TimeseriesValues). Use cast to
-    # satisfy the static typechecker which expects a TimeseriesValues value.
-    _values = cast("TimeseriesValues", EcccObservationValues)
-
-    # Mapping of Canadian timezone abbreviations to IANA timezone identifiers
-    _timezone_mapping: ClassVar[dict] = {
-        "ADT": "America/Halifax",  # Atlantic Daylight Time
-        "AST": "America/Halifax",  # Atlantic Standard Time
-        "CDT": "America/Winnipeg",  # Central Daylight Time
-        "CST": "America/Winnipeg",  # Central Standard Time
-        "EDT": "America/Toronto",  # Eastern Daylight Time
-        "EST": "America/Toronto",  # Eastern Standard Time
-        "MDT": "America/Edmonton",  # Mountain Daylight Time
-        "MST": "America/Edmonton",  # Mountain Standard Time
-        "NDT": "America/St_Johns",  # Newfoundland Daylight Time
-        "NST": "America/St_Johns",  # Newfoundland Standard Time
-        "PDT": "America/Vancouver",  # Pacific Daylight Time
-        "PST": "America/Vancouver",  # Pacific Standard Time
-        "YDT": "America/Whitehorse",  # Yukon Daylight Time
-        "YST": "America/Whitehorse",  # Yukon Standard Time
-    }
+    _values = EcccObservationValues
 
     def _all(self) -> pl.LazyFrame:
-        from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
         # The OGC endpoint defaults to 500 features, and ECCC has ~8600 stations, so the default
@@ -341,10 +353,6 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_timestamp"),
             pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
         )
-        # Map timezone abbreviations to IANA timezone names
-        df_raw = df_raw.with_columns(
-            pl.col("timezone").replace_strict(self._timezone_mapping, default=pl.col("timezone")),
-        )
         # parse start_timestamp and end_timestamp as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
             pl.col("station_id").cast(pl.String),
@@ -379,11 +387,12 @@ class EcccObservationRequest(TimeseriesRequest):
     def _stamp_bounds(df: pl.LazyFrame, *, resolution: Resolution) -> pl.LazyFrame:
         """Give the first and last date of the station as the stamps of the resolution's first and last value.
 
-        FIRST_DATE and LAST_DATE are written in the station's local time. Hourly rows are stamped with an instant, so
-        the date is converted from the station's zone to UTC. Daily and monthly rows are stamped at 00:00 UTC of their
-        date or month whatever the zone (GH-2683), so the date is cut to the day or month it names and stamped the same
-        way: converted to UTC, the first day of a station read 2013-06-11 13:00 UTC, after the 00:00 UTC window of a
-        request for that one day, and the station was skipped though it has a value dated that day (GH-2730).
+        FIRST_DATE and LAST_DATE are written in the station's Local Standard Time, the clock of the hourly LOCAL_DATE
+        with no summer time (GH-2693). Hourly rows are stamped with an instant, so the date is converted from that
+        offset to UTC. Daily and monthly rows are stamped at 00:00 UTC of their date or month whatever the zone
+        (GH-2683), so the date is cut to the day or month it names and stamped the same way: converted to UTC, the
+        first day of a station read 2013-06-11 14:00 UTC, after the 00:00 UTC window of a request for that one day, and
+        the station was skipped though it has a value dated that day (GH-2730).
         """
         if resolution in (Resolution.DAILY, Resolution.MONTHLY):
             unit = "1mo" if resolution == Resolution.MONTHLY else "1d"

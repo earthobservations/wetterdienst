@@ -50,6 +50,19 @@ The following examples use [httpie](https://github.com/httpie/cli) to demonstrat
 http localhost:7890/api/coverage
 ```
 
+The list downloads nothing, so it answers at once. For a network that needs credentials it says
+whether they are present (`configured`); `valid` is `false` where they are not, and `null` where
+they are, because whether the provider accepts them is a request to the provider. Ask for one
+network at a time, which gives up after a few seconds and answers `null` as well when it could not
+tell (treat `null` as unknown, not as rejected):
+
+```bash
+http localhost:7890/api/auth provider==aemet network==observation
+```
+
+The MCP tool `auth` and the command `wetterdienst about auth --provider=aemet --network=observation`
+ask the same question and give the same answer.
+
 ### Glossary
 
 Coverage says which parameters a provider offers; the glossary says what any of them means and
@@ -163,13 +176,20 @@ for as long as it likes on that thread; and allocate memory DuckDB's limit does 
 one very long string. The limits hold per request, not for the server as a whole. Enable it only
 for clients you trust with that.
 
+### Image size
+
+A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
+the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
+times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
+The limit holds for the REST API and the MCP tools; the library and the CLI have none.
+
 ## MCP endpoint
 
 The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)
-(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, stations, values,
-interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the streamable-HTTP
-transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own routes and running
-in the same process.
+(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, auth, stations,
+values, interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the
+streamable-HTTP transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own
+routes and running in the same process.
 
 The generated tools are made agent-friendly so even small models use them correctly: a workflow
 `instructions` block (find a station, then query its values) is attached to the server, the tools

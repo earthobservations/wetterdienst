@@ -119,6 +119,71 @@ def test_parse_chmi_values_aggregate_annual_has_no_month() -> None:
     ]
 
 
+def test_parse_chmi_values_aggregate_carries_repeat_and_interrupted() -> None:
+    """The `*` of FLAG_REPEAT and the `I` of FLAG_INTERRUPTED are `repeat:*` and `interrupted:I` (GH-2763).
+
+    The API reads no `MAX`/`MIN` series, so `repeat:*` is pinned on the parser alone.
+
+    The rows are the shapes of `mly-0-20000-0-11406-T.csv` (a repeated extreme, `*`) and
+    `mly-0-20000-0-11406-Fmax.csv` (a value from a period with missing daily values, `I`).
+    """
+    monthly = (
+        b"STATION,ELEMENT,YEAR,MONTH,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n"
+        b"0-X,T,1863,10,20:00,MAX,13.3,*,,\n"  # repeat only
+        b"0-X,T,1863,11,20:00,MAX,9.0,,I,\n"  # interrupted only
+        b"0-X,T,1863,12,20:00,MAX,4.0,*,I,\n"  # both
+        b"0-X,T,1864,1,20:00,MAX,2.0,,,\n"  # neither
+        b"0-X,T,1864,2,20:00,MAX,3.0, , ,\n"  # blank, not set
+    )
+    df = parse_chmi_values_aggregate(monthly, element="T", timefunc="20:00", mdfunc="MAX", has_month=True)
+    assert df.get_column("quality_flags").to_list() == [
+        "repeat:*",
+        "interrupted:I",
+        "repeat:*,interrupted:I",
+        None,
+        None,
+    ]
+    assert df.get_column("value").to_list() == [13.3, 9.0, 4.0, 2.0, 3.0]
+
+    annual = (
+        b"STATION,ELEMENT,YEAR,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n"
+        b"0-X,T,1864,AVG,MIN,-16.1,*,I,\n"
+    )
+    df_annual = parse_chmi_values_aggregate(annual, element="T", timefunc="AVG", mdfunc="MIN", has_month=False)
+    assert df_annual.get_column("quality_flags").to_list() == ["repeat:*,interrupted:I"]
+
+
+def test_parse_chmi_values_aggregate_interrupted_on_the_series_the_api_reads() -> None:
+    """`I` shows as `interrupted:I` on the selections the API makes: T AVG/AVG and SRA 06:00/SUM (GH-2763)."""
+    mean = (
+        b"STATION,ELEMENT,YEAR,MONTH,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n"
+        b"0-X,T,2005,1,AVG,AVG,-1.2,,I,\n"
+        b"0-X,T,2005,2,AVG,AVG,0.4,,,\n"
+        b"0-X,T,2005,3,AVG,MAX,9.0,*,I,\n"  # another MDFUNCTION: not selected
+    )
+    df = parse_chmi_values_aggregate(mean, element="T", timefunc="AVG", mdfunc="AVG", has_month=True)
+    assert df.get_column("value").to_list() == [-1.2, 0.4]
+    assert df.get_column("quality_flags").to_list() == ["interrupted:I", None]
+
+    total = (
+        b"STATION,ELEMENT,YEAR,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n"
+        b"0-X,SRA,2005,06:00,SUM,512.0,,I,\n"
+    )
+    df_total = parse_chmi_values_aggregate(total, element="SRA", timefunc="06:00", mdfunc="SUM", has_month=False)
+    assert df_total.get_column("quality_flags").to_list() == ["interrupted:I"]
+
+
+def test_parse_chmi_values_daily_has_no_aggregate_flag_tokens() -> None:
+    """The daily files have no FLAG_REPEAT or FLAG_INTERRUPTED column: `quality_flags` is the same as before."""
+    content = (
+        b"STATION,ELEMENT,TIMEFUNC,DT,VALUE,FLAG,QUALITY,\n"
+        b"0-X,SRA,06:00,2020-01-01T06:00Z,0.0,T,0.0,\n"
+        b"0-X,SRA,06:00,2020-01-02T06:00Z,1.2,,3.0,\n"
+    )
+    df = parse_chmi_values_daily(content, element="SRA", timefunc="06:00")
+    assert df.get_column("quality_flags").to_list() == ["0,element:T", "3"]
+
+
 # CHMI's open-data portal is a live third-party service; xfail rather than a hard failure keeps a
 # transient blip from blocking CI/merges, matching the AEMET/FMI precedent.
 xfail_if_chmi_unavailable = pytest.mark.xfail(strict=False, reason="CHMI server intermittently unavailable")

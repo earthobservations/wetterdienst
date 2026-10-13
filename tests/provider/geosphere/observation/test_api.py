@@ -15,6 +15,7 @@ from dirty_equals import IsNumeric
 from freezegun import freeze_time
 
 from wetterdienst.exceptions import NoInternetError
+from wetterdienst.options import Options
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api
 from wetterdienst.provider.geosphere.observation.api import _time_windows
 from wetterdienst.settings import Settings
@@ -400,7 +401,7 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
     requests = _serve_archive_of_parameters(monkeypatch, step, archive_start, archive_end)
     request = GeosphereObservationRequest(
         parameters=[(resolution, "data")],
-        settings=Settings(ts_humanize=False, ts_convert_units=False),
+        options=Options(humanize=False, convert_units=False),
     )
     names = [parameter.name_original for parameter in request.parameters]
     df = request.filter_by_station_id("4821").values.all().df
@@ -430,7 +431,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
         ],
         start=start,
         end=end,
-        settings=Settings(ts_humanize=False, ts_convert_units=False),
+        options=Options(humanize=False, convert_units=False),
     )
     df = request.filter_by_station_id("4821").values.all().df
     assert [(names, dataset) for _, _, names, dataset in requests] == [
@@ -530,7 +531,8 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
         ],
         start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
-        settings=Settings(cache_disable=True, ts_unit_targets=unit_targets),
+        settings=Settings(cache_disable=True),
+        options=Options(unit_targets=unit_targets),
     )
     df = request.filter_by_station_id("4821").values.all().df.sort("parameter", "timestamp")
     values = {
@@ -573,3 +575,43 @@ def test_geosphere_observation_none_code_is_a_daily_one(
     )
     df = request.filter_by_station_id("4821").values.all().df
     assert -1.0 in df.get_column("value").to_list()
+
+
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly"])
+def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_direction_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+) -> None:
+    """Test that the mean direction 0 of a calm is null with `raw:0`, and 360, the gust direction are not (GH-2794).
+
+    The values of Aflenz (id 1) in klima-v2-1h for 2024-01-02 18:00 to 20:00 (checked 2026-10-12), served on the
+    dates of the helper: `dd` [9, 0, 38] beside `ff` [0.3, 0.0, 0.5], and `ddx` [12, 358, 356]. The description of `dd`
+    is "Windrichtung [360°]", and in the hourly dataset of 25 stations all 816 hours with a `dd` of 0 have an `ff`
+    of 0.0. The 360, and the 0 of `ddx` (the source has none; it shows that only `dd` is mapped), are made up.
+    """
+    _serve_values(
+        monkeypatch,
+        {"dd": [9, 0, 360], "ddx": [12, 0, 356], "ff": [0.3, 0.0, 0.5]},
+    )
+    request = GeosphereObservationRequest(
+        parameters=[
+            (resolution, "data", "wind_direction"),
+            (resolution, "data", "wind_direction_gust_max"),
+            (resolution, "data", "wind_speed"),
+        ],
+        start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
+        end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = request.filter_by_station_id("4821").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = df.sort("parameter", "timestamp")
+    rows = {
+        parameter: group.select("value", "quality_flags").rows()
+        for (parameter,), group in df.group_by("parameter", maintain_order=True)
+    }
+    assert rows == {
+        "wind_direction": [(9.0, None), (None, "raw:0"), (360.0, None)],
+        "wind_direction_gust_max": [(12.0, None), (0.0, None), (356.0, None)],
+        "wind_speed": [(0.3, None), (0.0, None), (0.5, None)],
+    }

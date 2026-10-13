@@ -70,6 +70,44 @@ def test_parse_fmi_observations_trace_sentinel() -> None:
     assert ("rrday", None) in values
 
 
+def test_parse_fmi_observations_wind_direction_of_0_is_null() -> None:
+    """A wind direction of 0 is null with `raw:0.0`, north (360) and the other parameters are not (GH-2794).
+
+    Rows as the WFS answers (fmi::observations::weather::simple, checked 2026-10-12): 100971 2025-01-03 09:00 has a
+    direction of 0.0 beside a wind speed of 0.0, 101118 2025-01-05 00:00 one of 360.0 beside 3.0 m/s and 12:00 one of
+    0.0 beside 0.2 m/s. A 0 is never a bearing there, and a temperature of 0.0 is a reading.
+    """
+
+    def member(time: str, name: str, value: str) -> str:
+        return (
+            "<wfs:member><BsWfs:BsWfsElement>"
+            f"<BsWfs:Time>{time}</BsWfs:Time><BsWfs:ParameterName>{name}</BsWfs:ParameterName>"
+            f"<BsWfs:ParameterValue>{value}</BsWfs:ParameterValue></BsWfs:BsWfsElement></wfs:member>"
+        )
+
+    members = [
+        ("2025-01-03T09:00:00Z", "wd_10min", "0.0"),
+        ("2025-01-03T09:00:00Z", "ws_10min", "0.0"),
+        ("2025-01-03T09:00:00Z", "t2m", "0.0"),
+        ("2025-01-05T00:00:00Z", "wd_10min", "360.0"),
+        ("2025-01-05T12:00:00Z", "wd_10min", "0.0"),
+    ]
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" '
+        'xmlns:BsWfs="http://xml.fmi.fi/schema/wfs/2.0">'
+        + "".join(member(*row) for row in members)
+        + "</wfs:FeatureCollection>"
+    ).encode()
+    df = parse_fmi_observations(content)
+    assert df.select("parameter", "value", "quality_flags").rows() == [
+        ("wd_10min", None, "raw:0.0"),
+        ("ws_10min", 0.0, None),
+        ("t2m", 0.0, None),
+        ("wd_10min", 360.0, None),
+        ("wd_10min", None, "raw:0.0"),
+    ]
+
+
 def test_extract_exception_text() -> None:
     """An OWS ExceptionReport is detected and its text extracted; a normal response returns None."""
     exception = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -235,8 +273,8 @@ def test_fmi_observation_values_window_in_helsinki_time_across_the_clock_change(
         sent.append((start, end))
         hours = pl.datetime_range(start, end, interval="1h", eager=True)
         return pl.DataFrame(
-            {"timestamp": hours, "parameter": "t2m", "value": 1.0},
-            schema_overrides={"timestamp": pl.Datetime("us", "UTC")},
+            {"timestamp": hours, "parameter": "t2m", "value": 1.0, "quality_flags": None},
+            schema_overrides={"timestamp": pl.Datetime("us", "UTC"), "quality_flags": pl.String},
         )
 
     monkeypatch.setattr(FmiObservationValues, "_collect_window", collect_window)

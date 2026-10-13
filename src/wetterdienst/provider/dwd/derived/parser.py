@@ -13,6 +13,7 @@ import polars as pl
 from polars import selectors as cs
 
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels
 from wetterdienst.provider.dwd.derived.metadata import (
     RADIATION_DATASETS,
     SOIL_DATASETS,
@@ -55,6 +56,26 @@ COLUMNS_MAPPING = {
 }
 
 
+# -999 is what the descriptions of the DWD datasets give for a missing value, -9999 what the derived ones add; every
+# column that is a parameter keeps the text it was written as, in `<column>__raw`, for `quality_flags` (GH-2759)
+_MISSING_VALUE = Sentinel("-999", "-9999")
+# the columns that identify a row and are no parameter, by the names the files give them
+_NO_RAW_COLUMNS = {
+    "stations_id",
+    "mess_datum",
+    "mess_datum_beginn",
+    "mess_datum_ende",
+    "stationshoehe",
+    "geobreite",
+    "geogr.breite",
+    "geolaenge",
+    "geogr.laenge",
+    "datum",
+    "stationsindex",
+    "monat",
+}
+
+
 def parse_climate_derived_data(
     files: list[File],
     dataset: DatasetModel,
@@ -86,10 +107,11 @@ def _parse_climate_derived_data(
         file.content = BytesIO(file.content.read().decode("latin1").encode("utf8"))
 
     try:
+        # every column as text, as the sentinels are matched on the text (see the observation parser)
         df = pl.scan_csv(
             source=file.content,
             separator=";",
-            null_values=["-999"],
+            infer_schema=False,
         )
     except pl.exceptions.SchemaError:
         log.warning(f"The file representing {file.filename} could not be parsed and is skipped.")
@@ -98,12 +120,19 @@ def _parse_climate_derived_data(
         log.warning(f"The file representing {file.filename} is None and is skipped.")
         return pl.LazyFrame()
     df = df.with_columns(cs.string().str.strip_chars())
-    df = df.with_columns(cs.string().replace("-999", None), cs.numeric().replace(-999, None))
-    df = df.with_columns(cs.string().replace("-9999", None), cs.numeric().replace(-9999, None))
     # Column names contain spaces, so strip them away.
     df = df.rename(mapping=lambda col: col.strip().lower())
     # End of record (EOR) has no value, so drop it right away.
     df = df.drop(*DROPPABLE_PARAMETERS, strict=False)
+    columns = sorted(df.collect_schema().names())
+    df = clear_sentinels(df, columns, _MISSING_VALUE)
+    df = df.drop(
+        *(
+            f"{column}{RAW_SUFFIX}"
+            for column in columns
+            if column in _NO_RAW_COLUMNS or column.startswith(("qn", "qualitaet"))
+        )
+    )
     # Assign meaningful column names (baseline).
     df = df.rename(mapping=lambda col: COLUMNS_MAPPING.get(col, col))
     if dataset in RADIATION_DATASETS:

@@ -156,6 +156,30 @@ def test_parse_values_keeps_the_mesql_code_as_the_text_the_file_writes() -> None
     assert df.get_column("quality_flags").to_list() == ["2576", "20001", None]
 
 
+def test_parse_values_keeps_the_na_of_a_day_that_has_no_value() -> None:
+    """An `NA` beside a value of its day is no value and no flag; a day of nothing but `NA` keeps it (GH-2759)."""
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_end_time,ob_hour_count,met_domain_name,max_air_temp,max_air_temp_q,min_air_temp,min_air_temp_q",
+        b"2000-01-01 09:00:00,12,AWSDLY,NA,NA,0.3,6\n"
+        b"2000-01-01 21:00:00,12,AWSDLY,5.1,6,NA,NA\n"
+        b"2000-01-02 09:00:00,12,AWSDLY,NA,NA,NA,NA\n",
+    )
+    df = parse_values(
+        content,
+        time_column="ob_end_time",
+        columns=["max_air_temp", "min_air_temp"],
+        granularity="1d",
+        min_columns=frozenset({"min_air_temp"}),
+    ).sort("parameter", "timestamp")
+    assert df.select("parameter", "timestamp", "value", "quality_flags").rows() == [
+        ("max_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), 5.1, "6"),
+        ("max_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), None, "raw:NA"),
+        ("min_air_temp", dt.datetime(2000, 1, 1, tzinfo=UTC), 0.3, "6"),
+        ("min_air_temp", dt.datetime(2000, 1, 2, tzinfo=UTC), None, "raw:NA"),
+    ]
+
+
 def test_parse_values_empty_input() -> None:
     """A file with no data rows yields an empty frame with the expected schema."""
     content = _badc(b"Conventions,G,BADC-CSV,1\n", "ob_date,prcp_amt", b"")

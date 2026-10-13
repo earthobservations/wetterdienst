@@ -22,7 +22,7 @@ import polars as pl
 import pytest
 
 from tests.conftest import IS_CI, IS_WINDOWS
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
@@ -766,30 +766,30 @@ def test_interpolated_or_summarized_ogc_feature_collection_without_values(
 
 
 @pytest.mark.parametrize(
-    ("settings_kwargs", "parameter_in_frame", "expected"),
+    ("options_kwargs", "parameter_in_frame", "expected"),
     [
         ({}, "sunshine_duration", "sunshine_duration (s)"),
-        ({"ts_humanize": False}, "sd_10", "sd_10 (s)"),
-        ({"ts_convert_units": False}, "sunshine_duration", "sunshine_duration (h)"),
-        ({"ts_humanize": False, "ts_convert_units": False}, "sd_10", "sd_10 (h)"),
+        ({"humanize": False}, "sd_10", "sd_10 (s)"),
+        ({"convert_units": False}, "sunshine_duration", "sunshine_duration (h)"),
+        ({"humanize": False, "convert_units": False}, "sd_10", "sd_10 (h)"),
     ],
 )
 def test_values_plot_labels_the_unit_the_values_carry(
-    settings_kwargs: dict,
+    options_kwargs: dict,
     parameter_in_frame: str,
     expected: str,
 ) -> None:
     """A plot labels a parameter with the unit its values are actually written in.
 
     Two ways that went wrong. The label mapping was keyed on the canonical parameter name alone,
-    while a frame carries `name_original` unless `ts_humanize` is on, so nothing matched and the
+    while a frame carries `name_original` unless `humanize` is on, so nothing matched and the
     label repeated the name: `sd_10 (sd_10)`. And the symbol was always the target unit's, though
-    `ts_convert_units=False` leaves the values as the source published them -- sunshine duration
+    `convert_units=False` leaves the values as the source published them -- sunshine duration
     comes in hours and was labelled seconds, a factor of 3600 between the number and its unit.
     """
     request = DwdObservationRequest(
         parameters=["10_minutes/solar/sunshine_duration"],
-        settings=Settings(**settings_kwargs),
+        options=options_kwargs,
     )
     stations = StationsResult(
         stations=request,
@@ -822,7 +822,7 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
     pytest.importorskip("plotly")
     request = DwdObservationRequest(
         parameters=["10_minutes/solar/sunshine_duration", "hourly/sun/sunshine_duration"],
-        settings=Settings(ts_convert_units=False),
+        options=Options(convert_units=False),
     )
     stations = StationsResult(
         stations=request,
@@ -1164,7 +1164,7 @@ def test_export_unknown(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_path: Path) -> None:
+def test_export_excel(options_convert_units_false_wide_shape: Options, tmp_path: Path) -> None:
     """Test export of DataFrame to spreadsheet."""
     pytest.importorskip("fastexcel")
 
@@ -1173,7 +1173,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
         end="2020-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1294,7 +1294,7 @@ def test_export_excel(settings_convert_units_false_wide_shape: Settings, tmp_pat
 
 @pytest.mark.remote
 def test_export_parquet(
-    settings_convert_units_false_wide_shape: Settings,
+    options_convert_units_false_wide_shape: Options,
     dwd_climate_summary_tabular_columns: list[str],
     tmp_path: Path,
 ) -> None:
@@ -1305,7 +1305,7 @@ def test_export_parquet(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
         end="2020-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1330,7 +1330,7 @@ def test_export_parquet(
 
 @pytest.mark.remote
 def test_export_zarr(
-    settings_convert_units_false_wide_shape: Settings,
+    options_convert_units_false_wide_shape: Options,
     dwd_climate_summary_tabular_columns: list[str],
     tmp_path: Path,
 ) -> None:
@@ -1341,7 +1341,7 @@ def test_export_zarr(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
         end="2020-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1384,7 +1384,7 @@ def test_export_zarr(
 
 @pytest.mark.remote
 def test_export_zarr_two_datasets(
-    settings_convert_units_false_wide_shape: Settings,
+    options_convert_units_false_wide_shape: Options,
     tmp_path: Path,
 ) -> None:
     """Test that a wide frame merging two datasets is written to a named group, not the store root.
@@ -1399,7 +1399,7 @@ def test_export_zarr_two_datasets(
         parameters=[("daily", "climate_summary"), ("daily", "precipitation_more")],
         start="2019-01-01",
         end="2019-01-05",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1419,7 +1419,7 @@ def test_export_zarr_two_datasets(
 
 @pytest.mark.remote
 def test_export_feather(
-    settings_convert_units_false_wide_shape: Settings,
+    options_convert_units_false_wide_shape: Options,
     dwd_climate_summary_tabular_columns: list[str],
     tmp_path: Path,
 ) -> None:
@@ -1430,7 +1430,7 @@ def test_export_feather(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
         end="2020-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1455,13 +1455,13 @@ def test_export_feather(
 
 
 @pytest.mark.remote
-def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_path: Path) -> None:
+def test_export_sqlite(options_convert_units_false_wide_shape: Options, tmp_path: Path) -> None:
     """Test export of DataFrame to sqlite db."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
         end="2020-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1550,13 +1550,13 @@ def test_export_sqlite(settings_convert_units_false_wide_shape: Settings, tmp_pa
 
 @pytest.mark.remote
 def test_export_cratedb(
-    settings_convert_units_false: Settings,
+    options_convert_units_false: Options,
 ) -> None:
     """Test export of DataFrame to cratedb."""
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         periods=Period.RECENT,
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(
         station_id=[1048],
     )
@@ -1576,14 +1576,14 @@ def test_export_cratedb(
 
 
 @pytest.mark.remote
-def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -> None:
+def test_export_duckdb(options_convert_units_false: Options, tmp_path: Path) -> None:
     """Test export of DataFrame to duckdb."""
     import duckdb  # noqa: PLC0415
 
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         periods=Period.HISTORICAL,
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     filename = tmp_path.joinpath("test.duckdb")
     values = request.values.all()
@@ -1617,13 +1617,13 @@ def test_export_duckdb(settings_convert_units_false: Settings, tmp_path: Path) -
 
 @pytest.mark.xfail
 @pytest.mark.remote
-def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings) -> None:
+def test_export_influxdb1_wide(options_convert_units_false_wide_shape: Options) -> None:
     """Test export of DataFrame to influxdb v1."""
     pytest.importorskip("influxdb")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     mock_client = mock.MagicMock()
@@ -1689,13 +1689,13 @@ def test_export_influxdb1_wide(settings_convert_units_false_wide_shape: Settings
 
 
 @pytest.mark.remote
-def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
+def test_export_influxdb1_tidy(options_convert_units_false: Options) -> None:
     """Test export of DataFrame to influxdb v1."""
     pytest.importorskip("influxdb")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     mock_client = mock.MagicMock()
@@ -1736,13 +1736,13 @@ def test_export_influxdb1_tidy(settings_convert_units_false: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings) -> None:
+def test_export_influxdb2_wide(options_convert_units_false_wide_shape: Options) -> None:
     """Test export of DataFrame to influxdb v2."""
     pytest.importorskip("influxdb_client")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     mock_client = mock.MagicMock()
@@ -1800,13 +1800,13 @@ def test_export_influxdb2_wide(settings_convert_units_false_wide_shape: Settings
 
 
 @pytest.mark.remote
-def test_export_influxdb2_tidy(settings_convert_units_false: Settings) -> None:
+def test_export_influxdb2_tidy(options_convert_units_false: Options) -> None:
     """Test export of DataFrame to influxdb v2."""
     pytest.importorskip("influxdb_client")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     mock_client = mock.MagicMock()
@@ -1839,13 +1839,13 @@ def test_export_influxdb2_tidy(settings_convert_units_false: Settings) -> None:
 
 
 @pytest.mark.remote
-def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings) -> None:
+def test_export_influxdb3_wide(options_convert_units_false_wide_shape: Options) -> None:
     """Test export of DataFrame to influxdb v3."""
     pytest.importorskip("influxdb_client_3")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
-        settings=settings_convert_units_false_wide_shape,
+        options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     with (
@@ -1903,13 +1903,13 @@ def test_export_influxdb3_wide(settings_convert_units_false_wide_shape: Settings
 
 
 @pytest.mark.remote
-def test_export_influxdb3_tidy(settings_convert_units_false: Settings) -> None:
+def test_export_influxdb3_tidy(options_convert_units_false: Options) -> None:
     """Test export of DataFrame to influxdb v3."""
     pytest.importorskip("influxdb_client_3")
     request = DwdObservationRequest(
         parameters=[("daily", "climate_summary")],
         start="2019-01-01",
-        settings=settings_convert_units_false,
+        options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     values = request.values.all()
     with (
@@ -3472,7 +3472,7 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
 
 
 @pytest.mark.parametrize(
-    ("settings_kwargs", "parameters", "names"),
+    ("options_kwargs", "parameters", "names"),
     [
         pytest.param(
             {},
@@ -3486,7 +3486,7 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
             id="two-datasets-merged-in-one-resolution",
         ),
         pytest.param(
-            {"ts_humanize": False},
+            {"humanize": False},
             ["daily/kl/temperature_air_mean_2m", "hourly/temperature_air/temperature_air_2m"],
             ["tmk", "tt_tu"],
             id="original-names-two-resolutions",
@@ -3498,7 +3498,7 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
             id="one-dataset",
         ),
         pytest.param(
-            {"ts_humanize": False},
+            {"humanize": False},
             ["hourly/wind/wind_speed", "hourly/wind_extreme/wind_gust_max"],
             ["f", "fx_911"],
             id="one-dataset-name-beginning-another",
@@ -3506,7 +3506,7 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
     ],
 )
 def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
-    settings_kwargs: dict,
+    options_kwargs: dict,
     parameters: list[str],
     names: list[str],
 ) -> None:
@@ -3516,7 +3516,7 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
     so every image format of a wide result raised `ColumnNotFoundError` (GH-2330).
     """
     pytest.importorskip("plotly")
-    request = DwdObservationRequest(parameters=parameters, settings=Settings(**settings_kwargs))
+    request = DwdObservationRequest(parameters=parameters, options=options_kwargs)
     stations = StationsResult(
         stations=request,
         df=pl.DataFrame(),
@@ -3961,3 +3961,39 @@ def test_export_influxdb1_tidy_writes_the_quality_flags_beside_the_value() -> No
     points = mock_client.write_points.call_args.kwargs["points"]
     # the missing reading with its `M` has no value to carry the flags, so it is not written at all
     assert [point["fields"] for point in points] == [{"value": 1.5, "quality_flags": "E"}, {"value": 2.5}]
+
+
+def test_export_influxdb1_wide_does_not_write_the_raw_flags_of_a_missing_value_alone() -> None:
+    """Test that `raw:-999` of a value mapped from a sentinel is not written as a field of its own (GH-2759)."""
+    pytest.importorskip("influxdb")
+    df = pl.DataFrame(
+        {
+            "station_id": ["51459"] * 3,
+            "resolution": ["daily"] * 3,
+            "dataset": ["data"] * 3,
+            "timestamp": [dt.datetime(2025, 1, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)],
+            "temperature_air_mean_2m": [1.5, None, None],
+            "temperature_air_mean_2m_quality_flags": ["3", "3,raw:-999", None],
+            "wind_speed": [2.0, None, 3.0],
+            "wind_speed_quality_flags": ["3", "3,raw:-999", "3"],
+            # the flag of a missing value that is no sentinel is written as it was
+            "pressure_vapor": [None, None, None],
+            "pressure_vapor_quality_flags": [None, "4", None],
+        },
+    )
+    values = ValuesResult(stations=None, values=None, df=df)  # ty: ignore[invalid-argument-type]
+    mock_client = mock.MagicMock()
+    with mock.patch("influxdb.InfluxDBClient", side_effect=[mock_client], create=True):
+        values.to_target("influxdb://localhost/?database=dwd&table=weather")
+    points = mock_client.write_points.call_args.kwargs["points"]
+    # the `raw:` flags of the missing values are not written alone; the second day keeps the other flag it had
+    assert [point["fields"] for point in points] == [
+        {
+            "temperature_air_mean_2m": 1.5,
+            "temperature_air_mean_2m_quality_flags": "3",
+            "wind_speed": 2.0,
+            "wind_speed_quality_flags": "3",
+        },
+        {"pressure_vapor_quality_flags": "4"},
+        {"wind_speed": 3.0, "wind_speed_quality_flags": "3"},
+    ]

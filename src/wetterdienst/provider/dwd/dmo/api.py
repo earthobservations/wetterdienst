@@ -29,6 +29,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
+from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
@@ -471,7 +472,7 @@ def _refuse_parameters_the_run_does_not_carry(parameters: list[ParameterModel], 
         raise ParameterNotCarriedError(msg)
 
 
-class DwdDmoValues(TimeseriesValues):
+class DwdDmoValues(TimeseriesValues[DatasetModel]):
     """Fetch DWD DMO data."""
 
     def __post_init__(self) -> None:
@@ -508,7 +509,7 @@ class DwdDmoValues(TimeseriesValues):
         """Get metadata DataFrame for DMO."""
         return self.sr.df
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -519,13 +520,7 @@ class DwdDmoValues(TimeseriesValues):
         df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
-        df = df.unpivot(
-            index=[
-                "timestamp",
-            ],
-            variable_name="parameter",
-            value_name="value",
-        )
+        df = unpivot_with_raw(df, index=["timestamp"])
         return df.select(
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -533,6 +528,8 @@ class DwdDmoValues(TimeseriesValues):
             "parameter",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.000Z", time_zone="UTC"),
             "value",
+            # the "-" the file writes for a missing value (GH-2759)
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
     def read_dmo(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
@@ -787,8 +784,10 @@ class DwdDmoRequest(TimeseriesRequest):
         )
         self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
         issue: str | dt.datetime | DwdForecastDate = self.issue
-        with contextlib.suppress(InvalidEnumerationError):
-            issue = parse_enumeration_from_template(issue, DwdForecastDate)  # ty: ignore[no-matching-overload]
+        # a datetime names no member of the enumeration, so only a string or a member is looked up
+        if not isinstance(issue, dt.datetime):
+            with contextlib.suppress(InvalidEnumerationError):
+                issue = parse_enumeration_from_template(issue, DwdForecastDate)
         if issue is not DwdForecastDate.LATEST:
             if isinstance(issue, str):
                 try:

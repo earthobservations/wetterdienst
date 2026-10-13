@@ -18,6 +18,7 @@ from wetterdienst.exceptions import CredentialMissingError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import join_quality_flags, raw_column, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.aemet.observation.metadata import AemetObservationMetadata
@@ -28,7 +29,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings, reveal
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import PROBE_TIMEOUT, download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -190,22 +191,25 @@ def _download_with_rate_limit_retry(
     return last_file
 
 
-def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
-    """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
-
-    A failure is returned, not raised. `AemetKeyRejectedError` is the one that says AEMET refuses the
-    key: a 401 or 403 of the envelope request, or an `estado` of 401 or 403 in it. The "datos" URL is
-    pre-signed and takes no key, so a refusal of it says nothing about the key.
+def _client_kwargs(settings: Settings) -> dict:
+    """Build the client kwargs of AEMET's requests: the settings' own and the key as a request header.
 
     The api_key is sent as a request header (rather than a URL query parameter) so it
     never ends up embedded in a URL that gets logged. AEMET accepts the key either way;
     the "datos" URL from the envelope is a pre-signed link that doesn't need auth at all.
     """
-    client_kwargs = {
+    return {
         **settings.fsspec_client_kwargs,
         "headers": {**settings.fsspec_client_kwargs.get("headers", {}), "api_key": reveal(settings.auth.aemet)},
     }
-    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
+
+
+def _read_envelope(file: File) -> dict | Exception:
+    """Read the envelope AEMET answered a request with: the envelope if its `estado` is 200, else why not.
+
+    A failure is returned, not raised. `AemetKeyRejectedError` is the one that says AEMET refuses the
+    key: a 401 or 403 of the envelope request, or an `estado` of 401 or 403 in it.
+    """
     if isinstance(file.content, Exception):
         if file.status in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(f"AEMET answered HTTP {file.status}: {file.content}")
@@ -221,6 +225,19 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         if estado in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(description)
         return Exception(description)
+    return envelope
+
+
+def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
+    """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
+
+    A failure is returned, not raised (see `_read_envelope` for the one that says the key is refused).
+    The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
+    """
+    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=_client_kwargs(settings))
+    envelope = _read_envelope(file)
+    if isinstance(envelope, Exception):
+        return envelope
     if not isinstance(envelope.get("datos"), str):
         return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
@@ -231,20 +248,33 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
 
 
 def _probe_aemet_credentials(settings: Settings) -> bool | None:
-    """Probe the AEMET API; an answer is cached on disk for ONE_HOUR via download_file.
+    """Probe the AEMET API with the envelope of one request; an answer is cached on disk for ONE_HOUR.
 
-    Returns False only when AEMET refuses the key (see `_fetch_datos`), True when it answers, and None
-    for any other failure -- no network, a failed TLS verification, a timeout, a 429 ("wait for the
-    next minute"), a 5xx -- which says nothing about the key.
+    Asked while a page waits for it, so it is bounded (GH-2564): one request, one attempt, for
+    `PROBE_TIMEOUT_SECONDS`, and not through `_download_with_rate_limit_retry`, whose waits made a
+    failing AEMET take over a minute to answer. Nor is the "datos" link followed: an `estado` of 200
+    says the key is accepted, and what is behind the link is the whole station inventory.
+
+    Returns False only when AEMET refuses the key (see `_read_envelope`), True when it answers, and
+    None for any other failure -- no network, a failed TLS verification, a timeout, a 429 ("wait for
+    the next minute"), a 5xx -- which says nothing about the key.
     """
     if not settings.auth.aemet:
         return False
-    url = f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones"
-    payload = _fetch_datos(url, settings, CacheExpiry.ONE_HOUR)
-    if isinstance(payload, AemetKeyRejectedError):
+    file = download_file(
+        url=f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones",
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.ONE_HOUR,
+        client_kwargs={**_client_kwargs(settings), "timeout": PROBE_TIMEOUT},
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+        attempts=1,
+    )
+    envelope = _read_envelope(file)
+    if isinstance(envelope, AemetKeyRejectedError):
         return False
-    if isinstance(payload, Exception):
-        log.warning("Could not check the AEMET API key: %s", payload)
+    if isinstance(envelope, Exception):
+        log.warning("Could not check the AEMET API key: %s", envelope)
         return None
     return True
 
@@ -376,21 +406,26 @@ class AemetObservationValues(TimeseriesValues):
         for column in ("fecha", *_VALUE_COLUMNS):
             if column not in df.columns:
                 df = df.with_columns(pl.lit(None, pl.String).alias(column))
+        # a value that is no number is null and keeps its text beside it as `raw:` (GH-2759)
+        parsed = {
+            "tmed": parse_decimal_comma("tmed"),
+            "tmax": parse_decimal_comma("tmax"),
+            "tmin": parse_decimal_comma("tmin"),
+            "prec": parse_decimal_comma("prec"),
+            "dir": parse_wind_direction("dir"),
+            "velmedia": parse_decimal_comma("velmedia"),
+            "racha": parse_decimal_comma("racha"),
+            "presMax": parse_decimal_comma("presMax"),
+            "presMin": parse_decimal_comma("presMin"),
+            "hrMedia": parse_decimal_comma("hrMedia"),
+            "hrMax": parse_decimal_comma("hrMax"),
+            "hrMin": parse_decimal_comma("hrMin"),
+        }
         df = df.with_columns(
-            parse_decimal_comma("tmed").alias("tmed"),
-            parse_decimal_comma("tmax").alias("tmax"),
-            parse_decimal_comma("tmin").alias("tmin"),
-            parse_decimal_comma("prec").alias("prec"),
-            parse_wind_direction("dir").alias("dir"),
-            parse_decimal_comma("velmedia").alias("velmedia"),
-            parse_decimal_comma("racha").alias("racha"),
-            parse_decimal_comma("presMax").alias("presMax"),
-            parse_decimal_comma("presMin").alias("presMin"),
-            pl.col("hrMedia").cast(pl.Float64, strict=False).alias("hrMedia"),
-            pl.col("hrMax").cast(pl.Float64, strict=False).alias("hrMax"),
-            pl.col("hrMin").cast(pl.Float64, strict=False).alias("hrMin"),
+            *[value.alias(name) for name, (value, _) in parsed.items()],
+            *[raw.alias(raw_column(name)) for name, (_, raw) in parsed.items()],
         )
-        df = df.unpivot(index="fecha", on=list(_VALUE_COLUMNS), variable_name="parameter", value_name="value")
+        df = unpivot_with_raw(df, index=["fecha"], on=list(_VALUE_COLUMNS))
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -398,6 +433,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("fecha").str.to_datetime("%Y-%m-%d").dt.replace_time_zone("UTC").alias("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
     def _collect_monthly_or_annual(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
@@ -447,22 +483,21 @@ class AemetObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         date_expr = pl.date(pl.col("_year"), 1, 1) if is_annual else pl.date(pl.col("_year"), pl.col("_period"), 1)
         df = df.with_columns(date_expr.alias("_date"))
+        parsed = {
+            "tm_mes": parse_monthly_value("tm_mes"),
+            "tm_max": parse_monthly_value("tm_max"),
+            "tm_min": parse_monthly_value("tm_min"),
+            "ta_max": parse_monthly_value("ta_max"),
+            "ta_min": parse_monthly_value("ta_min"),
+            "p_mes": parse_monthly_value("p_mes"),
+            "p_max": parse_monthly_value("p_max"),
+            "hr": parse_decimal_comma("hr"),
+        }
         df = df.with_columns(
-            parse_monthly_value("tm_mes").alias("tm_mes"),
-            parse_monthly_value("tm_max").alias("tm_max"),
-            parse_monthly_value("tm_min").alias("tm_min"),
-            parse_monthly_value("ta_max").alias("ta_max"),
-            parse_monthly_value("ta_min").alias("ta_min"),
-            parse_monthly_value("p_mes").alias("p_mes"),
-            parse_monthly_value("p_max").alias("p_max"),
-            pl.col("hr").cast(pl.Float64, strict=False).alias("hr"),
+            *[value.alias(name) for name, (value, _) in parsed.items()],
+            *[raw.alias(raw_column(name)) for name, (_, raw) in parsed.items()],
         )
-        df = df.unpivot(
-            index="_date",
-            on=list(_MONTHLY_ANNUAL_VALUE_COLUMNS),
-            variable_name="parameter",
-            value_name="value",
-        )
+        df = unpivot_with_raw(df, index=["_date"], on=list(_MONTHLY_ANNUAL_VALUE_COLUMNS))
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -470,6 +505,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("_date").cast(pl.Datetime(time_zone="UTC")).alias("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
 

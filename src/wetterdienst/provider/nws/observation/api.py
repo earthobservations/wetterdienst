@@ -14,15 +14,24 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# A calm wind is written `00000KT` in a METAR and reaches the endpoint as a direction of 0. The National Weather
+# Service's METAR decode key (weather.gov/media/wrh/mesowest/metar_decode_key.pdf) gives "00000KT for calm" and the
+# direction "from true north", so north is 360. In the last 500 observations of each of KDEN, KSEA, KPHX, KBOS, KMIA,
+# KORD and KJFK (read 2026-10-12) all 322 observations with a direction of 0 have a wind speed of 0, 76 have a
+# direction of 360, and a `VRB` wind has no direction at all (null). A calm wind has no direction, so the 0 is no
+# bearing (GH-2794).
+_CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("winddirection"))
 
 NwsObservationMetadata = {
     "name_short": "NWS",
@@ -134,7 +143,7 @@ def _quantity(dtype: pl.DataType | type[pl.DataType]) -> pl.Struct:
     return pl.Struct([pl.Field("value", dtype), pl.Field("qualityControl", pl.String)])
 
 
-class NwsObservationValues(TimeseriesValues):
+class NwsObservationValues(TimeseriesValues[DatasetModel]):
     """Values class for NWS observation."""
 
     _endpoint = "https://api.weather.gov/stations/{station_id}/observations"
@@ -163,7 +172,7 @@ class NwsObservationValues(TimeseriesValues):
         )
         return f"{url}?{query}"
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -226,13 +235,15 @@ class NwsObservationValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
+        # the 0 of a calm wind is mapped before anything is made of the value, and stays as `raw:0` (GH-2794)
+        value, raw = null_sentinels(pl.col("value").struct.field("value").cast(pl.Float64), _CALM_WIND, text=False)
         return df.with_columns(
             pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%z"),
-            pl.col("value").struct.field("value").cast(pl.Float64),
-            # the MADIS flag of the quantity (Z, C, S, V, X, Q, G, B, T), verbatim (GH-2018)
-            join_quality_flags(pl.col("value").struct.field("qualityControl")),
+            # the MADIS flag of the quantity (Z, C, S, V, X, Q, G, B, T), verbatim (GH-2018), then the `raw:` token
+            join_quality_flags(pl.col("value").struct.field("qualityControl"), raw=raw),
+            value.alias("value"),
         )
 
 
@@ -272,7 +283,7 @@ class NwsObservationRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        df = pl.read_csv(source=file.content, has_header=False, separator="\t", infer_schema_length=0).lazy()
+        df = read_csv_without_header(file.content, separator="\t", infer_schema_length=0).lazy()
         # the table is the global METAR listing; api.weather.gov serves the United States alone,
         # and column 7 is the country that narrows it to them. No coordinate box is laid over the
         # result on top of that: one excludes American ground for being in the wrong hemisphere --

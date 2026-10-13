@@ -276,7 +276,7 @@ WsvPegelMetadata = {
 WsvPegelMetadata = build_metadata_model(WsvPegelMetadata, "WsvPegelMetadata")
 
 
-class WsvPegelValues(TimeseriesValues):
+class WsvPegelValues(TimeseriesValues[ParameterModel]):
     """Values class for WSV Pegelonline."""
 
     _endpoint = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/{station_id}/{parameter}/measurements.json"
@@ -328,7 +328,7 @@ class WsvPegelValues(TimeseriesValues):
         self._timeseries_meta_cache = meta
         return meta
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel,

@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.146.0"
+version = "0.147.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -112,7 +112,7 @@ dependencies = [
     "lxml>=4.9.1,<7",
     "measurement>=3.2,<4",
     "platformdirs>=4,<5",
-    "polars[calamine]>=1.43.0,<2",
+    "polars[calamine]>=1.43.0,<3",
     "portion>=2.4.2,<3",
     "pyarrow>=22.0.0",
     "pydantic>=2.7.3,<3",
@@ -337,6 +337,8 @@ python-version = "3.11"
 
 [tool.ty.rules]
 unresolved-import = "warn"
+# an ignore comment that silences nothing is a fix that forgot to take it out
+unused-ignore-comment = "error"
 
 [tool.ty.analysis]
 allowed-unresolved-imports = ["lxml.*", "tabula.*"]

@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from wetterdienst import Settings
+from wetterdienst import Options
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
 from wetterdienst.model.metadata import MetadataModel, parse_parameters
@@ -78,6 +78,6 @@ def test_dwd_graupel_is_not_named_sleet(
 
 
 def test_sleet_as_a_station_distance_key_names_graupel() -> None:
-    """The retired sleet name in `ts_geo_station_distance` is refused with the name to use (GH-2696)."""
+    """The retired sleet name in `geo_station_distance` is refused with the name to use (GH-2696)."""
     with pytest.raises(ValidationError, match=r"'count_weather_type_sleet' is now 'count_weather_type_graupel'"):
-        Settings(ts_geo_station_distance={"count_weather_type_sleet": 10.0})
+        Options(geo_station_distance={"count_weather_type_sleet": 10.0})

@@ -30,7 +30,7 @@ exposed parameter names with no explanation of what they measure.
 ``interpolation`` and ``zero_inflated`` say how the quantity behaves in space, which is the other
 thing that is true of a quantity rather than of a provider. They used to be spelled out as three
 hand-maintained name lists -- ``TimeseriesRequest.interpolatable_parameters``, the
-``ts_geo_station_distance`` defaults in ``settings`` and ``_OCCURRENCE_BASED_PARAMETERS`` in
+``geo_station_distance`` defaults in ``options`` and ``_OCCURRENCE_BASED_PARAMETERS`` in
 ``core.interpolate`` -- which had to agree about the same names and could only be kept in step by a
 test. All three are derived from these two fields now.
 """
@@ -44,14 +44,14 @@ if TYPE_CHECKING:
     from wetterdienst.metadata.unit_type import UnitType
 
 # How far a quantity stays correlated in space, which sets the default search radius for
-# interpolation and summarization (``Settings.ts_geo_station_distance``):
+# interpolation and summarization (``Options.geo_station_distance``):
 #
 # - "homogeneous": a smooth regional field -- temperature, pressure, humidity, wind, radiation,
 #   lying snow, model probabilities. Meaningful out to the wide default radius.
 # - "heterogeneous": a field that decorrelates over a much shorter distance -- precipitation and
 #   fresh snow, which are convectively driven, and visibility, which is made and unmade by fog
 #   banks a few kilometres across. Half the radius at hourly resolution, and the radius follows the
-#   accumulation period from there -- see `Settings.ts_geo_station_distance_for`.
+#   accumulation period from there -- see `Options.geo_station_distance_for`.
 # - ``None``: not interpolated at all. Coded observations (weather type, cloud genus, road surface
 #   condition), quality flags, counts and bookkeeping have no meaningful value between two
 #   stations, and neither do quantities tied to a particular body of water (discharge, stage,

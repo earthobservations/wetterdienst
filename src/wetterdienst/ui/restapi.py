@@ -23,6 +23,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     CredentialMissingError,
     DateRequiredError,
+    ImageTooLargeError,
     InvalidTimeIntervalError,
     MissingDependencyError,
     MissingTimeIntervalError,
@@ -44,10 +45,12 @@ from wetterdienst.model.result import (
     _ValuesOgcFeatureCollection,
 )
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.settings import SkipThreshold, check_settings
+from wetterdienst.options import Options, SkipThreshold
+from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     AlertsRequest,
+    AuthAnswer,
     AuthRequest,
     CoverageRequest,
     GlossaryEntry,
@@ -67,6 +70,7 @@ from wetterdienst.ui.core import (
     _is_caller_refusal,
     _plot_stripes,
     check_timeseries_api,
+    get_auth,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -74,6 +78,7 @@ from wetterdienst.ui.core import (
     get_summarize,
     get_values,
     limit_stations_to_rank,
+    overlay_options,
     select_history_sections,
     set_logging_level,
 )
@@ -205,10 +210,10 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     which is a 501 as for the BUFR reader: this server does not serve the network. Not a 503, which
     the app asks once more (`RETRY_TRANSIENT` keeps it for a proxy's), and a missing key does not
     pass by itself. This is what `configured: false` reports, without the setting's name; the body
-    points at `coverage` for it, as the MCP tools do not include `/api/auth`. The request's window
-    and parameters are parsed by the time this is raised, its stations are not, so the body does
-    not vouch for the request. The message is not lost, it moves to the server log, as a warning:
-    a state that lasts until someone configures the key is no incident.
+    points at `coverage` for it. The request's window and parameters are parsed by the time this is
+    raised, its stations are not, so the body does not vouch for the request. The message is not
+    lost, it moves to the server log, as a warning: a state that lasts until someone configures the
+    key is no incident.
     """
     log.warning(f"Failed to {what}, no credential is configured for the provider: {e}")
     provider, network = getattr(request, "provider", None), getattr(request, "network", None)
@@ -249,6 +254,55 @@ def _refuse_sql_unless_enabled(
         )
 
 
+#: the formats a chart is rendered to by the browser; `html` is the figure itself and has no size
+_IMAGE_FORMATS = frozenset({"png", "jpg", "webp", "svg", "pdf"})
+
+#: the longest side, in pixels once `scale` is applied, of an image this server renders. Chromium
+#: renders it for as long as it takes and holds the whole canvas: 14000 x 10000 px took 18 s, and
+#: 28000 x 20000 px 30 s and then an empty body that was answered with a 200 (GH-2765)
+_MAX_IMAGE_SIDE = 8192
+#: the size plotly renders at when a request names none
+_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
+
+
+def _refuse_oversized_image(
+    width: int | None, height: int | None, scale: float | None, *, lower: str = "width, height or scale"
+) -> None:
+    """Refuse an image larger than `_MAX_IMAGE_SIDE` on a side, with a 400, before anything is fetched.
+
+    The request fields only have to be positive, and the caller is whoever can reach the API: each
+    image request starts its own browser, so the size it paints is theirs to choose. The library
+    and the CLI, whose caller is the host's own user, are not limited. The MCP tools are this API's
+    routes, so they are limited with it. A size left out is plotly's default, which is what is
+    measured here: the height of a chart of several parameters is 300 px for each, known only once
+    they are collected, and is measured then, by `check_image_size` (`_refuse_oversized_render`).
+    """
+    scale = 1 if scale is None else scale
+    rendered = ((width or _DEFAULT_IMAGE_WIDTH) * scale, (height or _DEFAULT_IMAGE_HEIGHT) * scale)
+    if max(rendered) > _MAX_IMAGE_SIDE:
+        error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
+        raise HTTPException(status_code=400, detail=f"{error} Lower {lower}.")
+
+
+def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
+    """Refuse the size of a chart in an image format, see `_refuse_oversized_image`."""
+    if request.format in _IMAGE_FORMATS:
+        _refuse_oversized_image(request.width, request.height, request.scale)
+
+
+@app.exception_handler(ImageTooLargeError)
+async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) -> JSONResponse:
+    """Answer a chart whose own height makes the image too large with a 400, as `_refuse_oversized_image` does.
+
+    Raised by `check_image_size` once the figure is built, since a chart of several parameters is
+    300 px tall for each, and before the browser is started.
+    """
+    log.info(f"Refused {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=400, content={"detail": f"{exc} Lower scale, give a smaller height, or ask for fewer parameters."}
+    )
+
+
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
 # for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
 _MEDIA_TYPES = {
@@ -272,12 +326,12 @@ _Unbounded = Annotated[
 
 
 # The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
-# by the request field that sets each, and with the setting it sets as its validation alias. The REST
+# by the request field that sets each, and with the option of `Options` it sets as its validation alias. The REST
 # API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
 # used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359), or
 # what the query parameters it is given resolve to over those (GH-2383).
-# Listed one by one rather than read from `Settings`, so that neither report reaches a credential or
-# the cache.
+# Listed one by one rather than dumped from `Options`: the REST API names them its own way, and reports
+# the unit targets and the resolution factors whole.
 class _AppliedSettings(BaseModel):
     """The settings every one of the three endpoints is answered with."""
 
@@ -285,18 +339,18 @@ class _AppliedSettings(BaseModel):
     # the settings take as infinite is written as the string "Infinity", which JSON has no number for
     model_config = ConfigDict(extra="forbid", populate_by_name=True, ser_json_inf_nan="strings")
 
-    humanize: bool = Field(validation_alias="ts_humanize")
-    convert_units: bool = Field(validation_alias="ts_convert_units")
+    humanize: bool = Field(validation_alias="humanize")
+    convert_units: bool = Field(validation_alias="convert_units")
     unit_targets: dict[str, str] = Field(
-        validation_alias="ts_unit_targets",
+        validation_alias="unit_targets",
         description="The unit values of each quantity are converted to, for every quantity, where `convert_units` "
         "is on; off, they come in the unit the source publishes.",
     )
-    skip_empty: bool = Field(validation_alias="ts_skip_empty")
-    skip_threshold: SkipThreshold = Field(validation_alias="ts_skip_threshold")
-    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="ts_skip_criteria")
+    skip_empty: bool = Field(validation_alias="skip_empty")
+    skip_threshold: SkipThreshold = Field(validation_alias="skip_threshold")
+    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="skip_criteria")
     drop_nulls: bool = Field(
-        validation_alias="ts_drop_nulls",
+        validation_alias="drop_nulls",
         description="Whether rows without a value are dropped. The wide shape, the server's or the request's, "
         "turns it off.",
     )
@@ -305,7 +359,7 @@ class _AppliedSettings(BaseModel):
 class ValuesSettings(_AppliedSettings):
     """The settings of `/api/values`."""
 
-    shape: Literal["long", "wide"] = Field(validation_alias="ts_shape")
+    shape: Literal["long", "wide"] = Field(validation_alias="shape")
 
 
 _STATION_DISTANCE_DESCRIPTION = (
@@ -321,12 +375,12 @@ _STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION = (
 class _GeoSettings(_AppliedSettings):
     """The settings `/api/interpolate` and `/api/summarize` share."""
 
-    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="ts_geo_min_gain_of_value_pairs")
-    num_additional_stations: int = Field(validation_alias="ts_geo_num_additional_stations")
+    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="geo_min_gain_of_value_pairs")
+    num_additional_stations: int = Field(validation_alias="geo_num_additional_stations")
     # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
     # here: neither request has a field for them, and the stations' values are read with them
     station_distance_resolution_factors: dict[str, _Unbounded] = Field(
-        validation_alias="ts_geo_station_distance_resolution_factors",
+        validation_alias="geo_station_distance_resolution_factors",
         description="The factor the heterogeneous radius is multiplied by, for every resolution. Set by the "
         "server alone.",
     )
@@ -337,16 +391,14 @@ class InterpolationSettings(_GeoSettings):
 
     # not read for a summary, which has nothing for it to decide: its field is only accepted there,
     # and deprecated (GH-2333), so a summary neither passes nor reports it
-    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="ts_geo_use_nearby_station_distance")
+    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="geo_use_nearby_station_distance")
     interpolation_station_distance: dict[str, _Unbounded] = Field(
-        validation_alias="ts_geo_station_distance",
+        validation_alias="geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
     )
-    interpolation_station_distance_homogeneous: _Unbounded = Field(
-        validation_alias="ts_geo_station_distance_homogeneous"
-    )
+    interpolation_station_distance_homogeneous: _Unbounded = Field(validation_alias="geo_station_distance_homogeneous")
     interpolation_station_distance_heterogeneous: _Unbounded = Field(
-        validation_alias="ts_geo_station_distance_heterogeneous",
+        validation_alias="geo_station_distance_heterogeneous",
         description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
     )
 
@@ -355,12 +407,12 @@ class SummarySettings(_GeoSettings):
     """The settings of `/api/summarize`."""
 
     summary_station_distance: dict[str, _Unbounded] = Field(
-        validation_alias="ts_geo_station_distance",
+        validation_alias="geo_station_distance",
         description=_STATION_DISTANCE_DESCRIPTION,
     )
-    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="ts_geo_station_distance_homogeneous")
+    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="geo_station_distance_homogeneous")
     summary_station_distance_heterogeneous: _Unbounded = Field(
-        validation_alias="ts_geo_station_distance_heterogeneous",
+        validation_alias="geo_station_distance_heterogeneous",
         description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
     )
 
@@ -378,36 +430,34 @@ class ServerSettings(BaseModel):
     summarize: SummarySettings
 
 
-def _applied_settings(model: type[_M], settings: Settings) -> _M:
-    """Report `settings` by the fields of `model`.
+def _applied_settings(model: type[_M], options: Options) -> _M:
+    """Report `options` by the fields of `model`.
 
     The unit targets and the resolution factors hold only the entries that depart from
     wetterdienst's, and are reported whole: the unit of every quantity and the factor of every
-    resolution. The per-parameter radii are reported as given, as `Settings` dumps them, since a
+    resolution. The per-parameter radii are reported as given, as `Options` dumps them, since a
     parameter they leave out takes one of the two radii reported next to them. `drop_nulls` is
     reported as in effect, which the wide shape turns off.
     """
 
     def unit_targets() -> dict[str, str]:
         converter = UnitConverter()
-        converter.update_targets(settings.ts_unit_targets)
+        converter.update_targets(options.unit_targets)
         return {quantity: unit.name for quantity, unit in converter.targets.items()}
 
     reported: dict[str, Callable[[], object]] = {
-        "ts_unit_targets": unit_targets,
-        "ts_drop_nulls": lambda: settings.ts_drop_nulls_effective,
-        "ts_geo_station_distance": lambda: settings.model_dump(include={"ts_geo_station_distance"})[
-            "ts_geo_station_distance"
-        ],
-        "ts_geo_station_distance_resolution_factors": lambda: {
-            resolution.value: settings.ts_geo_station_distance_resolution_factor(resolution.value)
+        "unit_targets": unit_targets,
+        "drop_nulls": lambda: options.drop_nulls_effective,
+        "geo_station_distance": lambda: options.model_dump(include={"geo_station_distance"})["geo_station_distance"],
+        "geo_station_distance_resolution_factors": lambda: {
+            resolution.value: options.geo_station_distance_resolution_factor(resolution.value)
             for resolution in Resolution
         },
     }
     return model.model_validate(
         {
-            setting: reported[setting]() if setting in reported else getattr(settings, setting)
-            for setting in (str(field.validation_alias) for field in model.model_fields.values())
+            option: reported[option]() if option in reported else getattr(options, option)
+            for option in (str(field.validation_alias) for field in model.model_fields.values())
         },
     )
 
@@ -634,22 +684,23 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     apply to this answer alone.
     """
     given = http_request.query_params.keys()
-    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back.
-    # Built once for the endpoints no parameter given applies to, as each build reads the
-    # environment and the `.env` again, and logs where the cache is
-    server = Settings()
+    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
+    Settings()
+    # built once for the endpoints no parameter given applies to, as each build reads the
+    # environment and the `.env` again
+    server = Options()
     reported: dict[str, _AppliedSettings] = {}
     refused: list[str] = []
     for endpoint, taking, applied in _ENDPOINT_SETTINGS:
         # a parameter applies to every endpoint whose request takes it, and to no other
         taken = [name for name in given if name in taking.model_fields]
         try:
-            settings = _request_settings(request, taken, applied) if taken else server
+            options = _request_options(request, taken, applied) if taken else server
         except HTTPException as e:
             # a value two endpoints refuse is told once
             refused.extend(line for line in str(e.detail).split("\n") if line not in refused)
             continue
-        reported[endpoint] = _applied_settings(applied, settings)
+        reported[endpoint] = _applied_settings(applied, options)
     if refused:
         raise HTTPException(status_code=400, detail="\n".join(refused))
     content = ServerSettings.model_validate(reported)
@@ -663,13 +714,13 @@ def _openapi() -> dict[str, Any]:
     `/api/settings` leaves out takes the server's value, but the schema advertised wetterdienst's,
     which a client filling in the defaults then sent, hiding the server's. Each default is now the
     one `/api/settings` reports for the endpoint without parameters, worked out as it does it:
-    `_applied_settings` over `Settings()`. `drop_nulls` alone is the server's as set, not the one
+    `_applied_settings` over `Options()`. `drop_nulls` alone is the server's as set, not the one
     in effect that `/api/settings` reports: leaving it out means the value set whatever the shape,
     which decides only whether it applies, so a client that fills it in and asks for the long
     shape on a wide server still drops nulls. A parameter for `/api/settings` takes the value of
     the endpoint it applies to. The request models keep wetterdienst's defaults in Python, which
     the CLI builds its requests with, and FastAPI fills in for a parameter left out, which the
-    endpoints do not pass on (`_request_settings`).
+    endpoints do not pass on (`_request_options`).
 
     A parameter whose request field defaults to None has no schema default and keeps none: the
     radii and the JSON-encoded dicts (`unit_targets`, the station distances). A dict given is
@@ -679,9 +730,9 @@ def _openapi() -> dict[str, Any]:
 
     Built once per process: with the `[mcp]` extra, as the module is imported, by the MCP endpoint,
     whose tools' defaults are then the server's too, and else on the first request for the schema.
-    It is kept as FastAPI keeps it, and a recent FastAPI builds it again, reading `Settings()`
+    It is kept as FastAPI keeps it, and a recent FastAPI builds it again, reading `Options()`
     anew, only for a route added. A `.env` edited after the build reaches the requests and
-    `/api/settings`, which read `Settings()` each time, but not the schema, until the server is
+    `/api/settings`, which read `Options()` each time, but not the schema, until the server is
     restarted.
     """
     kept = app.openapi_schema
@@ -689,7 +740,7 @@ def _openapi() -> dict[str, Any]:
     if schema is kept:
         return schema
     try:
-        server = Settings()
+        server = Options()
     except Exception:  # noqa: BLE001
         # malformed, which the server refuses to start for, naming each variable without its
         # value (`_RefuseInvalidSettings`). Reached as the module is imported, by the MCP build,
@@ -705,7 +756,7 @@ def _openapi() -> dict[str, Any]:
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
     }
-    defaults["/api/values"]["drop_nulls"] = server.ts_drop_nulls
+    defaults["/api/values"]["drop_nulls"] = server.drop_nulls
     # a parameter several endpoints take sets one setting, which each reports alike
     defaults["/api/settings"] = {
         field: value
@@ -728,6 +779,7 @@ def _openapi() -> dict[str, Any]:
 
 
 # FastAPI's documented way to extend the schema, which the route serving it calls on the app
+# (the assignment replaces a method, which a type checker rejects whatever the right-hand side is)
 app.openapi = _openapi  # ty: ignore[invalid-assignment]
 
 
@@ -745,10 +797,30 @@ def oauth_metadata_not_found() -> None:
     raise HTTPException(status_code=404, detail="Not Found")
 
 
-@app.get("/api/auth")
+def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest]:
+    """Resolve the network `/api/auth` and `/api/coverage` are asked about, telling why one does not resolve.
+
+    A provider or network that is not listed, or whose module cannot be imported, is a 404 pointing
+    at the listing. A network whose optional extra is not installed is none of those: it is listed,
+    and this deployment lacks what it needs, so it is the 501 the data routes answer
+    (`_dependency_missing_on_the_server`). `MissingDependencyError` is an `ImportError`, so it
+    has to be told apart first.
+    """
+    try:
+        return Wetterdienst(provider, network)
+    except MissingDependencyError as e:
+        raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
+    except (ApiNotFoundError, ImportError) as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
+        ) from e
+
+
+@app.get("/api/auth", response_model=AuthAnswer)
 def auth(
     request: Annotated[AuthRequest, Query()],
-) -> JSONResponse:
+) -> AuthAnswer:
     """Check whether the credentials for an auth-required provider are present and valid.
 
     Returns `{"provider": ..., "network": ..., "auth": bool, "configured": bool, "valid": bool | null}`.
@@ -758,36 +830,17 @@ def auth(
     the probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is
     not a rejection, so treat null as unknown.
     `valid` is false whenever `configured` is false (a probe cannot be performed without credentials).
+
+    This is the one call that probes the provider, for the one network asked about: one attempt that
+    gives up after a few seconds. `/api/coverage` does not probe, so ask here for the networks whose
+    `valid` it leaves null. The MCP tool and the CLI command (`wetterdienst about auth`) are this call.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
 
-    try:
-        api = Wetterdienst(str(provider), str(network))
-    except (ApiNotFoundError, ImportError) as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
-        ) from e
+    api = _resolve_listed_network(str(provider), str(network), "check the credentials of")
 
-    metadata = getattr(api, "metadata", None)
-    requires_auth = metadata.auth if metadata is not None else False
-    configured = Wetterdienst.is_configured(api) if requires_auth else True
-    if not requires_auth:
-        valid = True
-    elif not configured:
-        valid = False
-    else:
-        valid = Wetterdienst.is_valid(api)
-    return JSONResponse(
-        content={
-            "provider": provider,
-            "network": network,
-            "auth": requires_auth,
-            "configured": configured,
-            "valid": valid,
-        }
-    )
+    return get_auth(api, provider, network)
 
 
 # What `/api/coverage` answers, as `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build
@@ -800,7 +853,8 @@ class CoverageNetwork(TypedDict):
 
     auth: bool
     configured: bool
-    # null when the credentials could not be checked (the probe failed for a reason other than a rejection)
+    # null where the credentials are configured: this listing does not check them, `/api/auth` does
+    # (GH-2564); `/api/auth` itself is null as well when its probe could not tell
     valid: bool | None
     date_required: bool
 
@@ -854,6 +908,11 @@ def coverage(
     Call with no arguments to list every provider and its networks. Pass provider+network (e.g.
     provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
+
+    The list of every provider downloads nothing, so it answers at once. For a network that needs
+    credentials, `configured` says whether they are present, and `valid` is false where they are not
+    and null where they are: this list does not check whether the provider accepts them, `/api/auth`
+    (the MCP `auth` tool) does, for one network.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
@@ -877,13 +936,7 @@ def coverage(
         cov = Wetterdienst.discover()
         return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
-    try:
-        api = Wetterdienst(str(provider), str(network))
-    except (ApiNotFoundError, ImportError) as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
-        ) from e
+    api = _resolve_listed_network(str(provider), str(network), "list the coverage of")
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
     # discover(); report that cleanly instead of raising an uncaught AttributeError (HTTP 500).
@@ -918,9 +971,11 @@ def glossary(
 
     This complements coverage: coverage says which parameters a given provider offers, this says
     what any of them means. The unit reported is the one a values request would actually return,
-    including any ts_unit_targets override.
+    including any `unit_targets` option override.
     """
     set_logging_level(debug=request.debug)
+    # a malformed server setting is the bare 500 FastAPI answers, as for the data endpoints
+    Settings()
 
     return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
 
@@ -966,6 +1021,7 @@ def stations(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1001,6 +1057,7 @@ def stations(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
     content = stations_.to_format(**kwargs)
 
@@ -1071,13 +1128,17 @@ def values(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
+    # outside the handlers: nothing of the caller's reaches the server's settings, so a malformed one
+    # is the bare 500 FastAPI answers, which does not read its value back
+    settings = Settings()
     # a unit target given for a quantity or unit the converter has none for is the request's 400
-    settings = _request_settings(request, http_request.query_params.keys(), ValuesSettings)
+    options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
 
-    values_ = _values(api=api, request=request, settings=settings)
+    values_ = _values(api=api, request=request, settings=settings, options=options)
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1091,39 +1152,39 @@ def values(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
-    content = _render(values_, request, kwargs, ValuesSettings, settings)
+    content = _render(values_, request, kwargs, ValuesSettings, options)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
     return Response(content=content, media_type=media_type)
 
 
-def _request_settings(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Settings:
-    """Build an endpoint's settings from the server's and the fields the request gave.
+def _request_options(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Options:
+    """Build an endpoint's options from the server's and the fields the request gave.
 
     `applied` lists the endpoint's settings by the request field that sets each, and `given` names
-    the query parameters the request came with. A field is passed only when given: FastAPI fills
-    one the query leaves out with its default, and an init argument outranks the environment, so
-    passing that default would hide the `WD_TS_*` variable the server sets for the setting.
+    the query parameters the request came with. A field is laid over the server's only when given:
+    FastAPI fills one the query leaves out with its default, which would hide the `WD_TS_*` variable
+    the server sets for the option.
 
-    The server's own settings are built first, and outside the handler: one malformed there is the
+    The server's own options are built first, and outside the handler: one malformed there is the
     bare 500 FastAPI answers, which does not read its value back. Where an error is located would
-    not tell, as pydantic-settings merges a dict the environment sets into the one the request
-    gives. With the server's valid on their own, an error once the request's fields are added is
-    the request's, and is told by its field with the value the request gave, not the dict merged
-    from it and the server's.
+    not tell, as the request's dicts are merged into the ones the server sets. With the server's
+    valid on their own, an error once the request's fields are added is the request's, and is told
+    by its field with the value the request gave, not the dict merged from it and the server's.
     """
-    Settings()
-    # each setting given by the field that sets it
+    server = Options()
+    # each option given by the field that sets it
     passed = {
-        str(setting.validation_alias): (field, value)
-        for field, setting in applied.model_fields.items()
-        # not a setting the request has no field for, which the server sets alone
+        str(option.validation_alias): (field, value)
+        for field, option in applied.model_fields.items()
+        # not an option the request has no field for, which the server sets alone
         if field in type(request).model_fields and field in given and (value := getattr(request, field)) is not None
     }
     try:
-        return Settings(**{setting: value for setting, (_, value) in passed.items()})
+        return overlay_options(server, {option: value for option, (_, value) in passed.items()})
     except ValidationError as e:
         problems = e.errors(include_url=False)
         if any(not problem["loc"] or problem["loc"][0] not in passed for problem in problems):
@@ -1145,7 +1206,7 @@ def _render(
     request: ValuesRequest | InterpolationRequest | SummaryRequest,
     kwargs: dict[str, Any],
     applied: type[_AppliedSettings],
-    settings: Settings,
+    options: Options,
 ) -> str | bytes:
     """Render a result in the format `kwargs` names, the JSON formats with the settings `applied`.
 
@@ -1158,23 +1219,23 @@ def _render(
         data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
     else:
         data = dict(result.to_ogc_feature_collection(with_metadata=True))
-    report = json.loads(_applied_settings(applied, settings).model_dump_json())
+    report = json.loads(_applied_settings(applied, options).model_dump_json())
     data = {"metadata": data.pop("metadata"), "settings": report, **data}
     return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
 
 
-def _geo_settings(
+def _geo_options(
     request: InterpolationRequest | SummaryRequest,
     given: Collection[str],
     kind: Literal["interpolation", "summary"],
-) -> Settings:
-    """Build the settings shared by the interpolation and the summary endpoint.
+) -> Options:
+    """Build the options shared by the interpolation and the summary endpoint.
 
     `kind` picks the endpoint's settings, which name its request's station distance fields.
     """
     # a distance given for a name that is not a canonical parameter, or a unit target for an
     # unknown quantity or unit, is the request's 400
-    return _request_settings(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
+    return _request_options(request, given, InterpolationSettings if kind == "interpolation" else SummarySettings)
 
 
 def _refusal_detail(e: Exception, what: str) -> str:
@@ -1217,6 +1278,7 @@ def _values(
     api: type[TimeseriesRequest],
     request: ValuesRequest,
     settings: Settings,
+    options: Options,
 ) -> ValuesResult:
     """Collect values, telling the caller which failures are theirs to fix.
 
@@ -1225,7 +1287,7 @@ def _values(
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
     try:
-        return get_values(api=api, request=request, settings=settings)
+        return get_values(api=api, request=request, settings=settings, options=options)
     except ParameterNotCarriedError as e:
         # the message is the whole of it: which parameters, and the lead time that carries them
         log.info(f"Failed to get values: {e}")
@@ -1243,6 +1305,7 @@ def _geo_values(
     api: type[TimeseriesRequest],
     request: InterpolationRequest | SummaryRequest,
     settings: Settings,
+    options: Options,
     what: str,
 ) -> InterpolatedValuesResult | SummarizedValuesResult:
     """Run an interpolation or a summary, telling the caller which failures are theirs to fix.
@@ -1258,7 +1321,7 @@ def _geo_values(
     decisions in both places, so they are made here rather than twice over.
     """
     try:
-        return get(api=api, request=request, settings=settings)
+        return get(api=api, request=request, settings=settings, options=options)
     except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
         # the message is the whole of it: which parameters lost their stations, and that asking
         # without an elevation gets them back; or which parameters the run does not carry, and the
@@ -1298,12 +1361,15 @@ def interpolate(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
 
     api = _get_timeseries_api(request.provider, request.network)
 
-    settings = _geo_settings(request, http_request.query_params.keys(), "interpolation")
+    # outside the handlers, as for `/api/values`
+    settings = Settings()
+    options = _geo_options(request, http_request.query_params.keys(), "interpolation")
 
-    values_ = _geo_values(get_interpolate, api, request, settings, "interpolate")
+    values_ = _geo_values(get_interpolate, api, request, settings, options, "interpolate")
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1317,8 +1383,9 @@ def interpolate(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
-    content = _render(values_, request, kwargs, InterpolationSettings, settings)
+    content = _render(values_, request, kwargs, InterpolationSettings, options)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1350,15 +1417,18 @@ def summarize(
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
+    _refuse_oversized_chart(request)
     # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
     if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
         log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
 
     api = _get_timeseries_api(request.provider, request.network)
 
-    settings = _geo_settings(request, http_request.query_params.keys(), "summary")
+    # outside the handlers, as for `/api/values`
+    settings = Settings()
+    options = _geo_options(request, http_request.query_params.keys(), "summary")
 
-    values_ = _geo_values(get_summarize, api, request, settings, "summarize")
+    values_ = _geo_values(get_summarize, api, request, settings, options, "summarize")
 
     # build kwargs dynamically
     kwargs: dict[str, Any] = {
@@ -1372,8 +1442,9 @@ def summarize(
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale
+        kwargs["max_side"] = _MAX_IMAGE_SIDE
 
-    content = _render(values_, request, kwargs, SummarySettings, settings)
+    content = _render(values_, request, kwargs, SummarySettings, options)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1451,6 +1522,8 @@ def stripes_image(
 ) -> Response:
     """Generate climate stripes image for a station."""
     set_logging_level(debug=request.debug)
+    # the image is rendered at `dpi / 100` times plotly's default size
+    _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
 
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()

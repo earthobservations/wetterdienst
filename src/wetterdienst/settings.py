@@ -13,12 +13,13 @@ import os
 import platform
 import re
 import shutil
+import sys
 import tempfile
 import threading
-from collections import defaultdict
+import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import Any, Self
 
 import platformdirs
 from pydantic import (
@@ -28,33 +29,21 @@ from pydantic import (
     PrivateAttr,
     SecretStr,
     ValidationError,
-    field_serializer,
     field_validator,
-    model_validator,
 )
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
 
-from wetterdienst.exceptions import InvalidEnumerationError
-from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
-from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.unit import UnitConverter
-
-if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
+from wetterdienst.options import (
+    Options,
+    _decode_nested_as_json_would,
+    _quiet,
+    options_from_mapping,
+)
 
 log = logging.getLogger(__name__)
 
-_UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
-
-
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
-
-#: the share of readings a station must cover not to be skipped: a threshold above 1 skips every
-#: station, one of 0 or below none, so neither is one. The REST request model takes it too, so the
-#: two cannot drift apart (GH-2334)
-SkipThreshold = Annotated[float, Field(gt=0, le=1)]
 
 
 def _as_given(value: object) -> object:
@@ -292,70 +281,6 @@ class Auth(BaseModel):
         return None if _blank_first(username, password) else (username, password)
 
 
-#: how far a station may be from the target point to still be used, in km
-_STATION_DISTANCE_HOMOGENEOUS = 40.0
-#: the same for a quantity that decorrelates faster -- see `CanonicalParameter.interpolation`
-_STATION_DISTANCE_HETEROGENEOUS = 20.0
-#: how far the heterogeneous radius reaches at a given resolution, relative to its hourly value.
-#: a quantity that decorrelates fast in space does so less the longer it is accumulated: gauge
-#: studies put the correlation length of precipitation at roughly 8 km over 10 minutes, 27 km over
-#: three hours and 33 to 94 km over a day, the upper end for the stratiform rain that dominates
-#: north-western Europe. One radius cannot serve both ends of that, so the radius follows the
-#: accumulation period.
-#:
-#: The table stops widening at 2.0 rather than following the correlation length up. Past a day,
-#: what binds is terrain and not correlation: the interpolation reads UTM x/y and never station
-#: elevation, so 40 km is as far as it may reach in complex ground -- the same bound the homogeneous
-#: radius is held to, which is why the two meet at `daily` with the defaults. Precipitation is more
-#: orographically driven than temperature, not less, so it does not get to reach farther.
-#:
-#: The fine end is not tightened all the way to the correlation length either: the interpolation
-#: needs four surrounding stations, and even the DWD network rarely has four rain gauges within
-#: 8 km of a point, so 15 km at `minute_10` is as tight as still answers at all.
-#:
-#: The factors are pure multipliers of whatever `ts_geo_station_distance_heterogeneous` says. A
-#: radius the user raises is followed rather than clipped: they have made the terrain judgement the
-#: table encodes, and a setting that silently does nothing is the failure this module validates
-#: against everywhere else. The homogeneous radius does not scale at all -- terrain does not care
-#: how long a quantity was accumulated for
-_STATION_DISTANCE_RESOLUTION_FACTORS: dict[str, float] = {
-    Resolution.MINUTE_1.value: 0.75,
-    Resolution.MINUTE_5.value: 0.75,
-    Resolution.MINUTE_6.value: 0.75,
-    Resolution.MINUTE_10.value: 0.75,
-    Resolution.MINUTE_15.value: 0.75,
-    Resolution.HOURLY.value: 1.0,
-    Resolution.HOUR_6.value: 1.5,
-    Resolution.SUBDAILY.value: 1.5,
-    Resolution.DAILY.value: 2.0,
-    Resolution.MONTHLY.value: 2.0,
-    Resolution.ANNUAL.value: 2.0,
-}
-#: every `Resolution` is named above, so this catches a resolution name from outside that
-#: vocabulary, which is left as it is rather than guessed at
-_STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT = 1.0
-
-
-def _build_geo_station_distance(
-    homogeneous: float,
-    heterogeneous: float,
-    overrides: dict[str, float],
-) -> defaultdict[str, float]:
-    """Build the per-parameter search radius from the two radii, the parameter table and overrides.
-
-    Which names get the shorter radius used to be written out here, a copy of a classification the
-    table already holds. Only those names are put in the dict; the default factory answers for
-    every other parameter, so the setting a user sees and overrides stays the short list of
-    exceptions rather than every name in the table.
-    """
-    d: defaultdict[str, float] = defaultdict(lambda: homogeneous)
-    for parameter in PARAMETER_TABLE:
-        if parameter.interpolation == "heterogeneous":
-            d[parameter.name] = heterogeneous
-    d.update(overrides)
-    return d
-
-
 def default_cache_dir(appname: str = "wetterdienst") -> Path:
     """Return the user's cache directory for `appname`, or a temporary one where there is no home.
 
@@ -474,33 +399,120 @@ def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
-@functools.cache
-def _reading_nested_as_json_would(source_class: type[PydanticBaseSettingsSource]) -> type[PydanticBaseSettingsSource]:
-    """Give a source class the reading of a value nested too deeply as of one that is not valid JSON (GH-2543).
+#: the modules that are no caller of the shim: wetterdienst itself, and the libraries it goes through
+_SKIPPED_MODULES = ("wetterdienst", "pydantic", "pydantic_settings")
 
-    The source decodes a dict, a pair or a nested setting as JSON before any validator sees it, and
-    for text such as 100000 opening brackets the decoder raises a ``RecursionError``. That is no
-    ``ValueError``, so it escaped the source's handling of text that is not JSON: it was neither
-    kept as the raw text for the validator to refuse nor reported by `check_settings`, and
-    ``Settings()`` raised it. As a ``ValueError`` it is dealt with as any other malformed value is.
+#: the ``ts_*`` settings the settings carried until options took them over (GH-2639), by the name of
+#: the option each became. Written out, so that an option added later is not a keyword that never
+#: existed; a test holds the names to the fields of `Options`. Still accepted, with a warning, until
+#: they are dropped for good
+_REMOVED_SETTINGS: dict[str, str] = {
+    f"ts_{name}": name
+    for name in (
+        "humanize",
+        "shape",
+        "convert_units",
+        "unit_targets",
+        "skip_empty",
+        "skip_threshold",
+        "skip_criteria",
+        "drop_nulls",
+        "geo_station_distance_homogeneous",
+        "geo_station_distance_heterogeneous",
+        "geo_station_distance",
+        "geo_station_distance_resolution_factors",
+        "geo_use_nearby_station_distance",
+        "geo_min_gain_of_value_pairs",
+        "geo_num_additional_stations",
+    )
+}
+#: the members derived from them, which `Options` has by the same name
+_REMOVED_MEMBERS: dict[str, str] = {
+    f"ts_{name}": name
+    for name in ("tidy", "drop_nulls_effective", "geo_station_distance_for", "geo_station_distance_resolution_factor")
+}
+
+
+def _is_skipped(module: object) -> bool:
+    """Tell whether a frame of this module, by its ``__name__``, is no caller of the shim."""
+    return isinstance(module, str) and any(
+        module == skipped or module.startswith(f"{skipped}.") for skipped in _SKIPPED_MODULES
+    )
+
+
+def _caller_stacklevel() -> int:
+    """Return the stacklevel, for `_warn_removed`, that points at the code outside wetterdienst and pydantic.
+
+    The shim is reached through `__init__`, `model_validate` (which a request calls for settings
+    given as a dict), `__getattr__` and `__setattr__`, some of them through frames of pydantic and
+    of the generated dataclass `__init__`. A warning attributed to one of those is not shown by
+    default, which shows a `DeprecationWarning` only for code in ``__main__``. The frames are told
+    by the module they run in and not by their file, which is none for ``python -c`` or a REPL.
     """
-
-    class Reading(source_class):  # ty: ignore[unsupported-base]
-        def decode_complex_value(self, field_name: str, field: FieldInfo, value: Any) -> Any:  # noqa: ANN401
-            try:
-                return super().decode_complex_value(field_name, field, value)
-            except RecursionError as error:
-                msg = "nested too deeply to decode as JSON"
-                raise ValueError(msg) from error
-
-    Reading.__name__ = Reading.__qualname__ = source_class.__name__
-    return Reading
+    level = 2
+    frame = sys._getframe(2)  # noqa: SLF001
+    while frame.f_back is not None and _is_skipped(frame.f_globals.get("__name__")):
+        level += 1
+        frame = frame.f_back
+    return level
 
 
-def _decode_nested_as_json_would(source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
-    """Give a source, as configured, the reading of `_reading_nested_as_json_would`."""
-    source.__class__ = _reading_nested_as_json_would(type(source))
-    return source
+def _warn_removed(name: str) -> None:
+    """Warn that a ``ts_*`` setting is deprecated and what to use instead."""
+    if name in _REMOVED_MEMBERS:
+        use = f"read request.options.{_REMOVED_MEMBERS[name]}"
+    else:
+        option = _REMOVED_SETTINGS[name]
+        use = f"set options=Options({option}=...) on the request and read request.options.{option}"
+    warnings.warn(
+        f"the setting '{name}' is deprecated: it is an option of the request now; {use}. "
+        "The WD_TS_* variables are unchanged",
+        DeprecationWarning,
+        stacklevel=_caller_stacklevel(),
+    )
+
+
+def resolve_options(options: Options | Mapping[str, Any] | None, settings: Settings) -> Options:
+    """Settle the options of a request from what it was given.
+
+    None gives the options the removed ``ts_*`` settings made, where the settings were given or
+    assigned any, and otherwise those of the environment. A mapping gives `options_from_mapping`,
+    and an `Options` is used as it is.
+
+    Options given beside settings that carry ``ts_*`` settings of their own are refused: one of the
+    two would be ignored, and which one is not a thing to leave a caller to guess. What the settings
+    carry is compared with the options of the environment and ``.env``, so an operator's ``WD_TS_*``
+    never counts against a caller who passes options. Options that are the very ones the settings
+    carry are no conflict, which is what a request copied with `dataclasses.replace` gives.
+
+    Raises:
+        ValueError: Where both are given.
+
+    """
+    carried = settings._ts_options  # noqa: SLF001
+    if options is None:
+        return carried if carried is not None else Options()
+    baseline = None
+    if isinstance(options, Options):
+        given = options
+    else:
+        with _quiet():
+            baseline = Options()
+        given = options_from_mapping(options, baseline)
+    if carried is None or given.model_dump() == carried.model_dump():
+        return given
+    if baseline is None:
+        with _quiet():
+            baseline = Options()
+    baseline_dump = baseline.model_dump()
+    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline_dump[name]]
+    if differing:
+        msg = (
+            f"the request was given options and settings that carry {', '.join(differing)}; "
+            "set the request's options through options= alone"
+        )
+        raise ValueError(msg)
+    return given
 
 
 class Settings(BaseSettings):
@@ -508,6 +520,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
+        # UTF-8 on every Python, not the locale's encoding: Python 3.15 reads text as UTF-8 by default
+        # (PEP 686) and earlier versions on Windows read the ANSI code page, so a `.env` holding a
+        # non-ASCII value would otherwise mean different things by version
+        env_file_encoding="utf-8",
         # read only the settings from `.env`, as from the environment. A `.env` is often shared with
         # other programs, and by default each of its other keys is handed on too, which the settings
         # refuse as no field of theirs: one line of someone else's made every `Settings()` fail and
@@ -538,46 +554,9 @@ class Settings(BaseSettings):
     # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
     # the library and the CLI, whose caller is the host's own user, are not gated
     restapi_sql: bool = Field(default=False)
-    ts_humanize: bool = True
-    ts_shape: Literal["wide", "long"] = "long"
-    ts_convert_units: bool = True
-    ts_unit_targets: dict[str, str] = Field(default_factory=dict)
-    # skip a station whose requested parameters are covered too sparsely to be worth
-    # returning. The coverage is measured against how many readings the requested window can
-    # hold, so the option stands on its own and needs no particular shape of frame under it
-    ts_skip_empty: bool = False
-    ts_skip_threshold: SkipThreshold = 0.95
-    ts_skip_criteria: Literal["min", "mean", "max"] = "min"
-    ts_drop_nulls: bool = True
-    # how far a station may be from the target point to still be interpolated or summarized from.
-    # the two radii follow `CanonicalParameter.interpolation`: a homogeneous quantity such as air
-    # temperature varies slowly across a region and may be drawn from farther away than a
-    # heterogeneous one such as precipitation, which decorrelates within a few tens of kilometres
-    ts_geo_station_distance_homogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HOMOGENEOUS
-    ts_geo_station_distance_heterogeneous: Annotated[float, Field(ge=0)] = _STATION_DISTANCE_HETEROGENEOUS
-    # per-parameter overrides of the two radii above, given as canonical parameter names. holds the
-    # overrides alone while validating and the mapping -- radii, table and overrides -- from
-    # `expand_ts_geo_station_distance` on. that mapping is the radius at hourly resolution;
-    # `ts_geo_station_distance_for` gives the one a request actually uses
-    ts_geo_station_distance: defaultdict[str, float] = Field(default_factory=dict)
-    # how the heterogeneous radius grows with the accumulation period, keyed by resolution. Only
-    # the resolutions named here differ from `_STATION_DISTANCE_RESOLUTION_FACTORS`; the rest keep
-    # their factor, so the setting stays the list of departures rather than all eleven
-    ts_geo_station_distance_resolution_factors: dict[str, float] = Field(default_factory=dict)
-    #: what was passed for `ts_geo_station_distance`, kept for serialization and re-expansion.
-    #: `None` until the field has been expanded once -- an empty dict is a valid set of overrides
-    _ts_geo_station_distance_overrides: dict[str, float] | None = PrivateAttr(default=None)
-    # this setting is used to define how far away a station can be so that no interpolation is done
-    # but instead the station is used directly
-    ts_geo_use_nearby_station_distance: Annotated[float, Field(ge=0)] | None = 1.0
-    # this rather complicated setting is used in the process of figuring out how many additional stations will be used
-    # the gain defines how many additional timestamps can be interpolated by adding the specific station and thus
-    # getting more timestamps with the required minimum of four values
-    # so basically this setting considers the extra effort against the gain of additional interpolated timestamps
-    ts_geo_min_gain_of_value_pairs: Annotated[float, Field(ge=0)] = 0.10
-    # this setting defines how many additional stations are used in the interpolation process independent of the gain
-    # of value pairs, so if the gain is not reached anymore, there at least `num` more stations added to the list
-    ts_geo_num_additional_stations: Annotated[int, Field(ge=0)] = 3
+    #: what the removed ``ts_*`` settings were given or assigned as, laid over the options of the
+    #: environment. `None` until one is: a request then takes the options of the environment alone
+    _ts_options: Options | None = PrivateAttr(default=None)
 
     @classmethod
     def settings_customise_sources(
@@ -596,6 +575,76 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
+    def __init__(self, /, **values: Any) -> None:  # noqa: ANN401
+        """Build the settings, taking the removed ``ts_*`` settings that are given as the options they became (GH-2639).
+
+        They are no fields of the settings any more, and the environment's ``WD_TS_*`` is `Options`'
+        to read, so this is only what a caller wrote out: ``Settings(ts_shape="wide")``. They are
+        removed from the input before the settings validate it, so that they are not refused as
+        settings that do not exist. Taken here and not by a validator, which would turn an error of
+        a default (the cache directory) into one of the validation.
+        """
+        removed = {name: values.pop(name) for name in tuple(values) if name in _REMOVED_SETTINGS}
+        super().__init__(**values)
+        self._take_removed_ts_settings(removed)
+
+    @classmethod
+    def model_validate(cls, obj: Any, **kwargs: Any) -> Self:  # noqa: ANN401
+        """Validate settings from a mapping or an instance, taking the removed ``ts_*`` settings as `__init__` does."""
+        removed = {}
+        if isinstance(obj, Mapping):
+            removed = {name: obj[name] for name in obj if name in _REMOVED_SETTINGS}
+            obj = {name: value for name, value in obj.items() if name not in removed}
+        settings = super().model_validate(obj, **kwargs)
+        settings._take_removed_ts_settings(removed)  # noqa: SLF001
+        return settings
+
+    def _take_removed_ts_settings(self, removed: dict[str, Any]) -> None:
+        """Warn of the removed ``ts_*`` settings given, and keep them as the options they became."""
+        if not removed:
+            return
+        for name in removed:
+            _warn_removed(name)
+        self._ts_options = Options(**{_REMOVED_SETTINGS[name]: value for name, value in removed.items()})
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Copy the settings, taking a removed ``ts_*`` setting in `update` as an assignment to the copy."""
+        removed = {name: value for name, value in (update or {}).items() if name in _REMOVED_SETTINGS}
+        rest = {name: value for name, value in (update or {}).items() if name not in removed}
+        settings = super().model_copy(update=rest or None, deep=deep)
+        for name, value in removed.items():
+            setattr(settings, name, value)
+        return settings
+
+    def __getattr__(self, name: str) -> object:
+        """Read a removed ``ts_*`` setting from the options it became, and say it is removed (GH-2639)."""
+        option = _REMOVED_SETTINGS.get(name) or _REMOVED_MEMBERS.get(name)
+        if option is None:
+            # pydantic defines `__getattr__` (private attributes and extras) outside the type-checking view
+            return super().__getattr__(name)  # ty: ignore[unresolved-attribute]
+        _warn_removed(name)
+        return getattr(self._options_of_ts_settings(), option)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Assign a removed ``ts_*`` setting to the options it became, and say it is removed (GH-2639).
+
+        The options are frozen, so this makes a changed copy: a request built from the settings
+        before keeps the options it had, and one built after has the changed ones.
+        """
+        option = _REMOVED_SETTINGS.get(name)
+        if option is None:
+            super().__setattr__(name, value)
+            return
+        _warn_removed(name)
+        self._ts_options = self._options_of_ts_settings().replace(**{option: value})
+
+    def _options_of_ts_settings(self) -> Options:
+        """Return the options of the environment with the removed ``ts_*`` settings laid over them."""
+        if self._ts_options is not None:
+            return self._ts_options
+        with _quiet():
+            return Options()
+
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod
     def merge_fsspec_client_kwargs(cls, value: object) -> object:
@@ -609,208 +658,13 @@ class Settings(BaseSettings):
         """
         return _merge_fsspec_client_kwargs(dict(value)) if isinstance(value, Mapping) else value
 
-    @field_validator("ts_unit_targets", mode="before")
-    @classmethod
-    def validate_ts_unit_targets_before(cls, values: dict[str, str] | None) -> dict[str, str]:
-        """Validate the unit targets."""
-        return values or {}
-
-    @field_validator("ts_unit_targets", mode="after")
-    @classmethod
-    def validate_ts_unit_targets_after(cls, values: dict[str, str]) -> dict[str, str]:
-        """Validate the unit targets, the units as well as the quantities.
-
-        A unit the converter has no such name for, or holds back as one a source publishes in, used
-        to pass here and be refused only once a values request had fetched its stations (GH-2306).
-        """
-        if not values:
-            # the default, which every `Settings()` is built with, so no converter is built for it
-            return values
-        unknown = sorted(values.keys() - _UNIT_CONVERTER_TARGETS)
-        if unknown:
-            msg = (
-                f"Invalid unit targets: quantities not supported: {', '.join(unknown)}. "
-                f"Supported quantities are: {', '.join(sorted(_UNIT_CONVERTER_TARGETS))}"
-            )
-            raise ValueError(msg)
-        try:
-            UnitConverter().update_targets(values)
-        except InvalidEnumerationError as e:
-            msg = f"Invalid unit targets: {e}"
-            raise ValueError(msg) from e
-        return values
-
-    @field_validator("ts_geo_station_distance", mode="before")
-    @classmethod
-    def validate_ts_geo_station_distance_keys(cls, values: object) -> object:
-        """Check the overridden parameter names, which used to be taken on trust.
-
-        A name that is not a canonical parameter can never be looked up, so the override silently
-        did nothing and the parameter the user meant kept its default radius -- a typo was
-        indistinguishable from having set nothing at all. An empty value means no overrides; any
-        other that is not a mapping is left for the field to refuse, which names it, where looking
-        for keys in it failed with a bare `TypeError` that named nothing (GH-2353).
-        """
-        if not values:
-            return {}
-        if not isinstance(values, Mapping):
-            return values
-        if "default" in values:
-            msg = (
-                "the 'default' key of ts_geo_station_distance is gone, as it replaced the fallback radius and "
-                "the pre-populated per-parameter ones alike; set ts_geo_station_distance_homogeneous and "
-                "ts_geo_station_distance_heterogeneous instead"
-            )
-            raise ValueError(msg)
-        unknown = sorted(set(values) - PARAMETERS.keys())
-        if unknown:
-            msg = f"Invalid parameters in ts_geo_station_distance: {unknown} not in the canonical parameters"
-            renamed = [
-                f"'{name}' is now '{RENAMED_PARAMETERS[name]}'" for name in unknown if name in RENAMED_PARAMETERS
-            ]
-            if renamed:
-                msg += f" ({', '.join(renamed)})"
-            raise ValueError(msg)
-        never_interpolated = sorted(name for name in values if not PARAMETERS[name].interpolation)
-        if never_interpolated:
-            log.warning(
-                f"option 'ts_geo_station_distance' sets a radius for {never_interpolated}, which are never "
-                "interpolated, and is thus ignored for them in this request.",
-            )
-        return values
-
-    @field_validator("ts_geo_station_distance", mode="after")
-    @classmethod
-    def validate_ts_geo_station_distance_values(cls, values: dict[str, float]) -> dict[str, float]:
-        """Reject negative radii, as `ts_geo_use_nearby_station_distance` next to it already does."""
-        negative = sorted(name for name, distance in values.items() if distance < 0)
-        if negative:
-            msg = f"Negative distances in ts_geo_station_distance: {negative}"
-            raise ValueError(msg)
-        return values
-
-    @field_validator("ts_geo_station_distance_resolution_factors", mode="before")
-    @classmethod
-    def validate_ts_geo_station_distance_resolution_factors_keys(cls, values: object) -> object:
-        """Check the resolutions, which are a closed vocabulary like the unit types are.
-
-        An empty value means no factors of one's own, and any other that is not a mapping is left
-        for the field to refuse, as for `ts_geo_station_distance`.
-        """
-        if not values:
-            return {}
-        if not isinstance(values, Mapping):
-            return values
-        resolutions = {resolution.value for resolution in Resolution}
-        unknown = sorted(set(values) - resolutions)
-        if unknown:
-            msg = f"Invalid resolutions in ts_geo_station_distance_resolution_factors: {unknown} not in {sorted(resolutions)}"  # noqa: E501
-            raise ValueError(msg)
-        return values
-
-    @field_validator("ts_geo_station_distance_resolution_factors", mode="after")
-    @classmethod
-    def validate_ts_geo_station_distance_resolution_factors_values(cls, values: dict[str, float]) -> dict[str, float]:
-        """Reject negative factors, which would turn a radius into a distance behind the point."""
-        negative = sorted(name for name, factor in values.items() if factor < 0)
-        if negative:
-            msg = f"Negative factors in ts_geo_station_distance_resolution_factors: {negative}"
-            raise ValueError(msg)
-        return values
-
-    @model_validator(mode="after")
-    def expand_ts_geo_station_distance(self) -> Settings:
-        """Layer the per-parameter overrides onto the two radii and the parameter table.
-
-        Built here rather than in the field's default so that the two radii, which are fields of
-        their own and may themselves be overridden, are already known.
-
-        Runs more than once on the same instance -- every assignment to a field re-runs it
-        (`validate_assignment`), as does `Settings.model_validate(settings)` -- so the overrides are
-        captured only the first time. Expanding the expansion would take the whole table for
-        overrides the user never wrote, which would then outrank a radius set afterwards. Re-running
-        on assignment is also what makes a radius assigned reach the mapping at once.
-
-        The mapping is written past validation: assigning it would validate it, which runs this
-        validator again without end.
-        """
-        if self._ts_geo_station_distance_overrides is None:
-            self._ts_geo_station_distance_overrides = dict(self.ts_geo_station_distance)
-        self.__dict__["ts_geo_station_distance"] = _build_geo_station_distance(
-            self.ts_geo_station_distance_homogeneous,
-            self.ts_geo_station_distance_heterogeneous,
-            self._ts_geo_station_distance_overrides,
-        )
-        return self
-
-    @field_serializer("ts_geo_station_distance")
-    def serialize_ts_geo_station_distance(self, _value: dict[str, float]) -> dict[str, float]:
-        """Dump the overrides that were given, not the mapping they were expanded into.
-
-        Dumping the expanded mapping would make the settings unable to round-trip: every
-        heterogeneous parameter would come back as an explicit override and win over a
-        `ts_geo_station_distance_heterogeneous` set alongside it, which is the very "set a number,
-        nothing happens" failure the validation here is about.
-        """
-        return self._ts_geo_station_distance_overrides or {}
-
-    def ts_geo_station_distance_resolution_factor(self, resolution: str) -> float:
-        """Return the factor the heterogeneous radius is stretched by at this resolution."""
-        return self.ts_geo_station_distance_resolution_factors.get(
-            resolution,
-            _STATION_DISTANCE_RESOLUTION_FACTORS.get(resolution, _STATION_DISTANCE_RESOLUTION_FACTOR_DEFAULT),
-        )
-
-    def ts_geo_station_distance_for(self, parameter_name: str, resolution: str) -> float:
-        """Return how far a station may be to still be used for this parameter at this resolution.
-
-        `ts_geo_station_distance` answers the same question without the resolution, which is the
-        radius before it is scaled -- the radius at hourly resolution. A radius the user set for the
-        parameter by hand is returned as it was given: a number written out means that number, at
-        every resolution.
-
-        The two radii and the factors are read here, so assigning to them on an existing `Settings`
-        object takes effect at once. `ts_geo_station_distance` is not: the overrides are taken when
-        the settings are built, and the mapping the field then holds is the expansion of them, so
-        a new mapping assigned to it afterwards is checked and then discarded, the expansion being
-        run again from the overrides the settings were built with. Build a new `Settings` to change
-        the per-parameter radii.
-        """
-        overrides = self._ts_geo_station_distance_overrides or {}
-        if parameter_name in overrides:
-            return overrides[parameter_name]
-        parameter = PARAMETERS.get(parameter_name)
-        if parameter is None or parameter.interpolation != "heterogeneous":
-            return self.ts_geo_station_distance_homogeneous
-        return self.ts_geo_station_distance_heterogeneous * self.ts_geo_station_distance_resolution_factor(resolution)
-
-    @property
-    def ts_tidy(self) -> bool:
-        """Return whether the time series is in tidy format."""
-        return self.ts_shape == "long"
-
-    @property
-    def ts_drop_nulls_effective(self) -> bool:
-        """Return whether rows without a value are dropped, which they are in the long shape alone.
-
-        `ts_drop_nulls` keeps what the caller gave, and the wide shape does not turn it off: the
-        field used to be rewritten to False, for good, so a `Settings` once wide dropped no nulls
-        once it was long again (GH-2388). This is the value in effect.
-        """
-        return self.ts_drop_nulls and self.ts_tidy
-
     def model_post_init(self, _context: object, /) -> None:
         """Log what the settings were built with, once, as they are built.
 
         Not a model validator: those run again for every assignment (`validate_assignment`) and for
         `Settings.model_validate(settings)`, and logged these lines each time. So a field assigned
-        afterwards -- `ts_shape` included -- logs nothing; the lines say how the settings began.
+        afterwards logs nothing; the lines say how the settings began.
         """
-        if self.ts_shape != "long":
-            log.info(
-                "option 'ts_drop_nulls' is only available with option 'ts_shape=long' and "
-                "is thus ignored in this request.",
-            )
         if self.cache_disable:
             log.info("Wetterdienst cache is disabled")
         else:
@@ -836,12 +690,13 @@ class Settings(BaseSettings):
         return f"""Settings({json.dumps(self._rendered(), indent=4)})"""
 
 
-def _describe_settings_error(error: ValidationError | SettingsError) -> list[str]:
-    """Tell what is wrong with the settings, a line for each problem, by the `WD_*` variable that sets it.
+def _describe_settings_error(error: ValidationError | SettingsError, prefix: str = "WD_") -> list[str]:
+    """Tell what is wrong with the settings, a line for each problem, by the environment variable that sets it.
 
     For an error of settings built from the environment and `.env` alone, as `check_settings`
     builds them. Neither hands on a key that is no setting (GH-2349), so every problem is a
-    setting's.
+    setting's. `prefix` is the one the settings read their variables with: ``WD_`` for `Settings`,
+    ``WD_TS_`` for `Options`.
 
     pydantic's own account names the field rather than the variable an operator set, and each of
     its `errors()` holds the value given -- which for `WD_AUTH__*` is a credential, and for
@@ -855,29 +710,31 @@ def _describe_settings_error(error: ValidationError | SettingsError) -> list[str
         # it could not parse, but not where in the value
         match = re.search(r'error parsing value for field "(\w+)"', str(error))
         if match:
-            return [f"WD_{match.group(1).upper()} is invalid: not valid JSON"]
+            return [f"{prefix}{match.group(1).upper()} is invalid: not valid JSON"]
         return [str(error)]
     lines = []
     for problem in error.errors(include_url=False):
         # an element of a pair, such as the secret in `WD_AUTH__METNO_FROST`, is no variable of its
         # own, and is told by its index after the name that holds it: `WD_AUTH__METNO_FROST[1]`
-        variable = "WD_" if problem["loc"] else "WD_*"
+        variable = prefix if problem["loc"] else f"{prefix}*"
         for part in problem["loc"]:
             if isinstance(part, int):
                 variable += f"[{part}]"
             else:
-                variable += ("" if variable == "WD_" else "__") + str(part).upper()
+                variable += ("" if variable == prefix else "__") + str(part).upper()
         lines.append(f"{variable} is invalid: {problem['msg'].removeprefix('Value error, ')}")
     return lines
 
 
 def check_settings() -> list[str]:
-    """Build the settings from the environment and `.env` alone, and tell what is wrong with them.
+    """Build the settings and the options from the environment and `.env` alone, and tell what is wrong with them.
 
     An empty list means they are valid.
     """
-    try:
-        Settings()
-    except (ValidationError, SettingsError) as e:
-        return _describe_settings_error(e)
-    return []
+    lines: list[str] = []
+    for build, prefix in ((Settings, "WD_"), (Options, "WD_TS_")):
+        try:
+            build()
+        except (ValidationError, SettingsError) as e:
+            lines.extend(_describe_settings_error(e, prefix))
+    return lines

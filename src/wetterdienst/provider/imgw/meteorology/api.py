@@ -26,6 +26,7 @@ from wetterdienst.provider.imgw.fileindex import list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -442,7 +443,7 @@ ImgwMeteorologyMetadata = {
 ImgwMeteorologyMetadata = build_metadata_model(ImgwMeteorologyMetadata, "ImgwMeteorologyMetadata")
 
 
-class ImgwMeteorologyValues(TimeseriesValues):
+class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
     """Values for the meteorological data from the Institute of Meteorology and Water Management."""
 
     _endpoint = (
@@ -583,7 +584,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         },
     }
 
-    def _collect_station_parameter_or_dataset(  # ty: ignore[invalid-method-override]
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: DatasetModel,
@@ -680,7 +681,7 @@ class ImgwMeteorologyValues(TimeseriesValues):
         statusless: frozenset[int] = frozenset(),
     ) -> pl.DataFrame:
         """Parse a single file from the meteorological zip file."""
-        df = pl.read_csv(file, encoding="latin-1", separator=",", has_header=False, infer_schema_length=0)
+        df = read_csv_without_header(file, encoding="latin-1", separator=",", infer_schema_length=0)
         status_columns = {}
         for column, name in schema.items():
             position = int(column.removeprefix("column_"))

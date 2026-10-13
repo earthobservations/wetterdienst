@@ -4,9 +4,11 @@
 
 import itertools
 import json
+import logging
 import os
 import re
 from collections.abc import Iterator
+from io import BytesIO
 from pathlib import Path
 from textwrap import dedent
 
@@ -18,6 +20,7 @@ from pydantic import ValidationError
 from wetterdienst import Settings, Wetterdienst
 from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.options import Options
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
@@ -669,14 +672,14 @@ def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
 
 
 class _SettingsTaken(Exception):  # noqa: N818
-    """Raised in place of fetching, carrying the settings a command built."""
+    """Raised in place of fetching, carrying the options a command built."""
 
 
-def _settings_of(monkeypatch: pytest.MonkeyPatch, args: list[str], env: dict[str, str]) -> Settings:
-    """Run a command up to its fetch, and return the settings it would fetch with."""
+def _settings_of(monkeypatch: pytest.MonkeyPatch, args: list[str], env: dict[str, str]) -> Options:
+    """Run a command up to its fetch, and return the options it would fetch with."""
 
-    def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
-        raise _SettingsTaken(settings)
+    def take(_get: object, *, options: Options, **_kwargs: object) -> None:
+        raise _SettingsTaken(options)
 
     monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
     result = CliRunner().invoke(cli, args, env=env)
@@ -699,17 +702,17 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
         "WD_TS_SKIP_THRESHOLD": "0.5",
         "WD_TS_DROP_NULLS": "false",
     }
-    settings = _settings_of(monkeypatch, ["values", *_DWD_KL, "--station=01048"], env)
-    assert settings.ts_shape == "wide"
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_unit_targets == {"temperature": "degree_fahrenheit"}
-    assert settings.ts_skip_empty is True
-    assert settings.ts_skip_criteria == "max"
-    assert settings.ts_skip_threshold == 0.5
-    assert settings.ts_drop_nulls is False
+    options = _settings_of(monkeypatch, ["values", *_DWD_KL, "--station=01048"], env)
+    assert options.shape == "wide"
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.unit_targets == {"temperature": "degree_fahrenheit"}
+    assert options.skip_empty is True
+    assert options.skip_criteria == "max"
+    assert options.skip_threshold == 0.5
+    assert options.drop_nulls is False
     # an option given at its default value is given all the same
-    settings = _settings_of(
+    options = _settings_of(
         monkeypatch,
         [
             "values",
@@ -725,13 +728,13 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
         ],
         env,
     )
-    assert settings.ts_shape == "long"
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_skip_empty is False
-    assert settings.ts_skip_criteria == "min"
-    assert settings.ts_skip_threshold == 0.95
-    assert settings.ts_drop_nulls is True
+    assert options.shape == "long"
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.skip_empty is False
+    assert options.skip_criteria == "min"
+    assert options.skip_threshold == 0.95
+    assert options.drop_nulls is True
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -751,15 +754,15 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
         "WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS": "0.5",
         "WD_TS_GEO_NUM_ADDITIONAL_STATIONS": "5",
     }
-    settings = _settings_of(monkeypatch, [command, *_POINT_ARGS], env)
-    assert settings.ts_humanize is False
-    assert settings.ts_convert_units is False
-    assert settings.ts_geo_station_distance_homogeneous == 60
-    assert settings.ts_geo_station_distance_heterogeneous == 15
-    assert settings.ts_geo_use_nearby_station_distance == 0
-    assert settings.ts_geo_min_gain_of_value_pairs == 0.5
-    assert settings.ts_geo_num_additional_stations == 5
-    settings = _settings_of(
+    options = _settings_of(monkeypatch, [command, *_POINT_ARGS], env)
+    assert options.humanize is False
+    assert options.convert_units is False
+    assert options.geo_station_distance_homogeneous == 60
+    assert options.geo_station_distance_heterogeneous == 15
+    assert options.geo_use_nearby_station_distance == 0
+    assert options.geo_min_gain_of_value_pairs == 0.5
+    assert options.geo_num_additional_stations == 5
+    options = _settings_of(
         monkeypatch,
         [
             command,
@@ -772,12 +775,12 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
         ],
         env,
     )
-    assert settings.ts_humanize is True
-    assert settings.ts_convert_units is True
-    assert settings.ts_geo_station_distance_homogeneous == 40
-    assert settings.ts_geo_station_distance_heterogeneous == 20
+    assert options.humanize is True
+    assert options.convert_units is True
+    assert options.geo_station_distance_homogeneous == 40
+    assert options.geo_station_distance_heterogeneous == 20
     # `summarize` accepts the option and reads nothing from it, which it says it does (GH-2333)
-    assert settings.ts_geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
+    assert options.geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -788,7 +791,7 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
             ["interpolate", *_POINT_ARGS, '--interpolation_station_distance={"temperature_air_mean": 10}'],
             (
                 "Error: Invalid value for '--interpolation_station_distance': Invalid parameters in "
-                "ts_geo_station_distance: ['temperature_air_mean'] not in the canonical parameters "
+                "geo_station_distance: ['temperature_air_mean'] not in the canonical parameters "
                 "(got {'temperature_air_mean': 10.0}).\n"
             ),
         ),
@@ -859,7 +862,7 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
 def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
     """Test a command left its options out passes Settings nothing, which the environment then sets.
 
-    Among them are the settings no option sets at all, such as `ts_geo_num_additional_stations`.
+    Among them are the host settings no option sets at all, such as `cache_dir`.
     """
     calls: list[dict] = []
 
@@ -874,12 +877,12 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_cli_values_option_outranks_a_malformed_variable_for_its_setting(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test an option given on the command line replaces a WD_TS_* variable Settings would refuse."""
-    settings = _settings_of(
+def test_cli_values_option_outranks_a_malformed_variable_for_its_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an option given on the command line replaces a WD_TS_* variable Options would refuse."""
+    options = _settings_of(
         monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
     )
-    assert settings.ts_shape == "long"
+    assert options.shape == "long"
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -889,7 +892,7 @@ def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pyte
     result = CliRunner().invoke(cli, ["summarize", *_POINT_ARGS, '--summary_station_distance={"foo": 1}'])
     assert result.exit_code == 2, result.output
     assert (
-        "Error: Invalid value for '--summary_station_distance': Invalid parameters in ts_geo_station_distance: "
+        "Error: Invalid value for '--summary_station_distance': Invalid parameters in geo_station_distance: "
         "['foo'] not in the canonical parameters (got {'foo': 1.0}).\n"
     ) in result.output
 
@@ -936,13 +939,13 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
     warning = "DeprecationWarning: The option 'use_nearby_station_distance' is deprecated. It has no effect"
 
     def run(args: list[str]) -> str:
-        def take(_get: object, *, settings: Settings, **_kwargs: object) -> None:
-            raise _SettingsTaken(settings)
+        def take(_get: object, *, options: Options, **_kwargs: object) -> None:
+            raise _SettingsTaken(options)
 
         monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
         result = CliRunner().invoke(cli, args, env={})
         assert isinstance(result.exception, _SettingsTaken), result.output
-        assert result.exception.args[0].ts_geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
+        assert result.exception.args[0].geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
         return result.stderr
 
     assert warning in run(["summarize", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])
@@ -957,6 +960,7 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
         pytest.param(["cache"], id="cache"),
         pytest.param(["info"], id="info"),
         pytest.param(["about", "coverage"], id="about-coverage"),
+        pytest.param(["about", "auth", "--provider=aemet", "--network=observation"], id="about-auth"),
         pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
         pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
         pytest.param(["history", *_DWD_KL, "--station=01048"], id="history"),
@@ -1264,3 +1268,116 @@ def test_coverage_refuses_a_filter_without_provider_and_network(args: list[str],
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(f"\n\n{message}")
     assert result.stdout == ""
+
+
+def _stub_the_frost_probe(monkeypatch: pytest.MonkeyPatch, content: object, status: int) -> list[str]:
+    """Answer the probe of `metno/frost` with `content` and `status`, offline; return the URLs asked."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    asked: list[str] = []
+
+    def download_file(**kwargs: str) -> File:
+        asked.append(kwargs["url"])
+        return File(url=kwargs["url"], content=content, status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.metno.frost.api.download_file", download_file)
+    return asked
+
+
+def _auth(*args: str) -> dict[str, object]:
+    """Run `about auth` for `metno/frost` (or the given options), and return the JSON it printed."""
+    result = CliRunner().invoke(cli, ["about", "auth", *(args or ("--provider=metno", "--network=frost"))])
+    assert result.exit_code == 0, result.output
+    return json.loads(result.stdout)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_auth_of_a_network_without_credentials_is_valid_without_a_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network that needs no credentials is configured and valid, and nothing is asked of its provider."""
+
+    def probe(_api: object) -> None:
+        pytest.fail("the provider was probed")
+
+    monkeypatch.setattr(Wetterdienst, "is_valid", staticmethod(probe))
+    assert _auth("--provider=dwd", "--network=observation") == {
+        "provider": "dwd",
+        "network": "observation",
+        "auth": False,
+        "configured": True,
+        "valid": True,
+    }
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_auth_without_a_credential_is_not_valid_and_does_not_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Credentials that are not configured are not valid, and a probe cannot be made without them."""
+    asked = _stub_the_frost_probe(monkeypatch, Exception("must not be asked"), 500)
+    assert _auth() == {"provider": "metno", "network": "frost", "auth": True, "configured": False, "valid": False}
+    assert asked == []
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    ("content", "status", "valid"),
+    [
+        pytest.param(BytesIO(b"{}"), 200, True, id="accepted"),
+        pytest.param(Exception("401, message='Unauthorized'"), 401, False, id="rejected"),
+        pytest.param(OSError("certificate verify failed"), 500, None, id="could-not-tell"),
+    ],
+)
+def test_auth_tells_what_the_probe_could_tell(
+    monkeypatch: pytest.MonkeyPatch, content: object, status: int, *, valid: bool | None
+) -> None:
+    """`valid` is true, false or null as the probe's answer is accepted, rejected or no telling, with exit 0."""
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
+    asked = _stub_the_frost_probe(monkeypatch, content, status)
+    assert _auth() == {"provider": "metno", "network": "frost", "auth": True, "configured": True, "valid": valid}
+    assert len(asked) == 1
+
+
+def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
+    """An unknown provider or network is a usage error pointing at the coverage listing, as a 404 is for REST."""
+    result = CliRunner().invoke(cli, ["about", "auth", "--provider=dwd", "--network=abc"])
+    assert result.exit_code == 2, result.output
+    assert result.stderr.endswith(
+        "\n\nError: No API available for provider dwd and network abc. "
+        "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
+    )
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("command", ["auth", "coverage"])
+def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverage(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, command: str
+) -> None:
+    """`about auth` and `about coverage` for a network whose extra is not installed print what to install (GH-2788).
+
+    The same line and exit 1 as the data commands, not a traceback and not a usage error: the command
+    line was right, the environment lacks the package.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = (
+        "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+    )
+
+    def resolve(*_args: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", resolve)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["about", command, "--provider=knmi", "--network=observation"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("args", [["--provider=metno"], ["--network=frost"], []])
+def test_auth_requires_provider_and_network(args: list[str]) -> None:
+    """Both options are required: there is no listing of every network to fall back to."""
+    result = CliRunner().invoke(cli, ["about", "auth", *args])
+    assert result.exit_code == 2, result.output
+    assert "Missing option" in result.stderr

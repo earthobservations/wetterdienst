@@ -30,6 +30,7 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
 )
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
@@ -46,6 +47,7 @@ from wetterdienst.ui.core import (
     _plot_stripes,
     check_timeseries_api,
     describe_fields,
+    get_auth,
     get_glossary,
     get_interpolate,
     get_issues,
@@ -54,6 +56,7 @@ from wetterdienst.ui.core import (
     get_values,
     join_names,
     limit_stations_to_rank,
+    overlay_options,
     select_history_sections,
     set_logging_level,
 )
@@ -63,7 +66,7 @@ from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import file_target_path, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from pydantic_core import ErrorDetails
 
@@ -397,50 +400,64 @@ def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _Reques
         raise click.UsageError(_describe_validation_error(e, ctx), ctx=ctx) from e
 
 
-def _build_settings(options: dict[str, tuple[str, Any]]) -> Settings:
-    """Build a command's settings from the environment and the options given on the command line.
+def _build_options(options: dict[str, tuple[str, Any]]) -> Options:
+    """Build a command's options from the environment and the options given on the command line.
 
-    `options` maps each option's parameter to the setting it sets and the value it sets it to. An
-    option is passed only when given on the command line: an init argument outranks the
-    environment, so passing its default would hide the `WD_TS_*` variable set for that setting.
+    `options` maps each command line option's parameter to the option of `Options` it sets and the
+    value it sets it to. An option is passed only when given on the command line: an argument
+    outranks the environment, so passing its default would hide the `WD_TS_*` variable set for it.
 
-    Should they fail, the environment's settings are checked on their own, and an error there is
-    raised as it is: a malformed `WD_*` variable is not the command line's to fix. Where an error is
-    located would not tell, as pydantic-settings merges a dict the environment sets into the one an
-    option gives. A variable an option replaces is left out of that check. With the environment's
-    valid, the error is the options', told by the option as click tells an invalid value, with the
-    value the option gave rather than the one merged with the environment's.
+    An option given replaces the variable set for it, whatever that is: a malformed variable an
+    option outranks is not read. A dict an option gives -- the unit targets, the station distances --
+    is merged into the one the environment sets instead, so the environment's must be valid. Should
+    the options fail, an error in what the environment sets is raised as it is: a malformed `WD_TS_*`
+    variable is not the command line's to fix. The options' is told by the option as click tells an
+    invalid value, with the value the option gave rather than the one merged with the environment's.
     """
     ctx = click.get_current_context()
-    # each setting given by the option that sets it
+    # each option given by the command line option that sets it
     given = {
-        setting: (param, value)
-        for param, (setting, value) in options.items()
+        option: (param, value)
+        for param, (option, value) in options.items()
         if ctx.get_parameter_source(param) is not ParameterSource.DEFAULT
     }
+    replacing = {option: value for option, (_, value) in given.items() if not isinstance(value, dict)}
+    merging = {option: value for option, (_, value) in given.items() if isinstance(value, dict)}
     try:
-        return Settings(**{setting: value for setting, (_, value) in given.items()})
+        # the environment is read here for what no option replaces
+        built = Options(**replacing)
     except ValidationError as e:
-        # a dict is merged with the environment's, anything else replaces it
-        replaced = {setting for setting, (_, value) in given.items() if not isinstance(value, dict)}
-        try:
-            Settings()
-        except ValidationError as environment:
-            if any(not problem["loc"] or problem["loc"][0] not in replaced for problem in environment.errors()):
-                raise environment from None
-        problems = e.errors(include_url=False)
-        if any(not problem["loc"] or problem["loc"][0] not in given for problem in problems):
-            raise
-        params = {param.name: param for param in ctx.command.params if param.name}
-        lines = []
-        for problem in problems:
-            param, value = given[str(problem["loc"][0])]
-            # an entry within a dict is the option's, the environment's being valid on their own
-            input_ = value if len(problem["loc"]) == 1 else problem["input"]
-            lines.append(
-                _describe_problem({**problem, "loc": (param, *problem["loc"][1:]), "input": input_}, params, ctx)
-            )
-        raise click.UsageError("\n".join(lines), ctx=ctx) from e
+        _raise_unless_options(e, replacing)
+        raise _options_usage_error(e, given, ctx) from e
+    if not merging:
+        return built
+    try:
+        return overlay_options(built, merging)
+    except ValidationError as e:
+        _raise_unless_options(e, merging)
+        raise _options_usage_error(e, given, ctx) from e
+
+
+def _raise_unless_options(error: ValidationError, given: Mapping[str, Any]) -> None:
+    """Raise the error as it is where some of its problems are not with the options given, but the environment's."""
+    if any(not problem["loc"] or problem["loc"][0] not in given for problem in error.errors(include_url=False)):
+        raise error
+
+
+def _options_usage_error(
+    error: ValidationError,
+    given: Mapping[str, tuple[str, Any]],
+    ctx: click.Context,
+) -> click.UsageError:
+    """Tell the problems with the options given by the command line option that gave each."""
+    params = {param.name: param for param in ctx.command.params if param.name}
+    lines = []
+    for problem in error.errors(include_url=False):
+        param, value = given[str(problem["loc"][0])]
+        # an entry within a dict is the option's, the environment's being valid on their own
+        input_ = value if len(problem["loc"]) == 1 else problem["input"]
+        lines.append(_describe_problem({**problem, "loc": (param, *problem["loc"][1:]), "input": input_}, params, ctx))
+    return click.UsageError("\n".join(lines), ctx=ctx)
 
 
 def _describe_validation_error(error: ValidationError, ctx: click.Context) -> str:
@@ -681,6 +698,14 @@ COVERAGE_EXAMPLES = r"""
     wetterdienst about coverage --provider=dwd --network=observation --datasets=climate_summary
 """
 
+AUTH_EXAMPLES = r"""
+    # whether the credentials this installation holds for a provider are present and accepted
+    wetterdienst about auth --provider=aemet --network=observation
+
+    # a network that needs none is configured and valid without a request
+    wetterdienst about auth --provider=dwd --network=observation
+"""
+
 RESTAPI_EXAMPLES = r"""
     # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp
     wetterdienst restapi
@@ -769,6 +794,7 @@ def _collect_or_exit(
     api: Any,  # noqa: ANN401
     request: Any,  # noqa: ANN401
     settings: Settings,
+    options: Options,
     what: str,
 ) -> Any:  # noqa: ANN401
     """Run one of the values getters, reporting the failures a caller can do something about.
@@ -781,7 +807,7 @@ def _collect_or_exit(
     with a 4xx -- is the command line's mistake, so it is a usage error, exit 2 (GH-2426).
     """
     try:
-        values_ = get(api=api, request=request, settings=settings)
+        values_ = get(api=api, request=request, settings=settings, options=options)
     except MissingDependencyError as e:
         # the message names what to install: the whole of what is to be done about it. Narrow on
         # purpose -- a bare `ImportError` would swallow a cycle or a typo inside a provider module,
@@ -864,7 +890,7 @@ class _Cli(click.Group):
         except (ValidationError, SettingsError) as e:
             # another model's error is not the settings', even beside a malformed variable an
             # option overrode
-            if isinstance(e, ValidationError) and e.title != Settings.__name__:
+            if isinstance(e, ValidationError) and e.title not in {Settings.__name__, Options.__name__}:
                 raise
             problems = check_settings()
             if not problems:
@@ -995,6 +1021,36 @@ def coverage(
     print(json.dumps(cov, indent=2))  # noqa: T201
 
 
+@about.command("auth", epilog=_examples(AUTH_EXAMPLES))
+@provider_opt
+@network_opt
+@debug_opt
+def auth(
+    provider: str,
+    network: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Check whether the credentials for a provider and network are present and accepted.
+
+    Prints `{"provider", "network", "auth", "configured", "valid"}`. `auth` is whether the network
+    needs credentials, `configured` whether they are present, and `valid` whether the provider
+    accepted (true) or rejected (false) them. `valid` is false where they are not configured, and
+    null where the check could not tell (no network, a timeout, a rate limit, an outage of the
+    provider): unknown, not rejected. A network that needs none is configured and valid.
+
+    This is the one command that probes the provider, for the one network asked about: a single
+    attempt that gives up after a few seconds. `about coverage` does not probe, so it leaves
+    `valid` null for a configured network. The exit code is 0 whatever `valid` is: read the answer.
+    """
+    set_logging_level(debug=debug)
+
+    # a malformed server setting is refused by its variable, as for the other commands
+    Settings()
+    api = get_api(provider=provider, network=network)
+
+    print(json.dumps(get_auth(api, provider, network), indent=2))  # noqa: T201
+
+
 @about.command("glossary")
 @click.option(
     "--parameter",
@@ -1026,6 +1082,8 @@ def glossary(
     """
     set_logging_level(debug=debug)
 
+    # a malformed server setting is refused by its variable, as it is for the other commands
+    Settings()
     entries = get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
 
     if not entries:
@@ -1389,7 +1447,7 @@ def history(
 
     if path is not None:
         try:
-            Path(path).write_text(output)
+            Path(path).write_text(output, encoding="utf-8")
         except OSError as e:
             # a directory that does not exist or cannot be written, or a path naming a directory
             msg = f"Could not write --target: {e}"
@@ -1563,21 +1621,25 @@ def values(
 
     api = get_timeseries_api(request.provider, request.network)
 
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
     # a unit target given for a quantity the unit converter does not know is a usage error
-    settings = _build_settings(
+    options = _build_options(
         {
-            "humanize": ("ts_humanize", request.humanize),
-            "shape": ("ts_shape", request.shape),
-            "convert_units": ("ts_convert_units", request.convert_units),
-            "unit_targets": ("ts_unit_targets", request.unit_targets or {}),
-            "skip_empty": ("ts_skip_empty", request.skip_empty),
-            "skip_criteria": ("ts_skip_criteria", request.skip_criteria),
-            "skip_threshold": ("ts_skip_threshold", request.skip_threshold),
-            "drop_nulls": ("ts_drop_nulls", request.drop_nulls),
+            "humanize": ("humanize", request.humanize),
+            "shape": ("shape", request.shape),
+            "convert_units": ("convert_units", request.convert_units),
+            "unit_targets": ("unit_targets", request.unit_targets or {}),
+            "skip_empty": ("skip_empty", request.skip_empty),
+            "skip_criteria": ("skip_criteria", request.skip_criteria),
+            "skip_threshold": ("skip_threshold", request.skip_threshold),
+            "drop_nulls": ("drop_nulls", request.drop_nulls),
         }
     )
 
-    values_ = _collect_or_exit(get_values, api=api, request=request, settings=settings, what="data acquisition")
+    values_ = _collect_or_exit(
+        get_values, api=api, request=request, settings=settings, options=options, what="data acquisition"
+    )
 
     if target:
         _export_or_exit(values_, target, if_exists)
@@ -1705,27 +1767,31 @@ def interpolate(
 
     api = get_timeseries_api(request.provider, request.network)
 
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
     # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
     # target for a quantity the unit converter does not know is a usage error
-    settings = _build_settings(
+    options = _build_options(
         {
-            "humanize": ("ts_humanize", request.humanize),
-            "convert_units": ("ts_convert_units", request.convert_units),
-            "unit_targets": ("ts_unit_targets", request.unit_targets or {}),
-            "interpolation_station_distance": ("ts_geo_station_distance", request.interpolation_station_distance or {}),
+            "humanize": ("humanize", request.humanize),
+            "convert_units": ("convert_units", request.convert_units),
+            "unit_targets": ("unit_targets", request.unit_targets or {}),
+            "interpolation_station_distance": ("geo_station_distance", request.interpolation_station_distance or {}),
             "interpolation_station_distance_homogeneous": (
-                "ts_geo_station_distance_homogeneous",
+                "geo_station_distance_homogeneous",
                 request.interpolation_station_distance_homogeneous,
             ),
             "interpolation_station_distance_heterogeneous": (
-                "ts_geo_station_distance_heterogeneous",
+                "geo_station_distance_heterogeneous",
                 request.interpolation_station_distance_heterogeneous,
             ),
-            "use_nearby_station_distance": ("ts_geo_use_nearby_station_distance", request.use_nearby_station_distance),
+            "use_nearby_station_distance": ("geo_use_nearby_station_distance", request.use_nearby_station_distance),
         }
     )
 
-    values_ = _collect_or_exit(get_interpolate, api=api, request=request, settings=settings, what="interpolation")
+    values_ = _collect_or_exit(
+        get_interpolate, api=api, request=request, settings=settings, options=options, what="interpolation"
+    )
 
     if target:
         _export_or_exit(values_, target, if_exists)
@@ -1851,26 +1917,30 @@ def summarize(
 
     api = get_timeseries_api(request.provider, request.network)
 
+    # built first: a malformed host setting is not the command line's to fix, whatever the options say
+    settings = Settings()
     # a distance given for a name that is not a canonical parameter, or a negative one, or a unit
     # target for a quantity the unit converter does not know is a usage error
-    settings = _build_settings(
+    options = _build_options(
         {
-            "humanize": ("ts_humanize", request.humanize),
-            "convert_units": ("ts_convert_units", request.convert_units),
-            "unit_targets": ("ts_unit_targets", request.unit_targets or {}),
-            "summary_station_distance": ("ts_geo_station_distance", request.summary_station_distance or {}),
+            "humanize": ("humanize", request.humanize),
+            "convert_units": ("convert_units", request.convert_units),
+            "unit_targets": ("unit_targets", request.unit_targets or {}),
+            "summary_station_distance": ("geo_station_distance", request.summary_station_distance or {}),
             "summary_station_distance_homogeneous": (
-                "ts_geo_station_distance_homogeneous",
+                "geo_station_distance_homogeneous",
                 request.summary_station_distance_homogeneous,
             ),
             "summary_station_distance_heterogeneous": (
-                "ts_geo_station_distance_heterogeneous",
+                "geo_station_distance_heterogeneous",
                 request.summary_station_distance_heterogeneous,
             ),
         }
     )
 
-    values_ = _collect_or_exit(get_summarize, api=api, request=request, settings=settings, what="summarize")
+    values_ = _collect_or_exit(
+        get_summarize, api=api, request=request, settings=settings, options=options, what="summarize"
+    )
 
     if target:
         _export_or_exit(values_, target, if_exists)
