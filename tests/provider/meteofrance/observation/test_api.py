@@ -382,6 +382,27 @@ def test_meteofrance_observation_api_hourly_ten_minute_wind_is_named_for_its_win
             MeteoFranceObservationRequest(parameters=[("hourly", "core", old)])
 
 
+def test_meteofrance_observation_api_hourly_fxy_is_the_highest_ten_minute_mean(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that FXY comes back as the highest 10-minute mean wind of the hour, not as a gust (GH-2834).
+
+    The field descriptions define FXY as "valeur maximale de FF dans l'heure" and FF as "force du vent moyenné sur
+    10 mn". The rows are those of station 31069001 (Toulouse-Blagnac) at 2025-01-01 02 h and 2025-01-03 07 h (FF =
+    2.2 and 0.9, FXY = 2.5 and 2.3), as in the calm-wind test below. The hourly `wind_gust_max` is not found.
+    """
+    hourly = [
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010102", "FF": "2.2", "FXY": "2.5"},
+        {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010307", "FF": "0.9", "FXY": "2.3"},
+    ]
+    _serve_climate(monkeypatch, {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "core", hourly)})
+    df = _values("hourly", "core", "wind_speed_rolling_mean_max", "31069001", _utc(2025, 1, 1), _utc(2025, 2, 1))
+    assert df.get_column("timestamp").to_list() == [_utc(2025, 1, 1, 2), _utc(2025, 1, 3, 7)]
+    assert df.get_column("value").to_list() == [2.5, 2.3]
+    with pytest.raises(NoParametersFoundError):
+        MeteoFranceObservationRequest(parameters=[("hourly", "core", "wind_gust_max")])
+
+
 def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a direction of 0, the calm wind, is null and 360, the north, stays (GH-2720).
 

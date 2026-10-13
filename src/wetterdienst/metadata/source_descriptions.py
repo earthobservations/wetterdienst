@@ -24,7 +24,8 @@ are taken as they come:
 
 - MeteoSwiss: ``ogd-smn_meta_parameters.csv``, published beside the data, English column
 - MET Norway: the Frost ``/elements`` endpoint, ``lang=en-US``
-- KNMI: the ``long_name`` attribute on each variable of the observation NetCDF files
+- KNMI: the ``long_name`` attribute on each variable of the observation NetCDF files, and the longer
+  ``description`` attribute where it states the window (hourly ``DD``)
 - FMI: the ``observableProperty`` metadata endpoint, ``language=eng``, composed from its label,
   statistical function and aggregation period ("Air temperature. Mean over 1 minute.")
 - AEMET: the ``metadatos`` payload that accompanies every response, translated from Spanish
@@ -1786,7 +1787,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "TN"): "Minimum temperature",
         ("daily", "data", "TX"): "Maximum temperature",
         ("daily", "data", "UG"): "Mean relative atmospheric humidity",
-        ("hourly", "data", "DD"): "Mean wind direction",
+        ("hourly", "data", "DD"): "Past 10 minute mean wind direction, representative for 10 meters",
         ("hourly", "data", "DR"): "Precipitation duration",
         ("hourly", "data", "FH"): "Mean wind speed",
         ("hourly", "data", "FX"): "Maximum wind gust",

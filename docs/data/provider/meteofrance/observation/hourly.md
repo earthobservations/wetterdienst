@@ -30,7 +30,7 @@
 | {term}`temperature_air_2m` | T | Instantaneous air temperature under shelter. | degree_celsius |
 | {term}`wind_speed_last_10min` | FF | Wind force averaged over 10 minutes, measured at 10 m. | meter_per_second |
 | {term}`wind_direction_last_10min` | DD | Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. The source's 0 (mostly a calm wind) and 999 (probably variable) are null. | degree |
-| {term}`wind_gust_max` | FXY | Maximum value of FF within the hour. | meter_per_second |
+| {term}`wind_speed_rolling_mean_max` | FXY | Maximum value of FF within the hour. | meter_per_second |
 | {term}`wind_direction_gust_max` | DXY | Direction of FXY, on the 360 degree compass. The source's 0 (mostly a calm wind) and 999 (probably variable) are null. | degree |
 
 ### others
