@@ -94,10 +94,11 @@ Types of changes:
   summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
   those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
   UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
-- `imgw/meteorology` `daily/climate` no longer raises `AttributeError` for a request that touches
-  May 2024 or later: IMGW stopped writing `k_d_t` into the monthly zips then, so from that month on
-  `cloud_cover_total`, `humidity_relative` and `wind_speed` have no rows, and the other parameters
-  (all in `k_d`) are returned as before (GH-2819)
+- `imgw/meteorology` `daily/climate` (from May 2024) and `daily/synop` (from July 2024) no longer
+  raise `AttributeError`: IMGW stopped writing `k_d_t` and `s_d_t` into the zips then. The
+  parameters of `k_d`/`s_d` are returned; those only the missing file carries (`cloud_cover_total`,
+  `humidity_relative`, `wind_speed` and, in synop, the vapour and air pressures and the day and
+  night precipitation) have no rows after the month the file ends (GH-2819)
 
 ## [0.147.0] - 2026-10-12
 
