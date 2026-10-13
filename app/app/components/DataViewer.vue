@@ -23,7 +23,8 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { parameterLabel, datasetLabel } = useParameterLabel()
+const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
+const { settings: appSettings } = useSettings()
 
 // Safe accessors for props to prevent reactivity issues
 const stationSelection = computed(() => {
@@ -103,6 +104,23 @@ const paramLabelItems = computed(() => [
   { label: t('dataViewer.paramLabelDatasetParameter'), value: 'dataset/parameter' },
   { label: t('dataViewer.paramLabelFull'), value: 'resolution/dataset/parameter' },
 ])
+
+/**
+ * A row's parameter as the chart names it, in the format chosen above: `key` is its identity (the raw
+ * ids, which tell two parameters apart whatever the labels say), `parts` the same, each as the
+ * glossary names it in the active locale, and `label` those joined. With plain-language labels off
+ * the parts are the raw ids and the label the path the API takes, `resolution/dataset/parameter`.
+ */
+function chartParameter(value: Value) {
+  const named: [id: string, label: string][] = []
+  if (paramLabelFormat.value === 'resolution/dataset/parameter')
+    named.push([value.resolution, resolutionLabel(value.resolution)])
+  if (paramLabelFormat.value !== 'parameter')
+    named.push([value.dataset, datasetLabel(value.dataset)])
+  named.push([value.parameter, parameterLabel(value.parameter)])
+  const parts = named.map(([, label]) => label)
+  return { key: named.map(([id]) => id).join('/'), parts, label: parts.join(appSettings.value.friendlyLabels ? ' / ' : '/') }
+}
 
 // Trendline option
 const showTrendline = ref(false)
@@ -768,23 +786,21 @@ const chartTraces = computed(() => {
 
   // Group values by series (station + parameter combination), as the rows shown were fetched: a mode
   // selected since would merge two stations' rows into one series
-  const seriesMap = new Map<string, { x: Date[], y: number[] }>()
+  const seriesMap = new Map<string, { name: string, x: Date[], y: number[] }>()
   const mode = rowsMode.value
 
   for (const { row: value, date, y } of chartRows.value) {
-    let parameterLabel = value.parameter
-    if (paramLabelFormat.value === 'dataset/parameter') {
-      parameterLabel = `${value.dataset}/${value.parameter}`
-    }
-    else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
-      parameterLabel = `${value.resolution}/${value.dataset}/${value.parameter}`
-    }
+    const parameter = chartParameter(value)
     const seriesKey = mode === 'station'
-      ? `${value.station_id} - ${parameterLabel}`
-      : parameterLabel
+      ? `${value.station_id} - ${parameter.key}`
+      : parameter.key
 
     if (!seriesMap.has(seriesKey)) {
-      seriesMap.set(seriesKey, { x: [], y: [] })
+      seriesMap.set(seriesKey, {
+        name: mode === 'station' ? `${value.station_id} - ${parameter.label}` : parameter.label,
+        x: [],
+        y: [],
+      })
     }
 
     const series = seriesMap.get(seriesKey)!
@@ -798,7 +814,7 @@ const chartTraces = computed(() => {
   let colorIndex = 0
   const isLargeDataset = isLargeChart.value
 
-  for (const [seriesKey, data] of seriesMap) {
+  for (const data of seriesMap.values()) {
     const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
 
     // Sort data by time
@@ -810,7 +826,7 @@ const chartTraces = computed(() => {
 
     // For large datasets: skip markers and use thinner lines for performance
     const trace: PlotlyData = {
-      name: seriesKey,
+      name: data.name,
       x: sortedX,
       y: sortedY,
       type: 'scatter',
@@ -827,7 +843,7 @@ const chartTraces = computed(() => {
     if (showTrendline.value && sortedX.length >= 2) {
       const trend = calculateLinearRegression(sortedXDates, sortedY)
       trendlineTraces.push({
-        name: `${seriesKey} (trend)`,
+        name: `${data.name} (trend)`,
         x: trend.x.map(d => d.toISOString()),
         y: trend.y,
         type: 'scatter',
@@ -847,13 +863,16 @@ const chartTraces = computed(() => {
 // Check if chart has data
 const hasChartData = computed(() => chartTraces.value.length > 0)
 
+// A facet: `parameter` is its identity (the raw ids), `label` and `parts` what the page names it with
+interface FacetedChart { parameter: string, parts: string[], label: string, traces: PlotlyData[], large: boolean }
+
 // For faceted charts - group data by parameter. Each facet is a chart of its own, large or not by its
 // own points: one of a few points was drawn as a large one where the other facets held many
-const facetedChartData = computed((): { parameter: string, traces: PlotlyData[], large: boolean }[] => {
+const facetedChartData = computed((): FacetedChart[] => {
   if (!facetByParameter.value || !chartRows.value.length)
     return []
 
-  const parameterGroups = new Map<string, Map<string, { x: Date[], y: number[] }>>()
+  const parameterGroups = new Map<string, { parts: string[], label: string, stations: Map<string, { x: Date[], y: number[] }> }>()
   // the mode the rows shown were fetched in, as the single chart's
   const mode = rowsMode.value
   // Each station's colour, the same in every facet: numbered once, in the order its first row comes
@@ -862,21 +881,15 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
   const stationColors = new Map<string, string>()
 
   for (const { row: value, date, y } of chartRows.value) {
-    let param = value.parameter
-    if (paramLabelFormat.value === 'dataset/parameter') {
-      param = `${value.dataset}/${value.parameter}`
-    }
-    else if (paramLabelFormat.value === 'resolution/dataset/parameter') {
-      param = `${value.resolution}/${value.dataset}/${value.parameter}`
-    }
+    const { key: param, parts, label } = chartParameter(value)
     if (!parameterGroups.has(param)) {
-      parameterGroups.set(param, new Map())
+      parameterGroups.set(param, { parts, label, stations: new Map() })
     }
 
     const stationKey = mode === 'station' ? value.station_id : 'interpolated'
     if (!stationColors.has(stationKey))
       stationColors.set(stationKey, chartColors[stationColors.size % chartColors.length] ?? '#3b82f6')
-    const stationMap = parameterGroups.get(param)!
+    const stationMap = parameterGroups.get(param)!.stations
 
     if (!stationMap.has(stationKey)) {
       stationMap.set(stationKey, { x: [], y: [] })
@@ -887,9 +900,9 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
     series.y.push(y)
   }
 
-  const result: { parameter: string, traces: PlotlyData[], large: boolean }[] = []
+  const result: FacetedChart[] = []
 
-  for (const [parameter, stationMap] of parameterGroups) {
+  for (const [parameter, { parts, label, stations: stationMap }] of parameterGroups) {
     let points = 0
     for (const data of stationMap.values())
       points += data.x.length
@@ -936,7 +949,7 @@ const facetedChartData = computed((): { parameter: string, traces: PlotlyData[],
     }
 
     // Add trendlines after main traces so they render on top
-    result.push({ parameter, traces: [...traces, ...trendlineTraces], large: isLargeDataset })
+    result.push({ parameter, parts, label, traces: [...traces, ...trendlineTraces], large: isLargeDataset })
   }
 
   return result
@@ -1168,9 +1181,9 @@ async function drawFacetedCharts(newest: () => boolean) {
     const el = facetChartRefs.value.get(facet.parameter)
     if (el) {
       // Ensure y-axis title does not overflow by enabling automargin and using standoff
-      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines
-      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines
-      const splitTitle = String(facet.parameter).split('/').join('<br>')
+      // For long parameter labels (e.g., resolution/dataset/parameter) split title into multiple lines,
+      // one per part: a translated label may hold a slash of its own
+      const splitTitle = facet.parts.join('<br>')
       const layout: Partial<PlotlyLayout> = {
         ...chartLayout.value,
         hovermode: hoverMode(facet.large),
@@ -1448,12 +1461,12 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
                 class="border rounded-lg p-4 dark:border-gray-700"
               >
                 <h4 class="text-sm font-medium mb-2">
-                  {{ facet.parameter }}
+                  {{ facet.label }}
                 </h4>
                 <!-- figures, not images: Plotly's own controls in them stay reachable; nor landmarks, one per facet -->
                 <div
                   :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" tabindex="-1" class="w-full"
-                  role="figure" :aria-label="t('dataViewer.facetChartLabel', { parameter: facet.parameter })"
+                  role="figure" :aria-label="t('dataViewer.facetChartLabel', { parameter: facet.label })"
                   style="height: 300px;"
                 />
               </div>
