@@ -35,9 +35,8 @@ from wetterdienst.exceptions import (
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
-from wetterdienst.options import Options, options_from_mapping
+from wetterdienst.options import Options, SkipThreshold, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.settings import Settings, SkipThreshold
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
@@ -55,6 +54,7 @@ if TYPE_CHECKING:
         SummarizedValuesResult,
         ValuesResult,
     )
+    from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -1668,9 +1668,7 @@ def _get_stripes_options() -> Options:
     record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
     with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
-    outrank the environment's variables. The host's `Settings`, which the request builds beside
-    them, still read `WD_TS_*` until they drop the ts_* settings (GH-2639), so a malformed one
-    is refused all the same.
+    outrank the environment's variables, a malformed one included.
     """
     return Options(shape="long", skip_empty=False)
 

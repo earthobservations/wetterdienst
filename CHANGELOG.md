@@ -31,6 +31,23 @@ Types of changes:
   the period are missing. A filter on a null `quality_flags` as "no flag" no longer holds for these
   rows. `FLAG_REPEAT` is carried as `repeat:*` too, but only `MAX`/`MIN` rows have it and none of
   the parameters is one (GH-2763)
+- `Settings` no longer holds the 15 `ts_*` settings: they are gone from `model_fields`,
+  `model_dump()` (so `Settings(**s.model_dump())` carries none) and the repr, and a malformed
+  `WD_TS_*` is refused when `Options` is built, not by `Settings()`. `Settings(_env_file=...)` no
+  longer sets options: use `Options(_env_file=...)`. `SkipThreshold` is imported from
+  `wetterdienst.options`, where `resolve_options` and `options_from_settings` of 0.147.0 are gone;
+  `resolve_options` is in `wetterdienst.settings` (GH-2639)
+
+### Deprecated
+
+- `Settings(ts_shape=...)` and the other `ts_*` settings, reading or assigning `settings.ts_*`
+  (`ts_tidy` and the other derived members too), and a `settings={"ts_...": ...}` dict now warn
+  with a `DeprecationWarning` and are forwarded to the options of a request given no `options=`.
+  Use `options=Options(shape=...)` and read `request.options`. A request keeps the options it was
+  built with, and `options=` beside `ts_*` settings that differ from the environment's options is a
+  `ValueError`. `Settings.model_construct(ts_...)` is not forwarded. Assigning
+  `settings.ts_geo_station_distance` takes effect now (it was checked and then discarded). The
+  `WD_TS_*` variables stay and do not warn (GH-2639)
 
 ### Fixed
 
