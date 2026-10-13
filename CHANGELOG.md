@@ -97,6 +97,11 @@ Types of changes:
 - `dwd/derived` settles a timestamp that two periods report (historical and recent) on the
   historical record, in every run. It kept whichever row it had read first, in the order of an
   unordered set, so the value (or a missing reading) could differ from one run to the next (GH-2792)
+- `imgw/meteorology` `daily/climate` (from May 2024) and `daily/synop` (from July 2024) no longer
+  raise `AttributeError`: IMGW stopped writing `k_d_t` and `s_d_t` into the zips then. The
+  parameters of `k_d`/`s_d` are returned; those only the missing file carries (`cloud_cover_total`,
+  `humidity_relative`, `wind_speed` and, in synop, the vapour and air pressures and the day and
+  night precipitation) have no rows after the month the file ends (GH-2819)
 
 ## [0.147.0] - 2026-10-12
 
@@ -139,6 +144,12 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- **Breaking**: the Docker image runs as the user `wetterdienst` (uid 10001), no longer as root,
+  with `/home/wetterdienst` as its working directory and
+  `/home/wetterdienst/.cache/wetterdienst` as its cache. Mount a cache volume there, or anywhere
+  with `WD_CACHE_DIR` pointing to it, and make a volume or host directory that root filled (the
+  cache, a file `--target`) writable by uid 10001 once: `docker run --rm --user 0 -v <volume>:/c
+  ghcr.io/earthobservations/wetterdienst chown -R 10001:10001 /c` (GH-2770)
 - The REST API and the MCP tools refuse a chart image with a side over 8192 px, `scale` (or the
   stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
   seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The
