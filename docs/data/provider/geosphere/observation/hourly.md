@@ -23,24 +23,24 @@
 
 #### parameters
 
-| name                               | original name | description                   | unit | constraints |
-|------------------------------------|---------------|-------------------------------|------|-------------|
-| {term}`humidity_relative`          | rf            | relative humidity             | %    | >=0,<=100   |
-| {term}`precipitation_duration`     | rrm           | precipitation duration        | min  | >=0         |
-| {term}`precipitation_amount`       | rr            | precipitation height          | mm   | >=0         |
-| {term}`pressure_air_sea_level`     | pred          | air pressure at sea level     | hPa  | >=0         |
-| {term}`pressure_air_site`          | p             | air pressure at site          | hPa  | >=0         |
-| {term}`radiation_global_intensity` | cglo          | global radiation              | W/m² | >=0         |
-| {term}`snow_depth`                 | sh            | snow depth                    | cm   | >=0         |
-| {term}`sunshine_duration`          | so_h          | sunshine duration             | h    | >=0         |
-| {term}`temperature_air_2m`         | tl            | Air temperature at 2 m height, hourly measured value | °C   | -           |
-| {term}`temperature_air_min_0_05m`  | tsmin         | air temperature min at 0.05m  | °C   | -           |
-| {term}`temperature_soil_0_1m`      | tb10          | Soil temperature at 10 cm depth, hourly measured value | °C   | -           |
-| {term}`temperature_soil_0_2m`      | tb20          | Soil temperature at 20 cm depth, hourly measured value | °C   | -           |
-| {term}`temperature_soil_0_5m`      | tb50          | Soil temperature at 50 cm depth, hourly measured value | °C   | -           |
+| name                               | original name | description                                             | unit | constraints |
+|------------------------------------|---------------|---------------------------------------------------------|------|-------------|
+| {term}`humidity_relative`          | rf            | relative humidity                                       | %    | >=0,<=100   |
+| {term}`precipitation_duration`     | rrm           | precipitation duration                                  | min  | >=0         |
+| {term}`precipitation_amount`       | rr            | precipitation height                                    | mm   | >=0         |
+| {term}`pressure_air_sea_level`     | pred          | air pressure at sea level                               | hPa  | >=0         |
+| {term}`pressure_air_site`          | p             | air pressure at site                                    | hPa  | >=0         |
+| {term}`radiation_global_intensity` | cglo          | global radiation                                        | W/m² | >=0         |
+| {term}`snow_depth`                 | sh            | snow depth                                              | cm   | >=0         |
+| {term}`sunshine_duration`          | so_h          | sunshine duration                                       | h    | >=0         |
+| {term}`temperature_air_2m`         | tl            | Air temperature at 2 m height, hourly measured value    | °C   | -           |
+| {term}`temperature_air_min_0_05m`  | tsmin         | air temperature min at 0.05m                            | °C   | -           |
+| {term}`temperature_soil_0_1m`      | tb10          | Soil temperature at 10 cm depth, hourly measured value  | °C   | -           |
+| {term}`temperature_soil_0_2m`      | tb20          | Soil temperature at 20 cm depth, hourly measured value  | °C   | -           |
+| {term}`temperature_soil_0_5m`      | tb50          | Soil temperature at 50 cm depth, hourly measured value  | °C   | -           |
 | {term}`temperature_soil_1m`        | tb100         | Soil temperature at 100 cm depth, hourly measured value | °C   | -           |
 | {term}`temperature_soil_2m`        | tb200         | Soil temperature at 200 cm depth, hourly measured value | °C   | -           |
-| {term}`wind_direction`             | dd            | wind direction                | °    | >=0,<=360   |
-| {term}`wind_direction_gust_max`    | ddx           | wind direction gust max       | °    | >=0,<=360   |
-| {term}`wind_gust_max`              | ffx           | wind gust max                 | m/s  | >=0         |
-| {term}`wind_speed`                 | ff            | wind speed                    | m/s  | >=0         |
+| {term}`wind_direction`             | dd            | wind direction. The source's 0 (a calm wind) is null.   | °    | >=0,<=360   |
+| {term}`wind_direction_gust_max`    | ddx           | wind direction gust max                                 | °    | >=0,<=360   |
+| {term}`wind_gust_max`              | ffx           | wind gust max                                           | m/s  | >=0         |
+| {term}`wind_speed`                 | ff            | wind speed                                              | m/s  | >=0         |

@@ -858,25 +858,6 @@ def test_values_drop_nulls_again_for_options_once_wide_and_now_long(monkeypatch:
     assert_frame_equal(long, _values_with_a_null(monkeypatch, options=Options(shape="long", drop_nulls=True)))
 
 
-# old route, removed in stage 5
-def test_values_drop_nulls_again_for_settings_once_wide_and_now_long(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A `Settings` reused for a long request after a wide one drops the null rows (GH-2388).
-
-    The wide request used to write False into the settings' `ts_drop_nulls`, which the long
-    request reusing them then read, and returned the null rows.
-    """
-    settings = Settings(ts_shape="long", ts_drop_nulls=True)
-    settings.ts_shape = "wide"
-    wide = _values_with_a_null(monkeypatch, settings=settings)
-    # the wide shape drops no nulls
-    assert wide.get_column("temperature_air_mean_2m").to_list() == [1.0, None]
-
-    settings.ts_shape = "long"
-    long = _values_with_a_null(monkeypatch, settings=settings)
-    assert long.get_column("value").to_list() == [1.0]
-    assert_frame_equal(long, _values_with_a_null(monkeypatch, settings=Settings(ts_shape="long", ts_drop_nulls=True)))
-
-
 def test_a_window_in_a_named_zone_cuts_the_utc_values_at_its_instants(monkeypatch: pytest.MonkeyPatch) -> None:
     """The window of a request in a named zone is compared with the UTC timestamps as the instants it names (GH-2682).
 

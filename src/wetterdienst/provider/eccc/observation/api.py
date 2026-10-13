@@ -8,7 +8,6 @@ import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
-from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -49,18 +48,38 @@ _GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_g
 _CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("wind_direction"))
 
 
-def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
-    """Attach the station's timezone and convert to UTC.
+#: Local Standard Time of the station list's TIMEZONE codes, as the offset from UTC all year: the codes name
+#: standard time, which the station keeps whether or not daylight saving time is adopted for other purposes
+#: (https://climate.weather.gc.ca/glossary_e.html). The civil zones of the same name have summer time, which
+#: moved a date in the summer months one hour early (GH-2693); Saskatchewan's CST stations keep no summer time at all.
+_STANDARD_TIME_OFFSETS = {
+    "AST": dt.timedelta(hours=-4),
+    "EST": dt.timedelta(hours=-5),
+    "CST": dt.timedelta(hours=-6),
+    "MST": dt.timedelta(hours=-7),
+    "PST": dt.timedelta(hours=-8),
+    "NST": dt.timedelta(hours=-3, minutes=-30),
+}
 
-    Converted here in Python rather than handed to polars tz-aware: stations opened before
-    standard time carry an LMT offset that is not a whole number of minutes (America/Toronto is
-    -5:17:32 in 1895), which polars rejects outright. A handful of stations publish no timezone at
-    all, which only shows up once the full catalogue is fetched rather than its first 500 rows.
+
+def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
+    """Read a date of the station list as Local Standard Time of the station and convert it to UTC.
+
+    A fixed offset, not a zone: the dates are on the LST clock of the hourly ``LOCAL_DATE``, and a zone
+    such as America/Toronto would add the hour of summer time. A handful of stations publish no timezone at
+    all, which only shows up once the full catalogue is fetched rather than its first 500 rows; their dates
+    are read as UTC.
     """
     if value is None:
         return None
-    tz = ZoneInfo(timezone) if timezone else dt.UTC
-    return value.replace(tzinfo=tz).astimezone(dt.UTC)
+    if not timezone:
+        return value.replace(tzinfo=dt.UTC)
+    if timezone not in _STANDARD_TIME_OFFSETS:
+        msg = (
+            f"Unknown TIMEZONE {timezone!r} in the ECCC station list, expected one of {sorted(_STANDARD_TIME_OFFSETS)}"
+        )
+        raise ValueError(msg)
+    return value.replace(tzinfo=dt.timezone(_STANDARD_TIME_OFFSETS[timezone])).astimezone(dt.UTC)
 
 
 class EcccObservationValues(TimeseriesValues):
@@ -262,7 +281,9 @@ class EcccObservationValues(TimeseriesValues):
                 join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")),
             )
             data.append(df)
-        return pl.concat(data).collect()
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
+        # the unpivot and join of 60 years of daily rows 4 times as long, for the same rows (GH-2781)
+        return pl.concat(data).collect(engine="in-memory")
 
 
 @dataclass
@@ -281,24 +302,6 @@ class EcccObservationRequest(TimeseriesRequest):
 
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
-
-    # Mapping of Canadian timezone abbreviations to IANA timezone identifiers
-    _timezone_mapping: ClassVar[dict] = {
-        "ADT": "America/Halifax",  # Atlantic Daylight Time
-        "AST": "America/Halifax",  # Atlantic Standard Time
-        "CDT": "America/Winnipeg",  # Central Daylight Time
-        "CST": "America/Winnipeg",  # Central Standard Time
-        "EDT": "America/Toronto",  # Eastern Daylight Time
-        "EST": "America/Toronto",  # Eastern Standard Time
-        "MDT": "America/Edmonton",  # Mountain Daylight Time
-        "MST": "America/Edmonton",  # Mountain Standard Time
-        "NDT": "America/St_Johns",  # Newfoundland Daylight Time
-        "NST": "America/St_Johns",  # Newfoundland Standard Time
-        "PDT": "America/Vancouver",  # Pacific Daylight Time
-        "PST": "America/Vancouver",  # Pacific Standard Time
-        "YDT": "America/Whitehorse",  # Yukon Daylight Time
-        "YST": "America/Whitehorse",  # Yukon Standard Time
-    }
 
     def _all(self) -> pl.LazyFrame:
 
@@ -357,10 +360,6 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_timestamp"),
             pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
         )
-        # Map timezone abbreviations to IANA timezone names
-        df_raw = df_raw.with_columns(
-            pl.col("timezone").replace_strict(self._timezone_mapping, default=pl.col("timezone")),
-        )
         # parse start_timestamp and end_timestamp as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
             pl.col("station_id").cast(pl.String),
@@ -395,11 +394,12 @@ class EcccObservationRequest(TimeseriesRequest):
     def _stamp_bounds(df: pl.LazyFrame, *, resolution: Resolution) -> pl.LazyFrame:
         """Give the first and last date of the station as the stamps of the resolution's first and last value.
 
-        FIRST_DATE and LAST_DATE are written in the station's local time. Hourly rows are stamped with an instant, so
-        the date is converted from the station's zone to UTC. Daily and monthly rows are stamped at 00:00 UTC of their
-        date or month whatever the zone (GH-2683), so the date is cut to the day or month it names and stamped the same
-        way: converted to UTC, the first day of a station read 2013-06-11 13:00 UTC, after the 00:00 UTC window of a
-        request for that one day, and the station was skipped though it has a value dated that day (GH-2730).
+        FIRST_DATE and LAST_DATE are written in the station's Local Standard Time, the clock of the hourly LOCAL_DATE
+        with no summer time (GH-2693). Hourly rows are stamped with an instant, so the date is converted from that
+        offset to UTC. Daily and monthly rows are stamped at 00:00 UTC of their date or month whatever the zone
+        (GH-2683), so the date is cut to the day or month it names and stamped the same way: converted to UTC, the
+        first day of a station read 2013-06-11 14:00 UTC, after the 00:00 UTC window of a request for that one day, and
+        the station was skipped though it has a value dated that day (GH-2730).
         """
         if resolution in (Resolution.DAILY, Resolution.MONTHLY):
             unit = "1mo" if resolution == Resolution.MONTHLY else "1d"
