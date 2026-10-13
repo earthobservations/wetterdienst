@@ -670,7 +670,8 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     ).filter_by_station_id(["06180"])
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
-    assert _is_complete_stations_df(request.df, exclude_columns={"end_timestamp", "elevation"})
+    # DMI gives no sub-national region, the country of a station is in `country` (GH-2019)
+    assert _is_complete_stations_df(request.df, exclude_columns={"end_timestamp", "elevation", "region"})
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
