@@ -73,6 +73,8 @@ COPY --from=build /usr/local/bin /usr/local/bin
 # kept across runs is mounted there, or anywhere with WD_CACHE_DIR pointing to it. The directory
 # is made here, with ~/.cache above it (Chromium and matplotlib keep theirs there), owned by the
 # user, so that a new named volume mounted there takes its owner
+# (a volume that an earlier, root image filled keeps root as its owner: it has to be chowned to 10001
+# once, see docs/usage/docker.md; until then the cache is kept in a temporary directory, GH-2860)
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin wetterdienst && \
     install -d -o wetterdienst -g wetterdienst /home/wetterdienst/.cache /home/wetterdienst/.cache/wetterdienst
 USER wetterdienst

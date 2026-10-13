@@ -7,7 +7,9 @@ import json
 import logging
 import os
 import pickle
+import shutil
 import socket
+import sqlite3
 import ssl
 import tempfile
 import threading
@@ -3557,3 +3559,241 @@ def test_a_listing_refused_by_a_proxy_keeps_its_proxy_authorization_header_out_o
     # compared as bools: an assertion that names the secret leaves it in this frame's locals
     leaks = [hidden in logged or hidden in carried for hidden in (secret, "secret")]
     assert not any(leaks)
+
+
+# A cache directory the running user cannot write to -- the volume a root container filled, mounted
+# into the image that runs as uid 10001 (GH-2860). `chmod` is what stands in for the owner: it is
+# ignored by root and by Windows, where the tests have nothing to prove.
+_needs_enforced_modes = pytest.mark.skipif(
+    os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+    reason="file modes are not enforced for root, nor on Windows",
+)
+
+
+@pytest.fixture
+def unusable_cache_dirs(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[Path, Path]]:
+    """Start with no cache directory marked unusable, and remove the stand-ins the test made."""
+    fallbacks: dict[Path, Path] = {}
+    monkeypatch.setattr(network, "_cache_dir_fallbacks", fallbacks)
+    yield fallbacks
+    for fallback in fallbacks.values():
+        shutil.rmtree(fallback, ignore_errors=True)
+
+
+@pytest.fixture
+def read_only_dir(tmp_path: Path) -> Iterator[Path]:
+    """Return an empty directory nothing can be written to, and make it writable again after."""
+    directory = tmp_path / "volume"
+    directory.mkdir()
+    directory.chmod(0o555)
+    yield directory
+    directory.chmod(0o755)
+
+
+def _cache_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING and r.name == network.log.name]
+
+
+@_needs_enforced_modes
+def test_a_request_through_an_unwritable_cache_dir_is_served_from_a_temporary_one(
+    read_only_dir: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    http_server: tuple[str, list],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The directory cannot be written, and the download is made anyway, with one warning (GH-2860)."""
+    base_url, requests = http_server
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+
+    files = [
+        download_file(url=f"{base_url}/token{i}", cache_dir=read_only_dir, ttl=CacheExpiry.TWELVE_HOURS)
+        for i in range(3)
+    ]
+
+    assert [file.status for file in files] == [200, 200, 200]
+    assert len(requests) == 3
+    fallback = unusable_cache_dirs[read_only_dir]
+    assert fallback != read_only_dir
+    assert any(fallback.rglob("*")), "the cache is kept in the stand-in"
+    assert list(read_only_dir.iterdir()) == []
+    (warning,) = _cache_warnings(caplog)
+    assert str(read_only_dir) in warning
+    assert "PermissionError" in warning
+    assert "10001:10001" in warning
+    assert "WD_CACHE_DIR" in warning
+    assert "WD_CACHE_DISABLE" in warning
+
+
+@_needs_enforced_modes
+def test_a_cached_download_is_served_again_from_the_temporary_dir(
+    read_only_dir: Path,
+    unusable_cache_dirs: dict[Path, Path],  # noqa: ARG001
+    http_server: tuple[str, list],
+) -> None:
+    """The stand-in is a cache and not merely a place to put the file: the second ask is not a request."""
+    base_url, requests = http_server
+    url = f"{base_url}/token"
+
+    first = download_file(url=url, cache_dir=read_only_dir, ttl=CacheExpiry.TWELVE_HOURS)
+    second = download_file(url=url, cache_dir=read_only_dir, ttl=CacheExpiry.TWELVE_HOURS)
+
+    assert (first.status, first.from_cache) == (200, False)
+    assert (second.status, second.from_cache) == (200, True)
+    assert len(requests) == 1
+
+
+@_needs_enforced_modes
+def test_a_listing_cache_in_an_unwritable_dir_is_kept_in_a_temporary_one(
+    read_only_dir: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A `FileDirCache` that cannot make its directory stores and returns listings elsewhere."""
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=read_only_dir)
+    cache["http://example.com/"] = _fake_listing("http://example.com/")
+
+    assert cache["http://example.com/"] == _fake_listing("http://example.com/")
+    assert cache.cache_location is not None
+    assert cache.cache_location.is_relative_to(unusable_cache_dirs[read_only_dir])
+    assert len(_cache_warnings(caplog)) == 1
+
+
+@_needs_enforced_modes
+def test_a_cache_database_that_cannot_be_written_is_the_sqlite_error_of_the_issue(
+    tmp_path: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A directory that can be written, holding a database that cannot, is `attempt to write a readonly database`."""
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    database = tmp_path / "300.0" / "cache.db"
+    database.chmod(0o444)
+    with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        Cache(directory=str(database.parent))
+
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    cache["http://example.com/"] = _fake_listing("http://example.com/")
+
+    assert cache["http://example.com/"] == _fake_listing("http://example.com/")
+    assert cache.cache_location is not None
+    assert cache.cache_location.is_relative_to(unusable_cache_dirs[tmp_path])
+    (warning,) = _cache_warnings(caplog)
+    assert "readonly" in warning
+    assert str(tmp_path) in warning
+
+
+@_needs_enforced_modes
+def test_many_caches_and_threads_make_one_temporary_dir_and_say_so_once(
+    read_only_dir: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A `FileDirCache` is built per listing, and each thread has a filesystem of its own."""
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+    barrier = threading.Barrier(8)
+    locations: list[Path | None] = []
+
+    def build(index: int) -> None:
+        barrier.wait()
+        cache = FileDirCache(300.0 + index % 2, use_listings_cache=True, listings_cache_location=read_only_dir)
+        NetworkFilesystemManager.get(cache_dir=read_only_dir, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+        locations.append(cache.cache_location)
+
+    threads = [threading.Thread(target=build, args=(i,)) for i in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(locations) == 8
+    assert len(unusable_cache_dirs) == 1
+    assert {location.parent for location in locations if location} == {unusable_cache_dirs[read_only_dir]}
+    assert len(_cache_warnings(caplog)) == 1
+
+
+@_needs_enforced_modes
+def test_a_dir_that_failed_is_not_tried_again(
+    read_only_dir: Path,
+    unusable_cache_dirs: dict[Path, Path],  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After the first failure the directory is not touched: no per-request retry of a fault that stays."""
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=read_only_dir)
+    attempts: list[str] = []
+    real_cache = Cache
+
+    def spy(directory: str, **kwargs: object) -> Cache:
+        attempts.append(directory)
+        return real_cache(directory, **kwargs)
+
+    monkeypatch.setattr("diskcache.Cache", spy)
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=read_only_dir)
+
+    assert len(attempts) == 1
+    assert str(read_only_dir) not in attempts[0]
+
+
+def test_a_writable_cache_dir_is_used_as_it_is_and_says_nothing(
+    tmp_path: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    http_server: tuple[str, list],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Nothing changes where the directory works: the blobs and the listings are kept in it, with no warning."""
+    base_url, _ = http_server
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    file = download_file(url=f"{base_url}/token", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+
+    assert cache.cache_location == tmp_path / "300.0"
+    assert file.status == 200
+    assert any((tmp_path / "fsspec").rglob("*"))
+    assert unusable_cache_dirs == {}
+    assert _cache_warnings(caplog) == []
+
+
+def test_an_error_that_is_not_about_the_cache_dir_is_not_a_fallback(
+    tmp_path: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Only the faults of a directory fall back; a bug or a bad argument still raises."""
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+
+    def broken(*_args: object, **_kwargs: object) -> None:
+        msg = "not a location problem"
+        raise ValueError(msg)
+
+    monkeypatch.setattr("diskcache.Cache", broken)
+    with pytest.raises(ValueError, match="not a location problem"):
+        FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    monkeypatch.setattr(network, "_LockedWholeFileCacheFileSystem", broken)
+    with pytest.raises(ValueError, match="not a location problem"):
+        NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+
+    assert unusable_cache_dirs == {}
+    assert _cache_warnings(caplog) == []
+
+
+def test_no_temporary_dir_to_fall_back_to_raises_the_original_error(
+    tmp_path: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When neither works the caller meets the fault of its own directory, not a second one."""
+
+    def refuse(*_args: object, **_kwargs: object) -> str:
+        msg = "no space"
+        raise OSError(msg)
+
+    monkeypatch.setattr(tempfile, "mkdtemp", refuse)
+    with pytest.raises(PermissionError, match="the volume"):
+        network._fallback_cache_dir(tmp_path, PermissionError("the volume"))  # noqa: SLF001
+    assert unusable_cache_dirs == {}

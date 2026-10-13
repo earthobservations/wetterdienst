@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import atexit
 import base64
 import contextlib
 import hashlib
@@ -12,7 +13,9 @@ import logging
 import os
 import re
 import shutil
+import sqlite3
 import ssl
+import tempfile
 import threading
 import time
 import uuid
@@ -170,6 +173,60 @@ def _download_error(error: Exception, url: str) -> DownloadError:
     return DownloadError(_without_url_secrets(url), reason)
 
 
+#: The directories that could not be used as a cache, each with the temporary one standing in for it.
+#: Process-wide and held under a lock: a `FileDirCache` is built per listing and a caching filesystem
+#: per thread, and neither may make a directory of its own or warn again for the same fault.
+_cache_dir_fallbacks: dict[Path, Path] = {}
+_cache_dir_fallback_lock = threading.Lock()
+
+#: What failing to open or create a cache directory raises: `PermissionError` and the other
+#: `OSError`s from the file system, and the `sqlite3.OperationalError` diskcache raises on opening
+#: a database it cannot write ("attempt to write a readonly database").
+_CACHE_DIR_ERRORS = (OSError, sqlite3.OperationalError)
+
+
+def _effective_cache_dir(cache_dir: Path) -> Path:
+    """Return the directory a cache is kept in: `cache_dir`, or its stand-in once it failed.
+
+    A directory that failed is not tried again for the rest of the process.
+    """
+    with _cache_dir_fallback_lock:
+        return _cache_dir_fallbacks.get(Path(cache_dir), Path(cache_dir))
+
+
+def _fallback_cache_dir(cache_dir: Path, error: BaseException) -> Path:
+    """Return the temporary directory that stands in for `cache_dir`, which `error` says is unusable.
+
+    One per process and unusable directory, however many caches are built, and the one warning
+    names the directory, the reason and what to do about it. Removed when the process exits, or
+    not by a forked child of it. The request goes on; the cache is just not kept across runs.
+
+    Raises:
+        OSError: `error`'s own, if there is no temporary directory to make either.
+
+    """
+    from wetterdienst.settings import _remove_unless_forked  # noqa: PLC0415
+
+    cache_dir = Path(cache_dir)
+    with _cache_dir_fallback_lock:
+        fallback = _cache_dir_fallbacks.get(cache_dir)
+        if fallback is None:
+            try:
+                fallback = Path(tempfile.mkdtemp(prefix="wetterdienst-cache-"))
+            except OSError:
+                raise error from None
+            atexit.register(_remove_unless_forked, fallback, os.getpid())
+            _cache_dir_fallbacks[cache_dir] = fallback
+            log.warning(
+                f"the cache directory {cache_dir} cannot be used ({type(error).__name__}: {error}), "
+                f"so this process caches in {fallback} instead, which is removed when it exits. "
+                f"Make {cache_dir} writable for the user running wetterdienst (in the Docker image "
+                "that is uid 10001: `chown -R 10001:10001` on the volume, or remove the volume), "
+                "or set WD_CACHE_DIR to a writable directory, or WD_CACHE_DISABLE=true"
+            )
+        return fallback
+
+
 # Directory names the listings cache used to create under the cache dir but never writes to any
 # more. ``False`` came from ``CacheExpiry.INFINITE`` and from a disabled cache, ``0.0`` from the
 # download-side filesystem registration, ``0.01`` from ``CacheExpiry.NO_CACHE``. In every one of
@@ -280,20 +337,21 @@ class FileDirCache(MutableMapping):
 
         subdir = "infinite" if self.listings_expiry_time is None else str(self.listings_expiry_time)
         if listings_cache_location:
-            cache_location = Path(listings_cache_location) / subdir
+            cache_root = Path(listings_cache_location)
         else:
-            cache_location = default_cache_dir(appname="wetterdienst-fsspec") / subdir
+            cache_root = default_cache_dir(appname="wetterdienst-fsspec")
 
-        _remove_legacy_listings_cache_dirs(cache_location.parent, keep=cache_location.name)
+        def open_cache(root: Path) -> tuple[Path, Cache]:
+            location = root / subdir
+            _remove_legacy_listings_cache_dirs(location.parent, keep=location.name)
+            log.info(f"Creating dircache folder at {location}")
+            location.mkdir(exist_ok=True, parents=True)
+            return location, Cache(directory=str(location))
 
         try:
-            log.info(f"Creating dircache folder at {cache_location}")
-            cache_location.mkdir(exist_ok=True, parents=True)
-        except OSError:
-            log.exception(f"Failed creating dircache folder at {cache_location}")
-
-        self.cache_location = cache_location
-        self._cache = Cache(directory=str(cache_location))
+            self.cache_location, self._cache = open_cache(_effective_cache_dir(cache_root))
+        except _CACHE_DIR_ERRORS as error:
+            self.cache_location, self._cache = open_cache(_fallback_cache_dir(cache_root, error))
 
     def __getitem__(self, item: str) -> list[dict]:
         """Draw item from cache, retry if timeout occurs."""
@@ -862,6 +920,27 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         return Path(blob).open(mode)
 
 
+def _build_caching_filesystem(
+    fs: HTTPFileSystem, cache_path: Path, ttl_value: float | Literal[False]
+) -> _LockedWholeFileCacheFileSystem:
+    """Build the caching filesystem over `fs` that keeps its blobs in `cache_path`.
+
+    Raises:
+        OSError: If `cache_path` cannot be created or written to. fsspec makes the directory when it
+            builds and would only meet the fault at the first download, as a failed request; a file
+            made and removed here meets it at the one place that can answer for it.
+
+    """
+    filesystem = _LockedWholeFileCacheFileSystem(
+        fs=fs,
+        cache_storage=str(cache_path),
+        expiry_time=int(ttl_value),
+    )
+    with tempfile.TemporaryFile(dir=cache_path):
+        pass
+    return filesystem
+
+
 class NetworkFilesystemManager:
     """Manage multiple FSSPEC instances keyed by cache expiration time.
 
@@ -1032,17 +1111,18 @@ class NetworkFilesystemManager:
         if cache_disable or cache_expiry == CacheExpiry.NO_CACHE:
             filesystem_effective = fs
         else:
-            real_cache_dir = cls._cache_path(cache_dir, cache_expiry, client_kwargs)
+            # the directory that failed once is not tried again: its stand-in is named from here on
+            real_cache_dir = cls._cache_path(_effective_cache_dir(cache_dir), cache_expiry, client_kwargs)
             # built inside the lock, not merely tidied inside it: building reads this directory's
             # metadata file, and the sweep and the reclaim below delete metadata files. On POSIX an
             # unlink leaves an open handle readable and this was invisible; on Windows the builder
             # gets `PermissionError` from fsspec's `CacheMetadata._load`
             with _cache_dir_lock:
-                filesystem_effective = _LockedWholeFileCacheFileSystem(
-                    fs=fs,
-                    cache_storage=str(real_cache_dir),
-                    expiry_time=int(ttl_value),
-                )
+                try:
+                    filesystem_effective = _build_caching_filesystem(fs, real_cache_dir, ttl_value)
+                except _CACHE_DIR_ERRORS as error:
+                    real_cache_dir = cls._cache_path(_fallback_cache_dir(cache_dir, error), cache_expiry, client_kwargs)
+                    filesystem_effective = _build_caching_filesystem(fs, real_cache_dir, ttl_value)
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #

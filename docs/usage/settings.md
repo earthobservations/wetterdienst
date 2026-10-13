@@ -66,7 +66,7 @@ The following settings are available:
 | name                 | description                                                           | default                            |
 |----------------------|-----------------------------------------------------------------------|------------------------------------|
 | cache_disable        | switch off caching                                                    | False                              |
-| cache_dir            | set the directory where the cache is stored; where no home directory resolves, the default is a temporary directory per process, removed at exit | platform specific / "wetterdienst" |
+| cache_dir            | set the directory where the cache is stored; where no home directory resolves, the default is a temporary directory per process, removed at exit; a directory that cannot be written is replaced the same way, with one warning | platform specific / "wetterdienst" |
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | User-Agent header, timeout 30      |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
 | read_bufr            | parse DWD radar BUFR products into `RadarResult.df` (needs the `bufr` extra) | False               |
