@@ -677,9 +677,15 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "hourly", "small", "01001").values.all().df
 
 
-def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the same KML as MOSMIX's, with the same `-`
-    kml = _forecast_kml("01001", {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"})
+def dwd_dmo_values(
+    monkeypatch: pytest.MonkeyPatch,
+    elements: dict[str, str],
+    parameters: list[tuple[str, str, str]],
+    lead_time: str = "short",
+    options: Options | None = None,
+) -> pl.DataFrame:
+    """Give the values of station 01001 from a DMO run that holds the given elements, as a caller gets them."""
+    kml = _forecast_kml("01001", elements)
     monkeypatch.setattr(
         dwd_dmo_api.DwdDmoValues,
         "get_url_for_date",
@@ -687,12 +693,22 @@ def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     )
     monkeypatch.setattr(dwd_dmo_api.KMLReader, "fetch", lambda _self, _url: BytesIO(kml))
     request = DwdDmoRequest(
-        parameters=[("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
-        lead_time="short",
+        parameters=parameters,
+        lead_time=lead_time,
         settings=_settings(),
-        options=_options(drop_nulls),
+        options=options or _options(drop_nulls=True),
     )
     return stations_result(request, "hourly", "icon", "01001").values.all().df
+
+
+def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the same KML as MOSMIX's, with the same `-`
+    return dwd_dmo_values(
+        monkeypatch,
+        {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"},
+        [("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
+        options=_options(drop_nulls),
+    )
 
 
 def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
