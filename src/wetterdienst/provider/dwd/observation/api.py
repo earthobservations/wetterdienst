@@ -74,7 +74,7 @@ _PERIOD_RANK = "period_rank"
 class DwdObservationValues(TimeseriesValues):
     """Values class for DWD observation data."""
 
-    def _collect_station_parameter_or_dataset(  # noqa: C901
+    def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
         parameter_or_dataset: ParameterModel | DatasetModel,
@@ -153,8 +153,6 @@ class DwdObservationValues(TimeseriesValues):
             msg = "Expected DataFrame from collect()"
             raise TypeError(msg)
         parameter_df = result
-        if dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10):
-            parameter_df = self._fix_timestamps(parameter_df)
         df = self._tidy_up_df(parameter_df)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
@@ -164,16 +162,6 @@ class DwdObservationValues(TimeseriesValues):
             pl.col("timestamp").dt.replace_time_zone("UTC"),
             pl.col("value").cast(pl.Float64),
             pl.col("quality_flags"),
-        )
-
-    @staticmethod
-    def _fix_timestamps(df: pl.DataFrame) -> pl.DataFrame:
-        """Fix timestamps for minute data."""
-        return df.with_columns(
-            pl.when(pl.col("timestamp").dt.year() < 2000)
-            .then(pl.col("timestamp") - pl.duration(hours=1))
-            .otherwise(pl.col("timestamp"))
-            .alias("timestamp"),
         )
 
     @staticmethod

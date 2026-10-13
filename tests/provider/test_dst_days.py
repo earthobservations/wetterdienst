@@ -18,10 +18,12 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dmi.observation.api import DmiObservationValues
 from wetterdienst.provider.dwd.alerts.parser import _parse_datetime
-from wetterdienst.provider.dwd.observation.api import DwdObservationValues
+from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.provider.wsv.pegel import api as wsv_api
 from wetterdienst.provider.wsv.pegel.api import WsvPegelRequest
 from wetterdienst.util.network import File
@@ -181,20 +183,62 @@ def test_dwd_alerts_repeated_hour_of_autumn_stays_two_instants() -> None:
 
 
 def test_dwd_minute_values_before_2000_are_shifted_by_one_hour_in_summer_too() -> None:
-    """Test that the pre-2000 stamps of DWD's minute data are taken as MEZ, which has no daylight saving.
+    """Test that the stamps of DWD's historical minute files up to 1999 are taken as MEZ, which has no daylight saving.
 
     DWD states: "The measurements are assigned to a time stamp in MEZ before the year 2000, and to a
     time stamp in UTC from the year 2000" (the descriptions of the 1, 5 and 10 minute datasets). MEZ
     is UTC+1 all year, so the shift is one hour in July as well as in January, and none from 2000.
     """
-    stamps = ["1999-07-01T12:00", "1999-01-01T12:00", "1999-12-31T23:50", "2000-01-01T00:00", "2000-07-01T12:00"]
-    df = DwdObservationValues._fix_timestamps(  # noqa: SLF001
-        pl.DataFrame({"timestamp": stamps}).select(pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M")),
-    )
+    header = "STATIONS_ID;MESS_DATUM;QN;PP_10;TT_10;TM5_10;RF_10;TD_10\n"
+
+    def file(name: str, stamps: list[str]) -> File:
+        rows = "".join(f"       1048;{stamp};    1;  996.4;  -0.8;  -2.5;  92.0;  -1.9\n" for stamp in stamps)
+        return File(url=f"https://example.invalid/{name}", content=BytesIO((header + rows).encode()), status=200)
+
+    files = [
+        file(
+            "10minutenwerte_TU_01048_19911119_19991231_hist.zip",
+            ["199907011200", "199901011200", "199912312350"],
+        ),
+        file("10minutenwerte_TU_01048_20000101_20091231_hist.zip", ["199912312300", "200001010000", "200007011200"]),
+    ]
+    df = parse_climate_observations_data(
+        files, DwdObservationMetadata.minute_10.temperature_air, Period.HISTORICAL
+    ).collect()
     assert df.get_column("timestamp").dt.strftime("%Y-%m-%dT%H:%M").to_list() == [
         "1999-07-01T11:00",
         "1999-01-01T11:00",
         "1999-12-31T22:50",
+        "1999-12-31T23:00",
         "2000-01-01T00:00",
         "2000-07-01T12:00",
+    ]
+
+
+def test_dwd_1_minute_precipitation_historical_is_shifted_per_file() -> None:
+    """Test that the minutes of a 1 minute precipitation file up to 1999 are shifted, those of 2000 not (GH-2815).
+
+    The December 1999 file goes on past its MEZ midnight (station 00003, read 2026-10-13: the last row is
+    `200001010000;200001010059`), which is 23:00 to 23:59 UTC; the file of January 2000 begins at 00:00 UTC.
+    """
+    header = "STATIONS_ID;MESS_DATUM_BEGINN;MESS_DATUM_ENDE;QN;RS_01;RTH_01;RWH_01;RS_IND_01;eor\n"
+
+    def file(name: str, begin: str, end: str) -> File:
+        row = f"          3;{begin};{end};    3;  -999;  -999;  0.00;   0;eor\n"
+        return File(url=f"https://example.invalid/{name}", content=BytesIO((header + row).encode()), status=200)
+
+    files = [
+        file("1minutenwerte_nieder_00003_19991201_19991231_hist.zip", "200001010000", "200001010002"),
+        file("1minutenwerte_nieder_00003_20000101_20000131_hist.zip", "200001010000", "200001010002"),
+    ]
+    df = parse_climate_observations_data(
+        files, DwdObservationMetadata.minute_1.precipitation, Period.HISTORICAL
+    ).collect()
+    assert df.get_column("timestamp").dt.strftime("%Y-%m-%dT%H:%M").to_list() == [
+        "1999-12-31T23:00",
+        "1999-12-31T23:01",
+        "1999-12-31T23:02",
+        "2000-01-01T00:00",
+        "2000-01-01T00:01",
+        "2000-01-01T00:02",
     ]

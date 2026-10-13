@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -11,6 +12,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
     DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES,
@@ -27,6 +29,18 @@ STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
 #: the 1-, 5- and 10-minute stamps are MEZ before this year and UTC from it
 MEZ_UNTIL_YEAR = 2000
+
+
+def is_mez_file(filename: str) -> bool:
+    """Tell whether the stamps of a historical 1-, 5- or 10-minute file are MEZ, the fixed UTC+1, not UTC.
+
+    The file as a whole is one or the other, by the first day its name gives: the files of 2000 and later are
+    UTC, those that begin before are MEZ. The year of a stamp does not tell, as the files meet at the turn of
+    the year with an overlap: the 10-minute files of 2000 begin at 23:00 UTC on 1999-12-31 (stamp 199912312300),
+    and the wind file of 1999 holds MEZ stamps into 2000-01-01 00:50 (GH-2815).
+    """
+    match = re.search(DATE_RANGE_REGEX, filename)
+    return match is not None and int(match.group(1)[:4]) < MEZ_UNTIL_YEAR
 
 
 def create_file_list_for_climate_observations(
@@ -83,9 +97,24 @@ def create_file_index_for_climate_observations(
         # Europe/Berlin with its summer time) before, which the values shift to UTC after reading (GH-2811)
         first_day = pl.col("date_range").str.split("_").list.first().str.to_datetime("%Y%m%d")
         last_day = pl.col("date_range").str.split("_").list.last().str.to_datetime("%Y%m%d")
+        start = _midnight_in_utc(first_day)
+        end = _midnight_in_utc(last_day, days=1)
+        # the files of 1999 and of 2000 meet in an hour that both can hold (GH-2815): the 10 minute files of 2000
+        # begin with the six stamps 23:00 to 23:50 UTC of 1999-12-31 (the wind file of 1999 ends with the same
+        # instants as MEZ 00:00 to 00:50), and the 1- and 5-minute files of December 1999 hold stamps past their
+        # MEZ midnight (1-minute: up to 00:59 MEZ, 5-minute: 00:00 MEZ), which are 23:00 to 23:59 UTC. The files
+        # of 2000 begin at 00:00 UTC, but those of 10 minutes at 23:00 UTC
+        utc_turn_of_the_year = pl.datetime(MEZ_UNTIL_YEAR, 1, 1, time_zone="UTC")
+        end = pl.when(last_day.eq(pl.datetime(MEZ_UNTIL_YEAR - 1, 12, 31))).then(utc_turn_of_the_year).otherwise(end)
+        if dataset.resolution.value == Resolution.MINUTE_10:
+            start = (
+                pl.when(first_day.eq(pl.datetime(MEZ_UNTIL_YEAR, 1, 1)))
+                .then(start - pl.duration(hours=1))
+                .otherwise(start)
+            )
         df_files = df_files.with_columns(
-            _midnight_in_utc(first_day).alias("start_timestamp"),
-            _midnight_in_utc(last_day, days=1).alias("end_timestamp"),
+            start.alias("start_timestamp"),
+            end.alias("end_timestamp"),
         )
         df_files = df_files.with_columns(
             pl.when(pl.col("start_timestamp") > pl.col("end_timestamp"))

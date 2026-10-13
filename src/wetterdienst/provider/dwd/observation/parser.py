@@ -15,6 +15,7 @@ from polars import selectors as cs
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels
+from wetterdienst.provider.dwd.observation.fileindex import is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -378,7 +379,7 @@ def _parse_climate_observations_data(  # noqa: C901
     if dataset == DwdObservationMetadata.minute_1.precipitation:
         if period == Period.HISTORICAL:
             # this is a special case, we return as the dates are already parsed and everything is done
-            return _transform_minute_1_precipitation_historical(df)
+            return _mez_to_utc(_transform_minute_1_precipitation_historical(df), file, dataset, period)
         missing_parameters = (
             DwdObservationMetadata.minute_1.precipitation.precipitation_amount_droplet.name_original,
             DwdObservationMetadata.minute_1.precipitation.precipitation_amount_rocker.name_original,
@@ -416,9 +417,27 @@ def _parse_climate_observations_data(  # noqa: C901
         df = df.drop("end_date")
     # prepare date column
     df = df.with_columns(pl.col("timestamp").cast(pl.String).str.pad_end(12, "0"))
-    return df.with_columns(
+    df = df.with_columns(
         pl.col("timestamp").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
     )
+    return _mez_to_utc(df, file, dataset, period)
+
+
+def _mez_to_utc(df: pl.LazyFrame, file: File, dataset: DatasetModel, period: Period) -> pl.LazyFrame:
+    """Shift the stamps of a historical 1-, 5- or 10-minute file that are MEZ, the fixed UTC+1, to UTC.
+
+    This is done per file, before the files are put together: the shift is a property of the file, and the
+    files of 1999 and 2000 overlap in the hour 23:00 to 23:50 UTC of 1999-12-31, where a shift by the year of the
+    stamp, after the files were put together, dropped the stamps of the UTC file as duplicates of the MEZ ones
+    (GH-2815).
+    """
+    if (
+        period == Period.HISTORICAL
+        and dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10)
+        and is_mez_file(file.filename)
+    ):
+        return df.with_columns(pl.col("timestamp") - pl.duration(hours=1))
+    return df
 
 
 def _transform_minute_1_precipitation_historical(df: pl.LazyFrame) -> pl.LazyFrame:
