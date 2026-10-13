@@ -137,7 +137,7 @@
 
 | name                        | original name | description           | unit | constraints |
 |-----------------------------|---------------|-----------------------|------|-------------|
-| {term}`wind_direction` | dk_ter | Wind direction. | ° | >=0,<=360 |
+| {term}`wind_direction` | dk_ter | Wind direction. The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |
 | {term}`wind_force_beaufort` | fk_ter | Wind force (beaufort). | Bft | >=0 |
 
 ### wind_extreme

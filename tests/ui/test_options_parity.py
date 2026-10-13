@@ -1,15 +1,14 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The UIs hand a request the options the settings once carried, for each of the 15 options (GH-2639).
+"""The UIs hand a request the options their query parameters, options and variables name, for each of the 15 (GH-2639).
 
-The REST API, the command line and the MCP tools (which are the REST API's) built a `Settings` with
-the ``ts_*`` settings their query parameters and options name, and fetched with it. They now build
-`Options` and fetch with that, the host's `Settings` left alone. The wire stays as it was: the same
-query parameters, options and ``WD_TS_*`` variables set the same things.
+The REST API, the command line and the MCP tools (which are the REST API's) build `Options` and
+fetch with them, the host's `Settings` left alone. The wire is the one the ``ts_*`` settings had: the
+same query parameters, options and ``WD_TS_*`` variables set the same things.
 
 Each test fetches nothing: the getter of the endpoint or command is stood in for, takes the options it is
-given, and the test holds them to what ``Settings(ts_<option>=...)`` carried to a request before. The
-frames the options then give are the requests' (`tests/test_request_options.py`).
+given, and the test holds them to the value the case sets. The frames the options then give are the
+requests' (`tests/test_request_options.py`).
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from wetterdienst import Settings
-from wetterdienst.options import Options, options_from_settings
+from wetterdienst.options import Options
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 
@@ -210,15 +209,9 @@ class _Taken(Exception):  # noqa: N818
     """Raised in place of fetching, to stop where the options have been taken."""
 
 
-# old route, removed in stage 5
-def _before(case: Case) -> Options:
-    """Give the options that ``Settings(ts_<option>=...)`` carried to a request, as the UIs once built them."""
-    return options_from_settings(Settings(**{f"ts_{case.option}": case.value}))
-
-
 def _is_set(options: Options, case: Case) -> bool:
-    """Tell whether the options carry the value the case sets, which a surface that dropped it would not."""
-    return options.model_dump()[case.option] == case.value
+    """Tell whether the options are the defaults plus the case's value, and nothing else changed."""
+    return options.model_dump() == Options(**{case.option: case.value}).model_dump()
 
 
 def _take(monkeypatch: pytest.MonkeyPatch, getter: str) -> list[Options]:
@@ -304,71 +297,53 @@ def _env_cases() -> list[Any]:
     ]
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _rest_cases())
-def test_rest_query_parameter_sets_the_option_as_the_setting(
-    monkeypatch: pytest.MonkeyPatch, case: Case, endpoint: str
-) -> None:
-    """Test a query parameter of a data endpoint gives the request the options the setting did."""
+def test_rest_query_parameter_sets_the_option(monkeypatch: pytest.MonkeyPatch, case: Case, endpoint: str) -> None:
+    """Test a query parameter of a data endpoint gives the request the option."""
     options = _rest(monkeypatch, endpoint, case.rest[endpoint])
     assert _is_set(options, case)
-    assert options.model_dump() == _before(case).model_dump()
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
-def test_rest_environment_sets_the_option_as_the_setting(
-    monkeypatch: pytest.MonkeyPatch, case: Case, endpoint: str
-) -> None:
-    """Test the server's WD_TS_* variable gives a request that leaves the option out the options the setting did."""
+def test_rest_environment_sets_the_option(monkeypatch: pytest.MonkeyPatch, case: Case, endpoint: str) -> None:
+    """Test the server's WD_TS_* variable gives a request that leaves the option out the option."""
     monkeypatch.setenv(case.variable, case.env)
     options = _rest(monkeypatch, endpoint, {})
     assert _is_set(options, case)
-    assert options.model_dump() == _before(case).model_dump()
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "command"), _cli_cases())
-def test_cli_option_sets_the_option_as_the_setting(monkeypatch: pytest.MonkeyPatch, case: Case, command: str) -> None:
-    """Test a command line option gives the request the options the setting did."""
+def test_cli_option_sets_the_option(monkeypatch: pytest.MonkeyPatch, case: Case, command: str) -> None:
+    """Test a command line option gives the request the option."""
     options = _cli(monkeypatch, command, case.cli[command])
     assert _is_set(options, case)
-    assert options.model_dump() == _before(case).model_dump()
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "command"), _env_cases())
-def test_cli_environment_sets_the_option_as_the_setting(
-    monkeypatch: pytest.MonkeyPatch, case: Case, command: str
-) -> None:
-    """Test the WD_TS_* variable gives a command that leaves the option out the options the setting did."""
+def test_cli_environment_sets_the_option(monkeypatch: pytest.MonkeyPatch, case: Case, command: str) -> None:
+    """Test the WD_TS_* variable gives a command that leaves the option out the option."""
     monkeypatch.setenv(case.variable, case.env)
     options = _cli(monkeypatch, command, [])
     assert _is_set(options, case)
-    assert options.model_dump() == _before(case).model_dump()
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _rest_cases())
-def test_mcp_tool_argument_sets_the_option_as_the_setting(
+def test_mcp_tool_argument_sets_the_option(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str
 ) -> None:
-    """Test an argument of an MCP tool gives the request the options the setting did."""
+    """Test an argument of an MCP tool gives the request the option."""
     options = _mcp(monkeypatch, mcp_server, endpoint, case.rest[endpoint])
     assert _is_set(options, case)
-    assert options.model_dump() == _before(case).model_dump()
 
 
-# old route, removed in stage 5
 @pytest.mark.parametrize(("case", "endpoint"), _env_cases())
-def test_mcp_environment_sets_the_option_as_the_setting(
+def test_mcp_environment_sets_the_option(
     monkeypatch: pytest.MonkeyPatch, mcp_server: object, case: Case, endpoint: str
 ) -> None:
-    """Test the WD_TS_* variable gives an MCP tool that leaves the option out the options the setting did."""
+    """Test the WD_TS_* variable gives an MCP tool that leaves the option out the option."""
     monkeypatch.setenv(case.variable, case.env)
     options = _mcp(monkeypatch, mcp_server, endpoint, {})
     assert _is_set(options, case)
-    assert options.model_dump() == _before(case).model_dump()
 
 
 def test_an_argument_outranks_the_environment_and_a_dict_is_merged_into_it(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -468,10 +443,6 @@ def test_the_glossary_reads_the_environments_options_when_given_none(monkeypatch
     assert {entry["unit"] for entry in entries if entry["unit_type"] == "temperature"} == {"degree_fahrenheit"}
 
 
-@pytest.mark.xfail(
-    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
-    strict=True,
-)
 def test_the_stripes_override_a_malformed_variable_for_their_options(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes' arguments outrank, does not stop them."""
     from wetterdienst.ui import core  # noqa: PLC0415

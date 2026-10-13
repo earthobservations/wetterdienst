@@ -431,7 +431,7 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
 | {term}`wind_speed` | f | Mean wind speed. | m/s | >=0 |
-| {term}`wind_direction` | d | Mean wind direction. | ° | >=0,<=360 |
+| {term}`wind_direction` | d | Mean wind direction. The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |
 
 ### wind_extreme
 
@@ -466,4 +466,4 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
 | {term}`wind_speed_last_10min` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
-| {term}`wind_direction` | dd | Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). | ° | >=0,<=360 |
+| {term}`wind_direction` | dd | Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |

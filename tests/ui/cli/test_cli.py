@@ -862,7 +862,7 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
 def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
     """Test a command left its options out passes Settings nothing, which the environment then sets.
 
-    Among them are the settings no option sets at all, such as `ts_geo_num_additional_stations`.
+    Among them are the host settings no option sets at all, such as `cache_dir`.
     """
     calls: list[dict] = []
 
@@ -876,13 +876,9 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
     assert all(not kwargs for kwargs in calls)
 
 
-@pytest.mark.xfail(
-    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
-    strict=True,
-)
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_cli_values_option_outranks_a_malformed_variable_for_its_setting(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test an option given on the command line replaces a WD_TS_* variable Settings would refuse."""
+def test_cli_values_option_outranks_a_malformed_variable_for_its_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an option given on the command line replaces a WD_TS_* variable Options would refuse."""
     options = _settings_of(
         monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
     )
@@ -901,10 +897,6 @@ def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pyte
     ) in result.output
 
 
-@pytest.mark.xfail(
-    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
-    strict=True,
-)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option_replaces() -> None:
     """Test a malformed WD_TS_* variable an option replaces does not stand in for another option's error."""

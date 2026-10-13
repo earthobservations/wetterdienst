@@ -310,13 +310,64 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
 
 def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/stundenwerte_FF_00003_19370101_20110331_hist.zip: the description says `missing value=-999`, the files
-    # of 1975 to 1994 write 990 for a direction there is none of
+    # of 1975 to 1994 write 990 for a direction there is none of, and 0 for a calm (a speed of 0.0) beside 360 for north
+    # of a "36-teilige Windrose", which has no point 0 (GH-2805)
     product = (
         "STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor\n"
         "          3;1975101607;    5;   2.1;  250;eor\n"
         "          3;1975101608;    5;   1.3;  990;eor\n"
+        "          3;1975020807;    5;   0.0;    0;eor\n"
+        "          3;1975010215;    5;   1.2;  360;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "wind", product, "00003", year=1975, drop_nulls=drop_nulls)
+
+
+def _dwd_hourly_wind_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # historical/stundenwerte_F_00003_19500401_20110401_hist.zip: "Windrichtung uml.,windstill DD=00" (DWD), so the 0 of
+    # 1954-02-19 15:00 (beside 1.0 m/s) is no direction; 360 is north, as at 1954-01-04 00:00 (GH-2805)
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;  FF;  DD;eor\n"
+        "          3;1954021915;    1;   1.0;   0;eor\n"
+        "          3;1954010400;    1;   2.6; 360;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "wind_synop", product, "00003", year=1954, drop_nulls=drop_nulls)
+
+
+def _dwd_subdaily_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # historical/terminwerte_FK_00001_19370101_19860630_hist.zip: "Terminwerte der Windrichtung (32-teilige Windrose)",
+    # whose 0 is a calm (Beaufort 0) and whose north is 32 (GH-2805, GH-2808)
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_4;DK_TER;FK_TER;eor\n"
+        "          1;1937010107;    5;   0;   0;eor\n"
+        "          1;1937010114;    5;  24;   3;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "subdaily", "wind", product, "00001", year=1937, drop_nulls=drop_nulls)
+
+
+def _dwd_10_minutes_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # historical/10minutenwerte_wind_01691_19931110_19991231_hist.zip, read 2026-10-12: station 01691 writes north as
+    # 360 and as 0 (22:00 and 22:10 of 1993-11-15, at 5.0 and 6.1 m/s), so only the 0 beside a speed of 0.0 (1993-11-17
+    # 04:20) is a calm (GH-2805)
+    product = (
+        "STATIONS_ID;MESS_DATUM;  QN;FF_10;DD_10;eor\n"
+        "       1691;199311152200;    1;   5.0; 360;eor\n"
+        "       1691;199311152210;    1;   6.1;   0;eor\n"
+        "       1691;199311170420;    1;   0.0;   0;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "10_minutes", "wind", product, "01691", year=1993, drop_nulls=drop_nulls)
+
+
+def _dwd_10_minutes_extreme_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # historical/10minutenwerte_extrema_wind_00003_19930429_19991231_hist.zip: the direction of the gust is 0 beside a
+    # gust of 0.0 (1993-04-28 12:30), a calm, and beside one of 4.1 m/s (1993-06-15 15:30), a north (GH-2805)
+    product = (
+        "STATIONS_ID;MESS_DATUM;  QN;FX_10;FNX_10;FMX_10;DX_10\n"
+        "          3;199304281230;    1;   0.0;  -999;  -999;   0\n"
+        "          3;199306151530;    1;   4.1;  -999;  -999;   0\n"
+    )
+    return _dwd_observation(
+        monkeypatch, "10_minutes", "wind_extreme", product, "00003", year=1993, drop_nulls=drop_nulls
+    )
 
 
 def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1004,8 +1055,36 @@ STUBS = [
         "dwd/observation hourly/wind",
         _dwd_hourly_wind,
         reading=("wind_direction", 250.0),
-        sentinels=(("wind_direction", 990.0),),
-        tokens=(("wind_direction", "990", None),),
+        sentinels=(("wind_direction", 990.0), ("wind_direction", 0.0)),
+        tokens=(("wind_direction", "990", None), ("wind_direction", "0", None)),
+    ),
+    ValueStub(
+        "dwd/observation hourly/wind_synop",
+        _dwd_hourly_wind_synop,
+        reading=("wind_direction", 360.0),
+        sentinels=(("wind_direction", 0.0),),
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation subdaily/wind",
+        _dwd_subdaily_wind,
+        # the Beaufort number, not the direction, whose unit is GH-2808
+        reading=("wind_force_beaufort", 3.0),
+        sentinels=(("wind_direction", 0.0),),
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation 10_minutes/wind",
+        _dwd_10_minutes_wind,
+        # no sentinel: a 0 beside a wind that blows is a bearing here
+        reading=("wind_direction", 360.0),
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation 10_minutes/wind_extreme",
+        _dwd_10_minutes_extreme_wind,
+        reading=("wind_gust_max", 4.1),
+        tokens=(("wind_direction_gust_max", "0", None),),
     ),
     ValueStub(
         "dwd/observation hourly/weather_phenomena",
