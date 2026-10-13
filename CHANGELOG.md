@@ -48,6 +48,11 @@ Types of changes:
   three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
   `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
   otherwise (GH-2823)
+- A cache directory that cannot be written no longer fails every request. A Docker volume that an
+  image before 0.148.0 filled as root made them fail with `sqlite3.OperationalError: attempt to
+  write a readonly database`. The process now logs one warning naming the directory and the reason
+  and keeps its cache in a temporary directory, removed at exit. Chown the volume to
+  `10001:10001` once to keep the cache across runs, see the Docker page (GH-2860)
 - `nws/observation` keeps the fractions of wind gust, air and sea-level pressure, visibility,
   the 24-hour temperature extremes and precipitation (1, 3 and 6 hours). They were truncated to
   whole numbers on the read, so 0.8 mm of rain was returned as 0 and 28.4 mm as 28; the values
