@@ -271,7 +271,7 @@ _TORONTO_STATION = {
     # has monthly rows nonetheless
     "HLY_FIRST_DATE": "2013-06-11 09:00:00",
     "HLY_LAST_DATE": "2026-10-08 12:30:10",
-    "DLY_FIRST_DATE": "2013-06-11 00:00:00",
+    "DLY_FIRST_DATE": "2013-06-13 00:00:00",
     "DLY_LAST_DATE": "2026-10-08 00:00:00",
     "MLY_FIRST_DATE": None,
     "MLY_LAST_DATE": None,
@@ -756,27 +756,80 @@ def test_eccc_years_of_a_request_with_dates_are_not_those_of_the_collection(
     assert years.get("climate-hourly", []) == expected
 
 
-def test_eccc_first_and_last_year_of_a_collection_are_those_of_the_stamps(
+def test_eccc_last_year_of_a_collection_is_that_of_the_stamp_of_its_last_date(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
     """Test that the edge years are asked for, hourly ones as the year of the UTC stamp (GH-2820).
 
-    The dates are Local Standard Time (GH-2693). 1999-12-31 20:00 AST is the first instant of 2000 UTC, which is
-    where the hourly rows are cut (UTC_YEAR), and 2005-12-31 20:00 AST the first of 2006, so the last hour of 2005
-    belongs to a year the station list names as 2005. A day is dated by itself: 1999-12-31 is a day of 1999.
+    The dates are Local Standard Time (GH-2693). 2005-12-31 20:00 AST is the first instant of 2006 UTC, which is where
+    the hourly rows are cut (UTC_YEAR). A day is dated by itself: 2005-12-31 is a day
+    of 2005, and 1999-12-31 one of 1999.
     """
     station = _WHITE_ROCK_STATION | {
         "TIMEZONE": "AST",
-        "HLY_FIRST_DATE": "1999-12-31 20:00:00",
+        "HLY_FIRST_DATE": "1999-06-30 20:00:00",
         "HLY_LAST_DATE": "2005-12-31 20:00:00",
         "DLY_FIRST_DATE": "1999-12-31 00:00:00",
         "DLY_LAST_DATE": "2005-12-31 00:00:00",
     }
     years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[:2])
     assert years == {
-        "climate-hourly": list(range(2000, 2007)),
+        "climate-hourly": list(range(1999, 2007)),
         "climate-daily": list(range(1999, 2006)),
     }
+
+
+@pytest.mark.parametrize(
+    ("first_date", "station_first_date", "expected_first_year"),
+    [
+        # a January can be the start of the year: 44543 has 2006-01-01 00:00 CST for values from 2005-11-30
+        ("2006-01-01 00:00:00", "2005-11-30 00:00:00", 2005),
+        # the year before is not asked for where the station does not reach back to it
+        ("2006-01-01 00:00:00", "2006-01-01 00:00:00", 2006),
+        ("1953-01-01 00:00:00", "1942-01-01 00:00:00", 1952),
+        # a first date in another month is the first date
+        ("2006-02-01 00:00:00", "2005-11-30 00:00:00", 2006),
+    ],
+    ids=["january-before-the-station", "january-at-the-station", "january-1953", "february"],
+)
+def test_eccc_first_hourly_year_of_a_first_date_in_january_includes_the_year_before(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    first_date: str,
+    station_first_date: str,
+    expected_first_year: int,
+) -> None:
+    """Test that a first hourly date in January is not read as the first hour (GH-2820).
+
+    44543 has HLY_FIRST_DATE 2006-01-01 00:00 and 760 hourly values in 2005 (read 2026-10-13), and 1765 and 43383 have
+    values in the year before theirs. The station's own dates, which are where it starts, bound the year before.
+    """
+    station = _WHITE_ROCK_STATION | {
+        "TIMEZONE": "CST",
+        "FIRST_DATE": station_first_date,
+        "HLY_FIRST_DATE": first_date,
+        "HLY_LAST_DATE": "2008-06-30 00:00:00",
+    }
+    years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[:1])
+    assert years == {"climate-hourly": list(range(expected_first_year, 2009))}
+
+
+def test_eccc_last_year_of_the_hourly_collection_is_that_of_the_end_of_its_last_day(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """Test that the last hourly date stands for its whole day (GH-2820).
+
+    TRURO (6491, AST) has HLY_LAST_DATE 1986-12-31 15:00 and rows with values up to 23:00 AST (read 2026-10-13), which
+    are 1987-01-01 00:00 to 03:00 UTC and so in the year 1987 of UTC_YEAR.
+    """
+    station = _WHITE_ROCK_STATION | {
+        "STN_ID": 6491,
+        "TIMEZONE": "AST",
+        "HLY_FIRST_DATE": "1960-06-01 00:00:00",
+        "HLY_LAST_DATE": "1986-12-31 15:00:00",
+    }
+    years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[:1])
+    assert years == {"climate-hourly": list(range(1960, 1988))}
 
 
 def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(

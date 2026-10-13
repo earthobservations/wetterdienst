@@ -65,7 +65,8 @@ _STANDARD_TIME_OFFSETS = {
 #: from the station's own FIRST_DATE and LAST_DATE, which span all of its collections: White Rock (925) is dated from
 #: 1929, its hourly reports from 1994-02-01 (GH-2820). The monthly collection has MLY_FIRST_DATE and MLY_LAST_DATE too,
 #: which are not read: the last ends years before the monthly rows do (925: 2007-02-01, values up to 2026-09; 1823 of
-#: 7564 stations), and the first is a January the first rows can precede (6349: 1966-01-01, a row of 1965-12).
+#: 7564 stations are dated to an earlier year than their LAST_DATE), and the first is a January the first rows can
+#: precede (6349: 1966-01-01, a row of 1965-12).
 _COLLECTION_DATE_COLUMNS = {
     Resolution.HOURLY: ("HLY_FIRST_DATE", "HLY_LAST_DATE"),
     Resolution.DAILY: ("DLY_FIRST_DATE", "DLY_LAST_DATE"),
@@ -165,6 +166,9 @@ class EcccObservationValues(TimeseriesValues):
 
         Those dates are null for a station without rows in the collection, which then has no years: none of 80 hourly
         stations drawn and none of the 95 daily ones had a row (read 2026-10-13).
+
+        The last hourly date stands for its whole day, and a first one in January for the year before as well, as far as
+        the station goes back: the dates are not the hours of the first and last row.
         """
         if self.sr.start and self.sr.end:
             return range(self.sr.start.year, self.sr.end.year + 1)
@@ -180,7 +184,13 @@ class EcccObservationValues(TimeseriesValues):
         first, last = row["collection_start"], row["collection_end"]
         if first is None or last is None:
             return range(0)
-        return range(first.year, last.year + 1)
+        first_year = first.year
+        if dataset.resolution.value == Resolution.HOURLY and first.month == 1:
+            # a first date in January can be the start of the year rather than of the rows: 44543 has HLY_FIRST_DATE
+            # 2006-01-01 00:00 and 760 hourly values from 2005-11-30, so the year before is asked for too, as far as
+            # the station reaches back. That is one more year at most.
+            first_year = max(first_year - 1, station_meta["start_timestamp"].year)
+        return range(first_year, last.year + 1)
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -442,10 +452,15 @@ class EcccObservationRequest(TimeseriesRequest):
                 column.lower()
                 for column in _COLLECTION_DATE_COLUMNS.get(Resolution(resolution), ("start_timestamp", "end_timestamp"))
             )
+            collection_end = pl.col(last)
+            if Resolution(resolution) == Resolution.HOURLY:
+                # HLY_LAST_DATE can precede the last row of its day: TRURO (6491, AST) has 1986-12-31 15:00, and rows up
+                # to 23:00 AST, which are 1987-01-01 UTC and have values. The date stands for its whole day.
+                collection_end = collection_end.dt.truncate("1d") + pl.duration(hours=23, minutes=59, seconds=59)
             data.append(
                 self._stamp_bounds(
                     df_raw.with_columns(
-                        pl.col(first).alias("collection_start"), pl.col(last).alias("collection_end")
+                        pl.col(first).alias("collection_start"), collection_end.alias("collection_end")
                     ).select(pl.all().exclude(collection_columns)),
                     resolution=Resolution(resolution),
                 ).with_columns(
