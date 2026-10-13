@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
@@ -59,6 +59,16 @@ _STANDARD_TIME_OFFSETS = {
     "MST": dt.timedelta(hours=-7),
     "PST": dt.timedelta(hours=-8),
     "NST": dt.timedelta(hours=-3, minutes=-30),
+}
+
+#: The columns of the station list that give the first and last date of the hourly and daily collection. They differ
+#: from the station's own FIRST_DATE and LAST_DATE, which span all of its collections: White Rock (925) is dated from
+#: 1929, its hourly reports from 1994-02-01 (GH-2820). The monthly collection has MLY_FIRST_DATE and MLY_LAST_DATE too,
+#: which are not read: the last ends years before the monthly rows do (925: 2007-02-01, values up to 2026-09; 1823 of
+#: 7564 stations), and the first is a January the first rows can precede (6349: 1966-01-01, a row of 1965-12).
+_COLLECTION_DATE_COLUMNS = {
+    Resolution.HOURLY: ("HLY_FIRST_DATE", "HLY_LAST_DATE"),
+    Resolution.DAILY: ("DLY_FIRST_DATE", "DLY_LAST_DATE"),
 }
 
 
@@ -145,6 +155,33 @@ class EcccObservationValues(TimeseriesValues):
         # whatever the station's zone (GH-2683), so the year is cut from LOCAL_DATE as it is written.
         return f"datetime={year}-01-01T00:00:00/{year}-12-31T23:59:59"
 
+    def _years(self, station_id: str, dataset: DatasetModel, station_meta: dict) -> range:
+        """Return the years to ask for: those of the request, or those of the collection if it names no dates.
+
+        The hourly and daily collection's are the years of its first and last date (HLY_, DLY_ in the station list)
+        rather than those of the station, which span all of its collections: White Rock (925) is dated from 1929 and
+        its hourly reports from 1994, so 65 years of requests came back empty (GH-2820). A year is that of the stamp, as
+        the request cuts it: UTC for an hour, the date for a day. The monthly collection keeps the station's.
+
+        Those dates are null for a station without rows in the collection, which then has no years: none of 80 hourly
+        stations drawn and none of the 95 daily ones had a row (read 2026-10-13).
+        """
+        if self.sr.start and self.sr.end:
+            return range(self.sr.start.year, self.sr.end.year + 1)
+        dates = cast("EcccObservationRequest", self.sr.stations)._collection_dates  # noqa: SLF001
+        if dates is None:
+            # a result of stations that was built without the station list
+            return range(station_meta["start_timestamp"].year, station_meta["end_timestamp"].year + 1)
+        row = dates.filter(
+            (pl.col("station_id") == station_id)
+            & (pl.col("resolution") == dataset.resolution.name)
+            & (pl.col("dataset") == dataset.name)
+        ).to_dicts()[0]
+        first, last = row["collection_start"], row["collection_end"]
+        if first is None or last is None:
+            return range(0)
+        return range(first.year, last.year + 1)
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -191,9 +228,7 @@ class EcccObservationValues(TimeseriesValues):
             {date_field: pl.String} | {f: (pl.String if f.endswith("FLAG") else pl.Float64) for f in fields}
         )
         data = []
-        start_year = self.sr.start.year if self.sr.start else station_meta["start_timestamp"].year
-        end_year = self.sr.end.year if self.sr.end else station_meta["end_timestamp"].year
-        for year in range(start_year, end_year + 1):
+        for year in self._years(station_id, dataset, station_meta):
             window = self._year_window(year, hourly=hourly)
             # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
             # single request returns an arbitrary slice of the year and silently drops the rest.
@@ -283,7 +318,8 @@ class EcccObservationValues(TimeseriesValues):
             data.append(df)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
         # the unpivot and join of 60 years of daily rows 4 times as long, for the same rows (GH-2781)
-        return pl.concat(data).collect(engine="in-memory")
+        # no year to ask for, since the request names no dates and the collection has no rows: no data
+        return pl.concat(data).collect(engine="in-memory") if data else pl.DataFrame()
 
 
 @dataclass
@@ -302,6 +338,11 @@ class EcccObservationRequest(TimeseriesRequest):
 
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
+
+    # The first and last date of the collection of each station and dataset, stamped as `start_timestamp` and
+    # `end_timestamp` are, which `_all` leaves for the values to read: the years of a request without dates follow
+    # them (GH-2820). They are no columns of the stations, whose dates stay those of the station.
+    _collection_dates: pl.DataFrame | None = field(default=None, init=False, repr=False, compare=False)
 
     def _all(self) -> pl.LazyFrame:
 
@@ -339,6 +380,10 @@ class EcccObservationRequest(TimeseriesRequest):
                                         "ELEVATION": pl.String,
                                         "FIRST_DATE": pl.String,
                                         "LAST_DATE": pl.String,
+                                        **dict.fromkeys(
+                                            (column for pair in _COLLECTION_DATE_COLUMNS.values() for column in pair),
+                                            pl.String,
+                                        ),
                                     }
                                 ),
                             }
@@ -359,13 +404,23 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("start_timestamp"),
             pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_timestamp"),
             pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
+            *(
+                pl.col("features").struct.field("properties").struct.field(column).alias(column.lower())
+                for pair in _COLLECTION_DATE_COLUMNS.values()
+                for column in pair
+            ),
         )
-        # parse start_timestamp and end_timestamp as naive local datetimes; `_stamp_bounds` stamps them per resolution
+        # parse the dates as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
             pl.col("station_id").cast(pl.String),
             pl.col("start_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("end_timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("elevation").cast(pl.Float64),
+            *(
+                pl.col(column.lower()).str.to_datetime("%Y-%m-%d %H:%M:%S")
+                for pair in _COLLECTION_DATE_COLUMNS.values()
+                for column in pair
+            ),
         )
         df_raw = df_raw.with_columns(
             pl.col("latitude") / 10_000_000,
@@ -379,44 +434,52 @@ class EcccObservationRequest(TimeseriesRequest):
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
+        collection_columns = [column.lower() for pair in _COLLECTION_DATE_COLUMNS.values() for column in pair]
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns
         for resolution, dataset in resolutions_and_datasets:
+            first, last = (
+                column.lower()
+                for column in _COLLECTION_DATE_COLUMNS.get(Resolution(resolution), ("start_timestamp", "end_timestamp"))
+            )
             data.append(
-                self._stamp_bounds(df_raw, resolution=Resolution(resolution)).with_columns(
+                self._stamp_bounds(
+                    df_raw.with_columns(
+                        pl.col(first).alias("collection_start"), pl.col(last).alias("collection_end")
+                    ).select(pl.all().exclude(collection_columns)),
+                    resolution=Resolution(resolution),
+                ).with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
-        return pl.concat(data)
+        df = pl.concat(data).collect()
+        self._collection_dates = df.select("station_id", "resolution", "dataset", "collection_start", "collection_end")
+        return df.drop("collection_start", "collection_end").lazy()
 
     @staticmethod
     def _stamp_bounds(df: pl.LazyFrame, *, resolution: Resolution) -> pl.LazyFrame:
-        """Give the first and last date of the station as the stamps of the resolution's first and last value.
+        """Give the first and last date of the station and of the collection as the stamps of the first and last value.
 
-        FIRST_DATE and LAST_DATE are written in the station's Local Standard Time, the clock of the hourly LOCAL_DATE
-        with no summer time (GH-2693). Hourly rows are stamped with an instant, so the date is converted from that
-        offset to UTC. Daily and monthly rows are stamped at 00:00 UTC of their date or month whatever the zone
-        (GH-2683), so the date is cut to the day or month it names and stamped the same way: converted to UTC, the
-        first day of a station read 2013-06-11 14:00 UTC, after the 00:00 UTC window of a request for that one day, and
-        the station was skipped though it has a value dated that day (GH-2730).
+        FIRST_DATE and LAST_DATE, and those of the collection, are written in the station's Local Standard Time, the
+        clock of the hourly LOCAL_DATE with no summer time (GH-2693). Hourly rows are stamped with an instant, so the
+        date is converted from that offset to UTC. Daily and monthly rows are stamped at 00:00 UTC of their date or
+        month whatever the zone (GH-2683), so the date is cut to the day or month it names and stamped the same way:
+        converted to UTC, the first day of a station read 2013-06-11 14:00 UTC, after the 00:00 UTC window of a request
+        for that one day, and the station was skipped though it has a value dated that day (GH-2730).
         """
+        columns = ("start_timestamp", "end_timestamp", "collection_start", "collection_end")
         if resolution in (Resolution.DAILY, Resolution.MONTHLY):
             unit = "1mo" if resolution == Resolution.MONTHLY else "1d"
             return df.select(pl.all().exclude("timezone")).with_columns(
-                pl.col("start_timestamp", "end_timestamp").dt.truncate(unit).dt.replace_time_zone("UTC"),
+                pl.col(*columns).dt.truncate(unit).dt.replace_time_zone("UTC"),
             )
         return df.with_columns(
-            pl.struct(["start_timestamp", "timezone"])
+            pl.struct([column, "timezone"])
             .map_elements(
-                lambda row: _localize(row["start_timestamp"], row["timezone"]),
+                lambda row, column=column: _localize(row[column], row["timezone"]),
                 return_dtype=pl.Datetime(time_zone="UTC"),
             )
-            .alias("start_timestamp"),
-            pl.struct(["end_timestamp", "timezone"])
-            .map_elements(
-                lambda row: _localize(row["end_timestamp"], row["timezone"]),
-                return_dtype=pl.Datetime(time_zone="UTC"),
-            )
-            .alias("end_timestamp"),
+            .alias(column)
+            for column in columns
         ).select(pl.all().exclude("timezone"))
