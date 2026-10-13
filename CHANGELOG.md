@@ -26,11 +26,10 @@ Types of changes:
   three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
   `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
   otherwise (GH-2823)
-- `eccc/observation` makes fewer empty requests for values without `start` and `end`: the years
-  of hourly and daily follow the first and last date of that collection, no longer those of the
-  station (White Rock, 925: 1994-2026 for hourly, not 1929-2026), and a station without rows in it
-  asks for none. Monthly is unchanged. The values are the same, but the all-null rows the API
-  serves outside the collection's dates are no longer returned with `drop_nulls=False` (GH-2820)
+- `eccc/observation` makes no requests for hourly or daily values of a station without rows in
+  that collection (the station list gives it no `HLY_`/`DLY_` first date: 6750 of 8435 stations
+  for hourly) when a request names no `start` and `end`. It asked for every year of the station
+  and got empty answers, one request per year. The values are unchanged (GH-2820)
 
 ## [0.148.0] - 2026-10-13
 

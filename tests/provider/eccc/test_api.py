@@ -267,14 +267,11 @@ _TORONTO_STATION = {
     "ELEVATION": "173.40",
     "FIRST_DATE": "2013-06-11 09:00:00",
     "LAST_DATE": "2026-10-08 12:30:10",
-    # the dates of each collection, as the station list gives them: the monthly ones are null for this station, which
-    # has monthly rows nonetheless
+    # the first date of the hourly and daily collection, as the station list gives it; the monthly one is null for this
+    # station, which has monthly rows nonetheless
     "HLY_FIRST_DATE": "2013-06-11 09:00:00",
-    "HLY_LAST_DATE": "2026-10-08 12:30:10",
     "DLY_FIRST_DATE": "2013-06-13 00:00:00",
-    "DLY_LAST_DATE": "2026-10-08 00:00:00",
     "MLY_FIRST_DATE": None,
-    "MLY_LAST_DATE": None,
 }
 
 
@@ -596,15 +593,7 @@ def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution
     UTC_DATE, reach into 2015 while the daily ones end in 2014. Both were read from the first row of the station, that
     of whichever resolution comes first, not necessarily the one fetched (GH-2730).
     """
-    first, last = "2013-12-31 21:00:00", "2014-12-31 22:00:00"
-    station = _TORONTO_STATION | {
-        "FIRST_DATE": first,
-        "LAST_DATE": last,
-        "HLY_FIRST_DATE": first,
-        "HLY_LAST_DATE": last,
-        "DLY_FIRST_DATE": first,
-        "DLY_LAST_DATE": last,
-    }
+    station = _TORONTO_STATION | {"FIRST_DATE": "2013-12-31 21:00:00", "LAST_DATE": "2014-12-31 22:00:00"}
     urls = _serve_eccc(monkeypatch, [], station)
     EcccObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m"), ("hourly", "data", "temperature_air_2m")],
@@ -618,7 +607,7 @@ def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution
 
 
 # WHITE ROCK CAMPBELL SCIENTIFIC (STN_ID 925) as the station list gives it (read 2026-10-13): dated from 1929, hourly
-# reports from 1994-02-01, and a MLY_LAST_DATE that ends in 2007 while the monthly collection has values up to 2026-09
+# reports from 1994-02-01
 _WHITE_ROCK_STATION = {
     "STN_ID": 925,
     "STATION_NAME": "WHITE ROCK CAMPBELL SCIENTIFIC",
@@ -630,11 +619,8 @@ _WHITE_ROCK_STATION = {
     "FIRST_DATE": "1929-01-01 00:00:00",
     "LAST_DATE": "2026-10-11 12:30:11",
     "HLY_FIRST_DATE": "1994-02-01 00:00:00",
-    "HLY_LAST_DATE": "2026-10-11 12:30:11",
     "DLY_FIRST_DATE": "1929-01-01 00:00:00",
-    "DLY_LAST_DATE": "2026-10-11 00:00:00",
     "MLY_FIRST_DATE": "1929-01-01 00:00:00",
-    "MLY_LAST_DATE": "2007-02-01 00:00:00",
 }
 _ALL_RESOLUTIONS = [
     ("hourly", "data", "temperature_air_2m"),
@@ -643,193 +629,62 @@ _ALL_RESOLUTIONS = [
 ]
 
 
-def _years_requested(urls: list[str]) -> dict[str, list[int]]:
-    """Give the years of the requests made per collection, in the order they were made."""
+def _years_requested(
+    monkeypatch: pytest.MonkeyPatch, options: Options, station: dict, **dates: str
+) -> tuple[dict[str, list[int]], pl.DataFrame]:
+    """Request the station's values without serving a row and return the years asked for per collection."""
+    urls = _serve_eccc(monkeypatch, [], station)
+    request = EcccObservationRequest(parameters=_ALL_RESOLUTIONS, options=options, **dates)
+    df = request.filter_by_station_id(str(station["STN_ID"])).values.all().df
     years: dict[str, list[int]] = {}
     for url in urls:
         if "climate-stations" in url:
             continue
-        collection = url.split("/collections/")[1].split("/")[0]
         window = url.split("UTC_YEAR=")[1] if "UTC_YEAR=" in url else url.split("datetime=")[1]
-        years.setdefault(collection, []).append(int(window[:4]))
-    return years
+        years.setdefault(url.split("/collections/")[1].split("/")[0], []).append(int(window[:4]))
+    return years, df
 
 
-def _request_years(
-    monkeypatch: pytest.MonkeyPatch,
-    options: Options,
-    station: dict,
-    parameters: list[tuple[str, str, str]] = _ALL_RESOLUTIONS,
-    **dates: str,
-) -> tuple[dict[str, list[int]], pl.DataFrame]:
-    """Request the station's values without serving a row and return the years requested per collection."""
-    urls = _serve_eccc(monkeypatch, [], station)
-    request = EcccObservationRequest(parameters=parameters, options=options, **dates)
-    df = request.filter_by_station_id(str(station["STN_ID"])).values.all().df
-    return _years_requested(urls), df
-
-
-def test_eccc_years_of_a_request_without_dates_start_with_the_first_date_of_the_collection(
+def test_eccc_a_collection_without_dates_is_not_asked_for_years_that_the_request_leaves_open(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that a request without dates asks for no year before the hourly or daily collection starts (GH-2820).
+    """Test that an hourly or daily collection without a first date has no rows to ask for (GH-2820).
 
-    The years came from the station's FIRST_DATE, so White Rock asked for 65 years of hourly reports that are not
-    there, one request each. The hourly collection starts in 1994. The monthly one is not read: its MLY_LAST_DATE
-    reads 2007-02-01 and the collection holds values up to 2026-09, so its years stay those of the station.
+    In the live list the hourly and daily dates are null for a station without rows in the collection (none of 80
+    hourly stations drawn and none of the 95 daily ones had a row), where a request without dates asked for every year
+    of the station, one request each. The monthly dates are null for 763 stations that have monthly values (36 of 40
+    drawn did), so they are no sign of rows and monthly is always asked for.
     """
-    years, _ = _request_years(monkeypatch, options_convert_units_false, _WHITE_ROCK_STATION)
+    station = _WHITE_ROCK_STATION | {"HLY_FIRST_DATE": None, "DLY_FIRST_DATE": None, "MLY_FIRST_DATE": None}
+    years, df = _years_requested(monkeypatch, options_convert_units_false, station)
+    assert years == {"climate-monthly": list(range(1929, 2027))}
+    assert df.is_empty()
+
+
+def test_eccc_years_of_a_collection_with_dates_are_those_of_the_station(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """Test that the dates of a collection do not narrow the years, only their absence does (GH-2820).
+
+    White Rock has HLY_FIRST_DATE 1994-02-01 and FIRST_DATE 1929, but the dates follow the temperature and not every
+    series: 6813 has HLY_FIRST_DATE 1995-02-16 and 7088 hours of wind from 1994, 27174 has 2013-12-10 and hourly
+    precipitation from 2007 (read 2026-10-13). The years stay those of the station.
+    """
+    years, _ = _years_requested(monkeypatch, options_convert_units_false, _WHITE_ROCK_STATION)
     assert years == {
-        "climate-hourly": list(range(1994, 2027)),
+        "climate-hourly": list(range(1929, 2027)),
         "climate-daily": list(range(1929, 2027)),
         "climate-monthly": list(range(1929, 2027)),
     }
 
 
-def test_eccc_years_of_a_collection_without_dates_are_none(
+def test_eccc_a_request_with_dates_asks_for_them_whether_or_not_the_collection_has_dates(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that an hourly or daily collection without dates is not asked for, and a monthly one is (GH-2820).
-
-    In the live list the hourly and daily dates are null for a station without rows in the collection (none of 80
-    hourly stations drawn and none of the 95 daily ones had a row), so it has no years to ask for. The monthly ones are
-    null for 763 stations that have monthly values (36 of 40 drawn did), which is one more reason not to read them.
-    """
-    station = _WHITE_ROCK_STATION | {
-        "HLY_FIRST_DATE": None,
-        "HLY_LAST_DATE": None,
-        "DLY_FIRST_DATE": None,
-        "DLY_LAST_DATE": None,
-        "MLY_FIRST_DATE": None,
-        "MLY_LAST_DATE": None,
-    }
-    years, df = _request_years(monkeypatch, options_convert_units_false, station)
-    assert years == {"climate-monthly": list(range(1929, 2027))}
-    assert df.is_empty()
-
-
-def test_eccc_monthly_years_are_those_of_the_station(
-    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
-) -> None:
-    """Test that the monthly dates of the station list do not narrow the years (GH-2820).
-
-    6349 has MLY_FIRST_DATE 1966-01-01 and a monthly row of 1965-12, and 979 a MLY_LAST_DATE of 2006-11-01 for rows up
-    to 2026-09 (read 2026-10-13): read as the first and last year they would drop both.
-    """
-    station = _WHITE_ROCK_STATION | {
-        "FIRST_DATE": "1965-12-01 00:00:00",
-        "MLY_FIRST_DATE": "1966-01-01 00:00:00",
-        "MLY_LAST_DATE": "2006-11-01 00:00:00",
-    }
-    years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[2:])
-    assert years == {"climate-monthly": list(range(1965, 2027))}
-
-
-@pytest.mark.parametrize(
-    ("dates", "expected"),
-    [
-        # the years of a request that names dates are those of the dates, also where the collection has no rows
-        ({"start": "1950-01-01", "end": "1952-12-31"}, [1950, 1951, 1952]),
-        ({"start": "1993-06-01", "end": "1994-01-01"}, [1993, 1994]),
-        ({"start": "2026-01-01", "end": "2026-12-31"}, [2026]),
-        ({"start": "2030-01-01", "end": "2030-01-02"}, [2030]),
-        # one date is both: the request reads it as the start and the end
-        ({"start": "1960-05-05"}, [1960]),
-        ({"end": "1990-05-05"}, [1990]),
-    ],
-    ids=["before", "from-the-year-before", "last-year", "after", "start-only", "end-only"],
-)
-def test_eccc_years_of_a_request_with_dates_are_not_those_of_the_collection(
-    monkeypatch: pytest.MonkeyPatch,
-    options_convert_units_false: Options,
-    dates: dict[str, str],
-    expected: list[int],
-) -> None:
-    """Test that the years of a request with dates are as before: the collection does not narrow them (GH-2820)."""
-    years, _ = _request_years(
-        monkeypatch,
-        options_convert_units_false,
-        _WHITE_ROCK_STATION,
-        [("hourly", "data", "temperature_air_2m")],
-        **dates,
-    )
-    assert years.get("climate-hourly", []) == expected
-
-
-def test_eccc_last_year_of_a_collection_is_that_of_the_stamp_of_its_last_date(
-    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
-) -> None:
-    """Test that the edge years are asked for, hourly ones as the year of the UTC stamp (GH-2820).
-
-    The dates are Local Standard Time (GH-2693). 2005-12-31 20:00 AST is the first instant of 2006 UTC, which is where
-    the hourly rows are cut (UTC_YEAR). A day is dated by itself: 2005-12-31 is a day
-    of 2005, and 1999-12-31 one of 1999.
-    """
-    station = _WHITE_ROCK_STATION | {
-        "TIMEZONE": "AST",
-        "HLY_FIRST_DATE": "1999-06-30 20:00:00",
-        "HLY_LAST_DATE": "2005-12-31 20:00:00",
-        "DLY_FIRST_DATE": "1999-12-31 00:00:00",
-        "DLY_LAST_DATE": "2005-12-31 00:00:00",
-    }
-    years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[:2])
-    assert years == {
-        "climate-hourly": list(range(1999, 2007)),
-        "climate-daily": list(range(1999, 2006)),
-    }
-
-
-@pytest.mark.parametrize(
-    ("first_date", "station_first_date", "expected_first_year"),
-    [
-        # a January can be the start of the year: 44543 has 2006-01-01 00:00 CST for values from 2005-11-30
-        ("2006-01-01 00:00:00", "2005-11-30 00:00:00", 2005),
-        # the year before is not asked for where the station does not reach back to it
-        ("2006-01-01 00:00:00", "2006-01-01 00:00:00", 2006),
-        ("1953-01-01 00:00:00", "1942-01-01 00:00:00", 1952),
-        # a first date in another month is the first date
-        ("2006-02-01 00:00:00", "2005-11-30 00:00:00", 2006),
-    ],
-    ids=["january-before-the-station", "january-at-the-station", "january-1953", "february"],
-)
-def test_eccc_first_hourly_year_of_a_first_date_in_january_includes_the_year_before(
-    monkeypatch: pytest.MonkeyPatch,
-    options_convert_units_false: Options,
-    first_date: str,
-    station_first_date: str,
-    expected_first_year: int,
-) -> None:
-    """Test that a first hourly date in January is not read as the first hour (GH-2820).
-
-    44543 has HLY_FIRST_DATE 2006-01-01 00:00 and 760 hourly values in 2005 (read 2026-10-13), and 1765 and 43383 have
-    values in the year before theirs. The station's own dates, which are where it starts, bound the year before.
-    """
-    station = _WHITE_ROCK_STATION | {
-        "TIMEZONE": "CST",
-        "FIRST_DATE": station_first_date,
-        "HLY_FIRST_DATE": first_date,
-        "HLY_LAST_DATE": "2008-06-30 00:00:00",
-    }
-    years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[:1])
-    assert years == {"climate-hourly": list(range(expected_first_year, 2009))}
-
-
-def test_eccc_last_year_of_the_hourly_collection_is_that_of_the_end_of_its_last_day(
-    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
-) -> None:
-    """Test that the last hourly date stands for its whole day (GH-2820).
-
-    TRURO (6491, AST) has HLY_LAST_DATE 1986-12-31 15:00 and rows with values up to 23:00 AST (read 2026-10-13), which
-    are 1987-01-01 00:00 to 03:00 UTC and so in the year 1987 of UTC_YEAR.
-    """
-    station = _WHITE_ROCK_STATION | {
-        "STN_ID": 6491,
-        "TIMEZONE": "AST",
-        "HLY_FIRST_DATE": "1960-06-01 00:00:00",
-        "HLY_LAST_DATE": "1986-12-31 15:00:00",
-    }
-    years, _ = _request_years(monkeypatch, options_convert_units_false, station, _ALL_RESOLUTIONS[:1])
-    assert years == {"climate-hourly": list(range(1960, 1988))}
+    """Test that a request that names dates asks for the years of those dates (GH-2820)."""
+    station = _WHITE_ROCK_STATION | {"HLY_FIRST_DATE": None, "DLY_FIRST_DATE": None}
+    years, _ = _years_requested(monkeypatch, options_convert_units_false, station, start="2000-01-01", end="2001-12-31")
+    assert years == {name: [2000, 2001] for name in ("climate-hourly", "climate-daily", "climate-monthly")}
 
 
 def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
