@@ -62,6 +62,12 @@ Keyed by metadata model name, then ``(resolution, dataset, name_original)``. App
 _WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
 _HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "hourly")
 
+# DMI writes a mean wind direction of 0 where the mean wind speed is 0, at every resolution (GH-2794)
+_DMI_MEAN_WIND_DIRECTION = (
+    "Direction the wind is blowing from, clockwise from true north. "
+    "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
+)
+
 # Pegelonline names each timeseries in German; the meaning below is the API's own ``longname`` for
 # that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
 _WSV_PEGEL_PARAMETERS = {
@@ -181,7 +187,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "maximum_wind_speed_for_previous_day"): "Strongest gust on the previous day.",
         ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
         ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
-            "Mean wind direction over the last 10 minutes, at 10 m above ground."
+            "Mean wind direction over the last 10 minutes, at 10 m above ground. "
+            "The source's 0 (a calm or variable wind) is null."
         ),
         ("hourly", "data", "mean_wind_speed_during last_10_min_at_10_meters_above_ground"): (
             "Mean wind speed over the last 10 minutes, at 10 m above ground."
@@ -628,10 +635,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "urban_wind_extreme",
             "fx_st_10",
         ): 'Maximum wind per 10-minute interval (DWD: "momentane MaxWind").',
-        ("10_minutes", "wind", "dd_10"): "Mean wind direction during the previous 10 minutes.",
+        ("10_minutes", "wind", "dd_10"): (
+            "Mean wind direction during the previous 10 minutes. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
+        ),
         ("10_minutes", "wind", "ff_10"): "Mean wind speed during the previous 10 minutes.",
         ("10_minutes", "wind_extreme", "dx_10"): (
-            "Wind direction of the maximum wind speed during the previous 10 minutes."
+            "Wind direction of the maximum wind speed during the previous 10 minutes. "
+            "The source's 0 beside a gust of 0 (a calm wind) is null."
         ),
         ("10_minutes", "wind_extreme", "fmx_10"): (
             "Maximum of the wind speed from the 1 minute mean values of the 3-second maxima of the previous 10 minutes."
@@ -960,10 +971,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Returned as 1 for P and 2 for I."
         ),
         ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
-        ("hourly", "wind", "d"): "Mean wind direction.",
+        ("hourly", "wind", "d"): "Mean wind direction. The source's 0 (a calm or variable wind) is null.",
         ("hourly", "wind", "f"): "Mean wind speed.",
         ("hourly", "wind_extreme", "fx_911"): "Wind speed, wind gust: the highest wind peak of the last hour.",
-        ("hourly", "wind_synoptic", "dd"): 'Wind direction (DWD: "Windrichtung uml.,windstill DD=00").',
+        ("hourly", "wind_synoptic", "dd"): (
+            'Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). '
+            "The source's 0 (a calm or variable wind) is null."
+        ),
         ("hourly", "wind_synoptic", "ff"): (
             '10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit").'
         ),
@@ -1062,7 +1076,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "temperature_air", "rf_ter"): "2m relative humidity.",
         ("subdaily", "temperature_air", "tt_ter"): "2m air temperature.",
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
-        ("subdaily", "wind", "dk_ter"): "Wind direction.",
+        ("subdaily", "wind", "dk_ter"): "Wind direction. The source's 0 (a calm or variable wind) is null.",
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
         (
             "subdaily",
@@ -1154,7 +1168,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "GeosphereObservationMetadata": {
         ("10_minutes", "data", "cglo"): "global radiation",
         ("10_minutes", "data", "chim"): "sky short wave diffuse radiation",
-        ("10_minutes", "data", "dd"): "wind direction",
+        ("10_minutes", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
         ("10_minutes", "data", "ddx"): "wind direction gust max",
         ("10_minutes", "data", "ff"): "wind speed",
         ("10_minutes", "data", "ffam"): "arithmetic mean of wind speed",
@@ -1192,7 +1206,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "tsmin"): "air temperature min at 0.05m",
         ("daily", "data", "vv_mittel"): "wind speed",
         ("hourly", "data", "cglo"): "global radiation",
-        ("hourly", "data", "dd"): "wind direction",
+        ("hourly", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
         ("hourly", "data", "ddx"): "wind direction gust max",
         ("hourly", "data", "ff"): "wind speed",
         ("hourly", "data", "ffx"): "wind gust max",
@@ -1624,7 +1638,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "wet_bulb_temperature"): "Wet bulb temperature (⁰C to tenths)",
         ("hourly", "data", "wind_direction"): (
             "Wind direction from true north using compass directions (e.g. 360=true north, 180=south, "
-            "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees)"
+            "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees) "
+            "The source's 0 (a calm wind) is null."
         ),
         ("hourly", "data", "wind_gust"): (
             "Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds "
@@ -1647,7 +1662,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "windchill"): (
             "wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill)"
         ),
-        ("hourly", "data", "winddirection"): "wind direction",
+        ("hourly", "data", "winddirection"): "wind direction. The source's 0 (a calm wind) is null.",
         ("hourly", "data", "windgust"): "maximum wind gust",
         ("hourly", "data", "windspeed"): "wind speed",
     },
@@ -1734,7 +1749,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "t2m"): "Air temperature. Mean over 1 minute.",
         ("hourly", "data", "td"): "Dew-point temperature. Mean over 1 minute.",
         ("hourly", "data", "vis"): "Horizontal visibility. Mean over 1 minute.",
-        ("hourly", "data", "wd_10min"): "Wind direction. Mean over 10 minutes.",
+        ("hourly", "data", "wd_10min"): "Wind direction. Mean over 10 minutes. The source's 0 (a calm wind) is null.",
         ("hourly", "data", "wg_10min"): "Gust speed. Maximum over 10 minutes.",
         ("hourly", "data", "ws_10min"): "Wind speed. Mean over 10 minutes.",
     },
@@ -2161,7 +2176,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("1_minute", "data", "45"): "Air temperature. Instantaneous value, every minute.",
         ("1_minute", "data", "46"): "Precipitation amount. Precipitation during one minute.",
         ("1_minute", "data", "47"): "Wind speed. One minute mean, every minute.",
-        ("1_minute", "data", "48"): "Wind direction. One minute mean, every minute.",
+        (
+            "1_minute",
+            "data",
+            "48",
+        ): "Wind direction. One minute mean, every minute. The source's 0 (a calm wind) is null.",
         ("1_minute", "data", "51"): "Visibility. One minute mean, every minute.",
         ("1_minute", "data", "52"): "Snow depth. Instantaneous value, every minute.",
         ("daily", "data", "19"): "Air temperature. Minimum, once per day.",
@@ -2173,7 +2192,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "12"): "Visibility. Instantaneous value, once per hour.",
         ("hourly", "data", "16"): "Total cloud amount. Instantaneous value, once per hour.",
         ("hourly", "data", "21"): "Wind gust. Maximum, once per hour.",
-        ("hourly", "data", "3"): "Wind direction. Mean over 10 minutes, once per hour.",
+        (
+            "hourly",
+            "data",
+            "3",
+        ): "Wind direction. Mean over 10 minutes, once per hour. The source's 0 (a calm wind) is null.",
         ("hourly", "data", "39"): "Dew point temperature. Instantaneous value, once per hour.",
         ("hourly", "data", "4"): "Wind speed. Mean over 10 minutes, once per hour.",
         ("hourly", "data", "6"): "Relative humidity. Instantaneous value, once per hour.",
@@ -2662,7 +2685,7 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
         ),
         ("annual", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
-        ("annual", "data", "mean_wind_dir"): "Direction the wind is blowing from, clockwise from true north.",
+        ("annual", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
         ("annual", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
         ("annual", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
         ("daily", "data", "acc_heating_degree_days_17"): (
@@ -2682,7 +2705,7 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
         ),
         ("daily", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
-        ("daily", "data", "mean_wind_dir"): "Direction the wind is blowing from, clockwise from true north.",
+        ("daily", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
         ("daily", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
         ("daily", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
         ("hourly", "data", "acc_precip"): "Depth of precipitation collected over the period.",
@@ -2696,7 +2719,7 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
         ),
         ("hourly", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
-        ("hourly", "data", "mean_wind_dir"): "Direction the wind is blowing from, clockwise from true north.",
+        ("hourly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
         ("hourly", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
         ("hourly", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
         ("monthly", "data", "acc_heating_degree_days_17"): (
@@ -2723,7 +2746,7 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
         ),
         ("monthly", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
-        ("monthly", "data", "mean_wind_dir"): "Direction the wind is blowing from, clockwise from true north.",
+        ("monthly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
         ("monthly", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
         ("monthly", "data", "min_relative_hum"): "Lowest relative humidity over the period.",
         ("monthly", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",

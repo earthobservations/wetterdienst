@@ -444,8 +444,8 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
 
 
 # The first and last day of TORONTO INTL A as the station list states them: FIRST_DATE "2013-06-11 09:00:00" and
-# LAST_DATE "2026-10-08 12:30:10" in local time, which the zone (EDT on both days) moves to 13:00 UTC and 16:30 UTC of
-# the same days, hours after the 00:00 UTC stamp of a daily or monthly value of that date.
+# LAST_DATE "2026-10-08 12:30:10" in Local Standard Time, which the offset (EST, -5 h all year) moves to 14:00 UTC and
+# 17:30 UTC of the same days, hours after the 00:00 UTC stamp of a daily or monthly value of that date.
 _FIRST_AND_LAST_DAILY_ROWS = [
     {"LOCAL_DATE": "2013-06-11 00:00:00", "MEAN_TEMPERATURE": 17.2, "MEAN_TEMPERATURE_FLAG": None},
     {"LOCAL_DATE": "2013-06-12 00:00:00", "MEAN_TEMPERATURE": 18.0, "MEAN_TEMPERATURE_FLAG": None},
@@ -504,11 +504,11 @@ def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
         # a date or month is stamped at 00:00 UTC of it, as the values are, whatever the zone
         ("daily", dt.datetime(2013, 6, 11, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 8, tzinfo=ZoneInfo("UTC"))),
         ("monthly", dt.datetime(2013, 6, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 1, tzinfo=ZoneInfo("UTC"))),
-        # an hour is an instant, so the station's zone applies (EDT on both days)
+        # an hour is an instant, so the station's Local Standard Time applies: EST, -5 h, in June as well (GH-2693)
         (
             "hourly",
-            dt.datetime(2013, 6, 11, 13, tzinfo=ZoneInfo("UTC")),
-            dt.datetime(2026, 10, 8, 16, 30, 10, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2013, 6, 11, 14, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 10, 8, 17, 30, 10, tzinfo=ZoneInfo("UTC")),
         ),
     ],
 )
@@ -526,6 +526,57 @@ def test_eccc_station_list_dates_are_stamped_like_the_values(
         options=options_convert_units_false,
     ).filter_by_station_id("51459")
     assert request.df.select("start_timestamp", "end_timestamp").rows() == [(start, end)]
+
+
+@pytest.mark.parametrize(
+    ("timezone", "first", "expected"),
+    [
+        # the code names standard time: the date is on the LST clock whatever the season (GH-2693)
+        ("EST", "2013-06-11 09:00:00", dt.datetime(2013, 6, 11, 14, tzinfo=ZoneInfo("UTC"))),
+        ("CST", "2018-07-01 09:00:00", dt.datetime(2018, 7, 1, 15, tzinfo=ZoneInfo("UTC"))),  # Saskatchewan has no DST
+        ("MST", "2017-07-01 09:00:00", dt.datetime(2017, 7, 1, 16, tzinfo=ZoneInfo("UTC"))),
+        ("PST", "2023-04-24 10:00:00", dt.datetime(2023, 4, 24, 18, tzinfo=ZoneInfo("UTC"))),
+        ("AST", "2017-10-29 13:00:00", dt.datetime(2017, 10, 29, 17, tzinfo=ZoneInfo("UTC"))),
+        ("NST", "2020-07-01 09:00:00", dt.datetime(2020, 7, 1, 12, 30, tzinfo=ZoneInfo("UTC"))),
+        # winter, and a date before standard time was kept, where the zone has a local mean time of its own
+        # (America/Toronto: -5:17:32 until 1895)
+        ("EST", "2013-01-11 09:00:00", dt.datetime(2013, 1, 11, 14, tzinfo=ZoneInfo("UTC"))),
+        ("EST", "1840-03-01 09:00:00", dt.datetime(1840, 3, 1, 14, tzinfo=ZoneInfo("UTC"))),
+        # a station without a timezone is read as UTC
+        (None, "2013-06-11 09:00:00", dt.datetime(2013, 6, 11, 9, tzinfo=ZoneInfo("UTC"))),
+    ],
+)
+def test_eccc_station_dates_are_local_standard_time_all_year(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    timezone: str | None,
+    first: str,
+    expected: dt.datetime,
+) -> None:
+    """Test that the first date of a station is converted with the fixed offset of its standard time (GH-2693).
+
+    ECCC writes FIRST_DATE on the Local Standard Time clock of the hourly LOCAL_DATE: Toronto Intl A has
+    '2013-06-11 09:00:00' for a first hourly report at UTC_DATE 14:00. The civil zone of the abbreviation
+    would read it as EDT and give 13:00 UTC.
+    """
+    _serve_eccc(monkeypatch, [], _TORONTO_STATION | {"TIMEZONE": timezone, "FIRST_DATE": first})
+    request = EcccObservationRequest(
+        parameters=[("hourly", "data")],
+        options=options_convert_units_false,
+    ).filter_by_station_id("51459")
+    assert request.df.get_column("start_timestamp").to_list() == [expected]
+
+
+def test_eccc_unknown_timezone_code_is_an_error(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """Test that a TIMEZONE code the library has no offset for is not guessed at (GH-2693)."""
+    _serve_eccc(monkeypatch, [], _TORONTO_STATION | {"TIMEZONE": "XYZ"})
+    with pytest.raises(Exception, match="XYZ"):
+        EcccObservationRequest(
+            parameters=[("hourly", "data")],
+            options=options_convert_units_false,
+        ).filter_by_station_id("51459")
 
 
 def test_eccc_years_of_a_request_without_dates_follow_the_row_of_each_resolution(
@@ -658,6 +709,37 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
     ]
 
 
+def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the 0 of a gust ECCC does not report, and the direction 0 beside a reported speed, are null (GH-2615).
+
+    Rows taken from api.weather.gc.ca/collections/climate-daily (checked 2026-10-12): ALERT 1975-07-01 is below
+    the 31 km/h the stations report from and has 0 and 0, no flag, where the bulk CSV writes "<31"; 1975-07-06 is a gust
+    of 60 km/h from 200 degrees (20 tens of degrees); ST CATHARINES A 1974-11-26 has 42 km/h and a direction of 0. The
+    glossary: "The stations do not report if less than 31 km/h" and "36 means 360 degrees true", so north is not 0.
+    """
+    rows = [
+        {"LOCAL_DATE": "1975-07-01 00:00:00", "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
+        {"LOCAL_DATE": "1975-07-06 00:00:00", "SPEED_MAX_GUST": 60, "DIRECTION_MAX_GUST": 20},
+        {"LOCAL_DATE": "1975-07-09 00:00:00", "SPEED_MAX_GUST": 42, "DIRECTION_MAX_GUST": 0},
+    ]
+    _serve_eccc(monkeypatch, rows, station={**_TORONTO_STATION, "FIRST_DATE": "1950-01-01 00:00:00"})
+    request = EcccObservationRequest(
+        parameters=[("daily", "data", "wind_gust_max"), ("daily", "data", "wind_direction_gust_max")],
+        start="1975-07-01",
+        end="1975-07-09",
+        options=Options(convert_units=False, drop_nulls=False),
+    )
+    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
+        ("wind_direction_gust_max", None, "raw:0"),
+        ("wind_direction_gust_max", 200.0, None),
+        ("wind_direction_gust_max", None, "raw:0"),
+        ("wind_gust_max", None, "raw:0"),
+        ("wind_gust_max", 60.0, None),
+        ("wind_gust_max", 42.0, None),
+    ]
+
+
 def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
@@ -673,3 +755,25 @@ def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     assert df.schema["quality_flags"] == pl.String
     assert df.get_column("quality_flags").to_list() == [None]
     assert df.get_column("value").to_list() == [-5.4]
+
+
+def test_eccc_collects_the_years_of_a_station_with_the_in_memory_engine(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    collect_engines: dict[str, list[str | None]],
+) -> None:
+    """Test that the collect of the years of a station, an unpivot and a join, asks for the in-memory engine.
+
+    polars 2 runs it on the streaming engine unless told otherwise, which took 0.81 s against 0.21 s for 60 years of
+    daily rows of one station, with the same rows (GH-2781); 26 years of hourly rows took the same on both. The
+    collect of a page comes before it and is cheap on either engine, so the one asserted on is the last.
+    """
+    _serve_eccc(monkeypatch, _daily_rows())
+    request = EcccObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start="2025-01-15",
+        end="2025-01-15",
+        options=options_convert_units_false,
+    )
+    assert not request.filter_by_station_id("51459").values.all().df.is_empty()
+    assert collect_engines["provider/eccc/observation/api.py"][-1] == "in-memory"
