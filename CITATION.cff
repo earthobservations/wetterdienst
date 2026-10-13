@@ -2,7 +2,7 @@
 cff-version: 1.2.0
 type: software
 title: wetterdienst
-version: 0.149.0
+version: 0.150.0
 date-released: '2026-10-13'
 doi: 10.5281/zenodo.3960624
 authors:
