@@ -100,6 +100,26 @@ Types of changes:
   summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
   those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
   UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
+- `dwd/observation` `10_minutes` `historical`: the six values 1999-12-31 23:00 to 23:50 UTC were
+  missing for every station and dataset that spans the year 2000 (a 70 minute hole), because the
+  file of 1999 (MEZ) and the file of 2000 (UTC) carry the same digits for different instants. The
+  wind file of 1999 also reaches into 2000-01-01 00:00 to 00:50 MEZ, which now lands on 23:00 to
+  23:50 UTC and no longer competes with the real values of 00:00 to 00:50 UTC. The same holds for
+  the stamps past MEZ midnight in the December 1999 files of `1_minute` (23:00 to 23:59 UTC) and
+  `5_minutes` (one row, 23:00 UTC; whether it is a misstamped 23:55 is open, GH-2827). A request
+  for that hour returns these values (GH-2815)
+- `dwd/observation` `subdaily/wind` `wind_direction` (`DK_TER`) is in degrees. The file holds the
+  point of a 32-point wind rose (DWD: "32-teilige Windrose"), and 24 was returned as 24 degrees for
+  a west wind. A value is now multiplied by 11.25: 8 is 90 degrees, 16 is 180, 24 is 270, 32 is 360
+  (GH-2808)
+- `dwd/derived` settles a timestamp that two periods report (historical and recent) on the
+  historical record, in every run. It kept whichever row it had read first, in the order of an
+  unordered set, so the value (or a missing reading) could differ from one run to the next (GH-2792)
+- `imgw/meteorology` `daily/climate` (from May 2024) and `daily/synop` (from July 2024) no longer
+  raise `AttributeError`: IMGW stopped writing `k_d_t` and `s_d_t` into the zips then. The
+  parameters of `k_d`/`s_d` are returned; those only the missing file carries (`cloud_cover_total`,
+  `humidity_relative`, `wind_speed` and, in synop, the vapour and air pressures and the day and
+  night precipitation) have no rows after the month the file ends (GH-2819)
 
 ## [0.147.0] - 2026-10-12
 
@@ -142,6 +162,12 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- **Breaking**: the Docker image runs as the user `wetterdienst` (uid 10001), no longer as root,
+  with `/home/wetterdienst` as its working directory and
+  `/home/wetterdienst/.cache/wetterdienst` as its cache. Mount a cache volume there, or anywhere
+  with `WD_CACHE_DIR` pointing to it, and make a volume or host directory that root filled (the
+  cache, a file `--target`) writable by uid 10001 once: `docker run --rm --user 0 -v <volume>:/c
+  ghcr.io/earthobservations/wetterdienst chown -R 10001:10001 /c` (GH-2770)
 - The REST API and the MCP tools refuse a chart image with a side over 8192 px, `scale` (or the
   stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
   seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The

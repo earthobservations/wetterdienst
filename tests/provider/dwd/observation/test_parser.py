@@ -443,7 +443,7 @@ _CALM_WIND_FILES = {
             "       1001;2001070506;   10;   0;   1;eor",
         ],
         "dk_ter",
-        [("24", None), ("32", None), (None, "0"), (None, "0")],
+        [("270.0", None), ("360.0", None), (None, "0"), (None, "0")],
     ),
     # 0 is also north at some stations (01691 on 1994-05-01 reads 360 at 15:40 and 0 at 15:50 at 6 m/s), so only the
     # 0 of a speed of 0 is null; a speed of 0.1 or a missing one is not known to be a calm
@@ -487,4 +487,39 @@ def test_parse_dwd_data_nulls_the_wind_direction_0_of_a_calm_and_keeps_the_text(
     df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.HISTORICAL).collect()
     assert list(zip(df.get_column(column).to_list(), df.get_column(f"{column}__raw").to_list(), strict=True)) == [
         (value, raw) for value, raw in expected
+    ]
+
+
+def test_parse_dwd_data_turns_the_subdaily_wind_rose_point_into_degrees() -> None:
+    """Test that the 32-point wind rose of `DK_TER` is returned in degrees, 32 as 360, after the sentinels (GH-2808).
+
+    The rows are those of terminwerte_FK_00096_akt.zip (read 2026-10-13), beside the hourly wind_synop `DD` of
+    stundenwerte_F_00096_akt.zip at the same hour: 24 beside 290 and 270, 32 beside 350, 16 beside 170, 8 beside 100,
+    4 beside 40. The 0 of 2025-08-11 06:00 (Beaufort 0, DD 220 at 0.2 m/s) is a calm and stays null with its text, and
+    so does the -999 DWD documents for a missing value (written by hand, the file has none).
+    """
+    rows = [
+        "STATIONS_ID;MESS_DATUM;QN_4;DK_TER;FK_TER;eor",
+        "         96;2025041006;    9;  24;   2;eor",
+        "         96;2025041012;    9;  24;   3;eor",
+        "         96;2025041118;    9;  32;   1;eor",
+        "         96;2025041218;    9;  16;   1;eor",
+        "         96;2025041306;    9;   8;   2;eor",
+        "         96;2025041418;    9;   4;   1;eor",
+        "         96;2025081106;    9;   0;   0;eor",
+        "         96;2025081112;    9;-999;   0;eor",
+    ]
+    file = File(url="", content=BytesIO(("\n".join(rows) + "\n").encode("utf8")), status=200)
+    df = parse_climate_observations_data(
+        files=[file], dataset=DwdObservationMetadata.subdaily.wind, period=Period.RECENT
+    ).collect()
+    assert list(zip(df.get_column("dk_ter").to_list(), df.get_column("dk_ter__raw").to_list(), strict=True)) == [
+        ("270.0", None),
+        ("270.0", None),
+        ("360.0", None),
+        ("180.0", None),
+        ("90.0", None),
+        ("45.0", None),
+        (None, "0"),
+        (None, "-999"),
     ]

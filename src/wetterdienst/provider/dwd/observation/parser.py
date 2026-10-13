@@ -15,6 +15,7 @@ from polars import selectors as cs
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels
+from wetterdienst.provider.dwd.observation.fileindex import is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -165,6 +166,17 @@ CALM_WIND_DIRECTION_PARAMETERS = (
         DwdObservationMetadata.minute_10.wind_extreme.wind_direction_gust_max.name_original,
         DwdObservationMetadata.minute_10.wind_extreme.wind_gust_max.name_original,
     ),
+)
+
+# The subdaily wind direction is the point of a 32-point wind rose, not degrees (GH-2808; read 2026-10-13 in
+# terminwerte_FK_00096_akt.zip against stundenwerte_F_00096_akt.zip, the hourly wind_synop DD in degrees, at the same
+# hours: all 1799 pairs agree within 20 degrees once multiplied by 11.25): 24 beside DD 270 and 290, 20 beside 220
+# and 230, 16 beside 170 and 190, 8 beside 100. The points run 0 to 32 in steps of 11.25 degrees, 32 is north, 24
+# west, 16 south, 8 east. The 0 of a calm is null before this (see above), so every value left is a point from 1 to
+# 32, 32 giving 360 degrees.
+WIND_ROSE_DEGREES = 360 / 32
+WIND_ROSE_PARAMETERS = (
+    (DwdObservationMetadata.subdaily.wind, DwdObservationMetadata.subdaily.wind.wind_direction.name_original),
 )
 
 # the sentinels, as the files write them. -999 is the one every description documents, for every column; the others are
@@ -350,6 +362,12 @@ def _parse_climate_observations_data(  # noqa: C901
                 else Sentinel("0", where=pl.col(speed).cast(pl.Float64, strict=False).eq(0))
             )
             df = clear_sentinels(df, [parameter], calm)
+    # after the sentinels: a rose point is only turned into degrees where it is a value (GH-2808)
+    for rose_dataset, parameter in WIND_ROSE_PARAMETERS:
+        if dataset == rose_dataset and parameter in columns:
+            df = df.with_columns(
+                (pl.col(parameter).cast(pl.Float64, strict=False) * WIND_ROSE_DEGREES).cast(pl.String).alias(parameter)
+            )
     if TRUE_LOCAL_TIME in columns:
         df = df.with_columns(
             pl.struct("mess_datum", TRUE_LOCAL_TIME)
@@ -361,7 +379,7 @@ def _parse_climate_observations_data(  # noqa: C901
     if dataset == DwdObservationMetadata.minute_1.precipitation:
         if period == Period.HISTORICAL:
             # this is a special case, we return as the dates are already parsed and everything is done
-            return _transform_minute_1_precipitation_historical(df)
+            return _mez_to_utc(_transform_minute_1_precipitation_historical(df), file, dataset, period)
         missing_parameters = (
             DwdObservationMetadata.minute_1.precipitation.precipitation_amount_droplet.name_original,
             DwdObservationMetadata.minute_1.precipitation.precipitation_amount_rocker.name_original,
@@ -399,9 +417,27 @@ def _parse_climate_observations_data(  # noqa: C901
         df = df.drop("end_date")
     # prepare date column
     df = df.with_columns(pl.col("timestamp").cast(pl.String).str.pad_end(12, "0"))
-    return df.with_columns(
+    df = df.with_columns(
         pl.col("timestamp").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
     )
+    return _mez_to_utc(df, file, dataset, period)
+
+
+def _mez_to_utc(df: pl.LazyFrame, file: File, dataset: DatasetModel, period: Period) -> pl.LazyFrame:
+    """Shift the stamps of a historical 1-, 5- or 10-minute file that are MEZ, the fixed UTC+1, to UTC.
+
+    This is done per file, before the files are put together: the shift is a property of the file, and the
+    files of 1999 and 2000 overlap in the hour 23:00 to 23:50 UTC of 1999-12-31, where a shift by the year of the
+    stamp, after the files were put together, dropped the stamps of the UTC file as duplicates of the MEZ ones
+    (GH-2815).
+    """
+    if (
+        period == Period.HISTORICAL
+        and dataset.resolution.value in (Resolution.MINUTE_1, Resolution.MINUTE_5, Resolution.MINUTE_10)
+        and is_mez_file(file.filename)
+    ):
+        return df.with_columns(pl.col("timestamp") - pl.duration(hours=1))
+    return df
 
 
 def _transform_minute_1_precipitation_historical(df: pl.LazyFrame) -> pl.LazyFrame:
