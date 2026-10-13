@@ -26,6 +26,10 @@ Types of changes:
   three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
   `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
   otherwise (GH-2823)
+- `nws/observation` keeps the fractions of wind gust, air and sea-level pressure, visibility,
+  the 24-hour temperature extremes and precipitation (1, 3 and 6 hours). They were truncated to
+  whole numbers on the read, so 0.8 mm of rain was returned as 0 and 28.4 mm as 28; the values
+  now come back as the endpoint gives them (GH-2849)
 
 ## [0.148.0] - 2026-10-13
 

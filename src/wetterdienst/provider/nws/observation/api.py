@@ -193,6 +193,10 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         # silently, so that a request made offline yields an empty frame rather than an error
         if isinstance(file.content, Exception):
             return pl.DataFrame()
+        # Every quantity is read as a float but the direction, which the endpoint gives in whole degrees
+        # (2406 of 2406 readings of KBOS, KDEN, KSEA, KMIA and KORD, 2026-10-13). A float field read as an
+        # integer is truncated by polars -- 0.8 mm of rain reads as 0 -- and gust, pressure, visibility and
+        # precipitation all carry fractions (GH-2849).
         df = pl.read_json(
             file.content,
             schema={
@@ -207,15 +211,15 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
                                     "dewpoint": _quantity(pl.Float64),
                                     "windDirection": _quantity(pl.Int64),
                                     "windSpeed": _quantity(pl.Float64),
-                                    "windGust": _quantity(pl.Int32),
-                                    "barometricPressure": _quantity(pl.Int64),
-                                    "seaLevelPressure": _quantity(pl.Int64),
-                                    "visibility": _quantity(pl.Int64),
-                                    "maxTemperatureLast24Hours": _quantity(pl.Int32),
-                                    "minTemperatureLast24Hours": _quantity(pl.Int32),
-                                    "precipitationLastHour": _quantity(pl.Int64),
-                                    "precipitationLast3Hours": _quantity(pl.Int64),
-                                    "precipitationLast6Hours": _quantity(pl.Int64),
+                                    "windGust": _quantity(pl.Float64),
+                                    "barometricPressure": _quantity(pl.Float64),
+                                    "seaLevelPressure": _quantity(pl.Float64),
+                                    "visibility": _quantity(pl.Float64),
+                                    "maxTemperatureLast24Hours": _quantity(pl.Float64),
+                                    "minTemperatureLast24Hours": _quantity(pl.Float64),
+                                    "precipitationLastHour": _quantity(pl.Float64),
+                                    "precipitationLast3Hours": _quantity(pl.Float64),
+                                    "precipitationLast6Hours": _quantity(pl.Float64),
                                     "relativeHumidity": _quantity(pl.Float64),
                                     "windChill": _quantity(pl.Float64),
                                 },

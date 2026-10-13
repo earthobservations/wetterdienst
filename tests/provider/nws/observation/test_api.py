@@ -263,3 +263,57 @@ def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch
     wind_speed = df.filter(pl.col("parameter") == "wind_speed").sort("timestamp")
     # a speed of 0 is a reading, and 9.36 km/h arrives as 2.6 m/s
     assert wind_speed.select("value", "quality_flags").rows() == [(2.6, "V"), (0.0, "V"), (2.6, "V")]
+
+
+def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a fraction is no longer truncated on the read: 0.8 mm stays 0.8 and 28.4 mm stays 28.4 (GH-2849).
+
+    The observation JSON was read with an integer schema for the gust, the pressures, the visibility, the 24-hour
+    extremes and the precipitation, and polars truncates when it reads a float as an integer: 0.8 mm of rain read as
+    0, 1.8 as 1, 4.8 as 4 and 28.4 as 28. The readings are those of api.weather.gov/stations/{id}/observations
+    (read 2026-10-13, KBOS, KDEN, KSEA, KMIA and KORD, 500 observations each): precipitation 0.8 (1 h), 1.3 (3 h)
+    and 28.4 (6 h), the gust 35.172 km/h, the pressure 101760.98 Pa and the visibility 16093.44 m. The 24-hour
+    extremes were null in all of those 2500 observations (and in those of 35 more stations), so their fractions are
+    the tenths of a degree a METAR 24-hour group writes, not a reading seen on the endpoint. The direction is the one
+    quantity left an integer: 2406 of 2406 readings are whole degrees.
+    """
+
+    def quantity(unit_code: str, value: float) -> dict[str, object]:
+        return {"unitCode": unit_code, "value": value, "qualityControl": "V"}
+
+    readings = {
+        "windDirection": quantity("wmoUnit:degree_(angle)", 60),
+        "windGust": quantity("wmoUnit:km_h-1", 35.172),
+        "barometricPressure": quantity("wmoUnit:Pa", 101760.98),
+        "seaLevelPressure": quantity("wmoUnit:Pa", 101760.5),
+        "visibility": quantity("wmoUnit:m", 16093.44),
+        "maxTemperatureLast24Hours": quantity("wmoUnit:degC", 21.7),
+        "minTemperatureLast24Hours": quantity("wmoUnit:degC", 12.2),
+        "precipitationLastHour": quantity("wmoUnit:mm", 0.8),
+        "precipitationLast3Hours": quantity("wmoUnit:mm", 1.3),
+        "precipitationLast6Hours": quantity("wmoUnit:mm", 28.4),
+    }
+    properties = {"station": "https://api.weather.gov/stations/KBOS", "timestamp": "2026-10-12T12:54:00+00:00"}
+    features = [{"properties": {**properties, **readings}}]
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    request = NwsObservationRequest(
+        parameters=[("hourly", "data")],
+        start=dt.datetime(2026, 10, 12, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 13, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    sr = stations_result(request, "hourly", "data", "KBOS")
+    df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
+    values = dict(df.select("parameter", "value").rows())
+    assert values["wind_direction"] == 60.0
+    # the gust arrives in km/h and is returned in m/s, the pressures arrive in Pa and are returned in hPa
+    assert values["wind_gust_max"] == pytest.approx(35.172 / 3.6)
+    assert values["pressure_air_site"] == pytest.approx(1017.6098)
+    assert values["pressure_air_sea_level"] == pytest.approx(1017.605)
+    assert values["visibility"] == pytest.approx(16093.44)
+    assert values["temperature_air_max_2m_last_24h"] == pytest.approx(21.7)
+    assert values["temperature_air_min_2m_last_24h"] == pytest.approx(12.2)
+    assert values["precipitation_amount"] == pytest.approx(0.8)
+    assert values["precipitation_amount_last_3h"] == pytest.approx(1.3)
+    assert values["precipitation_amount_last_6h"] == pytest.approx(28.4)
