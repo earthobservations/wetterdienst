@@ -425,8 +425,9 @@ def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_a
 
 OSLO = ZoneInfo("Europe/Oslo")
 # 2025-03-30 is the day Norway moves to summer time: 00:00 CET (+01:00) to 23:00 CEST (+02:00) is
-# 2025-03-29 23:00Z to 2025-03-30 21:00Z. Read as UTC, the wall clocks would be 00:00Z to 23:00Z
-REFERENCE_TIME = "referencetime=2025-03-29T23:00:00/2025-03-30T21:00:00"
+# 2025-03-29 23:00Z to 2025-03-30 21:00Z, the end a second later as Frost's end is exclusive (GH-2746). Read as
+# UTC, the wall clocks would be 00:00Z to 23:00Z
+REFERENCE_TIME = "referencetime=2025-03-29T23:00:00/2025-03-30T21:00:01"
 
 
 def _oslo_values(
@@ -475,3 +476,144 @@ def test_metno_frost_values_discovered_series_bounds_are_sent_as_utc(monkeypatch
     assert values.all().df.is_empty()
     [url] = [url for url in seen if "timeseriesids=" in url]
     assert REFERENCE_TIME in url
+
+
+def _frost_interval(url: str) -> tuple[dt.datetime, dt.datetime]:
+    """Read the `referencetime` of a request as Frost does: the half-open interval [t0,t1>, UTC."""
+    t0, t1 = url.split("referencetime=")[1].split("&", maxsplit=1)[0].split("/")
+    return dt.datetime.fromisoformat(t0).replace(tzinfo=dt.UTC), dt.datetime.fromisoformat(t1).replace(tzinfo=dt.UTC)
+
+
+def _frost(payload: dict) -> Callable[[str], File]:
+    """Give a Frost that answers with the rows of a payload that lie in the `referencetime` of the request.
+
+    This is the documented behaviour of Frost, not one observed: no credentials were available (GH-2746).
+
+    "Intervals in Frost are open-ended: [t0,t1>, i.e. representing times later than or equal to t0 and earlier
+    than t1" (https://frost.met.no/concepts2.html).
+    """
+
+    def observations(url: str) -> File:
+        t0, t1 = _frost_interval(url)
+        rows = [row for row in payload["data"] if t0 <= dt.datetime.fromisoformat(row["referenceTime"]) < t1]
+        # no rows is a 412 ("No data found") from Frost, not an empty answer
+        return _ok(url, {"data": rows}) if rows else _failed(url, 412)
+
+    return observations
+
+
+def test_metno_frost_daily_request_of_one_day_gets_the_snow_depth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a request for one day, 00:00 to 00:00 UTC, is answered with its 06:00 snow depth (GH-2729)."""
+    values, _ = _values(monkeypatch, _frost(DAILY_OBSERVATIONS), DAILY, start=START, end=START)
+    df = values.all().df.sort("parameter")
+    assert df["parameter"].to_list() == ["precipitation_amount", "snow_depth", "temperature_air_max_2m"]
+    assert df["timestamp"].to_list() == [START] * 3
+
+
+def test_metno_frost_daily_request_stops_at_the_date_of_its_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a daily request asks for the date of its end, not for the date after it (GH-2729)."""
+    values, seen = _values(monkeypatch, _frost(DAILY_OBSERVATIONS), DAILY, start=START, end=END)
+    df = values.all().df
+    assert df.filter(pl.col("parameter") == "snow_depth")["timestamp"].to_list() == [START, END]
+    [url] = _observation_requests(seen)
+    assert "referencetime=2020-01-01T00:00:00/2020-01-03T00:00:00" in url
+
+
+@pytest.mark.parametrize(
+    ("end", "expected"),
+    [
+        (dt.datetime(2020, 1, 2, tzinfo=dt.UTC), "2020-01-03T00:00:00"),
+        (dt.datetime(2020, 1, 2, 12, 30, tzinfo=dt.UTC), "2020-01-03T00:00:00"),
+        (dt.datetime(2020, 1, 2, 23, 59, 59, tzinfo=dt.UTC), "2020-01-03T00:00:00"),
+        # a bound in another zone is the date of its UTC instant: 2020-01-02 00:30 in Oslo is 2020-01-01 23:30Z
+        (dt.datetime(2020, 1, 2, 0, 30, tzinfo=OSLO), "2020-01-02T00:00:00"),
+    ],
+)
+def test_metno_frost_end_of_a_daily_request_is_the_start_of_the_next_date(end: dt.datetime, expected: str) -> None:
+    """Test that the end sent for a daily request is 00:00 UTC of the date after the date of the end (GH-2729)."""
+    assert frost_api._frost_end(end, "daily") == expected  # noqa: SLF001
+
+
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hour", "monthly", "annual"])
+def test_metno_frost_end_of_a_request_is_a_second_later(resolution: str) -> None:
+    """Test that the end sent is a second after the end of the window, which Frost leaves out (GH-2746)."""
+    end = dt.datetime(2020, 2, 1, tzinfo=dt.UTC)
+    assert frost_api._frost_end(end, resolution) == "2020-02-01T00:00:01"  # noqa: SLF001
+
+
+def test_metno_frost_hourly_request_gets_the_value_stamped_at_its_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the hourly value stamped at the end of the window is returned as well (GH-2746)."""
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": f"2020-01-0{day}T00:00:00.000Z",
+                "observations": [{"elementId": "air_temperature", "value": value, "qualityCode": 0}],
+            }
+            for day, value in ((1, 2.7), (2, 3.1), (3, 4.0))
+        ],
+    }
+    values, _ = _values(monkeypatch, _frost(payload))
+    df = values.all().df.sort("timestamp")
+    # the value of 2020-01-03 is beyond the window and cut off, as the second added reaches no further
+    assert df["timestamp"].to_list() == [START, END]
+    assert df["value"].to_list() == [2.7, 3.1]
+
+
+def test_metno_frost_single_parameter_request_ends_after_its_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the request for one parameter and the one for a discovered series extend the end as well."""
+    values, seen = _values(monkeypatch, lambda url: _failed(url, 412), DAILY)
+    values._collect_single_parameter(  # noqa: SLF001
+        "SN18700", values.sr.parameters[2], values.sr.start, values.sr.end, values.sr.settings, {}
+    )
+    [url] = _observation_requests(seen)
+    assert "referencetime=2020-01-01T00:00:00/2020-01-03T00:00:00" in url
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, AVAILABLE)
+        return _failed(url, 412 if "timeseriesids=" in url else 404)
+
+    values, seen = _values(monkeypatch, observations, DAILY)
+    assert values.all().df.is_empty()
+    [url] = [url for url in seen if "timeseriesids=" in url][:1]
+    assert "referencetime=2020-01-01T00:00:00/2020-01-03T00:00:00" in url
+
+
+def test_metno_frost_values_beyond_the_window_are_cut_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a row Frost answers beyond the window, the end being asked for later, is left out (GH-2746)."""
+    beyond = {
+        "sourceId": "SN18700:0",
+        "referenceTime": "2020-01-03T06:00:00.000Z",
+        "observations": [{"elementId": "surface_snow_thickness", "value": 9.0, "qualityCode": 0}],
+    }
+    payload = {"data": [*DAILY_OBSERVATIONS["data"], beyond]}
+    values, _ = _daily_values(monkeypatch, lambda url: _ok(url, payload))
+    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
+    assert df["timestamp"].to_list() == [START, END]
+
+
+def test_metno_frost_discovered_daily_series_starting_on_the_end_date_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a daily series that starts at 06:00 UTC of the end date is read for that date (GH-2729)."""
+    available = {
+        "data": [
+            {
+                "validFrom": "2020-01-02T06:00:00Z",
+                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
+            },
+        ],
+    }
+
+    def observations(url: str) -> File:
+        if "availableTimeSeries" in url:
+            return _ok(url, available)
+        if "timeseriesids=" in url:
+            return _frost(DAILY_OBSERVATIONS)(url)
+        return _failed(url, 404)
+
+    values, seen = _values(monkeypatch, observations, DAILY, start=START, end=END)
+    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
+    assert df["timestamp"].to_list() == [END]
+    assert any("referencetime=2020-01-02T06:00:00/2020-01-03T00:00:00" in url for url in seen)

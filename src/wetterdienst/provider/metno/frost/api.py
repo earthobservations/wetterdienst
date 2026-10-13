@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, urlparse
 
@@ -419,6 +419,29 @@ def _frost_time(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _frost_end_exclusive(value: datetime, resolution: str) -> datetime:
+    """Give the exclusive end Frost needs to return the stamp at the end of a closed window.
+
+    Frost's intervals are open-ended: "[t0,t1>, i.e. representing times later than or equal to t0 and earlier
+    than t1" (https://frost.met.no/concepts2.html), while the window of a request is closed at both ends. An
+    end sent unchanged lost the value stamped at it, the 00:00 reading of a one-hour request or the month that
+    starts at it (GH-2746). A second later names it; what lies beyond the window is cut off by the framework.
+
+    A daily value belongs to the date of its stamp, which is the date of the reading for an instantaneous element
+    (`_stamp_days`), so a request whose end is 00:00 UTC of a date asks for the whole of that date, the 06:00 UTC
+    reading of the snow depth being its value (GH-2729): its end is 00:00 UTC of the date after.
+    """
+    value = value.astimezone(UTC)
+    if resolution == _DAILY:
+        return value.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    return value + timedelta(seconds=1)
+
+
+def _frost_end(value: datetime, resolution: str) -> str:
+    """Give the end of a request as Frost reads it (see `_frost_end_exclusive`)."""
+    return _frost_time(_frost_end_exclusive(value, resolution))
+
+
 def _stamp_days(df: pl.DataFrame) -> pl.DataFrame:
     """Stamp a daily value at 00:00 UTC of the day it belongs to (GH-2729).
 
@@ -518,7 +541,7 @@ class MetnoFrostValues(TimeseriesValues):
             station_id=station_id,
             element=elements,
             start=_frost_time(start_date),
-            end=_frost_time(end_date),
+            end=_frost_end(end_date, dataset.resolution.name),
             time_resolution=dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
@@ -625,7 +648,7 @@ class MetnoFrostValues(TimeseriesValues):
             station_id=station_id,
             element=parameter.name_original,
             start=_frost_time(start_date),
-            end=_frost_time(end_date),
+            end=_frost_end(end_date, parameter.dataset.resolution.name),
             time_resolution=parameter.dataset.resolution.name_original,
         )
         log.info(f"Acquiring data from {url}")
@@ -699,6 +722,7 @@ class MetnoFrostValues(TimeseriesValues):
         """
         element = parameter_or_dataset.name_original
         resolution = parameter_or_dataset.dataset.resolution.name_original
+        resolution_name = parameter_or_dataset.dataset.resolution.name
 
         avail_url = self._available_time_series_url.format(
             station_id=station_id,
@@ -733,7 +757,9 @@ class MetnoFrostValues(TimeseriesValues):
             )
             range_start = max(start_date, valid_from)
             range_end = min(end_date, valid_to)
-            if range_start > range_end:
+            # a series that starts after the end but on its date, as a daily snow depth read at 06:00 UTC, has
+            # values in the window (GH-2729)
+            if range_start >= _frost_end_exclusive(range_end, resolution_name):
                 continue
 
             params = parse_qs(urlparse(ts["uri"]).query)
@@ -741,7 +767,7 @@ class MetnoFrostValues(TimeseriesValues):
                 source_id=params.get("sources", [station_id])[0],
                 element=element,
                 start=_frost_time(range_start),
-                end=_frost_time(range_end),
+                end=_frost_end(range_end, resolution_name),
                 time_resolution=resolution,
                 ts_id=params.get("timeseriesids", ["0"])[0],
                 perf_cats=params.get("performancecategories", [""])[0],

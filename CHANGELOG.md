@@ -23,6 +23,11 @@ Types of changes:
   no `start` and `end`. It asked for every year of the station and got empty answers, one request
   per year. Such a station has no values in the years asked for; a null-valued row (flag `M`) of
   one is no longer returned with `drop_nulls` off. Requests with dates are unchanged (GH-2820)
+- `metno/frost` sends the end of a request one second later, and for `daily` as 00:00 UTC of the
+  date after it, because Frost's intervals exclude their end. The value stamped at the end of a
+  window (the 00:00 hourly reading, the month or year that starts there) and the daily `snow_depth`
+  of the end date, read at 06:00 UTC, are returned now; results are still cut to the window asked
+  for. Taken from Frost's documentation, not checked against the live API (GH-2729, GH-2746)
 
 ## [0.149.0] - 2026-10-13
 
