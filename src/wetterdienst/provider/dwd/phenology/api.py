@@ -121,9 +121,23 @@ def _read_phenology_file(content: bytes) -> pl.DataFrame:
 def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
     """Parse one phenology file into tidy rows.
 
-    ``Jultag`` is the value -- the day of the year the phase was reached -- and the row is dated to
-    the 1st of January of ``Referenzjahr``, which is the timestamp the ``annual`` resolution uses.
-    The entry date itself is not carried separately: it is that January the 1st plus ``Jultag``.
+    ``Jultag`` is the value and is returned as DWD writes it. DWD's description calls it the "day
+    of the year", but it is that only in a year that is not a leap year, and only for a date in
+    the reference year (1 January is 1):
+
+    - In a leap year since about 1952 it counts a 365-day year: 29 February is 59 like 28 February
+      and 1 March is 60, so from 1 March it is one below the real day of the year. Up to the 1940s
+      it is the real day of the year.
+    - A date before 1 January of ``Referenzjahr`` -- the sowing of a winter crop, a hazel flowering in December -- is
+      written differently by the two reporter groups. The immediate reporters give a negative
+      number of days before 1 January (31 December is -1, there is no 0); the annual reporters give
+      the positive day of the year of the earlier year, which a row of the reference year cannot be
+      told from.
+
+    The row is dated to the 1st of January of ``Referenzjahr``, which is the timestamp the
+    ``annual`` resolution uses, and the entry date (``Eintrittsdatum``) is not carried: it cannot
+    be had back from that stamp plus ``Jultag``, for the reasons above. 29 February and 28 February
+    share a ``Jultag`` and an annual reporter's date in the year before is not marked.
     """
     df = _read_phenology_file(content)
     if df.is_empty():

@@ -14,10 +14,19 @@ https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/.
 ``Stations_id;Referenzjahr;Qualitaetsniveau;Objekt_id;Phase_id;Eintrittsdatum;Eintrittsdatum_QB;Jultag``.
 
 That file layout is what the model follows: one **dataset per plant** (all of its phases arrive
-in one file) and one **parameter per phenological phase**. A value is ``Jultag``, the day of the
-year the phase was reached, dated to the 1st of January of ``Referenzjahr`` at the ``annual``
-resolution; ``quality_flags`` carries ``Qualitaetsniveau``. A parameter's ``name_original`` is the
-numeric ``Phase_id``, which is the only name the data files themselves use for a phase.
+in one file) and one **parameter per phenological phase**. A value is ``Jultag``, which DWD
+describes as the "day of the year" the phase was reached, dated to the 1st of January of
+``Referenzjahr`` at the ``annual`` resolution; ``quality_flags`` carries ``Qualitaetsniveau``. A
+parameter's ``name_original`` is the numeric ``Phase_id``, which is the only name the data files
+themselves use for a phase.
+
+``Jultag`` is returned as DWD writes it and is the day of the year only in a year that is not a
+leap year, for a date in the reference year. In a leap year since about 1952 it counts a 365-day
+year (29 February is 59 like 28 February, 1 March is 60); for a date before 1 January of
+``Referenzjahr`` the immediate reporters write a negative number of days (31 December is -1, there
+is no 0) and the annual reporters the positive day of the year of the earlier year. The entry date
+(``Eintrittsdatum``) is not carried and cannot be had back from the stamp plus ``Jultag``; see
+``_parse_values`` in ``api.py`` for the detail.
 
 The plant and phase tables below are transcribed from the descriptions DWD publishes beside the
 data -- ``PH_Beschreibung_Pflanze.txt`` and ``PH_Beschreibung_Phase.txt`` in

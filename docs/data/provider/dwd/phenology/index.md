@@ -33,9 +33,12 @@ file layout:
 - **parameter** — one **phenological phase**: `phenology_flowering_beginning`,
   `phenology_leaf_unfolding_beginning`, `phenology_harvest`. The `original name` is DWD's numeric
   `Phase_id`, which is the only name the data files themselves use.
-- **value** — `Jultag`, the day of the year the phase was reached, dimensionless.
-- **timestamp** — the 1st of January of the reference year. The entry date DWD also publishes is that
-  date plus `Jultag`, so nothing is lost by not carrying it separately.
+- **value** — `Jultag`, which DWD describes as the day of the year the phase was reached, dimensionless.
+  It is returned as DWD writes it, and it is the day of the year only for a date in the reference year of a
+  year that is not a leap year (1 January is 1); see *Reading `Jultag`* below.
+- **timestamp** — the 1st of January of the reference year, not the date of the phase. The entry date
+  (`Eintrittsdatum`) that DWD also publishes is not carried, and it cannot be recovered from the stamp and
+  `Jultag` alone.
 - **quality_flags** — `Qualitaetsniveau`, as DWD writes it: `1` formal check only, `7` checked in routine
   but uncorrected, `10` checked and corrected.
 
@@ -48,6 +51,32 @@ request = DwdPhenologyRequest(
 )
 values = next(request.filter_by_station_id("07521").values.query()).df
 ```
+
+## Reading `Jultag`
+
+DWD's description files call `Jultag` the "day of the year" (`DDD`) and say nothing more about how it is
+counted. The data show that it is the day of the year only for a date in the reference year of a year that is not
+a leap year, and the library returns it as DWD writes it. Checked on the current and historical files of winter
+wheat (annual reporters) and hazel (immediate reporters), 2026-10-13:
+
+- **Leap years.** From about 1952 the count is of a 365-day year: 29 February is 59, as 28 February is, and
+  1 March is 60, so from 1 March `Jultag` is one below the real day of the year. Winter wheat, historical: 175,633
+  of 176,470 March-to-December rows of the leap years since 1952 (the rest, mostly 1952 to 1968, carry the real day
+  of the year). Hazel, historical and recent: every March-to-December row of a leap year (1,243 and 169). Before
+  1952 the leap years carry the real day of the year (154 of 159 winter wheat rows).
+- **A date before the reference year.** A phase can fall before 1 January of the `Referenzjahr`: the sowing of a winter
+  crop is reported for the year of its harvest, and a hazel can flower in December. The immediate reporters write that as a negative
+  number of days before 1 January: 31 December is -1 and there is no 0 (`20231229` of `Referenzjahr` 2024 is -3;
+  243 of 243 hazel rows of the historical file, 63 of 63 of the recent one). The annual reporters write the
+  positive day of the year of the earlier year (`19621010` of `Referenzjahr` 1963 is 283; 39 of the 42 winter wheat
+  rows of the historical file that are dated outside the reference year, 2 of 2 in the recent one), which looks
+  like a day of the reference year. The other 3 are dated in the year after and carry a number above 365
+  (`20170115` of 2016 is 380).
+- **What follows.** The timestamp is the 1st of January of the `Referenzjahr` and the entry date is not carried, so
+  adding `Jultag - 1` days to the timestamp gives the entry date for a date in the reference year of a year that is
+  not a leap year, and only there. In a leap year add `Jultag` days from 1 March on; a negative `Jultag` is added
+  as it is (`-3` gives 29 December of the year before). Two cases cannot be told apart from the
+  value: 28 and 29 February, and an annual reporter's date in the year before from a date in the reference year.
 
 ## Periods
 
