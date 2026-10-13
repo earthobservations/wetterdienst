@@ -71,6 +71,10 @@ Types of changes:
   and `coverage`, answer a network whose optional extra is not installed with the 501 the data
   routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
   The install line is in the server log (GH-2788)
+- `dwd/observation` 1-, 5- and 10-minute `historical` values: a request for the last hour (two in
+  summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
+  those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
+  UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
 
 ## [0.147.0] - 2026-10-12
 
