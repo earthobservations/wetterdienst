@@ -198,11 +198,12 @@ def _fallback_cache_dir(cache_dir: Path, error: BaseException) -> Path:
     """Return the temporary directory that stands in for `cache_dir`, which `error` says is unusable.
 
     One per process and unusable directory, however many caches are built, and the one warning
-    names the directory, the reason and what to do about it. Removed when the process exits, or
-    not by a forked child of it. The request goes on; the cache is just not kept across runs.
+    names the directory, the reason and what to do about it. Removed when the process that made it
+    exits; a forked child leaves it alone. The request goes on; the cache is just not kept across
+    runs.
 
     Raises:
-        OSError: `error`'s own, if there is no temporary directory to make either.
+        BaseException: `error` itself, re-raised if there is no temporary directory to make either.
 
     """
     from wetterdienst.settings import _remove_unless_forked  # noqa: PLC0415
@@ -920,25 +921,20 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         return Path(blob).open(mode)
 
 
-def _build_caching_filesystem(
-    fs: HTTPFileSystem, cache_path: Path, ttl_value: float | Literal[False]
-) -> _LockedWholeFileCacheFileSystem:
-    """Build the caching filesystem over `fs` that keeps its blobs in `cache_path`.
+def _check_cache_dir_writable(cache_path: Path) -> None:
+    """Make `cache_path` and write a file into it, which is removed again.
 
     Raises:
         OSError: If `cache_path` cannot be created or written to. fsspec makes the directory when it
-            builds and would only meet the fault at the first download, as a failed request; a file
-            made and removed here meets it at the one place that can answer for it.
+            builds a caching filesystem and would only meet the fault at the first download, as a
+            failed request; this meets it where it can be answered. Kept apart from the building,
+            so that a fault of fsspec's own (loading the metadata file) is not taken for one of the
+            directory.
 
     """
-    filesystem = _LockedWholeFileCacheFileSystem(
-        fs=fs,
-        cache_storage=str(cache_path),
-        expiry_time=int(ttl_value),
-    )
+    cache_path.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryFile(dir=cache_path):
         pass
-    return filesystem
 
 
 class NetworkFilesystemManager:
@@ -1119,10 +1115,15 @@ class NetworkFilesystemManager:
             # gets `PermissionError` from fsspec's `CacheMetadata._load`
             with _cache_dir_lock:
                 try:
-                    filesystem_effective = _build_caching_filesystem(fs, real_cache_dir, ttl_value)
+                    _check_cache_dir_writable(real_cache_dir)
                 except _CACHE_DIR_ERRORS as error:
                     real_cache_dir = cls._cache_path(_fallback_cache_dir(cache_dir, error), cache_expiry, client_kwargs)
-                    filesystem_effective = _build_caching_filesystem(fs, real_cache_dir, ttl_value)
+                    _check_cache_dir_writable(real_cache_dir)
+                filesystem_effective = _LockedWholeFileCacheFileSystem(
+                    fs=fs,
+                    cache_storage=str(real_cache_dir),
+                    expiry_time=int(ttl_value),
+                )
                 # the tidying is before the registry assignment below, and none of it able to raise: a
                 # cache that cannot be tidied must still be a cache that can be read.
                 #

@@ -3716,12 +3716,14 @@ def test_many_caches_and_threads_make_one_temporary_dir_and_say_so_once(
 
 @_needs_enforced_modes
 def test_a_dir_that_failed_is_not_tried_again(
-    read_only_dir: Path,
+    tmp_path: Path,
     unusable_cache_dirs: dict[Path, Path],  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """After the first failure the directory is not touched: no per-request retry of a fault that stays."""
-    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=read_only_dir)
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    (tmp_path / "300.0" / "cache.db").chmod(0o444)
+    first = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
     attempts: list[str] = []
     real_cache = Cache
 
@@ -3731,10 +3733,64 @@ def test_a_dir_that_failed_is_not_tried_again(
 
     monkeypatch.setattr("diskcache.Cache", spy)
 
-    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=read_only_dir)
+    second = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
 
-    assert len(attempts) == 1
-    assert str(read_only_dir) not in attempts[0]
+    assert first.cache_location is not None
+    assert second.cache_location == first.cache_location
+    assert attempts == [str(first.cache_location)], "the unusable directory is not opened a second time"
+
+
+@_needs_enforced_modes
+def test_a_blob_dir_that_exists_but_cannot_be_written_falls_back_too(
+    tmp_path: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    http_server: tuple[str, list],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The volume the issue is about is not empty: its directories exist, owned by root, and fsspec makes none.
+
+    Without the write check the filesystem builds, and the first download fails with a
+    `PermissionError` for the blob's temporary file.
+    """
+    base_url, _ = http_server
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+    blobs = NetworkFilesystemManager._cache_path(tmp_path, CacheExpiry.TWELVE_HOURS, None)  # noqa: SLF001
+    blobs.mkdir(parents=True)
+    locked = [blobs, blobs.parent, tmp_path]
+    for directory in locked[:-1]:
+        directory.chmod(0o555)
+    try:
+        file = download_file(url=f"{base_url}/token", cache_dir=tmp_path, ttl=CacheExpiry.TWELVE_HOURS)
+    finally:
+        for directory in locked:
+            directory.chmod(0o755)
+
+    assert file.status == 200
+    assert unusable_cache_dirs[tmp_path] != tmp_path
+    (warning,) = _cache_warnings(caplog)
+    assert str(tmp_path) in warning
+
+
+@pytest.mark.parametrize("error", [OSError("too many open files"), PermissionError("replaced by another process")])
+def test_an_oserror_of_fsspec_itself_is_not_taken_for_a_fault_of_the_directory(
+    tmp_path: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    error: OSError,
+) -> None:
+    """A directory that can be written to stays the cache when building the filesystem fails once."""
+    caplog.set_level(logging.WARNING, logger=network.log.name)
+
+    def broken(*_args: object, **_kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr(network, "_LockedWholeFileCacheFileSystem", broken)
+    with pytest.raises(type(error)):
+        NetworkFilesystemManager.get(cache_dir=tmp_path, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+
+    assert unusable_cache_dirs == {}
+    assert _cache_warnings(caplog) == []
 
 
 def test_a_writable_cache_dir_is_used_as_it_is_and_says_nothing(

@@ -882,11 +882,10 @@ wetterdienst values --provider=dwd --network=observation \
 ## Caching
 
 The backbone of wetterdienst uses fsspec caching. It requires to create a directory under ``/home`` for the
-most cases. If you are not allowed to write into ``/home`` you will run into ``OSError``. For this purpose you can set
-an environment variable ``WD_CACHE_DIR`` to define the place where the caching directory should be created.
-A cache directory that exists but cannot be written, such as a Docker volume that root filled, does not fail
-the requests: wetterdienst warns once and keeps the cache of that process in a temporary directory, removed when it
-exits. Make the directory writable, or set ``WD_CACHE_DIR``, to keep the cache across runs.
+most cases. For another place, set an environment variable ``WD_CACHE_DIR`` to define where the caching directory
+should be created. A cache directory that cannot be created or written to, such as a Docker volume that root filled,
+does not fail the requests: wetterdienst warns once and keeps the cache of that process in a temporary directory,
+removed when it exits. Make the directory writable, or set ``WD_CACHE_DIR``, to keep the cache across runs.
 
 To find out where your cache is located you can use the following code:
 

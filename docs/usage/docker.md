@@ -59,4 +59,5 @@ docker run --rm --user 0 --volume wetterdienst-cache:/c ghcr.io/earthobservation
 ```
 
 or, if the cache is not worth keeping, remove the volume (`docker volume rm wetterdienst-cache`)
-and let the next run create it anew, owned by the user.
+and let the next run create it anew. Mounted at `/home/wetterdienst/.cache/wetterdienst`, a new volume
+is owned by the user; mounted elsewhere it is owned by root, and needs the `chown` as well.
