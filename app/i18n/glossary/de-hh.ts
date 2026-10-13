@@ -678,7 +678,7 @@ export const datasets: Record<string, string> = {
   core: 'Grundparameter',
   others: 'Annere Parameter',
   rain: 'Regen',
-  radiation: 'Strahlung',
+  radiation: 'Strahlen',
   weather: 'Weer',
   temperature: 'Temperatur',
   soil_temperature: 'Bodentemperatur',

@@ -41,7 +41,7 @@ Types of changes:
 - `[Glossary]` `6_minutes` (Météo-France) and the datasets `core`, `others`, `rain`, `radiation`,
   `weather`, `temperature`, `soil_temperature`, `urban_solar`, `urban_temperature_extreme` and
   `urban_wind_extreme` have a label in all 11 languages, where the select showed their prettified
-  ids. The `dwd/phenology` datasets are still unlabelled (GH-2866) (GH-2865)
+  ids. The `dwd/phenology` datasets are still unlabelled, see GH-2866 (GH-2865)
 
 ### Security
 

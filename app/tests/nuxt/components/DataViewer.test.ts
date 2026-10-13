@@ -2551,20 +2551,21 @@ describe('dataViewer names what it shows in the active locale', () => {
     it.each(formats)('names the single chart\'s series by their labels, format $format', async ({ format, parts }) => {
       const { choose } = await mountIn(locale, false)
       await choose(format)
-      const drawn = (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
-      expect(drawn).toEqual([n.direction, n.speed].map(parameter => `01048 - ${parts(n, parameter).join(' / ')}`))
-      expect(idsIn(drawn.join('\n'))).toEqual([])
+      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      await vi.waitFor(() => expect(drawn()).toEqual([n.direction, n.speed].map(parameter => `01048 - ${parts(n, parameter).join(' / ')}`)))
+      expect(idsIn(drawn().join('\n'))).toEqual([])
     })
 
     it.each(formats)('names each facet by its labels, as heading, figure and axis, format $format', async ({ format, parts }) => {
       const { wrapper, choose } = await mountIn(locale, true)
       await choose(format)
-      await vi.waitFor(() => expect(plotly.react.mock.calls.length).toBeGreaterThanOrEqual(2))
       const label = (parameter: string) => parts(n, parameter).join(' / ')
+      // one line of the axis' title per part, a slash in a label being no line break; the last two draws
+      // are the two facets of the format chosen
+      const titles = () => plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)
+      await vi.waitFor(() => expect(titles()).toEqual([n.direction, n.speed].map(parameter => parts(n, parameter).join('<br>'))))
       expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual([label(n.direction), label(n.speed)])
       expect(wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual([n.direction, n.speed].map(parameter => chartOf[locale](label(parameter))))
-      // one line of the axis' title per part, a slash in a label being no line break
-      expect(plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)).toEqual([n.direction, n.speed].map(parameter => parts(n, parameter).join('<br>')))
       expect(idsIn(wrapper.text())).toEqual([])
     })
 
@@ -2576,6 +2577,42 @@ describe('dataViewer names what it shows in the active locale', () => {
       }
       const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
       expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
+    })
+  })
+  it('names the chart again where the language is changed while it is shown', async () => {
+    const { wrapper } = await mountIn('en', false)
+    const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+    await vi.waitFor(() => expect(drawn()).toEqual(['01048 - Mean wind direction (last 10 min)', '01048 - Mean wind speed (last 10 min)']))
+    await setLocale('de')
+    await vi.waitFor(() => expect(drawn()).toEqual([`01048 - ${names.de.direction}`, `01048 - ${names.de.speed}`]))
+    expect(wrapper.exists()).toBe(true)
+  })
+
+  // "Plain-language labels" off: the ids as the API names them, joined by "/", where they were drawn
+  // so before the labels
+  describe('with plain-language labels off', () => {
+    afterEach(() => {
+      useSettings().reset()
+    })
+
+    it.each([
+      { format: 'parameter', ids: ['wind_direction_last_10min', 'wind_speed_last_10min'], lines: (id: string) => [id] },
+      { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_last_10min', 'urban_wind/wind_speed_last_10min'], lines: (id: string) => ['urban_wind', id] },
+      { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_last_10min', '10_minutes/urban_wind/wind_speed_last_10min'], lines: (id: string) => ['10_minutes', 'urban_wind', id] },
+    ])('keeps the ids in the series, the facets and their axes, format $format', async ({ format, ids }) => {
+      useSettings().settings.value.friendlyLabels = false
+      const single = await mountIn('de', false)
+      await single.choose(format)
+      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      await vi.waitFor(() => expect(drawn()).toEqual(ids.map(id => `01048 - ${id}`)))
+      single.wrapper.unmount()
+
+      const faceted = await mountIn('de', true)
+      await faceted.choose(format)
+      const titles = () => plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)
+      await vi.waitFor(() => expect(titles()).toEqual(ids.map(id => id.split('/').join('<br>'))))
+      expect(faceted.wrapper.findAll('h4').map(heading => heading.text())).toEqual(ids)
+      expect(faceted.wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual(ids.map(id => chartOf.de(id)))
     })
   })
 })

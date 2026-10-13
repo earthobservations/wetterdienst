@@ -79,15 +79,17 @@ test.describe('the app can name what the backend serves', () => {
   // The resolutions and datasets of every network, by the networks that serve them. The coverage of
   // a network is metadata the backend holds, so asking for all of them downloads nothing. A network
   // without timeseries (radar, alerts) has none to answer with.
-  async function served(request: { get: (url: string, options?: object) => Promise<{ ok: () => boolean, json: () => Promise<unknown> }> }) {
+  async function served(request: { get: (url: string, options?: object) => Promise<{ ok: () => boolean, status: () => number, json: () => Promise<unknown> }> }) {
     const providers = await (await request.get(`${BACKEND_URL}/api/coverage`, SLOW)).json() as Record<string, Record<string, unknown>>
     const resolutions = new Map<string, string[]>()
     const datasets = new Map<string, string[]>()
     for (const [provider, networks] of Object.entries(providers)) {
       for (const network of Object.keys(networks)) {
         const response = await request.get(`${BACKEND_URL}/api/coverage?provider=${provider}&network=${network}`, SLOW)
-        if (!response.ok())
+        // radar and alerts are no timeseries networks and answer 404; any other failure is a failure
+        if (response.status() === 404)
           continue
+        expect(response.ok(), `the backend did not serve the coverage of ${provider}/${network}`).toBeTruthy()
         const coverage = await response.json() as Record<string, { datasets: Record<string, unknown> }>
         for (const [resolution, { datasets: named }] of Object.entries(coverage)) {
           resolutions.set(resolution, [...resolutions.get(resolution) ?? [], `${provider}/${network}`])

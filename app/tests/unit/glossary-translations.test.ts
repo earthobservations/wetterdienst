@@ -103,13 +103,14 @@ describe('the glossary reads the backend\'s names from where they are declared',
 describe.each(records)('%s', (record) => {
   const ids = required[record]()
 
-  it.each(locales)('are all labelled in %s', (locale) => {
+  it.each(record === 'datasets' ? others : locales)('are all labelled in %s', (locale) => {
     const labels = glossaries[locale]![record]
     expect(ids.filter(id => !(id in labels)), `${locale} has no ${record} label for these`).toEqual([])
     expect(ids.filter(id => !labels[id]?.trim()), `${locale} has an empty ${record} label for these`).toEqual([])
   })
 
-  it.each(locales)('are only those the backend serves in %s', (locale) => {
+  // English's datasets are the reference, so it can lose none to itself; the others are held to it
+  it.each(record === 'datasets' ? others : locales)('are only those the backend serves in %s', (locale) => {
     // a label for an id nothing serves anymore is dead weight in every catalog
     expect(Object.keys(glossaries[locale]![record]).filter(id => !ids.includes(id))).toEqual([])
   })
