@@ -595,7 +595,8 @@ def test_meteofrance_hourly_fxy_is_the_highest_ten_minute_mean_not_a_gust() -> N
     The hour's highest 10-minute mean is no gust: in the hourly files of department 31 (2020 to 2026) `FXY` is
     at least `FF` in 99.9993 % of the rows and its mean (3.69 m/s) lies between that of `FF` (2.91 m/s) and those
     of the 3-second gust `FXI3S` (5.61 m/s) and the instantaneous gust `FXI` (6.03 m/s). The hourly gusts `FXI` and
-    `FXI3S` stay unmapped, as does `DXY`, "direction de FXY" (GH-2836). The daily `FXI` is a gust and keeps its name.
+    `FXI3S` stay unmapped; `DXY`, "direction de FXY", keeps `wind_direction_gust_max`, which has no better name
+    yet (GH-2836). The daily `FXI` is a gust and keeps its name.
     """
     hourly = {p.name_original: p.name for p in MeteoFranceObservationMetadata["hourly"]["core"]}
     assert hourly["FXY"] == "wind_speed_rolling_mean_max"
