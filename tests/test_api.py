@@ -292,7 +292,7 @@ def test_interpolation_behaviour_derives_from_parameter_table() -> None:
     a list written out again by hand would drift from the table exactly as before.
     """
     from wetterdienst.model.request import TimeseriesRequest  # noqa: PLC0415
-    from wetterdienst.settings import (  # noqa: PLC0415
+    from wetterdienst.options import (  # noqa: PLC0415
         _STATION_DISTANCE_HETEROGENEOUS,
         _STATION_DISTANCE_HOMOGENEOUS,
         _build_geo_station_distance,
