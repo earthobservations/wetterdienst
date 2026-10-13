@@ -924,12 +924,13 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
 def _check_cache_dir_writable(cache_path: Path) -> None:
     """Make `cache_path` and write a file into it, which is removed again.
 
+    fsspec makes the directory when it builds a caching filesystem and would only meet an unusable
+    one at the first download, as a failed request; this meets it where it can be answered. Kept
+    apart from the building, so that a fault of fsspec's own (loading the metadata file) is not
+    taken for one of the directory.
+
     Raises:
-        OSError: If `cache_path` cannot be created or written to. fsspec makes the directory when it
-            builds a caching filesystem and would only meet the fault at the first download, as a
-            failed request; this meets it where it can be answered. Kept apart from the building,
-            so that a fault of fsspec's own (loading the metadata file) is not taken for one of the
-            directory.
+        OSError: If `cache_path` cannot be created or written to.
 
     """
     cache_path.mkdir(parents=True, exist_ok=True)

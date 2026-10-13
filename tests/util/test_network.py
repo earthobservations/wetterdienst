@@ -3741,6 +3741,29 @@ def test_a_dir_that_failed_is_not_tried_again(
 
 
 @_needs_enforced_modes
+def test_a_blob_dir_that_failed_is_not_checked_again_by_the_next_filesystem(
+    read_only_dir: Path,
+    unusable_cache_dirs: dict[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A second filesystem for the same directory, under another TTL, goes straight to the stand-in."""
+    NetworkFilesystemManager.get(cache_dir=read_only_dir, cache_expiry=CacheExpiry.METAINDEX, cache_disable=False)
+    checked: list[Path] = []
+    real_check = network._check_cache_dir_writable  # noqa: SLF001
+
+    def spy(cache_path: Path) -> None:
+        checked.append(cache_path)
+        real_check(cache_path)
+
+    monkeypatch.setattr(network, "_check_cache_dir_writable", spy)
+
+    NetworkFilesystemManager.get(cache_dir=read_only_dir, cache_expiry=CacheExpiry.FILEINDEX, cache_disable=False)
+
+    assert len(checked) == 1
+    assert checked[0].is_relative_to(unusable_cache_dirs[read_only_dir])
+
+
+@_needs_enforced_modes
 def test_a_blob_dir_that_exists_but_cannot_be_written_falls_back_too(
     tmp_path: Path,
     unusable_cache_dirs: dict[Path, Path],
