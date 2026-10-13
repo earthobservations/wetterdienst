@@ -30,6 +30,10 @@ Types of changes:
   targets the value is still in centimeters but a tenth of what it was (91.0 for 910 mm);
   `unit_targets` for `length_short` picks another unit. Values you stored from before are ten
   times too large in whatever unit they carry; divide them by 10 (GH-2848)
+- `meteofrance/synop` `wind_direction_last_10min` (`dd`) is null where the file writes 0, with
+  `raw:0` in `quality_flags`, no longer 0 degrees (north). 0 is the WMO code of a calm wind (all
+  3495 zeros of the 2024 file have `ff` 0) and north is 360. `wind_speed_last_10min` is unchanged
+  (GH-2856)
 
 ## [0.149.0] - 2026-10-13
 
