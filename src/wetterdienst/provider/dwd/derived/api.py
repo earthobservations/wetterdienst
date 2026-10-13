@@ -39,6 +39,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# Where two periods report the same timestamp, the historical record wins, as it does for dwd/observation (see
+# `Period`'s docstring). The periods are read oldest first, so their read order is that precedence; it rides through
+# the concatenation as a column under this name and is dropped again straight after.
+_PERIOD_RANK = "period_rank"
+
 
 class CoolingDegreeHoursReferenceTemperature(Enum):
     """Enumeration for reference temperatures for cooling degree hours on dwd server."""
@@ -586,7 +591,10 @@ class DwdDerivedValues(TimeseriesValues):
         stations = cast("DwdDerivedRequest", self.sr.stations)
         parameter_data = []
         station_periods = cast("set[Period]", stations.periods) or set()
-        for period in station_periods:
+        # oldest period first, so that the rank taken from this order below is the precedence the overlaps are
+        # settled on. Iterating the set directly left the order to the set's own, which varies from one
+        # interpreter run to the next
+        for rank, period in enumerate(sorted(station_periods)):
             remote_files = create_file_list_for_climate_derived(
                 station_id, dataset, period, cast("Settings", stations.settings)
             )
@@ -597,14 +605,17 @@ class DwdDerivedValues(TimeseriesValues):
                 continue
             filenames_and_files = download_climate_derived_data(remote_files, cast("Settings", stations.settings))
             period_df = parse_climate_derived_data(filenames_and_files, dataset)
-            parameter_data.append(period_df)
+            parameter_data.append(period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)))
 
         try:
             parameter_df = pl.concat(parameter_data, how="align")
         except ValueError:
             return pl.DataFrame()
 
-        parameter_df = parameter_df.unique(subset=["timestamp"])
+        # `how="align"` orders the rows by the columns it aligns them on, so the rank has to be carried as a column
+        # and sorted on for `keep="first"` to take the historical record rather than whichever sorts first
+        parameter_df = parameter_df.sort(_PERIOD_RANK, maintain_order=True).unique(subset=["timestamp"], keep="first")
+        parameter_df = parameter_df.drop(_PERIOD_RANK)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
         # the parse and full join of the hourly radiation of one station 6 times as long (GH-2781)
         result = parameter_df.collect(engine="in-memory", background=False)

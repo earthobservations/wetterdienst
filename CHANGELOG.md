@@ -94,6 +94,9 @@ Types of changes:
   summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
   those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
   UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
+- `dwd/derived` settles a timestamp that two periods report (historical and recent) on the
+  historical record, in every run. It kept whichever row it had read first, in the order of an
+  unordered set, so the value (or a missing reading) could differ from one run to the next (GH-2792)
 - `imgw/meteorology` `daily/climate` (from May 2024) and `daily/synop` (from July 2024) no longer
   raise `AttributeError`: IMGW stopped writing `k_d_t` and `s_d_t` into the zips then. The
   parameters of `k_d`/`s_d` are returned; those only the missing file carries (`cloud_cover_total`,
