@@ -621,7 +621,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("10_minutes", "urban_wind", "dd_st_10"): (
             "Mean wind direction over 10 minutes, at the sensor height of the station (368 m at "
-            'Berlin-Alexanderplatz) (DWD: "10Minuten Mittel").'
+            'Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). '
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
         ),
         (
             "10_minutes",

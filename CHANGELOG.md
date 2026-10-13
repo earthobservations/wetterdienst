@@ -48,6 +48,9 @@ Types of changes:
   three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
   `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
   otherwise (GH-2823)
+- `dwd/observation` `10_minutes/urban_wind` `wind_direction`: a 0 beside a wind speed of 0 (a
+  calm wind) is null, with `raw:0` in `quality_flags`, no longer 0 degrees (north), as for
+  `10_minutes/wind`. The hourly `urban_wind` direction is unchanged (GH-2809)
 - A cache directory that cannot be written no longer fails every request. A Docker volume that an
   image before 0.148.0 filled as root made them fail with `sqlite3.OperationalError: attempt to
   write a readonly database`. The process now logs one warning naming the directory and the reason

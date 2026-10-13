@@ -148,6 +148,12 @@ WIND_DIRECTION_PARAMETERS = (
 #   15:30 to 16:30 at 4 to 6 m/s, and from 1 m/s on 492 rows read 0 against 94,042 of 360. DWD documents no limit
 #   between a calm and a wind (1,457 of the 29,704 10 minutes from 0.05 to 0.25 m/s read 0), so only a 0 beside a
 #   speed of exactly 0 is null, with the gust for extreme_wind. A 0 beside a missing speed stays.
+# - 10 minute urban_wind DD_ST_10 (GH-2809) is the same picture as 10 minute wind, with FF_ST_10 beside it. All six
+#   stations (read 2026-10-13): 20 zeros in the recent files and 51 in the historical ones (they overlap in 2025),
+#   every one beside a speed of 0.00, and every 10 minutes with a speed of 0.00 has the 0 (15818 on 2025-04-28: 220 at
+#   0.10 m/s at 18:20, 0 at 0.00 at 18:30, 200 at 0.20 at 18:40). The sheet of the dataset answers 404, so it follows
+#   the rule of 10 minute wind. The hourly urban_wind WINDRICHTUNG is not covered: its zeros never come beside a speed
+#   of 0.
 CALM_WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
     (
@@ -165,6 +171,11 @@ CALM_WIND_DIRECTION_PARAMETERS = (
         DwdObservationMetadata.minute_10.wind_extreme,
         DwdObservationMetadata.minute_10.wind_extreme.wind_direction_gust_max.name_original,
         DwdObservationMetadata.minute_10.wind_extreme.wind_gust_max.name_original,
+    ),
+    (
+        DwdObservationMetadata.minute_10.urban_wind,
+        DwdObservationMetadata.minute_10.urban_wind.wind_direction.name_original,
+        DwdObservationMetadata.minute_10.urban_wind.wind_speed.name_original,
     ),
 )
 
