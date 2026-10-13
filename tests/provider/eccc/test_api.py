@@ -724,3 +724,25 @@ def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     assert df.schema["quality_flags"] == pl.String
     assert df.get_column("quality_flags").to_list() == [None]
     assert df.get_column("value").to_list() == [-5.4]
+
+
+def test_eccc_collects_the_years_of_a_station_with_the_in_memory_engine(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    collect_engines: dict[str, list[str | None]],
+) -> None:
+    """Test that the collect of the years of a station, an unpivot and a join, asks for the in-memory engine.
+
+    polars 2 runs it on the streaming engine unless told otherwise, which took 0.81 s against 0.21 s for 60 years of
+    daily rows of one station, with the same rows (GH-2781); 26 years of hourly rows took the same on both. The
+    collect of a page comes before it and is cheap on either engine, so the one asserted on is the last.
+    """
+    _serve_eccc(monkeypatch, _daily_rows())
+    request = EcccObservationRequest(
+        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        start="2025-01-15",
+        end="2025-01-15",
+        options=options_convert_units_false,
+    )
+    assert not request.filter_by_station_id("51459").values.all().df.is_empty()
+    assert collect_engines["provider/eccc/observation/api.py"][-1] == "in-memory"

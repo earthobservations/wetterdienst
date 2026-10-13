@@ -54,6 +54,10 @@ Types of changes:
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
   writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
   came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+- `dwd/derived` and `eccc/observation` values collect with the in-memory engine, as on polars 1,
+  not with the streaming engine polars 2 uses by default: it took 6 times as long for the hourly
+  radiation of one station and 4 times for 60 years of daily rows of one ECCC station, for the
+  same rows (GH-2781)
 - A wind direction of 0 that is no bearing (a calm wind) is null, with the source's text (`raw:0`)
   in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
   `noaa/ghcn` hourly `wind_direction` (the documentation's "000"), `geosphere/observation`
