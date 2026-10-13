@@ -648,17 +648,40 @@ def _years_requested(
 def test_eccc_a_collection_without_dates_is_not_asked_for_years_that_the_request_leaves_open(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that an hourly or daily collection without a first date has no rows to ask for (GH-2820).
+    """Test that an hourly or daily collection without a first date is not asked for its years (GH-2820).
 
-    In the live list the hourly and daily dates are null for a station without rows in the collection (none of 80
-    hourly stations drawn and none of the 95 daily ones had a row), where a request without dates asked for every year
-    of the station, one request each. The monthly dates are null for 763 stations that have monthly values (36 of 40
-    drawn did), so they are no sign of rows and monthly is always asked for.
+    In the live list the first date is null for a station that has no non-null values in the years of its FIRST_DATE to
+    LAST_DATE: 0 of 300 hourly and of the 95 daily stations drawn had any, where a request without dates asked for
+    every year of the station, one request each. Two of 1961 hourly ones probed had rows: 4333 with every value null
+    (flag M), 27490 with values after its LAST_DATE, which a request with dates reaches. The monthly dates are null for
+    763 stations that have monthly values (36 of 40 drawn did), so monthly is always asked for.
     """
     station = _WHITE_ROCK_STATION | {"HLY_FIRST_DATE": None, "DLY_FIRST_DATE": None, "MLY_FIRST_DATE": None}
     years, df = _years_requested(monkeypatch, options_convert_units_false, station)
     assert years == {"climate-monthly": list(range(1929, 2027))}
     assert df.is_empty()
+
+
+@pytest.mark.parametrize(
+    ("null_column", "skipped", "asked"),
+    [
+        ("HLY_FIRST_DATE", "climate-hourly", "climate-daily"),
+        ("DLY_FIRST_DATE", "climate-daily", "climate-hourly"),
+    ],
+)
+def test_eccc_only_the_collection_without_a_first_date_is_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    null_column: str,
+    skipped: str,
+    asked: str,
+) -> None:
+    """Test that the hourly and the daily collection each follow their own first date (GH-2820)."""
+    station = _WHITE_ROCK_STATION | {null_column: None}
+    years, _ = _years_requested(monkeypatch, options_convert_units_false, station)
+    assert skipped not in years
+    assert years[asked] == list(range(1929, 2027))
+    assert years["climate-monthly"] == list(range(1929, 2027))
 
 
 def test_eccc_years_of_a_collection_with_dates_are_those_of_the_station(

@@ -61,13 +61,15 @@ _STANDARD_TIME_OFFSETS = {
     "NST": dt.timedelta(hours=-3, minutes=-30),
 }
 
-#: The column of the station list that gives the first date of the hourly and daily collection, null for a station that
-#: has no rows in it: none of 80 stations drawn from the 6750 with null HLY_FIRST_DATE (600 in a second draw) and none
-#: of the 95 with null DLY_FIRST_DATE had one (read 2026-10-13). Its value is not the first year to ask for, nor is
-#: the last date the last: the dates follow the temperature and not every series. 6813 has HLY_FIRST_DATE 1995-02-16
-#: and 7088 hours of wind from 1994, 27174 has 2013-12-10 and hourly precipitation from 2007, and 5006 has
-#: DLY_LAST_DATE 1957-10-31 and daily minimum temperatures in 1961 (GH-2820). The monthly dates are no sign of rows at
-#: all: they are null for 763 stations that have monthly values.
+#: The column of the station list that gives the first date of the hourly and daily collection. Null means no
+#: non-null values in the years of the station's FIRST_DATE to LAST_DATE, which are the years asked for: none of 300 of
+#: the 6750 stations with a null HLY_FIRST_DATE had any in a draw, and none of the 95 with a null DLY_FIRST_DATE; of
+#: 1961 probed hourly ones 2 had rows (read 2026-10-13): 4333 has 6865 rows of 1995-1997 with every value null and
+#: flag M, 27490 has precipitation in 2008, after its LAST_DATE 2007-11-30, which a request with dates reaches.
+#: Its value is not the first year to ask for, nor is the last date the last: the dates follow the temperature and
+#: not every series. 6813 has HLY_FIRST_DATE 1995-02-16 and 7088 hours of wind from 1994, 27174 has 2013-12-10 and
+#: hourly precipitation from 2007, and 5006 has DLY_LAST_DATE 1957-10-31 and daily minimum temperatures in 1961. The
+#: monthly dates are no sign of values at all: they are null for 763 stations that have monthly values.
 _COLLECTION_FIRST_DATE_COLUMNS = {
     Resolution.HOURLY: "HLY_FIRST_DATE",
     Resolution.DAILY: "DLY_FIRST_DATE",
@@ -158,12 +160,13 @@ class EcccObservationValues(TimeseriesValues):
         return f"datetime={year}-01-01T00:00:00/{year}-12-31T23:59:59"
 
     def _has_rows(self, station_id: str, dataset: DatasetModel) -> bool:
-        """Say whether to ask for the years of a request that names no dates: if the collection can hold rows.
+        """Say whether to ask for the years of a request that names no dates: if the station list expects values.
 
-        The station list tells: a station without hourly or daily dates has none, and a request for all its years
-        came back empty one year at a time. That is 6750 of the 8435 stations for hourly (GH-2820). A request that
-        names dates asks for them, a monthly dataset has no such sign (see ``_COLLECTION_FIRST_DATE_COLUMNS``), and a
-        result of stations that was built without the station list has the benefit of the doubt.
+        A station without a hourly or daily first date has no non-null values in the years of its FIRST_DATE to
+        LAST_DATE (see ``_COLLECTION_FIRST_DATE_COLUMNS`` for what was probed and the two counterexamples), and a
+        request for all those years came back empty one year at a time: 6750 of the 8435 stations for hourly
+        (GH-2820). A request that names dates asks for them, a monthly dataset has no such sign, and a result of
+        stations that was built without the station list has the benefit of the doubt.
         """
         has_rows = cast("EcccObservationRequest", self.sr.stations)._collection_has_rows  # noqa: SLF001
         if (self.sr.start and self.sr.end) or has_rows is None:

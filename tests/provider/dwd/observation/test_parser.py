@@ -472,6 +472,22 @@ _CALM_WIND_FILES = {
         "dx_10",
         [("360", None), ("0", None), (None, "0")],
     ),
+    # the urban 10 minute file (15818 on 2025-04-28, 19844 on 2025-04-12), written with two decimals: the same rule as
+    # 10 minute wind, with the sheet missing (GH-2809). No file has a 0 beside a speed above 0 or a missing one, so
+    # those two lines are made up to pin the gate
+    "10_minutes/urban_wind": (
+        DwdObservationMetadata.minute_10.urban_wind,
+        "STATIONS_ID;MESS_DATUM;  QN;FF_ST_10;DD_ST_10;eor",
+        [
+            "      15818;202504281820;    3;   0.10; 220;eor",
+            "      15818;202504281830;    3;   0.00;   0;eor",
+            "      19844;202504121320;    3;   0.70; 360;eor",
+            "      19844;202504121330;    3;   0.40;   0;eor",
+            "      19844;202504121340;    3;  -999;   0;eor",
+        ],
+        "dd_st_10",
+        [("220", None), (None, "0"), ("360", None), ("0", None), ("0", None)],
+    ),
 }
 
 

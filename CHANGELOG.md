@@ -18,6 +18,38 @@ Types of changes:
 
 ### Fixed
 
+- `eccc/observation` makes no requests for hourly or daily values of a station that the station
+  list gives no `HLY_`/`DLY_` first date (6750 of 8435 stations for hourly) when a request names
+  no `start` and `end`. It asked for every year of the station and got empty answers, one request
+  per year. Such a station has no values in the years asked for; a null-valued row (flag `M`) of
+  one is no longer returned with `drop_nulls` off. Requests with dates are unchanged (GH-2820)
+
+## [0.149.0] - 2026-10-13
+
+### Changed
+
+- **Breaking**: `meteofrance/synop` `subdaily/data` `dd` and `ff`, Météo-France's direction and
+  speed of the wind averaged over 10 minutes, are named `wind_direction_last_10min` and
+  `wind_speed_last_10min`, no longer `wind_direction` and `wind_speed`. Request the new names; the
+  old ones are not found in `subdaily/data` (logged and dropped, or `NoParametersFoundError` when
+  no other parameter is requested). `ff` is the 10-minute mean cut to whole m/s (2.4 m/s in the
+  hourly `meteofrance/observation` `FF` is 2 in `ff`), so it reads up to 0.9 m/s below it
+  (GH-2733)
+- **Breaking**: `knmi/observation` hourly `DD`, KNMI's mean wind direction over the last 10 minutes
+  of the hour ("Past 10 minute mean wind direction"), is named `wind_direction_last_10min`, no
+  longer `wind_direction`, which is the mean over the row's interval. Request the new name; the old
+  one is not found in `hourly/data` (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested; GH-2644). The 10-minute `wind_direction` is unchanged (GH-2835)
+- **Breaking**: `meteofrance/observation` hourly `FXY`, the hour's highest 10-minute mean wind
+  ("valeur maximale de FF dans l'heure"), is named `wind_speed_rolling_mean_max`, no longer
+  `wind_gust_max`: it is no gust (department 31 since 2020: mean 3.7 m/s, between `FF` 2.9 and
+  the gust `FXI` 6.0). Request the new name; `wind_gust_max` is not found in `hourly/core`
+  (logged and dropped, or `NoParametersFoundError` when no other parameter is requested; its
+  "Did you mean" names `wind_direction_gust_max`, wrongly). The hourly gusts `FXI` and `FXI3S`
+  stay unmapped; the daily `wind_gust_max` (`FXI`) is unchanged (GH-2834)
+
+### Fixed
+
 - `dwd/phenology`: `Jultag` is documented as what it is. It is the value DWD writes, not the day
   of the year as the docs said: in leap years since about 1952 it counts 365 days (1 March is 60)
   and a date before the reference year is a negative number of days. The timestamp plus `Jultag`
@@ -26,10 +58,18 @@ Types of changes:
   three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
   `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
   otherwise (GH-2823)
-- `eccc/observation` makes no requests for hourly or daily values of a station without rows in
-  that collection (the station list gives it no `HLY_`/`DLY_` first date: 6750 of 8435 stations
-  for hourly) when a request names no `start` and `end`. It asked for every year of the station
-  and got empty answers, one request per year. The values are unchanged (GH-2820)
+- `dwd/observation` `10_minutes/urban_wind` `wind_direction`: a 0 beside a wind speed of 0 (a
+  calm wind) is null, with `raw:0` in `quality_flags`, no longer 0 degrees (north), as for
+  `10_minutes/wind`. The hourly `urban_wind` direction is unchanged (GH-2809)
+- A cache directory that cannot be written no longer fails every request. A Docker volume that an
+  image before 0.148.0 filled as root made them fail with `sqlite3.OperationalError: attempt to
+  write a readonly database`. The process now logs one warning naming the directory and the reason
+  and keeps its cache in a temporary directory, removed at exit. Chown the volume to
+  `10001:10001` once to keep the cache across runs, see the Docker page (GH-2860)
+- `nws/observation` keeps the fractions of wind gust, air and sea-level pressure, visibility,
+  the 24-hour temperature extremes and precipitation (1, 3 and 6 hours). They were truncated to
+  whole numbers on the read, so 0.8 mm of rain was returned as 0 and 28.4 mm as 28; the values
+  now come back as the endpoint gives them (GH-2849)
 
 ## [0.148.0] - 2026-10-13
 
@@ -4725,7 +4765,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.149.0...HEAD
+[0.149.0]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...v0.149.0
 [0.148.0]: https://github.com/earthobservations/wetterdienst/compare/v0.147.0...v0.148.0
 [0.147.0]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...v0.147.0
 [0.146.0]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...v0.146.0
