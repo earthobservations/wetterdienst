@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
@@ -59,6 +59,20 @@ _STANDARD_TIME_OFFSETS = {
     "MST": dt.timedelta(hours=-7),
     "PST": dt.timedelta(hours=-8),
     "NST": dt.timedelta(hours=-3, minutes=-30),
+}
+
+#: The column of the station list that gives the first date of the hourly and daily collection. Null means no
+#: non-null values in the years of the station's FIRST_DATE to LAST_DATE, which are the years asked for: none of 300 of
+#: the 6750 stations with a null HLY_FIRST_DATE had any in a draw, and none of the 95 with a null DLY_FIRST_DATE; of
+#: 1961 probed hourly ones 2 had rows (read 2026-10-13): 4333 has 6865 rows of 1995-1997 with every value null and
+#: flag M, 27490 has precipitation in 2008, after its LAST_DATE 2007-11-30, which a request with dates reaches.
+#: Its value is not the first year to ask for, nor is the last date the last: the dates follow the temperature and
+#: not every series. 6813 has HLY_FIRST_DATE 1995-02-16 and 7088 hours of wind from 1994, 27174 has 2013-12-10 and
+#: hourly precipitation from 2007, and 5006 has DLY_LAST_DATE 1957-10-31 and daily minimum temperatures in 1961. The
+#: monthly dates are no sign of values at all: they are null for 763 stations that have monthly values.
+_COLLECTION_FIRST_DATE_COLUMNS = {
+    Resolution.HOURLY: "HLY_FIRST_DATE",
+    Resolution.DAILY: "DLY_FIRST_DATE",
 }
 
 
@@ -145,6 +159,28 @@ class EcccObservationValues(TimeseriesValues):
         # whatever the station's zone (GH-2683), so the year is cut from LOCAL_DATE as it is written.
         return f"datetime={year}-01-01T00:00:00/{year}-12-31T23:59:59"
 
+    def _has_rows(self, station_id: str, dataset: DatasetModel) -> bool:
+        """Say whether to ask for the years of a request that names no dates: if the station list expects values.
+
+        A station without a hourly or daily first date has no non-null values in the years of its FIRST_DATE to
+        LAST_DATE (see ``_COLLECTION_FIRST_DATE_COLUMNS`` for what was probed and the two counterexamples), and a
+        request for all those years came back empty one year at a time: 6750 of the 8435 stations for hourly
+        (GH-2820). A request that names dates asks for them, a monthly dataset has no such sign, and a result of
+        stations that was built without the station list has the benefit of the doubt.
+        """
+        has_rows = cast("EcccObservationRequest", self.sr.stations)._collection_has_rows  # noqa: SLF001
+        if (self.sr.start and self.sr.end) or has_rows is None:
+            return True
+        return bool(
+            has_rows.filter(
+                (pl.col("station_id") == station_id)
+                & (pl.col("resolution") == dataset.resolution.name)
+                & (pl.col("dataset") == dataset.name)
+            )
+            .get_column("has_rows")
+            .all()
+        )
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -193,7 +229,9 @@ class EcccObservationValues(TimeseriesValues):
         data = []
         start_year = self.sr.start.year if self.sr.start else station_meta["start_timestamp"].year
         end_year = self.sr.end.year if self.sr.end else station_meta["end_timestamp"].year
-        for year in range(start_year, end_year + 1):
+        # no year to ask for, if the request names no dates and the collection has no rows of the station
+        years = range(start_year, end_year + 1) if self._has_rows(station_id, dataset) else range(0)
+        for year in years:
             window = self._year_window(year, hourly=hourly)
             # The endpoint pages at 500 features and a station-year of hourly data is ~8800, so a
             # single request returns an arbitrary slice of the year and silently drops the rest.
@@ -283,7 +321,7 @@ class EcccObservationValues(TimeseriesValues):
             data.append(df)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
         # the unpivot and join of 60 years of daily rows 4 times as long, for the same rows (GH-2781)
-        return pl.concat(data).collect(engine="in-memory")
+        return pl.concat(data).collect(engine="in-memory") if data else pl.DataFrame()
 
 
 @dataclass
@@ -302,6 +340,10 @@ class EcccObservationRequest(TimeseriesRequest):
 
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
+
+    # Whether the station list gives dates for the collection of each station and dataset, which `_all` leaves for the
+    # values to read (GH-2820). They are no column of the stations.
+    _collection_has_rows: pl.DataFrame | None = field(default=None, init=False, repr=False, compare=False)
 
     def _all(self) -> pl.LazyFrame:
 
@@ -339,6 +381,7 @@ class EcccObservationRequest(TimeseriesRequest):
                                         "ELEVATION": pl.String,
                                         "FIRST_DATE": pl.String,
                                         "LAST_DATE": pl.String,
+                                        **dict.fromkeys(_COLLECTION_FIRST_DATE_COLUMNS.values(), pl.String),
                                     }
                                 ),
                             }
@@ -359,6 +402,10 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("start_timestamp"),
             pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("end_timestamp"),
             pl.col("features").struct.field("properties").struct.field("TIMEZONE").alias("timezone"),
+            *(
+                pl.col("features").struct.field("properties").struct.field(column).alias(column.lower())
+                for column in _COLLECTION_FIRST_DATE_COLUMNS.values()
+            ),
         )
         # parse start_timestamp and end_timestamp as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
@@ -379,16 +426,24 @@ class EcccObservationRequest(TimeseriesRequest):
             for parameter in self.parameters
             if isinstance(parameter, ParameterModel)
         }
+        collection_columns = [column.lower() for column in _COLLECTION_FIRST_DATE_COLUMNS.values()]
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns
         for resolution, dataset in resolutions_and_datasets:
+            first = _COLLECTION_FIRST_DATE_COLUMNS.get(Resolution(resolution))
+            has_rows = pl.col(first.lower()).is_not_null() if first else pl.lit(True)  # noqa: FBT003
             data.append(
-                self._stamp_bounds(df_raw, resolution=Resolution(resolution)).with_columns(
+                self._stamp_bounds(
+                    df_raw.with_columns(has_rows.alias("has_rows")).select(pl.all().exclude(collection_columns)),
+                    resolution=Resolution(resolution),
+                ).with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
-        return pl.concat(data)
+        df = pl.concat(data).collect()
+        self._collection_has_rows = df.select("station_id", "resolution", "dataset", "has_rows")
+        return df.drop("has_rows").lazy()
 
     @staticmethod
     def _stamp_bounds(df: pl.LazyFrame, *, resolution: Resolution) -> pl.LazyFrame:

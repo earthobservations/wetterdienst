@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `eccc/observation` makes no requests for hourly or daily values of a station that the station
+  list gives no `HLY_`/`DLY_` first date (6750 of 8435 stations for hourly) when a request names
+  no `start` and `end`. It asked for every year of the station and got empty answers, one request
+  per year. Such a station has no values in the years asked for; a null-valued row (flag `M`) of
+  one is no longer returned with `drop_nulls` off. Requests with dates are unchanged (GH-2820)
+
 ## [0.149.0] - 2026-10-13
 
 ### Changed
