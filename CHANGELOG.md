@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.149.0] - 2026-10-13
+
 ### Changed
 
 - **Breaking**: `meteofrance/synop` `subdaily/data` `dd` and `ff`, Météo-France's direction and
@@ -4755,7 +4757,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.149.0...HEAD
+[0.149.0]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...v0.149.0
 [0.148.0]: https://github.com/earthobservations/wetterdienst/compare/v0.147.0...v0.148.0
 [0.147.0]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...v0.147.0
 [0.146.0]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...v0.146.0
