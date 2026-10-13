@@ -66,16 +66,22 @@ def test_parse_values() -> None:
 
 # Real rows of DWD's files (2026-10-13), keyed by what they show, as (Stations_id, Referenzjahr, Qualitaetsniveau,
 # Objekt_id, Phase_id, Eintrittsdatum, Eintrittsdatum_QB, Jultag). Jultag is DWD's "day of the year", which these rows
-# are not (GH-2822). The winter wheat rows come from the annual reporters' historical file, the hazel rows from the
-# immediate reporters' one: Winterweizen_1925_2024_hist.txt and Hasel_1979_2024_hist.txt
+# are not (GH-2822). They come from the historical files of winter wheat (Winterweizen_1925_2024) and winter rape
+# (Winterraps_1934_2024) of the annual reporters and of hazel (Hasel_1979_2024) of the immediate reporters
 _JULTAG_ROWS = {
-    "winter wheat, 2020, 12 August": (7521, 2020, 10, 202, 24, 20200812, 1, 224),
+    "winter wheat, 12 August of a leap year": (7521, 2020, 10, 202, 24, 20200812, 1, 224),
     "winter wheat, 1963, the 10 October of 1962": (7653, 1963, 10, 202, 10, 19621010, 2, 283),
-    "hazel, 2020, 29 February": (9131, 2020, 7, 113, 41, 20200229, 1, 59),
-    "hazel, 2020, 1 March": (8652, 2020, 7, 113, 41, 20200301, 1, 60),
-    "hazel, 2024, 29 December of 2023": (7650, 2024, 1, 113, 5, 20231229, 1, -3),
-    "hazel, 2012, 31 December of 2011": (7662, 2012, 7, 113, 5, 20111231, 1, -1),
+    "winter rape, 24 October of the year before": (7504, 2000, 10, 205, 67, 19991024, 5, -69),
+    "hazel, 29 February": (9131, 2020, 7, 113, 41, 20200229, 1, 59),
+    "hazel, 1 March of a leap year": (8652, 2020, 7, 113, 41, 20200301, 1, 60),
+    "hazel, 29 December of the year before 2024": (7650, 2024, 1, 113, 5, 20231229, 1, -3),
+    "hazel, 31 December of the year before 2012": (7662, 2012, 7, 113, 5, 20111231, 1, -1),
 }
+# the rows whose Jultag is the day of the year of their Eintrittsdatum: only the earlier-year day of an annual
+# reporter, which reads as a day of the reference year
+_JULTAG_IS_DAY_OF_YEAR = {"winter wheat, 1963, the 10 October of 1962"}
+# the rows the reading in phenology/index.md does not give the Eintrittsdatum of
+_JULTAG_NOT_RECOVERED = {"hazel, 29 February", "winter wheat, 1963, the 10 October of 1962"}
 
 
 def _jultag_file(*rows: tuple[int, ...]) -> bytes:
@@ -87,22 +93,25 @@ def _jultag_file(*rows: tuple[int, ...]) -> bytes:
     return header + b"".join(";".join(f"{cell:>12}" for cell in row).encode() + b";eor;\n" for row in rows)
 
 
-def _date_from_jultag(year: int, jultag: int) -> dt.date:
-    """Read ``Jultag`` the way ``phenology/index.md`` describes it, for a date from March on or a negative one."""
-    january_1st = dt.date(year, 1, 1)
+def _entry_date(row: tuple[int, ...]) -> dt.date:
+    return dt.datetime.strptime(str(row[5]), "%Y%m%d").replace(tzinfo=UTC).date()
+
+
+def _date_from_jultag(stamp: dt.datetime, jultag: float) -> dt.date:
+    """Read ``Jultag`` the way ``phenology/index.md`` describes it, from the stamp the reader gives."""
+    january_1st = stamp.date()
     if jultag < 0:
         return january_1st + dt.timedelta(days=jultag)
     # a leap year counts 365 days: 29 February shares 59 with 28 February and 1 March is 60
-    return january_1st + dt.timedelta(days=jultag if calendar.isleap(year) and jultag >= 60 else jultag - 1)
+    return january_1st + dt.timedelta(days=jultag if calendar.isleap(stamp.year) and jultag >= 60 else jultag - 1)
 
 
 @pytest.mark.parametrize("label", list(_JULTAG_ROWS))
 def test_parse_values_keeps_jultag_as_written(label: str) -> None:
     """``Jultag`` is the value as DWD writes it, however far it is from the day of the year.
 
-    The leap-year row, the day before the reference year of an annual reporter (positive) and of an immediate
-    reporter (negative) are not corrected towards the day of the year, and are stamped at 1 January of the
-    ``Referenzjahr``.
+    A leap-year row, a negative one (a date before the reference year) and the positive day of the earlier year
+    are not corrected towards the day of the year, and are stamped at 1 January of the ``Referenzjahr``.
     """
     station, year, _, object_id, phase, _, _, jultag = _JULTAG_ROWS[label]
     df = _parse_values(_jultag_file(_JULTAG_ROWS[label]), object_id=object_id)
@@ -116,29 +125,22 @@ def test_parse_values_keeps_jultag_as_written(label: str) -> None:
     ]
 
 
-def _entry_date(row: tuple[int, ...]) -> dt.date:
-    return dt.datetime.strptime(str(row[5]), "%Y%m%d").replace(tzinfo=UTC).date()
+def test_jultag_as_parsed_is_not_the_day_of_the_year() -> None:
+    """What the reader returns is not the day of the year of ``Eintrittsdatum``, as ``phenology/index.md`` says.
 
-
-def test_jultag_is_not_the_day_of_the_year() -> None:
-    """Jultag differs from the day of the year of ``Eintrittsdatum`` in a leap year and before the reference year.
-
-    The exception is the annual reporters' date in the year before, which is the day of the year of the earlier year
-    and so reads as one of the reference year.
+    The exception is the annual reporters' earlier-year day, which is the day of the year of the earlier year. The
+    reading in the docs recovers the date from the stamp and the value, except for 29 February and for that row.
     """
-    different = {label for label, row in _JULTAG_ROWS.items() if row[7] != _entry_date(row).timetuple().tm_yday}
-    assert set(_JULTAG_ROWS) - different == {"winter wheat, 1963, the 10 October of 1962"}
-
-
-def test_jultag_rule_of_the_docs() -> None:
-    """The reading in ``phenology/index.md`` recovers the date, except where it says it cannot."""
-    recovered = {label for label, row in _JULTAG_ROWS.items() if _date_from_jultag(row[1], row[7]) == _entry_date(row)}
-    assert set(_JULTAG_ROWS) - recovered == {
-        # 28 and 29 February share a Jultag
-        "hazel, 2020, 29 February",
-        # a day of the earlier year, read as a day of the reference year
-        "winter wheat, 1963, the 10 October of 1962",
+    parsed = {}
+    for label, row in _JULTAG_ROWS.items():
+        df = _parse_values(_jultag_file(row), object_id=row[3])
+        parsed[label] = (df["timestamp"].item(), df["value"].item())
+    day_of_year = {
+        label for label, row in _JULTAG_ROWS.items() if parsed[label][1] == _entry_date(row).timetuple().tm_yday
     }
+    assert day_of_year == _JULTAG_IS_DAY_OF_YEAR
+    recovered = {label for label, row in _JULTAG_ROWS.items() if _date_from_jultag(*parsed[label]) == _entry_date(row)}
+    assert set(_JULTAG_ROWS) - recovered == _JULTAG_NOT_RECOVERED
 
 
 def test_parse_values_drops_other_objects() -> None:
