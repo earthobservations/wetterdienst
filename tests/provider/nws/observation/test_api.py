@@ -274,8 +274,8 @@ def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeyp
     (read 2026-10-13, KBOS, KDEN, KSEA, KMIA and KORD, 500 observations each): precipitation 0.8 (1 h), 1.3 (3 h)
     and 28.4 (6 h), the gust 35.172 km/h, the pressure 101760.98 Pa and the visibility 16093.44 m. The 24-hour
     extremes were null in all of those 2500 observations (and in those of 35 more stations), so their fractions are
-    the tenths of a degree a METAR 24-hour group writes, not a reading seen on the endpoint. The direction is the one
-    quantity left an integer: 2406 of 2406 readings are whole degrees.
+    the tenths of a degree a METAR 24-hour group writes, not a reading seen on the endpoint. The direction is read as
+    a float too: 2406 of 2406 readings are whole degrees, which the endpoint (a number) does not promise.
     """
 
     def quantity(unit_code: str, value: float) -> dict[str, object]:

@@ -193,10 +193,10 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         # silently, so that a request made offline yields an empty frame rather than an error
         if isinstance(file.content, Exception):
             return pl.DataFrame()
-        # Every quantity is read as a float but the direction, which the endpoint gives in whole degrees
-        # (2406 of 2406 readings of KBOS, KDEN, KSEA, KMIA and KORD, 2026-10-13). A float field read as an
-        # integer is truncated by polars -- 0.8 mm of rain reads as 0 -- and gust, pressure, visibility and
-        # precipitation all carry fractions (GH-2849).
+        # Every quantity is read as a float: the endpoint types `value` as a number, and polars truncates a
+        # float read into an integer field -- 0.8 mm of rain reads as 0. Gust, station pressure, visibility and
+        # precipitation carry fractions; the direction was whole degrees in 2406 of 2406 readings of KBOS, KDEN,
+        # KSEA, KMIA and KORD (2026-10-13), which nothing promises (GH-2849).
         df = pl.read_json(
             file.content,
             schema={
@@ -209,7 +209,7 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
                                     "timestamp": pl.String,
                                     "temperature": _quantity(pl.Float64),
                                     "dewpoint": _quantity(pl.Float64),
-                                    "windDirection": _quantity(pl.Int64),
+                                    "windDirection": _quantity(pl.Float64),
                                     "windSpeed": _quantity(pl.Float64),
                                     "windGust": _quantity(pl.Float64),
                                     "barometricPressure": _quantity(pl.Float64),
