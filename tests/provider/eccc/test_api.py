@@ -709,6 +709,37 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
     ]
 
 
+def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the 0 of a gust ECCC does not report, and the direction 0 beside a reported speed, are null (GH-2615).
+
+    Rows taken from api.weather.gc.ca/collections/climate-daily (checked 2026-10-12): ALERT 1975-07-01 is below
+    the 31 km/h the stations report from and has 0 and 0, no flag, where the bulk CSV writes "<31"; 1975-07-06 is a gust
+    of 60 km/h from 200 degrees (20 tens of degrees); ST CATHARINES A 1974-11-26 has 42 km/h and a direction of 0. The
+    glossary: "The stations do not report if less than 31 km/h" and "36 means 360 degrees true", so north is not 0.
+    """
+    rows = [
+        {"LOCAL_DATE": "1975-07-01 00:00:00", "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
+        {"LOCAL_DATE": "1975-07-06 00:00:00", "SPEED_MAX_GUST": 60, "DIRECTION_MAX_GUST": 20},
+        {"LOCAL_DATE": "1975-07-09 00:00:00", "SPEED_MAX_GUST": 42, "DIRECTION_MAX_GUST": 0},
+    ]
+    _serve_eccc(monkeypatch, rows, station={**_TORONTO_STATION, "FIRST_DATE": "1950-01-01 00:00:00"})
+    request = EcccObservationRequest(
+        parameters=[("daily", "data", "wind_gust_max"), ("daily", "data", "wind_direction_gust_max")],
+        start="1975-07-01",
+        end="1975-07-09",
+        options=Options(convert_units=False, drop_nulls=False),
+    )
+    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
+        ("wind_direction_gust_max", None, "raw:0"),
+        ("wind_direction_gust_max", 200.0, None),
+        ("wind_direction_gust_max", None, "raw:0"),
+        ("wind_gust_max", None, "raw:0"),
+        ("wind_gust_max", 60.0, None),
+        ("wind_gust_max", 42.0, None),
+    ]
+
+
 def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:

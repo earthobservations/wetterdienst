@@ -13,7 +13,7 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
@@ -29,6 +29,16 @@ log = logging.getLogger(__name__)
 _STATIONS_LIMIT = 10000
 # the collections page at 500 features by default, which silently truncates a station-year
 _PAGE_SIZE = 10000
+
+# The daily gust is published only when it exceeds 30 km/h ("The stations do not report if less than 31 km/h", ECCC's
+# glossary under "Speed of Maximum Gust"), and the direction, in tens of degrees where "36 means 360 degrees true" and
+# so north, "only if the maximum gust speed for the day exceeds 29 km/h". A day below that has 0 in both fields of the
+# collection on most days, where the bulk CSV of the same day (ALERT, 1975-07-01) writes "<31" for the speed. In the
+# first 60,000 rows of each of 1975, 1995 and 2019, 4597 of the 8885 days with a gust read 0 for the speed and 0 for
+# the direction, without a flag. Neither 0 is a measurement: no gust is 0 km/h, and no direction of 0 exists. The
+# direction is 0 on a few days with a reported speed as well (ST CATHARINES A, 1974-11-26: 42 km/h). The reverse also
+# exists and is left alone: 14,128 days with a speed of 0 and a direction (CHURCHILL A, 1973-05-13: 340 degrees).
+_GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_gust", "direction_max_gust"]))
 
 
 #: Local Standard Time of the station list's TIMEZONE codes, as the offset from UTC all year: the codes name
@@ -226,6 +236,10 @@ class EcccObservationValues(TimeseriesValues):
                 offset += _PAGE_SIZE
             df = pl.concat(pages).lazy()
             df = self._tidy_up_df(df)
+            # the sentinel is mapped before the tens of degrees are decoded and the unit is converted, and the 0 the
+            # source wrote stays on the value as a `raw:` token
+            value, raw = null_sentinels(pl.col("value"), _GUST_NOT_REPORTED, text=False)
+            df = df.with_columns(value.alias("value"), raw.alias("raw"))
             # ECCC publishes both gust direction (daily) and wind direction (hourly) in tens of degrees --
             # its own docs call the daily column
             # "Dir of Max Gust (10s deg)" -- so 23 means 230 degrees. Decoded here rather than
@@ -257,7 +271,7 @@ class EcccObservationValues(TimeseriesValues):
                 pl.lit(station_id, dtype=pl.String).alias("station_id"),
                 timestamp.alias("timestamp"),
                 "value",
-                join_quality_flags(pl.col("quality_flags")),
+                join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")),
             )
             data.append(df)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took

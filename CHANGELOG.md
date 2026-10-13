@@ -81,6 +81,10 @@ Types of changes:
   and `coverage`, answer a network whose optional extra is not installed with the 501 the data
   routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
   The install line is in the server log (GH-2788)
+- `eccc/observation` daily `wind_gust_max` and `wind_direction_gust_max` are null, with `raw:0` in
+  `quality_flags`, where ECCC writes 0: the gust is not reported below 31 km/h, and a direction of 0
+  is no bearing (north is 36 tens of degrees). They were 0 m/s and 0 degrees on over a third of the
+  days with a gust value. Use the gust only where it is not null (GH-2615)
 - `eccc/observation` `start_timestamp` and `end_timestamp` of a station with hourly values were one
   hour early when the station's first or last date fell in the daylight-saving season (Toronto Intl
   A started 2013-06-11 13:00 UTC, not 14:00). The dates are Local Standard Time, so they are now

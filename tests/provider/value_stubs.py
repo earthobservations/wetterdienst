@@ -58,6 +58,8 @@ from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as dwd_swsmos_api
+from wetterdienst.provider.eccc.observation import EcccObservationRequest
+from wetterdienst.provider.eccc.observation import api as eccc_api
 from wetterdienst.provider.fmi.observation import FmiObservationRequest
 from wetterdienst.provider.fmi.observation import api as fmi_api
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
@@ -717,6 +719,28 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     return stations_result(request, "hourly", "data", "A006").values.all().df
 
 
+def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # climate-daily as api.weather.gc.ca answers for ALERT (STN_ID=1731, read 2026-10-12): a day below the 31 km/h the
+    # stations report from has 0 for the speed and 0 for the direction, no flag (1975-07-01, 1975-07-02), where the
+    # bulk CSV of the day writes "<31"; 1975-07-06 is a gust of 60 km/h from 200 degrees (the direction is in tens of
+    # degrees)
+    rows = [
+        {"LOCAL_DATE": "1975-07-01 00:00:00", "MAX_TEMPERATURE": 5, "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
+        {"LOCAL_DATE": "1975-07-02 00:00:00", "MAX_TEMPERATURE": 6.7, "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
+        {"LOCAL_DATE": "1975-07-06 00:00:00", "MAX_TEMPERATURE": 11.1, "SPEED_MAX_GUST": 60, "DIRECTION_MAX_GUST": 20},
+    ]
+    body = json.dumps({"features": [{"type": "Feature", "properties": row} for row in rows]}).encode()
+    serve(monkeypatch, eccc_api, {"climate-daily": body})
+    request = EcccObservationRequest(
+        parameters=[("daily", "data")],
+        start=_day(1975, 7, 1),
+        end=_day(1975, 7, 6),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "daily", "data", "1731").values.all().df
+
+
 def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
     # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and the
@@ -1171,6 +1195,14 @@ STUBS = [
         ),
     ),
     ValueStub(
+        "eccc/observation daily/data",
+        _eccc_daily,
+        reading=("wind_gust_max", 16.6667),
+        # the gust is converted from km/h to m/s on its way
+        sentinels=(("wind_gust_max", 0.0), ("wind_direction_gust_max", 0.0)),
+        tokens=(("wind_gust_max", "0", None), ("wind_direction_gust_max", "0", None)),
+    ),
+    ValueStub(
         "aemet/observation daily/data",
         _aemet_daily,
         reading=("temperature_air_mean_2m", 5.3),
@@ -1272,28 +1304,56 @@ STUBS = [
 # taken up the helper
 NO_STUB = {
     "chmi/observation": (
-        "the files write an empty VALUE for a missing one: dly-0-20000-0-11406-T.csv (2026-10-12) has 177144 rows, "
-        "32136 of them empty, nothing that is no number and a minimum of -27.6"
+        "the files write an empty VALUE for a missing one, with the QUALITY 4 (meta4.csv: `Missing`): the daily T "
+        "files of 14 stations (0-20000-0-11406, 11433, 11457, 11502, 11519, 11546, 11609, 11636, 11653, 11679, "
+        "11693, 11723, 11766, 11787) have 41,993 of 1,410,190 rows empty, all of them with QUALITY 4, and no cell "
+        "holds text that is no number. The extremes of every daily, monthly, yearly, 10 minute and hourly element "
+        "sampled (station 0-20000-0-11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm)"
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
-        "JULTAG is a day of the year and the reader maps no sentinel: no -999 in the 2119 lines of "
-        "PH_Jahresmelder_Landwirtschaft_Kulturpflanze_Ruebe_akt.txt (2026-10-12)"
+        "JULTAG is a day of the year relative to the reference year (negative for a phase in the year before) and the "
+        "reader maps no sentinel: no -999 in the 832,590 rows of 94 files of annual and immediate reporters, recent "
+        "and historical (2026-10-12), whose lowest JULTAG is -120"
     ),
-    "dwd/radar": "no timeseries",
+    "dwd/radar": (
+        "no timeseries: the files are handed over as DWD wrote them, and the BUFR path (`read_radar_bufr`) turns the "
+        "NaN of a missing pixel into null"
+    ),
     "dwd/road": "BUFR: ecCodes decodes a missing value itself, there is no text of it to keep",
-    "ea/hydrology": "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`",
-    "eaufrance/hubeau": "no reader maps a sentinel of a value; -999 is a site altitude of the referential",
-    "eccc/observation": "no reader maps a sentinel; the flag `M` marks a missing value",
+    "ea/hydrology": (
+        "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`, and the "
+        "daily (2015) and 15 minute (2024) discharge of the first six stations by id has no value that is no reading "
+        "(2026-10-12)"
+    ),
+    "eaufrance/hubeau": (
+        "no reader maps a sentinel of a value; -999 is a site altitude of the referential. The 15 minute discharge "
+        "and stage of twelve stations spread over the list (5061000101 to Y500202001), the last seven days, hold no "
+        "value that is no reading (2026-10-12)"
+    ),
     "imgw/meteorology": (
         "the null is decided by the status column beside the value (`8` no measurement, `9` no phenomenon), which "
-        "`quality_flags` carries verbatim: the cell of the value holds `.0` or nothing, no sentinel"
+        "`quality_flags` carries verbatim: the cell of the value holds `.0` or nothing, no sentinel. The daily "
+        "climate, synop and precipitation files (249180010, 252190030, 249190090, 349190600, 249180020; "
+        "2010 to 2011) and the monthly climate and synop files (1990 to 2020) have no value that is no reading "
+        "(2026-10-12)"
     ),
-    "lhmt/observation": "no sentinel: the source writes null",
+    "lhmt/observation": (
+        "no sentinel: the source writes null, and the hourly values of vilniaus-ams, kauno-ams and klaipedos-ams "
+        "(2017-01, 2023-06) hold no value that is no reading (2026-10-12)"
+    ),
     "meteoswiss/observation": (
-        "the files write an empty field for a missing value: no cell that is no number in ogd-smn_ber_h_recent.csv "
-        "(6816 rows) and ogd-smn_ber_d_historical.csv (59170 rows), 2026-10-12"
+        "the files write an empty field for a missing value: no cell that is no number in the d, h, t, m and y files "
+        "of ber, jun and sma (152,308 daily rows, hourly 1990 to 1999 and recent, 10 minute 2010 to 2019), 2026-10-12. "
+        "The wind direction 0 has speeds up to 13 m/s beside it, so it is north"
     ),
-    "rmi/observation": "no reader maps a sentinel; its values are JSON numbers",
-    "wsv/pegel": "no reader maps a sentinel; its values are JSON numbers",
+    "rmi/observation": (
+        "no reader maps a sentinel; its values are JSON numbers, missing ones are null: 10 minute (June 2023), hourly "
+        "and daily (1995 to 2023) of 6447, 6414 and 6451. The daily layer holds three days of 6414 in 2003 that are "
+        "no readings (temp_max 4021.0 and 6013.0, wind_gusts_speed 81.5) but no sentinel either (GH-2797)"
+    ),
+    "wsv/pegel": (
+        "no reader maps a sentinel; its values are JSON numbers, and the current measurement of its 1,168 timeseries "
+        "holds no value that is no reading (2026-10-12)"
+    ),
 }
