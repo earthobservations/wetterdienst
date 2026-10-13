@@ -100,6 +100,10 @@ Types of changes:
   summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
   those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
   UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
+- `eccc/observation` hourly `wind_direction` is null, with `raw:0` in `quality_flags`, where ECCC
+  writes 0: ECCC's glossary says "A value of zero (0) denotes a calm wind", and north is 36 tens of
+  degrees. A calm hour was 0 degrees, north, before: 1824 of 43,469 hours with a direction at
+  five stations, all with a wind speed of 0 (GH-2794)
 - `dwd/observation` `10_minutes` `historical`: the six values 1999-12-31 23:00 to 23:50 UTC were
   missing for every station and dataset that spans the year 2000 (a 70 minute hole), because the
   file of 1999 (MEZ) and the file of 2000 (UTC) carry the same digits for different instants. The

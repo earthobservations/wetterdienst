@@ -40,6 +40,13 @@ _PAGE_SIZE = 10000
 # exists and is left alone: 14,128 days with a speed of 0 and a direction (CHURCHILL A, 1973-05-13: 340 degrees).
 _GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_gust", "direction_max_gust"]))
 
+# The hourly wind direction is "10's deg" too, and ECCC's glossary (climate.weather.gc.ca/glossary_e.html, "Wind
+# Direction") says "36 means 360 degrees true or a wind blowing from the geographic North Pole. A value of zero (0)
+# denotes a calm wind." Of the 43,469 hours with a direction of 1998 and 2019 at five stations (read 2026-10-12) 1824
+# are 0, **all** with a wind speed of 0, and every hour with a speed of 0 has a direction of 0; 1342 are 36. A calm has
+# no direction, so the 0 is no bearing (GH-2794).
+_CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("wind_direction"))
+
 
 #: Local Standard Time of the station list's TIMEZONE codes, as the offset from UTC all year: the codes name
 #: standard time, which the station keeps whether or not daylight saving time is adopted for other purposes
@@ -238,7 +245,7 @@ class EcccObservationValues(TimeseriesValues):
             df = self._tidy_up_df(df)
             # the sentinel is mapped before the tens of degrees are decoded and the unit is converted, and the 0 the
             # source wrote stays on the value as a `raw:` token
-            value, raw = null_sentinels(pl.col("value"), _GUST_NOT_REPORTED, text=False)
+            value, raw = null_sentinels(pl.col("value"), _GUST_NOT_REPORTED, _CALM_WIND, text=False)
             df = df.with_columns(value.alias("value"), raw.alias("raw"))
             # ECCC publishes both gust direction (daily) and wind direction (hourly) in tens of degrees --
             # its own docs call the daily column

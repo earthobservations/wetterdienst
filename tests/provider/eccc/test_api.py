@@ -740,6 +740,47 @@ def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(m
     ]
 
 
+def test_eccc_hourly_wind_direction_of_0_is_a_calm_and_null_and_36_is_north(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the hourly direction 0 is null with `raw:0`, and 31 and 36 are 310 and 360 degrees (GH-2794).
+
+    Rows of Toronto Intl A (STN_ID 51459) from api.weather.gc.ca/collections/climate-hourly (checked 2026-10-12):
+    2019-01-01 08:00Z has a direction of 31 (tens of degrees) beside 29 km/h, 2019-01-05 06:00Z one of 36 beside
+    12 km/h, and 2019-01-08 22:00Z one of 0 beside 0 km/h. The glossary: "36 means 360 degrees true ... A value of
+    zero (0) denotes a calm wind." The speed of 0 is a reading.
+    """
+    rows = [
+        {
+            "LOCAL_DATE": local,
+            "UTC_DATE": utc,
+            "WIND_DIRECTION": direction,
+            "WIND_DIRECTION_FLAG": None,
+            "WIND_SPEED": speed,
+            "WIND_SPEED_FLAG": None,
+        }
+        for local, utc, direction, speed in (
+            ("2019-01-01 03:00:00", "2019-01-01T08:00:00", 31, 29),
+            ("2019-01-05 01:00:00", "2019-01-05T06:00:00", 36, 12),
+            ("2019-01-08 17:00:00", "2019-01-08T22:00:00", 0, 0),
+        )
+    ]
+    _serve_eccc(monkeypatch, rows)
+    request = EcccObservationRequest(
+        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        start=dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2019, 1, 9, tzinfo=ZoneInfo("UTC")),
+        options=Options(convert_units=False, drop_nulls=False),
+    )
+    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
+        ("wind_direction", 310.0, None),
+        ("wind_direction", 360.0, None),
+        ("wind_direction", None, "raw:0"),
+        ("wind_speed", 29.0, None),
+        ("wind_speed", 12.0, None),
+        ("wind_speed", 0.0, None),
+    ]
+
+
 def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
