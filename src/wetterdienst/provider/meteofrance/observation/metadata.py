@@ -177,7 +177,7 @@ MeteoFranceObservationMetadata = {
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_gust_max",
+                            "name": "wind_speed_rolling_mean_max",
                             "name_original": "FXY",
                             "unit": "meter_per_second",
                         },

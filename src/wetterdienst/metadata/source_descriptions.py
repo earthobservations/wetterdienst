@@ -24,7 +24,8 @@ are taken as they come:
 
 - MeteoSwiss: ``ogd-smn_meta_parameters.csv``, published beside the data, English column
 - MET Norway: the Frost ``/elements`` endpoint, ``lang=en-US``
-- KNMI: the ``long_name`` attribute on each variable of the observation NetCDF files
+- KNMI: the ``long_name`` attribute on each variable of the observation NetCDF files, and the longer
+  ``description`` attribute where it states the window (hourly ``DD``)
 - FMI: the ``observableProperty`` metadata endpoint, ``language=eng``, composed from its label,
   statistical function and aggregation period ("Air temperature. Mean over 1 minute.")
 - AEMET: the ``metadatos`` payload that accompanies every response, translated from Spanish
@@ -1787,7 +1788,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "TN"): "Minimum temperature",
         ("daily", "data", "TX"): "Maximum temperature",
         ("daily", "data", "UG"): "Mean relative atmospheric humidity",
-        ("hourly", "data", "DD"): "Mean wind direction",
+        ("hourly", "data", "DD"): "Past 10 minute mean wind direction, representative for 10 meters",
         ("hourly", "data", "DR"): "Precipitation duration",
         ("hourly", "data", "FH"): "Mean wind speed",
         ("hourly", "data", "FX"): "Maximum wind gust",
@@ -2216,8 +2217,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     # `t` is "température" in the technical description of the SYNOP product
     # (OBSERVATIONS_Descriptif_Technique_Données_SYNOP_OMM.pdf), with no window; the 12 and 24 hour
-    # extremes are the ones that state one
+    # extremes are the ones that state one. The same sheet: "dd direction du vent moyen 10 min" (int, degré)
+    # and "ff vitesse du vent moyen 10 min" (réel, m/s), though the files hold whole numbers only (2927 of 2927
+    # stamps of Orly 2024 equal the hourly FF of the climatological base cut to the integer)
     "MeteoFranceSynopMetadata": {
+        ("subdaily", "data", "dd"): "Direction of the mean wind over 10 minutes, in steps of 10 degrees.",
+        (
+            "subdaily",
+            "data",
+            "ff",
+        ): "Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).",
         ("subdaily", "data", "t"): "Temperature.",
     },
 }
@@ -2784,8 +2793,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
     },
     "MeteoFranceSynopMetadata": {
-        ("subdaily", "data", "dd"): "Direction the wind is blowing from, clockwise from true north.",
-        ("subdaily", "data", "ff"): "Mean speed of the wind over the period.",
         ("subdaily", "data", "n"): "Fraction of the sky covered by cloud of any kind.",
         ("subdaily", "data", "pmer"): (
             "Air pressure reduced to mean sea level, so that stations at different heights compare."
