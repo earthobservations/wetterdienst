@@ -27,7 +27,7 @@
 |-----------------------------------------|---------------------------|----------------------------------------------------------------------------------|------|-------------|
 | {term}`temperature_air_2m`              | temperature               | air temperature                                                                  | °C   | -           |
 | {term}`temperature_dew_point_2m`        | dewpoint                  | dew point temperature                                                            | °C   | -           |
-| {term}`wind_direction`                  | winddirection             | wind direction                                                                   | °    | >=0,<=360   |
+| {term}`wind_direction`                  | winddirection             | wind direction. The source's 0 (a calm wind) is null.                            | °    | >=0,<=360   |
 | {term}`wind_speed`                      | windspeed                 | wind speed                                                                       | km/h | >=0         |
 | {term}`wind_gust_max`                   | windgust                  | maximum wind gust                                                                | km/h | >=0         |
 | {term}`pressure_air_site`               | barometricpressure        | air pressure at station height                                                   | Pa   | >=0         |

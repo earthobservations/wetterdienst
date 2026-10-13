@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -26,6 +25,8 @@ if TYPE_CHECKING:
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
+#: the 1-, 5- and 10-minute stamps are MEZ before this year and UTC from it
+MEZ_UNTIL_YEAR = 2000
 
 
 def create_file_list_for_climate_observations(
@@ -78,22 +79,13 @@ def create_file_index_for_climate_observations(
     if dataset.resolution.value in HIGH_RESOLUTIONS and period == Period.HISTORICAL:
         # Date range string for additional filtering of historical files
         df_files = df_files.with_columns(pl.col("filename").str.extract(DATE_RANGE_REGEX).alias("date_range"))
+        # the file name's days are days of the stamps in the file: UTC from 2000, MEZ (the fixed UTC+1, never
+        # Europe/Berlin with its summer time) before, which the values shift to UTC after reading (GH-2811)
+        first_day = pl.col("date_range").str.split("_").list.first().str.to_datetime("%Y%m%d")
+        last_day = pl.col("date_range").str.split("_").list.last().str.to_datetime("%Y%m%d")
         df_files = df_files.with_columns(
-            pl.col("date_range")
-            .str.split("_")
-            .list.first()
-            .str.to_datetime("%Y%m%d")
-            .dt.replace_time_zone("Europe/Berlin")
-            .alias("start_timestamp"),
-            pl.col("date_range")
-            .str.split("_")
-            .list.last()
-            .str.to_datetime("%Y%m%d")
-            .dt.replace_time_zone("Europe/Berlin")
-            .map_batches(
-                lambda dates: dates + dt.timedelta(days=1), return_dtype=pl.Datetime(time_zone="Europe/Berlin")
-            )
-            .alias("end_timestamp"),
+            _midnight_in_utc(first_day).alias("start_timestamp"),
+            _midnight_in_utc(last_day, days=1).alias("end_timestamp"),
         )
         df_files = df_files.with_columns(
             pl.when(pl.col("start_timestamp") > pl.col("end_timestamp"))
@@ -104,6 +96,20 @@ def create_file_index_for_climate_observations(
             .otherwise(pl.col("end_timestamp")),
         )
     return df_files.sort(by=[pl.col("station_id"), pl.col("filename")])
+
+
+def _midnight_in_utc(day: pl.Expr, days: int = 0) -> pl.Expr:
+    """Return the midnight of ``day`` (plus ``days``) as the UTC instant the stamps of the files mean by it.
+
+    Stamps of 1999 and before are MEZ, a fixed UTC+1, so their midnight is 23:00 UTC of the day before.
+    """
+    return (
+        pl.when(day.dt.year() < MEZ_UNTIL_YEAR)
+        .then(day - pl.duration(hours=1))
+        .otherwise(day)
+        .dt.replace_time_zone("UTC")
+        .dt.offset_by(f"{days}d")
+    )
 
 
 def _create_file_index_for_1minute_or_5minute_historical_precipitation_metadata(

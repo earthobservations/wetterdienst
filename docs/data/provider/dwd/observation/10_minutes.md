@@ -118,7 +118,7 @@ Codes (precipitation_indicator_wr):
 | name                   | original name | description                                       | unit | constraints |
 |------------------------|---------------|---------------------------------------------------|------|-------------|
 | {term}`wind_speed` | ff_10 | Mean wind speed during the previous 10 minutes. | m/s | >=0 |
-| {term}`wind_direction` | dd_10 | Mean wind direction during the previous 10 minutes. | ° | >=0,<=360 |
+| {term}`wind_direction` | dd_10 | Mean wind direction during the previous 10 minutes. The source's 0 beside a wind speed of 0 (a calm wind) is null. | ° | >=0,<=360 |
 
 ### wind_extreme
 
@@ -138,7 +138,7 @@ Codes (precipitation_indicator_wr):
 | {term}`wind_gust_max` | fx_10 | Maximum of wind speed during the previous 10 minutes. | m/s | >=0 |
 | {term}`wind_speed_min` | fnx_10 | Minimum of wind speed during the previous 10 minutes. | m/s | >=0 |
 | {term}`wind_speed_rolling_mean_max` | fmx_10 | Maximum of the wind speed from the 1 minute mean values of the 3-second maxima of the previous 10 minutes. | m/s | >=0 |
-| {term}`wind_direction_gust_max` | dx_10 | Wind direction of the maximum wind speed during the previous 10 minutes. | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max` | dx_10 | Wind direction of the maximum wind speed during the previous 10 minutes. The source's 0 beside a gust of 0 (a calm wind) is null. | ° | >=0,<=360 |
 
 ### urban_precipitation
 

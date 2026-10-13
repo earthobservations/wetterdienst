@@ -616,7 +616,9 @@ class DwdDerivedValues(TimeseriesValues):
         # and sorted on for `keep="first"` to take the historical record rather than whichever sorts first
         parameter_df = parameter_df.sort(_PERIOD_RANK, maintain_order=True).unique(subset=["timestamp"], keep="first")
         parameter_df = parameter_df.drop(_PERIOD_RANK)
-        result = parameter_df.collect(background=False)
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which took
+        # the parse and full join of the hourly radiation of one station 6 times as long (GH-2781)
+        result = parameter_df.collect(engine="in-memory", background=False)
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame, got InProcessQuery"
             raise TypeError(msg)

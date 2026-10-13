@@ -228,10 +228,14 @@ class DwdObservationValues(TimeseriesValues):
 
         interval = cast("DwdObservationRequest", self.sr.stations).interval
         start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
-        if start_date_min:
+        if start_date_min and end_date_max:
+            # the interval is in the zone of the network, the bounds of the files are UTC
+            start_date_min, end_date_max = start_date_min.astimezone(dt.UTC), end_date_max.astimezone(dt.UTC)
+            # a file covers [start_timestamp, end_timestamp) and the request [start, end], both ends in
+            # UTC: a request that ends at the first stamp of a file needs that file
             file_index = file_index.filter(
                 pl.col("station_id").eq(station_id)
-                & pl.col("start_timestamp").ge(end_date_max).not_()
+                & pl.col("start_timestamp").gt(end_date_max).not_()
                 & pl.col("end_timestamp").le(start_date_min).not_(),
             )
         result = file_index.collect(background=False)
