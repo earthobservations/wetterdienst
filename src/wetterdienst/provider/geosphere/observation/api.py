@@ -42,6 +42,15 @@ _NONE_IS_MINUS_ONE = {
     "klima-v2-1d": {"rr": "-1.0", "sh": "-1.0", "sh_manu": "-1", "shneu_manu": "-1"},
 }
 
+# The mean wind direction `dd` is "Windrichtung [360°]" (the API's description of the 10 minute and the hourly dataset)
+# and is written 0 for a calm wind (the array of a response is written with decimals, `0.0`, when it holds a gap, and
+# without, `0`, when it holds none): in the hourly dataset of 2024 for 25 stations spread over the list, and the 10
+# minute dataset of June 2024, 816 of 170,385 hours and 638 of 99,019 intervals have a direction of 0, **all** of them
+# with a wind speed `ff` of 0.0 (Aflenz, 2024-01-02 19:00: dd 0, ff 0.0), and 292 and 291 have 360. The direction of
+# the gust, `ddx`, has no 0 in 170,280 and 99,014 values (the same hour has ddx 358 and ffx 2.1). The 0 is no bearing,
+# so it is null (GH-2794).
+_CALM_WIND = Sentinel("0", where=pl.col("parameter") == "dd")
+
 # the year of the end date the station list gives to a station that still reports (2100-12-31)
 _OPEN_END_YEAR = 2100
 
@@ -215,7 +224,7 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
             Sentinel(text, where=pl.col("parameter") == parameter, to=0.0)
             for parameter, text in _NONE_IS_MINUS_ONE.get(dataset.name_original, {}).items()
         ]
-        value, raw = null_sentinels(pl.col("value"), *none_coded, text=False)
+        value, raw = null_sentinels(pl.col("value"), *none_coded, _CALM_WIND, text=False)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),

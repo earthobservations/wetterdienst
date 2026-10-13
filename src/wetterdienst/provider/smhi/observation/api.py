@@ -16,7 +16,7 @@ from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
@@ -44,6 +44,15 @@ _PERIODS_BY_RESOLUTION = {
     Resolution.DAILY: ("corrected-archive", "latest-months"),
     Resolution.MONTHLY: ("corrected-archive", "latest-months"),
 }
+
+# SMHI writes a wind direction of 0 for a calm wind and north as 360. The hourly direction (parameter 3, a 10 minute
+# mean) of stations 188790, 97400 and 71420 from 1985 (read 2026-10-12) reads 0 in 4879, 10,495 and 19,717 hours, of
+# which 4864, 9869 and 19,713 have a wind speed of 0 (parameter 4) and the rest 1 to 3 m/s (2008 to 2013 at 97400, 1989
+# at the others), falling with the speed (443, 138 and 10 hours at 1, 2 and 3 m/s at 97400) where a bearing would stay
+# flat; 464, 4818 and 1358 hours read 360. The 1 minute direction (parameter 48) is a mean of the minute and exactly
+# 0.000000 in the 49, 327, 46 and 233 minutes of 188790, 159880, 71420 and 92410 whose speed (parameter 47) is 0.000000,
+# and in no other. SMHI documents neither, but a 0 is no bearing there, so it is null (GH-2794).
+_WIND_DIRECTION_NOT_GIVEN = Sentinel("0")
 
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
@@ -144,14 +153,17 @@ class SmhiObservationValues(TimeseriesValues):
         # fetched (and appended) first, so keep="first" prefers it over the still-under-QC
         # latest-months value; maintain_order=True makes that deterministic.
         df = df.unique(subset="timestamp", keep="first", maintain_order=True)
+        # the 0 of a wind direction is mapped before the value is read as a number, and stays as a `raw:` token
+        sentinels = (_WIND_DIRECTION_NOT_GIVEN,) if parameter.name.startswith("wind_direction") else ()
+        value, raw = null_sentinels(pl.col("value"), *sentinels)
         return df.select(
             pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
-            pl.col("value").cast(pl.Float64, strict=False),
-            join_quality_flags(pl.col("quality_flags")),
+            value.cast(pl.Float64, strict=False).alias("value"),
+            join_quality_flags(pl.col("quality_flags"), raw=raw),
         )
 
 

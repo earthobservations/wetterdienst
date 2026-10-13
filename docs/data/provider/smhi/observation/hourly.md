@@ -13,15 +13,15 @@
 
 #### parameters
 
-| name                                  | original name | description                                                                          | unit |
-|---------------------------------------|---------------|--------------------------------------------------------------------------------------|------|
-| {term}`temperature_air_2m`            | 1             | Air temperature. Instantaneous value, once per hour.                                 | °C   |
-| {term}`temperature_dew_point_2m`      | 39            | Dew point temperature. Instantaneous value, once per hour.                           | °C   |
-| {term}`wind_speed_last_10min`         | 4             | Wind speed. Mean over 10 minutes, once per hour.                                     | m/s  |
-| {term}`wind_direction_last_10min`     | 3             | Wind direction. Mean over 10 minutes, once per hour.                                 | °    |
-| {term}`wind_gust_max`                 | 21            | Wind gust. Maximum, once per hour.                                                   | m/s  |
-| {term}`precipitation_amount`          | 7             | Precipitation amount. Hourly sum, once per hour.                                     | mm   |
-| {term}`humidity_relative`             | 6             | Relative humidity. Instantaneous value, once per hour.                               | %    |
-| {term}`pressure_air_sea_level`        | 9             | Air pressure reduced to sea level. At sea level, instantaneous value, once per hour. | hPa  |
-| {term}`cloud_cover_total`             | 16            | Total cloud amount. Instantaneous value, once per hour.                              | %    |
-| {term}`visibility`                    | 12            | Visibility. Instantaneous value, once per hour.                                      | m    |
+| name                              | original name | description                                                                                | unit |
+|-----------------------------------|---------------|--------------------------------------------------------------------------------------------|------|
+| {term}`temperature_air_2m`        | 1             | Air temperature. Instantaneous value, once per hour.                                       | °C   |
+| {term}`temperature_dew_point_2m`  | 39            | Dew point temperature. Instantaneous value, once per hour.                                 | °C   |
+| {term}`wind_speed_last_10min`     | 4             | Wind speed. Mean over 10 minutes, once per hour.                                           | m/s  |
+| {term}`wind_direction_last_10min` | 3             | Wind direction. Mean over 10 minutes, once per hour. The source's 0 (a calm wind) is null. | °    |
+| {term}`wind_gust_max`             | 21            | Wind gust. Maximum, once per hour.                                                         | m/s  |
+| {term}`precipitation_amount`      | 7             | Precipitation amount. Hourly sum, once per hour.                                           | mm   |
+| {term}`humidity_relative`         | 6             | Relative humidity. Instantaneous value, once per hour.                                     | %    |
+| {term}`pressure_air_sea_level`    | 9             | Air pressure reduced to sea level. At sea level, instantaneous value, once per hour.       | hPa  |
+| {term}`cloud_cover_total`         | 16            | Total cloud amount. Instantaneous value, once per hour.                                    | %    |
+| {term}`visibility`                | 12            | Visibility. Instantaneous value, once per hour.                                            | m    |

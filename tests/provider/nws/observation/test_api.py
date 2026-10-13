@@ -226,3 +226,40 @@ def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkey
     assert temperature.select("value", "quality_flags").rows() == [(16.0, "V"), (15.0, "S"), (None, "Z")]
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
+
+
+def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the direction 0 of a METAR `00000KT` is null with `raw:0`, and 360 and a speed of 0 are not (GH-2794).
+
+    The observations of KBOS on 2026-10-12 (api.weather.gov/stations/KBOS/observations): 12:54Z `36005KT` has a
+    direction of 360 (V) beside 9.36 km/h, 14:54Z `00000KT` one of 0 (V) beside 0, and 15:54Z `VRB05KT` one of null (Z)
+    beside 9.36. The NWS METAR decode key: "00000KT for calm".
+    """
+    quantity = {"unitCode": "wmoUnit:degree_(angle)"}
+    speed = {"unitCode": "wmoUnit:km_h-1", "qualityControl": "V"}
+    features = [
+        {
+            "properties": {
+                "station": "https://api.weather.gov/stations/KBOS",
+                "timestamp": f"2026-10-12T{hour}:54:00+00:00",
+                "windDirection": {**quantity, "value": direction, "qualityControl": flag},
+                "windSpeed": {**speed, "value": wind_speed},
+            }
+        }
+        for hour, direction, flag, wind_speed in ((12, 360, "V", 9.36), (14, 0, "V", 0), (15, None, "Z", 9.36))
+    ]
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    request = NwsObservationRequest(
+        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        start=dt.datetime(2026, 10, 12, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 13, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    sr = stations_result(request, "hourly", "data", "KBOS")
+    df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
+    direction = df.filter(pl.col("parameter") == "wind_direction").sort("timestamp")
+    assert direction.select("value", "quality_flags").rows() == [(360.0, "V"), (None, "V,raw:0"), (None, "Z")]
+    wind_speed = df.filter(pl.col("parameter") == "wind_speed").sort("timestamp")
+    # a speed of 0 is a reading, and 9.36 km/h arrives as 2.6 m/s
+    assert wind_speed.select("value", "quality_flags").rows() == [(2.6, "V"), (0.0, "V"), (2.6, "V")]

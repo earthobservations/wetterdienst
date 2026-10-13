@@ -31,12 +31,42 @@ Types of changes:
   the period are missing. A filter on a null `quality_flags` as "no flag" no longer holds for these
   rows. `FLAG_REPEAT` is carried as `repeat:*` too, but only `MAX`/`MIN` rows have it and none of
   the parameters is one (GH-2763)
+- `Settings` no longer holds the 15 `ts_*` settings: they are gone from `model_fields`,
+  `model_dump()` (so `Settings(**s.model_dump())` carries none) and the repr, and a malformed
+  `WD_TS_*` is refused when `Options` is built, not by `Settings()`. `Settings(_env_file=...)` no
+  longer sets options: use `Options(_env_file=...)`. `SkipThreshold` is imported from
+  `wetterdienst.options`, where `resolve_options` and `options_from_settings` of 0.147.0 are gone;
+  `resolve_options` is in `wetterdienst.settings` (GH-2639)
+
+### Deprecated
+
+- `Settings(ts_shape=...)` and the other `ts_*` settings, reading or assigning `settings.ts_*`
+  (`ts_tidy` and the other derived members too), and a `settings={"ts_...": ...}` dict now warn
+  with a `DeprecationWarning` and are forwarded to the options of a request given no `options=`.
+  Use `options=Options(shape=...)` and read `request.options`. A request keeps the options it was
+  built with, and `options=` beside `ts_*` settings that differ from the environment's options is a
+  `ValueError`. `Settings.model_construct(ts_...)` is not forwarded. Assigning
+  `settings.ts_geo_station_distance` takes effect now (it was checked and then discarded). The
+  `WD_TS_*` variables stay and do not warn (GH-2639)
 
 ### Fixed
 
 - `dwd/poi` `cloud_cover_total` is null, with `raw:113` or `raw:126` in `quality_flags`, where DWD
   writes those numbers in the percent column (113 is an obscured sky, 126 comes with fog). They
   came back as a cloud cover of 1.13 and 1.26: 58 of 8744 reports in a day of 960 stations (GH-2615)
+- A wind direction of 0 that is no bearing (a calm wind) is null, with the source's text (`raw:0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `noaa/ghcn` hourly `wind_direction` (the documentation's "000"), `geosphere/observation`
+  `wind_direction` (`dd`) of the 10 minute and hourly data, and `dwd/poi`
+  `wind_direction_last_10min`, where the 0 is a calm or a variable wind (it comes with speeds up to
+  22 km/h). North is 360 in these sources. The gust direction of Geosphere has no 0 and is
+  unchanged (GH-2794)
+- A wind direction of 0 that means a calm wind is null, with the source's text (`raw:0`, `raw:0.0`)
+  in `quality_flags`, no longer 0 degrees (north, which a wind rose or a mean direction counted):
+  `nws/observation` (METAR `00000KT`), `smhi/observation` (both directions), `fmi/observation`
+  `wd_10min`, and `dmi/observation` `mean_wind_dir` where the mean wind speed of the same hour,
+  day, month or year is 0. North is 360 in these sources. A DMI 0 beside a wind that blows stays
+  (GH-2794)
 - `GET /api/auth` and `GET /api/coverage?provider=...&network=...`, and so the MCP tools `auth`
   and `coverage`, answer a network whose optional extra is not installed with the 501 the data
   routes answer, not the 404 "Choose provider and network from /api/coverage" for an unknown one.
@@ -46,6 +76,10 @@ Types of changes:
   A started 2013-06-11 13:00 UTC, not 14:00). The dates are Local Standard Time, so they are now
   converted with the fixed offset of the `TIMEZONE` code (no more 17 min 32 s from the local mean
   time of a station that began before 1895), and an unknown code raises (GH-2693)
+- `dwd/observation` 1-, 5- and 10-minute `historical` values: a request for the last hour (two in
+  summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
+  those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
+  UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
 
 ## [0.147.0] - 2026-10-12
 
