@@ -9,7 +9,10 @@ import polars as pl
 import pytest
 from polars.exceptions import NoDataError
 
+from tests.provider.value_stubs import serve, stations_result
+from wetterdienst import Options, Settings
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata, DwdPoiRequest
+from wetterdienst.provider.dwd.poi import api as dwd_poi_api
 from wetterdienst.provider.dwd.poi.api import _read_poi_csv, _station_file_url, _station_id_from_file_name
 
 UTC = ZoneInfo("UTC")
@@ -142,3 +145,37 @@ def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     assert wind.is_between(0.0, 60.0).all()
     # in kilometres this would be at most a two-digit number
     assert visibility.max() > 100.0
+
+
+def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a direction of 0 is null with `raw:0` whatever the speed beside it, and 360 stays (GH-2794).
+
+    Rows of the files of 2026-10-12, put into one file: 01008 11.10.26 22:00 has a direction of 0 beside 0 km/h
+    (a calm), 03066 12.10.26 01:00 one of 0 beside 4 km/h (no direction, probably variable: 184 of the 346 reports
+    with a 0 and a speed above 0 have 4 km/h), 02186 12.10.26 06:00 one of 360 beside 11 km/h. North is 360 in these
+    files (141 reports of 11,364, as many as 10), so a 0 is no bearing. A speed of 0 is a reading.
+    """
+    wind = "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"
+    speed = "mean_wind_speed_during last_10_min_at_10_meters_above_ground"
+    csv = (
+        f"surface observations;Parameter description;{wind};{speed}\n"
+        "10147;Unit;Grad;km/h\n"
+        "Datum;Uhrzeit (UTC);Windrichtung;Windgeschwindigkeit\n"
+        "12.10.26;06:00;360;11\n"
+        "12.10.26;01:00;0;4\n"
+        "11.10.26;22:00;0;0\n"
+    ).encode("latin-1")
+    serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
+    request = DwdPoiRequest(
+        parameters=[("hourly", "data", "wind_direction_last_10min"), ("hourly", "data", "wind_speed_last_10min")],
+        start=dt.datetime(2026, 10, 11, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 13, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, "hourly", "data", "10147").values.all().df
+    df = df.with_columns(pl.col("parameter").cast(pl.String)).sort("timestamp")
+    direction = df.filter(pl.col("parameter") == "wind_direction_last_10min")
+    assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (None, "raw:0"), (360.0, None)]
+    speeds = df.filter(pl.col("parameter") == "wind_speed_last_10min")
+    assert speeds.select("value", "quality_flags").rows() == [(0.0, None), (1.1111, None), (3.0556, None)]

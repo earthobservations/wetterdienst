@@ -47,8 +47,7 @@ from wetterdienst.model.result import (
     SummarizedValuesResult,
 )
 from wetterdienst.model.util import create_station_id_from_string
-from wetterdienst.options import resolve_options
-from wetterdienst.settings import Settings
+from wetterdienst.settings import Settings, resolve_options
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
@@ -102,10 +101,11 @@ class TimeseriesRequest:
     # asking for another one is an error rather than a silently widened request.
     periods: _PERIODS_TYPE = None
     # How the values come back and how the stations are chosen, as opposed to `settings`, which is
-    # the host's. None takes what `settings` carries as its `ts_*` settings; a dict is taken as the
-    # options it names. Resolved in __post_init__ to an `Options`, which is read from there on and
-    # never again from `settings`. Keyword-only, so that it moves none of the arguments a subclass
-    # adds after `periods` (`issue` of the forecasts)
+    # the host's. None takes the deprecated `ts_*` settings given to `settings`, if any, and otherwise
+    # the options of the environment; a dict is taken as the options it names. Resolved in
+    # __post_init__ to an `Options`, which is read from there on and never again from `settings`.
+    # Keyword-only, so that it moves none of the arguments a subclass adds after `periods` (`issue` of
+    # the forecasts)
     options: Options | dict | None = field(default=None, kw_only=True)
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
@@ -128,8 +128,7 @@ class TimeseriesRequest:
         # Convert settings given as a dict to a validated model. A `Settings` object is used as it is:
         # one built the usual way was validated at construction and on every assignment since, and
         # validating it again would only re-run its after-validators (it once logged the cache line a
-        # second time, GH-2476, GH-2504). One built with `model_construct` skipped validation on purpose,
-        # though the options it carries are checked when they are taken from it
+        # second time, GH-2476, GH-2504)
         if not isinstance(self.settings, Settings):
             self.settings = Settings.model_validate(self.settings)
         self.options = resolve_options(self.options, self.settings)

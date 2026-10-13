@@ -4,6 +4,7 @@
 
 import itertools
 import json
+import logging
 import os
 import re
 from collections.abc import Iterator
@@ -861,7 +862,7 @@ def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monk
 def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
     """Test a command left its options out passes Settings nothing, which the environment then sets.
 
-    Among them are the settings no option sets at all, such as `ts_geo_num_additional_stations`.
+    Among them are the host settings no option sets at all, such as `cache_dir`.
     """
     calls: list[dict] = []
 
@@ -875,13 +876,9 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
     assert all(not kwargs for kwargs in calls)
 
 
-@pytest.mark.xfail(
-    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
-    strict=True,
-)
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_cli_values_option_outranks_a_malformed_variable_for_its_setting(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test an option given on the command line replaces a WD_TS_* variable Settings would refuse."""
+def test_cli_values_option_outranks_a_malformed_variable_for_its_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test an option given on the command line replaces a WD_TS_* variable Options would refuse."""
     options = _settings_of(
         monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
     )
@@ -900,10 +897,6 @@ def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pyte
     ) in result.output
 
 
-@pytest.mark.xfail(
-    reason="the host Settings still read WD_TS_* until they drop the ts_* settings (GH-2639, stage 5)",
-    strict=True,
-)
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option_replaces() -> None:
     """Test a malformed WD_TS_* variable an option replaces does not stand in for another option's error."""
@@ -1350,6 +1343,35 @@ def test_auth_of_an_unknown_network_is_a_usage_error() -> None:
         "\n\nError: No API available for provider dwd and network abc. "
         "`wetterdienst about coverage`, without --provider and --network, lists the available ones.\n"
     )
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("command", ["auth", "coverage"])
+def test_a_network_whose_extra_is_missing_is_one_logged_line_on_auth_and_coverage(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, command: str
+) -> None:
+    """`about auth` and `about coverage` for a network whose extra is not installed print what to install (GH-2788).
+
+    The same line and exit 1 as the data commands, not a traceback and not a usage error: the command
+    line was right, the environment lacks the package.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = (
+        "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+    )
+
+    def resolve(*_args: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", resolve)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["about", command, "--provider=knmi", "--network=observation"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
     assert result.stdout == ""
 
 
