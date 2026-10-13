@@ -605,6 +605,24 @@ def test_knmi_hourly_wind_direction_names_its_ten_minutes() -> None:
     assert {p.name_original: p.name for p in KnmiObservationMetadata["10_minutes"]["data"]}["dd"] == "wind_direction"
 
 
+def test_meteofrance_hourly_fxy_is_the_highest_ten_minute_mean_not_a_gust() -> None:
+    """The row GH-2834 names: the hourly `FXY`, "valeur maximale de FF dans l'heure", FF being the 10-minute mean.
+
+    The hour's highest 10-minute mean is no gust: in the hourly files of department 31 (2020 to 2026) `FXY` is
+    at least `FF` in 99.9993 % of the rows and its mean (3.69 m/s) lies between that of `FF` (2.91 m/s) and those
+    of the 3-second gust `FXI3S` (5.61 m/s) and the instantaneous gust `FXI` (6.03 m/s). The hourly gusts `FXI` and
+    `FXI3S` stay unmapped; `DXY`, "direction de FXY", keeps `wind_direction_gust_max`, which has no better name
+    yet (GH-2836). The daily `FXI` is a gust and keeps its name.
+    """
+    hourly = {p.name_original: p.name for p in MeteoFranceObservationMetadata["hourly"]["core"]}
+    assert hourly["FXY"] == "wind_speed_rolling_mean_max"
+    assert hourly["DXY"] == "wind_direction_gust_max"
+    assert "FXI" not in hourly
+    assert "FXI3S" not in hourly
+    assert "wind_gust_max" not in hourly.values()
+    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["daily"]["core"]}["FXI"] == "wind_gust_max"
+
+
 def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:
     """The wordings of a mean over a window match; a mean of a whole interval and a window equal to it do not."""
     for evidence, resolution in (
