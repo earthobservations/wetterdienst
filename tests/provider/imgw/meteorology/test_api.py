@@ -1084,3 +1084,76 @@ def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monk
         values._collect_station_parameter_or_dataset("249180010", dataset)  # noqa: SLF001
     monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing])
     assert values._collect_station_parameter_or_dataset("249180010", dataset).is_empty()  # noqa: SLF001
+
+
+# Rows copied from the live monthly zips of daily/climate, KRAKÓW-OBSERWATORIUM: `k_d` of
+# 2024_05_k.zip and 2025_01_k.zip, and the pair of 2024_04_k.zip. The zips of May 2024 onwards hold
+# `k_d` alone; `k_d_t` (humidity, wind speed, cloud cover) is no longer published (GH-2819).
+_K_D_APRIL_2024 = '"250190390","KRAKÓW-OBSERWATORIUM","2024","04","01",26.4,"",10.9,"",18.6,"",5.5,"",10.0,"","W",0,"9"'
+_K_D_T_APRIL_2024 = '"250190390","KRAKÓW-OBSERWATORIUM","2024","04","01",18.6,"",60.5,"",1.7,"",7.3,""'
+_K_D_MAY_2024 = '"250190390","KRAKÓW-OBSERWATORIUM          ","2024","05","01",24.1,,8.8,,16.5,,6.4,,,"9",,,"9"'
+_K_D_JANUARY_2025 = '"250190390","KRAKÓW-OBSERWATORIUM          ","2025","01","02",11.3,,0.7,,5.1,,-3.9,,6.1,,"S",,"9"'
+
+
+def _climate_zip(files: dict[str, str]) -> File:
+    content = BytesIO()
+    with zipfile.ZipFile(content, "w") as archive:
+        for name, line in files.items():
+            archive.writestr(name, line.encode("latin-1"))
+    content.seek(0)
+    return File(url="https://example.invalid/2024_05_k.zip", content=content, status=200)
+
+
+def _read_daily_climate(files: dict[str, str]) -> dict[str, tuple[float | None, str | None]]:
+    values = ImgwMeteorologyValues._parse_file(  # noqa: SLF001
+        ImgwMeteorologyValues.__new__(ImgwMeteorologyValues),
+        file=_climate_zip(files),
+        station_id="250190390",
+        resolution=Resolution.DAILY,
+        file_schema=ImgwMeteorologyValues._file_schema[Resolution.DAILY]["climate"],  # noqa: SLF001
+    )
+    return {row["parameter"]: (row["value"], row["quality_flags"]) for row in values.iter_rows(named=True)}
+
+
+def test_imgw_meteorology_daily_climate_reads_a_zip_without_k_d_t() -> None:
+    """The zips from May 2024 hold only ``k_d``: its columns are read, ``k_d_t``'s are absent (GH-2819)."""
+    may = _read_daily_climate({"k_d_05_2024.csv": _K_D_MAY_2024})
+    assert may == {
+        "maksymalna temperatura dobowa": (24.1, None),
+        "minimalna temperatura dobowa": (8.8, None),
+        "średnia dobowa temperatura": (16.5, None),
+        "temperatura minimalna przy gruncie": (6.4, None),
+        "suma dobowa opadów": (0.0, "9"),
+        "wysokość pokrywy śnieżnej": (0.0, "9"),
+    }
+    january = _read_daily_climate({"k_d_01_2025.csv": _K_D_JANUARY_2025})
+    assert january["suma dobowa opadów"] == (6.1, None)
+    assert january["średnia dobowa temperatura"] == (5.1, None)
+
+
+def test_imgw_meteorology_daily_climate_still_reads_k_d_t_where_the_zip_holds_it() -> None:
+    """Up to April 2024 the zip holds both files, and ``k_d_t``'s humidity, wind and cloud cover are read."""
+    april = _read_daily_climate({"k_d_04_2024.csv": _K_D_APRIL_2024, "k_d_t_04_2024.csv": _K_D_T_APRIL_2024})
+    assert april["średnia dobowa wilgotność względna"] == (60.5, None)
+    assert april["średnia dobowa prędkość wiatru"] == (1.7, None)
+    assert april["średnie dobowe zachmurzenie ogólne"] == (7.3, None)
+    assert april["maksymalna temperatura dobowa"] == (26.4, None)
+    assert april["suma dobowa opadów"] == (10.0, None)
+    # `k_d_t` is read first, and keeps the mean temperature both files carry
+    assert april["średnia dobowa temperatura"] == (18.6, None)
+
+
+@pytest.mark.remote
+def test_imgw_meteorology_daily_climate_across_the_end_of_k_d_t() -> None:
+    """A year that spans April and May 2024 returns every day, as the issue's request raised before (GH-2819)."""
+    values = (
+        ImgwMeteorologyRequest(
+            parameters=[("daily", "climate", "precipitation_amount")],
+            start="2024-01-01",
+            end="2024-12-31",
+        )
+        .filter_by_station_id("250190390")
+        .values.all()
+        .df
+    )
+    assert values.height == 366

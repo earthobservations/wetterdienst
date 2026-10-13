@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO
@@ -30,6 +31,8 @@ from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
+
+log = logging.getLogger(__name__)
 
 # The names _file_schema maps that are not measurements, and so have no status column beside them.
 _STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
@@ -652,6 +655,11 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
                 if re.match(file_pattern, f):
                     matched_path = f
                     break
+            if matched_path is None:
+                # IMGW stopped writing `k_d_t` into the monthly zips with May 2024: the zip then holds
+                # `k_d` alone, and the parameters only `k_d_t` carries have no value for those months
+                log.debug("%s holds no file for %s, skipped", file.url, file_pattern)
+                continue
             df = self._parse_csv(
                 file=zfs.read_bytes(matched_path),
                 station_id=station_id,
