@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `knmi/observation` hourly `DD`, KNMI's mean wind direction over the last 10 minutes
+  of the hour ("Past 10 minute mean wind direction"), is named `wind_direction_last_10min`, no
+  longer `wind_direction`, which is the mean over the row's interval. Request the new name; the old
+  one is not found in `hourly/data` (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested; GH-2644). The 10-minute `wind_direction` is unchanged (GH-2835)
 - **Breaking**: `meteofrance/observation` hourly `FXY`, the hour's highest 10-minute mean wind
   ("valeur maximale de FF dans l'heure"), is named `wind_speed_rolling_mean_max`, no longer
   `wind_gust_max`: it is no gust (department 31 since 2020: mean 3.7 m/s, between `FF` 2.9 and
