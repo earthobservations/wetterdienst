@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.150.0] - 2026-10-13
+
 ### Fixed
 
 - `eccc/observation` makes no requests for hourly or daily values of a station that the station
@@ -4785,7 +4787,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.149.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.150.0...HEAD
+[0.150.0]: https://github.com/earthobservations/wetterdienst/compare/v0.149.0...v0.150.0
 [0.149.0]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...v0.149.0
 [0.148.0]: https://github.com/earthobservations/wetterdienst/compare/v0.147.0...v0.148.0
 [0.147.0]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...v0.147.0
