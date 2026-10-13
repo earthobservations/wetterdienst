@@ -19,6 +19,13 @@ that this local/UTC offset never drops a boundary period from the result.
 Each station's `country` is DMI's three-letter code for the country it is in: `DNK`, `GRL` or `FRO`.
 DMI gives no region within a country, so `region` is null.
 
+Each value carries DMI's `qcStatus` in `quality_flags`, `manual` (quality controlled by DMI's
+climatologists) or `none` (not controlled), followed by `validity:true` or `validity:false`. DMI
+documents `validity` as whether the climatologists consider the value valid: "Invalid data is
+generally not correct". It is `false` mostly for Greenland (station 04339 Ittoqqortoormiit has daily
+precipitation totals of 1978 mm and annual ones of 9574 mm marked so) and rarely for Denmark. The
+library returns those values as they are; filter on the flag to leave them out.
+
 ## License
 
 Data is © DMI (Danish Meteorological Institute) and licensed under

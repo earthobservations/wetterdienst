@@ -37,6 +37,12 @@ Types of changes:
   longer sets options: use `Options(_env_file=...)`. `SkipThreshold` is imported from
   `wetterdienst.options`, where `resolve_options` and `options_from_settings` of 0.147.0 are gone;
   `resolve_options` is in `wetterdienst.settings` (GH-2639)
+- `dmi/observation`: `quality_flags` (null before) carries DMI's `qcStatus` and `validity`, as
+  `manual,validity:true`. DMI sets `validity` to `false` for values its climatologists consider
+  invalid ("generally not correct"), mostly Greenland: 1978 mm of precipitation in a day at
+  04339, 17,802 mm in a month. The values are still returned; filter `quality_flags` for
+  `validity:false` to leave them out. A filter on a null `quality_flags` no longer holds (Part of
+  GH-2797)
 
 ### Deprecated
 

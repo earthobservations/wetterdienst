@@ -95,6 +95,8 @@ _STATION_VALUE_SCHEMA = pl.Schema(
                             "from": pl.String,
                             "to": pl.String,
                             "value": pl.Float64,
+                            "qcStatus": pl.String,
+                            "validity": pl.Boolean,
                         }
                     ),
                 }
@@ -327,8 +329,21 @@ class DmiObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             self._date_expression(resolution).alias("timestamp"),
             value.cast(pl.Float64).alias("value"),
-            join_quality_flags(None, raw=raw),
+            _quality_flags(raw),
         )
+
+
+def _quality_flags(raw: pl.Expr) -> pl.Expr:
+    """Write DMI's ``qcStatus`` and ``validity`` of a record as its ``quality_flags``.
+
+    ``qcStatus`` (``manual``: quality controlled by DMI's climatologists, ``none``: not controlled) is the
+    plain code and ``validity`` follows as ``validity:true`` or ``validity:false``. DMI documents
+    ``validity`` as "whether or not the value is considered valid by the climatologists. Invalid data is
+    generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
+    record is kept, so a caller can drop it by the flag (GH-2797). ``raw`` is the text a mapped sentinel was written
+    with (``raw:0`` of a calm wind, GH-2794), which closes the column.
+    """
+    return join_quality_flags(pl.col("qcStatus"), validity=pl.col("validity"), raw=raw)
 
 
 @dataclass
