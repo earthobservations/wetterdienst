@@ -357,6 +357,19 @@ def _dwd_10_minutes_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     return _dwd_observation(monkeypatch, "10_minutes", "wind", product, "01691", year=1993, drop_nulls=drop_nulls)
 
 
+def _dwd_10_minutes_urban_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # climate_urban/10_minutes/wind/recent/10minutenwerte_FF_STADT_15818_akt.zip, read 2026-10-13: the sheet of the
+    # dataset answers 404; all 20 zeros of the recent files and 51 of the historical ones come beside a speed of 0.00
+    # (2025-04-28 18:30), and north is 360 (2025-04-12 06:20) (GH-2809)
+    product = (
+        "STATIONS_ID;MESS_DATUM;  QN;FF_ST_10;DD_ST_10;eor\n"
+        "      15818;202504281830;    3;   0.00;   0;eor\n"
+        "      15818;202504281820;    3;   0.10; 220;eor\n"
+        "      15818;202504120620;    3;   0.50; 360;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "10_minutes", "urban_wind", product, "15818", year=2025, drop_nulls=drop_nulls)
+
+
 def _dwd_10_minutes_extreme_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/10minutenwerte_extrema_wind_00003_19930429_19991231_hist.zip: the direction of the gust is 0 beside a
     # gust of 0.0 (1993-04-28 12:30), a calm, and beside one of 4.1 m/s (1993-06-15 15:30), a north (GH-2805)
@@ -1098,6 +1111,13 @@ STUBS = [
         _dwd_10_minutes_wind,
         # no sentinel: a 0 beside a wind that blows is a bearing here
         reading=("wind_direction", 360.0),
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation 10_minutes/urban_wind",
+        _dwd_10_minutes_urban_wind,
+        reading=("wind_direction", 360.0),
+        sentinels=(("wind_direction", 0.0),),
         tokens=(("wind_direction", "0", None),),
     ),
     ValueStub(
