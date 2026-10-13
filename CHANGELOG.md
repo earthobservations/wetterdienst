@@ -23,6 +23,10 @@ Types of changes:
   no `start` and `end`. It asked for every year of the station and got empty answers, one request
   per year. Such a station has no values in the years asked for; a null-valued row (flag `M`) of
   one is no longer returned with `drop_nulls` off. Requests with dates are unchanged (GH-2820)
+- `meteofrance/synop` `wind_direction_last_10min` (`dd`) is null where the file writes 0, with
+  `raw:0` in `quality_flags`, no longer 0 degrees (north). 0 is the WMO code of a calm wind (all
+  3495 zeros of the 2024 file have `ff` 0) and north is 360. `wind_speed_last_10min` is unchanged
+  (GH-2856)
 
 ## [0.149.0] - 2026-10-13
 

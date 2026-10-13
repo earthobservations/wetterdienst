@@ -46,6 +46,14 @@ _SYNOP_TRACE_COLUMNS = ("rr1", "rr3", "rr6", "rr12", "rr24")
 _SYNOP_TRACE = "-0.1"
 _SYNOP_SKY_OBSCURED = "101"
 
+# `dd` is a direction in degrees with north written 360 (3230 rows in 2024), and the file writes 0 where there is no
+# direction: the WMO code table of the wind direction (0877) has 0 for calm and 360 for north (GH-2856). Every one of
+# the 3495 zeros of 2024 has `ff` = 0 (5444 of 5444 in 2019, 3999 of 3999 in 2023); in 1996, 2005 and 2012 32, 1 and 59
+# of 8350, 7750 and 7525 have an `ff` of 1 to 8 m/s (one of 41), which is a wind without a bearing, not a north. `ff` =
+# 0 is no calm by itself: the integer `ff` cuts 0.5 to 0.9 m/s to 0, and 10925 of those rows of 2024 have a direction
+_SYNOP_NO_WIND_DIRECTION = "0"
+_SYNOP_WIND_DIRECTION_COLUMN = "dd"
+
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
 # inconsistent dtype inference (e.g. an all-null column inferred as Boolean in one year and
@@ -179,6 +187,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             pl.col("value"),
             Sentinel(_SYNOP_TRACE, where=pl.col("parameter").is_in(_SYNOP_TRACE_COLUMNS), to=0.0),
             Sentinel(_SYNOP_SKY_OBSCURED, where=pl.col("parameter").eq("n")),
+            Sentinel(_SYNOP_NO_WIND_DIRECTION, where=pl.col("parameter").eq(_SYNOP_WIND_DIRECTION_COLUMN)),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,
