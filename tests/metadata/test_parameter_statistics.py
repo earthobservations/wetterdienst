@@ -34,6 +34,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
+from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
 
@@ -589,6 +590,18 @@ def test_meteofrance_hourly_wind_names_its_ten_minutes() -> None:
     assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["monthly"]["data"]}["FFM"] == "wind_speed"
 
 
+def test_meteofrance_synop_wind_names_its_ten_minutes() -> None:
+    """The rows GH-2733 names: SYNOP `dd` and `ff`, "direction du vent moyen 10 min" and "vitesse du vent moyen 10 min".
+
+    The sheet states the 10 minutes for both, and the files agree: `dd` equals the hourly `DD` and `ff` the hourly
+    `FF` cut to the integer at the same stamp. The gust `raf10` is not a mean and keeps its name.
+    """
+    subdaily = {p.name_original: p.name for p in MeteoFranceSynopMetadata["subdaily"]["data"]}
+    assert subdaily["dd"] == "wind_direction_last_10min"
+    assert subdaily["ff"] == "wind_speed_last_10min"
+    assert subdaily["raf10"] == "wind_gust_max"
+
+
 def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:
     """The wordings of a mean over a window match; a mean of a whole interval and a window equal to it do not."""
     for evidence, resolution in (
@@ -601,6 +614,7 @@ def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:
         ),
         ("Wind speed. Mean over 10 minutes, once per hour. 4", "hourly"),
         ("Wind force averaged over 10 minutes, measured at 10 m. FF", "hourly"),
+        ("Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer). ff", "subdaily"),
         ("Mean wind direction over the last ten minutes before the observation time.", "hourly"),
         ("Wind speed. One minute mean, every minute.", "10_minutes"),
     ):

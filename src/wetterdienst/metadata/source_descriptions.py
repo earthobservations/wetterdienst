@@ -2215,8 +2215,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     # `t` is "température" in the technical description of the SYNOP product
     # (OBSERVATIONS_Descriptif_Technique_Données_SYNOP_OMM.pdf), with no window; the 12 and 24 hour
-    # extremes are the ones that state one
+    # extremes are the ones that state one. The same sheet: "dd direction du vent moyen 10 min" (int, degré)
+    # and "ff vitesse du vent moyen 10 min" (réel, m/s), though the files hold whole numbers only (2927 of 2927
+    # stamps of Orly 2024 equal the hourly FF of the climatological base cut to the integer)
     "MeteoFranceSynopMetadata": {
+        ("subdaily", "data", "dd"): "Direction of the mean wind over 10 minutes, in whole degrees.",
+        (
+            "subdaily",
+            "data",
+            "ff",
+        ): "Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).",
         ("subdaily", "data", "t"): "Temperature.",
     },
 }
@@ -2783,8 +2791,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
     },
     "MeteoFranceSynopMetadata": {
-        ("subdaily", "data", "dd"): "Direction the wind is blowing from, clockwise from true north.",
-        ("subdaily", "data", "ff"): "Mean speed of the wind over the period.",
         ("subdaily", "data", "n"): "Fraction of the sky covered by cloud of any kind.",
         ("subdaily", "data", "pmer"): (
             "Air pressure reduced to mean sea level, so that stations at different heights compare."

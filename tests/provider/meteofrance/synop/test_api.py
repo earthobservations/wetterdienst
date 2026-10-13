@@ -11,6 +11,7 @@ import pytest
 
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Settings
+from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as synop_api
 
@@ -77,6 +78,28 @@ def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytes
     }
 
 
+def test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that dd and ff come back as the 10-minute mean they are, in whole numbers (GH-2733).
+
+    The rows are the first two of Toulouse-Blagnac (07630) in synop_2024.csv.gz, 2024-01-01 00:00Z (dd=190, ff=2)
+    and 03:00Z (dd=170, ff=1), moved to 07005. The hourly FF of 31069001 at those stamps is 2.4 and 1.4, which
+    the source's ff cuts to the integer. The old names are not found in the dataset.
+    """
+    rows = [
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "dd": "190", "ff": "2"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T03:00:00Z", "dd": "170", "ff": "1"},
+    ]
+    df = _values(monkeypatch, rows, ["wind_direction_last_10min", "wind_speed_last_10min"])
+    by_parameter = {
+        str(parameter): group.get_column("value").to_list()
+        for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
+    }
+    assert by_parameter == {"wind_direction_last_10min": [190.0, 170.0], "wind_speed_last_10min": [2.0, 1.0]}
+    for old in ("wind_speed", "wind_direction"):
+        with pytest.raises(NoParametersFoundError):
+            MeteoFranceSynopRequest(parameters=[("subdaily", "data", old)])
+
+
 def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that n=101 has no cloud cover, where a class of 0 to 100 percent keeps its value (GH-2674).
 
@@ -128,8 +151,8 @@ def test_meteofrance_synop_api_values() -> None:
 @pytest.mark.parametrize(
     "parameter",
     [
-        "wind_speed",
-        "wind_direction",
+        "wind_speed_last_10min",
+        "wind_direction_last_10min",
         "humidity_relative",
         "pressure_air_sea_level",
         "precipitation_amount_last_3h",
