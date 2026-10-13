@@ -5,8 +5,8 @@
 RMI publishes automatic weather station (AWS) observations through an open, key-less GeoServer
 WFS service (GeoJSON). Each resolution is exposed as its own feature type -- ``aws:aws_10min``,
 ``aws:aws_1hour`` and ``aws:aws_1day`` -- plus a station layer ``aws:aws_station``. A single
-``GetFeature`` request filtered with a CQL predicate (``code = <station> AND timestamp DURING
-<start>/<end>``) returns every parameter for that station in the requested window as one wide
+``GetFeature`` request filtered with a CQL predicate (``code = <station> AND timestamp >= <start>
+AND timestamp <= <end>``) returns every parameter for that station in the requested window as one wide
 feature per timestamp -- see https://www.geo.be/catalog/details/RMI_AWS_WFS.
 """
 
@@ -192,7 +192,10 @@ class RmiObservationValues(TimeseriesValues):
         # that pass tz-aware, non-UTC dates; TimeseriesValues.query() trims to the exact range.
         start = start_date.astimezone(_UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         end = end_date.astimezone(_UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        cql_filter = f"code = {station_id} AND timestamp DURING {start}/{end}"
+        # `timestamp DURING X/X` (a one-day or single-instant request) is answered with HTTP 400
+        # ("the beginning of the period must be earlier than the end"); `DURING` is otherwise
+        # inclusive at both ends on this server, exactly what `>= AND <=` says, and accepts X == X
+        cql_filter = f"code = {station_id} AND timestamp >= {start} AND timestamp <= {end}"
 
         layer = dataset.resolution.name_original
         schema = _values_schema(dataset.parameters)
