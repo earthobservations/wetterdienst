@@ -20,6 +20,7 @@ from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.provider.dwd.observation.fileindex import (
     create_file_index_for_climate_observations,
     create_file_list_for_climate_observations,
+    is_mez_file,
 )
 
 
@@ -127,8 +128,9 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         dt.datetime(1991, 11, 18, 23, tzinfo=utc),
         dt.datetime(1999, 12, 31, 23, tzinfo=utc),
     )
+    # the first file of 2000 begins with the six stamps 23:00 to 23:50 UTC of 1999-12-31 (GH-2815)
     assert bounds["20000101_20091231"] == (
-        dt.datetime(2000, 1, 1, tzinfo=utc),
+        dt.datetime(1999, 12, 31, 23, tzinfo=utc),
         dt.datetime(2010, 1, 1, tzinfo=utc),
     )
     assert bounds["19900101_19910630"] == (
@@ -167,6 +169,9 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         ("1991-11-18T23:00+00:00", "1991-11-18T23:30+00:00", ["19911119_19991231"]),
         ("1991-06-30T22:30+00:00", "1991-06-30T22:50+00:00", ["19900101_19910630"]),
         ("1999-12-31T22:00+00:00", "1999-12-31T22:50+00:00", ["19911119_19991231"]),
+        # the stamps 23:00 to 23:50 UTC of 1999-12-31 are in the file of 2000, whose name says 20000101 (GH-2815)
+        ("1999-12-31T23:00+00:00", "1999-12-31T23:50+00:00", ["20000101_20091231"]),
+        ("1999-12-31T22:00+00:00", "2000-01-01T00:30+00:00", ["19911119_19991231", "20000101_20091231"]),
     ],
 )
 def test_historical_files_are_chosen_by_the_instants_they_cover(
@@ -187,3 +192,35 @@ def test_historical_files_are_chosen_by_the_instants_they_cover(
         values, "01048", DwdObservationMetadata.minute_10.temperature_air, default_settings
     )
     assert chosen == date_ranges
+
+
+@pytest.mark.parametrize(
+    ("filename", "mez"),
+    [
+        ("10minutenwerte_TU_01048_19911119_19991231_hist.zip", True),
+        ("5minutenwerte_nieder_01048_19991201_19991231_hist.zip", True),
+        ("10minutenwerte_TU_01048_20000101_20091231_hist.zip", False),
+        ("1minutenwerte_nieder_00003_20000101_20000131_hist.zip", False),
+        # recent and now carry no dates and are UTC
+        ("10minutenwerte_TU_01048_akt.zip", False),
+    ],
+)
+def test_is_mez_file(filename: str, *, mez: bool) -> None:
+    """Test that a file is MEZ as a whole by the first day its name gives (GH-2815)."""
+    assert is_mez_file(filename) is mez
+
+
+def test_the_five_and_one_minute_files_of_2000_start_at_midnight_utc(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that only the 10 minute files of 2000 reach back to 23:00 UTC; the others begin at 00:00 (GH-2815)."""
+    url = (
+        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/"
+        "historical/2000/5minutenwerte_nieder_01048_20000101_20000131_hist.zip"
+    )
+    listing = pl.DataFrame({"url": [url], "filename": [url.rsplit("/", maxsplit=1)[-1]]}).lazy()
+    monkeypatch.setattr(fileindex, "_create_file_index_for_dwd_server", lambda *_, **__: listing)
+    index = create_file_index_for_climate_observations(
+        DwdObservationMetadata.minute_5.precipitation, Period.HISTORICAL, default_settings
+    ).collect()
+    assert index.get_column("start_timestamp").to_list() == [dt.datetime(2000, 1, 1, tzinfo=dt.UTC)]

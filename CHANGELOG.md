@@ -94,6 +94,13 @@ Types of changes:
   summer time) of the last day of a file, such as 22:00 to 23:50 UTC on 31 July, came back without
   those hours, because the file's end was read as Berlin midnight; its stamps are UTC (MEZ, a fixed
   UTC+1, before 2000). A request ending on a file's first stamp now gets that file too (GH-2811)
+- `dwd/observation` `10_minutes` `historical`: the six values 1999-12-31 23:00 to 23:50 UTC were
+  missing for every station and dataset that spans the year 2000 (a 70 minute hole), because the
+  file of 1999 (MEZ) and the file of 2000 (UTC) carry the same digits for different instants. The
+  wind file of 1999 also reaches into 2000-01-01 00:00 to 00:50 MEZ, which now lands on 23:00 to
+  23:50 UTC and no longer competes with the real values of 00:00 to 00:50 UTC. A request for that
+  hour gets the file of 2000. The 5-minute stamp 200001010000 of the December 1999 files is now
+  read as MEZ too (23:00 UTC) (GH-2815)
 
 ## [0.147.0] - 2026-10-12
 
