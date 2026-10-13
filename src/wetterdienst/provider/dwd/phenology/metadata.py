@@ -21,12 +21,12 @@ parameter's ``name_original`` is the numeric ``Phase_id``, which is the only nam
 themselves use for a phase.
 
 ``Jultag`` is returned as DWD writes it and is the day of the year only for a date in the reference
-year, and in a leap year only before 1 March. In a leap year since about 1952 it counts a 365-day
-year (29 February is 59 like 28 February, 1 March is 60); a date before 1 January of
-``Referenzjahr`` is a negative number of days (31 December is -1, there is no 0), with positive
-earlier-year days as an exception in the annual crop files. The entry date (``Eintrittsdatum``) is
-not carried and can mostly, not always, be worked out from the stamp plus ``Jultag``; see
-``_parse_values`` in ``api.py`` for the detail.
+year, and in a leap year since about 1952 only before 1 March: such a year counts 365 days (29
+February is 59 like 28 February, 1 March is 60). A date before 1 January of ``Referenzjahr`` is a
+negative number of days (31 December is -1, there is no 0), with positive earlier-year days as an
+exception in the annual crop files. The entry date (``Eintrittsdatum``) is not carried and can
+mostly, not always, be worked out from the stamp plus ``Jultag``; see ``_parse_values`` in
+``api.py`` for the detail.
 
 The plant and phase tables below are transcribed from the descriptions DWD publishes beside the
 data -- ``PH_Beschreibung_Pflanze.txt`` and ``PH_Beschreibung_Phase.txt`` in

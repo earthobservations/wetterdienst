@@ -35,7 +35,7 @@ file layout:
   `Phase_id`, which is the only name the data files themselves use.
 - **value** — `Jultag`, which DWD describes as the day of the year the phase was reached, dimensionless.
   It is returned as DWD writes it, and it is the day of the year only for a date in the reference year, and in
-  a leap year only before 1 March; see *Reading `Jultag`* below.
+  a leap year since about 1952 only before 1 March; see *Reading `Jultag`* below.
 - **timestamp** — the 1st of January of the reference year, not the date of the phase. The entry date
   (`Eintrittsdatum`) that DWD also publishes is not carried; it can mostly, but not always, be worked out from
   the stamp and `Jultag`.
@@ -56,7 +56,7 @@ values = next(request.filter_by_station_id("07521").values.query()).df
 
 DWD's description files call `Jultag` the "day of the year" (`DDD`) and say nothing more about how it is
 counted. The data show that it is the day of the year only for a date in the reference year, and in a leap year
-only before 1 March; the library returns it as DWD writes it. Checked on the current and historical files of
+since about 1952 only before 1 March; the library returns it as DWD writes it. Checked on the current and historical files of
 winter wheat and winter rape (annual reporters), hazel (both reporter groups) and winter wheat and winter rape
 (immediate reporters), 2026-10-13:
 
@@ -71,18 +71,18 @@ winter wheat and winter rape (annual reporters), hazel (both reporter groups) an
   (`20231229` of `Referenzjahr` 2024 is -3; 243 of 243 such rows of the immediate-reporter hazel historical file, 63
   of 63 of the recent one, 508 of 508 and 70 of 70 of the annual-reporter hazel). In the annual-reporter crop
   files the exception is the earlier year's positive day of the year, which looks like a day of the reference
-  year: all 37 rows of `Referenzjahr` 1963 in winter wheat (`19621010` is 283; winter rape has 20) and two of 2024 in
+  year: all 37 rows of `Referenzjahr` 1963 dated in 1962 in winter wheat (`19621010` is 283; winter rape has 20) and two of 2024 in
   winter wheat (`20231203` is 337).
   A date in the year after the reference year runs on past 365 (`20170115` of 2016 is 380; three winter wheat
   rows).
 - **Working out the entry date.** The timestamp is the 1st of January of the `Referenzjahr` and the entry date is
   not carried, so add `Jultag - 1` days to the timestamp for a date before 1 March (or in a year that is not a leap
   year), `Jultag` days for a later date in a leap year, and a negative `Jultag` as it is (`-3` gives 29 December of
-  the year before). That reproduces the entry date of nearly every row of
-  the files above, apart from three kinds: 28 and 29 February, which share 59; a row of an older leap year that
-  carries the real day of the year, which comes out one day late (a `Jultag` of 100 in 1960 may be 9 or 10 April);
-  and the positive earlier-year days above, which come out in the wrong year. A handful of rows
-  (`Referenzjahr` 2013, station 12656, `20130510` is 257) follow none of it.
+  the year before). That reproduces the entry date of nearly every row of the files above, apart from three
+  kinds: 28 and 29 February, which share 59; a row of an older leap year that carries the real day of the year,
+  which comes out one day late (a `Jultag` of 100 in 1960 may be 9 or 10 April); and the positive earlier-year
+  days above, which come out in the wrong year. A few dozen rows (`Referenzjahr` 2013, station 12656,
+  `20130510` is 257) follow none of it.
 
 ## Periods
 

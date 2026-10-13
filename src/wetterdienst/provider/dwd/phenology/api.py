@@ -122,8 +122,8 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
     """Parse one phenology file into tidy rows.
 
     ``Jultag`` is the value and is returned as DWD writes it. DWD's description calls it the "day
-    of the year", but it is that only for a date in the reference year, and in a leap year only
-    before 1 March (1 January is 1):
+    of the year", but it is that only for a date in the reference year, and in a leap year since
+    about 1952 only before 1 March (1 January is 1):
 
     - In a leap year since about 1952 it counts a 365-day year: 29 February is 59 like 28 February
       and 1 March is 60, so from 1 March it is one below the real day of the year. In older leap
@@ -137,7 +137,8 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
     The row is dated to the 1st of January of ``Referenzjahr``, which is the timestamp the
     ``annual`` resolution uses, and the entry date (``Eintrittsdatum``) is not carried. It can
     mostly be worked out from that stamp plus ``Jultag``, but not from 28 and 29 February, which
-    share 59, nor from the positive earlier-year days above.
+    share 59, nor from the positive earlier-year days above, and a leap-year row that carries the
+    real day of the year comes out a day late.
     """
     df = _read_phenology_file(content)
     if df.is_empty():
