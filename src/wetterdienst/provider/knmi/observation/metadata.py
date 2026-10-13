@@ -148,7 +148,7 @@ KnmiObservationMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_10min",
                             "name_original": "DD",
                             "unit": "degree",
                         },
