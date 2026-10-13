@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/phenology`: `Jultag` is documented as what it is. It is the value DWD writes, not the day
+  of the year as the docs said: in leap years since about 1952 it counts 365 days (1 March is 60)
+  and a date before the reference year is a negative number of days. The timestamp plus `Jultag`
+  does not always give the entry date; the values are unchanged (GH-2822)
+
 ## [0.148.0] - 2026-10-13
 
 ### Added
@@ -132,10 +139,6 @@ Types of changes:
   parameters of `k_d`/`s_d` are returned; those only the missing file carries (`cloud_cover_total`,
   `humidity_relative`, `wind_speed` and, in synop, the vapour and air pressures and the day and
   night precipitation) have no rows after the month the file ends (GH-2819)
-- `dwd/phenology`: `Jultag` is documented as what it is. It is the value DWD writes, not the day
-  of the year as the docs said: in leap years since about 1952 it counts 365 days (1 March is 60)
-  and a date before the reference year is a negative number of days. The timestamp plus `Jultag`
-  does not always give the entry date; the values are unchanged (GH-2822)
 
 ## [0.147.0] - 2026-10-12
 
