@@ -124,6 +124,10 @@ Types of changes:
   parameters of `k_d`/`s_d` are returned; those only the missing file carries (`cloud_cover_total`,
   `humidity_relative`, `wind_speed` and, in synop, the vapour and air pressures and the day and
   night precipitation) have no rows after the month the file ends (GH-2819)
+- `rmi/observation` returns the stamp of a request with `start == end` (the one-day form) at all
+  three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
+  `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
+  otherwise (GH-2823)
 
 ## [0.147.0] - 2026-10-12
 
