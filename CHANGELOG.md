@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.148.0] - 2026-10-13
+
 ### Added
 
 - `wetterdienst about auth --provider=... --network=...` and the MCP tool `auth` check one
@@ -4708,7 +4710,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.147.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...HEAD
+[0.148.0]: https://github.com/earthobservations/wetterdienst/compare/v0.147.0...v0.148.0
 [0.147.0]: https://github.com/earthobservations/wetterdienst/compare/v0.146.0...v0.147.0
 [0.146.0]: https://github.com/earthobservations/wetterdienst/compare/v0.145.0...v0.146.0
 [0.145.0]: https://github.com/earthobservations/wetterdienst/compare/v0.144.0...v0.145.0
