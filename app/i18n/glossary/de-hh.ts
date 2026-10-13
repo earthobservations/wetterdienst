@@ -618,6 +618,7 @@ export const parameters: Record<string, string> = {
 export const resolutions: Record<string, string> = {
   '1_minute': 'Elke Minuut',
   '5_minutes': 'All 5 Minuten',
+  '6_minutes': 'All 6 Minuten',
   '10_minutes': 'All 10 Minuten',
   '15_minutes': 'All 15 Minuten',
   'hourly': 'Elke Stünn',
@@ -673,4 +674,15 @@ export const datasets: Record<string, string> = {
   climate: 'Klima',
   synop: 'SYNOP',
   data: 'Beobachtungen',
+  // Météo-France, Met Office, DWD Stadtklima
+  core: 'Grundparameter',
+  others: 'Annere Parameter',
+  rain: 'Regen',
+  radiation: 'Strahlen',
+  weather: 'Weer',
+  temperature: 'Temperatur',
+  soil_temperature: 'Bodentemperatur',
+  urban_solar: 'Stadtsünnenstrahlen',
+  urban_temperature_extreme: 'Stadttemperaturextremen',
+  urban_wind_extreme: 'Stadtwindbööen',
 }

@@ -81,6 +81,11 @@ const settings: DataSettings = {
   numAdditionalStations: 3,
 }
 
+// how the English glossary names the parameters these tests plot
+const airTemperature = 'Mean air temperature (2 m)'
+const precipitationAmount = 'Precipitation amount'
+const windSpeed = 'Wind speed'
+
 const parameterSelection: ParameterSelection = {
   provider: 'dwd',
   network: 'observation',
@@ -887,7 +892,7 @@ async function showChart(wrapper: Awaited<ReturnType<typeof mountDataViewer>>['w
 }
 
 // two parameters, a facet each
-const twoParameters = [row, { ...row, parameter: 'precipitation_height', value: 0.2 }]
+const twoParameters = [row, { ...row, parameter: 'precipitation_amount', value: 0.2 }]
 
 describe('dataViewer chart images', () => {
   it.each([false, true])('offers no chart image while no chart is shown, faceted: %s', async (faceted) => {
@@ -916,7 +921,7 @@ describe('dataViewer chart images', () => {
     const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
     expect([svg.getAttribute('width'), svg.getAttribute('height')]).toEqual(['700', '600'])
     const charts = [...svg.children].map(chart => [chart.getAttribute('y'), chart.textContent])
-    expect(charts).toEqual([['0', 'temperature_air_mean_2m'], ['300', 'precipitation_height']])
+    expect(charts).toEqual([['0', airTemperature], ['300', precipitationAmount]])
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
   })
 
@@ -963,7 +968,7 @@ describe('dataViewer chart images', () => {
     expect(plotly.Snapshot.svgToImg).toHaveBeenCalledOnce()
     const [drawn] = plotly.Snapshot.svgToImg.mock.calls[0] as unknown as [{ svg: string, format: string, width: number, height: number }]
     expect([drawn.format, drawn.width, drawn.height]).toEqual(['png', 700, 600])
-    expect(drawn.svg).toContain('precipitation_height')
+    expect(drawn.svg).toContain(precipitationAmount)
     expect(saved[0]!.type).toBe('image/png')
     expect(await saved[0]!.text()).toBe('png')
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as PNG'))
@@ -996,11 +1001,11 @@ describe('dataViewer query panel columns', () => {
   }
 
   it('lists the columns a wide-shaped table carries, its parameters in place of parameter, value and quality_flags', async () => {
-    registerEndpoint('/api/values', () => ({ values: [{ station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, precipitation_height: 0.2 }] }))
+    registerEndpoint('/api/values', () => ({ values: [{ station_id: '01048', resolution: 'daily', dataset: 'climate_summary', timestamp: '2020-01-01T00:00:00Z', temperature_air_mean_2m: 1.5, precipitation_amount: 0.2 }] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m', 'precipitation_height'])
+    expect(await availableColumns(wrapper)).toEqual(['station_id', 'resolution', 'dataset', 'timestamp', 'temperature_air_mean_2m', 'precipitation_amount'])
   })
 
   // each point mode's rows as the REST API answers them, with a distance of their own and no quality_flags.
@@ -1129,7 +1134,7 @@ describe('dataViewer chart series', () => {
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
     await showChart(wrapper, faceted)
-    const series = faceted ? ['01048', '04411'] : ['01048 - temperature_air_mean_2m', '04411 - temperature_air_mean_2m']
+    const series = faceted ? ['01048', '04411'] : [`01048 - ${airTemperature}`, `04411 - ${airTemperature}`]
     expect(seriesDrawn(faceted)).toEqual(series)
     // the rows shown are still both stations': merged, they made one series zig-zagging between them
     stationSelection.value = atPoint('interpolation')
@@ -1153,7 +1158,7 @@ describe('dataViewer chart series', () => {
     // as a station's first, the request answered being taken as the rows' only a few ticks later
     const drawn = draw.mock.calls.map(([, traces]) => (traces as { name: string }[]).map(trace => trace.name))
     expect(drawn.length).toBeGreaterThan(0)
-    expect(drawn.every(names => names.join() === (faceted ? 'interpolated' : 'temperature_air_mean_2m'))).toBe(true)
+    expect(drawn.every(names => names.join() === (faceted ? 'interpolated' : airTemperature))).toBe(true)
   })
 })
 
@@ -1265,7 +1270,7 @@ describe('dataViewer chart images while drawn', () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain('Chart downloaded as SVG'))
     if (faceted) {
       const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
-      expect([...svg.children].map(chart => chart.textContent)).toEqual(['temperature_air_mean_2m', 'precipitation_height', 'wind_speed'])
+      expect([...svg.children].map(chart => chart.textContent)).toEqual([airTemperature, precipitationAmount, windSpeed])
     }
     else {
       const [chart] = plotly.downloadImage.mock.lastCall as unknown as [HTMLElement]
@@ -1299,7 +1304,7 @@ describe('dataViewer chart images while drawn', () => {
     else {
       expect(plotly.downloadImage).not.toHaveBeenCalled()
       const svg = new DOMParser().parseFromString(await saved[0]!.text(), 'image/svg+xml').documentElement
-      expect([...svg.children].map(chart => chart.textContent)).toEqual(['temperature_air_mean_2m', 'precipitation_height'])
+      expect([...svg.children].map(chart => chart.textContent)).toEqual([airTemperature, precipitationAmount])
     }
   })
 })
@@ -1351,7 +1356,7 @@ describe('dataViewer chart of the rows it can plot', () => {
   // a parameter whose rows have no value, and one whose rows have no timestamp, beside one plotted
   const unplotted = [
     row,
-    { ...row, parameter: 'precipitation_height', value: null },
+    { ...row, parameter: 'precipitation_amount', value: null },
     { ...row, parameter: 'wind_speed', timestamp: null, value: 3.1 },
   ]
 
@@ -1361,7 +1366,7 @@ describe('dataViewer chart of the rows it can plot', () => {
     const { wrapper } = await withChartQuery(unplotted)
     await showChart(wrapper, false)
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-    expect(lastDrawn(false).traces.map(trace => trace.name)).toEqual(['01048 - temperature_air_mean_2m'])
+    expect(lastDrawn(false).traces.map(trace => trace.name)).toEqual([`01048 - ${airTemperature}`])
   })
 
   it('draws no facet for the rows it leaves out', async () => {
@@ -1370,7 +1375,7 @@ describe('dataViewer chart of the rows it can plot', () => {
     const { wrapper } = await withChartQuery(unplotted)
     await showChart(wrapper, true)
     await vi.waitFor(() => expect(plotly.react).toHaveBeenCalled())
-    expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual(['temperature_air_mean_2m'])
+    expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual([airTemperature])
     expect(plotly.react).toHaveBeenCalledOnce()
   })
 
@@ -1787,7 +1792,8 @@ describe('dataViewer facets large or small by their own points', () => {
   // a day's row each of the parameter, from 2020-01-01 on
   const daysOf = (parameter: string, count: number) => Array.from({ length: count }, (_, day) => ({ ...row, parameter, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString() }))
 
-  // each facet's trace mode and hover mode, as it was last drawn, by its parameter
+  // each facet's trace mode and hover mode, as it was last drawn, by its parameter's label: an id the
+  // glossary does not know is prettified, so 'a' is 'A'
   function facetsDrawn() {
     const drawn = new Map<string, [string, string]>()
     for (const [, traces, layout] of plotly.react.mock.calls as unknown as [HTMLElement, { mode: string }[], { hovermode: string, yaxis: { title: string } }][])
@@ -1803,7 +1809,7 @@ describe('dataViewer facets large or small by their own points', () => {
     const { wrapper } = await withChartQuery(parameters.flatMap(parameter => daysOf(parameter, 100)))
     await showChart(wrapper, true)
     await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(6))
-    expect(facetsDrawn()).toEqual(Object.fromEntries(parameters.map(parameter => [parameter, ['lines+markers', 'x unified']])))
+    expect(facetsDrawn()).toEqual(Object.fromEntries(parameters.map(parameter => [parameter.toUpperCase(), ['lines+markers', 'x unified']])))
   })
 
   it('draws a large facet as a large one beside a small one', async () => {
@@ -1811,7 +1817,7 @@ describe('dataViewer facets large or small by their own points', () => {
     const { wrapper } = await withChartQuery([...daysOf('a', 501), ...daysOf('b', 10)])
     await showChart(wrapper, true)
     await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
-    expect(facetsDrawn()).toEqual({ a: ['lines', 'closest'], b: ['lines+markers', 'x unified'] })
+    expect(facetsDrawn()).toEqual({ A: ['lines', 'closest'], B: ['lines+markers', 'x unified'] })
   })
 })
 
@@ -1835,7 +1841,7 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
     await showChart(wrapper, faceted)
     await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
     const unsorted = seriesDrawn(faceted)
-    expect(unsorted.map(([name]) => name)).toEqual(faceted ? ['01048', '04411'] : ['01048 - temperature_air_mean_2m', '04411 - temperature_air_mean_2m'])
+    expect(unsorted.map(([name]) => name)).toEqual(faceted ? ['01048', '04411'] : [`01048 - ${airTemperature}`, `04411 - ${airTemperature}`])
     // back to the table, sorted by value descending, the second station's row first: the stations
     // swapped their legend places and colours
     await wrapper.findAll('button').find(button => button.find('[class~="i-lucide:table"]').exists())!.trigger('click')
@@ -1882,10 +1888,10 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     expect(stats(viewer)).toEqual([])
     // `SELECT parameter, value FROM data`: no dataset, a missing value counted as none, and a value
     // as text, `value::VARCHAR AS value`, left out
-    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_height', value: 2 }, { parameter: 'precipitation_height', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
+    panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_amount', value: 2 }, { parameter: 'precipitation_amount', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([
-      { parameter: 'precipitation_height', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
+      { parameter: 'precipitation_amount', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
       { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
     ])
   })
@@ -2106,7 +2112,7 @@ describe('dataViewer facets\' station colours', () => {
   }
 
   const second = { ...row, station_id: '04411' }
-  const precipitation = { ...row, parameter: 'precipitation_height', value: 0.2 }
+  const precipitation = { ...row, parameter: 'precipitation_amount', value: 0.2 }
   const blue = '#3b82f6'
   const green = '#22c55e'
 
@@ -2124,8 +2130,8 @@ describe('dataViewer facets\' station colours', () => {
     await showChart(wrapper, true)
     await vi.waitFor(() => expect(Object.keys(facetsDrawn())).toHaveLength(2))
     expect(facetsDrawn()).toEqual({
-      temperature_air_mean_2m: [['01048', blue], ['04411', green]],
-      precipitation_height: precipitationSeries,
+      [airTemperature]: [['01048', blue], ['04411', green]],
+      [precipitationAmount]: precipitationSeries,
     })
   })
 })
@@ -2445,8 +2451,8 @@ describe('dataViewer chart names', () => {
     await showChart(wrapper, true)
     await vi.waitFor(() => expect(plotly.react).toHaveBeenCalledTimes(2))
     expect(drawnInto(true)).toEqual([
-      ['figure', 'Chart of temperature_air_mean_2m'],
-      ['figure', 'Chart of precipitation_height'],
+      ['figure', `Chart of ${airTemperature}`],
+      ['figure', `Chart of ${precipitationAmount}`],
     ])
   })
 })
@@ -2468,5 +2474,145 @@ describe('dataViewer date range', () => {
     await vi.waitFor(() => expect(asked).toHaveLength(1))
     expect(asked[0]!.timestamp).toBe('2020-01-01/2020-01-31')
     expect(asked[0]).not.toHaveProperty('date')
+  })
+})
+
+// A parameter with a long id, which the glossary names in every locale: the label the page showed
+// instead was the id prettified, "Wind Direction Last 10min" (GH-2865). The chart's legend and the
+// facets took the raw id from the rows, so each place the viewer names a parameter, a dataset or a
+// resolution is drawn here in a locale that is not English, and must say what that locale's
+// glossary says
+describe('dataViewer names what it shows in the active locale', () => {
+  const longId = { resolution: '10_minutes', dataset: 'urban_wind', parameter: 'wind_direction_last_10min' }
+  const direction = { ...row, ...longId }
+  const speed = { ...direction, parameter: 'wind_speed_last_10min', value: 2.5 }
+
+  // what each locale's glossary says of the ids above, spelled out rather than read from the
+  // glossary the page is held to
+  const names = {
+    de: { resolution: 'Alle 10 Minuten', dataset: 'Stadtklima: Wind', direction: 'Mittlere Windrichtung (letzte 10 min)', speed: 'Mittlere Windgeschwindigkeit (letzte 10 min)' },
+    fr: { resolution: 'Toutes les 10 minutes', dataset: 'Vent urbain', direction: 'Direction moyenne du vent (10 dernières min)', speed: 'Vitesse moyenne du vent (10 dernières min)' },
+    pl: { resolution: 'Co 10 minut', dataset: 'Wiatr miejski', direction: 'Średni kierunek wiatru (ostatnie 10 min)', speed: 'Średnia prędkość wiatru (ostatnie 10 min)' },
+  }
+  const locales = Object.keys(names) as (keyof typeof names)[]
+  // `dataViewer.facetChartLabel` of each
+  const chartOf = {
+    de: (parameter: string) => `Diagramm von ${parameter}`,
+    fr: (parameter: string) => `Graphique de ${parameter}`,
+    pl: (parameter: string) => `Wykres: ${parameter}`,
+  }
+
+  // the three formats the viewer names a parameter in, with the parts each is made of
+  const formats = [
+    { format: 'parameter', parts: (n: typeof names.de, parameter: string) => [parameter] },
+    { format: 'dataset/parameter', parts: (n: typeof names.de, parameter: string) => [n.dataset, parameter] },
+    { format: 'resolution/dataset/parameter', parts: (n: typeof names.de, parameter: string) => [n.resolution, n.dataset, parameter] },
+  ]
+
+  async function setLocale(locale: string) {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as unknown as { setLocale: (locale: string) => Promise<void> }).setLocale(locale)
+    harness.unmount()
+  }
+
+  afterEach(async () => {
+    await setLocale('en')
+  })
+
+  async function mountIn(locale: string, faceted: boolean) {
+    registerEndpoint('/api/values', () => ({ values: [direction, speed] }))
+    await setLocale(locale)
+    const mountedViewer = await mountDataViewer()
+    await fetchData(mountedViewer.viewer)
+    // the checkbox is found by its English text, so facets are asked for through the viewer itself
+    await showChart(mountedViewer.wrapper, false)
+    const vm = mountedViewer.viewer.vm as unknown as { paramLabelFormat: string, facetByParameter: boolean }
+    plotly.react.mockClear()
+    vm.facetByParameter = faceted
+    await flushPromises()
+    const choose = async (format: string) => {
+      vm.paramLabelFormat = format
+      await flushPromises()
+    }
+    return { ...mountedViewer, choose }
+  }
+
+  // the id of the row in any form: raw, or prettified as the fallback does
+  function idsIn(text: string) {
+    return ['wind_direction_last_10min', 'wind_speed_last_10min', 'urban_wind', '10_minutes', 'Wind Direction Last 10min', 'Wind Speed Last 10min', 'Urban Wind', '10 Minutes'].filter(id => text.includes(id))
+  }
+
+  describe.each(locales)('in %s', (locale) => {
+    const n = names[locale]
+
+    it.each(formats)('names the single chart\'s series by their labels, format $format', async ({ format, parts }) => {
+      const { choose } = await mountIn(locale, false)
+      await choose(format)
+      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      await vi.waitFor(() => expect(drawn()).toEqual([n.direction, n.speed].map(parameter => `01048 - ${parts(n, parameter).join(' / ')}`)))
+      expect(idsIn(drawn().join('\n'))).toEqual([])
+    })
+
+    it.each(formats)('names each facet by its labels, as heading, figure and axis, format $format', async ({ format, parts }) => {
+      const { wrapper, choose } = await mountIn(locale, true)
+      await choose(format)
+      const label = (parameter: string) => parts(n, parameter).join(' / ')
+      // one line of the axis' title per part, a slash in a label being no line break; the last two draws
+      // are the two facets of the format chosen
+      const titles = () => plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)
+      await vi.waitFor(() => expect(titles()).toEqual([n.direction, n.speed].map(parameter => parts(n, parameter).join('<br>'))))
+      expect(wrapper.findAll('h4').map(heading => heading.text())).toEqual([label(n.direction), label(n.speed)])
+      expect(wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual([n.direction, n.speed].map(parameter => chartOf[locale](label(parameter))))
+      expect(idsIn(wrapper.text())).toEqual([])
+    })
+
+    it('names the parameter statistics\' dataset and parameter by their labels', async () => {
+      const { viewer } = await mountIn(locale, false)
+      const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
+        parameterStats: { dataset: string, parameter: string }[]
+        statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
+      }
+      const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
+      expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
+    })
+  })
+
+  it('names the chart again where the language is changed while it is shown', async () => {
+    await mountIn('en', false)
+    const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+    await vi.waitFor(() => expect(drawn()).toEqual(['01048 - Mean wind direction (last 10 min)', '01048 - Mean wind speed (last 10 min)']))
+    await setLocale('de')
+    await vi.waitFor(() => expect(drawn()).toEqual([`01048 - ${names.de.direction}`, `01048 - ${names.de.speed}`]))
+  })
+
+  // "Plain-language labels" off: the ids as the API names them, joined by "/", where they were drawn
+  // so before the labels
+  describe('with plain-language labels off', () => {
+    afterEach(() => {
+      useSettings().reset()
+    })
+
+    it.each([
+      { format: 'parameter', ids: ['wind_direction_last_10min', 'wind_speed_last_10min'] },
+      { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_last_10min', 'urban_wind/wind_speed_last_10min'] },
+      { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_last_10min', '10_minutes/urban_wind/wind_speed_last_10min'] },
+    ])('keeps the ids in the series, the facets and their axes, format $format', async ({ format, ids }) => {
+      useSettings().settings.value.friendlyLabels = false
+      const single = await mountIn('de', false)
+      await single.choose(format)
+      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      await vi.waitFor(() => expect(drawn()).toEqual(ids.map(id => `01048 - ${id}`)))
+      single.wrapper.unmount()
+
+      const faceted = await mountIn('de', true)
+      await faceted.choose(format)
+      const titles = () => plotly.react.mock.calls.slice(-2).map(call => (call[2] as { yaxis: { title: string } }).yaxis.title)
+      await vi.waitFor(() => expect(titles()).toEqual(ids.map(id => id.split('/').join('<br>'))))
+      expect(faceted.wrapper.findAll('h4').map(heading => heading.text())).toEqual(ids)
+      expect(faceted.wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual(ids.map(id => chartOf.de(id)))
+    })
   })
 })
