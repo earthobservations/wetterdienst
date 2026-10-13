@@ -141,6 +141,12 @@ Types of changes:
   `false` or `null` with it: treat `null` as unknown, not as invalid, and do not hide the provider
   for it. The app lists such a network. `Wetterdienst.is_valid(api)` is the guarded call
   (GH-2550, GH-2562)
+- **Breaking**: the Docker image runs as the user `wetterdienst` (uid 10001), no longer as root,
+  with `/home/wetterdienst` as its working directory and
+  `/home/wetterdienst/.cache/wetterdienst` as its cache. Mount a cache volume there, or anywhere
+  with `WD_CACHE_DIR` pointing to it, and make a volume or host directory that root filled (the
+  cache, a file `--target`) writable by uid 10001 once: `docker run --rm --user 0 -v <volume>:/c
+  ghcr.io/earthobservations/wetterdienst chown -R 10001:10001 /c` (GH-2770)
 - The REST API and the MCP tools refuse a chart image with a side over 8192 px, `scale` (or the
   stripes `dpi`) applied, with a 400 naming the limit; a larger one held a Chromium for tens of
   seconds and could come back empty. Ask for a smaller `width`, `height`, `scale` or `dpi`. The
