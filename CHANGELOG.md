@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `meteofrance/observation` hourly `FXY`, the hour's highest 10-minute mean wind
+  ("valeur maximale de FF dans l'heure"), is named `wind_speed_rolling_mean_max`, no longer
+  `wind_gust_max`: it is no gust (department 31 since 2020: mean 3.7 m/s, between `FF` 2.9 and
+  the gust `FXI` 6.0). Request the new name; `wind_gust_max` is not found in `hourly/core`
+  (logged and dropped, or `NoParametersFoundError` when no other parameter is requested; its
+  "Did you mean" names `wind_direction_gust_max`, wrongly). The hourly gusts `FXI` and `FXI3S`
+  stay unmapped; the daily `wind_gust_max` (`FXI`) is unchanged (GH-2834)
+
 ### Fixed
 
 - `dwd/phenology`: `Jultag` is documented as what it is. It is the value DWD writes, not the day
@@ -62,13 +72,6 @@ Types of changes:
   04339, 17,802 mm in a month. The values are still returned; filter `quality_flags` for
   `validity:false` to leave them out. A filter on a null `quality_flags` no longer holds (Part of
   GH-2797)
-- **Breaking**: `meteofrance/observation` hourly `FXY`, the hour's highest 10-minute mean wind
-  ("valeur maximale de FF dans l'heure"), is named `wind_speed_rolling_mean_max`, no longer
-  `wind_gust_max`: it is no gust (department 31 since 2020: mean 3.7 m/s, between `FF` 2.9 and
-  the gust `FXI` 6.0). Request the new name; `wind_gust_max` is not found in `hourly/core`
-  (logged and dropped, or `NoParametersFoundError` when no other parameter is requested; its
-  "Did you mean" names `wind_direction_gust_max`, wrongly). The hourly gusts `FXI` and `FXI3S`
-  stay unmapped; the daily `wind_gust_max` (`FXI`) is unchanged (GH-2834)
 
 ### Deprecated
 
