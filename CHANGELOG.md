@@ -28,8 +28,7 @@ Types of changes:
   otherwise (GH-2823)
 - `dwd/observation` `10_minutes/urban_wind` `wind_direction`: a 0 beside a wind speed of 0 (a
   calm wind) is null, with `raw:0` in `quality_flags`, no longer 0 degrees (north), as for
-  `10_minutes/wind`. All 20 zeros of the recent files are calms; the hourly `urban_wind` zeros
-  are unchanged (GH-2809)
+  `10_minutes/wind`. The hourly `urban_wind` direction is unchanged (GH-2809)
 
 ## [0.148.0] - 2026-10-13
 
