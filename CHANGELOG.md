@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `rmi/observation` returns the stamp of a request with `start == end` (the one-day form) at all
+  three resolutions. It raised `DownloadError` (HTTP 400): the GeoServer rejects a zero-length
+  `DURING` period. The filter is now `timestamp >= start AND timestamp <= end`, the same window
+  otherwise (GH-2823)
+
 ## [0.148.0] - 2026-10-13
 
 ### Added
