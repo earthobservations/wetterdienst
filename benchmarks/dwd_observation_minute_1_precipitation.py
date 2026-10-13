@@ -50,7 +50,7 @@ from urllib.error import HTTPError
 
 import polars as pl
 
-from wetterdienst import Period, Settings
+from wetterdienst import Options, Period, Settings
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
@@ -174,9 +174,11 @@ def _values(cache_dir: Path, stations: tuple[str, ...], shape: str) -> pl.DataFr
     dwd_observation_api.create_file_list_for_climate_observations = file_list
     dwd_observation_api.download_climate_observations_data = download
     try:
-        settings = Settings(cache_disable=True, ts_shape=shape, ts_convert_units=True)
         request = DwdObservationRequest(
-            parameters=[("minute_1", "precipitation")], periods={Period.RECENT}, settings=settings
+            parameters=[("minute_1", "precipitation")],
+            periods={Period.RECENT},
+            settings=Settings(cache_disable=True),
+            options=Options(shape=shape, convert_units=True),
         )
         return _stations_result(request, stations).values.all().df
     finally:

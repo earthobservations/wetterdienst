@@ -17,13 +17,13 @@ observation feed.
 
 #### parameters
 
-| name                            | original name | description                                                           | unit |
-|---------------------------------|---------------|-----------------------------------------------------------------------|------|
-| {term}`temperature_air_2m`      | 45            | Air temperature. Instantaneous value, every minute.                   | °C   |
-| {term}`pressure_air_sea_level`  | 44            | Air pressure reduced to sea level. Instantaneous value, every minute. | hPa  |
-| {term}`humidity_relative`       | 43            | Relative humidity. Instantaneous value, every minute.                 | %    |
-| {term}`snow_depth`              | 52            | Snow depth. Instantaneous value, every minute.                        | m    |
-| {term}`visibility`              | 51            | Visibility. One minute mean, every minute.                            | m    |
-| {term}`wind_speed`              | 47            | Wind speed. One minute mean, every minute.                            | m/s  |
-| {term}`wind_direction`          | 48            | Wind direction. One minute mean, every minute.                        | °    |
-| {term}`precipitation_amount`    | 46            | Precipitation amount. Precipitation during one minute.                | mm   |
+| name                           | original name | description                                                                          | unit |
+|--------------------------------|---------------|--------------------------------------------------------------------------------------|------|
+| {term}`temperature_air_2m`     | 45            | Air temperature. Instantaneous value, every minute.                                  | °C   |
+| {term}`pressure_air_sea_level` | 44            | Air pressure reduced to sea level. Instantaneous value, every minute.                | hPa  |
+| {term}`humidity_relative`      | 43            | Relative humidity. Instantaneous value, every minute.                                | %    |
+| {term}`snow_depth`             | 52            | Snow depth. Instantaneous value, every minute.                                       | m    |
+| {term}`visibility`             | 51            | Visibility. One minute mean, every minute.                                           | m    |
+| {term}`wind_speed`             | 47            | Wind speed. One minute mean, every minute.                                           | m/s  |
+| {term}`wind_direction`         | 48            | Wind direction. One minute mean, every minute. The source's 0 (a calm wind) is null. | °    |
+| {term}`precipitation_amount`   | 46            | Precipitation amount. Precipitation during one minute.                               | mm   |

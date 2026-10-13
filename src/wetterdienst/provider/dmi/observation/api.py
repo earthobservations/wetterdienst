@@ -22,6 +22,7 @@ from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dmi.observation.metadata import DmiObservationMetadata
@@ -64,7 +65,24 @@ _EMPTY_VALUES_SCHEMA = {
     "station_id": pl.String,
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "value": pl.Float64,
+    "quality_flags": pl.String,
 }
+
+# DMI writes a mean wind direction of 0 for an aggregate whose mean wind speed is 0, and north as 360 or 0. Over the
+# hourly records of 2020 and 2021 of stations 06180, 06070, 04339, 06058 and 06096 (read 2026-10-12), 1530 of the 1616
+# hours with a speed of 0 have a direction of 0 (the other 86 are at 04339), while at a speed of 1 m/s or more a
+# direction of 0 comes in 3 to 20 hours per station against 13 to 31 hours of 360: the two half degrees either side of
+# north, since the direction is rounded to whole degrees. So the 0 is a bearing in a wind that blows, and a code in
+# one that does not. Between 0 and 1 m/s it is both (474 of 1856 hours at 06070, 14 of 2402 at 04339), and DMI documents
+# no limit (the documentation host, opendatadocs.dmi.govcloud.dk, answers 404), so only the aggregate whose mean speed
+# is exactly 0 is taken for a calm. The same holds for the daily records: 04339 has 870 days with a speed of 0 and a
+# direction of 0, 06180 five days with a 0 beside a speed of 2 to 7 m/s (GH-2794).
+_MEAN_WIND_SPEED = "mean_wind_speed"
+_CALM_WIND = Sentinel(
+    "0",
+    where=pl.col("parameterId").eq("mean_wind_dir")
+    & pl.col("value").filter(pl.col("parameterId").eq(_MEAN_WIND_SPEED)).first().over("from", "to").eq(0),
+)
 
 _STATION_VALUE_SCHEMA = pl.Schema(
     {
@@ -300,13 +318,16 @@ class DmiObservationValues(TimeseriesValues):
         df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        # the 0 of a calm wind is mapped before anything is made of the value, and stays as `raw:0` (GH-2794)
+        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, text=False)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameterId").alias("parameter"),
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             self._date_expression(resolution).alias("timestamp"),
-            pl.col("value").cast(pl.Float64),
+            value.cast(pl.Float64).alias("value"),
+            join_quality_flags(None, raw=raw),
         )
 
 

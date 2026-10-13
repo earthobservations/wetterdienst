@@ -7520,6 +7520,79 @@ def test_mcp_auth_tool_refuses_an_unknown_network_as_the_route_does() -> None:
         _call_mcp_auth({"provider": "nonexistent", "network": "fake"})
 
 
+_MISSING_EXTRA = (
+    "Reading KNMI NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[knmi]"
+)
+
+
+def _stub_a_network_whose_extra_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make `Wetterdienst.resolve` raise what it raises for a network whose optional extra is not installed."""
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    def resolve(*_args: object) -> None:
+        raise MissingDependencyError(_MISSING_EXTRA)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", resolve)
+
+
+_LISTED_NETWORK_ROUTES = [
+    pytest.param("auth", {"provider": "knmi", "network": "observation"}, id="auth"),
+    pytest.param("coverage", {"provider": "knmi", "network": "observation"}, id="coverage"),
+]
+
+
+@pytest.mark.parametrize(("route", "params"), _LISTED_NETWORK_ROUTES)
+def test_a_network_whose_extra_is_missing_is_a_501_on_auth_and_coverage(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    route: str,
+    params: dict[str, str],
+) -> None:
+    """A listed network whose extra is not installed is the data routes' 501, not an unknown network's 404 (GH-2788).
+
+    `MissingDependencyError` is an `ImportError`, which both routes answered with "Choose provider and
+    network from /api/coverage" -- for a network that coverage lists. The install line goes to the
+    log, as for the data routes, and the body does not carry it.
+    """
+    _stub_a_network_whose_extra_is_missing(monkeypatch)
+    with caplog.at_level(logging.ERROR):
+        response = client.get(f"/api/{route}", params=params)
+
+    assert response.status_code == 501, response.text
+    detail = response.json()["detail"]
+    assert "optional dependency" in detail
+    assert "pip install" not in detail
+    assert "Choose provider and network" not in detail
+    assert "pip install wetterdienst[knmi]" in caplog.text
+
+
+@pytest.mark.parametrize(("route", "params"), _LISTED_NETWORK_ROUTES)
+def test_mcp_tool_for_a_network_whose_extra_is_missing_says_what_the_route_says(
+    monkeypatch: pytest.MonkeyPatch, route: str, params: dict[str, str]
+) -> None:
+    """The MCP `auth` and `coverage` tools are the routes, and answer a missing extra as the 501 they do (GH-2788)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_a_network_whose_extra_is_missing(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as mcp_client:
+            await mcp_client.call_tool(route, params)
+
+    with pytest.raises(ToolError, match="HTTP error 501") as error:
+        asyncio.run(_call())
+    assert "optional dependency" in str(error.value)
+    assert "Choose provider and network" not in str(error.value)
+
+
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_auth_reports_metoffice_as_needing_a_credential(client: TestClient) -> None:
     """Without `WD_AUTH__CEDA` the Met Office is a credentialed provider that is not configured (GH-2594)."""

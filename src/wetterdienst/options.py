@@ -4,8 +4,8 @@
 
 `Settings` is the host's configuration -- cache, network client, credentials -- and is read by the
 providers. What is here is the request's: no provider reads it, only the values, the interpolation
-and the summary will. The defaults come from the same ``WD_TS_*`` variables that `Settings` reads
-as its ``ts_*`` settings, so an operator who set ``WD_TS_SHAPE`` changes nothing.
+and the summary do. The defaults come from the ``WD_TS_*`` variables, which `Settings` read as its
+``ts_*`` settings until GH-2639, so an operator who set ``WD_TS_SHAPE`` changes nothing.
 """
 
 from __future__ import annotations
@@ -526,20 +526,6 @@ def _options_from_fields(fields: Mapping[str, Any]) -> Options:
         _REPLACING.reset(token)
 
 
-def options_from_settings(settings: BaseSettings) -> Options:
-    """Build the options a `Settings` object carries as its ``ts_*`` settings.
-
-    Until the settings stop carrying them, a request given no options takes these, so that what it
-    does is what it did before options existed. Built from the fields alone: the settings have read
-    the environment already, and reading it again would merge it into a mapping handed over.
-
-    `model_dump` gives the per-parameter radii that were given for ``ts_geo_station_distance``, not
-    the table they were expanded into, so the options expand them as the settings did.
-    """
-    carried = settings.model_dump(include={f"ts_{name}" for name in Options.model_fields})
-    return _options_from_fields({name.removeprefix("ts_"): value for name, value in carried.items()})
-
-
 def options_from_mapping(given: Mapping[str, Any], base: Options | None = None) -> Options:
     """Build options from the ones a caller names, the rest as ``Options()`` has them.
 
@@ -560,39 +546,3 @@ def options_from_mapping(given: Mapping[str, Any], base: Options | None = None) 
     if "geo_station_distance" in given:
         _checked_geo_station_distance_keys(given["geo_station_distance"], "", log)
     return options
-
-
-def resolve_options(options: Options | Mapping[str, Any] | None, settings: BaseSettings) -> Options:
-    """Settle the options of a request from what it was given.
-
-    None gives the options the settings carry as their ``ts_*`` settings, a mapping gives
-    `options_from_mapping`, and an `Options` is used as it is.
-
-    Options given beside settings that carry ``ts_*`` settings of their own are refused: one of the
-    two would be ignored, and which one is not a thing to leave a caller to guess. What the settings
-    carry is compared with what the process's environment and ``.env`` give, so an operator's
-    ``WD_TS_*`` never counts against a caller who passes options; settings that read theirs from
-    elsewhere (another ``_env_file``) do. Options that are the very ones the settings carry are no
-    conflict, which is what a request copied with `dataclasses.replace` gives.
-
-    Raises:
-        ValueError: Where both are given.
-
-    """
-    carried = options_from_settings(settings)
-    if options is None:
-        return carried
-    with _quiet():
-        baseline = Options()
-    given = options if isinstance(options, Options) else options_from_mapping(options, baseline)
-    if given.model_dump() == carried.model_dump():
-        return given
-    baseline_dump = baseline.model_dump()
-    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline_dump[name]]
-    if differing:
-        msg = (
-            f"the request was given options and settings that carry {', '.join(differing)}; "
-            "set the request's options through options= alone"
-        )
-        raise ValueError(msg)
-    return given
