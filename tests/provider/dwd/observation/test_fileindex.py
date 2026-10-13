@@ -12,6 +12,7 @@ import pytest
 
 from wetterdienst import Settings
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
     fileindex,
@@ -115,8 +116,9 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
     """Test that a file spans the UTC (or, before 2000, MEZ) days its name gives, not Berlin days.
 
     The stamps of the 10 minute files are UTC from 2000 and MEZ, the fixed UTC+1, before, so the file
-    of 2010 to 2019 ends at 00:00 UTC on 2020-01-01 and the one that ends in 1999 at 23:00 UTC on 31 December,
-    whatever Europe/Berlin does with summer time (GH-2811).
+    of 2010 to 2019 ends at 00:00 UTC on 2020-01-01 and one that ends in 1998 at 23:00 UTC on 31 December,
+    whatever Europe/Berlin does with summer time (GH-2811). The files at the turn of 1999 to 2000 reach into
+    each other's hour (GH-2815).
     """
     _serve_ten_minute_files(monkeypatch)
     index = create_file_index_for_climate_observations(
@@ -126,7 +128,7 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
     utc = dt.UTC
     assert bounds["19911119_19991231"] == (
         dt.datetime(1991, 11, 18, 23, tzinfo=utc),
-        dt.datetime(1999, 12, 31, 23, tzinfo=utc),
+        dt.datetime(2000, 1, 1, tzinfo=utc),
     )
     # the first file of 2000 begins with the six stamps 23:00 to 23:50 UTC of 1999-12-31 (GH-2815)
     assert bounds["20000101_20091231"] == (
@@ -169,8 +171,9 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         ("1991-11-18T23:00+00:00", "1991-11-18T23:30+00:00", ["19911119_19991231"]),
         ("1991-06-30T22:30+00:00", "1991-06-30T22:50+00:00", ["19900101_19910630"]),
         ("1999-12-31T22:00+00:00", "1999-12-31T22:50+00:00", ["19911119_19991231"]),
-        # the stamps 23:00 to 23:50 UTC of 1999-12-31 are in the file of 2000, whose name says 20000101 (GH-2815)
-        ("1999-12-31T23:00+00:00", "1999-12-31T23:50+00:00", ["20000101_20091231"]),
+        # the stamps 23:00 to 23:50 UTC of 1999-12-31 are in the file of 2000, whose name says 20000101, and the
+        # wind file of 1999 holds them as MEZ 00:00 to 00:50 (GH-2815)
+        ("1999-12-31T23:00+00:00", "1999-12-31T23:50+00:00", ["19911119_19991231", "20000101_20091231"]),
         ("1999-12-31T22:00+00:00", "2000-01-01T00:30+00:00", ["19911119_19991231", "20000101_20091231"]),
     ],
 )
@@ -210,17 +213,43 @@ def test_is_mez_file(filename: str, *, mez: bool) -> None:
     assert is_mez_file(filename) is mez
 
 
-def test_the_five_and_one_minute_files_of_2000_start_at_midnight_utc(
-    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+@pytest.mark.parametrize(
+    ("dataset", "directory", "december", "january"),
+    [
+        (
+            DwdObservationMetadata.minute_5.precipitation,
+            "5_minutes/precipitation/historical",
+            "5minutenwerte_nieder_01048_19991201_19991231_hist.zip",
+            "5minutenwerte_nieder_01048_20000101_20000131_hist.zip",
+        ),
+        (
+            DwdObservationMetadata.minute_1.precipitation,
+            "1_minute/precipitation/historical",
+            "1minutenwerte_nieder_00003_19991201_19991231_hist.zip",
+            "1minutenwerte_nieder_00003_20000101_20000131_hist.zip",
+        ),
+    ],
+)
+def test_the_one_and_five_minute_files_meet_at_midnight_utc_and_reach_into_it(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    dataset: DatasetModel,
+    directory: str,
+    december: str,
+    january: str,
 ) -> None:
-    """Test that only the 10 minute files of 2000 reach back to 23:00 UTC; the others begin at 00:00 (GH-2815)."""
-    url = (
-        "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/5_minutes/precipitation/"
-        "historical/2000/5minutenwerte_nieder_01048_20000101_20000131_hist.zip"
-    )
-    listing = pl.DataFrame({"url": [url], "filename": [url.rsplit("/", maxsplit=1)[-1]]}).lazy()
+    """Test the bounds of the 1- and 5-minute files at the turn of 1999 to 2000 (GH-2815).
+
+    The file of January 2000 begins at 00:00 UTC, unlike the 10 minute one. The file of December 1999 is MEZ and
+    holds stamps past its MEZ midnight (1-minute: to 00:59, 5-minute: 00:00; station 00003 and 01048, read
+    2026-10-13), which are 23:00 to 23:59 UTC, so it ends at 00:00 UTC of 2000-01-01 and a request for that hour
+    gets both files.
+    """
+    base = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{directory}/"
+    listing = pl.DataFrame({"url": [base + december, base + january], "filename": [december, january]}).lazy()
     monkeypatch.setattr(fileindex, "_create_file_index_for_dwd_server", lambda *_, **__: listing)
-    index = create_file_index_for_climate_observations(
-        DwdObservationMetadata.minute_5.precipitation, Period.HISTORICAL, default_settings
-    ).collect()
-    assert index.get_column("start_timestamp").to_list() == [dt.datetime(2000, 1, 1, tzinfo=dt.UTC)]
+    index = create_file_index_for_climate_observations(dataset, Period.HISTORICAL, default_settings).collect()
+    bounds = {row["filename"]: (row["start_timestamp"], row["end_timestamp"]) for row in index.iter_rows(named=True)}
+    utc = dt.UTC
+    assert bounds[december][1] == dt.datetime(2000, 1, 1, tzinfo=utc)
+    assert bounds[january][0] == dt.datetime(2000, 1, 1, tzinfo=utc)

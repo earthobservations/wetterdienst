@@ -213,3 +213,32 @@ def test_dwd_minute_values_before_2000_are_shifted_by_one_hour_in_summer_too() -
         "2000-01-01T00:00",
         "2000-07-01T12:00",
     ]
+
+
+def test_dwd_1_minute_precipitation_historical_is_shifted_per_file() -> None:
+    """Test that the minutes of a 1 minute precipitation file up to 1999 are shifted, those of 2000 not (GH-2815).
+
+    The December 1999 file goes on past its MEZ midnight (station 00003, read 2026-10-13: the last row is
+    `200001010000;200001010059`), which is 23:00 to 23:59 UTC; the file of January 2000 begins at 00:00 UTC.
+    """
+    header = "STATIONS_ID;MESS_DATUM_BEGINN;MESS_DATUM_ENDE;QN;RS_01;RTH_01;RWH_01;RS_IND_01;eor\n"
+
+    def file(name: str, begin: str, end: str) -> File:
+        row = f"          3;{begin};{end};    3;  -999;  -999;  0.00;   0;eor\n"
+        return File(url=f"https://example.invalid/{name}", content=BytesIO((header + row).encode()), status=200)
+
+    files = [
+        file("1minutenwerte_nieder_00003_19991201_19991231_hist.zip", "200001010000", "200001010002"),
+        file("1minutenwerte_nieder_00003_20000101_20000131_hist.zip", "200001010000", "200001010002"),
+    ]
+    df = parse_climate_observations_data(
+        files, DwdObservationMetadata.minute_1.precipitation, Period.HISTORICAL
+    ).collect()
+    assert df.get_column("timestamp").dt.strftime("%Y-%m-%dT%H:%M").to_list() == [
+        "1999-12-31T23:00",
+        "1999-12-31T23:01",
+        "1999-12-31T23:02",
+        "2000-01-01T00:00",
+        "2000-01-01T00:01",
+        "2000-01-01T00:02",
+    ]
