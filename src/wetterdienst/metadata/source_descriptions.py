@@ -2219,7 +2219,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     # and "ff vitesse du vent moyen 10 min" (réel, m/s), though the files hold whole numbers only (2927 of 2927
     # stamps of Orly 2024 equal the hourly FF of the climatological base cut to the integer)
     "MeteoFranceSynopMetadata": {
-        ("subdaily", "data", "dd"): "Direction of the mean wind over 10 minutes, in whole degrees.",
+        ("subdaily", "data", "dd"): "Direction of the mean wind over 10 minutes, in steps of 10 degrees.",
         (
             "subdaily",
             "data",

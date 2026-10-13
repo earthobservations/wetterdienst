@@ -25,7 +25,7 @@
 
 | name                                    | original name | description                                                                                   | unit             |
 |-----------------------------------------|---------------|-----------------------------------------------------------------------------------------------|------------------|
-| {term}`wind_direction_last_10min`       | dd            | Direction of the mean wind over 10 minutes, in whole degrees.                                 | degree           |
+| {term}`wind_direction_last_10min`       | dd            | Direction of the mean wind over 10 minutes, in steps of 10 degrees.                           | degree           |
 | {term}`wind_speed_last_10min`           | ff            | Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).           | meter_per_second |
 | {term}`wind_gust_max`                   | raf10         | Speed of the strongest gust of the period.                                                    | meter_per_second |
 | {term}`temperature_air_2m`              | t             | Temperature.                                                                                  | degree_kelvin    |

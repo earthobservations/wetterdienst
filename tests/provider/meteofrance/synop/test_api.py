@@ -79,7 +79,7 @@ def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytes
 
 
 def test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that dd and ff come back as the 10-minute mean they are, in whole numbers (GH-2733).
+    """Test that dd and ff come back as the 10-minute mean they are (GH-2733).
 
     The rows are the first two of Toulouse-Blagnac (07630) in synop_2024.csv.gz, 2024-01-01 00:00Z (dd=190, ff=2)
     and 03:00Z (dd=170, ff=1), moved to 07005. The hourly FF of 31069001 at those stamps is 2.4 and 1.4, which
