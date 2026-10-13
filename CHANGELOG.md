@@ -43,6 +43,11 @@ Types of changes:
   04339, 17,802 mm in a month. The values are still returned; filter `quality_flags` for
   `validity:false` to leave them out. A filter on a null `quality_flags` no longer holds (Part of
   GH-2797)
+- **Breaking**: `knmi/observation` hourly `DD`, KNMI's mean wind direction over the last 10 minutes
+  of the hour ("Past 10 minute mean wind direction"), is named `wind_direction_last_10min`, no
+  longer `wind_direction`, which is the mean over the row's interval. Request the new name; the old
+  one is not found in `hourly/data` (logged and dropped, or `NoParametersFoundError` when no other
+  parameter is requested; GH-2644). The 10-minute `wind_direction` is unchanged (GH-2835)
 
 ### Deprecated
 
