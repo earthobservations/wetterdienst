@@ -123,10 +123,10 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
 
     ``Jultag`` is the value and is returned as DWD writes it. DWD's description calls it the "day
     of the year", but it is that only for a date in the reference year, and in a leap year since
-    about 1952 only before 1 March (1 January is 1):
+    about 1952 only before 29 February (1 January is 1):
 
     - In a leap year since about 1952 it counts a 365-day year: 29 February is 59 like 28 February
-      and 1 March is 60, so from 1 March it is one below the real day of the year. In older leap
+      and 1 March is 60, so from 29 February it is one below the real day of the year. In older leap
       years it is mostly the real day of the year.
     - A date before 1 January of ``Referenzjahr`` (a hazel flowering in December, the growth in
       height of winter rape) is a negative number of days before 1 January: 31 December is -1,

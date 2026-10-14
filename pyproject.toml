@@ -401,12 +401,17 @@ DEP002 = [
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
     "h5netcdf",
+    "h5py",
+    "influxdb",
+    "influxdb-client",
+    "influxdb3-python",
     "kaleido",
     "mysqlclient",
     "pandas",
     "plotly",
     "psycopg",
     "pybufrkit",
+    "pypdf",
     "sqlalchemy-cratedb",
     "tzdata",
     # self-referential extra: the `mcp` extra pulls in `wetterdienst[restapi]`, which is never imported

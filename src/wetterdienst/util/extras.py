@@ -20,6 +20,15 @@ if TYPE_CHECKING:
     from types import ModuleType
 
 
+#: the distribution of a module whose name is not its distribution's, for a module that is not
+#: installed and so is unknown to the interpreter's own mapping. The module's own name is the
+#: fallback, which is right for all but these
+_DISTRIBUTION_OF_MODULE = {
+    "MySQLdb": "mysqlclient",
+    "influxdb_client_3": "influxdb3-python",
+}
+
+
 def extras_installing(module_name: str) -> list[str]:
     """Return the extras of wetterdienst that would install the distribution providing ``module_name``.
 
@@ -36,7 +45,8 @@ def extras_installing(module_name: str) -> list[str]:
         # the module is by definition not importable here, so its distribution is usually unknown to
         # the interpreter -- the module's own name is the fallback, which is the same for all but a
         # handful of packages
-        distributions = {canonical(name) for name in packages_distributions().get(module_name, [module_name])}
+        fallback = [_DISTRIBUTION_OF_MODULE.get(module_name, module_name)]
+        distributions = {canonical(name) for name in packages_distributions().get(module_name, fallback)}
         requirements = metadata("wetterdienst").get_all("Requires-Dist") or []
     except PackageNotFoundError:
         return []
@@ -109,8 +119,33 @@ def import_optional(module_name: str, what: str, *, extra: str | None = None) ->
     try:
         return importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        # a dotted name is a module missing inside a package that is installed (`duckdb.duckdb`, a
-        # module of our own): a broken install or a defect, not a package to install
-        if e.name is not None and "." in e.name:
+        missing = as_missing_dependency(e, what, extra=extra, module_name=module_name)
+        if missing is None:
             raise
-        raise MissingDependencyError(missing_dependency_message(what, e.name or module_name, extra=extra)) from e
+        raise missing from e
+
+
+def as_missing_dependency(
+    e: ModuleNotFoundError, what: str, *, extra: str | None = None, module_name: str | None = None
+) -> MissingDependencyError | None:
+    """Tell whether a `ModuleNotFoundError` is a package that is not installed, and say so if it is.
+
+    For the place that does not import a module itself but runs something that does -- a database
+    driver SQLAlchemy loads when it builds an engine -- so that it ends in the same exception, with
+    the same message, as `import_optional`.
+
+    Args:
+        e: the error the import raised.
+        what: what the caller was trying to do, as it should read at the start of a sentence.
+        extra: the extra the caller belongs to; see `missing_dependency_message`.
+        module_name: the module named where the error names none.
+
+    Returns:
+        The `MissingDependencyError` to raise from `e`, or `None` where the error is no absence of
+        a package: a module missing inside a package that is installed (`duckdb.duckdb`, a module
+        of our own) is a broken install or a defect, and keeps its traceback.
+
+    """
+    if e.name is not None and "." in e.name:
+        return None
+    return MissingDependencyError(missing_dependency_message(what, e.name or module_name, extra=extra))

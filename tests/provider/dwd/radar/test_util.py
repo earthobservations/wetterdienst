@@ -2,11 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for radar utilities."""
 
+import sys
 from io import BytesIO
 
 import pytest
 from fsspec.implementations.http import HTTPFileSystem
 
+from wetterdienst.exceptions import MissingDependencyError
 from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename, verify_hdf5
 
 HDF5_EXAMPLE = (
@@ -67,3 +69,15 @@ def test_radar_verify_hdf5_invalid() -> None:
     buffer = BytesIO()
     with pytest.raises(Exception, match=r"Unable to (synchronously )?open file \(file signature not found\)"):
         verify_hdf5(buffer)
+
+
+def test_radar_verify_hdf5_without_h5py_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verifying a radar HDF5 file without h5py says what to install, not a bare ModuleNotFoundError (GH-2667)."""
+    monkeypatch.setitem(sys.modules, "h5py", None)
+
+    with pytest.raises(MissingDependencyError) as excinfo:
+        verify_hdf5(BytesIO())
+
+    assert str(excinfo.value) == (
+        "Verifying radar HDF5 requires h5py, which is not installed. Install it with: pip install wetterdienst[radar]"
+    )

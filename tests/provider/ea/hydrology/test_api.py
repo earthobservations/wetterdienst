@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.ea.hydrology.api import (
@@ -279,6 +280,7 @@ def test_ea_readings_are_unbounded_without_a_window(
     assert urlparse(values._readings_url(MEASURE_URL.format(notation="x"), parameter)).query == ""  # noqa: SLF001
 
 
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_ea_15_minute_values_come_from_the_window_asked_for(default_settings: Settings) -> None:
     """Test that a 15-minute window past the endpoint's default page is answered with that window.
@@ -302,6 +304,7 @@ def test_ea_15_minute_values_come_from_the_window_asked_for(default_settings: Se
     assert df.get_column("timestamp").max() <= end_date
 
 
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_ea_15_minute_stations_are_reachable(default_settings: Settings) -> None:
     """Test that the 15-minute resolution lists stations at all.

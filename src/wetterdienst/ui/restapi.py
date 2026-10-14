@@ -32,6 +32,7 @@ from wetterdienst.exceptions import (
     ReversedTimeIntervalError,
     StationNotFoundError,
 )
+from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.result import (
@@ -1542,6 +1543,7 @@ def stripes_image(
         raise
     except Exception as e:
         raise _failure(e, request, "plot stripes") from e
+    require_kaleido()
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),

@@ -117,12 +117,7 @@ test.describe('the app can name what the backend serves', () => {
     expect(datasets.size, 'no datasets came back').toBeGreaterThan(0)
     const labelled = glossaryKeys('datasets')
 
-    // the 110 phenology datasets are not labelled yet (GH-2866): they are named here as the one
-    // network left out, so that no other network's dataset goes unlabelled in the meantime
-    const unlabelled = [...datasets.entries()]
-      .filter(([name, sources]) => !labelled.has(name) && !sources.every(source => source.startsWith('dwd/phenology/')))
-      .map(([name]) => name)
-      .sort()
+    const unlabelled = [...datasets.keys()].filter(name => !labelled.has(name)).sort()
     const stale = [...labelled].filter(name => !datasets.has(name)).sort()
     expect(unlabelled, 'datasets with no app label -- add them to i18n/glossary/*.ts').toEqual([])
     expect(stale, 'app labels for datasets no network serves').toEqual([])

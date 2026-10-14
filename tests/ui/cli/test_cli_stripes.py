@@ -3,6 +3,7 @@
 """Tests for CLI stripes command."""
 
 import logging
+import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -324,3 +325,26 @@ def test_stripes_values_empty_target_is_refused_not_written_to_stdout(monkeypatc
     result = CliRunner().invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--target="])
     assert result.exit_code == 2, result.output
     assert "Invalid value for --target: must have extension '.png'\n" in result.output
+
+
+def test_stripes_values_without_kaleido_is_one_logged_line(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test `stripes values` without Kaleido says what to install, exit 1, and not a traceback (GH-2667).
+
+    Plotly raises a `RuntimeError` from `to_image`, which ended the command in a traceback.
+    """
+    monkeypatch.setitem(sys.modules, "kaleido", None)
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _StubFigure())
+
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature", "--station=01048"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    message = (
+        "Rendering an image requires kaleido, which is not installed. "
+        "Install it with: pip install wetterdienst[plotting]"
+    )
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [message]
+    assert all(record.exc_info is None for record in caplog.records)

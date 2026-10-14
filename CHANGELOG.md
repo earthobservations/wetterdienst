@@ -16,6 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `dwd/mosmix` `hourly/large` `e_ttt` and `e_td`, the absolute error of `ttt` and
+  `td`, are named `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`,
+  no longer `error_absolute_temperature_air_mean_2m` and
+  `error_absolute_temperature_dew_point_mean_2m`, so that a value and its error share a name.
+  Request the new names; the old ones are not found (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested), values frames carry the new
+  names, and a `geo_station_distance` key by an old name is refused, naming the new one (GH-2659)
+- `geosphere/observation` station lists have a `wmo_id` column, the station's five-digit WMO number
+  (`11021` for Litschau) from the list's `Synopstationsnummer`, null for the stations without one
+  and for the 19 whose number has seven digits (`8989106`), which is no WMO number. It appears in
+  the frames, JSON and GeoJSON properties. The composite series (`zusammengesetzt` `ja`, e.g. `1`
+  Aflenz) have none; the number is on their part series, which can share it (GH-2751, GH-2019)
+- The retry of `list_remote_files_fsspec` and `list_remote_directory_fsspec` no longer puts the
+  `Settings` of a keyword call (`settings=settings`) into stamina's log record as
+  `stamina.kwargs`, where a handler that serialises pydantic objects by their fields (logfire,
+  rich) would print a proxy password. The record now carries no arguments and names the retried
+  block `<context block>`, as `download_file`'s does, no longer the listing function. The retry
+  policy and the answers are unchanged (GH-2904, GH-2623)
+
 ### Fixed
 
 - A TLS failure (a certificate that does not verify, a failed handshake) is no longer retried: a
@@ -27,7 +48,8 @@ Types of changes:
 - `dwd/phenology` parameter descriptions (glossary in the CLI, REST API, MCP tools and docs) no
   longer say the value is "the day of the year". It is DWD's `Jultag`, which is the day of the
   year only for a date in the reference year and, in a leap year since about 1952, only before
-  1 March; the descriptions now say so. Only the text changed, not the values (GH-2833)
+  29 February; the descriptions now say so. Only the text changed, not the values (GH-2833,
+  GH-2914)
 - `repr(settings)` and `str(settings)` no longer raise for `fsspec_client_kwargs` that aiohttp takes
   but JSON cannot hold, such as `ClientTimeout(total=5)` or a `yarl.URL` as `proxy`. Such a value
   is masked like the rest of the client kwargs, so a failed file listing is retried and raises its
@@ -62,6 +84,43 @@ Types of changes:
   first network does not import, no longer answering 500 for the whole page. The listing of every
   provider (`/api/coverage`, `wetterdienst about coverage`) logs a warning for a network it cannot
   import (GH-2800, GH-2801)
+- The `noaa/ghcn` hourly docs page no longer constrains `pressure_air_site_delta_last_3h` (the
+  3-hour pressure change) to `>=0`: it is negative when the pressure falls (-6.8 to 7.4 hPa at
+  Anchorage in 2023). Only the docs change, the values returned do not (GH-2874)
+- `noaa/ghcn` hourly values carry the file's `<element>_Quality_Code` in `quality_flags` (`2`
+  suspect, `3` erroneous, `c` climatological outlier, ...; the meaning depends on the element's
+  source, see the quality flags table of the Python API docs), where they were null apart from
+  `raw:`. A suspect value is still returned, e.g. 50.0 °C at Antigua with `2`. The text of a
+  sentinel follows the code (`1,raw:999`) (GH-2754)
+- A missing optional package now raises `MissingDependencyError` naming the extra, where it
+  leaked the package's own error: for a `to_target` to a SQL database whose driver is not
+  installed, to CrateDB (`cratedb`), InfluxDB 1, 2 and 3 (`influxdb`), `.xlsx` and `.zarr`, and
+  for a `.nc` without an engine (a plain `ImportError` before); for the image of a result or of
+  warming stripes without Kaleido; for `describe_fields` without pypdf. The command line prints
+  one line and exits 1, the REST API answers 501; so does
+  `wetterdienst restapi` without the extra, no longer a traceback. Where plotly raised a
+  `RuntimeError` (images) or SQLAlchemy a `NoSuchModuleError` (CrateDB), catch
+  `MissingDependencyError` instead. The radar HDF5 download logs the install line (GH-2663, GH-2667)
+- The `dwd/observation` daily docs list the precipitation form `rskf` and `rsf` as the codes 0 to 9
+  (the 2021 sheet defines 0, 1, 4, 6, 7, 8, 9; the files also hold 2, 3, 5), no longer as `>=0`.
+  Only the docs change; the values returned do not (GH-2911)
+- A request for a parameter name that a dataset renamed (logged and dropped, or
+  `NoParametersFoundError`) now says what it is called there: "It was renamed to
+  'temperature_air_max_2m_last_12h' in this dataset" for MOSMIX `temperature_air_max_2m`, AEMET
+  monthly `temperature_air_max_2m_multiday` and the `wind_*_last_10min` renames; "It is named
+  'temperature_air_2m' here" for a sub-daily `temperature_air_mean_2m`, `temperature_soil_mean_2m`
+  and the like. It named the closest spelling before, which was another quantity: the mean of the
+  daily maxima for AEMET, `temperature_air_min_2m` for Geosphere 10-minute `temperature_air_mean_2m`
+  and the 10 cm grass temperature for KNMI's. The old names still are not accepted (GH-2644,
+  GH-2673)
+
+### Security
+
+- The release workflow builds the distributions in a job without the PyPI trusted-publishing token
+  and publishes them from a second job that runs no project or dependency code, so a compromised
+  build dependency can no longer obtain a PyPI token to upload files of its own. The CI provider
+  keys (`WD_AUTH__*`) are given to the test steps alone, no longer to `uv sync` or the Codecov
+  action (GH-2768)
 
 ## [0.151.0] - 2026-10-14
 

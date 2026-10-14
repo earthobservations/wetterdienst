@@ -36,7 +36,7 @@ file layout:
   `Phase_id`, which is the only name the data files themselves use.
 - **value** — `Jultag`, which DWD describes as the day of the year the phase was reached, dimensionless.
   It is returned as DWD writes it, and it is the day of the year only for a date in the reference year, and in
-  a leap year since about 1952 only before 1 March; see *Reading `Jultag`* below.
+  a leap year since about 1952 only before 29 February; see *Reading `Jultag`* below.
 - **timestamp** — the 1st of January of the reference year, not the date of the phase. The entry date
   (`Eintrittsdatum`) that DWD also publishes is not carried; it can mostly, but not always, be worked out from
   the stamp and `Jultag`.
@@ -57,12 +57,12 @@ values = next(request.filter_by_station_id("07521").values.query()).df
 
 DWD's description files call `Jultag` the "day of the year" (`DDD`) and say nothing more about how it is
 counted. The data show that it is the day of the year only for a date in the reference year, and in a leap year
-since about 1952 only before 1 March; the library returns it as DWD writes it. Checked on the current and historical files of
+since about 1952 only before 29 February; the library returns it as DWD writes it. Checked on the current and historical files of
 winter wheat and winter rape (annual reporters), hazel (both reporter groups) and winter wheat and winter rape
 (immediate reporters), 2026-10-13:
 
 - **Leap years.** From about 1952 the count is of a 365-day year: 29 February is 59, as 28 February is, and
-  1 March is 60, so from 1 March `Jultag` is one below the real day of the year. Winter wheat, historical: 175,633
+  1 March is 60, so from 29 February `Jultag` is one below the real day of the year. Winter wheat, historical: 175,633
   of 176,470 March-to-December rows of the leap years since 1952 (the rest, mostly 1952 to 1968, carry the real day
   of the year). Hazel, historical and recent: every March-to-December row of a leap year (1,243 and 169). Before
   1952 the leap years carry the real day of the year (154 of 159 winter wheat rows).
@@ -77,8 +77,8 @@ winter wheat and winter rape (annual reporters), hazel (both reporter groups) an
   A date in the year after the reference year runs on past 365 (`20170115` of 2016 is 380; three winter wheat
   rows).
 - **Working out the entry date.** The timestamp is the 1st of January of the `Referenzjahr` and the entry date is
-  not carried, so add `Jultag - 1` days to the timestamp for a date before 1 March (or in a year that is not a leap
-  year), `Jultag` days for a later date in a leap year, and a negative `Jultag` as it is (`-3` gives 29 December of
+  not carried, so add `Jultag - 1` days to the timestamp for a `Jultag` up to 59 (or in a year that is not a leap
+  year), `Jultag` days for a `Jultag` of 60 or more in a leap year, and a negative `Jultag` as it is (`-3` gives 29 December of
   the year before). That reproduces the entry date of nearly every row of the files above, apart from three
   kinds: 28 and 29 February, which share 59; a row of an older leap year that carries the real day of the year,
   which comes out one day late (a `Jultag` of 100 in 1960 may be 9 or 10 April); and the positive earlier-year
