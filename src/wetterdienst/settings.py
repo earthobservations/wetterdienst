@@ -367,35 +367,60 @@ def _merge_fsspec_client_kwargs(given: dict) -> dict:
 
 
 def _masked(value: object, *, keep_numbers: bool = False) -> object:
-    """Mask every leaf of a ``model_dump(mode="json")`` value, keeping dict keys, booleans and ``None``."""
+    """Mask every leaf of a client kwargs value, keeping the names of dict keys, booleans and ``None``.
+
+    The value is the one the settings hold, not a JSON dump of it: aiohttp takes objects JSON cannot
+    hold, such as a ``ClientTimeout`` or a ``yarl.URL``. Those are leaves like any other and are
+    masked, so that rendering cannot raise (GH-2623).
+    """
     if isinstance(value, dict):
-        return {key: _masked(item, keep_numbers=keep_numbers) for key, item in value.items()}
-    if isinstance(value, list):
+        return {_key_of(key): _masked(item, keep_numbers=keep_numbers) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
         return [_masked(item, keep_numbers=keep_numbers) for item in value]
-    if value is None or isinstance(value, bool) or (keep_numbers and isinstance(value, (int, float))):
+    # a number is kept only where it is a plain, bounded one: NaN and infinity are no JSON, and an
+    # int of thousands of digits cannot be printed. Both compare false here, so they are masked
+    if (
+        value is None
+        or isinstance(value, bool)
+        or (keep_numbers and isinstance(value, (int, float)) and abs(value) < 10**9)
+    ):
         return value
     return _MASK
 
 
-def _redacted_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+def _key_of(key: object) -> str:
+    """Return a dict key as the text it renders as: a name stays, anything else is masked."""
+    return key if isinstance(key, str) else _MASK
+
+
+def _redacted_client_kwargs(kwargs: object) -> Any:  # noqa: ANN401
+    """Return the client kwargs rendered, see `_redact_client_kwargs`; anything but a dict is masked whole."""
+    return _redact_client_kwargs(kwargs) if isinstance(kwargs, dict) else _masked(kwargs)
+
+
+def _redact_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     """Return ``fsspec_client_kwargs`` as the settings render them, every value masked but the harmless.
 
     The kwargs are handed to aiohttp as they are, so they may hold a proxy URL with its
     ``user:password@``, ``proxy_auth``, cookies, or request headers such as ``Authorization`` or
     ``X-Auth-Token``. Which of those carry a secret cannot be listed, so this fails closed: all is
     masked, a URL included, since cutting the userinfo from one takes a parser that agrees with the
-    client's. What stays is the timeout, the User-Agent header, booleans, ``None`` and the names of
-    keys and headers, which say what was configured.
+    client's. What stays is a numeric timeout, the User-Agent header, booleans, ``None`` and the
+    names of keys and headers, which say what was configured. ``kwargs`` are the ones the settings
+    hold, not a JSON dump: a value JSON cannot hold, such as a ``ClientTimeout``, is masked like the
+    rest, so that this cannot raise.
     """
     redacted = {}
     for key, value in kwargs.items():
         if key == "headers" and isinstance(value, dict):
             redacted[key] = {
-                name: item if name.lower() == "user-agent" and isinstance(item, str) else _masked(item)
+                _key_of(name): item
+                if isinstance(name, str) and name.lower() == "user-agent" and isinstance(item, str)
+                else _masked(item)
                 for name, item in value.items()
             }
         else:
-            redacted[key] = _masked(value, keep_numbers=key == "timeout")
+            redacted[_key_of(key)] = _masked(value, keep_numbers=key == "timeout")
     return redacted
 
 
@@ -676,10 +701,25 @@ class Settings(BaseSettings):
         stamina's retry log writes ``repr`` of every argument of a retried call, and the listings
         take the settings (GH-2593). ``model_dump`` is left as it is, so that a dump
         still round-trips into ``Settings(**dump)``.
+
+        The client kwargs are not dumped as JSON, which raises for what aiohttp takes but JSON cannot
+        hold -- a ``ClientTimeout``, a ``yarl.URL`` -- and would so raise inside that log (GH-2623).
+        They are masked from the value the settings hold, where what is not known is a leaf like any
+        other.
         """
-        rendered = self.model_dump(mode="json")
-        rendered["fsspec_client_kwargs"] = _redacted_client_kwargs(rendered["fsspec_client_kwargs"])
-        return rendered
+        dumped = self.model_dump(mode="json", exclude={"fsspec_client_kwargs"})
+        redacted = _redacted_client_kwargs(self.fsspec_client_kwargs)
+        # in the order of the fields, as the dump has it
+        return {
+            name: redacted if name == "fsspec_client_kwargs" else dumped[name]
+            for name in type(self).model_fields
+            if name == "fsspec_client_kwargs" or name in dumped
+        }
+
+    def __repr_args__(self) -> Iterable[tuple[str | None, Any]]:
+        """Give the client kwargs masked to everything that renders the fields: pydantic's repr and rich (GH-2623)."""
+        for name, value in super().__repr_args__():
+            yield name, _redacted_client_kwargs(value) if name == "fsspec_client_kwargs" else value
 
     def __repr__(self) -> str:
         """Return the settings as a JSON string, the client kwargs' credentials masked."""
