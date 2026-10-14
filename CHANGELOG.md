@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `dwd/observation` `daily/temperature_soil/temperature_soil_mean_1m` (`v_te100m`) is
+  gone. DWD does not publish a 100 cm column (the files and the dataset sheet stop at 50 cm), so a
+  request for it returned no rows and no warning, and the docs and coverage listed it as available.
+  A request that names it now warns that it is not a known parameter and drops it, and fails if it
+  names nothing else; remove it from the request. The hourly `temperature_soil_1m` (`v_te100`) is
+  unchanged (GH-2700)
 - `aemet/observation` no longer serves an error of AEMET's back from the cache. AEMET reports
   the rate limit (`estado` 429) and its own faults (500) in the body of an HTTP 200, which was
   kept for 5 minutes (12 hours for the station list) and read back by every request after it.
