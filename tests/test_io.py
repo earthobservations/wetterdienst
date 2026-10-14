@@ -3906,6 +3906,11 @@ def test_to_target_refuses_a_protocol_nothing_writes_without_leaking_sqlalchemys
     assert "host" not in str(excinfo.value)
 
 
+def _write_zarr(tmp: Path) -> None:
+    pytest.importorskip("xarray")
+    _one_row().to_target(f"file://{tmp}/obs.zarr")
+
+
 @pytest.mark.parametrize(
     ("module", "extra", "call"),
     [
@@ -3933,7 +3938,7 @@ def test_to_target_refuses_a_protocol_nothing_writes_without_leaking_sqlalchemys
         pytest.param(
             "zarr",
             "export",
-            lambda tmp: _one_row().to_target(f"file://{tmp}/obs.zarr"),
+            _write_zarr,
             id="zarr-store",
         ),
         pytest.param(
@@ -4063,6 +4068,7 @@ def test_a_netcdf_write_without_an_engine_is_a_missing_dependency(
     It was a plain `ImportError`, which the command line printed as a traceback and the REST API
     answered with a 500 where every other missing package is one line and a 501.
     """
+    pytest.importorskip("xarray")
     monkeypatch.setitem(sys.modules, "h5netcdf", None)
     monkeypatch.setitem(sys.modules, "netCDF4", None)
 
@@ -4149,8 +4155,7 @@ def test_rendering_an_image_without_kaleido_is_a_missing_dependency(
     result_class: type,
 ) -> None:
     """The images of every result type say what to install where plotly would raise a `RuntimeError` (GH-2667)."""
-    import plotly.graph_objects as go  # noqa: PLC0415
-
+    go = pytest.importorskip("plotly.graph_objects")
     monkeypatch.setitem(sys.modules, "kaleido", None)
 
     def to_image(*_args: object, **_kwargs: object) -> None:
@@ -4167,3 +4172,56 @@ def test_rendering_an_image_without_kaleido_is_a_missing_dependency(
         "Rendering an image requires kaleido, which is not installed. "
         "Install it with: pip install wetterdienst[plotting]"
     )
+
+
+@pytest.mark.parametrize(
+    ("url", "installed", "expected"),
+    [
+        # SQLAlchemy 2.0 takes psycopg2 for a bare `postgresql://` where psycopg 3 does not import
+        pytest.param(
+            "postgresql://u@h/db",
+            False,
+            "Writing to a SQL database requires psycopg, which is not installed. "
+            "Install it with: pip install wetterdienst[postgresql]",
+            id="bare-no-psycopg",
+        ),
+        # psycopg is installed and does not load (no libpq): saying it is not installed would be false
+        pytest.param(
+            "postgresql://u@h/db",
+            True,
+            "Writing to a SQL database requires psycopg2, which is not installed.",
+            id="bare-psycopg-does-not-load",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://u@h/db",
+            False,
+            "Writing to a SQL database requires psycopg2, which is not installed.",
+            id="psycopg2-named",
+        ),
+    ],
+)
+def test_driver_missing_names_the_driver_the_postgresql_extra_installs(
+    monkeypatch: pytest.MonkeyPatch,
+    url: str,
+    installed: bool,  # noqa: FBT001
+    expected: str,
+) -> None:
+    """A missing psycopg2 names psycopg only where that is true, whatever SQLAlchemy picks for a bare URL (GH-2663).
+
+    SQLAlchemy 2.1 takes psycopg 3 for a bare `postgresql://` and never asks for psycopg2, so the
+    SQLAlchemy 2.0 behaviour is told here directly.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    from wetterdienst.io.export import _driver_missing  # noqa: PLC0415
+
+    if installed:
+        monkeypatch.setitem(sys.modules, "psycopg", types.ModuleType("psycopg"))
+    else:
+        monkeypatch.setitem(sys.modules, "psycopg", None)
+
+    missing = _driver_missing(
+        ModuleNotFoundError("No module named 'psycopg2'", name="psycopg2"), sqlalchemy.make_url(url)
+    )
+
+    assert missing is not None
+    assert str(missing) == expected

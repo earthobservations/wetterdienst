@@ -839,13 +839,14 @@ class ExportMixin:
             """  # noqa:E501
             log.info(f"Writing to CrateDB. target={redact_password(target)}, table={tablename}")
 
-            # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
-            # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
-            # it back as the same password whatever it holds
             # the dialect first: it is what `to_sql` loads by the name `crate`, and SQLAlchemy alone
             # does not carry it, so without it the `export` extra is no help
             import_optional("sqlalchemy_cratedb", "Writing to CrateDB", extra="cratedb")
             sqlalchemy = import_optional("sqlalchemy", "Writing to CrateDB", extra="export")
+
+            # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
+            # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
+            # it back as the same password whatever it holds
 
             cratedb_target = sqlalchemy.engine.URL.create(
                 "crate",
@@ -1021,18 +1022,27 @@ def _driver_missing(e: ModuleNotFoundError, url: sqlalchemy.engine.URL) -> Missi
     """Say which driver a SQLAlchemy URL needs, when SQLAlchemy found it not installed.
 
     SQLAlchemy imports the DBAPI when it makes the engine, so the absence of a driver arrives as
-    that module's `ModuleNotFoundError`. A bare `mysql://` is `mysqlclient` and a bare
-    `postgresql://` is psycopg 3 where it imports and psycopg2 where it does not, so the latter's
-    absence names psycopg, which is the driver the `postgresql` extra installs. A driver no extra
-    installs (`pg8000`, `pyodbc`) is named without one.
+    that module's `ModuleNotFoundError`. A bare `mysql://` is `mysqlclient`. A bare `postgresql://`
+    is psycopg 3 where it imports, and psycopg2 where it does not on SQLAlchemy 2.0 (2.1 takes
+    psycopg 3 itself), so where psycopg is not installed at all the absence of psycopg2 names
+    psycopg, which is the driver the `postgresql` extra installs. A driver no extra installs
+    (`pg8000`, `pyodbc`, a psycopg2 the target names, a psycopg that is installed but does not
+    load) is named without an install line.
 
     Returns:
         The error to raise from `e`, or `None` where `e` is no absence of a package.
 
     """
+    import importlib.util  # noqa: PLC0415
+
     what = "Writing to a SQL database"
     missing = as_missing_dependency(e, what)
-    if missing is not None and e.name == "psycopg2" and url.drivername == "postgresql":
+    if (
+        missing is not None
+        and e.name == "psycopg2"
+        and url.drivername == "postgresql"
+        and importlib.util.find_spec("psycopg") is None
+    ):
         return MissingDependencyError(missing_dependency_message(what, "psycopg"))
     return missing
 

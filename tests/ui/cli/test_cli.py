@@ -1405,3 +1405,29 @@ def test_auth_requires_provider_and_network(args: list[str]) -> None:
     result = CliRunner().invoke(cli, ["about", "auth", *args])
     assert result.exit_code == 2, result.output
     assert "Missing option" in result.stderr
+
+
+def test_cli_about_fields_without_pypdf_is_one_logged_line(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test about fields without pypdf prints what to install in one line, exit 1, and no traceback (GH-2667).
+
+    The command logged "Could not retrieve fields." and the whole traceback for any `ImportError`,
+    which `MissingDependencyError` is.
+    """
+    from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
+
+    msg = "Reading a PDF requires pypdf, which is not installed. Install it with: pip install wetterdienst[pdf]"
+
+    def describe_fields(**_kwargs: object) -> None:
+        raise MissingDependencyError(msg)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.observation.DwdObservationRequest.describe_fields", describe_fields)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli, ["about", "fields", "--resolution=daily", "--dataset=daily", "--period=historical"]
+        )
+
+    assert result.exit_code == 1
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)

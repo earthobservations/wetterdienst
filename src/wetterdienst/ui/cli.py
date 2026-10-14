@@ -1143,6 +1143,10 @@ def fields(
             period=period,
             language=language,
         )
+    except MissingDependencyError:
+        # the PDF reader is not installed: the message names what to install, which `_Cli.invoke`
+        # prints as the one line it is, not under "Could not retrieve fields." and a traceback
+        raise
     except ImportError:
         msg = "Could not retrieve fields."
         log.exception(msg)
