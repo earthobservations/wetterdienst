@@ -1426,11 +1426,6 @@ DwdObservationMetadata = {
                             "name_original": "v_te050m",
                             "unit": "degree_celsius",
                         },
-                        {
-                            "name": "temperature_soil_mean_1m",
-                            "name_original": "v_te100m",
-                            "unit": "degree_celsius",
-                        },
                     ],
                 },
                 {

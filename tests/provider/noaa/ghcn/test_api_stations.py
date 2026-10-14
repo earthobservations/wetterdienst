@@ -125,6 +125,106 @@ def test_noaa_ghcn_daily_stations_missing_elevation(
     assert df.select("station_id", "elevation").rows() == [("ACW00011604", 10.1), ("ASN00001011", None)]
 
 
+def _serve_ghcnd(monkeypatch: pytest.MonkeyPatch, stations: str, inventory: str) -> None:
+    contents = {"ghcnd-stations.txt": stations, "ghcnd-inventory.txt": inventory}
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(contents[url.rsplit("/", 1)[-1]].encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+
+
+def test_noaa_ghcn_daily_stations_west_longitude(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """Bordeaux, Caen and Valencia are west of Greenwich whichever sign the list gives (GH-2645).
+
+    The rows are copied from `ghcnd-stations.txt` and `ghcnd-inventory.txt` as NOAA publishes them: an east
+    longitude of 0.6914, 0.4558 and 0.3664 where the other catalogues have -0.70, -0.456 and -0.38. Tarbes,
+    at 0.0, and Hamburg, east of Greenwich, are left as listed.
+    """
+    stations = (
+        "FR000007510  44.8306    0.6914   47.0    BORDEAUX-MERIGNAC                      07510\n"
+        "FRE00104044  49.1800    0.4558   67.0    CAEN-CARPIQUET                         07027\n"
+        "FRE00104116  43.1881    0.0000  360.0    TARBES - OSSUN                         07621\n"
+        "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
+        "SP000008416  39.4806    0.3664   11.0    VALENCIA                               08285\n"
+    )
+    inventory = (
+        "FR000007510  44.8306    0.6914 TMAX 1906 2026\n"
+        "FRE00104044  49.1800    0.4558 TMAX 1945 2026\n"
+        "FRE00104116  43.1881    0.0000 TMAX 1946 2026\n"
+        "GM000010147  53.6350    9.9900 TMAX 1891 2026\n"
+        "SP000008416  39.4806    0.3664 TMAX 1935 2026\n"
+    )
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.sort("station_id").select("station_id", "latitude", "longitude").rows() == [
+        ("FR000007510", 44.8306, -0.6914),
+        ("FRE00104044", 49.18, -0.4558),
+        ("FRE00104116", 43.1881, 0.0),
+        ("GM000010147", 53.635, 9.99),
+        ("SP000008416", 39.4806, -0.3664),
+    ]
+
+
+def test_noaa_ghcn_daily_stations_west_longitude_corrected_list(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A list in which NOAA has put the sign right is read as it is, not turned east again (GH-2645).
+
+    The row is the Bordeaux row of `ghcnd-stations.txt` with the sign of its longitude restored.
+    """
+    stations = "FR000007510  44.8306   -0.6914   47.0    BORDEAUX-MERIGNAC                      07510\n"
+    inventory = "FR000007510  44.8306   -0.6914 TMAX 1906 2026\n"
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert df.select("station_id", "longitude").rows() == [("FR000007510", -0.6914)]
+
+
+GHCND_LOST_SIGN_ROWS = (
+    "FRE00106203  43.9094    0.5003   59.0    MONT-DE-MARSAN                         07607",
+    "SPE00101035  38.2828    0.5706   43.0    ALICANTE EL ALTET                           ",
+    "SPE00101043  38.3725    0.4942   81.0    ALICANTE                                    ",
+    "SPE00119999  39.9500    0.0714   35.0    CASTELLON                              08286",
+    "SPE00120008  39.9892    0.0406   25.0    CASTELLON DE LA PLANA                       ",
+    "SPE00120161  42.0831    0.3264  541.0    HUESCA                                      ",
+    "SPE00120341  37.7889    0.8031    4.0    MURCIA/SAN JAVIER                           ",
+    "SPE00120584  39.4867    0.4731   69.0    VALENCIA/AEROPUERTO                         ",
+    "UK000003377  53.1658    0.5239   68.0    WADDINGTON                     GSN     03377",
+    "UKE00105915  51.5608    0.1789  137.0    HAMPSTEAD                                   ",
+    "UKE00105919  50.7808    0.6758    7.0    BOGNOR REGIS                                ",
+    "UKE00105926  50.7839    0.9839    4.0    HAYLING ISLAND                              ",
+    "UKE00107650  51.4789    0.4489   25.0    HEATHROW                                    ",
+    "UKE00156848  53.0306    0.5017   63.0    CRANWELL                                    ",
+    "UKE00156888  52.0142    0.5942   89.0    WOBURN                                      ",
+    "UKW00015034  52.3500    0.1167   40.2    WYTON                                       ",
+    "UKW00015035  53.1667    0.5167   72.2    WADDINGTON                                  ",
+    "UKW00015041  53.3667    0.6833   21.0    STURGATE                                    ",
+    "UV000005503  12.3500    1.5200  304.0    OUAGADOUGOU                                 ",
+    "UVM00065505  12.4670    3.4830  300.0    DEDOUGOU                               65505",
+)
+
+
+def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The twenty stations of GH-2886 are read west of Greenwich, as the other catalogues have them.
+
+    The rows are copied from `ghcnd-stations.txt` as NOAA publishes them, each with an east longitude where the
+    station lies west of it. Lowestoft, which does lie east of Greenwich, is left as listed (GH-2886).
+    """
+    lowestoft = "UKE00105899  52.4889    1.7500   25.0    LOWESTOFT                                   "
+    stations = "\n".join((*GHCND_LOST_SIGN_ROWS, lowestoft)) + "\n"
+    inventory = "".join(
+        f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in (*GHCND_LOST_SIGN_ROWS, lowestoft)
+    )
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    expected = {row[:11]: -float(row[21:30]) for row in GHCND_LOST_SIGN_ROWS}
+    expected["UKE00105899"] = 1.75
+    assert dict(df.select("station_id", "longitude").rows()) == expected
+    assert df.filter(pl.col("station_id") == "UKE00156848").select("latitude").item() == 53.0306
+
+
 GHCNH_STATION_LIST = (
     "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
     "ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD   ANTIGUA (AUX.,,,78861,,AG\n"

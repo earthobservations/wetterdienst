@@ -823,11 +823,15 @@ class MetnoFrostValues(TimeseriesValues):
 
 
 def _probe_frost_credentials(settings: Settings) -> bool | None:
-    """Probe the Frost API, once and for `PROBE_TIMEOUT_SECONDS`; an answer is cached on disk for ONE_HOUR.
+    """Probe the Frost API, once and for `PROBE_TIMEOUT_SECONDS`; an acceptance is cached on disk for ONE_MINUTE.
 
     Returns False only for the answers that say the client ID is refused (HTTP 401 and 403), True for
     a 200, and None for any other outcome -- no network, a failed TLS verification, a timeout, a 429,
     a 5xx -- which says nothing about the credentials.
+
+    Only a 200 is cached: Frost answers a refusal or a failure with an HTTP error status, which
+    `download_file` does not keep. It is kept for a minute and not an hour (GH-2750), so a client ID
+    that is revoked stops reading `True` within the minute.
     """
     if not settings.auth.metno_frost:
         return False
@@ -849,7 +853,7 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
     file = download_file(
         url="https://frost.met.no/sources/v0.jsonld?ids=SN18700&fields=id",
         cache_dir=settings.cache_dir,
-        ttl=CacheExpiry.ONE_HOUR,
+        ttl=CacheExpiry.ONE_MINUTE,
         client_kwargs=client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,

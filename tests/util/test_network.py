@@ -2891,6 +2891,17 @@ def test_a_temporary_file_that_cannot_be_removed_changes_neither_result_nor_erro
         assert filesystem.cat_file("/f.txt") == b"new-body"
 
 
+def _basic_auth() -> BasicAuth:
+    """Return the `user:secret` credential, as aiohttp holds it in a connection key or a session.
+
+    `BasicAuth("user", "secret")` raises a `DeprecationWarning` (the class goes in aiohttp 4), and
+    nothing here is about the constructor. `from_url` returns the same object without the warning.
+    """
+    basic_auth = BasicAuth.from_url(URL("http://user:secret@proxy:3128"))
+    assert basic_auth is not None
+    return basic_auth
+
+
 def _tls_failure(kind: str, proxy: URL | None = None, proxy_auth: BasicAuth | None = None) -> ClientSSLError:
     """Build the error aiohttp raises for a TLS failure: a failed verification, or a protocol error (an alert)."""
     connection_key = ConnectionKey(
@@ -2956,7 +2967,6 @@ def test_post_file_does_not_report_a_tls_failure_as_being_offline(kind: str) -> 
     assert raised.value.__cause__ is error.os_error
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
 def test_a_tls_failure_keeps_a_proxy_password_out_of_what_is_stored(kind: str) -> None:
     """The aiohttp error holds the connection key, and that key a proxy's password (GH-2553).
@@ -2965,7 +2975,7 @@ def test_a_tls_failure_keeps_a_proxy_password_out_of_what_is_stored(kind: str) -
     `proxy_auth` and `proxy`, and an exception's repr renders its args. The offline answer stored
     only `str(error)`; what is stored for a TLS failure is the SSL error underneath, with no key.
     """
-    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=_basic_auth())
     mock_fs = MagicMock()
     mock_fs.cat_file.side_effect = error
 
@@ -3017,7 +3027,6 @@ def test_a_tls_failure_is_stored_without_its_traceback() -> None:
         assert result.content.__traceback__ is None
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
 def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     monkeypatch: pytest.MonkeyPatch,
@@ -3032,7 +3041,7 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     The host answered, so the failure is raised -- as the SSL error underneath, which says why and
     chains to neither the connection key's proxy password nor the request in the aiohttp error.
     """
-    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=_basic_auth())
     attempts = []
 
     def find(_self: object, url: str, **_kwargs: object) -> list[str]:
@@ -3059,7 +3068,6 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     assert len(attempts) == 2
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("function", ["download_file", "post_file"])
 @pytest.mark.parametrize("kind", ["certificate", "handshake", "reset"])
 @pytest.mark.parametrize(
@@ -3088,14 +3096,10 @@ def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
     if kind == "reset":
         # a connection reset while the TLS to the target is started through the proxy: a plain
         # `ClientConnectorError` built from the same key, and the offline answer
-        key = _tls_failure(
-            "handshake", proxy=URL(proxy), proxy_auth=BasicAuth("user", "secret") if with_proxy_auth else None
-        ).args[0]
+        key = _tls_failure("handshake", proxy=URL(proxy), proxy_auth=_basic_auth() if with_proxy_auth else None).args[0]
         error: ClientConnectorError = ClientConnectorError(key, ConnectionResetError(54, "Connection reset by peer"))
     else:
-        error = _tls_failure(
-            kind, proxy=URL(proxy), proxy_auth=BasicAuth("user", "secret") if with_proxy_auth else None
-        )
+        error = _tls_failure(kind, proxy=URL(proxy), proxy_auth=_basic_auth() if with_proxy_auth else None)
     assert "secret" in repr(error), "the error would not have leaked, so this test would pass for the wrong reason"
     mock_fs = MagicMock()
     mock_fs.cat_file.side_effect = error
@@ -3203,7 +3207,6 @@ def refusing_proxy() -> Iterator[tuple[str, list[str]]]:
     server.close()
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.filterwarnings("ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("function", ["download_file", "post_file"])
 @pytest.mark.parametrize("target", ["https://example.com/f", "http://example.com/f"])
@@ -3248,7 +3251,7 @@ def test_a_proxy_authorization_header_is_kept_out_of_the_error_of_a_refused_requ
             monkeypatch.delenv(name, raising=False)
         client_kwargs = {"trust_env": True}
     else:
-        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": BasicAuth("user", "secret")}
+        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": _basic_auth()}
 
     with stamina.set_testing(True, attempts=2), caplog.at_level(logging.DEBUG, logger="stamina"):
         if function == "download_file":
@@ -3283,7 +3286,6 @@ def test_a_response_error_that_carries_no_credential_keeps_its_traceback() -> No
     assert "<redacted>" not in repr(raised)
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.filterwarnings("ignore:The 'auth' parameter is deprecated:DeprecationWarning")
 def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
     http_server: tuple[str, list],
@@ -3299,7 +3301,7 @@ def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
         f"{base_url}/denied",
         cache_dir=tmp_path,
         ttl=CacheExpiry.NO_CACHE,
-        client_kwargs={"auth": BasicAuth("user", "secret")},
+        client_kwargs={"auth": _basic_auth()},
         cache_disable=True,
     )
 
@@ -3308,7 +3310,6 @@ def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
     assert secret not in _every_carrier_of(result.content)
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
 def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
     monkeypatch: pytest.MonkeyPatch,
@@ -3322,7 +3323,7 @@ def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
     `HTTPS_PROXY`; stamina logs that repr on a retry and providers format it into their own messages.
     Raised as `list_remote_files_fsspec` raises it, with nothing on the chain leading back to it.
     """
-    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=BasicAuth("user", "secret"))
+    error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=_basic_auth())
     assert "secret" in repr(error), "the error would not have leaked, so this test would pass for the wrong reason"
     attempts = []
 
@@ -3368,7 +3369,6 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
     assert raised.value is refused
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.parametrize(
     "os_error",
     [
@@ -3397,7 +3397,7 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
         _tls_failure(
             "handshake",
             proxy=URL("http://user:secret@proxy:3128") if with_proxy else None,
-            proxy_auth=BasicAuth("user", "secret") if with_proxy else None,
+            proxy_auth=_basic_auth() if with_proxy else None,
         ).args[0],
         os_error,
     )
@@ -3486,7 +3486,6 @@ def test_a_directory_listing_through_a_refusing_proxy_keeps_the_password_out_of_
     assert not [text for text in retried if "secret" in text]
 
 
-@pytest.mark.filterwarnings("ignore:BasicAuth is deprecated:DeprecationWarning")
 @pytest.mark.filterwarnings("ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
 @pytest.mark.parametrize("target", ["https://example.com/dir/", "http://example.com/dir/"])
@@ -3529,7 +3528,7 @@ def test_a_listing_refused_by_a_proxy_keeps_its_proxy_authorization_header_out_o
             monkeypatch.delenv(name, raising=False)
         client_kwargs = {"trust_env": True}
     else:
-        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": BasicAuth("user", "secret")}
+        client_kwargs = {"proxy": f"http://{address}", "proxy_auth": _basic_auth()}
     settings = Settings(cache_dir=tmp_path, cache_disable=True, fsspec_client_kwargs=client_kwargs)
 
     with (

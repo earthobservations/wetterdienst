@@ -802,7 +802,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "temperature_soil", "v_te010m"): "Daily soil temperature in 10 cm depth.",
         ("daily", "temperature_soil", "v_te020m"): "Daily soil temperature in 20 cm depth.",
         ("daily", "temperature_soil", "v_te050m"): "Daily soil temperature in 50 cm depth.",
-        ("daily", "temperature_soil", "v_te100m"): "Daily soil temperature in 100 cm depth.",
         ("daily", "water_equivalent", "ash_6"): "Height of the sampled snow pack.",
         ("daily", "water_equivalent", "sh_tag"): "Height of the snow pack.",
         ("daily", "water_equivalent", "waas_6"): "Water equivalent of the sampled snow pack.",

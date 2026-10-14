@@ -165,6 +165,25 @@ def test_parse_dwd_data_decodes_measurement_method(dataset: DatasetModel, column
     assert df.schema[column] == pl.String
 
 
+def test_daily_soil_temperature_declares_the_columns_the_file_has() -> None:
+    """Test that every parameter of daily soil temperature is a column of DWD's product file.
+
+    The files (recent and historical) carry the depths 2, 5, 10, 20 and 50 cm and nothing deeper;
+    the dataset sheet lists `V_TE002M` to `V_TE050M`. A 100 cm column was declared once, and a
+    request for it succeeded and returned no rows (GH-2700).
+    """
+    payload = (
+        "STATIONS_ID;MESS_DATUM;QN_2;V_TE002M;V_TE005M;V_TE010M;V_TE020M;V_TE050M;eor\n"
+        "      44;20250101;    3;   2.0;   2.1;   2.5;   3.0;   4.0;eor\n"
+    )
+    dataset = DwdObservationMetadata.daily.temperature_soil
+    file = File(url="", content=BytesIO(payload.encode("utf8")), status=200)
+    df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.RECENT).collect()
+    # `<column>__raw` keeps the text of a mapped sentinel beside its null (GH-2759)
+    in_file = {c for c in df.columns if c not in {"station_id", "timestamp"} and not c.endswith("__raw")}
+    assert {parameter.name_original for parameter in dataset.parameters} == in_file
+
+
 def test_parse_dwd_data_encodes_true_local_time_offset() -> None:
     """Test that true local time becomes its distance from the record's own timestamp.
 
