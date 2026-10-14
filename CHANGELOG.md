@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- The `radar` extra no longer installs `tabula`, an unrelated package ("Ascii table") that has no
+  `read_pdf`; nothing at runtime imported it. Only the maintainers' radar-sites generator
+  (`provider/dwd/radar/sites.py`) reads a PDF with `tabula`, and needs `pip install tabula-py` and
+  a Java runtime itself. `uv sync --extra radar` drops `tabula` and, with it, `setuptools` (GH-2764)
 - `noaa/ghcn` daily stations FR000007510 (Bordeaux-Merignac), FRE00104044 (Caen-Carpiquet) and
   SP000008416 (Valencia) are listed west of Greenwich, at -0.6914, -0.4558 and -0.3664, no longer
   east of it. `ghcnd-stations.txt` has lost the sign of their longitude, which put them 63 to 109
