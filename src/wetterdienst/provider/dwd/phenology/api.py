@@ -2,10 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """DWD phenology data provider.
 
-The phenological network reports, per station and reference year, the day of the year on which a
-plant reached a developmental phase. One file holds one plant for one reporter group and one
-period, so a dataset is a plant and a parameter is a phase -- see the module docstring of
-``metadata.py`` for the mapping.
+The phenological network reports, per station and reference year, the day (DWD's ``Jultag``, not
+always the day of the year) on which a plant reached a developmental phase. One file holds one
+plant for one reporter group and one period, so a dataset is a plant and a parameter is a phase --
+see the module docstring of ``metadata.py`` for the mapping.
 
 Two things about the source shape this module. The files are *not* per station: one file carries
 every station that observed the plant, so a request parses each file once and keeps only the

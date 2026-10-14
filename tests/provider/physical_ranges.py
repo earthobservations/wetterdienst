@@ -119,11 +119,16 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
     # a share of the sky or a probability: 101 % of cloud cover is a code, 9 oktas of 8 is an obscured sky
     ("cloud_cover_", Bounds(0.0, 1.0)),
     ("probability_", Bounds(0.0, 1.0)),
-    # a count of days or hours, a day of the year: never negative, never more than a year
+    # a count of days or hours: never negative, never more than a year
     ("count_days_", Bounds(0.0, 366.0)),
     ("count_hours_", Bounds(0.0, 8_784.0)),
     ("count_weather_type_", Bounds(0.0, 366.0)),
-    ("phenology_", Bounds(0.0, 366.0)),
+    # DWD's `Jultag`, which is the day of the year only for a date in the reference year: negative for a date before
+    # it, above 366 for one after it. The 424 data files of the annual and immediate reporters, recent and historical
+    # (25.3 million rows, overlapping releases counted each, 2026-10-14), run from -130 (winter rape, 24 August 2007
+    # of 2008) to 443 (beech leaf fall, 20 March 1993 of 1992) and hold no sentinel, so the bounds leave a margin and
+    # still keep -999 and 9999 out
+    ("phenology_", Bounds(-200.0, 550.0)),
     # the share of field capacity, which saturated soil goes past
     ("soil_moisture_", Bounds(0.0, 3.0)),
     # a gauge reads from a datum of its own, and a reservoir's level may be given in metres above the sea: -9999 is

@@ -47,6 +47,7 @@ def _frame(parameter: str, *values: float | None) -> pl.DataFrame:
         ("sunshine_duration", [-9999.0, -999.0, -99.0, -1.0]),
         ("humidity_relative", [-9999.0, -999.0, -99.0, -1.0, 999.0, 9999.0]),
         ("precipitation_amount", [-9999.0, -999.0, -99.0, -1.0, 9999.0]),
+        ("phenology_flowering_beginning", [-9999.0, -999.0, 999.0, 9999.0]),
     ],
 )
 def test_a_sentinel_is_outside_the_range_of_the_common_parameters(parameter: str, sentinels: list[float]) -> None:
@@ -78,6 +79,12 @@ def test_a_sentinel_is_outside_the_range_of_the_common_parameters(parameter: str
         ("snow_depth", 1182.0),  # the deepest snow pack
         ("snow_depth", -1.0),  # a few centimetres below zero: 11 % of the hours of MeteoSwiss' station PLF, no code
         ("temperature_surface", 85.0),  # a road in the sun
+        ("phenology_flowering_beginning", 1.0),  # 1 January of the reference year
+        ("phenology_flowering_beginning", 366.0),
+        ("phenology_height_growth_beginning", -130.0),  # DWD's Jultag: winter rape, 24 August 2007 of Referenzjahr 2008
+        ("phenology_flowering_beginning", -1.0),  # 31 December of the year before: there is no 0
+        ("phenology_emergence_beginning", 380.0),  # winter wheat, 15 January 2017 of Referenzjahr 2016
+        ("phenology_leaf_fall_autumn", 443.0),  # beech, 20 March 1993 of Referenzjahr 1992
     ],
 )
 def test_a_record_is_inside_the_range(parameter: str, value: float) -> None:
