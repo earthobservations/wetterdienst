@@ -1095,6 +1095,22 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
 
 
 @pytest.mark.remote
+def test_dwd_observations_urban_10_minutes_sunshine_duration_is_hours(default_settings: Settings) -> None:
+    """The urban 10 minute sunshine duration is in hours: a 10 minute interval holds at most 600 s (GH-2698).
+
+    DWD's parameter sheet says "Minute", the values of station 00399 are 0.00 to 0.17 (10/60 rounded), which
+    in seconds are 0 to 612. Read as minutes they would be at most 10.2 s.
+    """
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "urban_solar", "sunshine_duration")],
+        periods="recent",
+        settings=default_settings,
+    ).filter_by_station_id("00399")
+    values = request.values.all().df.get_column("value")
+    assert 300 < values.max() <= 612.0
+
+
+@pytest.mark.remote
 def test_dwd_observation_data_10_minutes_result_tidy(options_humanize_false_convert_units_false: Options) -> None:
     """Test for actual values (format) in metric units."""
     request = DwdObservationRequest(

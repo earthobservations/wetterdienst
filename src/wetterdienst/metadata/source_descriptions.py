@@ -584,7 +584,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Global radiation per 10-minute interval (DWD: "momentane Globalstrahlung").'
         ),
         ("10_minutes", "urban_solar", "sd_st_10"): (
-            'Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer").'
+            'Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer"). The values are hours, '
+            'at most 0.17, though the parameter sheet says "Minute".'
         ),
         ("10_minutes", "urban_temperature_air", "rf_st_10"): (
             'Relative humidity at 2 m height, instantaneous (DWD: "momentane rel.Feuchte in 2m Hoehe").'
