@@ -617,9 +617,13 @@ _HOURLY_SKY_INVISIBLE = "9"
 # direction: next to FF = 0 in 99.97 % of the 11.2 million zeros of DD, next to FXY = 0 in 99.9 % of those of DXY and
 # next to FXI = 0 in 98.8 % of those of the daily DXI. They write 999, as the swell direction DIRHOULE does for
 # "variable", in six hourly DD of 1965 to 1967 (Kerguelen, Nouvelle-Amsterdam). Neither is a direction.
+# The one DXI above 360 in the 314 daily files audited (GH-2728) is a 400 (31299001, 2007-09-05, FXI = 8.0, QDXI =
+# 1); no description defines it and it is no bearing, so the reader takes it for a code like the two above. The
+# audit found none in the hourly files, so it is not applied to them.
 _HOURLY_WIND_DIRECTIONS = ("DD", "DXY")
 _DAILY_WIND_DIRECTIONS = ("DXI",)
 _NO_WIND_DIRECTION = ("0", "999")
+_DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 
 
 def _department_from_station_id(station_id: str) -> str:
@@ -967,7 +971,7 @@ def _sentinels(resolution_name: str) -> list[Sentinel]:
             Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_HOURLY_WIND_DIRECTIONS)),
         ]
     if resolution_name == "daily":
-        return [Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_DAILY_WIND_DIRECTIONS))]
+        return [Sentinel(*_DAILY_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_DAILY_WIND_DIRECTIONS))]
     return []
 
 

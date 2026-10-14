@@ -563,18 +563,20 @@ def _meteofrance_observation_hourly(
 
 def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # QUOT_departement_07_periode_2020-2024_RR-T-Vent: the daily DXI holds the code 0 (GH-2720), and the reader applies
-    # 0 and 999 to it as to the hourly DD, so the stub adds the 999; worded by the stub, with the validation code
-    # beside each value
+    # 0 and 999 to it as to the hourly DD, so the stub adds the 999; the 400 is that of QUOT_departement_31 (31299001,
+    # 2007-09-05: DXI = 400, FXI = 8.0, QDXI = 1, GH-2728), moved here; worded by the stub,
+    # with the validation code beside each value
     rows = [
         {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240101", "TN": "-1.0", "DXI": "250", "QDXI": "1"},
         {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240102", "TN": "-0.5", "DXI": "0", "QDXI": "1"},
         {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240103", "TN": "0.5", "DXI": "999", "QDXI": "1"},
+        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240104", "TN": "1.5", "DXI": "400", "QDXI": "1"},
     ]
     _serve_meteofrance(monkeypatch, "daily", "core", "QUOT_departement_07_periode_2020-2024_RR-T-Vent", rows)
     request = MeteoFranceObservationRequest(
         parameters=[("daily", "core", "temperature_air_min_2m"), ("daily", "core", "wind_direction_gust_max")],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 3),
+        end=_day(2024, 1, 4),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -596,7 +598,9 @@ def _meteofrance_observation_hourly_others(
 
 def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # synop_2024.csv.gz: ABBEVILLE 2024-01-01T18:00Z has rr6=-0.1 beside rr1=0.0, CHASSIRON 2024-01-03T06:00Z has n=101;
-    # a calm is dd=0 beside ff=0 (3495 rows, all with ff=0) and north is dd=360 (3230 rows), as the WMO table has it
+    # a calm is dd=0 beside ff=0 (3495 rows, all with ff=0) and north is dd=360 (3230 rows), as the WMO table has it;
+    # the 400 is the file of 1996's own (14 rows, DUMONT D'URVILLE and EUROPA, dd=400 beside ff=1 or 2, GH-2873), here
+    # moved to 07005 at 2024-01-01T23:00Z
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     rows = [
         {
@@ -616,6 +620,12 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             "n": "101",
             "dd": "360",
             "ff": "2",
+        },
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-01T23:00:00Z",
+            "dd": "400",
+            "ff": "1",
         },
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
@@ -1368,7 +1378,8 @@ STUBS = [
     # 999, neither in the descriptions: 0, which has no place on a compass 'en rose de 360' where 360 is the north,
     # mostly next to FF, FXY or FXI = 0 (99.97 %, 99.9 % and 98.8 %), and 999, as the swell direction DIRHOULE writes
     # for 'variable', in six rows of Kerguelen and Nouvelle-Amsterdam, 1965 to 1967. One row lies outside 0 to 360
-    # without a code, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05).
+    # without a description, with a quality code of 1: daily DXI = 400 (31299001, 2007-09-05, GH-2728), which the
+    # daily reader takes for a third code.
     ValueStub(
         "meteofrance/observation hourly/core",
         _meteofrance_observation_hourly_core,
@@ -1380,8 +1391,16 @@ STUBS = [
         "meteofrance/observation daily/core",
         _meteofrance_observation_daily,
         reading=("temperature_air_min_2m", -1.0),
-        sentinels=(("wind_direction_gust_max", 0.0), ("wind_direction_gust_max", 999.0)),
-        tokens=(("wind_direction_gust_max", "0", None), ("wind_direction_gust_max", "999", None)),
+        sentinels=(
+            ("wind_direction_gust_max", 0.0),
+            ("wind_direction_gust_max", 999.0),
+            ("wind_direction_gust_max", 400.0),
+        ),
+        tokens=(
+            ("wind_direction_gust_max", "0", None),
+            ("wind_direction_gust_max", "999", None),
+            ("wind_direction_gust_max", "400", None),
+        ),
     ),
     ValueStub(
         "meteofrance/observation hourly/others",
@@ -1399,12 +1418,15 @@ STUBS = [
             ("precipitation_amount_last_6h", -0.1),
             ("cloud_cover_total", 1.01),
             ("wind_direction_last_10min", 0.0),
+            ("wind_direction_last_10min", 400.0),
         ),
-        # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm is no direction (north is 360)
+        # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm and a 400 are no direction,
+        # and north is 360
         tokens=(
             ("precipitation_amount_last_6h", "-0.1", 0.0),
             ("cloud_cover_total", "101", None),
             ("wind_direction_last_10min", "0", None),
+            ("wind_direction_last_10min", "400", None),
         ),
     ),
 ]

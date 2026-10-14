@@ -30,15 +30,16 @@ def _values(
     parameters: list[str],
     *,
     drop_nulls: bool = True,
+    year: int = 2024,
 ) -> pl.DataFrame:
     """Read rows through the reader as the columns of the source's file, empty where a row has none."""
     schema = list(synop_api._SYNOP_CSV_SCHEMA)  # noqa: SLF001
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
-    serve(monkeypatch, synop_api, {"synop_2024": gzip.compress("\n".join(lines).encode("utf8"))})
+    serve(monkeypatch, synop_api, {f"synop_{year}": gzip.compress("\n".join(lines).encode("utf8"))})
     request = MeteoFranceSynopRequest(
         parameters=[("subdaily", "data", parameter) for parameter in parameters],
-        start=datetime(2024, 1, 1, tzinfo=UTC),
-        end=datetime(2024, 1, 2, tzinfo=UTC),
+        start=datetime(year, 1, 1, tzinfo=UTC),
+        end=datetime(year, 1, 2, tzinfo=UTC),
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
@@ -128,6 +129,27 @@ def test_meteofrance_synop_api_calm_wind_direction_is_null(monkeypatch: pytest.M
     speed = df.filter(pl.col("parameter").eq("wind_speed_last_10min"))
     assert speed.get_column("value").to_list() == [0.0, 0.0, 3.0, 1.0]
     assert speed.get_column("quality_flags").to_list() == [None, None, None, None]
+
+
+def test_meteofrance_synop_api_dd_of_400_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the dd=400 of the 1996 file has no direction, where the directions around it stay (GH-2873).
+
+    The rows are those of DUMONT D'URVILLE (89642) at 1996-04-03 06, 09, 12 and 15 h in synop_1996.csv.gz (dd=130, 130,
+    400, 0 beside ff=3, 2, 1, 0), moved to 07005 and to 1996-01-01. The 400 keeps its text as the `raw` token, as the
+    calm 0 beside it does (rows without a value are kept to see it).
+    """
+    rows = [
+        {"geo_id_wmo": "07005", "validity_time": "1996-01-01T06:00:00Z", "dd": "130", "ff": "3"},
+        {"geo_id_wmo": "07005", "validity_time": "1996-01-01T09:00:00Z", "dd": "130", "ff": "2"},
+        {"geo_id_wmo": "07005", "validity_time": "1996-01-01T12:00:00Z", "dd": "400", "ff": "1"},
+        {"geo_id_wmo": "07005", "validity_time": "1996-01-01T15:00:00Z", "dd": "0", "ff": "0"},
+    ]
+    df = _values(monkeypatch, rows, ["wind_direction_last_10min", "wind_speed_last_10min"], drop_nulls=False, year=1996)
+    direction = df.filter(pl.col("parameter").eq("wind_direction_last_10min")).sort("timestamp")
+    assert direction.get_column("value").to_list() == [130.0, 130.0, None, None]
+    assert direction.get_column("quality_flags").to_list() == [None, None, "raw:400", "raw:0"]
+    speed = df.filter(pl.col("parameter").eq("wind_speed_last_10min")).sort("timestamp")
+    assert speed.get_column("value").to_list() == [3.0, 2.0, 1.0, 0.0]
 
 
 def test_meteofrance_synop_api_obscured_sky_is_null(monkeypatch: pytest.MonkeyPatch) -> None:

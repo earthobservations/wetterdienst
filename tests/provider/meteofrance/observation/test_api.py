@@ -15,7 +15,7 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import stations_result
-from wetterdienst import Settings
+from wetterdienst import Options, Settings
 from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File
@@ -193,12 +193,15 @@ def _values(
     station_id: str,
     start: datetime,
     end: datetime,
+    *,
+    drop_nulls: bool = True,
 ) -> pl.DataFrame:
     request = MeteoFranceObservationRequest(
         parameters=[(resolution, dataset, parameter)],
         start=start,
         end=end,
         settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=drop_nulls),
     )
     return stations_result(request, resolution, dataset, station_id).values.all().df.sort("timestamp")
 
@@ -470,6 +473,26 @@ def test_meteofrance_observation_api_daily_calm_wind_has_no_direction_of_the_gus
         _utc(1996, 2, 23),
     ]
     assert df.get_column("value").to_list() == [360.0, 360.0, 360.0, 180.0]
+
+
+def test_meteofrance_observation_api_daily_dxi_of_400_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a daily DXI of 400 is null with its text as `raw` token, where the days around it stay (GH-2728).
+
+    The rows are the file's own for station 31299001 (MURET-LHERM), 2007-09-04 to 06: DXI = 300, 400, 340 with gusts
+    of 11.0, 8.0 and 8.0 m/s, all with QDXI = 1.
+    """
+    rows = [
+        {"NUM_POSTE": "31299001", "AAAAMMJJ": "20070904", "FXI": "11.0", "DXI": "300", "QDXI": "1"},
+        {"NUM_POSTE": "31299001", "AAAAMMJJ": "20070905", "FXI": "8.0", "DXI": "400", "QDXI": "1"},
+        {"NUM_POSTE": "31299001", "AAAAMMJJ": "20070906", "FXI": "8.0", "DXI": "340", "QDXI": "1"},
+    ]
+    files = {"QUOT_departement_31_periode_1950-2024_RR-T-Vent": _climate_gz("daily", "core", rows)}
+    _serve_climate(monkeypatch, files)
+    df = _values(
+        "daily", "core", "wind_direction_gust_max", "31299001", _utc(2007, 9, 4), _utc(2007, 9, 6), drop_nulls=False
+    )
+    assert df.get_column("value").to_list() == [300.0, None, 340.0]
+    assert df.get_column("quality_flags").to_list() == ["1", "1,raw:400", "1"]
 
 
 def test_meteofrance_observation_api_hourly_metropole_is_utc(monkeypatch: pytest.MonkeyPatch) -> None:
