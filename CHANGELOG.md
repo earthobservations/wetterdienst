@@ -80,6 +80,17 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- `eccc/observation` `start_timestamp` and `end_timestamp` of a station are those of the
+  resolution's own collection (`HLY_`/`DLY_`/`MLY_` dates of the station list), no longer the
+  station's overall `FIRST_DATE`/`LAST_DATE` for all three. A station with no date for a
+  resolution has null, not the overall dates, so test for null, not for a date; such stations are
+  still listed for the resolution (GH-2747)
+- `eccc/observation` values requested without `start` and `end` ask for the years from the first
+  row of the collection (one `limit=1` request per station and collection; for hourly and monthly
+  also the last), no longer from the station's `FIRST_DATE` to `LAST_DATE`. Rows before
+  `FIRST_DATE` are returned now (1765: 1321 hourly values of 1955), and no request is made for the
+  65 empty years of a station such as White Rock whose hourly record is shorter than the
+  station's. A request with `start` and `end` is unchanged (GH-2820, GH-2864)
 - `GET /api/auth` and `GET /api/coverage?provider&network` answer a listed network whose module
   fails to import (an `ImportError` that is no missing optional extra, such as a broken `lxml`
   install) with a 500, as the data routes do, no longer a 404 "Choose provider and network from
