@@ -59,6 +59,10 @@ Types of changes:
   (Ouagadougou, Dedougou), are placed west of Greenwich, no longer east of it, where
   `ghcnd-stations.txt` has lost the sign of their longitude. They were 6 to 756 km off, so a
   nearest-station search or an interpolation near them picked the wrong stations (GH-2886)
+- `dwd/mosmix` and `dwd/dmo` station 08370 (Javea) is at longitude +0.17, no longer -0.17, and
+  `dwd/dmo` station 40103 (Tripoli, Lebanon) at latitude 34.45, no longer 33.45. DWD publishes both
+  at the wrong place, 30 and 111 km off, so a nearest-station search near them picked the wrong
+  stations. A position is corrected only while DWD still publishes the wrong one (GH-2646)
 - `meteofrance/observation` daily `wind_direction_gust_max` (`DXI`) and `meteofrance/synop`
   `wind_direction_last_10min` (`dd`) no longer return a direction of 400 degrees, which lies
   outside the compass and which neither source defines: the daily 2007-09-05 of 31299001 and 14
