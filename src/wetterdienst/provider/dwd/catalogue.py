@@ -37,7 +37,7 @@ _COLUMN_SPECS = ((0, 5), (6, 9), (11, 30), (32, 38), (39, 46), (48, 56))
 _COLUMNS = ("station_id", "icao_id", "name", "latitude", "longitude", "elevation")
 
 # Stations DWD publishes at a wrong position, each with the position DWD gives (latitude, longitude, as read here:
-# decimal degrees, the minutes of the catalogues rounded to two decimals) and the position it is at (GH-2646).
+# decimal degrees, the minutes of the catalogues rounded to two decimals) and the position it is at (GH-2646, GH-2897).
 # Each was checked against more than the DWD files, which all agree with one another (Javea: the catalogues and the
 # placemarks of the MOSMIX and DMO runs; Tripoli, in no catalogue: the placemarks of the `icon` and `icon_eu` runs), so
 # there is no second DWD source to take the right one from:
@@ -50,11 +50,35 @@ _COLUMNS = ("station_id", "icao_id", "name", "latitude", "longitude", "elevation
 #   same WMO id) 34.45 / 35.80, OpenStreetMap (relation 4869639) 34.4374 / 35.8349 and Wikipedia (Tripoli, Lebanon)
 #   34.4367 / 35.8344 all put it at 34.44 to 34.45, which is one degree (111 km) north of DWD's latitude.
 #
+# The rest lost the sign of one coordinate (GH-2897). Where a DMO field has no whole degrees (`.22`), nothing in it says
+# west or south once the minus is gone, which is why the reader cannot recover it (`_dm_degrees`). DWD's placemarks for
+# these stations carry the same wrong sign, bar P0563:
+#
+# - P0563 LONDON LUTON is written `.22` by `dmo_stationsliste_txt.asc` (the MOSMIX catalogue has `-0.22`, and DWD's
+#   placemark `-0.37,51.87`), which is read at +0.37 although Luton Airport lies at -0.37: GHCN hourly `UKI0000EGGW`
+#   (160.3 m, as DWD) 51.8747 / -0.3683, OurAirports `EGGW` 51.874699 / -0.368333, OpenStreetMap (way 110273499)
+#   51.8781 / -0.3664 and Wikipedia (Luton Airport) 51.8747 / -0.3683. It is 50 km east of the airport as read.
+# - 03377 WADDINGTON, 03768 FARNBOROUGH and 08286 CASTELLON DE LA PLANA are published at 0.52, 0.77 and 0.07 east, in
+#   both catalogues and in the placemarks. RAF Waddington lies at -0.52 (GHCN hourly `UKI0000EGXW` 53.1662 / -0.5238,
+#   OurAirports `EGXW` 53.166199 / -0.523811, OpenStreetMap way 219355109 53.1662 / -0.5212, Wikipedia 53.1725 /
+#   -0.5308), Farnborough Airport at -0.77 (GHCN hourly `UKI0000EGUF` 51.283 / -0.767 and `EGLF` 51.2758 / -0.7763,
+#   OurAirports `EGLF` 51.275799 / -0.776333, Wikipedia 51.2753 / -0.7775; DWD's own F9706 FARNBOROUGH has -0.47 /
+#   -0.78), and Castellon de la Plana (Almassora) at -0.07 (GHCN hourly `SPN0008500A` CASTELLON-ALMASSORA 39.957 /
+#   -0.072, Wikipedia Almassora 39.9403 / -0.0625; +0.07 at 39.95 is in the Mediterranean, off the coast).
+# - F9424 BAURU/AREALVA APT. is published at latitude +22.15, in both catalogues and in the placemark, and Bauru is
+#   south of the equator: OurAirports `SBAE` -22.1608 / -49.0703 and OpenStreetMap (relation 8527439) -22.1571 /
+#   -49.0752 agree on -22.16 (GHCN hourly has no `SBAE`; its nearest Bauru stations are 17 km south, at -22.32).
+#
 # A position is replaced only while DWD publishes exactly the value recorded here, so the correction stops by itself
 # when DWD fixes its files, rather than moving a corrected station a second time or one DWD has moved elsewhere.
 STATION_POSITION_CORRECTIONS: dict[str, tuple[tuple[float, float], tuple[float, float]]] = {
     "08370": ((38.78, -0.17), (38.78, 0.17)),
     "40103": ((33.45, 35.8), (34.45, 35.8)),
+    "P0563": ((51.87, 0.37), (51.87, -0.37)),
+    "03377": ((53.17, 0.52), (53.17, -0.52)),
+    "03768": ((51.28, 0.77), (51.28, -0.77)),
+    "08286": ((39.95, 0.07), (39.95, -0.07)),
+    "F9424": ((22.15, -49.07), (-22.15, -49.07)),
 }
 _POSITION_TOLERANCE = 0.005
 

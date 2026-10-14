@@ -247,3 +247,53 @@ def test_dwd_mosmix_stations_a_position_that_is_not_the_recorded_one_is_read_as_
     """The correction applies only while DWD publishes the position recorded in the table (GH-2646)."""
     _serve_catalogue(monkeypatch, row)
     assert _positions(default_settings)["08370"] == pytest.approx(expected, abs=5e-3)
+
+
+def test_dwd_mosmix_stations_those_that_lost_the_sign_of_a_coordinate_are_placed_where_they_are(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Waddington, Farnborough, Castellon and Bauru are published with a coordinate's sign lost (GH-2897).
+
+    The rows are copied from `mosmix_stationskatalog.cfg`. RAF Waddington lies at 53.1662 / -0.5238 (GHCN hourly
+    `UKI0000EGXW`), Farnborough at 51.283 / -0.767 (`UKI0000EGUF`), Castellon-Almassora at 39.957 / -0.072
+    (`SPN0008500A`) and Bauru at -22.1608 / -49.0703 (OurAirports `SBAE`). London Luton is `-0.22` in
+    this catalogue, which is right (the DMO list has lost its minus), so it is read as it is; Farnborough's other
+    entry, `F9706`, is too.
+    """
+    _serve_catalogue(
+        monkeypatch,
+        "03377 ---- WADDINGTON            53.10    0.31    68\n"
+        "03768 ---- FARNBOROUGH           51.17    0.46    65\n"
+        "08286 LECN CASTELLON DE LA PLAN  39.57    0.04    36\n"
+        "F9424 SBAE BAURU/AREALVA APT.    22.09  -49.04   594\n"
+        "F9706 EGLF FARNBOROUGH           51.17   -0.47    73\n"
+        "P0563 EGGW LONDON LUTON          51.52   -0.22   160\n",
+    )
+    positions = _positions(default_settings)
+    assert positions["03377"] == pytest.approx((53.17, -0.52), abs=5e-3)
+    assert positions["03768"] == pytest.approx((51.28, -0.77), abs=5e-3)
+    assert positions["08286"] == pytest.approx((39.95, -0.07), abs=5e-3)
+    assert positions["F9424"] == pytest.approx((-22.15, -49.07), abs=5e-3)
+    assert positions["F9706"] == pytest.approx((51.28, -0.78), abs=5e-3)
+    assert positions["P0563"] == pytest.approx((51.87, -0.37), abs=5e-3)
+
+
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        # DWD has put the sign right: read as it is (the moved cases below are what show a missing guard)
+        pytest.param("03377 ---- WADDINGTON            53.10   -0.31    68\n", (53.17, -0.52), id="corrected-upstream"),
+        # DWD has moved the station: not the position the table recorded, so not touched
+        pytest.param("03377 ---- WADDINGTON            53.20    0.31    68\n", (53.33, 0.52), id="moved-north"),
+        pytest.param("03377 ---- WADDINGTON            53.10    0.40    68\n", (53.17, 0.67), id="moved-east"),
+    ],
+)
+def test_dwd_mosmix_stations_waddington_is_corrected_only_while_the_catalogue_has_the_recorded_position(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    row: str,
+    expected: tuple[float, float],
+) -> None:
+    """A position other than the one recorded for Waddington is read as published, in either coordinate (GH-2897)."""
+    _serve_catalogue(monkeypatch, row)
+    assert _positions(default_settings)["03377"] == pytest.approx(expected, abs=5e-3)

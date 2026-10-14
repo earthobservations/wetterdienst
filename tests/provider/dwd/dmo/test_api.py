@@ -923,6 +923,68 @@ def test_dmo_a_position_that_is_not_the_recorded_one_is_read_as_it_is(monkeypatc
     assert position["40103"] == pytest.approx((34.40, 35.8), abs=5e-3)
 
 
+_LOST_SIGN_ROWS = {
+    # the rows of `dmo_stationsliste_txt.asc` as DWD writes them
+    "P0563": ("51.52", ".22"),
+    "03377": ("53.10", ".31"),
+    "03768": ("51.17", ".46"),
+    "08286": ("39.57", ". 4"),
+    "F9424": ("22.09", "-49.04"),
+}
+
+
+def test_dmo_stations_that_lost_the_sign_of_a_coordinate_are_placed_where_they_are(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The list has lost the minus of a degreeless longitude, and of Bauru's latitude (GH-2897).
+
+    `.22` is 0 deg 22' with nothing to say west, so `_dm_degrees` reads London Luton 50 km east of the airport
+    (GHCN `UKI0000EGGW` 51.8747 / -0.3683, and DWD's own placemark `-0.37,51.87,160.0`). Waddington, Farnborough
+    and Castellon are written without the minus in DWD's placemarks too; Bauru (`SBAE`, -22.16 / -49.07) is
+    listed north of the equator. Hamburg, and Entebbe (a degreeless latitude that is positive) are left as listed.
+    """
+    stations = [*_LOST_SIGN_ROWS, "10147", "63705"]
+    _stub_catalogue(monkeypatch, stations, {**_LOST_SIGN_ROWS, "10147": ("53.38", "10.00"), "63705": (". 3", "32.27")})
+    _stub_coverage(monkeypatch, {"icon": stations, "icon_eu": []})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    position = {row["station_id"]: (row["latitude"], row["longitude"]) for row in df.iter_rows(named=True)}
+    assert position["P0563"] == pytest.approx((51.87, -0.37), abs=5e-3)
+    assert position["03377"] == pytest.approx((53.17, -0.52), abs=5e-3)
+    assert position["03768"] == pytest.approx((51.28, -0.77), abs=5e-3)
+    assert position["08286"] == pytest.approx((39.95, -0.07), abs=5e-3)
+    assert position["F9424"] == pytest.approx((-22.15, -49.07), abs=5e-3)
+    assert position["10147"] == pytest.approx((53.63, 10.0), abs=5e-3)
+    assert position["63705"] == pytest.approx((0.05, 32.45), abs=5e-3)
+
+
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "expected"),
+    [
+        # DWD has put the sign right: read as it is (the moved cases below are what show a missing guard)
+        pytest.param("51.52", "-.22", (51.87, -0.37), id="corrected-upstream"),
+        # DWD has moved the station: not the position the table recorded, so not touched
+        pytest.param("51.55", ".22", (51.92, 0.37), id="moved-north"),
+        pytest.param("51.52", ".30", (51.87, 0.50), id="moved-east"),
+    ],
+)
+def test_dmo_luton_is_corrected_only_while_the_list_has_the_recorded_position(
+    monkeypatch: pytest.MonkeyPatch,
+    latitude: str,
+    longitude: str,
+    expected: tuple[float, float],
+) -> None:
+    """A position other than the one recorded for P0563 is read as published, in either coordinate (GH-2897)."""
+    _stub_catalogue(monkeypatch, ["P0563"], {"P0563": (latitude, longitude)})
+    _stub_coverage(monkeypatch, {"icon": ["P0563"], "icon_eu": []})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    row = df.row(0, named=True)
+    assert (row["latitude"], row["longitude"]) == pytest.approx(expected, abs=5e-3)
+
+
 def test_dmo_the_catalogue_is_left_alone_where_it_describes_a_station(monkeypatch: pytest.MonkeyPatch) -> None:
     """The catalogue is the only source of an ICAO id, so it keeps the stations it does list."""
     _stub_catalogue(monkeypatch, ["01001"])
