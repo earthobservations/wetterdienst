@@ -1,11 +1,7 @@
-Check out the guide that was used to create the CI environment including setting up the yaml files:
+# GitHub Actions workflows
 
-- https://medium.com/@cjolowicz/hypermodern-python-d44485d9d769
-- https://cjolowicz.github.io/posts/hypermodern-python-01-setup/
-
-- https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
-- https://docs.github.com/en/actions/creating-actions/dockerfile-support-for-github-actions
-- https://docs.github.com/en/actions/guides/publishing-docker-images
+Every `*.yml` file in this directory is one workflow; `install.sh` is the dependency installer the
+Python jobs share. The sections below say what the path filters and the app workflows read.
 
 ## Path filters
 
@@ -30,6 +26,14 @@ read something new, add it here.
 The one deliberate exception is `codeql.yml`. Code scanning is a merge requirement in the repository
 ruleset, and that requirement is reported per pull request - a run that never happens leaves the
 pull request waiting for a result rather than passing it, so CodeQL keeps running unconditionally.
+
+## Credentials
+
+A secret goes in the `env:` of the step that reads it, never of the job or the workflow: `uv sync`,
+the package managers and third-party actions run code that is not ours and would be handed it. The
+provider keys (`WD_AUTH__*`) are therefore on the test steps of `tests.yml` and `coverage.yml`
+only. In `release.yml` the `build` job runs the project's build code and has no `id-token`; the
+`publish` job has it and runs only `uv publish` on the artifact `build` uploaded.
 
 ## App CI
 

@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import pathlib
+import sys
 import zipfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -61,6 +62,28 @@ def test_index(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "wetterdienst - open weather data for humans" in response.text
+
+
+def test_index_leaves_out_a_provider_whose_module_fails_to_import(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """One provider that does not import costs its row, not the page (GH-2801)."""
+    resolve = restapi.Wetterdienst.resolve
+
+    def failing_fmi(provider: str, network: str) -> object:
+        if provider == "fmi":
+            msg = "Module wetterdienst.provider.fmi.observation failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(provider, network)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", failing_fmi)
+    with caplog.at_level(logging.WARNING):
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Deutscher Wetterdienst" in response.text
+    assert "Ilmatieteen laitos" not in response.text
+    assert "Left fmi out of the index" in caplog.text
 
 
 @pytest.mark.remote
@@ -1809,6 +1832,32 @@ def test_stripes_image_is_sent_as_its_media_type(
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
     assert response.status_code == 200
     assert response.headers["content-type"] == media_type
+
+
+def test_stripes_image_without_kaleido_is_a_501(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test `/api/stripes/image` without Kaleido is a 501 with the install line in the log (GH-2667).
+
+    Plotly's `RuntimeError` out of `to_image` was a bare 500.
+    """
+
+    class _Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            pytest.fail("rendered although Kaleido is missing")
+
+    monkeypatch.setitem(sys.modules, "kaleido", None)
+    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+
+    with caplog.at_level(logging.ERROR):
+        response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 501
+    assert "pip install" not in response.json()["detail"]
+    assert "Rendering an image requires kaleido, which is not installed" in caplog.text
+    assert "pip install wetterdienst[plotting]" in caplog.text
 
 
 @pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
@@ -7060,17 +7109,31 @@ def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, param
     assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
 
 
-def test_coverage_missing_provider_dependency_is_a_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A provider module that cannot be imported answers the same 404 as an unknown one (GH-2496)."""
+@pytest.mark.parametrize(
+    ("route", "params"),
+    [
+        pytest.param("auth", {"provider": "dwd", "network": "observation"}, id="auth"),
+        pytest.param("coverage", {"provider": "dwd", "network": "observation"}, id="coverage"),
+    ],
+)
+def test_a_listed_network_whose_module_fails_to_import_is_a_500_on_auth_and_coverage(
+    monkeypatch: pytest.MonkeyPatch, route: str, params: dict[str, str]
+) -> None:
+    """A listed network whose module fails to import is the data routes' 500, not an unknown network's 404 (GH-2800).
+
+    The 404 (GH-2496) said "Choose provider and network from /api/coverage" for a network that
+    coverage lists, and for a submodule of a package that is installed (`lxml.etree`) or a module of
+    ours that is gone: a defect or a broken install, which the data routes answer with a 500.
+    """
 
     def fail(*_args: object) -> None:
-        msg = "Module wetterdienst.provider.foo not found."
+        msg = "Module wetterdienst.provider.dwd.observation failed to import: lxml.etree not found."
         raise ImportError(msg)
 
     monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", fail)
-    response = client.get("/api/coverage", params={"provider": "dwd", "network": "observation"})
-    assert response.status_code == 404
-    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(f"/api/{route}", params=params)
+    assert response.status_code == 500, response.text
+    assert "Choose provider and network" not in response.text
 
 
 def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

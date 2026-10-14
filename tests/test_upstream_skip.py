@@ -8,8 +8,10 @@ import pytest
 from aiohttp import ClientResponseError, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
+import wetterdienst.provider.rmi.observation.api as rmi_api
 from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst.exceptions import DownloadError
+from wetterdienst.util.network import File
 
 
 def _response_error(status: int) -> ClientResponseError:
@@ -94,3 +96,40 @@ def test_a_download_error_is_told_by_the_failure_it_carries(cause: Exception, sk
     else:
         with pytest.raises(DownloadError), skip_if_upstream_unavailable():
             raise error
+
+
+@pytest.mark.parametrize(
+    ("status", "skipped"),
+    [
+        pytest.param(502, True, id="502 proxy error"),
+        pytest.param(400, False, id="400 is an answer"),
+    ],
+)
+def test_an_rmi_outage_met_by_the_station_reader_skips_the_remote_test(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    skipped: bool,  # noqa: FBT001
+) -> None:
+    """Test that a remote RMI test wearing the helper is skipped on a 502 from the WFS and fails on a 400 (GH-2522).
+
+    The remote RMI tests raise a `DownloadError` from the station and value readers when the WFS does
+    not answer. Run through the reader itself, with the download served an error, this pins that the
+    cause `File.raise_if_exception` attaches is what the helper reads, and that only the outage is
+    skipped: a 400 is not in `_worth_retrying` and still fails the test.
+    """
+    monkeypatch.setattr(
+        rmi_api,
+        "download_file",
+        lambda *, url, **_: File(url=url, content=_response_error(status), status=status),
+    )
+
+    @skip_if_upstream_unavailable()
+    def _remote_test() -> None:
+        rmi_api.RmiObservationRequest(parameters=[("hourly", "data", "temperature_air_mean_2m")]).all()
+
+    if skipped:
+        with pytest.raises(pytest.skip.Exception, match="upstream did not answer"):
+            _remote_test()
+    else:
+        with pytest.raises(DownloadError):
+            _remote_test()

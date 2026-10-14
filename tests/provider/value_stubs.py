@@ -130,6 +130,22 @@ def serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes 
     monkeypatch.setattr(module, "download_file", download_file)
 
 
+def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, str]]]) -> bytes:
+    """Write a GHCNh by-station file with a column per element and, beside each, its `_Quality_Code`.
+
+    NOAA writes four more attribute columns beside every element, which the reader does not read. A cell a row does
+    not name is empty; a row names a code as `<element>_Quality_Code` (`temperature_Quality_Code`), and a name that is
+    in no column is an error, so that a typo cannot leave a stub testing nothing.
+    """
+    header = ["STATION", "DATE"] + [name for column in columns for name in (column, f"{column}_Quality_Code")]
+    for _, row in rows:
+        unknown = set(row) - set(header)
+        assert not unknown, f"the file has no column {sorted(unknown)}"
+    lines = ["|".join(header)]
+    lines += ["|".join([station, date, *[row.get(name, "") for name in header[2:]]]) for date, row in rows]
+    return "\n".join(lines).encode("utf8")
+
+
 def stations_result(request: Any, resolution: str, dataset: str, station_id: str) -> StationsResult:  # noqa: ANN401
     """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving."""
     df = pl.DataFrame(
@@ -420,11 +436,18 @@ def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
     return _dwd_observation(monkeypatch, "hourly", "cloudiness", product, "00003", drop_nulls=drop_nulls)
 
 
+# the first row of klima-v2-1d/metadata/stations with the list's header, as Geosphere publishes it (read 2026-10-14)
+_GEOSPHERE_STATIONS = (
+    "id,Synopstationsnummer,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,"
+    "Sonnenschein,Globalstrahlung,Synop,Verknüpfungsnummer,Startdatum Teilzeitreihe,Enddatum Teilzeitreihe,"
+    "zusammengesetzt\n"
+    "1,,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,"
+    "True,True,,,,,ja\n"
+)
+
+
 def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
-    ).encode()
+    stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-1d: "-1=kein Niederschlag, 0=weniger als 1/10 mm" for rr, "-1=kein Schnee" for sh_manu
     # (checked on the live API for station 5904: rr is written -1.0, the whole-number sh_manu -1)
     series = {"rr": [0.3, -1.0, 0.0], "sh_manu": [4, -1, 2]}
@@ -448,10 +471,7 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
 
 
 def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
-    ).encode()
+    stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-1h for Aflenz, 2024-01-02 18:00 to 20:00 (read 2026-10-12): "Windrichtung [360°]" dd is [9, 0, 38] beside
     # the speed ff [0.3, 0.0, 0.5], the calm at 19:00 written 0; north is 360 (GH-2794)
     series = {"dd": [9, 0, 38], "ff": [0.3, 0.0, 0.5]}
@@ -487,8 +507,17 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     )
     hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
+    # `<element>_Quality_Code` beside each value (GH-2754): 1942-01-17 02:00 reads 1 for the temperature and for the
+    # direction 999, so that the text of the sentinel follows the code (`1,raw:999`)
     rows = [
-        {"temperature": "23.5", "wind_direction": "999", "wind_speed": "0.0", "precipitation": "-9999"},
+        {
+            "temperature": "23.5",
+            "temperature_Quality_Code": "1",
+            "wind_direction": "999",
+            "wind_direction_Quality_Code": "1",
+            "wind_speed": "0.0",
+            "precipitation": "-9999",
+        },
         {"temperature": "23.0", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
         {"temperature": "24.0", "wind_direction": "999", "wind_speed": "4.1", "precipitation": "-9999"},
         # the reader maps `-None` to null in every column; this row pins that
@@ -496,15 +525,12 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         # "A direction of "000" is given for calm winds" (the documentation), which the files write 0 (GH-2794)
         {"temperature": "24.0", "wind_direction": "0", "wind_speed": "0.0", "precipitation": "0.0"},
     ]
-    lines = ["|".join(["STATION", "DATE", *columns])]
-    for hour, row in zip((2, 3, 14, 15, 16), rows, strict=True):
-        cells = [row.get(column, "") for column in columns]
-        lines.append("|".join(["ACM00078861", f"1942-01-17T{hour:02d}:00:00", *cells]))
-    serve(
-        monkeypatch,
-        ghcn_api,
-        {"ghcnh-station-list": stations, "GHCNh_ACM00078861": "\n".join(lines).encode("utf8")},
+    body = ghcnh_psv(
+        "ACM00078861",
+        columns,
+        [(f"1942-01-17T{hour:02d}:00:00", row) for hour, row in zip((2, 3, 14, 15, 16), rows, strict=True)],
     )
+    serve(monkeypatch, ghcn_api, {"ghcnh-station-list": stations, "GHCNh_ACM00078861": body})
     request = NoaaGhcnRequest(
         parameters=[("hourly", "data")],
         start=_day(1942, 1, 17),
@@ -1445,9 +1471,10 @@ NO_STUB = {
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
-        "JULTAG is a day of the year relative to the reference year (negative for a phase in the year before) and the "
-        "reader maps no sentinel: no -999 in the 832,590 rows of 94 files of annual and immediate reporters, recent "
-        "and historical (2026-10-12), whose lowest JULTAG is -120"
+        "the value is DWD's JULTAG, which is the day of the year only for a date in the reference year (negative "
+        "for a date before it, past 365 for one after it) and the reader maps no sentinel: no -999 or other "
+        "sentinel in the 424 files of annual and immediate reporters (crops, farming, fruit, vine, wild; recent and "
+        "historical, 2026-10-14), whose lowest JULTAG is -130 and highest 443"
     ),
     "dwd/radar": (
         "no timeseries: the files are handed over as DWD wrote them, and the BUFR path (`read_radar_bufr`) turns the "

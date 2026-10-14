@@ -30,6 +30,11 @@ Types of changes:
 - `[DataViewer]` The table shows the one string column `quality_flags` the backend gives a values
   row in the release following 0.146.0 in place of `quality`: against an older backend the numeric
   `quality` column moves to the end of the table (GH-2758)
+- `[Glossary]` MOSMIX `error_absolute_temperature_air_2m` and
+  `error_absolute_temperature_dew_point_2m` have a label in all 11 languages: the names the
+  backend gives `e_ttt` and `e_td` in the release following 0.151.0, in place of the `_mean_`
+  ones. Against an older backend the labels of the old names are gone and the prettified id shows
+  (GH-2659)
 
 ### Fixed
 
@@ -41,7 +46,15 @@ Types of changes:
 - `[Glossary]` `6_minutes` (Météo-France) and the datasets `core`, `others`, `rain`, `radiation`,
   `weather`, `temperature`, `soil_temperature`, `urban_solar`, `urban_temperature_extreme` and
   `urban_wind_extreme` have a label in all 11 languages, where the select showed their prettified
-  ids. The `dwd/phenology` datasets are still unlabelled, see GH-2866 (GH-2865)
+  ids (GH-2865)
+- `[Glossary]` The 110 `dwd/phenology` datasets have a label in all 11 languages, plant and
+  reporter group, where the select showed "Annual Winter Rye": "Annual reporters: Winter rye",
+  "Jahresmelder: Winterroggen". Low German and Luxembourgish give the plant's own word only where
+  it is well attested and the German one otherwise (GH-2866)
+- `[DataViewer]` The trendlines of the chart are named for their series in the active language,
+  "... (Trendlinie)", where every language read "... (trend)" (GH-2869)
+- `[DataViewer]` The hover label of the chart shows a series' name whole, where Plotly cut it after
+  15 characters (GH-2870)
 
 ### Security
 

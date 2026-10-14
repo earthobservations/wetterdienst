@@ -6945,6 +6945,7 @@ radar = [
     { name = "h5py" },
 ]
 radarplus = [
+    { name = "bitstring" },
     { name = "pybufrkit" },
     { name = "wradlib" },
     { name = "xradar" },
@@ -6959,6 +6960,7 @@ sql = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "bitstring" },
     { name = "deptry" },
     { name = "dirty-equals" },
     { name = "freezegun" },
@@ -6993,6 +6995,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.0,<4" },
+    { name = "bitstring", marker = "extra == 'radarplus'", specifier = ">=4,<5" },
     { name = "certifi", specifier = ">=2024.2.2" },
     { name = "click", specifier = ">=8.2,<9" },
     { name = "diskcache", specifier = ">=5.6.3,<6" },
@@ -7061,6 +7064,7 @@ provides-extras = ["bufr", "cratedb", "duckdb", "eccodes", "excel", "export", "i
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "bitstring", specifier = ">=4,<5" },
     { name = "deptry", specifier = ">=0.25.1" },
     { name = "dirty-equals", specifier = ">=0.11" },
     { name = "freezegun", specifier = ">=1.5.5" },
