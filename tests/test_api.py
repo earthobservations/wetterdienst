@@ -1251,6 +1251,29 @@ def _malformed_ceda_credential(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     monkeypatch.setattr("wetterdienst.api._REPORTED_SETTINGS_PROBLEMS", set())
 
 
+def test_discover_logs_a_network_that_cannot_be_imported(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A network that fails to import is not swallowed without a word (GH-2801).
+
+    Which shape the listing gives it is a decision of its own; until then it is at least logged.
+    """
+    resolve = Wetterdienst.resolve
+
+    def failing_fmi(provider: str, network: str) -> object:
+        if provider == "fmi":
+            msg = "Module wetterdienst.provider.fmi.observation failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(provider, network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", failing_fmi)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.api"):
+        discovered = Wetterdienst.discover()
+
+    assert "fmi" in discovered
+    assert "fmi/observation cannot be imported: Module wetterdienst.provider.fmi.observation" in caplog.text
+
+
 @pytest.mark.usefixtures("_malformed_ceda_credential")
 def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog: pytest.LogCaptureFixture) -> None:
     """A credential that cannot be read leaves the providers that need one unconfigured, not the listing raising.
