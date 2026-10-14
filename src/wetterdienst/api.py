@@ -234,7 +234,9 @@ class Wetterdienst:
             for network in networks:
                 try:
                     api = cls(provider, network)
-                except ImportError:
+                except ImportError as e:
+                    # the listing below says nothing of it, so the log does: it was swallowed silently (GH-2801)
+                    log.warning("%s/%s cannot be imported: %s", provider, network, e)
                     result[provider][network] = {
                         "auth": False,
                         "configured": True,

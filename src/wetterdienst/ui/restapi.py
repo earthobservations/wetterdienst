@@ -503,7 +503,14 @@ def index() -> HTMLResponse:
     for provider in Wetterdienst.registry:
         # take the first network api
         first_network = next(iter(Wetterdienst.registry[provider].keys()))
-        api = Wetterdienst(provider, first_network)
+        try:
+            api = Wetterdienst(provider, first_network)
+        except ImportError:
+            # one provider whose module does not import is not a reason for the page to be a 5xx (GH-2801)
+            log.warning(
+                f"Left {provider} out of the index, {provider}/{first_network} cannot be imported.", exc_info=True
+            )
+            continue
         shortname = api.metadata.name_short
         name = api.metadata.name_local
         country = api.metadata.country
@@ -801,17 +808,18 @@ def oauth_metadata_not_found() -> None:
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest]:
     """Resolve the network `/api/auth` and `/api/coverage` are asked about, telling why one does not resolve.
 
-    A provider or network that is not listed, or whose module cannot be imported, is a 404 pointing
-    at the listing. A network whose optional extra is not installed is none of those: it is listed,
-    and this deployment lacks what it needs, so it is the 501 the data routes answer
-    (`_dependency_missing_on_the_server`). `MissingDependencyError` is an `ImportError`, so it
-    has to be told apart first.
+    A provider or network that is not listed is a 404 pointing at the listing. A network whose
+    optional extra is not installed is not that: it is listed, and this deployment lacks what it
+    needs, so it is the 501 the data routes answer (`_dependency_missing_on_the_server`). Any other
+    `ImportError` is not that either: the network is listed and the package is there, so a module
+    that fails to import is a defect or a broken install, and it is let through as the 500 the data
+    routes answer, logged with its traceback, rather than told as a network that does not exist (GH-2800).
     """
     try:
         return Wetterdienst(provider, network)
     except MissingDependencyError as e:
         raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
-    except (ApiNotFoundError, ImportError) as e:
+    except ApiNotFoundError as e:
         raise HTTPException(
             status_code=404,
             detail=f"Choose provider and network from {app.url_path_for('coverage')}",

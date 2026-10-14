@@ -130,6 +130,22 @@ def serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes 
     monkeypatch.setattr(module, "download_file", download_file)
 
 
+def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, str]]]) -> bytes:
+    """Write a GHCNh by-station file with a column per element and, beside each, its `_Quality_Code`.
+
+    NOAA writes four more attribute columns beside every element, which the reader does not read. A cell a row does
+    not name is empty; a row names a code as `<element>_Quality_Code` (`temperature_Quality_Code`), and a name that is
+    in no column is an error, so that a typo cannot leave a stub testing nothing.
+    """
+    header = ["STATION", "DATE"] + [name for column in columns for name in (column, f"{column}_Quality_Code")]
+    for _, row in rows:
+        unknown = set(row) - set(header)
+        assert not unknown, f"the file has no column {sorted(unknown)}"
+    lines = ["|".join(header)]
+    lines += ["|".join([station, date, *[row.get(name, "") for name in header[2:]]]) for date, row in rows]
+    return "\n".join(lines).encode("utf8")
+
+
 def stations_result(request: Any, resolution: str, dataset: str, station_id: str) -> StationsResult:  # noqa: ANN401
     """Stand a station up rather than look it up, for a provider whose catalogue is not worth serving."""
     df = pl.DataFrame(
@@ -491,8 +507,17 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     )
     hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
+    # `<element>_Quality_Code` beside each value (GH-2754): 1942-01-17 02:00 reads 1 for the temperature and for the
+    # direction 999, so that the text of the sentinel follows the code (`1,raw:999`)
     rows = [
-        {"temperature": "23.5", "wind_direction": "999", "wind_speed": "0.0", "precipitation": "-9999"},
+        {
+            "temperature": "23.5",
+            "temperature_Quality_Code": "1",
+            "wind_direction": "999",
+            "wind_direction_Quality_Code": "1",
+            "wind_speed": "0.0",
+            "precipitation": "-9999",
+        },
         {"temperature": "23.0", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
         {"temperature": "24.0", "wind_direction": "999", "wind_speed": "4.1", "precipitation": "-9999"},
         # the reader maps `-None` to null in every column; this row pins that
@@ -500,15 +525,12 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         # "A direction of "000" is given for calm winds" (the documentation), which the files write 0 (GH-2794)
         {"temperature": "24.0", "wind_direction": "0", "wind_speed": "0.0", "precipitation": "0.0"},
     ]
-    lines = ["|".join(["STATION", "DATE", *columns])]
-    for hour, row in zip((2, 3, 14, 15, 16), rows, strict=True):
-        cells = [row.get(column, "") for column in columns]
-        lines.append("|".join(["ACM00078861", f"1942-01-17T{hour:02d}:00:00", *cells]))
-    serve(
-        monkeypatch,
-        ghcn_api,
-        {"ghcnh-station-list": stations, "GHCNh_ACM00078861": "\n".join(lines).encode("utf8")},
+    body = ghcnh_psv(
+        "ACM00078861",
+        columns,
+        [(f"1942-01-17T{hour:02d}:00:00", row) for hour, row in zip((2, 3, 14, 15, 16), rows, strict=True)],
     )
+    serve(monkeypatch, ghcn_api, {"ghcnh-station-list": stations, "GHCNh_ACM00078861": body})
     request = NoaaGhcnRequest(
         parameters=[("hourly", "data")],
         start=_day(1942, 1, 17),

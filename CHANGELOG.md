@@ -80,6 +80,21 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- `GET /api/auth` and `GET /api/coverage?provider&network` answer a listed network whose module
+  fails to import (an `ImportError` that is no missing optional extra, such as a broken `lxml`
+  install) with a 500, as the data routes do, no longer a 404 "Choose provider and network from
+  /api/coverage"; the MCP tools raise the import error. The `/` index leaves out a provider whose
+  first network does not import, no longer answering 500 for the whole page. The listing of every
+  provider (`/api/coverage`, `wetterdienst about coverage`) logs a warning for a network it cannot
+  import (GH-2800, GH-2801)
+- The `noaa/ghcn` hourly docs page no longer constrains `pressure_air_site_delta_last_3h` (the
+  3-hour pressure change) to `>=0`: it is negative when the pressure falls (-6.8 to 7.4 hPa at
+  Anchorage in 2023). Only the docs change, the values returned do not (GH-2874)
+- `noaa/ghcn` hourly values carry the file's `<element>_Quality_Code` in `quality_flags` (`2`
+  suspect, `3` erroneous, `c` climatological outlier, ...; the meaning depends on the element's
+  source, see the quality flags table of the Python API docs), where they were null apart from
+  `raw:`. A suspect value is still returned, e.g. 50.0 °C at Antigua with `2`. The text of a
+  sentinel follows the code (`1,raw:999`) (GH-2754)
 - A missing optional package now raises `MissingDependencyError` naming the extra, where it
   leaked the package's own error: for a `to_target` to a SQL database whose driver is not
   installed, to CrateDB (`cratedb`), InfluxDB 1, 2 and 3 (`influxdb`), `.xlsx` and `.zarr`, and
@@ -101,6 +116,14 @@ Types of changes:
   daily maxima for AEMET, `temperature_air_min_2m` for Geosphere 10-minute `temperature_air_mean_2m`
   and the 10 cm grass temperature for KNMI's. The old names still are not accepted (GH-2644,
   GH-2673)
+
+### Security
+
+- The release workflow builds the distributions in a job without the PyPI trusted-publishing token
+  and publishes them from a second job that runs no project or dependency code, so a compromised
+  build dependency can no longer obtain a PyPI token to upload files of its own. The CI provider
+  keys (`WD_AUTH__*`) are given to the test steps alone, no longer to `uv sync` or the Codecov
+  action (GH-2768)
 
 ## [0.151.0] - 2026-10-14
 

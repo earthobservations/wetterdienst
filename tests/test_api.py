@@ -684,6 +684,7 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_api_rmi_observation(default_settings: Settings) -> None:
     """Test rmi observation API."""
@@ -1252,6 +1253,29 @@ def _malformed_ceda_credential(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     monkeypatch.setattr("wetterdienst.api._REPORTED_SETTINGS_PROBLEMS", set())
 
 
+def test_discover_logs_a_network_that_cannot_be_imported(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A network that fails to import is not swallowed without a word (GH-2801).
+
+    Which shape the listing gives it is a decision of its own; until then it is at least logged.
+    """
+    resolve = Wetterdienst.resolve
+
+    def failing_fmi(provider: str, network: str) -> object:
+        if provider == "fmi":
+            msg = "Module wetterdienst.provider.fmi.observation failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(provider, network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", failing_fmi)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.api"):
+        discovered = Wetterdienst.discover()
+
+    assert "fmi" in discovered
+    assert "fmi/observation cannot be imported: Module wetterdienst.provider.fmi.observation" in caplog.text
+
+
 @pytest.mark.usefixtures("_malformed_ceda_credential")
 def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog: pytest.LogCaptureFixture) -> None:
     """A credential that cannot be read leaves the providers that need one unconfigured, not the listing raising.
@@ -1270,11 +1294,7 @@ def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog
         if entry["auth"]
     }
     # the networks the metadata says need a credential, not a list that a new one is to be added to
-    assert set(auth) == {
-        (provider, network)
-        for provider, network, api in _registered_requests()
-        if getattr(api, "metadata", None) is not None and api.metadata.auth
-    }
+    assert set(auth) == set(_needing_a_credential())
     assert all(entry["configured"] is False and entry["valid"] is False for entry in auth.values())
     assert discovered["dwd"]["observation"]["configured"] is True
     assert [record.getMessage() for record in caplog.records if record.name == "wetterdienst.api"] == [
@@ -1287,11 +1307,12 @@ def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog
 
 
 @pytest.mark.usefixtures("_malformed_ceda_credential")
-@pytest.mark.parametrize("provider", ["aemet", "knmi", "metno", "metoffice"])
-def test_is_configured_is_false_where_the_settings_cannot_be_built(provider: str) -> None:
+def test_is_configured_is_false_where_the_settings_cannot_be_built() -> None:
     """The check of a provider's credentials is false rather than raising, for every provider alike (GH-2580)."""
-    network = {"metno": "frost"}.get(provider, "observation")
-    assert Wetterdienst.is_configured(Wetterdienst(provider, network)) is False
+    needing_a_credential = _needing_a_credential()
+    assert needing_a_credential
+    answers = {key: Wetterdienst.is_configured(api) for key, api in needing_a_credential.items()}
+    assert answers == dict.fromkeys(needing_a_credential, False)
 
 
 class _OtherModel(BaseModel):
@@ -1367,6 +1388,24 @@ def _registered_requests() -> list[tuple[str, str, type[TimeseriesRequest]]]:
     ]
 
 
+def _needing_a_credential() -> dict[tuple[str, str], type[TimeseriesRequest]]:
+    """Return the networks that the metadata says need a credential, by provider and network."""
+    return {
+        (provider, network): api
+        for provider, network, api in _registered_requests()
+        if getattr(api, "metadata", None) is not None and api.metadata.auth
+    }
+
+
+# each field of `Settings.auth` as the environment takes it: a key, a `username:password`, a Frost client id and secret
+_CREDENTIALS = {
+    "aemet": "DUMMY-KEY",
+    "knmi": "DUMMY-KEY",
+    "metno_frost": '["DUMMY-ID", "DUMMY-SECRET"]',
+    "ceda": "DUMMY-USER:DUMMY-SECRET",
+}
+
+
 def _overrides_is_configured(api: type[TimeseriesRequest]) -> bool:
     """Tell whether a request class reads a credential: it replaces the base class's `is_configured()`."""
     # dwd/radar and dwd/alerts are no timeseries requests, and have no check
@@ -1405,24 +1444,13 @@ def test_every_credential_of_the_settings_configures_exactly_one_network(
         if name.startswith("WD_") and name != "WD_CACHE_DIR":
             monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
-    needing_a_credential = {
-        (provider, network): api
-        for provider, network, api in _registered_requests()
-        if getattr(api, "metadata", None) is not None and api.metadata.auth
-    }
+    needing_a_credential = _needing_a_credential()
     assert needing_a_credential
     assert not any(Wetterdienst.is_configured(api) for api in needing_a_credential.values())
-    # each as the environment takes it: a key, a `username:password`, a Frost client id and secret
-    credentials = {
-        "aemet": "DUMMY-KEY",
-        "knmi": "DUMMY-KEY",
-        "metno_frost": '["DUMMY-ID", "DUMMY-SECRET"]',
-        "ceda": "DUMMY-USER:DUMMY-SECRET",
-    }
-    # a credential added to the settings is to be given a value here, and so a network
-    assert set(credentials) == set(Auth.model_fields)
+    # a credential added to the settings is to be given a value in `_CREDENTIALS`, and so a network
+    assert set(_CREDENTIALS) == set(Auth.model_fields)
     configured_by = {}
-    for field, credential in credentials.items():
+    for field, credential in _CREDENTIALS.items():
         monkeypatch.setenv(f"WD_AUTH__{field.upper()}", credential)
         configured_by[field] = {key for key, api in needing_a_credential.items() if Wetterdienst.is_configured(api)}
         monkeypatch.delenv(f"WD_AUTH__{field.upper()}")
@@ -1490,10 +1518,8 @@ def test_discover_downloads_nothing_with_every_credential_set(monkeypatch: pytes
                 monkeypatch.setattr(module, name, refuse)
     # and a filesystem is what any other way of fetching goes through
     monkeypatch.setattr(network.NetworkFilesystemManager, "get", refuse)
-    monkeypatch.setenv("WD_AUTH__AEMET", "key")
-    monkeypatch.setenv("WD_AUTH__KNMI", "key")
-    monkeypatch.setenv("WD_AUTH__METNO_FROST", "client-id")
-    monkeypatch.setenv("WD_AUTH__CEDA", "user:password")
+    for field, credential in _CREDENTIALS.items():
+        monkeypatch.setenv(f"WD_AUTH__{field.upper()}", credential)
 
     discovered = Wetterdienst.discover()
 
@@ -1504,10 +1530,6 @@ def test_discover_downloads_nothing_with_every_credential_set(monkeypatch: pytes
         for network_name, entry in networks.items()
         if entry["auth"]
     }
-    assert set(auth) == {
-        ("aemet", "observation"),
-        ("knmi", "observation"),
-        ("metno", "frost"),
-        ("metoffice", "observation"),
-    }
+    assert auth
+    assert set(auth) == set(_needing_a_credential())
     assert all(entry["configured"] is True and entry["valid"] is None for entry in auth.values())

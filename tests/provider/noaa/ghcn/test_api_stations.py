@@ -590,10 +590,10 @@ def _ghcnh_hourly_data(station_id: str) -> str:
 
     The -11.1 degC is BOGUS AUSTRIAN's first reading as `GHCNh_AUM00011158_por.psv` gives it.
     """
+    from tests.provider.value_stubs import ghcnh_psv  # noqa: PLC0415
+
     parameters = [parameter.name_original for parameter in NoaaGhcnMetadata.hourly.data]
-    columns = ["STATION", "DATE", *parameters]
-    row = {"STATION": station_id, "DATE": "1938-01-02T06:00:00", "temperature": "-11.1"}
-    return "|".join(columns) + "\n" + "|".join(row.get(column, "") for column in columns) + "\n"
+    return ghcnh_psv(station_id, parameters, [("1938-01-02T06:00:00", {"temperature": "-11.1"})]).decode("utf8") + "\n"
 
 
 def _fake_ghcn_download_file_without_position(url: str, **_kwargs: object) -> File:
