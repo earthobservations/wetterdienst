@@ -684,6 +684,7 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
+@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_api_rmi_observation(default_settings: Settings) -> None:
     """Test rmi observation API."""

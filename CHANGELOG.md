@@ -99,6 +99,14 @@ Types of changes:
   and the 10 cm grass temperature for KNMI's. The old names still are not accepted (GH-2644,
   GH-2673)
 
+### Security
+
+- The release workflow builds the distributions in a job without the PyPI trusted-publishing token
+  and publishes them from a second job that runs no project or dependency code, so a compromised
+  build dependency can no longer obtain a PyPI token to upload files of its own. The CI provider
+  keys (`WD_AUTH__*`) are given to the test steps alone, no longer to `uv sync` or the Codecov
+  action (GH-2768)
+
 ## [0.151.0] - 2026-10-14
 
 ### Fixed
