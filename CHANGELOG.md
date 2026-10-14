@@ -45,6 +45,11 @@ Types of changes:
 - `imgw/meteorology` returns the first station of the list, `249170080` Dzierżkowice, which the
   reader took for the header: the list gave 799 of 800 stations and a request for that station
   found nothing (GH-2650, GH-2752)
+- `noaa/ghcn` daily: 20 more stations, in the UK (Heathrow, Waddington, Cranwell, ...), Spain
+  (Alicante, Murcia/San Javier, Valencia airport, ...), France (Mont-de-Marsan) and Burkina Faso
+  (Ouagadougou, Dedougou), are placed west of Greenwich, no longer east of it, where
+  `ghcnd-stations.txt` has lost the sign of their longitude. They were 6 to 756 km off, so a
+  nearest-station search or an interpolation near them picked the wrong stations (GH-2886)
 
 ## [0.150.0] - 2026-10-13
 
