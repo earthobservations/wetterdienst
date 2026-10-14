@@ -263,6 +263,13 @@ def test_a_typo_of_a_quantity_the_dataset_has_is_still_guessed_at(
     assert f"Did you mean '{guess}'?" in caplog.text
 
 
+@pytest.mark.parametrize("value", ["hourly/large/eror_absolute_wind_speed", "hourly/large/error_absolut_wind_speed"])
+def test_a_misspelled_error_prefix_is_still_guessed_at(value: str, caplog: pytest.LogCaptureFixture) -> None:
+    """`error_absolute_` is part of the name, so a typo in it is a typo of the quantity, not another one."""
+    assert parse_parameters(value, DwdMosmixMetadata) == []
+    assert "Did you mean 'error_absolute_wind_speed'?" in caplog.text
+
+
 def test_a_rename_in_a_dataset_answers_attribute_and_item_access_too() -> None:
     """`dataset.<old>` and `dataset["<old>"]` name the new parameter, as a request for the old one does."""
     dataset = AemetObservationMetadata["monthly"]["data"]

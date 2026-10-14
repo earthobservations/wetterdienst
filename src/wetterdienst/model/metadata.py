@@ -135,9 +135,22 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
 # (`temperature_dew_point_mean_2m`), `wind_gust` (`wind_gust_max`). `error_absolute_` is no quantity
 # but says the name is the error of one, so the tokens after it are the quantity and the prefix must agree
 _QUANTITY_TOKENS = 2
-_ERROR_PREFIX = "error_absolute_"
+_ERROR_PREFIX = ("error", "absolute")
 # how close two such tokens have to be to count as one spelled wrongly ("sped", "realtive")
 _TOKEN_CUTOFF = 0.75
+
+
+def _same_token(a: str, b: str) -> bool:
+    """Say whether two name tokens are one, up to a misspelling."""
+    return a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _TOKEN_CUTOFF
+
+
+def _split_error_prefix(name: str) -> tuple[bool, list[str]]:
+    """Return whether `name` is the error of a quantity (even misspelled), and its tokens after the prefix."""
+    tokens = name.split("_")
+    if len(tokens) > len(_ERROR_PREFIX) and all(_same_token(a, b) for a, b in zip(tokens, _ERROR_PREFIX, strict=False)):
+        return True, tokens[len(_ERROR_PREFIX) :]
+    return False, tokens
 
 
 def _keeps_the_quantity(item: str, candidate: str) -> bool:
@@ -150,19 +163,19 @@ def _keeps_the_quantity(item: str, candidate: str) -> bool:
     follows them, the statistic and the level, is not compared: `temperature_air_max_0_05m` may still
     be answered with the minimum.
 
-    A name of one token is a source's own code (`rsk`) and has no quantity to compare, and a missing
+    A name of one token (`rsk`, a source's own code, or `pressure`) has no quantity tokens to compare, and a missing
     underscore (`windspeed`) is a typo of the whole name, not of a token.
     """
     if item.replace("_", "") == candidate.replace("_", ""):
         return True
-    if item.startswith(_ERROR_PREFIX) != candidate.startswith(_ERROR_PREFIX):
+    item_error, item_tokens = _split_error_prefix(item)
+    candidate_error, candidate_tokens = _split_error_prefix(candidate)
+    if item_error != candidate_error:
         return False
-    item_tokens = item.removeprefix(_ERROR_PREFIX).split("_")
-    candidate_tokens = candidate.removeprefix(_ERROR_PREFIX).split("_")
     if len(item_tokens) == 1 or len(candidate_tokens) == 1:
         return True
     leading = zip(item_tokens[:_QUANTITY_TOKENS], candidate_tokens[:_QUANTITY_TOKENS], strict=False)
-    return all(a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _TOKEN_CUTOFF for a, b in leading)
+    return all(_same_token(a, b) for a, b in leading)
 
 
 def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: DatasetModel | None = None) -> str:
