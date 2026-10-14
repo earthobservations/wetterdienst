@@ -115,7 +115,7 @@ def _phase(event: str) -> str:
     """Describe a phenological phase, whose value is DWD's ``Jultag`` rather than the day of the year.
 
     DWD calls ``Jultag`` the "day of the year" and the library returns it as DWD writes it, but it is the day of
-    the year only for a date in the reference year and, in a leap year since about 1952, only before 1 March; a
+    the year only for a date in the reference year and, in a leap year since about 1952, only before 29 February; a
     date before the reference year is mostly negative. The descriptions say it here, once;
     ``docs/data/provider/dwd/phenology/index.md`` ("Reading ``Jultag``") has the rest.
     """
