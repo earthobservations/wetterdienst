@@ -1410,6 +1410,22 @@ describe('dataViewer chart of the rows it can plot', () => {
     const { traces, layout } = lastDrawn(faceted)
     expect([traces[0]!.mode, layout.hovermode]).toEqual(['lines', 'closest'])
   })
+
+  // Plotly cut a series' name after 15 characters in a hover label, as 'closest' (a large chart's)
+  // shows the name beside the value (GH-2870)
+  it.each([
+    { faceted: false, count: 10 },
+    { faceted: false, count: 501 },
+    { faceted: true, count: 10 },
+    { faceted: true, count: 501 },
+  ])('shows a series\' whole name in its hover label, faceted: $faceted, $count points', async ({ faceted, count }) => {
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    const { wrapper } = await withChartQuery(days(count))
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(faceted ? plotly.react : plotly.newPlot).toHaveBeenCalled())
+    expect((lastDrawn(faceted).layout as { hoverlabel?: { namelength?: number } }).hoverlabel).toEqual({ namelength: -1 })
+  })
 })
 
 // the chart drawn again, as the trendline is ticked or unticked
@@ -2522,8 +2538,8 @@ describe('dataViewer names what it shows in the active locale', () => {
     await setLocale('en')
   })
 
-  async function mountIn(locale: string, faceted: boolean) {
-    registerEndpoint('/api/values', () => ({ values: [direction, speed] }))
+  async function mountIn(locale: string, faceted: boolean, rows: unknown[] = [direction, speed]) {
+    registerEndpoint('/api/values', () => ({ values: rows }))
     await setLocale(locale)
     const mountedViewer = await mountDataViewer()
     await fetchData(mountedViewer.viewer)
@@ -2578,6 +2594,38 @@ describe('dataViewer names what it shows in the active locale', () => {
       const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
       expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
     })
+  })
+
+  // a day's row each of the two parameters, from 2020-01-01 on: each series long enough for a trendline
+  const twoDays = [direction, speed, { ...direction, timestamp: '2020-01-02T00:00:00Z', value: 2.5 }, { ...speed, timestamp: '2020-01-02T00:00:00Z', value: 3.5 }]
+  // `dataViewer.trendline` of each, spelled out
+  const trendline = { de: 'Trendlinie', fr: 'Ligne de tendance', pl: 'Linia trendu' }
+
+  // the trendline's name was `${name} (trend)` in every language (GH-2869)
+  describe.each(locales)('with the trendline in %s', (locale) => {
+    it('names the single chart\'s trendlines for their series, in the language', async () => {
+      const { viewer } = await mountIn(locale, false, twoDays)
+      ;(viewer.vm as unknown as { showTrendline: boolean }).showTrendline = true
+      const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+      const series = [names[locale].direction, names[locale].speed].map(parameter => `01048 - ${parameter}`)
+      await vi.waitFor(() => expect(drawn()).toEqual([...series, ...series.map(name => `${name} (${trendline[locale]})`)]))
+      expect(drawn().join('\n')).not.toContain('(trend)')
+    })
+
+    it('names each facet\'s trendline for its station, in the language', async () => {
+      const { viewer } = await mountIn(locale, true, twoDays)
+      ;(viewer.vm as unknown as { showTrendline: boolean }).showTrendline = true
+      // one trace of the station and one trendline in each of the two facets drawn last
+      const drawn = () => plotly.react.mock.calls.slice(-2).map(call => (call[1] as { name: string }[]).map(trace => trace.name))
+      await vi.waitFor(() => expect(drawn()).toEqual([['01048', `01048 (${trendline[locale]})`], ['01048', `01048 (${trendline[locale]})`]]))
+    })
+  })
+
+  it('names the trendline in English as before where the language is English', async () => {
+    const { viewer } = await mountIn('en', false, twoDays)
+    ;(viewer.vm as unknown as { showTrendline: boolean }).showTrendline = true
+    const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
+    await vi.waitFor(() => expect(drawn()).toContain('01048 - Mean wind direction (last 10 min) (Trendline)'))
   })
 
   it('names the chart again where the language is changed while it is shown', async () => {

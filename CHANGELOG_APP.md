@@ -46,6 +46,10 @@ Types of changes:
   reporter group, where the select showed "Annual Winter Rye": "Annual reporters: Winter rye",
   "Jahresmelder: Winterroggen". Low German and Luxembourgish give the plant's own word only where
   it is certain and the German one otherwise (GH-2866)
+- `[DataViewer]` The trendlines of the chart are named for their series in the active language,
+  "... (Trendlinie)", where every language read "... (trend)" (GH-2869)
+- `[DataViewer]` The hover label of the chart shows a series' name whole, where Plotly cut it after
+  15 characters (GH-2870)
 
 ### Security
 
