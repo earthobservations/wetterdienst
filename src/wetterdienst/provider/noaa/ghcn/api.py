@@ -46,6 +46,38 @@ GHCNH_WIND_DIRECTION_CALM = "0"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 
+# stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of it, 6 to
+# 756 km off: the list has lost the sign of the longitude (GH-2645, GH-2886). Each was checked against two or more
+# other sources (ECA&D, GHCN hourly list, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place west
+# of the meridian and within 4 km of the mirrored position; the values per station are in the pull requests of those
+# issues.
+# The longitude of these is taken as west whatever sign the list gives, so a list corrected by NOAA is read as it is.
+GHCND_WEST_LONGITUDE_STATIONS = (
+    "FR000007510",  # BORDEAUX-MERIGNAC
+    "FRE00104044",  # CAEN-CARPIQUET
+    "FRE00106203",  # MONT-DE-MARSAN
+    "SP000008416",  # VALENCIA
+    "SPE00101035",  # ALICANTE EL ALTET
+    "SPE00101043",  # ALICANTE
+    "SPE00119999",  # CASTELLON
+    "SPE00120008",  # CASTELLON DE LA PLANA
+    "SPE00120161",  # HUESCA
+    "SPE00120341",  # MURCIA/SAN JAVIER
+    "SPE00120584",  # VALENCIA/AEROPUERTO
+    "UK000003377",  # WADDINGTON
+    "UKE00105915",  # HAMPSTEAD
+    "UKE00105919",  # BOGNOR REGIS
+    "UKE00105926",  # HAYLING ISLAND
+    "UKE00107650",  # HEATHROW
+    "UKE00156848",  # CRANWELL
+    "UKE00156888",  # WOBURN
+    "UKW00015034",  # WYTON
+    "UKW00015035",  # WADDINGTON
+    "UKW00015041",  # STURGATE
+    "UV000005503",  # OUAGADOUGOU
+    "UVM00065505",  # DEDOUGOU
+)
+
 
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
@@ -451,6 +483,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .then(None)
             .otherwise(pl.col("elevation").replace(["-999.9", "-100.0"], None))
             .alias("elevation"),
+        )
+
+        df = df.with_columns(
+            pl.when(pl.col("station_id").is_in(GHCND_WEST_LONGITUDE_STATIONS))
+            .then(pl.lit("-") + pl.col("longitude").str.strip_chars_start("-"))
+            .otherwise(pl.col("longitude"))
+            .alias("longitude"),
         )
 
         inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
