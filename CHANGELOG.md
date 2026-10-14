@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `repr(settings)` and `str(settings)` no longer raise for `fsspec_client_kwargs` that aiohttp takes
+  but JSON cannot hold, such as `ClientTimeout(total=5)` or a `yarl.URL` as `proxy`. Such a value
+  is masked like the rest of the client kwargs, so a failed file listing is retried and raises its
+  own error instead of the serialization error from stamina's retry log. The settings' fields as
+  pydantic and `rich` print them mask the client kwargs too (GH-2623)
+
 ## [0.151.0] - 2026-10-14
 
 ### Fixed
