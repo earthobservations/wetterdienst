@@ -18,6 +18,15 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/phenology` parameter descriptions (glossary in the CLI, REST API, MCP tools and docs) no
+  longer say the value is "the day of the year". It is DWD's `Jultag`, which is the day of the
+  year only for a date in the reference year and, in a leap year since about 1952, only before
+  1 March; the descriptions now say so. Only the text changed, not the values (GH-2833)
+- `repr(settings)` and `str(settings)` no longer raise for `fsspec_client_kwargs` that aiohttp takes
+  but JSON cannot hold, such as `ClientTimeout(total=5)` or a `yarl.URL` as `proxy`. Such a value
+  is masked like the rest of the client kwargs, so a failed file listing is retried and raises its
+  own error instead of the serialization error from stamina's retry log. The settings' fields as
+  pydantic and `rich` print them mask the client kwargs too (GH-2623)
 - `wetterdienst about coverage --provider ... --network ...` and `wetterdienst radar` refuse a
   malformed `WD_*` setting, naming the variable and exiting 1, as `about coverage` without
   arguments and every other command already do. They ran and exited 0, so the same environment
@@ -27,6 +36,14 @@ Types of changes:
   with HTTP 200). Both were read back for 5 minutes, the station list for 12 hours, so an expired
   link kept every request failing. A request that gets such a body now logs a warning and returns
   no data, not an exception, and the next one asks AEMET again (GH-2887)
+- The `dwd/phenology` overviews (the DWD index and the phenology page of the docs, the module
+  docstrings) no longer open by calling the value "the day of the year". It is DWD's `Jultag`,
+  which is that only for a date in the reference year and not for every date of a leap year
+  since about 1952; the openings now say so. Only the text changed, not the values (GH-2902)
+- The `dwd/observation` docs list the code sets DWD publishes: `hourly/precipitation` `wrtr` as
+  0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
+  precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
+  QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
 
 ## [0.151.0] - 2026-10-14
 

@@ -4,7 +4,9 @@
 
 import datetime as dt
 import logging
+import re
 from io import BytesIO
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -587,3 +589,83 @@ def test_parse_dwd_data_turns_the_subdaily_wind_rose_point_into_degrees() -> Non
         (None, "0"),
         (None, "-999"),
     ]
+
+
+def _documented_codes(page: str, column: str) -> set[int]:
+    """Read the `∈ [...]` constraint of the row of `column` on a dwd/observation docs page."""
+    docs = Path(__file__).parents[4] / "docs" / "data" / "provider" / "dwd" / "observation" / page
+    row = next(
+        (line for line in docs.read_text().splitlines() if line.startswith("| {term}`") and f"| {column} |" in line),
+        None,
+    )
+    assert row is not None, f"no row for {column} in {page}"
+    constraint = row.rstrip(" |").rsplit("|", 1)[1]
+    return {int(code) for code in re.findall(r"\d+", constraint)}
+
+
+def test_parse_dwd_hourly_precipitation_form_keeps_every_code_the_files_hold() -> None:
+    """Test that the codes of `WRTR` in the files come back as written, and the docs list them.
+
+    Rows of station 01048 (stundenwerte_RR_01048_19950901_20251231_hist.zip). The sheet defines 0, 1, 4, 6, 7, 8
+    and 9, the file also holds 2 and 3 (2001-05-09 02:00 and 2002-01-14 04:00), and 9 is written 2021-07-09 17:00
+    in the sheet's words "missing value, form of precipitation unascertainable": it is not read as a missing
+    value. -999 is the one sentinel and maps to null.
+    """
+    rows = "".join(
+        f"1048;20010412{hour:02d};    1;   0.0;   1;{code:>4};eor\n"
+        for hour, code in enumerate(["0", "1", "2", "3", "4", "6", "7", "8", "9", "-999"])
+    )
+    file = File(
+        url="",
+        content=BytesIO(("STATIONS_ID;MESS_DATUM;QN_8;  R1;RS_IND;WRTR;eor\n" + rows).encode("utf8")),
+        status=200,
+    )
+    df = parse_climate_observations_data(
+        files=[file], dataset=DwdObservationMetadata.hourly.precipitation, period=Period.HISTORICAL
+    ).collect()
+    codes = df.get_column("wrtr").to_list()
+    assert codes == ["0", "1", "2", "3", "4", "6", "7", "8", "9", None]
+    assert {int(code) for code in codes if code is not None} == _documented_codes("hourly.md", "wrtr")
+
+
+@pytest.mark.parametrize(
+    ("page", "dataset", "header", "row", "column"),
+    [
+        (
+            "1_minute.md",
+            DwdObservationMetadata.minute_1.precipitation,
+            "STATIONS_ID;MESS_DATUM_BEGINN;MESS_DATUM_ENDE;QN;RS_01;RTH_01;RWH_01;RS_IND_01;eor\n",
+            "1048;199501010{m}00;199501010{m}59;    1;  0.00;  -999;  -999;{c:>4};eor\n",
+            "rs_ind_01",
+        ),
+        (
+            "5_minutes.md",
+            DwdObservationMetadata.minute_5.precipitation,
+            "STATIONS_ID;MESS_DATUM;QN_5min;RS_COUNT_05;RS_IND_05;RS_05;eor\n",
+            "1048;199501010{m}00;    1;   5;{c:>4};   0.00;eor\n",
+            "rs_ind_05",
+        ),
+        (
+            "10_minutes.md",
+            DwdObservationMetadata.minute_10.precipitation,
+            "STATIONS_ID;MESS_DATUM;  QN;RWS_DAU_10;RWS_10;RWS_IND_10;eor\n",
+            "1048;199501010{m}00;    1;   0;   0.00;{c:>4};eor\n",
+            "rws_ind_10",
+        ),
+    ],
+)
+def test_parse_dwd_precipitation_indicator_keeps_the_heating_codes(
+    page: str, dataset: DatasetModel, header: str, row: str, column: str
+) -> None:
+    """Test that the codes 2 and 3 of a QN = 1 row come back with 0 and 1, and the docs list 0 to 3.
+
+    The shape of the rows is that of station 01048; the 10-minute files of 1991 to 1999 hold both heating codes
+    under QN = 1 (67 and 40883 rows), the 1- and 5-minute sheets define them the same way.
+    """
+    rows = "".join(row.format(m=minute, c=code) for minute, code in enumerate(["0", "1", "2", "3", "-999"]))
+    file = File(url="", content=BytesIO((header + rows).encode("utf8")), status=200)
+    df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.HISTORICAL).collect()
+    # a 1-minute row is read as the 60 minutes between its begin and its end
+    codes = list(dict.fromkeys(df.get_column(column).to_list()))
+    assert codes == ["0", "1", "2", "3", None]
+    assert {int(code) for code in codes if code is not None} == _documented_codes(page, column)

@@ -143,7 +143,7 @@ Code (cloud_cover_total_measurement_method):
 |------------------------------|---------------|-----------------------|------|------------------------------|
 | {term}`precipitation_amount` | r1 | Precipitation height during the previous hour. | mm | >=0 |
 | {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ \[0, 1\] |
-| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. | - | ∈ \[0, 1, 2, 3, 6, 7, 8, 9\] |
+| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ \[0, 1, 2, 3, 4, 6, 7, 8, 9\] |
 
 Code (precipitation_indicator):
 
@@ -152,18 +152,19 @@ Code (precipitation_indicator):
 | 0    | no precipitation |
 | 1    | precipitation    |
 
-Code (precipitation_form):
+Codes (precipitation_form):
 
-| code | meaning                                                                                                                                                                      |
-|------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 0    | no fallen precipitation or too little deposition (e.g., dew or frost) to form a precipitation height larger than 0.0, for automatic stations this corresponds to WMO code 10 |
-| 1    | precipitation height only due to deposition (dew or frost) or if it cannot decided how large the part from deposition is                                                     |
-| 2    | precipitation height only due to liquid deposition                                                                                                                           |
-| 3    | precipitation height only due to solid precipitation                                                                                                                         |
-| 6    | precipitation height due to fallen liquid precipitation, may also include deposition of any kind, or automatic stations this corresponds to WMO code 11                      |
-| 7    | precipitation height due to fallen solid precipitation, may also include deposition of any kind, for automatic stations this corresponds to WMO code 12                      |
-| 8    | fallen precipitation in liquid and solid form, for automatic stations this corresponds to WMO code 13                                                                        |
-| 9    | no precipitation measurement, form of precipitation cannot be determined, for automatic stations this corresponds to WMO code 15                                             |
+| code | meaning                                                                                                                                                                                         |
+|------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0    | no precipitation, for automatic stations this corresponds to WMO code 10                                                                                                                        |
+| 1    | rain only (in historical data before 01.01.1979); the files also hold it after that (station 01048, 4 rows in 2001), where an earlier version of this page read "precipitation height only due to deposition (dew or frost)" |
+| 2    | not defined by the current sheet; an earlier version of this page read "precipitation height only due to liquid deposition". In the files of station 01048 (2001 to 2021) it stands at 0.0 to 0.2 mm, mostly at night |
+| 3    | not defined by the current sheet; an earlier version of this page read "precipitation height only due to solid precipitation". In the files of station 01048 (2002 to 2010) it stands at 0.0 to 0.2 mm, from October to February |
+| 4    | form of precipitation unknown although precipitation was reported; falling and deposited precipitation cannot be told apart by automatic measurement (the English sheet: "form of precipitation unascertainable and depositional precipitation, automatic ascertainment") |
+| 6    | liquid precipitation, automatic ascertainment, corresponds to WMO code 11                                                                                                                       |
+| 7    | solid precipitation, automatic ascertainment, corresponds to WMO code 12                                                                                                                        |
+| 8    | liquid and solid precipitation, automatic ascertainment, corresponds to WMO code 13                                                                                                             |
+| 9    | missing value, form of precipitation unascertainable, automatic ascertainment, corresponds to WMO code 15; returned as 9, not as null                                                           |
 
 ### pressure
 
