@@ -56,6 +56,14 @@ Types of changes:
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
 
+### Security
+
+- The release workflow builds the distributions in a job without the PyPI trusted-publishing token
+  and publishes them from a second job that runs no project or dependency code, and the CI
+  provider keys (`WD_AUTH__*`) are given to the test steps alone, no longer to `uv sync`, apt or
+  the Codecov action. A compromised build dependency can no longer mint the token that publishes
+  the wheel or read the keys (GH-2768, GH-2477)
+
 ## [0.151.0] - 2026-10-14
 
 ### Fixed

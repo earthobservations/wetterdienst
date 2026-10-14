@@ -78,10 +78,6 @@ jobs:
     env:
       OS: ${{ matrix.os }}
       PYTHON: ${{ matrix.python-version }}
-      WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
-      WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-      WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
-      WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
 
     defaults:
       run:
@@ -123,7 +119,14 @@ jobs:
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
+      # the provider keys are given to this step alone: `uv sync`, apt and brew above run build
+      # code of every package in the lock and must not see them
       - name: Run tests
+        env:
+          WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
+          WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
+          WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
+          WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: |
           uv run poe test
 
@@ -139,10 +142,6 @@ jobs:
 
     env:
       UV_RESOLUTION: lowest-direct
-      WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
-      WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-      WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
-      WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
 
     defaults:
       run:
@@ -173,7 +172,14 @@ jobs:
       - name: Show resolved versions
         run: uv pip list
 
+      # the provider keys are given to this step alone: `uv sync`, apt and brew above run build
+      # code of every package in the lock and must not see them
       - name: Run tests
+        env:
+          WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
+          WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
+          WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
+          WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: |
           uv run poe test
 
