@@ -62,7 +62,10 @@ def test_metno_frost_stations() -> None:
 
 @pytest.mark.remote
 def test_metno_frost_values_hourly() -> None:
-    """Hourly air temperature at Oslo/Blindern returns 24 rows for a one-day window."""
+    """Hourly air temperature at Oslo/Blindern returns 25 rows for a one-day window.
+
+    The window is closed: 2020-01-01 00:00 and 2020-01-02 00:00 are both in it.
+    """
     df = (
         MetnoFrostRequest(
             parameters=[("hourly", "data", "temperature_air_2m")],
@@ -73,18 +76,19 @@ def test_metno_frost_values_hourly() -> None:
         .values.all()
         .df
     )
-    assert len(df) == 24
+    assert len(df) == 25
     assert df["station_id"].unique().to_list() == [OSLO_BLINDERN]
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert df["parameter"].unique().to_list() == ["temperature_air_2m"]
     first = df.row(0, named=True)
     assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert first["value"] == pytest.approx(3.4)
+    assert df["timestamp"].max() == dt.datetime(2020, 1, 2, 0, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.remote
 def test_metno_frost_values_daily() -> None:
-    """Daily air temperature at Oslo/Blindern returns one row per day."""
+    """Daily air temperature at Oslo/Blindern returns one row per day, the end date included."""
     df = (
         MetnoFrostRequest(
             parameters=[("daily", "data", "temperature_air_mean_2m")],
@@ -95,11 +99,12 @@ def test_metno_frost_values_daily() -> None:
         .values.all()
         .df
     )
-    assert len(df) == 30
+    assert len(df) == 31
     assert df["resolution"].unique().to_list() == ["daily"]
     first = df.row(0, named=True)
     assert first["timestamp"] == dt.datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert first["value"] == pytest.approx(1.9)
+    assert df["timestamp"].max() == dt.datetime(2020, 1, 31, 0, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.remote
@@ -157,7 +162,10 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
         "temperature_air_2m",
         "wind_speed_last_10min",
     ]
-    assert len(df.filter(pl.col("parameter") == "temperature_air_2m")) == 24
+    temperature = df.filter(pl.col("parameter") == "temperature_air_2m")
+    # closed one-day window: 00:00 of the 1st and of the 2nd are both in it
+    assert len(temperature) == 25
+    assert temperature["timestamp"].max() == dt.datetime(2020, 1, 2, 0, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.remote
