@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import pathlib
+import sys
 import zipfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -1809,6 +1810,32 @@ def test_stripes_image_is_sent_as_its_media_type(
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
     assert response.status_code == 200
     assert response.headers["content-type"] == media_type
+
+
+def test_stripes_image_without_kaleido_is_a_501(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test `/api/stripes/image` without Kaleido is a 501 with the install line in the log (GH-2667).
+
+    Plotly's `RuntimeError` out of `to_image` was a bare 500.
+    """
+
+    class _Figure:
+        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
+            pytest.fail("rendered although Kaleido is missing")
+
+    monkeypatch.setitem(sys.modules, "kaleido", None)
+    monkeypatch.setattr(restapi, "_plot_stripes", lambda _request: _Figure())
+
+    with caplog.at_level(logging.ERROR):
+        response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 501
+    assert "pip install" not in response.json()["detail"]
+    assert "Rendering an image requires kaleido, which is not installed" in caplog.text
+    assert "pip install wetterdienst[plotting]" in caplog.text
 
 
 @pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])

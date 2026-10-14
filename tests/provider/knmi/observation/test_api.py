@@ -416,6 +416,18 @@ def test_knmi_station_list_gives_the_wigos_identifier(monkeypatch: pytest.Monkey
     ]
 
 
+def test_knmi_station_list_without_h5netcdf_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station list reads a NetCDF file too, and without h5netcdf says what to install (GH-2667)."""
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._latest_filename", lambda *_args: "latest.nc")
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", lambda *_args: b"not read")
+    monkeypatch.setitem(sys.modules, "h5netcdf", None)
+
+    request = _request([("daily", "data", "temperature_air_mean_2m")], dt.datetime(2020, 1, 1, tzinfo=UTC), None)
+
+    with pytest.raises(MissingDependencyError, match=r"pip install wetterdienst\[knmi\]"):
+        request.all()
+
+
 @pytest.mark.remote
 @requires_knmi_credentials
 @xfail_if_knmi_unavailable

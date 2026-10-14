@@ -29,6 +29,7 @@ from wetterdienst.exceptions import (
     ParameterNotCarriedError,
     ReversedTimeIntervalError,
 )
+from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -61,7 +62,7 @@ from wetterdienst.ui.core import (
     set_logging_level,
 )
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.util.extras import missing_dependency_message
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import file_target_path, redact_password
 
@@ -942,13 +943,9 @@ def restapi(
     log.info(f"Starting {appname}")
     log.info(f"Starting HTTP web service on http://{listen}")
 
-    try:
-        from wetterdienst.ui.restapi import start_service  # noqa: PLC0415
-    except ImportError as e:
-        msg = missing_dependency_message("The REST API", e.name, extra="restapi")
-        raise ImportError(msg) from e
+    restapi_module = import_optional("wetterdienst.ui.restapi", "The REST API", extra="restapi")
 
-    start_service(listen, reload=reload)
+    restapi_module.start_service(listen, reload=reload)
 
 
 @cli.group()
@@ -2267,6 +2264,7 @@ def stripes_values(
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
+    require_kaleido()
     image = fig.to_image(fmt, scale=dpi / 100)
 
     if target_path is not None:

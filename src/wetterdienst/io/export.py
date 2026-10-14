@@ -16,15 +16,16 @@ from typing import TYPE_CHECKING, Any, Literal
 import polars as pl
 import polars.selectors as cs
 
-from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError
+from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError, MissingDependencyError
 from wetterdienst.metadata.renamed import renamed_column
-from wetterdienst.util.extras import import_optional
+from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     import plotly.graph_objs as go
+    import sqlalchemy
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +50,16 @@ def check_image_size(
     rendered_height = (height or fig.layout.height or _DEFAULT_IMAGE_HEIGHT) * factor
     if max(rendered_width, rendered_height) > max_side:
         raise ImageTooLargeError(rendered_width, rendered_height, max_side)
+
+
+def require_kaleido() -> None:
+    """Say what to install where Kaleido, which renders a plotly figure as an image, is not.
+
+    Plotly raises a `RuntimeError` with its own advice from `Figure.to_image`, which the command
+    line prints as a traceback and the REST API answers with a 500. Asked for first, its absence is
+    a `MissingDependencyError`, as that of every other package an extra installs.
+    """
+    import_optional("kaleido", "Rendering an image", extra="plotting")
 
 
 @dataclass
@@ -142,11 +153,11 @@ class ExportMixin:
 
         engine = _netcdf_engine() if netcdf else None
         if netcdf and not engine:
-            msg = (
-                "Writing NetCDF needs an engine xarray can use. Install one with "
-                "`pip install wetterdienst[export]`, which carries h5netcdf."
-            )
-            raise ImportError(msg)
+            # no engine is a package that is not installed, and `h5netcdf` the one `export` carries
+            raise MissingDependencyError(missing_dependency_message("Writing NetCDF", "h5netcdf", extra="export"))
+        if not netcdf:
+            # xarray imports it only when it writes the store
+            import_optional("zarr", "Writing Zarr", extra="export")
 
         group = self._array_group()
         df = self.df
@@ -421,6 +432,8 @@ class ExportMixin:
                 self._flatten().write_csv(filepath)
             elif target.endswith(".xlsx"):
                 log.info(f"Writing to spreadsheet file '{filepath}'")
+                # polars writes through XlsxWriter and names it in its own error
+                import_optional("xlsxwriter", "Writing a spreadsheet", extra="excel")
                 self._flatten().write_excel(filepath)
             elif target.endswith(".json"):
                 # JSON has arrays of its own, so a list of station ids stays a list. The records
@@ -668,9 +681,9 @@ class ExportMixin:
 
             # Set up the connection.
             if version == 1:
-                from influxdb import InfluxDBClient  # noqa: PLC0415
+                influxdb = import_optional("influxdb", "Writing to InfluxDB 1", extra="influxdb")
 
-                client_v1 = InfluxDBClient(
+                client_v1 = influxdb.InfluxDBClient(
                     host=netloc,
                     port=connspec.port or 8086,
                     username=connspec.username,
@@ -680,33 +693,31 @@ class ExportMixin:
                 )
                 client_v1.create_database(database)
             elif version == 2:
-                from influxdb_client import InfluxDBClient as InfluxDBClientV2  # noqa: PLC0415
-                from influxdb_client import Point as PointV2  # noqa: PLC0415
-                from influxdb_client.client.write_api import SYNCHRONOUS  # noqa: PLC0415
+                influxdb_client = import_optional("influxdb_client", "Writing to InfluxDB 2", extra="influxdb")
+                write_api_module = import_optional(
+                    "influxdb_client.client.write_api", "Writing to InfluxDB 2", extra="influxdb"
+                )
+                PointV2 = influxdb_client.Point  # noqa: N806
 
                 url = f"{scheme}://{netloc}:{connspec.port or 8086}"
-                client_v2 = InfluxDBClientV2(url=url, org=connspec.username or "", token=connspec.password or "")
-                write_api = client_v2.write_api(write_options=SYNCHRONOUS)
+                client_v2 = influxdb_client.InfluxDBClient(
+                    url=url, org=connspec.username or "", token=connspec.password or ""
+                )
+                write_api = client_v2.write_api(write_options=write_api_module.SYNCHRONOUS)
             elif version == 3:
-                from influxdb_client_3 import (  # noqa: PLC0415
-                    InfluxDBClient3 as InfluxDBClientV3,
+                influxdb_client_3 = import_optional("influxdb_client_3", "Writing to InfluxDB 3", extra="influxdb")
+                write_api_module = import_optional(
+                    "influxdb_client_3.write_client.client.write_api", "Writing to InfluxDB 3", extra="influxdb"
                 )
-                from influxdb_client_3 import (  # noqa: PLC0415
-                    Point as PointV3,
-                )
-                from influxdb_client_3 import (  # noqa: PLC0415
-                    WriteOptions,
-                    write_client_options,
-                )
-                from influxdb_client_3.write_client.client.write_api import WriteType  # noqa: PLC0415
+                PointV3 = influxdb_client_3.Point  # noqa: N806
 
-                write_options = WriteOptions(write_type=WriteType.synchronous)
-                wco = write_client_options(WriteOptions=write_options)
+                write_options = influxdb_client_3.WriteOptions(write_type=write_api_module.WriteType.synchronous)
+                wco = influxdb_client_3.write_client_options(WriteOptions=write_options)
                 # with no port, 443 for https, as the client defaults to whatever the scheme, and
                 # for http the 8181 an InfluxDB 3 Core listens on. No host is left to the client,
                 # which refuses it by name
                 port = connspec.port or (443 if scheme == "https" else 8181)
-                client_v3 = InfluxDBClientV3(
+                client_v3 = influxdb_client_3.InfluxDBClient3(
                     host=connspec.host and f"{scheme}://{netloc}:{port}",
                     org=connspec.username,
                     token=connspec.password,
@@ -831,6 +842,9 @@ class ExportMixin:
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
             # it back as the same password whatever it holds
+            # the dialect first: it is what `to_sql` loads by the name `crate`, and SQLAlchemy alone
+            # does not carry it, so without it the `export` extra is no help
+            import_optional("sqlalchemy_cratedb", "Writing to CrateDB", extra="cratedb")
             sqlalchemy = import_optional("sqlalchemy", "Writing to CrateDB", extra="export")
 
             cratedb_target = sqlalchemy.engine.URL.create(
@@ -941,7 +955,14 @@ class ExportMixin:
                 # statement, and a multi-row insert carries one per cell. psycopg2 binds on the
                 # client and needs no cap, but smaller inserts cost it nothing but round trips
                 chunk_size = min(chunk_size, 65535 // len(self.df.columns))
-            engine = sqlalchemy.create_engine(url)
+            try:
+                engine = sqlalchemy.create_engine(url)
+            except ModuleNotFoundError as e:
+                # the driver behind the URL (`MySQLdb`, `psycopg2`) is imported here, by SQLAlchemy
+                missing = _driver_missing(e, url)
+                if missing is None:
+                    raise
+                raise missing from e
             try:
                 if if_exists in ("skip", "fail") and sqlalchemy.inspect(engine).has_table(tablename):
                     if if_exists == "skip":
@@ -994,6 +1015,26 @@ class ExportMixin:
             finally:
                 engine.dispose()
             log.info("Writing to SQL database finished")
+
+
+def _driver_missing(e: ModuleNotFoundError, url: sqlalchemy.engine.URL) -> MissingDependencyError | None:
+    """Say which driver a SQLAlchemy URL needs, when SQLAlchemy found it not installed.
+
+    SQLAlchemy imports the DBAPI when it makes the engine, so the absence of a driver arrives as
+    that module's `ModuleNotFoundError`. A bare `mysql://` is `mysqlclient` and a bare
+    `postgresql://` is psycopg 3 where it imports and psycopg2 where it does not, so the latter's
+    absence names psycopg, which is the driver the `postgresql` extra installs. A driver no extra
+    installs (`pg8000`, `pyodbc`) is named without one.
+
+    Returns:
+        The error to raise from `e`, or `None` where `e` is no absence of a package.
+
+    """
+    what = "Writing to a SQL database"
+    missing = as_missing_dependency(e, what)
+    if missing is not None and e.name == "psycopg2" and url.drivername == "postgresql":
+        return MissingDependencyError(missing_dependency_message(what, "psycopg"))
+    return missing
 
 
 def _psycopg_imports() -> bool:

@@ -55,6 +55,13 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- A missing optional package now raises `MissingDependencyError` naming the extra (an
+  `ImportError`, so a caller that caught that still does) for a `to_target` to a SQL database
+  whose driver is not installed (`mysql://`, `postgresql://`), to CrateDB (`cratedb`), InfluxDB 1,
+  2 and 3 (`influxdb`), `.xlsx`, `.zarr` and `.nc`; for the image of a result or of warming
+  stripes without Kaleido; and for `verify_hdf5` and `read_pdf`. The command line prints one line
+  and exits 1 and the REST API answers 501. `wetterdienst restapi` without the extra does too,
+  not a traceback (GH-2663, GH-2667)
 
 ## [0.151.0] - 2026-10-14
 
