@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `noaa/ghcn` daily stations that report in the current year have no `end_timestamp` (null) in the
+  station list, as for `chmi/observation`; it was 31 December of this year, a date not reached
+  yet, for 38,505 of 133,039 stations. The inventory gives only the year of the last observation,
+  so null reads as still reporting; a filter for such stations tests for null (GH-2643)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed

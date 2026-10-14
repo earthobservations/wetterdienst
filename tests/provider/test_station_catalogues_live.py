@@ -25,7 +25,6 @@ from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_soun
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
-    GHCN_DAILY_END,
     GHCN_NAMES,
     GHCN_NO_POSITION,
 )
@@ -77,7 +76,7 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
         Accepted("coordinates_missing", "Frost lists 26 sources without a position (GH-2655)"),
         Accepted("name_padding", "the reader passes on the blanks the list pads names with (GH-2654)"),
     ),
-    "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES, GHCN_DAILY_END),
+    "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES),
     "wsv/pegel": (
         Accepted(
             "coordinates_missing",

@@ -60,9 +60,6 @@ class Stub:
     catalogue: str
     build: Callable[[pytest.MonkeyPatch], pl.DataFrame]
     accepted: tuple[Accepted, ...] = field(default=())
-    # the time the dates of the stations are held against; a stub whose rows end around the present fixes it, so that
-    # it does not change its verdict with the calendar
-    now: dt.datetime | None = None
 
     @property
     def bbox(self) -> tuple[float, float, float, float] | None:
@@ -214,11 +211,13 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
         "GME00102292  51.4358   12.2414  131.0    LEIPZIG-SCHKEUDITZ                     10469\n"
     )
+    # the stations that report this year have no end, so the rule against an end in the future holds them (GH-2643)
+    this_year = dt.datetime.now(dt.UTC).year
     inventory = (
         "BR000269000  -2.9830  -69.5830 PRCP 1979 1996\n"
-        "FRE00104116  43.1881    0.0000 TMAX 1946 2026\n"
-        "GM000010147  53.6350    9.9900 TMAX 1891 2026\n"
-        "GME00102292  51.4358   12.2414 TMAX 1934 2026\n"
+        f"FRE00104116  43.1881    0.0000 TMAX 1946 {this_year}\n"
+        f"GM000010147  53.6350    9.9900 TMAX 1891 {this_year}\n"
+        f"GME00102292  51.4358   12.2414 TMAX 1934 {this_year}\n"
     )
     _serve(
         monkeypatch,
@@ -289,12 +288,6 @@ GHCN_NO_POSITION = Accepted(
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
 )
-_THIS_YEAR = dt.datetime.now(dt.UTC).year
-GHCN_DAILY_END = Accepted(
-    "date_in_the_future",
-    "the end of a station that reports this year is 31 December of this year (GH-2643)",
-    where=lambda row: row["end_timestamp"] is not None and row["end_timestamp"].year == _THIS_YEAR,
-)
 
 DWD_NAMES = Accepted("name_encoding", f"the station catalogue of DWD: {QUESTION_MARK}", question_mark_in_the_name)
 CHMI_NAME = Accepted(
@@ -311,16 +304,7 @@ STUBS = [
     Stub(
         "noaa/ghcn daily/data",
         _ghcn_daily,
-        (
-            # the end the stub's rows get is 31 December 2026, which is in the future only before then
-            Accepted(
-                GHCN_DAILY_END.rule,
-                GHCN_DAILY_END.reason,
-                where=lambda row: row["end_timestamp"] is not None and row["end_timestamp"].year == 2026,
-            ),
-            GHCN_NAMES,
-        ),
-        now=dt.datetime(2026, 10, 10, tzinfo=dt.UTC),
+        (GHCN_NAMES,),
     ),
     Stub("geosphere/observation daily/data", _geosphere),
     Stub(
