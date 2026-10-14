@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- `noaa/ghcn` daily stations FR000007510 (Bordeaux-Merignac), FRE00104044 (Caen-Carpiquet) and
+  SP000008416 (Valencia) are listed west of Greenwich, at -0.6914, -0.4558 and -0.3664, no longer
+  east of it. `ghcnd-stations.txt` has lost the sign of their longitude, which put them 63 to 109
+  km off, so a nearest-station search or an interpolation near them picked the wrong stations
+  (GH-2645)
 - **Breaking**: `dwd/observation` `daily/temperature_soil/temperature_soil_mean_1m` (`v_te100m`) is
   gone. DWD does not publish a 100 cm column (the files and the dataset sheet stop at 50 cm), so a
   request for it returned no rows and no warning, and the docs and coverage listed it as available.
