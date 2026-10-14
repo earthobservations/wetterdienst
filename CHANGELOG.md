@@ -16,6 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `dwd/mosmix` `hourly/large` `e_ttt` and `e_td`, the absolute error of `ttt` and
+  `td`, are named `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`,
+  no longer `error_absolute_temperature_air_mean_2m` and
+  `error_absolute_temperature_dew_point_mean_2m`, so that a value and its error share a name.
+  Request the new names; the old ones are not found (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested), values frames carry the new
+  names, and a `geo_station_distance` key by an old name is refused, naming the new one (GH-2659)
+- `geosphere/observation` station lists have a `wmo_id` column, the station's five-digit WMO number
+  (`11021` for Litschau) from the list's `Synopstationsnummer`, null for the stations without one
+  and for the 19 whose number has seven digits (`8989106`), which is no WMO number. It appears in
+  the frames, JSON and GeoJSON properties. The composite series (`zusammengesetzt` `ja`, e.g. `1`
+  Aflenz) have none; the number is on their part series, which can share it (GH-2751, GH-2019)
+- The retry of `list_remote_files_fsspec` and `list_remote_directory_fsspec` no longer puts the
+  `Settings` of a keyword call (`settings=settings`) into stamina's log record as
+  `stamina.kwargs`, where a handler that serialises pydantic objects by their fields (logfire,
+  rich) would print a proxy password. The record now carries no arguments and names the retried
+  block `<context block>`, as `download_file`'s does, no longer the listing function. The retry
+  policy and the answers are unchanged (GH-2904, GH-2623)
+
 ### Fixed
 
 - A TLS failure (a certificate that does not verify, a failed handshake) is no longer retried: a
@@ -64,16 +85,6 @@ Types of changes:
   daily maxima for AEMET, `temperature_air_min_2m` for Geosphere 10-minute `temperature_air_mean_2m`
   and the 10 cm grass temperature for KNMI's. The old names still are not accepted (GH-2644,
   GH-2673)
-
-### Changed
-
-- **Breaking**: `dwd/mosmix` `hourly/large` `e_ttt` and `e_td`, the absolute error of `ttt` and
-  `td`, are named `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`,
-  no longer `error_absolute_temperature_air_mean_2m` and
-  `error_absolute_temperature_dew_point_mean_2m`, so that a value and its error share a name.
-  Request the new names; the old ones are not found (logged and dropped, or
-  `NoParametersFoundError` when no other parameter is requested), values frames carry the new
-  names, and a `geo_station_distance` key by an old name is refused, naming the new one (GH-2659)
 
 ## [0.151.0] - 2026-10-14
 
