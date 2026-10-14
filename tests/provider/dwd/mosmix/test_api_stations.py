@@ -10,6 +10,7 @@ Source: https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations
 """
 
 import datetime as dt
+from io import BytesIO
 
 import polars as pl
 import pytest
@@ -17,7 +18,9 @@ from dirty_equals import IsInt, IsTuple
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
+from wetterdienst.provider.dwd import catalogue
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+from wetterdienst.util.network import File
 
 
 @pytest.fixture
@@ -186,3 +189,61 @@ def test_dwd_mosmix_available_issues(default_settings: Settings) -> None:
     assert all(isinstance(i, dt.datetime) for i in issues)
     assert all(i.tzinfo is not None for i in issues)
     assert issues == sorted(issues)
+
+
+def _serve_catalogue(monkeypatch: pytest.MonkeyPatch, rows: str) -> None:
+    """Serve `mosmix_stationskatalog.cfg` with these rows under its header, as DWD writes it."""
+    body = (
+        "ID    ICAO NAME                 LAT    LON     ELEV\n----- ---- -------------------- -----  ------- -----\n"
+    ) + rows
+    monkeypatch.setattr(
+        catalogue,
+        "download_file",
+        lambda *, url, **_: File(url=url, content=BytesIO(body.encode("latin-1")), status=200),
+    )
+
+
+def _positions(settings: Settings) -> dict[str, tuple[float, float]]:
+    df = DwdMosmixRequest(parameters=[("hourly", "small")], settings=settings).all().df
+    return {row["station_id"]: (row["latitude"], row["longitude"]) for row in df.iter_rows(named=True)}
+
+
+def test_dwd_mosmix_stations_javea_is_east_of_greenwich(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """JAVEA/YUNTAMIEN is published at 0 deg 10' west and read at 0 deg 10' east (GH-2646).
+
+    The rows are copied from `mosmix_stationskatalog.cfg`. Javea (Xabia) lies at 38.79 / +0.16 (GHCN hourly
+    `SPM00008370`: 38.7842 / 0.1667); Bordeaux, at -0.42 in minutes, and Hamburg are left as listed.
+    """
+    _serve_catalogue(
+        monkeypatch,
+        "07510 LFBD BORDEAUX              44.50   -0.42    49\n"
+        "08370 ---- JAVEA/YUNTAMIEN       38.47   -0.10    15\n"
+        "10147 EDDH HAMBURG-FU.           53.38   10.00    16\n",
+    )
+    positions = _positions(default_settings)
+    assert positions["08370"] == pytest.approx((38.78, 0.17), abs=5e-3)
+    assert positions["07510"] == pytest.approx((44.83, -0.70), abs=5e-3)
+    assert positions["10147"] == pytest.approx((53.63, 10.0), abs=5e-3)
+
+
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        # DWD has put the sign right: read as it is, not turned west again
+        pytest.param("08370 ---- JAVEA/YUNTAMIEN       38.47    0.10    15\n", (38.78, 0.17), id="corrected-upstream"),
+        # DWD has moved the station: not the position the table recorded, so not touched
+        pytest.param("08370 ---- JAVEA/YUNTAMIEN       38.50   -0.10    15\n", (38.83, -0.17), id="moved-north"),
+        pytest.param("08370 ---- JAVEA/YUNTAMIEN       38.47   -0.20    15\n", (38.78, -0.33), id="moved-west"),
+    ],
+)
+def test_dwd_mosmix_stations_a_position_that_is_not_the_recorded_one_is_read_as_it_is(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    row: str,
+    expected: tuple[float, float],
+) -> None:
+    """The correction applies only while DWD publishes the position recorded in the table (GH-2646)."""
+    _serve_catalogue(monkeypatch, row)
+    assert _positions(default_settings)["08370"] == pytest.approx(expected, abs=5e-3)

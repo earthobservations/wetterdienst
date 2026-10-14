@@ -32,6 +32,7 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_para
 from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.dwd.catalogue import correct_station_positions
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -1034,6 +1035,7 @@ class DwdDmoRequest(TimeseriesRequest):
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
-        df = pl.concat(data)
+        # after the stations the catalogue omits are added: Tripoli is described by the run alone (GH-2646)
+        df = correct_station_positions(pl.concat(data))
         df = df.select(self._base_columns)
         return df.lazy()

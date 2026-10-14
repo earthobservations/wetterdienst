@@ -885,6 +885,44 @@ def test_dmo_a_station_the_catalogue_omits_is_described_from_the_run(monkeypatch
     assert added["icao_id"] is None
 
 
+def test_dmo_javea_and_tripoli_are_placed_where_they_are(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Javea is published west of Greenwich and Tripoli one degree too far south (GH-2646).
+
+    Javea is a row of `dmo_stationsliste_txt.asc` as DWD writes it (`-.10`, 0 deg 10' west); Tripoli is not in
+    the list, so it is described by the placemark of the run, `35.8,33.45,6.0`. Javea (Xabia) lies at 38.79 /
+    +0.16 and Tripoli (Lebanon) at 34.44 / 35.83 (GHCN: `SPM00008370` 38.7842 / 0.1667, `LEM00040103`
+    34.45 / 35.80).
+    """
+    _stub_catalogue(monkeypatch, ["01001", "08370"], {"08370": ("38.47", "-.10")})
+    _stub_coverage(monkeypatch, {"icon": ["01001", "08370", "40103"], "icon_eu": []})
+    _stub_runs(monkeypatch, {"40103": ("TRIPOLI", "35.8,33.45,6.0")})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    position = {row["station_id"]: (row["latitude"], row["longitude"]) for row in df.iter_rows(named=True)}
+    assert position["08370"] == pytest.approx((38.78, 0.17), abs=5e-3)
+    assert position["40103"] == pytest.approx((34.45, 35.8), abs=5e-3)
+    # a station that is not in the table keeps what DWD publishes
+    assert position["01001"] == pytest.approx((54.38, 10.5), abs=5e-3)
+
+
+def test_dmo_a_position_that_is_not_the_recorded_one_is_read_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A position DWD has changed, in either coordinate, is read as published and not corrected (GH-2646).
+
+    Javea at a longitude of 0 deg 20' west and Tripoli at a latitude of 34.40 are neither the positions the
+    table recorded nor the ones it corrects to, so a replacement by id alone would show.
+    """
+    _stub_catalogue(monkeypatch, ["08370"], {"08370": ("38.47", "-.20")})
+    _stub_coverage(monkeypatch, {"icon": ["08370", "40103"], "icon_eu": []})
+    _stub_runs(monkeypatch, {"40103": ("TRIPOLI", "35.8,34.40,6.0")})
+
+    df = DwdDmoRequest(parameters=[("hourly", "icon")]).all().df
+
+    position = {row["station_id"]: (row["latitude"], row["longitude"]) for row in df.iter_rows(named=True)}
+    assert position["08370"] == pytest.approx((38.78, -0.33), abs=5e-3)
+    assert position["40103"] == pytest.approx((34.40, 35.8), abs=5e-3)
+
+
 def test_dmo_the_catalogue_is_left_alone_where_it_describes_a_station(monkeypatch: pytest.MonkeyPatch) -> None:
     """The catalogue is the only source of an ICAO id, so it keeps the stations it does list."""
     _stub_catalogue(monkeypatch, ["01001"])
