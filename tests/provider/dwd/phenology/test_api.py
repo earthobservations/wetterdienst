@@ -143,6 +143,22 @@ def test_jultag_as_parsed_is_not_the_day_of_the_year() -> None:
     assert set(_JULTAG_ROWS) - recovered == _JULTAG_NOT_RECOVERED
 
 
+def test_phenology_parameter_descriptions_name_the_jultag_not_the_day_of_the_year() -> None:
+    """No phase says its value is the day of the year, which the reader's value is only in part.
+
+    The descriptions reach the glossary of the CLI, the REST API, the MCP tools and the docs, where
+    ``phenology/index.md`` is not at hand, so each says it is DWD's ``Jultag`` count and that it is not
+    always the day of the year.
+    """
+    phases = {name for name in PARAMETERS if name.startswith("phenology_")}
+    assert phases
+    for name in phases:
+        description = PARAMETERS[name].description
+        assert "Day of the year" not in description, name
+        assert "Jultag" in description, name
+        assert "not always the day of the year" in description, name
+
+
 def test_parse_values_drops_other_objects() -> None:
     """A row for a plant the file is not named for is dropped rather than mislabelled."""
     assert _parse_values(_FILE, object_id=112).is_empty()

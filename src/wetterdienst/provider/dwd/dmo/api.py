@@ -388,9 +388,11 @@ def _dm_degrees(column: str) -> pl.Expr:
     of its 11 298 fields carries its degrees -- so this belongs here rather than in the shared reader.
 
     What this cannot reach: a degreeless field whose sign is missing rather than misplaced. The file
-    writes one, `P0563` (London Luton), as `.22` where DWD's own placemark says -0.37, and nothing in
-    the field distinguishes that from the 39 degreeless fields that really are positive. It is read
-    as written, 82 km east of Luton, exactly as it was before this function existed.
+    writes four, `P0563` (London Luton) as `.22` where DWD's own placemark says -0.37, and `03377`,
+    `03768` and `08286` (Waddington, Farnborough, Castellon) as `.31`, `.46` and `. 4` where the placemarks
+    say the same as the file. Nothing in the field distinguishes them from the 35 degreeless fields that
+    really are positive. They are read as written -- Luton 50 km east of the airport -- and
+    `STATION_POSITION_CORRECTIONS` moves each back by id (GH-2897).
     """
     return (
         pl.col(column)

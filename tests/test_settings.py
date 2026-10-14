@@ -4,6 +4,7 @@
 
 import atexit
 import collections
+import dataclasses
 import functools
 import json
 import logging
@@ -17,9 +18,11 @@ from unittest import mock
 
 import platformdirs
 import pytest
+from aiohttp import ClientTimeout
 from multidict import CIMultiDict
 from pydantic import SecretStr, ValidationError
 from pydantic_settings import SettingsError
+from yarl import URL
 
 from wetterdienst.settings import (
     Auth,
@@ -1527,20 +1530,93 @@ def test_settings_render_hides_headers_given_as_a_list_of_pairs() -> None:
     assert "HEADER-SECRET" not in repr(settings) + str(settings)
 
 
+def _client_kwargs_json_cannot_hold() -> dict:
+    """Return client kwargs aiohttp accepts and JSON cannot hold, one carrying a password."""
+    return {
+        "timeout": ClientTimeout(total=5),
+        "proxy": URL("http://proxy-user:QSECRET@proxy.example:3128"),
+        "headers": {"User-Agent": "mine/1", "Authorization": SecretValue("HEADER-SECRET")},
+        "cookies": {("a", "tuple"): b"COOKIE-SECRET"},
+    }
+
+
+@dataclasses.dataclass(frozen=True)
+class SecretValue:
+    """A header value of a type JSON cannot hold, whose repr gives the secret away."""
+
+    value: str
+
+
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("by_keyword", [False, True], ids=["positional", "keyword"])
-def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
+def test_settings_render_client_kwargs_that_json_cannot_hold() -> None:
+    """A ``ClientTimeout`` or a ``yarl.URL`` in the client kwargs is masked, not a serialization error (GH-2623).
+
+    aiohttp takes both, but the settings rendered ``model_dump(mode="json")``, which raised for
+    them, and so did stamina's retry log that renders the settings of a failed listing.
+    """
+    settings = Settings(fsspec_client_kwargs=_client_kwargs_json_cannot_hold())
+
+    for rendered in (repr(settings), str(settings), f"{settings}"):
+        assert "QSECRET" not in rendered
+        assert "HEADER-SECRET" not in rendered
+        assert "COOKIE-SECRET" not in rendered
+        assert "mine/1" in rendered
+        assert "Authorization" in rendered
+    # the rendering still is the JSON it was, with the unknown masked and the rest as before
+    rendered = json.loads(repr(settings))
+    assert rendered["fsspec_client_kwargs"]["timeout"] == "*" * 10
+    assert rendered["fsspec_client_kwargs"]["proxy"] == "*" * 10
+    assert rendered["cache_disable"] is False
+    # what the settings are used from is not touched
+    assert settings.fsspec_client_kwargs["timeout"] == ClientTimeout(total=5)
+    assert settings.fsspec_client_kwargs["proxy"] == URL("http://proxy-user:QSECRET@proxy.example:3128")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_render_the_masked_client_kwargs_to_pydantic_and_rich() -> None:
+    """The fields pydantic's repr and rich's pretty printer read hold the masked client kwargs (GH-2623).
+
+    Rich prints ``__rich_repr__`` of a pydantic model, which is built from ``__repr_args__`` and not
+    from ``__repr__``, so a masking of ``__repr__`` alone left it printing the proxy's password.
+    """
+    for client_kwargs, secrets in (
+        (_CLIENT_KWARGS_WITH_CREDENTIALS, _CLIENT_KWARGS_SECRETS),
+        (_client_kwargs_json_cannot_hold(), ["QSECRET", "HEADER-SECRET", "COOKIE-SECRET"]),
+    ):
+        settings = Settings(fsspec_client_kwargs=client_kwargs)
+
+        for rendered in (
+            settings.__repr_str__(", "),
+            " ".join(f"{name}={value!r}" for name, value in settings.__rich_repr__()),
+            " ".join(f"{name}={value!r}" for name, value in settings.__repr_args__()),
+        ):
+            assert [secret for secret in secrets if secret in rendered] == []
+            assert "mine/1" in rendered
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "timeout",
+    [float("nan"), float("inf"), 10**5000],
+    ids=["nan", "infinity", "5000-digit-int"],
+)
+def test_settings_render_a_timeout_that_is_no_plain_number_as_json(timeout: float) -> None:
+    """A timeout JSON cannot print is masked, so the rendering stays valid JSON that can be printed (GH-2623)."""
+    settings = Settings(fsspec_client_kwargs={"timeout": timeout})
+
+    assert json.loads(repr(settings), parse_constant=pytest.fail)["fsspec_client_kwargs"]["timeout"] == "*" * 10
+    assert "*" * 10 in str(settings)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_a_failed_listing_with_client_kwargs_json_cannot_hold_raises_its_own_failure(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
-    *,
-    by_keyword: bool,
 ) -> None:
-    """Stamina's retry log, which renders the arguments of the call it retries, holds no password (GH-2593).
+    """A listing that fails is retried and raises the failure, not the settings' serialization error (GH-2623).
 
-    `list_remote_files_fsspec` and `list_remote_directory_fsspec` take the settings, so a listing
-    that fails for any reason logs them at WARNING on its first retry. The failure here is a plain
-    `OSError`, which names no proxy, so the settings are the only place the password could come from.
+    stamina's hook calls ``repr`` on every argument of the call it retries, the settings among
+    them, so the first failure raised the error of rendering them from inside the retry.
     """
     import stamina  # noqa: PLC0415
 
@@ -1556,6 +1632,43 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
 
     monkeypatch.setattr(HTTPFileSystem, "find", fail)
     monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+    settings = Settings(cache_dir=tmp_path, fsspec_client_kwargs=_client_kwargs_json_cannot_hold())
+
+    for listing in (list_remote_files_fsspec, list_remote_directory_fsspec):
+        with stamina.set_testing(True, attempts=2), pytest.raises(OSError, match="boom"):
+            listing("https://example.com/dir/", settings)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("by_keyword", [False, True], ids=["positional", "keyword"])
+def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    *,
+    by_keyword: bool,
+) -> None:
+    """Stamina's retry log, which renders the arguments of the call it retries, holds no password (GH-2593).
+
+    `list_remote_files_fsspec` and `list_remote_directory_fsspec` take the settings, so a listing
+    that fails in a way worth asking again logs them at WARNING on its first retry. The failure here
+    is a reset connection, which names no proxy, so the settings are the only place the password
+    could come from.
+    """
+    import stamina  # noqa: PLC0415
+    from aiohttp import ClientOSError  # noqa: PLC0415
+
+    from wetterdienst.util.network import (  # noqa: PLC0415
+        HTTPFileSystem,
+        list_remote_directory_fsspec,
+        list_remote_files_fsspec,
+    )
+
+    def fail(_self: object, _url: str, **_kwargs: object) -> list:
+        raise ClientOSError(104, "boom")
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
     settings = Settings(cache_dir=tmp_path, fsspec_client_kwargs=_CLIENT_KWARGS_WITH_CREDENTIALS)
 
     for listing in (list_remote_files_fsspec, list_remote_directory_fsspec):
@@ -1568,7 +1681,7 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
         with (
             stamina.set_testing(True, attempts=2),
             caplog.at_level(logging.DEBUG, logger="stamina"),
-            pytest.raises(OSError, match="boom"),
+            pytest.raises(ClientOSError, match="boom"),
         ):
             call()
 

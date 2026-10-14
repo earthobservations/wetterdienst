@@ -3,9 +3,10 @@
 ## Overview
 
 The DWD phenological network records the **calendar of plant development**: for one plant at one
-station in one reference year, the day of the year on which a developmental phase was reached —
-hazel flowering, beech leaf unfolding, winter wheat harvest. Around 1200 volunteer observers
-report from roughly 6600 stations, and the series reach back to 1925 for many of the wild plants.
+station in one reference year, the day (DWD's `Jultag`, see [Reading `Jultag`](#reading-jultag)) on which a
+developmental phase was reached — hazel flowering, beech leaf unfolding, winter wheat harvest. Around 1200
+volunteer observers report from roughly 6600 stations, and the series reach back to 1925 for many of the wild
+plants.
 
 Observations come from two reporter groups, which are kept apart by the dataset name prefix:
 

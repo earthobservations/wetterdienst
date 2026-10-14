@@ -32,7 +32,7 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - all currently active warnings, one row per alert, with GeoJSON MultiPolygon geometry
     - community (Gemeinde) or district (Landkreis) granularity, several languages
 - [Phenology](phenology/index.md) — observed plant development dates from the phenological network
-    - annual resolution: the day of the year a plant reached a phase (flowering, leaf unfolding, harvest)
+    - annual resolution: the day (`Jultag`) a plant reached a phase (flowering, leaf unfolding, harvest)
     - 110 plant datasets across two reporter groups, reaching back to 1925
 
 For a quick overview of the work of the DWD check the current 

@@ -3064,8 +3064,8 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     assert raised.value.__context__ is None
     # the SSL error names no host, so the log does
     assert "Failed to list https://example.com/tls/." in caplog.text
-    # the retry that wraps this call sees it, as it sees any failure to read
-    assert len(attempts) == 2
+    # asked once, though the retry allows more: the same server presents the same certificate (GH-2618)
+    assert len(attempts) == 1
 
 
 @pytest.mark.parametrize("function", ["download_file", "post_file"])
@@ -3086,6 +3086,9 @@ def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Stamina logs ``repr`` of the error that caused a retry, and that renders the connection key (GH-2582).
+
+    A TLS failure is no longer retried (GH-2618), so for it the log holds nothing; the password stays out
+    of the answer, and the scrub on the way into the retry stays for the failures that are retried.
 
     A TLS failure after CONNECT carries the key of the request to the target, which holds the proxy as
     the URL it was given, userinfo included, and its `proxy_auth` with the password. (A proxy that
@@ -3116,10 +3119,15 @@ def test_the_retry_log_keeps_a_proxy_password_out_of_a_connector_error(
             result = post_file("https://example.com/token")
 
     retried = [record for record in caplog.records if record.name == "stamina"]
-    assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
     assert not [record for record in caplog.records if "secret" in record.getMessage() + str(record.__dict__)]
-    # the log still names the connection that failed
-    assert any("ConnectionKey(" in str(record.__dict__) for record in retried)
+    if kind == "reset":
+        # the one kind that is retried, so the only one with a retry log to keep the password out of
+        assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
+        # the log still names the connection that failed
+        assert any("ConnectionKey(" in str(record.__dict__) for record in retried)
+    else:
+        # a TLS failure is asked once (GH-2618), so there is no retry to log
+        assert not retried
     # and the answer the caller gets is unchanged by it
     assert "secret" not in repr(result.content)
     if kind == "reset":
@@ -3346,8 +3354,8 @@ def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
     assert raised.value.__context__ is None
     # the SSL error names no host, so the log does
     assert "Failed to list https://example.com/tls/." in caplog.text
-    # the retry that wraps this call sees it, as it sees any failure to read
-    assert len(attempts) == 2
+    # asked once, though the retry allows more: the same server presents the same certificate (GH-2618)
+    assert len(attempts) == 1
 
 
 def test_a_directory_listing_leaves_other_errors_as_they_were(
@@ -3875,3 +3883,161 @@ def test_no_temporary_dir_to_fall_back_to_raises_the_original_error(
     with pytest.raises(PermissionError, match="the volume"):
         network._fallback_cache_dir(tmp_path, PermissionError("the volume"))  # noqa: SLF001
     assert unusable_cache_dirs == {}
+
+
+@pytest.mark.parametrize("kind", ["certificate", "handshake"])
+def test_a_tls_failure_is_asked_once_by_a_download_and_a_post(kind: str) -> None:
+    """A certificate that does not verify is the same on every attempt, so neither asks twice (GH-2618).
+
+    `ClientSSLError` is a `ClientConnectorError`, which is a `ClientConnectionError`, so the retry
+    predicate retried it with the dropped connections it is meant for. Run with two attempts allowed.
+    """
+    error = _tls_failure(kind)
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=error) as mock_sync,
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 1
+    assert mock_sync.call_count == 1
+    # and what comes back is what it was: the SSL error underneath, not the offline answer
+    for result in (downloaded, posted):
+        assert result.status == 500
+        assert result.content is error.os_error
+
+
+def test_a_download_still_asks_again_after_a_reset_connection() -> None:
+    """The TLS failure is the exception to the retry, not the retry gone: a reset is asked for twice (GH-2618)."""
+    error = ClientConnectorError(
+        _tls_failure("handshake").args[0], ConnectionResetError(54, "Connection reset by peer")
+    )
+    mock_fs = MagicMock()
+    mock_fs.cat_file.side_effect = error
+
+    with (
+        stamina.set_testing(True, attempts=2),
+        patch("wetterdienst.util.network.NetworkFilesystemManager.get", return_value=mock_fs),
+        patch("wetterdienst.util.network.sync", side_effect=error) as mock_sync,
+    ):
+        downloaded = download_file(url="https://example.com/file.txt", cache_dir=Path(tempfile.gettempdir()))
+        posted = post_file("https://example.com/token")
+
+    assert mock_fs.cat_file.call_count == 2
+    assert mock_sync.call_count == 2
+    assert downloaded.status == posted.status == 503
+
+
+@pytest.mark.parametrize(
+    ("error", "worth_retrying"),
+    [
+        (_tls_failure("certificate"), False),
+        (_tls_failure("handshake"), False),
+        # what the listings raise: the SSL error underneath, bare
+        (ssl.SSLError("handshake failure"), False),
+        (ssl.SSLCertVerificationError("self-signed certificate"), False),
+        (ClientConnectorError(_tls_failure("handshake").args[0], ConnectionResetError(54, "reset")), True),
+        (ClientOSError(104, "Connection reset by peer"), True),
+        (ServerDisconnectedError(), True),
+        (TimeoutError(), True),
+        (FileNotFoundError("404"), False),
+        (ValueError("a bug"), False),
+    ],
+    ids=lambda value: type(value).__name__ if isinstance(value, Exception) else str(value),
+)
+def test_the_retry_predicates_name_a_tls_failure_as_not_worth_asking_again(
+    error: Exception,
+    *,
+    worth_retrying: bool,
+) -> None:
+    """A TLS failure is no blip; a failed connection, a timeout or a reset still is (GH-2618)."""
+    assert network._worth_retrying(error) is worth_retrying  # noqa: SLF001
+    assert network._worth_retrying_listing(error) is worth_retrying  # noqa: SLF001
+    # a download alone asks again for the file it was told is not there
+    assert network._worth_retrying_download(error) is (worth_retrying or isinstance(error, FileNotFoundError))  # noqa: SLF001
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize(
+    "error",
+    [ssl.SSLError("bare"), ssl.SSLCertVerificationError("bare"), _tls_failure("certificate")],
+    ids=["ssl", "certificate", "aiohttp-certificate"],
+)
+def test_a_listing_asks_once_for_a_tls_failure(
+    function: Callable[..., object],
+    error: Exception,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A listing that meets a certificate failure is attempted once, however many attempts are allowed (GH-2618).
+
+    Under `on=Exception` it was attempted three times, with a retry warning for each, and so was a bug.
+    """
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(ssl.SSLError):
+        function("https://example.com/tls/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 1
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+@pytest.mark.parametrize(
+    "error",
+    [ClientOSError(104, "Connection reset by peer"), ServerDisconnectedError(), TimeoutError()],
+    ids=["reset", "disconnected", "timeout"],
+)
+def test_a_listing_still_asks_the_full_number_of_times_for_a_failed_connection(
+    function: Callable[..., object],
+    error: Exception,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The TLS failure is the exception to the retry of a listing, not the retry gone (GH-2618)."""
+    attempts = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise error
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(type(error)):
+        function("https://example.com/blip/", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 3
+
+
+def test_a_listing_asks_once_for_a_failure_no_second_attempt_can_mend(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A directory that is not there, or a bug, is no blip: the listing was attempted three times for each (GH-2618)."""
+    attempts = []
+    failures: list[Exception] = []
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise failures[0]
+
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    for error in (FileNotFoundError("404"), ValueError("a bug")):
+        failures[:] = [error]
+        attempts.clear()
+        with stamina.set_testing(True, attempts=3), pytest.raises(type(error)):
+            list_remote_directory_fsspec("https://example.com/dir/", Settings(cache_dir=tmp_path))
+        assert len(attempts) == 1
