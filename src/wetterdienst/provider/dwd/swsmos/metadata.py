@@ -13,7 +13,7 @@ Only the variables with a clean canonical parameter are mapped. Left unmapped: t
 solid-precipitation *amounts* (``RRS1c``/``RRS3c`` -- no solid-precipitation-amount parameter), the
 3-hour solid-precipitation *probability* (``WWS3`` -- the enum has 1/6/12 hour windows but no 3 hour
 one), and ``TLSTA`` (the air-temperature forecast *standard deviation*; the sibling
-``error_absolute_temperature_air_mean_2m`` used by dwd/mosmix and dwd/dmo is a different statistic --
+``error_absolute_temperature_air_2m`` used by dwd/mosmix is a different statistic --
 DWD's expected absolute error -- so reusing it would be misleading, and there is no standard-deviation
 parameter).
 """

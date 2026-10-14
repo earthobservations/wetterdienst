@@ -669,3 +669,47 @@ def test_parse_dwd_precipitation_indicator_keeps_the_heating_codes(
     codes = list(dict.fromkeys(df.get_column(column).to_list()))
     assert codes == ["0", "1", "2", "3", None]
     assert {int(code) for code in codes if code is not None} == _documented_codes(page, column)
+
+
+@pytest.mark.parametrize(
+    ("dataset", "header", "row", "column"),
+    [
+        (
+            DwdObservationMetadata.daily.climate_summary,
+            (
+                "STATIONS_ID;MESS_DATUM;QN_3;  FX;  FM;QN_4; RSK;RSKF; SDK;SHK_TAG;  NM; VPM;  PM; TMK; UPM; TXK; TNK; "
+                "TGK;eor\n"
+            ),
+            (
+                "1048;196703{d:02d};-999;-999;-999;    5;   4.3;{c:>4};   1.800;   0;   6.0;   6.5; 983.10;    4.8;"
+                "   76.00;   7.4;    2.3;   -0.2;eor\n"
+            ),
+            "rskf",
+        ),
+        (
+            DwdObservationMetadata.daily.precipitation_more,
+            "STATIONS_ID;MESS_DATUM;QN_6;  RS; RSF;SH_TAG;NSH_TAG;eor\n",
+            "1048;197902{d:02d};    5;   7.1;{c:>4};  13;   1;eor\n",
+            "rsf",
+        ),
+    ],
+    ids=["rskf", "rsf"],
+)
+def test_parse_dwd_daily_precipitation_form_keeps_every_code_the_files_hold(
+    dataset: DatasetModel, header: str, row: str, column: str
+) -> None:
+    """Test that the codes of `RSKF` and `RSF` come back as written, and the docs list them.
+
+    The shape of the rows is that of station 01048 (1967-03-02 and 1979-02-13, QN 5). DWD's sheet of 2021 defined
+    0, 1, 4, 6, 7, 8 and 9 and the current one only says "numerical code"; the historical files of all stations
+    (2026-10-14) hold 2, 3 and 5 besides, and no 9. -999 is the missing value and maps to null.
+    """
+    rows = "".join(
+        row.format(d=day, c=code)
+        for day, code in enumerate(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "-999"], 1)
+    )
+    file = File(url="", content=BytesIO((header + rows).encode("utf8")), status=200)
+    df = parse_climate_observations_data(files=[file], dataset=dataset, period=Period.HISTORICAL).collect()
+    codes = df.get_column(column).to_list()
+    assert codes == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", None]
+    assert {int(code) for code in codes if code is not None} == _documented_codes("daily.md", column)

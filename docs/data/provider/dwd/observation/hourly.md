@@ -41,7 +41,7 @@
 | {term}`cloud_height_layer4` | v_s4_hhs | Lower boundary height of 4.layer. | m | >=0 |
 | {term}`cloud_cover_layer4` | v_s4_ns | Cloud cover in the fourth layer. | 1/8 | >=0,<=8 |
 
-Code (cloud_type_layer):
+Codes (cloud_type_layer):
 
 | code | cloud type    |
 |------|---------------|
@@ -76,7 +76,7 @@ Code (cloud_type_layer):
 | {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 
-Code (cloud_cover_total_measurement_method):
+Codes (cloud_cover_total_measurement_method):
 
 | value | source letter | meaning      |
 |-------|---------------|--------------|
@@ -145,7 +145,7 @@ Code (cloud_cover_total_measurement_method):
 | {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ \[0, 1\] |
 | {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ \[0, 1, 2, 3, 4, 6, 7, 8, 9\] |
 
-Code (precipitation_indicator):
+Codes (precipitation_indicator):
 
 | code | meaning          |
 |------|------------------|
@@ -390,7 +390,7 @@ Codes (precipitation_form):
 | {term}`visibility_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
 | {term}`visibility` | v_vv | Visibility range. | m | >=0 |
 
-Code (visibility_measurement_method):
+Codes (visibility_measurement_method):
 
 | value | source letter | meaning         |
 |-------|---------------|-----------------|

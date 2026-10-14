@@ -246,6 +246,13 @@ class GeosphereObservationRequest(TimeseriesRequest):
 
     _endpoint = "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}/metadata/stations"
 
+    # extend base columns of core class with the station's WMO number, which cross-references it with
+    # the WMO lists and with the other providers' stations
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "wmo_id",
+    )
+
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         data = []
@@ -262,20 +269,24 @@ class GeosphereObservationRequest(TimeseriesRequest):
             file.raise_if_exception()
             if isinstance(file.content, Exception):
                 return pl.LazyFrame()
-            df = pl.read_csv(file.content)
+            # the WMO number is read as text: it is an identifier, and the catalogue also writes a 7-digit number
+            df = pl.read_csv(file.content, schema_overrides={"Synopstationsnummer": pl.String})
             df = df.lazy()
-            df = df.drop("Sonnenschein", "Globalstrahlung")
-            df = df.rename(
-                mapping={
-                    "id": "station_id",
-                    "Stationsname": "name",
-                    "Länge [°E]": "longitude",
-                    "Breite [°N]": "latitude",
-                    "Höhe [m]": "elevation",
-                    "Startdatum": "start_timestamp",
-                    "Enddatum": "end_timestamp",
-                    "Bundesland": "region",
-                },
+            # only what the request declares is kept: the list also has the flags of the sunshine and radiation
+            # sensors and the columns that describe how a station's series is chained to its predecessor's
+            df = df.select(
+                pl.col("id").alias("station_id"),
+                pl.col("Stationsname").alias("name"),
+                pl.col("Länge [°E]").alias("longitude"),
+                pl.col("Breite [°N]").alias("latitude"),
+                pl.col("Höhe [m]").alias("elevation"),
+                pl.col("Startdatum").alias("start_timestamp"),
+                pl.col("Enddatum").alias("end_timestamp"),
+                pl.col("Bundesland").alias("region"),
+                # a WMO number is 5 digits; the 7-digit numbers (8989xxx) of 19 stations are no WMO numbers
+                pl.when(pl.col("Synopstationsnummer").str.contains(r"^\d{5}$"))
+                .then(pl.col("Synopstationsnummer"))
+                .alias("wmo_id"),
             )
             df = df.with_columns(
                 pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
