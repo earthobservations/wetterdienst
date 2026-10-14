@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/phenology` parameter descriptions (glossary in the CLI, REST API, MCP tools and docs) no
+  longer say the value is "the day of the year". It is DWD's `Jultag`, which is the day of the
+  year only for a date in the reference year and, in a leap year since about 1952, only before
+  1 March; the descriptions now say so. Only the text changed, not the values (GH-2833)
 - `repr(settings)` and `str(settings)` no longer raise for `fsspec_client_kwargs` that aiohttp takes
   but JSON cannot hold, such as `ClientTimeout(total=5)` or a `yarl.URL` as `proxy`. Such a value
   is masked like the rest of the client kwargs, so a failed file listing is retried and raises its
