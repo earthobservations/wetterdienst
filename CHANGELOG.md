@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Station names of `aemet/observation`, `metoffice/observation` and `metno/frost` no longer carry
+  the blanks the catalogues pad some with (`PORTOCOLOM  `, `PORTLAND `, `KVANNDALEN `), so an exact
+  comparison of the name, such as `name = 'PORTLAND'` in an SQL filter, matches them (GH-2654)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed

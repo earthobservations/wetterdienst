@@ -957,6 +957,8 @@ class MetnoFrostRequest(TimeseriesRequest):
             .alias("end_timestamp"),
         )
         df = df.rename({"id": "station_id", "name": "name", "county": "region", "countryCode": "country"})
+        # Frost pads some names with a blank (`KVANNDALEN `), which a comparison of the name misses
+        df = df.with_columns(pl.col("name").str.strip_chars())
         resolutions_and_datasets = {
             (parameter.dataset.resolution.name, parameter.dataset.name)
             for parameter in self.parameters
