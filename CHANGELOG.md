@@ -23,6 +23,10 @@ Types of changes:
   is masked like the rest of the client kwargs, so a failed file listing is retried and raises its
   own error instead of the serialization error from stamina's retry log. The settings' fields as
   pydantic and `rich` print them mask the client kwargs too (GH-2623)
+- `wetterdienst about coverage --provider ... --network ...` and `wetterdienst radar` refuse a
+  malformed `WD_*` setting, naming the variable and exiting 1, as `about coverage` without
+  arguments and every other command already do. They ran and exited 0, so the same environment
+  gave `about coverage` two different exit codes (GH-2619)
 
 ## [0.151.0] - 2026-10-14
 
