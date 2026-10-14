@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
@@ -516,10 +517,15 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.col("start_timestamp").min(),
             pl.col("end_timestamp").max(),
         )
+        # the inventory gives the year of the last observation, so a station whose last year is this one is
+        # still reporting as far as the list can tell: its end is not 31 December, which has not come yet,
+        # but empty, as for a station the provider has not closed (GH-2643)
+        this_year = dt.datetime.now(dt.UTC).year
         inventory_df = inventory_df.with_columns(
             pl.col("start_timestamp").cast(pl.String).str.to_datetime("%Y"),
-            pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"),
-            # .map_batches(lambda s: s - dt.timedelta(days=1)),
+            pl.when(pl.col("end_timestamp") < this_year)
+            .then(pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
+            .alias("end_timestamp"),
         )
         df = df.join(other=inventory_df, how="left", on=["station_id"]).lazy()
         df = df.with_columns(

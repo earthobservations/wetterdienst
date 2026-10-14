@@ -280,6 +280,43 @@ def test_noaa_ghcn_stations_hourly_and_daily(monkeypatch: pytest.MonkeyPatch, de
     ]
 
 
+def test_noaa_ghcn_daily_station_reporting_this_year_has_no_end(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A station whose last inventory year is this one has a null end, not 31 December, which is ahead (GH-2643).
+
+    The inventory gives only the year of the last observation, copied here as NOAA publishes it
+    (`GM000010147  53.6350    9.9900 TMAX 1891 2026`). A station that stopped in an earlier year, last year
+    included, ends on 31 December of that year, as it did.
+    """
+    this_year = dt.datetime.now(dt.UTC).year
+    contents = {
+        "ghcnd-stations.txt": (
+            "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
+            "ACW00011604  17.1167  -61.7833   10.1    ST JOHNS COOLIDGE FLD                       \n"
+            "ACW00011647  17.1333  -61.7833   19.2    ST JOHNS                                    \n"
+        ),
+        "ghcnd-inventory.txt": (
+            f"GM000010147  53.6350    9.9900 TMAX 1891 {this_year}\n"
+            f"GM000010147  53.6350    9.9900 PRCP 1891 {this_year - 1}\n"
+            "ACW00011604  17.1167  -61.7833 TMAX 1949 1949\n"
+            f"ACW00011647  17.1333  -61.7833 TMAX 1957 {this_year - 1}\n"
+        ),
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(contents[url.rsplit("/", 1)[-1]].encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    utc = ZoneInfo("UTC")
+    assert df.select("station_id", "start_timestamp", "end_timestamp").rows() == [
+        ("GM000010147", dt.datetime(1891, 1, 1, tzinfo=utc), None),
+        ("ACW00011604", dt.datetime(1949, 1, 1, tzinfo=utc), dt.datetime(1949, 12, 31, tzinfo=utc)),
+        ("ACW00011647", dt.datetime(1957, 1, 1, tzinfo=utc), dt.datetime(this_year - 1, 12, 31, tzinfo=utc)),
+    ]
+
+
 def test_noaa_ghcn_hourly_stations_placeholder_elevation(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:

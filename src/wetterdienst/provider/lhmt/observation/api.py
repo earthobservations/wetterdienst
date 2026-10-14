@@ -49,9 +49,12 @@ _EMPTY_VALUES_SCHEMA = {
 
 
 def _days(start: dt.datetime, end: dt.datetime) -> Iterator[dt.date]:
-    """Yield each UTC calendar date in ``[start, end]`` inclusive (observation days are UTC)."""
-    day = start.astimezone(dt.UTC).date()
-    last = end.astimezone(dt.UTC).date()
+    """Yield each UTC calendar date in ``[start, end]`` inclusive.
+
+    Observation days are UTC, the zone of the request's bounds, so the bounds' dates are the days.
+    """
+    day = start.date()
+    last = end.date()
     while day <= last:
         yield day
         day += dt.timedelta(days=1)

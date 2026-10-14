@@ -14,6 +14,7 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.dmi.observation.api as dmi_api
+from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.settings import Settings
@@ -364,6 +365,42 @@ def test_collect_windows_a_long_range_below_the_offset_cap(monkeypatch: pytest.M
     assert server.offsets == [0, 100, 200] * 3 + [0, 100]
     timestamps = df.get_column("timestamp").sort().to_list()
     assert timestamps == [first + dt.timedelta(hours=hour) for hour in range(24 * 35)]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "window"),
+    [
+        # 02:00 to 06:00 in Copenhagen (UTC+2 in June) is 00:00 to 04:00 UTC, which an hourly request sends as it is
+        ("hourly", "2023-06-01T00:00:00Z/2023-06-01T04:00:00Z"),
+        # a daily request is widened by a day on each side, in UTC
+        ("daily", "2023-05-31T00:00:00Z/2023-06-02T04:00:00Z"),
+    ],
+)
+def test_collect_sends_the_bounds_of_a_request_in_local_time_as_utc(
+    monkeypatch: pytest.MonkeyPatch, resolution: str, window: str
+) -> None:
+    """A request in Copenhagen time reaches DMI as the UTC instants its bounds stand for (GH-2682)."""
+    sent: list[str] = []
+
+    def download_file(*, url: str, **_: object) -> File:
+        sent.append(url.split("datetime=", 1)[1].split("&", 1)[0])
+        return File(url=url, content=BytesIO(b'{"features": []}'), status=200)
+
+    monkeypatch.setattr(dmi_api, "download_file", download_file)
+    copenhagen = ZoneInfo("Europe/Copenhagen")
+    request = dmi_api.DmiObservationRequest(
+        parameters=[(resolution, "data", "temperature_air_mean_2m")],
+        start=dt.datetime(2023, 6, 1, 2, tzinfo=copenhagen),
+        end=dt.datetime(2023, 6, 1, 6, tzinfo=copenhagen),
+        settings=Settings(cache_disable=True),
+    )
+    values = dmi_api.DmiObservationValues(
+        sr=stations_result(request, resolution, "data", COPENHAGEN_LANDBOHOJSKOLEN),
+    )
+
+    values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, request.parameters[0])  # noqa: SLF001
+
+    assert sent == [window]
 
 
 def test_collect_halves_a_window_that_fills_every_page(monkeypatch: pytest.MonkeyPatch) -> None:

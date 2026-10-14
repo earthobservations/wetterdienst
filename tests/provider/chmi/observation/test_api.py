@@ -8,9 +8,10 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from tests.provider.value_stubs import stations_result
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
-from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG
+from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG, ChmiObservationValues
 from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_stations,
@@ -342,3 +343,46 @@ def test_parse_chmi_values_returns_the_quality_code_as_the_whole_number_meta4_li
     )
     df = parse_chmi_values_daily(content, element="SRA", timefunc="06:00")
     assert df.get_column("quality_flags").to_list() == ["0,element:T", "3", "4"]
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "months"),
+    [
+        # 2020-02-01 00:30 and 2020-03-01 00:30 in Prague (UTC+1) are 23:30 UTC of the last day of the month before
+        (
+            dt.datetime(2020, 2, 1, 0, 30, tzinfo=ZoneInfo("Europe/Prague")),
+            dt.datetime(2020, 3, 1, 0, 30, tzinfo=ZoneInfo("Europe/Prague")),
+            ["202001", "202002"],
+        ),
+        ("2020-02-01T00:30:00+01:00", "2020-03-01T00:30:00+01:00", ["202001", "202002"]),
+        # the same instants written in UTC
+        (
+            dt.datetime(2020, 1, 31, 23, 30, tzinfo=UTC),
+            dt.datetime(2020, 2, 29, 23, 30, tzinfo=UTC),
+            ["202001", "202002"],
+        ),
+    ],
+    ids=["named zone", "fixed offset", "utc"],
+)
+def test_chmi_observation_month_files_follow_the_utc_month_of_the_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+    start: str | dt.datetime,
+    end: str | dt.datetime,
+    months: list[str],
+) -> None:
+    """Test that the month files of the sub-daily layouts are named by the UTC month of the bounds (GH-2682).
+
+    The files hold UTC time stamps, so a bound in Prague time just past midnight on the first of a month still
+    belongs to the month before in UTC, and that month's file is the one to read.
+    """
+    asked: list[str] = []
+
+    def download(_self: object, url: str, _settings: object, _station_id: str) -> None:
+        asked.append(url.rsplit("-", 1)[-1].removesuffix(".csv"))
+
+    monkeypatch.setattr(ChmiObservationValues, "_download", download)
+    request = ChmiObservationRequest(parameters=[("10_minutes", "data", "temperature_air_2m")], start=start, end=end)
+    values = ChmiObservationValues(sr=stations_result(request, "10_minutes", "data", CHEB))
+
+    assert values._collect_station_parameter_or_dataset(CHEB, request.parameters[0]).is_empty()  # noqa: SLF001
+    assert asked == months

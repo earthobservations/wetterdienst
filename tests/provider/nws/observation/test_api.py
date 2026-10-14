@@ -87,6 +87,33 @@ def test_nws_url_narrows_to_the_window_the_request_asked_for() -> None:
     assert "end=2026-08-21T00%3A00%3A00Z" in url
 
 
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        pytest.param(
+            dt.datetime(2026, 8, 19, 18, tzinfo=ZoneInfo("America/Denver")),
+            dt.datetime(2026, 8, 20, 18, tzinfo=ZoneInfo("America/Denver")),
+            id="named zone",
+        ),
+        pytest.param("2026-08-19T18:00-06:00", "2026-08-20T18:00-06:00", id="fixed offset"),
+    ],
+)
+def test_nws_url_names_the_window_in_utc_whatever_zone_it_was_asked_in(
+    start: str | dt.datetime, end: str | dt.datetime
+) -> None:
+    """Test that a window asked in Denver time reaches the endpoint as the UTC instants it stands for (GH-2682).
+
+    18:00 in Denver (UTC-6 in August) is 00:00 UTC of the next day, so the wall clock of the bounds as written
+    is not what the endpoint, which reads `Z`, must be sent.
+    """
+    request = NwsObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")], start=start, end=end)
+
+    url = _values(request)._build_url(DENVER)  # noqa: SLF001
+
+    assert "start=2026-08-20T00%3A00%3A00Z" in url
+    assert "end=2026-08-21T00%3A00%3A00Z" in url
+
+
 def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
     """Test that a request without dates asks for the endpoint's own default.
 

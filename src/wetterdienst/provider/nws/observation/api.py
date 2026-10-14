@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
@@ -166,8 +165,8 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
             return url
         query = urlencode(
             {
-                "start": self.sr.start.astimezone(dt.UTC).strftime(self._date_format),
-                "end": self.sr.end.astimezone(dt.UTC).strftime(self._date_format),
+                "start": self.sr.start.strftime(self._date_format),
+                "end": self.sr.end.strftime(self._date_format),
             },
         )
         return f"{url}?{query}"

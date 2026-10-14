@@ -193,12 +193,13 @@ class DwdDerivedValues(TimeseriesValues):
     def _first_day_of_month_in_utc(date: datetime) -> datetime:
         """Truncate a date to the first day of its month at 00:00 UTC.
 
-        The date is converted to UTC first, so 2025-01-01T00:00+01:00 falls in December 2024.
+        The date is UTC, as the bounds of a request are, so a request from 2025-01-01T00:00+01:00
+        starts in December 2024.
 
-        :param date: Timezone-aware date
+        :param date: Date in UTC
         :return: First day of the month the date falls in, at 00:00 UTC
         """
-        return date.astimezone(ZoneInfo("UTC")).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     def _get_first_day_of_months_to_fetch(
         self,
