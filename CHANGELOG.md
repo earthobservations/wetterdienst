@@ -57,9 +57,10 @@ Types of changes:
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
 - A missing optional package now raises `MissingDependencyError` naming the extra, where it
   leaked the package's own error: for a `to_target` to a SQL database whose driver is not
-  installed, to CrateDB (`cratedb`), InfluxDB 1, 2 and 3 (`influxdb`), `.xlsx`, `.zarr` and `.nc`;
-  for the image of a result or of warming stripes without Kaleido; for `describe_fields` without
-  pypdf. The command line prints one line and exits 1, the REST API answers 501; so does
+  installed, to CrateDB (`cratedb`), InfluxDB 1, 2 and 3 (`influxdb`), `.xlsx` and `.zarr`, and
+  for a `.nc` without an engine (a plain `ImportError` before); for the image of a result or of
+  warming stripes without Kaleido; for `describe_fields` without pypdf. The command line prints
+  one line and exits 1, the REST API answers 501; so does
   `wetterdienst restapi` without the extra, no longer a traceback. Where plotly raised a
   `RuntimeError` (images) or SQLAlchemy a `NoSuchModuleError` (CrateDB), catch
   `MissingDependencyError` instead. The radar HDF5 download logs the install line (GH-2663, GH-2667)

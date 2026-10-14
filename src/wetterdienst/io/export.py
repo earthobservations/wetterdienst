@@ -847,7 +847,6 @@ class ExportMixin:
             # CrateDB's SQLAlchemy driver doesn't accept `database` or `table` query parameters.
             # Rebuilt from the reading above, with the password encoded again, so SQLAlchemy reads
             # it back as the same password whatever it holds
-
             cratedb_target = sqlalchemy.engine.URL.create(
                 "crate",
                 username=connspec.username,
