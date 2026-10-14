@@ -46,17 +46,37 @@ GHCNH_WIND_DIRECTION_CALM = "0"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 
-# three stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of
-# it, 63 to 109 km off. The latitudes agree with the other catalogues to 0.02 degree, so the sign of the longitude is
-# the only difference (GH-2645). Read 2026-10-14, with the list's value, the other catalogues' and the true place:
-# - FR000007510 BORDEAUX-MERIGNAC (07510): 0.6914; GHCNh FRMU0027510 -0.7, DWD MOSMIX 44.50 -0.42 in degrees and minutes
-#   (-0.70), OpenStreetMap, aerodrome of Bordeaux-Merignac (LFBD) -0.7126
-# - FRE00104044 CAEN-CARPIQUET (07027): 0.4558; GHCNh FRU14137001 -0.456, DWD MOSMIX 49.11 -0.27 (-0.45), OpenStreetMap,
-#   aerodrome of Caen-Carpiquet -0.4544
-# - SP000008416 VALENCIA (08285): 0.3664; GHCNh SPMU0098285 -0.38, AEMET station 8416 (Valencia, Viveros; the id carries
-#   the AEMET code) 39 28' 50" N, 0 21' 59" W (-0.3664)
+# stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of it, 6 to
+# 756 km off: the list has lost the sign of the longitude (GH-2645, GH-2886). Each was checked against two or more
+# other sources (ECA&D, GHCN hourly list, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place west
+# of the meridian and within 4 km of the mirrored position; the values per station are in the pull requests of those
+# issues.
 # The longitude of these is taken as west whatever sign the list gives, so a list corrected by NOAA is read as it is.
-GHCND_WEST_LONGITUDE_STATIONS = ("FR000007510", "FRE00104044", "SP000008416")
+GHCND_WEST_LONGITUDE_STATIONS = (
+    "FR000007510",  # BORDEAUX-MERIGNAC
+    "FRE00104044",  # CAEN-CARPIQUET
+    "FRE00106203",  # MONT-DE-MARSAN
+    "SP000008416",  # VALENCIA
+    "SPE00101035",  # ALICANTE EL ALTET
+    "SPE00101043",  # ALICANTE
+    "SPE00119999",  # CASTELLON
+    "SPE00120008",  # CASTELLON DE LA PLANA
+    "SPE00120161",  # HUESCA
+    "SPE00120341",  # MURCIA/SAN JAVIER
+    "SPE00120584",  # VALENCIA/AEROPUERTO
+    "UK000003377",  # WADDINGTON
+    "UKE00105915",  # HAMPSTEAD
+    "UKE00105919",  # BOGNOR REGIS
+    "UKE00105926",  # HAYLING ISLAND
+    "UKE00107650",  # HEATHROW
+    "UKE00156848",  # CRANWELL
+    "UKE00156888",  # WOBURN
+    "UKW00015034",  # WYTON
+    "UKW00015035",  # WADDINGTON
+    "UKW00015041",  # STURGATE
+    "UV000005503",  # OUAGADOUGOU
+    "UVM00065505",  # DEDOUGOU
+)
 
 
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):

@@ -180,6 +180,51 @@ def test_noaa_ghcn_daily_stations_west_longitude_corrected_list(
     assert df.select("station_id", "longitude").rows() == [("FR000007510", -0.6914)]
 
 
+GHCND_LOST_SIGN_ROWS = (
+    "FRE00106203  43.9094    0.5003   59.0    MONT-DE-MARSAN                         07607",
+    "SPE00101035  38.2828    0.5706   43.0    ALICANTE EL ALTET                           ",
+    "SPE00101043  38.3725    0.4942   81.0    ALICANTE                                    ",
+    "SPE00119999  39.9500    0.0714   35.0    CASTELLON                              08286",
+    "SPE00120008  39.9892    0.0406   25.0    CASTELLON DE LA PLANA                       ",
+    "SPE00120161  42.0831    0.3264  541.0    HUESCA                                      ",
+    "SPE00120341  37.7889    0.8031    4.0    MURCIA/SAN JAVIER                           ",
+    "SPE00120584  39.4867    0.4731   69.0    VALENCIA/AEROPUERTO                         ",
+    "UK000003377  53.1658    0.5239   68.0    WADDINGTON                     GSN     03377",
+    "UKE00105915  51.5608    0.1789  137.0    HAMPSTEAD                                   ",
+    "UKE00105919  50.7808    0.6758    7.0    BOGNOR REGIS                                ",
+    "UKE00105926  50.7839    0.9839    4.0    HAYLING ISLAND                              ",
+    "UKE00107650  51.4789    0.4489   25.0    HEATHROW                                    ",
+    "UKE00156848  53.0306    0.5017   63.0    CRANWELL                                    ",
+    "UKE00156888  52.0142    0.5942   89.0    WOBURN                                      ",
+    "UKW00015034  52.3500    0.1167   40.2    WYTON                                       ",
+    "UKW00015035  53.1667    0.5167   72.2    WADDINGTON                                  ",
+    "UKW00015041  53.3667    0.6833   21.0    STURGATE                                    ",
+    "UV000005503  12.3500    1.5200  304.0    OUAGADOUGOU                                 ",
+    "UVM00065505  12.4670    3.4830  300.0    DEDOUGOU                               65505",
+)
+
+
+def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The twenty stations of GH-2886 are read west of Greenwich, as the other catalogues have them.
+
+    The rows are copied from `ghcnd-stations.txt` as NOAA publishes them, each with an east longitude where the
+    station lies west of it. Lowestoft, which does lie east of Greenwich, is left as listed (GH-2886).
+    """
+    lowestoft = "UKE00105899  52.4889    1.7500   25.0    LOWESTOFT                                   "
+    stations = "\n".join((*GHCND_LOST_SIGN_ROWS, lowestoft)) + "\n"
+    inventory = "".join(
+        f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in (*GHCND_LOST_SIGN_ROWS, lowestoft)
+    )
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    expected = {row[:11]: -float(row[21:30]) for row in GHCND_LOST_SIGN_ROWS}
+    expected["UKE00105899"] = 1.75
+    assert dict(df.select("station_id", "longitude").rows()) == expected
+    assert df.filter(pl.col("station_id") == "UKE00156848").select("latitude").item() == 53.0306
+
+
 GHCNH_STATION_LIST = (
     "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
     "ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD   ANTIGUA (AUX.,,,78861,,AG\n"
