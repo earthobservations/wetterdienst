@@ -78,8 +78,8 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
 PARAMETER_RANGES: dict[str, Bounds | None] = {
     # the error of a forecast against what was observed, signed and of any size
     "error_absolute_pressure_air_site": None,
-    "error_absolute_temperature_air_mean_2m": None,
-    "error_absolute_temperature_dew_point_mean_2m": None,
+    "error_absolute_temperature_air_2m": None,
+    "error_absolute_temperature_dew_point_2m": None,
     "error_absolute_wind_direction": None,
     "error_absolute_wind_speed": None,
     # a change over three hours

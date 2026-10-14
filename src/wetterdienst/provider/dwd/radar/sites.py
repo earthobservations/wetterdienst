@@ -74,22 +74,35 @@ class DwdRadarSitesGenerator:  # pragma: no cover
         # tabula-py: in no extra, as it needs a Java runtime (see the docstring below)
         df = tabula.read_pdf(self.url, multiple_tables=False, pages=1)[0]
 
-        df = pl.from_pandas(df)
+        return self.shape_table(pl.from_pandas(df))
 
+    @staticmethod
+    def shape_table(df: pl.DataFrame) -> pl.DataFrame:
+        """Turn the table as tabula reads it from the PDF into one row per radar site.
+
+        The PDF prints two rows per site (latitude, longitude) and the name, ids and elevation between them.
+        """
         # Set column names.
-        df.columns = [
-            "name",
-            "dwd_id",
-            "wmo_id",
-            "coordinates_wgs84_text",
-            "coordinates_wgs84",
-            "coordinates_gauss",
-            "elevation",
-        ]
+        df = df.rename(
+            dict(
+                zip(
+                    df.columns,
+                    [
+                        "name",
+                        "dwd_id",
+                        "wmo_id",
+                        "coordinates_wgs84_text",
+                        "coordinates_wgs84",
+                        "coordinates_gauss",
+                        "elevation",
+                    ],
+                    strict=True,
+                )
+            )
+        )
 
         # Adjust offsets.
-        for column in ["name", "dwd_id", "wmo_id", "elevation"]:
-            df[column] = df[column].shift(-1)
+        df = df.with_columns(pl.col(column).shift(-1) for column in ["name", "dwd_id", "wmo_id", "elevation"])
 
         # Remove header rows.
         df = df.shift(-8)

@@ -26,19 +26,7 @@ if TYPE_CHECKING:
 
 # Columns a request's `_all()` still carries although `all()` drops them, by request class. Fixing the reader is the
 # better answer; an entry is for a column that was there before the check was, and each is a to-do of its own.
-INTERMEDIATE_STATION_COLUMNS: dict[str, frozenset[str]] = {
-    # raw columns of the catalogue that the reader leaves in the frame, among them the WMO number (GH-2751)
-    "GeosphereObservationRequest": frozenset(
-        {
-            "Synopstationsnummer",
-            "Synop",
-            "Startdatum Teilzeitreihe",
-            "Enddatum Teilzeitreihe",
-            "Verknüpfungsnummer",
-            "zusammengesetzt",
-        }
-    ),
-}
+INTERMEDIATE_STATION_COLUMNS: dict[str, frozenset[str]] = {}
 
 _RESULT_CLASSES = (results.ValuesResult, results.InterpolatedValuesResult, results.SummarizedValuesResult)
 

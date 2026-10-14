@@ -217,8 +217,9 @@ def test_aemet_names_the_absolute_period_extremes_as_extremes() -> None:
 _SPOT_VALUE = re.compile(
     r"\b(?:instantaneous|instant|current value|present value|at the time (?:of|given by))\b", re.IGNORECASE
 )
-# `temperature_air_mean_2m`, `temperature_soil_mean_0_05m`, `temperature_surface_mean`: the interval's mean
-_MEAN_NAME = re.compile(r"^temperature_[a-z_]+?_mean(?:_\d+(?:_\d+)?m)?$")
+# `temperature_air_mean_2m`, `temperature_soil_mean_0_05m`, `temperature_surface_mean`: the interval's mean,
+# and `error_absolute_temperature_air_mean_2m`, the error of a temperature of that name (GH-2659)
+_MEAN_NAME = re.compile(r"^(?:error_absolute_)?temperature_[a-z_]+?_mean(?:_\d+(?:_\d+)?m)?$")
 # `temperature_air_2m`, `temperature_dew_point_2m`, `temperature_soil_0_05m`, `temperature_surface`: a
 # reading at one moment
 _SPOT_NAME = re.compile(r"^temperature_(?:(?:air|dew_point|wet|soil|radiant)_\d+(?:_\d+)?m|surface)$")
@@ -377,7 +378,13 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
         ("meaning", "hourly"),
     ):
         assert not _states_a_mean(description, resolution), description
-    for name in ("temperature_air_mean_2m", "temperature_soil_mean_0_05m", "temperature_surface_mean"):
+    for name in (
+        "temperature_air_mean_2m",
+        "temperature_soil_mean_0_05m",
+        "temperature_surface_mean",
+        "error_absolute_temperature_air_mean_2m",
+        "error_absolute_temperature_dew_point_mean_2m",
+    ):
         assert _MEAN_NAME.match(name), name
         assert not _SPOT_NAME.match(name), name
     for name in (
@@ -392,7 +399,13 @@ def test_the_regexes_for_a_spot_value_read_the_sources_wording() -> None:
     ):
         assert _SPOT_NAME.match(name), name
         assert not _MEAN_NAME.match(name), name
-    for name in ("temperature_air_max_2m_mean", "temperature_air_mean_2m_last_24h", "temperature_soil_max_0_1m"):
+    for name in (
+        "temperature_air_max_2m_mean",
+        "temperature_air_mean_2m_last_24h",
+        "temperature_soil_max_0_1m",
+        "error_absolute_temperature_air_2m",
+        "error_absolute_wind_speed",
+    ):
         assert not _MEAN_NAME.match(name), name
         assert not _SPOT_NAME.match(name), name
 

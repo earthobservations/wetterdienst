@@ -92,8 +92,8 @@
 | {term}`cloud_cover_effective`                                    | neff          | Effective cloud cover                                                               | %     | >=0,<=100   |
 | {term}`cloud_cover_total`                                        | n             | Total cloud cover                                                                   | %     | >=0,<=100   |
 | {term}`error_absolute_pressure_air_site`                         | e_ppp         | Absolute error surface pressure                                                     | Pa    | -           |
-| {term}`error_absolute_temperature_air_mean_2m`                   | e_ttt         | Absolute error temperature 2m above surface                                         | K     | -           |
-| {term}`error_absolute_temperature_dew_point_mean_2m`             | e_td          | Absolute error dew point 2m above surface                                           | K     | -           |
+| {term}`error_absolute_temperature_air_2m`                        | e_ttt         | Absolute error temperature 2m above surface                                         | K     | -           |
+| {term}`error_absolute_temperature_dew_point_2m`                  | e_td          | Absolute error dew point 2m above surface                                           | K     | -           |
 | {term}`error_absolute_wind_direction`                            | e_dd          | Absolute error wind direction                                                       | °     | -           |
 | {term}`error_absolute_wind_speed`                                | e_ff          | Absolute error wind speed 10m above surface                                         | m/s   | -           |
 | {term}`evapotranspiration_potential_last_24h`                    | pevap         | Potential evapotranspiration within the last 24 hours                               | kg/m² | >=0         |
