@@ -16,7 +16,7 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
-from wetterdienst.io.export import ExportMixin, check_image_size
+from wetterdienst.io.export import ExportMixin, check_image_size, require_kaleido
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.extras import import_optional
 
@@ -435,6 +435,7 @@ class StationsResult(ExportMixin):
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
+            require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
@@ -868,6 +869,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
+            require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
@@ -1066,6 +1068,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
+            require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
@@ -1248,6 +1251,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
+            require_kaleido()
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"

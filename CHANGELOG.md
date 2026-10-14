@@ -77,6 +77,15 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- A missing optional package now raises `MissingDependencyError` naming the extra, where it
+  leaked the package's own error: for a `to_target` to a SQL database whose driver is not
+  installed, to CrateDB (`cratedb`), InfluxDB 1, 2 and 3 (`influxdb`), `.xlsx` and `.zarr`, and
+  for a `.nc` without an engine (a plain `ImportError` before); for the image of a result or of
+  warming stripes without Kaleido; for `describe_fields` without pypdf. The command line prints
+  one line and exits 1, the REST API answers 501; so does
+  `wetterdienst restapi` without the extra, no longer a traceback. Where plotly raised a
+  `RuntimeError` (images) or SQLAlchemy a `NoSuchModuleError` (CrateDB), catch
+  `MissingDependencyError` instead. The radar HDF5 download logs the install line (GH-2663, GH-2667)
 - The `dwd/observation` daily docs list the precipitation form `rskf` and `rsf` as the codes 0 to 9
   (the 2021 sheet defines 0, 1, 4, 6, 7, 8, 9; the files also hold 2, 3, 5), no longer as `>=0`.
   Only the docs change; the values returned do not (GH-2911)
