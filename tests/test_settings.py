@@ -1651,10 +1651,12 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
     """Stamina's retry log, which renders the arguments of the call it retries, holds no password (GH-2593).
 
     `list_remote_files_fsspec` and `list_remote_directory_fsspec` take the settings, so a listing
-    that fails for any reason logs them at WARNING on its first retry. The failure here is a plain
-    `OSError`, which names no proxy, so the settings are the only place the password could come from.
+    that fails in a way worth asking again logs them at WARNING on its first retry. The failure here
+    is a reset connection, which names no proxy, so the settings are the only place the password
+    could come from.
     """
     import stamina  # noqa: PLC0415
+    from aiohttp import ClientOSError  # noqa: PLC0415
 
     from wetterdienst.util.network import (  # noqa: PLC0415
         HTTPFileSystem,
@@ -1663,8 +1665,7 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
     )
 
     def fail(_self: object, _url: str, **_kwargs: object) -> list:
-        msg = "boom"
-        raise OSError(msg)
+        raise ClientOSError(104, "boom")
 
     monkeypatch.setattr(HTTPFileSystem, "find", fail)
     monkeypatch.setattr(HTTPFileSystem, "ls", fail)
@@ -1680,7 +1681,7 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
         with (
             stamina.set_testing(True, attempts=2),
             caplog.at_level(logging.DEBUG, logger="stamina"),
-            pytest.raises(OSError, match="boom"),
+            pytest.raises(ClientOSError, match="boom"),
         ):
             call()
 

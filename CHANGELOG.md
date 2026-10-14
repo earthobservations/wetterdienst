@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- A TLS failure (a certificate that does not verify, a failed handshake) is no longer retried: a
+  listing asked for it three times and a download or a post twice, each with a retry warning and
+  the same error at the end. The listings (`list_remote_files_fsspec`,
+  `list_remote_directory_fsspec`) also retry only a failed connection, a timeout, a broken body
+  or a 5xx, no longer every exception, so a 4xx or a missing directory (which
+  `list_remote_directory_fsspec` raises) is not asked for three times (GH-2618)
 - `dwd/phenology` parameter descriptions (glossary in the CLI, REST API, MCP tools and docs) no
   longer say the value is "the day of the year". It is DWD's `Jultag`, which is the day of the
   year only for a date in the reference year and, in a leap year since about 1952, only before

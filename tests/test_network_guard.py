@@ -126,8 +126,8 @@ def test_a_blocked_listing_says_so_rather_than_coming_back_empty(blocked_network
             settings=Settings(),
             cache_expiry=CacheExpiry.METAINDEX,
         )
-    # more than one: the listing is wrapped in a stamina retry, which asks again before giving up
-    assert set(blocked_network) == {(UNREACHABLE, 443)}
+    # once: the listing's retry does not ask again for a refusal that is no failure of the connection (GH-2618)
+    assert blocked_network == [(UNREACHABLE, 443)]
 
 
 def test_a_blocked_download_says_so_rather_than_carrying_no_internet(

@@ -1184,7 +1184,15 @@ def _worth_retrying(error: Exception) -> bool:
     A 429 is deliberately not retried. The endpoints that rate-limit are rate-limiting a free
     account, and asking again a tenth of a second later is how that gets worse rather than better;
     it comes back as the answer it is, for the caller to report.
+
+    Nor is a TLS failure, a certificate that does not verify or a handshake that fails: the same
+    server presents the same certificate, so asking again returns the same error after a delay and a
+    retry warning (GH-2618). aiohttp's ``ClientSSLError`` is a ``ClientConnectorError``, so it would
+    pass the test for a failed connection below; the listings raise the ``ssl.SSLError`` underneath,
+    which is none of the exceptions below and is named here to keep it so.
     """
+    if isinstance(error, (ClientSSLError, ssl.SSLError)):
+        return False
     # ClientPayloadError is a body that stopped arriving mid-read, which is the same kind of blip
     # as a connection that never carried one -- and it is no subclass of ClientConnectionError
     if isinstance(error, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError)):
@@ -1202,6 +1210,17 @@ def _worth_retrying_download(error: Exception) -> bool:
     return isinstance(error, FileNotFoundError) or _worth_retrying(error)
 
 
+def _worth_retrying_listing(error: Exception) -> bool:
+    """Whether a failed listing is worth another attempt: the same answer as for a post.
+
+    A connection or a timeout that failed, a body that stopped arriving, a 5xx. Not a TLS failure
+    (see ``_worth_retrying``), and not what is no blip either: a directory that is not there
+    (``FileNotFoundError``), a 4xx, or a programming error such as a ``ValueError``, all of which
+    the retry used to repeat as it repeated every exception (GH-2618).
+    """
+    return _worth_retrying(error)
+
+
 def _bare_tls_failure(error: ClientSSLError) -> OSError:
     """Return the ``ssl.SSLError`` under an aiohttp TLS failure, with nothing on it that leads back to ``error``.
 
@@ -1216,7 +1235,7 @@ def _bare_tls_failure(error: ClientSSLError) -> OSError:
     return failure
 
 
-@stamina.retry(on=Exception, attempts=3)
+@stamina.retry(on=_worth_retrying_listing, attempts=3)
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[str]:
@@ -1234,9 +1253,12 @@ def list_remote_files_fsspec(
         library is offline
 
     Raises:
-        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
-        Exception: If the listing could not be read for another reason, after the retries: an
-            ``OSError`` such as a connection reset, or an HTTP error status other than 404.
+        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
+            attempt: asking again would meet the same certificate.
+        Exception: If the listing could not be read for another reason: an ``OSError`` such as a
+            connection reset, or an HTTP error status other than 404. A failed connection, a
+            timeout, a broken body or a 5xx is asked for three times before it is raised; a TLS
+            failure, a 4xx or anything else once.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1255,8 +1277,8 @@ def list_remote_files_fsspec(
         # lists then had to decide what an empty list meant, and none of them could (GH-1947).
         #
         # Raised instead, and the two told apart here: a directory that is not there is an answer,
-        # and callers have always had it as `[]`; anything else is a failure to read, which the
-        # retry above is for and which a caller should hear about rather than infer
+        # and callers have always had it as `[]`; anything else is a failure to read, which a
+        # caller should hear about rather than infer, after the retry above where it can help
         return fs.find(url, on_error="raise")
     except FileNotFoundError:
         return []
@@ -1285,11 +1307,12 @@ def list_remote_files_fsspec(
         # aiohttp built from its credentials in the request info, and the retry above logs the repr
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
-    # raising lets the retry above ask again, as it does for any failure to read
+    # raised, and the retry above asks again only where `_worth_retrying_listing` says it can help:
+    # not for this, a TLS failure being the same on every attempt (GH-2618)
     raise tls_failure
 
 
-@stamina.retry(on=Exception, attempts=3)
+@stamina.retry(on=_worth_retrying_listing, attempts=3)
 def list_remote_directory_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[dict]:
@@ -1308,11 +1331,15 @@ def list_remote_directory_fsspec(
         A list of fsspec detail dicts (with "name" and "type" keys, among others) for each entry.
 
     Raises:
-        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, after the retries.
-        Exception: If the listing could not be read for another reason, after the retries: a missing
-            directory (``FileNotFoundError``), an offline connection (``ClientConnectorError``, its
+        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
+            attempt: asking again would meet the same certificate.
+        Exception: If the listing could not be read for another reason: a missing directory
+            (``FileNotFoundError``), an offline connection (``ClientConnectorError``, its
             connection key and traceback stripped of a proxy's credentials) or an HTTP error
-            status. Unlike ``list_remote_files_fsspec``, none of these returns no entries.
+            status. Unlike ``list_remote_files_fsspec``, none of these returns no entries. A
+            failed connection (offline included), a timeout, a broken body or a 5xx is asked for
+            three times before it is raised; a TLS failure, a 4xx, a missing directory or anything
+            else once.
 
     """
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
@@ -1349,7 +1376,8 @@ def list_remote_directory_fsspec(
     except ClientResponseError as e:
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
-    # raising lets the retry above ask again, as it does for any failure to read
+    # raised, and the retry above asks again only where `_worth_retrying_listing` says it can help:
+    # not for this, a TLS failure being the same on every attempt (GH-2618)
     raise failure
 
 
