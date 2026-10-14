@@ -19,7 +19,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 from urllib.parse import urlencode
-from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -44,7 +43,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.fmi.fi/wfs"
-_UTC = ZoneInfo("UTC")
 
 # The station catalogue does not vary by parameter, so a single stored query covers every
 # resolution/dataset (mirroring DMI).
@@ -127,8 +125,8 @@ class FmiObservationValues(TimeseriesValues):
 
         frames = []
         for window_start, window_end in _time_windows(
-            start_date.astimezone(_UTC),
-            end_date.astimezone(_UTC),
+            start_date,
+            end_date,
             cast("dt.timedelta", config["window"]),
         ):
             df = self._collect_window(

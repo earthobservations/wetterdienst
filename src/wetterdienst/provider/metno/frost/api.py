@@ -413,10 +413,11 @@ _DAILY = "daily"
 def _frost_time(value: datetime) -> str:
     """Give a request bound as Frost reads it: the text of its UTC wall clock.
 
-    Frost takes the time of `referencetime` as UTC and has no way to be told otherwise, so a bound
-    held in another zone has to be converted before its wall clock is written down (GH-2681).
+    Frost takes the time of `referencetime` as UTC and has no way to be told otherwise. The bounds
+    of a request are UTC, whatever zone they were given in (GH-2681, GH-2682), so their wall clock is
+    the one to write down.
     """
-    return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    return value.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _frost_end_exclusive(value: datetime, resolution: str) -> datetime:
@@ -429,9 +430,9 @@ def _frost_end_exclusive(value: datetime, resolution: str) -> datetime:
 
     A daily value belongs to the date of its stamp, which is the date of the reading for an instantaneous element
     (`_stamp_days`), so a request whose end is 00:00 UTC of a date asks for the whole of that date, the 06:00 UTC
-    reading of the snow depth being its value (GH-2729): its end is 00:00 UTC of the date after.
+    reading of the snow depth being its value (GH-2729): its end is 00:00 UTC of the date after. The end is UTC, as
+    the bounds of a request are.
     """
-    value = value.astimezone(UTC)
     if resolution == _DAILY:
         return value.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     return value + timedelta(seconds=1)
