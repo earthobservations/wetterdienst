@@ -2,10 +2,12 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the PDF helper."""
 
+import sys
+
 import pytest
 from fsspec.exceptions import FSTimeoutError
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError, MissingDependencyError, NoInternetError
 from wetterdienst.util import pdf
 from wetterdienst.util.network import File
 
@@ -36,3 +38,20 @@ def test_read_pdf_without_internet_returns_no_text(monkeypatch: pytest.MonkeyPat
     )
 
     assert pdf.read_pdf("https://example.org/a.pdf") == ""
+
+
+def test_read_pdf_without_pypdf_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reading a PDF without pypdf says what to install, before anything is downloaded (GH-2667)."""
+    monkeypatch.setitem(sys.modules, "pypdf", None)
+
+    def download_file(**_kwargs: object) -> None:
+        pytest.fail("downloaded although the reader is missing")
+
+    monkeypatch.setattr(pdf, "download_file", download_file)
+
+    with pytest.raises(MissingDependencyError) as excinfo:
+        pdf.read_pdf("https://example.org/a.pdf")
+
+    assert str(excinfo.value) == (
+        "Reading a PDF requires pypdf, which is not installed. Install it with: pip install wetterdienst[pdf]"
+    )

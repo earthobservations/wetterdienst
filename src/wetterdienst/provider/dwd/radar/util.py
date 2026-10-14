@@ -7,6 +7,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from wetterdienst.util.extras import import_optional
+
 if TYPE_CHECKING:
     from io import BytesIO
 
@@ -47,7 +49,7 @@ def get_date_string_from_filename(filename: str, pattern: re.Pattern) -> str | N
 
 def verify_hdf5(buffer: BytesIO) -> None:
     """Verify that the buffer is a valid HDF5 file."""
-    import h5py  # noqa: PLC0415
+    h5py = import_optional("h5py", "Verifying radar HDF5", extra="radar")
 
     buffer.seek(0)
     try:

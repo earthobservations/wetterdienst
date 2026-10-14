@@ -4,6 +4,7 @@
 
 import contextlib
 import datetime as dt
+import importlib.machinery
 import json
 import logging
 import math
@@ -12,6 +13,7 @@ import sqlite3
 import sys
 import time
 import tomllib
+import types
 from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
@@ -1548,7 +1550,18 @@ def test_export_sqlite(options_convert_units_false_wide_shape: Options, tmp_path
     ]
 
 
+@pytest.fixture
+def cratedb_dialect(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for `sqlalchemy-cratedb`, which the `cratedb` extra installs and the sink checks for (GH-2663).
+
+    Nothing here writes to CrateDB, so the dialect is only imported, and a test that mocks `to_sql`
+    runs with or without the package.
+    """
+    monkeypatch.setitem(sys.modules, "sqlalchemy_cratedb", types.ModuleType("sqlalchemy_cratedb"))
+
+
 @pytest.mark.remote
+@pytest.mark.usefixtures("cratedb_dialect")
 def test_export_cratedb(
     options_convert_units_false: Options,
 ) -> None:
@@ -2642,6 +2655,7 @@ def test_to_target_logs_the_target_without_its_password(
     logged: str,
     stubs: list[str],
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The target is logged with its password slot as `***`, and the rest of it as given.
 
@@ -2650,6 +2664,8 @@ def test_to_target_logs_the_target_without_its_password(
     stderr and from there into cron mail, journald or a CI log. No sink is reached: each driver is
     stubbed, and what is read is the log.
     """
+    if target.startswith("crate://"):
+        monkeypatch.setitem(sys.modules, "sqlalchemy_cratedb", types.ModuleType("sqlalchemy_cratedb"))
     with contextlib.ExitStack() as stack:
         for stub in stubs:
             # each case skips on the driver it needs, not on another case's
@@ -2932,6 +2948,7 @@ def test_to_target_writes_influxdb3_with_a_token_holding_delimiters() -> None:
     )
 
 
+@pytest.mark.usefixtures("cratedb_dialect")
 def test_to_target_writes_cratedb_with_a_password_holding_delimiters() -> None:
     """CrateDB is handed a URL that reads back as the same host, port and password."""
     sqlalchemy = pytest.importorskip("sqlalchemy")
@@ -3890,6 +3907,11 @@ def test_to_target_refuses_a_protocol_nothing_writes_without_leaking_sqlalchemys
     assert "host" not in str(excinfo.value)
 
 
+def _write_zarr(tmp: Path) -> None:
+    pytest.importorskip("xarray")
+    _one_row().to_target(f"file://{tmp}/obs.zarr")
+
+
 @pytest.mark.parametrize(
     ("module", "extra", "call"),
     [
@@ -3911,6 +3933,45 @@ def test_to_target_refuses_a_protocol_nothing_writes_without_leaking_sqlalchemys
             "export",
             lambda tmp: _one_row().to_target(f"file://{tmp}/obs.zarr"),
             id="zarr-target",
+        ),
+        # the packages xarray and polars import for themselves, which their own errors name by
+        # something other than the extra (GH-2667)
+        pytest.param(
+            "zarr",
+            "export",
+            _write_zarr,
+            id="zarr-store",
+        ),
+        pytest.param(
+            "xlsxwriter",
+            "excel",
+            lambda tmp: _one_row().to_target(f"file://{tmp}/obs.xlsx"),
+            id="excel-target",
+        ),
+        # the CrateDB dialect, the InfluxDB clients (GH-2663)
+        pytest.param(
+            "sqlalchemy_cratedb",
+            "cratedb",
+            lambda _tmp: _one_row().to_target("crate://localhost/?database=test&table=testdrive"),
+            id="cratedb-target",
+        ),
+        pytest.param(
+            "influxdb",
+            "influxdb",
+            lambda _tmp: _one_row().to_target("influxdb://localhost/?database=dwd&table=weather"),
+            id="influxdb1-target",
+        ),
+        pytest.param(
+            "influxdb_client",
+            "influxdb",
+            lambda _tmp: _one_row().to_target("influxdb2://orga:token@localhost/?database=dwd&table=weather"),
+            id="influxdb2-target",
+        ),
+        pytest.param(
+            "influxdb_client_3",
+            "influxdb",
+            lambda _tmp: _one_row().to_target("influxdb3://orga:token@localhost/?database=dwd&table=weather"),
+            id="influxdb3-target",
         ),
     ],
 )
@@ -3997,3 +4058,173 @@ def test_export_influxdb1_wide_does_not_write_the_raw_flags_of_a_missing_value_a
         {"pressure_vapor_quality_flags": "4"},
         {"wind_speed": 3.0, "wind_speed_quality_flags": "3"},
     ]
+
+
+def test_a_netcdf_write_without_an_engine_is_a_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Without h5netcdf or netCDF4 a `.nc` target says which extra carries an engine (GH-2667).
+
+    It was a plain `ImportError`, which the command line printed as a traceback and the REST API
+    answered with a 500 where every other missing package is one line and a 501.
+    """
+    pytest.importorskip("xarray")
+    monkeypatch.setitem(sys.modules, "h5netcdf", None)
+    monkeypatch.setitem(sys.modules, "netCDF4", None)
+
+    with pytest.raises(MissingDependencyError) as excinfo:
+        _one_row().to_target(f"file://{tmp_path}/obs.nc")
+
+    assert str(excinfo.value) == (
+        "Writing NetCDF requires h5netcdf, which is not installed. Install it with: pip install wetterdienst[export]"
+    )
+
+
+@pytest.mark.parametrize(
+    ("target", "masked", "expected"),
+    [
+        pytest.param(
+            "mysql://u@localhost/db?table=t",
+            ["MySQLdb"],
+            "Writing to a SQL database requires MySQLdb, which is not installed. "
+            "Install it with: pip install wetterdienst[mysql]",
+            id="mysql",
+        ),
+        # a bare `postgresql://` is psycopg 3, which the `postgresql` extra installs, or psycopg2
+        pytest.param(
+            "postgresql://u@localhost/db?table=t",
+            ["psycopg", "psycopg2"],
+            "Writing to a SQL database requires psycopg, which is not installed. "
+            "Install it with: pip install wetterdienst[postgresql]",
+            id="postgresql",
+        ),
+        # a driver the target names itself, and that no extra installs, is named without an install line
+        pytest.param(
+            "postgresql+psycopg2://u@localhost/db?table=t",
+            ["psycopg2"],
+            "Writing to a SQL database requires psycopg2, which is not installed.",
+            id="psycopg2-named",
+        ),
+    ],
+)
+def test_a_database_driver_that_is_not_installed_is_a_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+    masked: list[str],
+    expected: str,
+) -> None:
+    """A SQL target without its driver names it and the extra, not SQLAlchemy's bare `No module named` (GH-2663).
+
+    SQLAlchemy imports the driver when it builds the engine. The driver is masked in `sys.modules`,
+    which is how a package that is not installed looks to an import.
+    """
+    pytest.importorskip("sqlalchemy")
+    for name in masked:
+        monkeypatch.setitem(sys.modules, name, None)
+
+    with pytest.raises(MissingDependencyError) as excinfo:
+        _one_row().to_target(target)
+
+    assert str(excinfo.value) == expected
+    assert isinstance(excinfo.value.__cause__, ModuleNotFoundError)
+
+
+def test_a_module_missing_inside_a_database_driver_keeps_its_traceback() -> None:
+    """A broken driver is no instruction to install an extra: its `ModuleNotFoundError` is left as it is (GH-2663)."""
+    pytest.importorskip("sqlalchemy")
+
+    def create_engine(_url: object) -> None:
+        msg = "No module named 'MySQLdb._mysql'"
+        raise ModuleNotFoundError(msg, name="MySQLdb._mysql")
+
+    with (
+        mock.patch("sqlalchemy.create_engine", create_engine),
+        pytest.raises(ModuleNotFoundError, match=r"MySQLdb\._mysql") as excinfo,
+    ):
+        _one_row().to_target("mysql://u@localhost/db?table=t")
+
+    assert not isinstance(excinfo.value, MissingDependencyError)
+
+
+@pytest.mark.parametrize(
+    "result_class",
+    [StationsResult, ValuesResult, InterpolatedValuesResult, SummarizedValuesResult],
+)
+def test_rendering_an_image_without_kaleido_is_a_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    result_class: type,
+) -> None:
+    """The images of every result type say what to install where plotly would raise a `RuntimeError` (GH-2667)."""
+    go = pytest.importorskip("plotly.graph_objects")
+    monkeypatch.setitem(sys.modules, "kaleido", None)
+
+    def to_image(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("rendered although Kaleido is missing")
+
+    monkeypatch.setattr(go.Figure, "to_image", to_image)
+    result = mock.MagicMock()
+    result.to_plot.return_value = go.Figure()
+
+    with pytest.raises(MissingDependencyError) as excinfo:
+        result_class._to_image(result, fmt="png")  # noqa: SLF001
+
+    assert str(excinfo.value) == (
+        "Rendering an image requires kaleido, which is not installed. "
+        "Install it with: pip install wetterdienst[plotting]"
+    )
+
+
+@pytest.mark.parametrize(
+    ("url", "installed", "expected"),
+    [
+        # SQLAlchemy 2.0 takes psycopg2 for a bare `postgresql://` where psycopg 3 does not import
+        pytest.param(
+            "postgresql://u@h/db",
+            False,
+            "Writing to a SQL database requires psycopg, which is not installed. "
+            "Install it with: pip install wetterdienst[postgresql]",
+            id="bare-no-psycopg",
+        ),
+        # psycopg is installed and does not load (no libpq): saying it is not installed would be false
+        pytest.param(
+            "postgresql://u@h/db",
+            True,
+            "Writing to a SQL database requires psycopg2, which is not installed.",
+            id="bare-psycopg-does-not-load",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://u@h/db",
+            False,
+            "Writing to a SQL database requires psycopg2, which is not installed.",
+            id="psycopg2-named",
+        ),
+    ],
+)
+def test_driver_missing_names_the_driver_the_postgresql_extra_installs(
+    monkeypatch: pytest.MonkeyPatch,
+    url: str,
+    installed: bool,  # noqa: FBT001
+    expected: str,
+) -> None:
+    """A missing psycopg2 names psycopg only where that is true, whatever SQLAlchemy picks for a bare URL (GH-2663).
+
+    SQLAlchemy 2.1 takes psycopg 3 for a bare `postgresql://` and never asks for psycopg2, so the
+    SQLAlchemy 2.0 behaviour is told here directly.
+    """
+    sqlalchemy = pytest.importorskip("sqlalchemy")
+    from wetterdienst.io.export import _driver_missing  # noqa: PLC0415
+
+    if installed:
+        stub = types.ModuleType("psycopg")
+        stub.__spec__ = importlib.machinery.ModuleSpec("psycopg", None)
+        monkeypatch.setitem(sys.modules, "psycopg", stub)
+    else:
+        monkeypatch.setitem(sys.modules, "psycopg", None)
+
+    missing = _driver_missing(
+        ModuleNotFoundError("No module named 'psycopg2'", name="psycopg2"), sqlalchemy.make_url(url)
+    )
+
+    assert missing is not None
+    assert str(missing) == expected
