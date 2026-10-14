@@ -18,11 +18,11 @@ Types of changes:
 
 ### Changed
 
-- `ea/hydrology` `quality_flags` carries the reading's `completeness` after its quality,
-  `Good,completeness:Complete` or `Good,completeness:Incomplete`, whether the value is based on
-  complete data. Daily readings carry it (not all of them); a reading without one, and every 15
-  minute reading, keeps the quality alone (`Good`). A filter `quality_flags == 'Good'` no longer
-  holds for daily readings: use `str.starts_with('Good')` (GH-2762)
+- **Breaking**: `ea/hydrology` `quality_flags` carries the reading's `completeness` after its
+  quality, `Good,completeness:Complete` or `Good,completeness:Incomplete`, whether the value is
+  based on complete data. Daily readings carry it (not all of them); a reading without one, and
+  every 15 minute reading, keeps the quality alone (`Good`). A filter `quality_flags == 'Good'` no
+  longer holds for daily readings: use `str.starts_with('Good')` (GH-2762)
 
 ### Fixed
 
