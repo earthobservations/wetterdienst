@@ -1692,6 +1692,80 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
             assert [secret for secret in _CLIENT_KWARGS_SECRETS if secret in carried] == []
 
 
+def _holds_settings(value: object, *, depth: int = 0) -> bool:
+    """Whether ``value`` is, or holds in a container it is built from, a ``Settings`` object."""
+    if isinstance(value, Settings):
+        return True
+    if depth > 4:
+        return False
+    if isinstance(value, dict):
+        value = [*value.keys(), *value.values()]
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_holds_settings(item, depth=depth + 1) for item in value)
+    return False
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("by_keyword", [False, True], ids=["positional", "keyword"])
+def test_a_retried_listing_puts_no_settings_object_into_stamina_s_log_record(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    *,
+    by_keyword: bool,
+) -> None:
+    """Stamina's log record carries no ``Settings`` object, whatever a handler does with its fields (GH-2904).
+
+    The retry decorator hands the arguments of the call to stamina's hook, which attaches them to
+    the record as ``stamina.args`` (as their ``repr``) and ``stamina.kwargs`` (as they are), so a
+    keyword call put the live settings there. A formatter that renders ``str`` gets the masked form,
+    but a handler that serialises a pydantic object by its fields reads the raw client kwargs. The
+    retry is a ``retry_context``, which has no arguments to hand over.
+    """
+    import stamina  # noqa: PLC0415
+    from aiohttp import ClientOSError  # noqa: PLC0415
+
+    from wetterdienst.util.network import (  # noqa: PLC0415
+        HTTPFileSystem,
+        list_remote_directory_fsspec,
+        list_remote_files_fsspec,
+    )
+
+    calls = []
+
+    def fail(_self: object, _url: str, **_kwargs: object) -> list:
+        calls.append(_url)
+        raise ClientOSError(104, "boom")
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+    settings = Settings(cache_dir=tmp_path, fsspec_client_kwargs=_CLIENT_KWARGS_WITH_CREDENTIALS)
+
+    for listing in (list_remote_files_fsspec, list_remote_directory_fsspec):
+        caplog.clear()
+        calls.clear()
+        call = (
+            functools.partial(listing, "https://example.com/dir/", settings=settings)
+            if by_keyword
+            else functools.partial(listing, "https://example.com/dir/", settings)
+        )
+        with (
+            stamina.set_testing(True, attempts=2),
+            caplog.at_level(logging.DEBUG, logger="stamina"),
+            pytest.raises(ClientOSError, match="boom"),
+        ):
+            call()
+
+        # retried, and said so, so that the test cannot pass because stamina never logged
+        assert len(calls) == 2
+        scheduled = [record for record in caplog.records if record.getMessage() == "stamina.retry_scheduled"]
+        assert len(scheduled) == 1
+        for record in caplog.records:
+            assert [name for name, value in record.__dict__.items() if _holds_settings(value)] == []
+        assert scheduled[0].__dict__["stamina.args"] == ()
+        assert scheduled[0].__dict__["stamina.kwargs"] == {}
+
+
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     "client_kwargs",
