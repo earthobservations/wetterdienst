@@ -2609,7 +2609,6 @@ describe('dataViewer names what it shows in the active locale', () => {
       const drawn = () => (plotly.newPlot.mock.lastCall![1] as { name: string }[]).map(trace => trace.name)
       const series = [names[locale].direction, names[locale].speed].map(parameter => `01048 - ${parameter}`)
       await vi.waitFor(() => expect(drawn()).toEqual([...series, ...series.map(name => `${name} (${trendline[locale]})`)]))
-      expect(drawn().join('\n')).not.toContain('(trend)')
     })
 
     it('names each facet\'s trendline for its station, in the language', async () => {
