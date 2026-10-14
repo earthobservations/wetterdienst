@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- Station names of `aemet/observation`, `metoffice/observation` and `metno/frost` no longer carry
+  the blanks the catalogues pad some with (`PORTOCOLOM  `, `PORTLAND `, `KVANNDALEN `), so an exact
+  comparison of the name, such as `name = 'PORTLAND'` in an SQL filter, matches them (GH-2654)
 - **Breaking**: `dwd/observation` `10_minutes/urban_solar` `sunshine_duration` (`SD_ST_10`) is
   declared in hours, no longer minutes. DWD's parameter sheet says "Minute", but the values are
   fractions of an hour (0.17 is a full-sun interval of 10 minutes). With the default unit targets

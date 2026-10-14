@@ -25,6 +25,8 @@ import polars as pl
 
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, has_encoding_damage
 from wetterdienst import Settings
+from wetterdienst.provider.aemet.observation import AemetObservationRequest
+from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.dwd import catalogue as dwd_catalogue
@@ -43,6 +45,10 @@ from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation import api as lhmt_api
+from wetterdienst.provider.metno.frost import MetnoFrostRequest
+from wetterdienst.provider.metno.frost import api as frost_api
+from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequest
+from wetterdienst.provider.metoffice.observation import api as metoffice_api
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 from wetterdienst.util.network import File
@@ -271,6 +277,85 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdMosmixRequest, ("hourly", "small"))
 
 
+def _aemet(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the inventory needs a key, so it is served in place of the download of `_fetch_datos`; the names and ids are
+    # those the list pads with blanks (GH-2654), the positions and provinces worded after the list's own shape
+    # (degrees, minutes and seconds with the hemisphere)
+    def row(station_id: str, name: str, region: str, lat: str, lon: str, elevation: str) -> dict[str, str]:
+        return {
+            "indicativo": station_id,
+            "nombre": name,
+            "provincia": region,
+            "altitud": elevation,
+            "latitud": lat,
+            "longitud": lon,
+            "indsinop": "",
+        }
+
+    catalogue = [
+        row("2847X", "PEDROSILLO DE LOS AIRES   ", "SALAMANCA", "405512N", "060328W", "888"),
+        row("2863C", "PEDRAZA DE ALBA  ", "SALAMANCA", "405347N", "053022W", "840"),
+        row("3195", "MADRID, RETIRO", "MADRID", "402441N", "034040W", "667"),
+        row("B434X", "PORTOCOLOM  ", "ILLES BALEARS", "391259N", "031218E", "5"),
+        row("C314Z", "VALLEHERMOSO, ALTO IGUALERO  ", "SANTA CRUZ DE TENERIFE", "281134N", "172221W", "790"),
+    ]
+    payload = json.dumps(catalogue).encode("latin-1")
+    monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *_args, **_kwargs: payload)
+    request = AemetObservationRequest(
+        parameters=[("daily", "data")], settings=Settings(cache_disable=True, auth={"aemet": "stub"})
+    )
+    return request.all().df
+
+
+def _metoffice(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the archive needs a CEDA login, so the token and the release are given and the catalogue is served in the
+    # BADC-CSV of the archive; the names are those the list pads with a blank (GH-2654), the rest worded after it
+    catalogue = (
+        "Conventions,G,BADC-CSV,1\n"
+        "data\n"
+        "src_id,station_name,station_file_name,historic_county,authority,"
+        "station_latitude,station_longitude,station_elevation,first_year,last_year\n"
+        '00470,"GARSTON, BUILDING RESEARCH ",garston-bre,hertfordshire,Met Office,51.69,-0.37,85,1952,1976\n'
+        "01316,PORTLAND ,portland,dorset,Met Office,50.54,-2.45,12,1941,2003\n"
+        "04857,BRAISEWORTH HALL ,braiseworth-hall,suffolk,Met Office,52.33,1.13,45,1969,2005\n"
+        "12812,STONETHWAITE ,stonethwaite,cumbria,Met Office,54.5,-3.15,150,1960,2009\n"
+        "end data\n"
+    )
+    monkeypatch.setattr(metoffice_api, "get_ceda_token", lambda _settings: "token")
+    monkeypatch.setattr(metoffice_api, "latest_release_version", lambda _settings, _token: "202607")
+    _serve(monkeypatch, metoffice_api, {"station-metadata": catalogue.encode("utf8")})
+    return _stations(MetOfficeObservationRequest, ("daily", "rain"))
+
+
+def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the list needs a client, so a stub of one is given; the names are those the list pads with a blank (GH-2654),
+    # the rest worded after it (ids with their `SN` prefix, the stamps as ISO text, the position as lon, lat)
+    def source(station_id: str, name: str, county: str, lon: float, lat: float, masl: int) -> dict[str, Any]:
+        return {
+            "id": station_id,
+            "name": name,
+            "validFrom": "2000-01-01T00:00:00.000Z",
+            "geometry": {"@type": "Point", "coordinates": [lon, lat]},
+            "county": county,
+            "countryCode": "NO",
+            "masl": masl,
+        }
+
+    catalogue = {
+        "data": [
+            source("SN18700", "OSLO - BLINDERN", "OSLO", 10.72, 59.94, 94),
+            source("SN46380", "KVANNDALEN ", "VESTLAND", 6.62, 60.88, 388),
+            source("SN46530", "VIVASSDALEN ", "VESTLAND", 6.4, 61.02, 54),
+        ]
+    }
+    _serve(monkeypatch, frost_api, {"sources/v0.jsonld": json.dumps(catalogue).encode("utf8")})
+    request = MetnoFrostRequest(
+        parameters=[("hourly", "data")],
+        settings=Settings(cache_disable=True, auth={"metno_frost": ("stub-client", "stub-secret")}),
+    )
+    return request.all().df
+
+
 def question_mark_in_the_name(row: dict[str, Any]) -> bool:
     """Say whether a name is damaged by a question mark and by nothing worse."""
     return "?" in row["name"] and not has_encoding_damage(row["name"], question_marks=False)
@@ -304,9 +389,12 @@ CHMI_NAME = Accepted(
 )
 
 STUBS = [
+    Stub("aemet/observation daily/data", _aemet),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
+    Stub("metno/frost hourly/data", _metno_frost),
+    Stub("metoffice/observation daily/rain", _metoffice),
     Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
     Stub(
         "noaa/ghcn daily/data",

@@ -69,7 +69,8 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
         return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
     return df.select(
         pl.col("src_id").cast(pl.String).alias("station_id"),
-        pl.col("station_name").cast(pl.String).alias("name"),
+        # the catalogue pads some names with a blank (`PORTLAND `), which a comparison of the name misses
+        pl.col("station_name").cast(pl.String).str.strip_chars().alias("name"),
         pl.col("historic_county").cast(pl.String),
         pl.col("station_file_name").cast(pl.String),
         pl.col("station_latitude").cast(pl.Float64, strict=False).alias("latitude"),
