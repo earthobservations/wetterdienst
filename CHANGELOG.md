@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `imgw/meteorology` returns the first station of the list, `249170080` Dzierżkowice, which the
+  reader took for the header: the list gave 799 of 800 stations and a request for that station
+  found nothing (GH-2650, GH-2752)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed
