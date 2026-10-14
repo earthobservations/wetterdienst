@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.152.0] - 2026-10-15
+
 ### Changed
 
 - **Breaking**: `dwd/mosmix` `hourly/large` `e_ttt` and `e_td`, the absolute error of `ttt` and
@@ -4966,7 +4968,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.151.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.152.0...HEAD
+[0.152.0]: https://github.com/earthobservations/wetterdienst/compare/v0.151.0...v0.152.0
 [0.151.0]: https://github.com/earthobservations/wetterdienst/compare/v0.150.0...v0.151.0
 [0.150.0]: https://github.com/earthobservations/wetterdienst/compare/v0.149.0...v0.150.0
 [0.149.0]: https://github.com/earthobservations/wetterdienst/compare/v0.148.0...v0.149.0
