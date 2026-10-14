@@ -13,11 +13,12 @@ below daily resolution a temperature the source says nothing about takes the spo
 and the rules for that are the ones about spot and mean names further down. See GH-2614.
 
 The rules about spot and mean names read only what the source says: a description that comes from
-`DERIVED_DESCRIPTIONS` is written from the row's canonical name, so it would agree with whatever name
-the row has, and is left out (`_source_description`, GH-2660). The field's own name counts, as RMI's
-`temp_dry_shelter_avg` does. A mean over a window shorter than the row's interval, KNMI's "1 Min Mean"
-in a 10-minute row, is a reading at one moment (`_states_a_mean`). What this leaves out is a
-generated description that disagrees with its row's name: nothing reads it any more.
+`DERIVED_DESCRIPTIONS`, or the canonical sentence a parameter reads when no table describes it, is
+written from the row's canonical name, so it would agree with whatever name the row has, and is left
+out (`_source_description`, GH-2660). The field's own name counts, as RMI's
+`temp_dry_shelter_avg` does. A mean over a window shorter than the row's interval, KNMI's
+"1 Min Mean" in a 10-minute row, is a reading at one moment (`_states_a_mean`). What this leaves out
+is a generated description that disagrees with its row's name: nothing reads it any more.
 """
 
 import re

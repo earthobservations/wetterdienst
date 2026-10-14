@@ -132,8 +132,10 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
 
 
 # the leading tokens of a parameter name that say which quantity it is: `temperature_dew`
-# (`temperature_dew_point_mean_2m`), `error_absolute` (`error_absolute_temperature_air_mean_2m`)
+# (`temperature_dew_point_mean_2m`), `wind_gust` (`wind_gust_max`). `error_absolute_` is no quantity
+# but says the name is the error of one, so the tokens after it are the quantity and the prefix must agree
 _QUANTITY_TOKENS = 2
+_ERROR_PREFIX = "error_absolute_"
 # how close two such tokens have to be to count as one spelled wrongly ("sped", "realtive")
 _TOKEN_CUTOFF = 0.75
 
@@ -144,9 +146,22 @@ def _keeps_the_quantity(item: str, candidate: str) -> bool:
     The difflib guess is made over the whole name, and a long name that differs in its first tokens
     can still be the closest: `temperature_dew_point_mean_2m` is nearer to `temperature_air_mean_2m`
     than to anything else a dataset without the dew point holds, and the air temperature is no dew
-    point (GH-2924). So a guess is offered only where the tokens that name the quantity agree.
+    point (GH-2924). So a guess is offered only where the tokens that name the quantity agree. What
+    follows them, the statistic and the level, is not compared: `temperature_air_max_0_05m` may still
+    be answered with the minimum.
+
+    A name of one token is a source's own code (`rsk`) and has no quantity to compare, and a missing
+    underscore (`windspeed`) is a typo of the whole name, not of a token.
     """
-    leading = zip(item.split("_")[:_QUANTITY_TOKENS], candidate.split("_")[:_QUANTITY_TOKENS], strict=False)
+    if item.replace("_", "") == candidate.replace("_", ""):
+        return True
+    if item.startswith(_ERROR_PREFIX) != candidate.startswith(_ERROR_PREFIX):
+        return False
+    item_tokens = item.removeprefix(_ERROR_PREFIX).split("_")
+    candidate_tokens = candidate.removeprefix(_ERROR_PREFIX).split("_")
+    if len(item_tokens) == 1 or len(candidate_tokens) == 1:
+        return True
+    leading = zip(item_tokens[:_QUANTITY_TOKENS], candidate_tokens[:_QUANTITY_TOKENS], strict=False)
     return all(a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _TOKEN_CUTOFF for a, b in leading)
 
 

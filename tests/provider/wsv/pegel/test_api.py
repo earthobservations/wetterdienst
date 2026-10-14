@@ -211,8 +211,8 @@ def test_wsv_every_parameter_is_described() -> None:
 
     The parameter descriptions are declared once and keyed by resolution name, so they attach only
     to resolutions spelled the same way in both places. A resolution added to the provider but not
-    to `_WSV_PEGEL_RESOLUTIONS` would leave a whole resolution's worth of parameters undescribed in
-    the docs, the REST API and the MCP tools, without anything failing.
+    to `_WSV_PEGEL_RESOLUTIONS` would leave a whole resolution's worth of parameters with the canonical
+    sentence of their quantity in place of Pegelonline's, without anything failing.
     """
     from wetterdienst.metadata.source_descriptions import SOURCE_DESCRIPTIONS  # noqa: PLC0415
 

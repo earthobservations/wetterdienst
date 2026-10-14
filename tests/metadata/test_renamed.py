@@ -225,6 +225,8 @@ def test_a_name_a_dataset_lacks_is_answered_with_the_name_it_has(
         (DwdObservationMetadata, "daily/kl/temperature_dew_point_mean_2m"),
         # only `hourly/large` holds the error, `temperature_air_2m` is the temperature
         (DwdMosmixMetadata, "hourly/small/error_absolute_temperature_air_mean_2m"),
+        # `error_absolute_` is the error of a quantity, not the quantity: the wind speed is no wind gust
+        (DwdMosmixMetadata, "hourly/large/error_absolute_wind_gust_max"),
     ],
 )
 def test_a_name_of_another_quantity_is_not_guessed_at(
@@ -244,8 +246,13 @@ def test_a_name_of_another_quantity_is_not_guessed_at(
         ("daily/kl/temperatur_air_mean_2m", "temperature_air_mean_2m"),
         ("daily/kl/wind_sped", "wind_speed"),
         ("daily/kl/humidity_realtive", "humidity_relative"),
-        # the source's own name is a candidate too
+        # the source's own name is a candidate too, and a code has no quantity to compare
         ("daily/kl/tmkk", "tmk"),
+        ("daily/kl/rsx", "rsk"),
+        # a missing underscore is a typo of the whole name
+        ("daily/kl/windspeed", "wind_speed"),
+        ("daily/kl/wind_gustmax", "wind_gust_max"),
+        ("daily/kl/temperatureair_mean_2m", "temperature_air_mean_2m"),
     ],
 )
 def test_a_typo_of_a_quantity_the_dataset_has_is_still_guessed_at(

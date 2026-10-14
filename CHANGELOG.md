@@ -18,15 +18,16 @@ Types of changes:
 
 ### Fixed
 
-- The warning for a parameter a dataset does not have no longer offers a near spelling that is
-  another quantity: `temperature_dew_point_mean_2m` in `dwd/observation` `daily/kl` no longer
-  suggests `temperature_air_mean_2m`, nor `error_absolute_temperature_air_mean_2m` in `dwd/mosmix`
-  `hourly/small` `temperature_air_2m`. A misspelling of a name the dataset has is still answered;
-  otherwise the message lists the available names (GH-2924)
+- The warning for a parameter a dataset does not have no longer offers a near spelling whose
+  leading words name another quantity: `temperature_dew_point_mean_2m` in `dwd/observation`
+  `daily/kl` no longer suggests `temperature_air_mean_2m`, nor
+  `error_absolute_temperature_air_mean_2m` in `dwd/mosmix` `hourly/small` `temperature_air_2m`.
+  A misspelling of a name the dataset has is still answered; otherwise the message lists the
+  available names (GH-2924)
 - The descriptions of `dwd/observation` `tx5_10` (`10_minutes/temperature_extreme`) and `v_te002`
-  (`hourly/temperature_soil`) in the glossary, the REST API, the MCP tools and the docs say that
-  only the historical files carry a value (up to 2009 and 2019): `recent` and `now` hold `-999` at
-  every station, so a request for those periods never has a value for these two (GH-2852)
+  (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
+  historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
+  `-999` at every station, so those periods never have a value for these two (GH-2852)
 
 ## [0.152.0] - 2026-10-15
 
