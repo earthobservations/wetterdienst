@@ -55,6 +55,12 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- The retry of `list_remote_files_fsspec` and `list_remote_directory_fsspec` no longer puts the
+  `Settings` of a keyword call (`settings=settings`) into stamina's log record as
+  `stamina.kwargs`, where a handler that serialises pydantic objects by their fields (logfire,
+  rich) would print a proxy password. The record now carries no arguments and names the retried
+  block `<context block>`, as `download_file`'s does, no longer the listing function. The retry
+  policy and the answers are unchanged (GH-2904, GH-2623)
 
 ## [0.151.0] - 2026-10-14
 
