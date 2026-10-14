@@ -44,13 +44,35 @@ def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.Monke
 
     df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
 
-    # the reader takes the first row of the list for the header (GH-2752), so the first station is not asserted
-    stations = df.filter(pl.col("name").is_in(["Pszczyna", "Chałupki"]))
-    assert stations.select("station_id", "name", "river", "region", "elevation").rows() == [
+    assert df.select("station_id", "name", "river", "region", "elevation").rows() == [
+        ("249170080", "Dzierżkowice", "Opawa (112)", None, 270.0),
         ("249180010", "Pszczyna", "Pszczynka (2116)", None, 270.0),
         ("249180030", "Chałupki", "Odra (1)", None, 198.0),
     ]
     assert df["region"].is_null().all()
+
+
+def test_imgw_meteorology_station_list_returns_every_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first station of the list is a station, not the header (GH-2650, GH-2752).
+
+    The list has one header line. Skipping it and then reading the next row as the header lost
+    `249170080` Dzierżkowice, the first row, so a request for it found nothing.
+    """
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.meteorology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+    request = ImgwMeteorologyRequest(parameters=[("daily", "climate")])
+
+    assert request.all().df["station_id"].to_list() == ["249170080", "249180010"]
+    assert request.filter_by_station_id("249170080").df["name"].to_list() == ["Dzierżkowice"]
 
 
 @pytest.mark.remote

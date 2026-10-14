@@ -436,11 +436,13 @@ DwdObservationMetadata = {
                             "name_original": "fg_st_10",
                             "unit": "joule_per_square_centimeter",
                         },
-                        # urban sunshine duration is reported in minutes (the non-urban solar sd_10 is hours)
+                        # DWD's parameter sheet says "Minute", but the values are fractions of an hour, as in the
+                        # non-urban solar sd_10: 0.17 is a full-sun interval (ten minutes, rounded to two decimals),
+                        # 0.02 is one minute (GH-2698)
                         {
                             "name": "sunshine_duration",
                             "name_original": "sd_st_10",
-                            "unit": "minute",
+                            "unit": "hour",
                         },
                     ],
                 },
@@ -1422,11 +1424,6 @@ DwdObservationMetadata = {
                         {
                             "name": "temperature_soil_mean_0_5m",
                             "name_original": "v_te050m",
-                            "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "temperature_soil_mean_1m",
-                            "name_original": "v_te100m",
                             "unit": "degree_celsius",
                         },
                     ],

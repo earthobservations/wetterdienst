@@ -18,6 +18,47 @@ Types of changes:
 
 ### Fixed
 
+- Station names of `aemet/observation`, `metoffice/observation` and `metno/frost` no longer carry
+  the blanks the catalogues pad some with (`PORTOCOLOM  `, `PORTLAND `, `KVANNDALEN `), so an exact
+  comparison of the name, such as `name = 'PORTLAND'` in an SQL filter, matches them (GH-2654)
+- **Breaking**: `dwd/observation` `10_minutes/urban_solar` `sunshine_duration` (`SD_ST_10`) is
+  declared in hours, no longer minutes. DWD's parameter sheet says "Minute", but the values are
+  fractions of an hour (0.17 is a full-sun interval of 10 minutes). With the default unit targets
+  a full-sun interval comes back as 612 s, not 10.2 s, so values you stored from before are 60
+  times too small in seconds; multiply them by 60. With `convert_units=False` the numbers are
+  unchanged, and their unit is `h`, not `min` (GH-2698)
+- The `radar` extra no longer installs `tabula`, an unrelated package ("Ascii table") that has no
+  `read_pdf`; nothing at runtime imported it. Only the maintainers' radar-sites generator
+  (`provider/dwd/radar/sites.py`) reads a PDF with `tabula`, and needs `pip install tabula-py` and
+  a Java runtime itself. `uv sync --extra radar` drops `tabula` and, with it, `setuptools` (GH-2764)
+- `noaa/ghcn` daily stations FR000007510 (Bordeaux-Merignac), FRE00104044 (Caen-Carpiquet) and
+  SP000008416 (Valencia) are listed west of Greenwich, at -0.6914, -0.4558 and -0.3664, no longer
+  east of it. `ghcnd-stations.txt` has lost the sign of their longitude, which put them 63 to 109
+  km off, so a nearest-station search or an interpolation near them picked the wrong stations
+  (GH-2645)
+- **Breaking**: `dwd/observation` `daily/temperature_soil/temperature_soil_mean_1m` (`v_te100m`) is
+  gone. DWD does not publish a 100 cm column (the files and the dataset sheet stop at 50 cm), so a
+  request for it returned no rows and no warning, and the docs and coverage listed it as available.
+  A request that names it now warns that it is not a known parameter and drops it, and fails if it
+  names nothing else; remove it from the request. The hourly `temperature_soil_1m` (`v_te100`) is
+  unchanged (GH-2700)
+- `aemet/observation` no longer serves an error of AEMET's back from the cache. AEMET reports
+  the rate limit (`estado` 429) and its own faults (500) in the body of an HTTP 200, which was
+  kept for 5 minutes (12 hours for the station list) and read back by every request after it.
+  Such an answer, a maintenance page and an envelope without a link to the data are now dropped,
+  so the next request asks AEMET again (GH-2750)
+- `aemet/observation` and `metno/frost` keep an accepted credential check for one minute, not one
+  hour, so `is_valid()` and the credential check of the REST API and app stop reporting `True`
+  for a revoked key within a minute. A refused or failed AEMET check is no longer kept at all
+  (GH-2750)
+- `imgw/meteorology` returns the first station of the list, `249170080` Dzierżkowice, which the
+  reader took for the header: the list gave 799 of 800 stations and a request for that station
+  found nothing (GH-2650, GH-2752)
+- `noaa/ghcn` daily: 20 more stations, in the UK (Heathrow, Waddington, Cranwell, ...), Spain
+  (Alicante, Murcia/San Javier, Valencia airport, ...), France (Mont-de-Marsan) and Burkina Faso
+  (Ouagadougou, Dedougou), are placed west of Greenwich, no longer east of it, where
+  `ghcnd-stations.txt` has lost the sign of their longitude. They were 6 to 756 km off, so a
+  nearest-station search or an interpolation near them picked the wrong stations (GH-2886)
 - `noaa/ghcn` daily stations that report in the current year have no `end_timestamp` (null) in the
   station list, as for `chmi/observation`; it was 31 December of this year, a date not reached
   yet, for 38,505 of 133,039 stations. The inventory gives only the year of the last observation,

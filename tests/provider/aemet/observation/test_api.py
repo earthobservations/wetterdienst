@@ -662,6 +662,8 @@ def test_aemet_observation_is_valid_is_one_short_attempt(monkeypatch: pytest.Mon
     assert calls[0]["attempts"] == 1
     assert calls[0]["client_kwargs"]["timeout"].total == PROBE_TIMEOUT_SECONDS
     assert Settings().fsspec_client_kwargs["timeout"] > PROBE_TIMEOUT_SECONDS
+    # an acceptance is cached for a minute, not an hour: a revoked key must not read True for an hour (GH-2750)
+    assert calls[0]["ttl"] is CacheExpiry.ONE_MINUTE
 
 
 @pytest.mark.usefixtures("_aemet_key")

@@ -29,7 +29,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings, reveal
-from wetterdienst.util.network import PROBE_TIMEOUT, download_file
+from wetterdienst.util.network import PROBE_TIMEOUT, download_file, drop_cached_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -228,17 +228,40 @@ def _read_envelope(file: File) -> dict | Exception:
     return envelope
 
 
+def _drop_cached_envelope(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
+    """Drop the envelope `download_file` cached when it is no good, so that the next request asks AEMET again.
+
+    AEMET reports most of its errors in the body of an HTTP 200 (`estado` 429 for the rate limit, 500
+    for its own faults), which `download_file` caches for the whole `ttl` like an answer. A failure
+    that arrived as an HTTP error was never cached.
+    """
+    if isinstance(file.content, Exception):
+        return
+    drop_cached_file(
+        file.url,
+        settings.cache_dir,
+        ttl,
+        client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+
+
 def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exception:
     """Resolve AEMET's two-step response pattern (envelope + separate "datos" URL).
 
     A failure is returned, not raised (see `_read_envelope` for the one that says the key is refused).
     The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
+    An envelope that is a failure is not kept in the cache (see `_drop_cached_envelope`).
     """
-    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=_client_kwargs(settings))
+    client_kwargs = _client_kwargs(settings)
+    file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
     envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
+        _drop_cached_envelope(file, settings, ttl, client_kwargs)
         return envelope
     if not isinstance(envelope.get("datos"), str):
+        _drop_cached_envelope(file, settings, ttl, client_kwargs)
         return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
     if isinstance(datos_file.content, Exception):
@@ -248,7 +271,7 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
 
 
 def _probe_aemet_credentials(settings: Settings) -> bool | None:
-    """Probe the AEMET API with the envelope of one request; an answer is cached on disk for ONE_HOUR.
+    """Probe the AEMET API with the envelope of one request; an acceptance is cached on disk for ONE_MINUTE.
 
     Asked while a page waits for it, so it is bounded (GH-2564): one request, one attempt, for
     `PROBE_TIMEOUT_SECONDS`, and not through `_download_with_rate_limit_retry`, whose waits made a
@@ -258,22 +281,29 @@ def _probe_aemet_credentials(settings: Settings) -> bool | None:
     Returns False only when AEMET refuses the key (see `_read_envelope`), True when it answers, and
     None for any other failure -- no network, a failed TLS verification, a timeout, a 429 ("wait for
     the next minute"), a 5xx -- which says nothing about the key.
+
+    Only an acceptance stays in the cache, and only for `ONE_MINUTE` (AEMET's own rate-limit window):
+    a refusal or a failure is dropped (GH-2750), so a key that is activated or a limit that lifts is
+    seen by the next probe, and a key that is revoked stops reading `True` within the minute.
     """
     if not settings.auth.aemet:
         return False
+    ttl = CacheExpiry.ONE_MINUTE
+    client_kwargs = {**_client_kwargs(settings), "timeout": PROBE_TIMEOUT}
     file = download_file(
         url=f"{_BASE_URL}/valores/climatologicos/inventarioestaciones/todasestaciones",
         cache_dir=settings.cache_dir,
-        ttl=CacheExpiry.ONE_HOUR,
-        client_kwargs={**_client_kwargs(settings), "timeout": PROBE_TIMEOUT},
+        ttl=ttl,
+        client_kwargs=client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
         attempts=1,
     )
     envelope = _read_envelope(file)
-    if isinstance(envelope, AemetKeyRejectedError):
-        return False
     if isinstance(envelope, Exception):
+        _drop_cached_envelope(file, settings, ttl, client_kwargs)
+        if isinstance(envelope, AemetKeyRejectedError):
+            return False
         log.warning("Could not check the AEMET API key: %s", envelope)
         return None
     return True
@@ -548,6 +578,8 @@ class AemetObservationRequest(TimeseriesRequest):
         df = pl.DataFrame(json.loads(payload.decode("latin-1")))
         df = df.rename({"indicativo": "station_id", "nombre": "name", "provincia": "region"})
         df = df.with_columns(
+            # the inventory pads some names with blanks (`PORTOCOLOM  `), which a comparison of the name misses
+            pl.col("name").str.strip_chars(),
             pl.col("altitud").cast(pl.Float64, strict=False).alias("elevation"),
             parse_dms_coordinate("latitud").alias("latitude"),
             parse_dms_coordinate("longitud").alias("longitude"),

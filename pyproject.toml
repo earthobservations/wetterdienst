@@ -212,7 +212,6 @@ postgresql = [
 radar = [
     "h5netcdf>=1.7.3",
     "h5py>=3.11,<4",
-    "tabula>=1.0.5",
 ]
 radarplus = [
     "pybufrkit>=0.2,<1",
@@ -341,7 +340,7 @@ unresolved-import = "warn"
 unused-ignore-comment = "error"
 
 [tool.ty.analysis]
-allowed-unresolved-imports = ["lxml.*", "tabula.*"]
+allowed-unresolved-imports = ["lxml.*", "tabula", "tabula.*"]
 
 [tool.ruff]
 line-length = 120
@@ -420,8 +419,10 @@ DEP002 = [
 ]
 # pyproj is imported only where installed, ahead of eccodes (`util/eccodes.py`, GH-2468), and not
 # needed otherwise: `radarplus` brings it through wradlib and xradar. Missing where it is not
-# installed, transitive where it is
-DEP001 = ["pyproj"]
+# installed, transitive where it is.
+# tabula is tabula-py, which only the maintainers' radar-sites generator imports
+# (`provider/dwd/radar/sites.py`): no extra names it, because it needs a Java runtime (GH-2764)
+DEP001 = ["pyproj", "tabula"]
 DEP003 = ["pyproj"]
 
 [tool.pytest.ini_options]
