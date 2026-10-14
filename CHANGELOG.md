@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wetterdienst restapi` on an install with `fastapi` and without `uvicorn` now prints that
+  `uvicorn` is missing and to `pip install wetterdienst[restapi]`, in one line with exit status 1,
+  no longer a `ModuleNotFoundError` traceback (GH-2928)
+
+### Security
+
+- The REST API answers a failure of the server's own with a 500 whose `detail` is `Internal
+  server error (<ExceptionType>). The cause is in the server log.`, no longer the exception's
+  text, which names server paths (a cache directory, a file an `OSError` met) and upstream URLs.
+  The body is still `{"detail": "<string>"}` and the status is unchanged, as are the 4xx and 501
+  bodies; the text and traceback are in the server log, at error level as before (GH-2767)
+
 ## [0.152.0] - 2026-10-15
 
 ### Changed
