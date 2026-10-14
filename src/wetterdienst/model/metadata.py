@@ -131,14 +131,34 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
     return ""
 
 
+# the leading tokens of a parameter name that say which quantity it is: `temperature_dew`
+# (`temperature_dew_point_mean_2m`), `error_absolute` (`error_absolute_temperature_air_mean_2m`)
+_QUANTITY_TOKENS = 2
+# how close two such tokens have to be to count as one spelled wrongly ("sped", "realtive")
+_TOKEN_CUTOFF = 0.75
+
+
+def _keeps_the_quantity(item: str, candidate: str) -> bool:
+    """Say whether `candidate` leads with the same quantity as `item`, up to a misspelled token.
+
+    The difflib guess is made over the whole name, and a long name that differs in its first tokens
+    can still be the closest: `temperature_dew_point_mean_2m` is nearer to `temperature_air_mean_2m`
+    than to anything else a dataset without the dew point holds, and the air temperature is no dew
+    point (GH-2924). So a guess is offered only where the tokens that name the quantity agree.
+    """
+    leading = zip(item.split("_")[:_QUANTITY_TOKENS], candidate.split("_")[:_QUANTITY_TOKENS], strict=False)
+    return all(a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _TOKEN_CUTOFF for a, b in leading)
+
+
 def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: DatasetModel | None = None) -> str:
     """Build the message for a name that no model matched.
 
     Names a close match where there is one, because the common failure is a typo or a name taken
     from another provider, and the available-names list alone leaves the user to spot the
-    difference themselves. A parameter that is called something else in this dataset is answered
-    with its name there instead of a guess (see `_renamed_hint`); `dataset` is the one a
-    parameter was looked up in.
+    difference themselves. A parameter's close match has to be of the same quantity (see
+    `_keeps_the_quantity`); where it is not, nothing is guessed. A parameter that is called
+    something else in this dataset is answered with its name there instead of a guess (see
+    `_renamed_hint`); `dataset` is the one a parameter was looked up in.
     """
     models = list(models)
     candidates = sorted({name for model in models for name in _names(model)})
@@ -147,6 +167,9 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
         _renamed_hint(item_search, {model.name.lower() for model in models}, dataset) if kind == "parameters" else ""
     )
     if not suggestion:
+        if kind == "parameters":
+            # a near spelling of another quantity is no hint, the list of available names is the answer then
+            candidates = [candidate for candidate in candidates if _keeps_the_quantity(item_search, candidate)]
         close = difflib.get_close_matches(item_search, candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
         suggestion = f" Did you mean '{close[0]}'?" if close else ""
     available = ", ".join(
