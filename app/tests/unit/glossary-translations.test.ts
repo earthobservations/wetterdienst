@@ -53,6 +53,18 @@ function resolutions(): string[] {
   return [...block.matchAll(/^ {4}[A-Z_0-9]+ = "([a-z0-9_]+)"/gm)].map(match => match[1] as string)
 }
 
+/**
+ * The datasets of `dwd/phenology`: one per plant and reporter group, `annual_apple`, `immediate_black_elder`.
+ * They are made from the `_PLANTS` table of `provider/dwd/phenology/metadata.py` -- a reporter directory,
+ * a group directory, the file stem, then the plant's name -- so no dataset name is written out in it.
+ */
+function phenologyDatasets(): string[] {
+  const prefix = { annual_reporters: 'annual', immediate_reporters: 'immediate' } as const
+  return [...source('src/wetterdienst/provider/dwd/phenology/metadata.py')
+    .matchAll(/^ {4}\(\s*"(annual_reporters|immediate_reporters)",\s*"[a-z]+",\s*"[^"]+",\s*"([a-z_]+)",/gm)]
+    .map(match => `${prefix[match[1] as keyof typeof prefix]}_${match[2]}`)
+}
+
 /** The ids each locale has to label, by record. */
 const required: Record<GlossaryRecord, () => string[]> = {
   parameters: canonicalParameters,
@@ -94,6 +106,13 @@ describe('the glossary reads the backend\'s names from where they are declared',
     expect(resolutions()).toHaveLength(11)
   })
 
+  it('finds the phenology datasets', () => {
+    const names = phenologyDatasets()
+    expect(names).toHaveLength(110)
+    expect(new Set(names).size, 'a dataset is declared twice').toBe(names.length)
+    expect(names).toEqual(expect.arrayContaining(['annual_apple', 'annual_winter_rye', 'immediate_black_elder']))
+  })
+
   it('ships a glossary for every ui locale', () => {
     const uiLocales = readdirSync(localesDir).filter(name => name.endsWith('.json')).map(name => name.replace(/\.json$/, '')).sort()
     expect(locales).toEqual(uiLocales)
@@ -124,6 +143,14 @@ describe.each(records)('%s', (record) => {
     })
     expect(copied, `${locale} ${record} that are English: translate them, or write down why they are the same`).toEqual([])
   })
+
+  // `useParameterLabel` showed "Annual Winter Rye" in every language for these (GH-2866)
+  if (record === 'datasets') {
+    it.each(locales)('has every phenology dataset in %s', (locale) => {
+      const labels = glossaries[locale]!.datasets
+      expect(phenologyDatasets().filter(id => !labels[id]?.trim()), `${locale} has no label for these`).toEqual([])
+    })
+  }
 
   it('writes down only the labels that really are the same', () => {
     for (const [id, { locales: named }] of Object.entries(identical[record])) {
