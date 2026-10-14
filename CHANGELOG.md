@@ -22,6 +22,11 @@ Types of changes:
   malformed `WD_*` setting, naming the variable and exiting 1, as `about coverage` without
   arguments and every other command already do. They ran and exited 0, so the same environment
   gave `about coverage` two different exit codes (GH-2619)
+- `dwd/dmo` station P0563 (London Luton) is at longitude -0.37, no longer +0.37 (50 km east),
+  where the DMO station list loses its minus. Waddington (03377), Farnborough (03768) and
+  Castellon de la Plana (08286) are west of Greenwich and Bauru (F9424) south of the equator, no
+  longer east and north, where DWD publishes them in every file; they are in `dwd/mosmix` too.
+  A position is corrected only while DWD still publishes the wrong one (GH-2897)
 
 ## [0.151.0] - 2026-10-14
 
