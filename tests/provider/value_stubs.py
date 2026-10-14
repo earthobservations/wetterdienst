@@ -436,11 +436,18 @@ def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
     return _dwd_observation(monkeypatch, "hourly", "cloudiness", product, "00003", drop_nulls=drop_nulls)
 
 
+# the first row of klima-v2-1d/metadata/stations with the list's header, as Geosphere publishes it (read 2026-10-14)
+_GEOSPHERE_STATIONS = (
+    "id,Synopstationsnummer,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,"
+    "Sonnenschein,Globalstrahlung,Synop,Verknüpfungsnummer,Startdatum Teilzeitreihe,Enddatum Teilzeitreihe,"
+    "zusammengesetzt\n"
+    "1,,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,"
+    "True,True,,,,,ja\n"
+)
+
+
 def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
-    ).encode()
+    stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-1d: "-1=kein Niederschlag, 0=weniger als 1/10 mm" for rr, "-1=kein Schnee" for sh_manu
     # (checked on the live API for station 5904: rr is written -1.0, the whole-number sh_manu -1)
     series = {"rr": [0.3, -1.0, 0.0], "sh_manu": [4, -1, 2]}
@@ -464,10 +471,7 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
 
 
 def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
-    ).encode()
+    stations = _GEOSPHERE_STATIONS.encode()
     # klima-v2-1h for Aflenz, 2024-01-02 18:00 to 20:00 (read 2026-10-12): "Windrichtung [360°]" dd is [9, 0, 38] beside
     # the speed ff [0.3, 0.0, 0.5], the calm at 19:00 written 0; north is 360 (GH-2794)
     series = {"dd": [9, 0, 38], "ff": [0.3, 0.0, 0.5]}
@@ -1467,9 +1471,10 @@ NO_STUB = {
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
-        "JULTAG is a day of the year relative to the reference year (negative for a phase in the year before) and the "
-        "reader maps no sentinel: no -999 in the 832,590 rows of 94 files of annual and immediate reporters, recent "
-        "and historical (2026-10-12), whose lowest JULTAG is -120"
+        "the value is DWD's JULTAG, which is the day of the year only for a date in the reference year (negative "
+        "for a date before it, past 365 for one after it) and the reader maps no sentinel: no -999 or other "
+        "sentinel in the 424 files of annual and immediate reporters (crops, farming, fruit, vine, wild; recent and "
+        "historical, 2026-10-14), whose lowest JULTAG is -130 and highest 443"
     ),
     "dwd/radar": (
         "no timeseries: the files are handed over as DWD wrote them, and the BUFR path (`read_radar_bufr`) turns the "

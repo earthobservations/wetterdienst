@@ -27,12 +27,13 @@ jobs:
             echo "is-backend=false" >> $GITHUB_OUTPUT
           fi
 
-  release:
+  # Builds the distributions in a job without `id-token`: `uv sync` and `uv build` run the build code
+  # of the project and of every package in the lock, and must not be able to mint the PyPI
+  # trusted-publishing token that publishes what they produce
+  build:
     needs: check-release-type
     if: needs.check-release-type.outputs.is-backend == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     steps:
       - name: Acquire sources
         uses: actions/checkout@v7
@@ -49,6 +50,31 @@ jobs:
 
       - name: Build
         run: uv build
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # Holds the token and runs no project or dependency code: no checkout, no `uv sync`, only the
+  # distributions the build job produced
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+
+      - name: Download distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
 
       - name: Publish
         run: uv publish

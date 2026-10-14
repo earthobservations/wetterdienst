@@ -4,6 +4,7 @@
 
 import builtins
 import importlib
+import logging
 import sys
 from pathlib import Path
 
@@ -11,7 +12,12 @@ import pytest
 from click.testing import CliRunner
 
 from wetterdienst.exceptions import BufrReaderMissingError, MissingDependencyError
-from wetterdienst.util.extras import extras_installing, import_optional, missing_dependency_message
+from wetterdienst.util.extras import (
+    as_missing_dependency,
+    extras_installing,
+    import_optional,
+    missing_dependency_message,
+)
 
 
 @pytest.mark.parametrize(
@@ -21,6 +27,11 @@ from wetterdienst.util.extras import extras_installing, import_optional, missing
         ("plotly", ["plotting"]),
         ("fastapi", ["restapi"]),
         ("h5py", ["knmi", "radar"]),
+        # modules named otherwise than their distribution, with nothing installed to say so (GH-2663)
+        ("MySQLdb", ["mysql"]),
+        ("influxdb_client_3", ["influxdb"]),
+        ("influxdb_client", ["influxdb"]),
+        ("sqlalchemy_cratedb", ["cratedb"]),
         # a core dependency belongs to no extra, and neither does something that is not ours at all
         ("polars", []),
         ("not-a-package-of-ours", []),
@@ -93,7 +104,7 @@ def without(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     return _without
 
 
-def test_the_restapi_command_names_its_extra(without) -> None:  # noqa: ANN001
+def test_the_restapi_command_names_its_extra(without, caplog: pytest.LogCaptureFixture) -> None:  # noqa: ANN001
     """`wetterdienst restapi` without the extra says which extra, not just which module."""
     from wetterdienst.ui.cli import cli  # noqa: PLC0415
 
@@ -101,10 +112,13 @@ def test_the_restapi_command_names_its_extra(without) -> None:  # noqa: ANN001
 
     result = CliRunner().invoke(cli, ["restapi"])
 
-    assert isinstance(result.exception, ImportError)
-    assert str(result.exception) == (
+    # one line and exit 1, as every other missing extra is told, and not a traceback (GH-2667)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
         "The REST API requires fastapi, which is not installed. Install it with: pip install wetterdienst[restapi]"
-    )
+    ]
+    assert all(record.exc_info is None for record in caplog.records)
 
 
 def test_interpolation_names_its_extra(without) -> None:  # noqa: ANN001
@@ -242,3 +256,40 @@ def test_a_module_missing_inside_an_installed_package_keeps_its_traceback(
         import_optional("optional_broken_inside", "Something")
 
     assert not isinstance(excinfo.value, MissingDependencyError)
+
+
+def test_a_module_not_found_by_name_is_a_missing_dependency_naming_it() -> None:
+    """The error of an import made elsewhere is told as `import_optional` tells it (GH-2663)."""
+    error = ModuleNotFoundError("No module named 'MySQLdb'", name="MySQLdb")
+
+    missing = as_missing_dependency(error, "Writing to a SQL database")
+
+    assert isinstance(missing, MissingDependencyError)
+    assert str(missing) == (
+        "Writing to a SQL database requires MySQLdb, which is not installed. "
+        "Install it with: pip install wetterdienst[mysql]"
+    )
+
+
+def test_a_module_not_found_inside_an_installed_package_is_no_missing_dependency() -> None:
+    """A dotted name is a broken install or a defect, and is left to keep its traceback (GH-2663)."""
+    error = ModuleNotFoundError("No module named 'sqlalchemy.dialects.nowhere'", name="sqlalchemy.dialects.nowhere")
+
+    assert as_missing_dependency(error, "Writing to a SQL database") is None
+
+
+@pytest.mark.parametrize(
+    ("module_name", "expected"),
+    [("MySQLdb", ["mysql"]), ("influxdb_client_3", ["influxdb"])],
+)
+def test_a_module_named_otherwise_than_its_distribution_is_found_where_nothing_is_installed(
+    monkeypatch: pytest.MonkeyPatch, module_name: str, expected: list[str]
+) -> None:
+    """`MySQLdb` is `mysqlclient` and `influxdb_client_3` is `influxdb3-python`, which Python cannot say (GH-2663).
+
+    Where the package is not installed it knows no module by that name, and the module's own name,
+    which is the distribution's for most packages, would find no extra.
+    """
+    monkeypatch.setattr("importlib.metadata.packages_distributions", dict)
+
+    assert extras_installing(module_name) == expected

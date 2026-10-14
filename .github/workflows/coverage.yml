@@ -51,10 +51,6 @@ concurrency:
 env:
   OS: "ubuntu-latest"
   PYTHON: "3.14"
-  WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
-  WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-  WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
-  WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
 
 permissions: {}
 
@@ -80,11 +76,23 @@ jobs:
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
+      # the provider keys are given to the two test steps alone, not to `uv sync` or to the
+      # third-party Codecov action
       - name: Run tests, with coverage (parallel)
+        env:
+          WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
+          WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
+          WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
+          WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: uv run poe coverage:parallel
 
       - name: Run tests, with coverage (cflakes)
         if: always()
+        env:
+          WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
+          WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
+          WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
+          WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: uv run poe coverage:cflakes
 
       - name: Upload coverage report to Codecov
