@@ -39,7 +39,8 @@ _TRACE_PRECIPITATION_PARAMETERS = ("RH",)
 _TRACE = "-1"
 
 # the hourly wind direction DD is a bearing "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (KNMI's
-# description of the variable): the two codes are no direction. The 10-minute `dd` (lowercase) is not given them
+# description of the variable): the two codes are no direction. The 10-minute `dd` (lowercase) is a different variable,
+# in which a file read showed no code (GH-2850)
 _WIND_DIRECTION_CODE_PARAMETERS = ("DD",)
 _CALM = "0"
 _VARIABLE = "990"

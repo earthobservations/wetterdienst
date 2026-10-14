@@ -610,6 +610,24 @@ def test_knmi_values_offline_stop_at_first_station(monkeypatch: pytest.MonkeyPat
     assert len(attempted) == 1
 
 
+def test_knmi_values_going_offline_keeps_the_station_that_found_out_and_stops_there(
+    monkeypatch: pytest.MonkeyPatch,
+    netcdf_payload: bytes,
+) -> None:
+    """The first station keeps what it read before the network went, the second is not tried (GH-2620)."""
+    attempted = _fake_downloads(monkeypatch, netcdf_payload, NoInternetError("no route to host"))
+    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    df = (
+        _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=5))
+        .filter_by_station_id((DE_BILT, EELDE))
+        .values.all()
+        .df
+    )
+    assert len(attempted) == 2
+    assert df.get_column("station_id").unique().to_list() == [DE_BILT]
+    assert df.get_column("value").to_list() == [6.6]
+
+
 def test_knmi_values_offline_stop_at_first_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     """Offline, the request ends at the first download: the station's other resolution is not tried (GH-2620)."""
     attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))

@@ -333,8 +333,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         else:
             data = []
             for parameter in parameters:
-                if self.offline:
-                    break
                 df = self._collect_station_parameter_or_dataset(
                     station_id=station_id,
                     parameter_or_dataset=cast("_UnitT", parameter),
