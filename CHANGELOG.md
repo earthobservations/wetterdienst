@@ -18,6 +18,15 @@ Types of changes:
 
 ### Fixed
 
+- `aemet/observation` no longer serves an error of AEMET's back from the cache. AEMET reports
+  the rate limit (`estado` 429) and its own faults (500) in the body of an HTTP 200, which was
+  kept for 5 minutes (12 hours for the station list) and read back by every request after it.
+  Such an answer, a maintenance page and an envelope without a link to the data are now dropped,
+  so the next request asks AEMET again (GH-2750)
+- `aemet/observation` and `metno/frost` keep an accepted credential check for one minute, not one
+  hour, so `is_valid()` and the credential check of the REST API and app stop reporting `True`
+  for a revoked key within a minute. A refused or failed AEMET check is no longer kept at all
+  (GH-2750)
 - `imgw/meteorology` returns the first station of the list, `249170080` Dzierżkowice, which the
   reader took for the header: the list gave 799 of 800 stations and a request for that station
   found nothing (GH-2650, GH-2752)
