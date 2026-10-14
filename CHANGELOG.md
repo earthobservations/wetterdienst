@@ -77,6 +77,13 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- `GET /api/auth` and `GET /api/coverage?provider&network` answer a listed network whose module
+  fails to import (an `ImportError` that is no missing optional extra, such as a broken `lxml`
+  install) with a 500, as the data routes do, no longer a 404 "Choose provider and network from
+  /api/coverage"; the MCP tools raise the import error. The `/` index leaves out a provider whose
+  first network does not import, no longer answering 500 for the whole page. The listing of every
+  provider (`/api/coverage`, `wetterdienst about coverage`) logs a warning for a network it cannot
+  import (GH-2800, GH-2801)
 - The `noaa/ghcn` hourly docs page no longer constrains `pressure_air_site_delta_last_3h` (the
   3-hour pressure change) to `>=0`: it is negative when the pressure falls (-6.8 to 7.4 hPa at
   Anchorage in 2023). Only the docs change, the values returned do not (GH-2874)
