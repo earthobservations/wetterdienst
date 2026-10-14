@@ -1482,6 +1482,43 @@ def download_file(
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 
+def drop_cached_file(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> None:
+    """Delete the copy `download_file` cached for a url, so that the next call asks the server again.
+
+    For a download that arrived (status 200) but whose body the caller found to be a failure -- a
+    provider that reports an error in the body of an HTTP 200. The cache holds such a body for the
+    whole `ttl` like any other, and the caller would read the failure back without asking.
+
+    Takes the arguments the download was made with, because they name the cache it went to: a
+    different `ttl` or different `client_kwargs` is a different directory. Nothing happens when the
+    download was not cached (`NO_CACHE`, `cache_disable`) or when nothing is held for the url. Only
+    the cached copy is deleted: fsspec keeps the line in its metadata file, which no longer counts
+    as a hit once the copy is gone.
+    Never raises: a cache that cannot be written to has not kept the failure either.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        if not isinstance(filesystem, WholeFileCacheFileSystem):
+            return
+        filesystem.pop_from_cache(url)
+    except Exception:  # noqa: BLE001 -- best effort, the entry expires on its own
+        log.debug("Could not drop %s from the cache", url, exc_info=False)
+
+
 def _header_value(value: object) -> str:
     """Read a header value as the string it stands for, not as the string it prints as.
 
