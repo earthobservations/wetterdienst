@@ -228,12 +228,12 @@ def _read_envelope(file: File) -> dict | Exception:
     return envelope
 
 
-def _drop_cached_envelope(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
-    """Drop the envelope `download_file` cached when it is no good, so that the next request asks AEMET again.
+def _drop_cached_body(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
+    """Drop what `download_file` cached for a download whose body is no good, so that the next request asks again.
 
     AEMET reports most of its errors in the body of an HTTP 200 (`estado` 429 for the rate limit, 500
     for its own faults), which `download_file` caches for the whole `ttl` like an answer. A failure
-    that arrived as an HTTP error was never cached.
+    that arrived as an HTTP error was never cached. Used for the envelope and for the "datos" body.
     """
     if isinstance(file.content, Exception):
         return
@@ -252,22 +252,44 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
 
     A failure is returned, not raised (see `_read_envelope` for the one that says the key is refused).
     The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
-    An envelope that is a failure is not kept in the cache (see `_drop_cached_envelope`).
+
+    Nothing that failed stays in the cache (see `_drop_cached_body`): not an envelope that is a
+    failure, not a "datos" body that is no JSON array, and not the envelope of a "datos" link that
+    could not be fetched. The link is pre-signed and may expire, and every request within the `ttl`
+    would be handed the same one (12 hours for the station list) by the cached envelope.
     """
     client_kwargs = _client_kwargs(settings)
     file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
     envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
-        _drop_cached_envelope(file, settings, ttl, client_kwargs)
+        _drop_cached_body(file, settings, ttl, client_kwargs)
         return envelope
     if not isinstance(envelope.get("datos"), str):
-        _drop_cached_envelope(file, settings, ttl, client_kwargs)
+        _drop_cached_body(file, settings, ttl, client_kwargs)
         return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
     if isinstance(datos_file.content, Exception):
+        _drop_cached_body(file, settings, ttl, client_kwargs)
         return datos_file.content
-    # AEMET serves the "datos" payload as ISO-8859-1, not UTF-8.
-    return datos_file.content.read()
+    payload = datos_file.content.read()
+    if not _is_json_array(payload):
+        # a maintenance page or an error object answered with a 200: neither the body nor the link
+        # that led to it is asked again from the cache
+        _drop_cached_body(datos_file, settings, ttl, settings.fsspec_client_kwargs)
+        _drop_cached_body(file, settings, ttl, client_kwargs)
+        return Exception("AEMET answered with something other than a JSON array as the data")
+    return payload
+
+
+def _is_json_array(payload: bytes) -> bool:
+    """Tell whether a "datos" body is a JSON array, which is what every endpoint used here serves.
+
+    AEMET serves the "datos" payload as ISO-8859-1, not UTF-8, which latin-1 decodes whatever the bytes.
+    """
+    try:
+        return isinstance(json.loads(payload.decode("latin-1")), list)
+    except ValueError:
+        return False
 
 
 def _probe_aemet_credentials(settings: Settings) -> bool | None:
@@ -301,7 +323,7 @@ def _probe_aemet_credentials(settings: Settings) -> bool | None:
     )
     envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
-        _drop_cached_envelope(file, settings, ttl, client_kwargs)
+        _drop_cached_body(file, settings, ttl, client_kwargs)
         if isinstance(envelope, AemetKeyRejectedError):
             return False
         log.warning("Could not check the AEMET API key: %s", envelope)

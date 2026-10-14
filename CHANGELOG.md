@@ -22,6 +22,11 @@ Types of changes:
   malformed `WD_*` setting, naming the variable and exiting 1, as `about coverage` without
   arguments and every other command already do. They ran and exited 0, so the same environment
   gave `about coverage` two different exit codes (GH-2619)
+- `aemet/observation` no longer keeps a good envelope when the fetch of its `datos` link fails, and
+  no longer keeps a `datos` body that is no JSON array (a maintenance page, an error object sent
+  with HTTP 200). Both were read back for 5 minutes, the station list for 12 hours, so an expired
+  link kept every request failing. A request that gets such a body now logs a warning and returns
+  no data, not an exception, and the next one asks AEMET again (GH-2887)
 
 ## [0.151.0] - 2026-10-14
 
