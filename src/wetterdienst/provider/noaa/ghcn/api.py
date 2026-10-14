@@ -120,10 +120,25 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             },
         )
         parameters = [parameter.name_original for parameter in dataset]
+        # `<element>_Quality_Code` is what the source's own quality control made of the value, a code that Table 3 of
+        # the documentation lists per source (`<element>_Source_Code`, not returned). In the legacy sources 313, 314,
+        # 315, 322, 335, 343, 344, 346 `2` is "Suspect", `3` "Erroneous" and `1` "Passed all quality control checks"; in
+        # 220, 221, 222, 223, 347, 348 `2` and `3` are the same and `1` is "Good"; source 345 has its own (`1` "Issue",
+        # `3` "Error"). A letter is a check of the integration on six elements (`c` climatological outlier, `s` spike,
+        # `f` frequent value) or a legacy flag (`f` and `o` of a derived humidity, `A`, `P`, `U`, `q`). Sources Table 3
+        # does not list occur too (`0` of source 401). The value stays as the file gives it, suspect or erroneous too,
+        # and the code travels with it through the unpivot as the field of a struct, written as the source writes it,
+        # case included (`q` and `Q` differ) (GH-2754)
         df = df.select(
             "station_id",
             "timestamp",
-            *parameters,
+            *(
+                pl.struct(
+                    pl.col(parameter).alias("value"),
+                    pl.col(f"{parameter}_Quality_Code").alias("quality"),
+                ).alias(parameter)
+                for parameter in parameters
+            ),
         )
         df = df.unpivot(
             index=["station_id", "timestamp"],
@@ -132,6 +147,8 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             value_name="value",
         )
         df = df.with_columns(
+            pl.col("value").struct.field("quality"),
+            pl.col("value").struct.field("value"),
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
@@ -154,7 +171,10 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             ),
             Sentinel(GHCNH_PRECIPITATION_MISSING, where=pl.col("parameter").eq("precipitation")),
         )
-        return df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
+        return df.with_columns(
+            value.cast(pl.Float64).alias("value"),
+            join_quality_flags(pl.col("quality"), raw=raw),
+        ).drop("quality")
 
     def _collect_station_parameter_for_daily(
         self,
