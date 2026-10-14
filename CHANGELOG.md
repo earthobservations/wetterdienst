@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: `dwd/observation` `daily/temperature_soil/temperature_soil_mean_1m` (`v_te100m`) is
+  gone. DWD does not publish a 100 cm column (the files and the dataset sheet stop at 50 cm), so a
+  request for it returned no rows and no warning, and the docs and coverage listed it as available.
+  A request that names it now warns that it is not a known parameter and drops it, and fails if it
+  names nothing else; remove it from the request. The hourly `temperature_soil_1m` (`v_te100`) is
+  unchanged (GH-2700)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed

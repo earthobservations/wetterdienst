@@ -129,7 +129,6 @@ Codes (precipitation_form):
 | {term}`temperature_soil_mean_0_1m` | v_te010m | Daily soil temperature in 10 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_2m` | v_te020m | Daily soil temperature in 20 cm depth. | °C | - |
 | {term}`temperature_soil_mean_0_5m` | v_te050m | Daily soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_mean_1m` | v_te100m | Daily soil temperature in 100 cm depth. | °C | - |
 
 ### water_equivalent
 
