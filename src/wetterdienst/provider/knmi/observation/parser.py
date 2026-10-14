@@ -38,6 +38,12 @@ _FILL_VALUE = "NaN"
 _TRACE_PRECIPITATION_PARAMETERS = ("RH",)
 _TRACE = "-1"
 
+# the hourly wind direction DD is a bearing "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (KNMI's
+# description of the variable): the two codes are no direction. The 10-minute `dd` (lowercase) is not given them
+_WIND_DIRECTION_CODE_PARAMETERS = ("DD",)
+_CALM = "0"
+_VARIABLE = "990"
+
 
 def decode_str(value: object) -> str:
     """Decode an HDF5 string cell to str (h5netcdf returns vlen strings as bytes)."""
@@ -87,12 +93,14 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
             value = float(cell[0]) if getattr(cell, "shape", ()) else float(cell)
             rows.append({"timestamp": moment, "parameter": parameter, "value": value})
     # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
-    # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0. Both keep what
-    # the file held as the `raw` token of `quality_flags` (GH-2759)
+    # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0, and the 0 (calm)
+    # and 990 (variable) of the hourly wind direction are no bearing, so null (GH-2850). All keep what the file held as
+    # the `raw` token of `quality_flags` (GH-2759)
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_FILL_VALUE),
         Sentinel(_TRACE, where=pl.col("parameter").is_in(_TRACE_PRECIPITATION_PARAMETERS), to=0.0),
+        Sentinel(_CALM, _VARIABLE, where=pl.col("parameter").is_in(_WIND_DIRECTION_CODE_PARAMETERS)),
         text=False,
     )
     return pl.DataFrame(rows, schema=_ROW_SCHEMA, orient="row").select(

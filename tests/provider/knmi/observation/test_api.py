@@ -292,6 +292,31 @@ def test_knmi_parse_netcdf_fill_value_becomes_null_not_nan(netcdf_payload: bytes
     assert df2["quality_flags"].to_list() == [None]
 
 
+@pytest.mark.parametrize(
+    ("code", "raw"),
+    [(990.0, "raw:990"), (0.0, "raw:0")],
+    ids=["variable", "calm"],
+)
+def test_knmi_parse_netcdf_hourly_wind_direction_codes_are_no_bearing(tmp_path: Path, code: float, raw: str) -> None:
+    """The hourly DD is "360=north, ... 0=calm, 990=variable": the codes are null, with KNMI's text kept (GH-2850)."""
+    string_dtype = h5py.string_dtype()
+    path = tmp_path / "knmi.nc"
+    with h5netcdf.File(path, "w") as file:
+        file.dimensions = {"station": 2, "time": 1}
+        station = file.create_variable("station", ("station",), dtype=string_dtype)
+        station[:] = ["0-20000-0-06260", "0-20000-0-06280"]
+        dd = file.create_variable("DD", ("station", "time"), dtype="f8")
+        dd[:] = [[code], [360.0]]
+    moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    coded = parse_knmi_netcdf(path.read_bytes(), "06260", ["DD"], moment)
+    assert coded["value"].to_list() == [None]
+    assert coded["quality_flags"].to_list() == [raw]
+    # north is 360, a bearing
+    north = parse_knmi_netcdf(path.read_bytes(), "06280", ["DD"], moment)
+    assert north["value"].to_list() == [360.0]
+    assert north["quality_flags"].to_list() == [None]
+
+
 def test_knmi_parse_netcdf_missing_station_returns_empty(netcdf_payload: bytes) -> None:
     """A station not present in the file yields an empty (correctly-typed) frame, not an error."""
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
