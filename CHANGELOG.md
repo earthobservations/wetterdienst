@@ -33,6 +33,17 @@ Types of changes:
   centimetres, no longer metres: request the new names (the old daily ones are not found) and
   multiply stored values by 100. `15_minutes/groundwater_level` now holds the 1074 borehole
   loggers, in metres above ordnance datum, every 15 minutes to hourly per station (GH-2632)
+- `interpolate` and `summarize` no longer return a timestamp outside the requested window when
+  `start` or `end` is not on the resolution's grid (`start` 12:30 and `end` 12:30 two days later at
+  daily gave the next day's 00:00 after `end`; `start` 10:29 at hourly gave 10:00 before it). The
+  rows are the timestamps within `start` and `end`, both included, the ones `values` returns for
+  the same window, and a window holding none returns no rows (GH-2814)
+- `dwd/radar` converts an aware `start` or `end` to UTC, as a naive one already was taken to be, so
+  one instant selects one file: `2020-01-01T01:00+01:00` read January's `RW202001.tar.gz` where
+  the same instant as `00:00Z` reads December's, losing the hour before midnight, and a `+05:30`
+  bound matched no file; a bound in a named zone (`Europe/Berlin`) raised a polars `SchemaError`
+  on the recent and composite files. A historical RADOLAN_CDC request spanning months now reads
+  every month's archive, not only the one it opens in (GH-2818)
 
 ## [0.152.0] - 2026-10-15
 

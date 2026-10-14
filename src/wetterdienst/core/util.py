@@ -54,9 +54,12 @@ def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: d
     result has an answer for, and the join is exact -- a reading taken off the grid contributes to
     neither.
 
-    The range is generated from the window and then rounded to the same interval, which is what
-    snaps a request opening at half past onto the wall clock rather than carrying its own phase
-    through the whole series.
+    The grid is the slots of the resolution's wall clock that lie inside the window, both ends
+    included -- the stamps a `values` request over the same window returns, which cuts its frame
+    with the same inclusive comparison. A window opening at half past therefore starts at the next
+    whole slot, and one closing at half past ends at the last whole slot before it; rounding to the
+    nearest slot would put a stamp the request never asked for on either side. A window holding no
+    slot has an empty grid.
 
     The interval comes from `Frequency` rather than from `resolution.reading_interval`, which is
     the only place the two differ: `Frequency` answers for `subdaily` and calls it hourly, where
@@ -67,18 +70,19 @@ def build_date_grid(resolution: Resolution, start_date: dt.datetime, end_date: d
     being measured against how much of a window it filled.
     """
     frequency = Frequency[resolution.name].value
-    return pl.DataFrame(
-        {
-            "timestamp": pl.datetime_range(
-                start=start_date,
-                end=end_date,
-                interval=frequency,
-                time_zone="UTC",
-                eager=True,
-            ).dt.round(frequency),
-        },
-        orient="col",
+    utc = pl.Datetime("us", "UTC")
+    # started from the slot at or before the opening, so that every stamp sits on the wall clock
+    # and not on the window's own phase, and cut back to the opening afterwards
+    # the bounds are taken as the instants they name, in UTC whatever zone they were written in
+    start, end = pl.Series([start_date, end_date], dtype=utc)
+    timestamps = pl.datetime_range(
+        start=pl.Series([start]).dt.truncate(frequency).item(),
+        end=end,
+        interval=frequency,
+        time_zone="UTC",
+        eager=True,
     )
+    return pl.DataFrame({"timestamp": timestamps.filter(timestamps >= start)}, orient="col")
 
 
 def _values_unit(parameter: ParameterModel, unit_converter: UnitConverter, *, convert_units: bool) -> str:
