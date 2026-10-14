@@ -428,6 +428,16 @@ class MetadataModel(BaseModel):
         return [parameter]
 
 
+def _canonical_description(name: str) -> str | None:
+    """Return the canonical sentence of a quantity, or None for a name the table does not know.
+
+    An unknown name is left for ``tests/test_api.py::test_metadata_parameter_table`` to report, as
+    it is for ``ParameterModel.unit_type``, rather than failing the import of the provider.
+    """
+    canonical = PARAMETERS.get(name)
+    return canonical.description if canonical else None
+
+
 def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     """Build a MetadataModel from a dictionary.
 
@@ -435,7 +445,9 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     resolutions alike. Those are the curated descriptions the provider docs tables have always
     carried. A description a provider module already declares wins, since that is a transcription of
     the source's own wording and is only kept where it says at least as much as the curated text.
-    ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all.
+    ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all. A parameter none of these
+    describes reads the canonical sentence of its quantity from ``PARAMETERS``, so a provider whose
+    field means exactly what the quantity means keeps no copy of the sentence to drift from it.
 
     ``name`` becomes ``MetadataModel.name``. A declaration cannot set it itself: it is the one
     top-level key ``extra="forbid"`` does not reject, and it is a plausible one to write next to
@@ -480,7 +492,8 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
                                 "description": parameter.get("description")
                                 or parameters.get(
                                     (resolution["name"], dataset["name"], parameter["name_original"]),
-                                ),
+                                )
+                                or _canonical_description(parameter["name"]),
                             }
                             for parameter in dataset["parameters"]
                         ],

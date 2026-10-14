@@ -214,12 +214,17 @@ def test_wsv_every_parameter_is_described() -> None:
     to `_WSV_PEGEL_RESOLUTIONS` would leave a whole resolution's worth of parameters undescribed in
     the docs, the REST API and the MCP tools, without anything failing.
     """
+    from wetterdienst.metadata.source_descriptions import SOURCE_DESCRIPTIONS  # noqa: PLC0415
+
+    # a parameter no table describes reads the canonical sentence of its quantity, which is a
+    # description but not the source's, so the keys are what is checked
+    described = SOURCE_DESCRIPTIONS["WsvPegelMetadata"]
     undescribed = sorted(
         f"{resolution.name}/{dataset.name}/{parameter.name}"
         for resolution in WsvPegelRequest.metadata
         for dataset in resolution
         for parameter in dataset.parameters
-        if not parameter.description
+        if (resolution.name, dataset.name, parameter.name_original) not in described
     )
     # NIEDERSCHLAG and NIEDERSCHLAGSINTENSITAET are declared but served by no station today, so
     # they are described here and simply never appear in a station list
