@@ -59,6 +59,11 @@ Types of changes:
   (Ouagadougou, Dedougou), are placed west of Greenwich, no longer east of it, where
   `ghcnd-stations.txt` has lost the sign of their longitude. They were 6 to 756 km off, so a
   nearest-station search or an interpolation near them picked the wrong stations (GH-2886)
+- `meteofrance/observation` daily `wind_direction_gust_max` (`DXI`) and `meteofrance/synop`
+  `wind_direction_last_10min` (`dd`) no longer return a direction of 400 degrees, which lies
+  outside the compass and which neither source defines: the daily 2007-09-05 of 31299001 and 14
+  rows of the 1996 SYNOP file (89642, 61972). The value is null with `raw:400` as the last token
+  of `quality_flags` (GH-2728, GH-2873)
 - `noaa/ghcn` daily stations that report in the current year have no `end_timestamp` (null) in the
   station list, as for `chmi/observation`; it was 31 December of this year, a date not reached
   yet, for 38,505 of 133,039 stations. The inventory gives only the year of the last observation,
