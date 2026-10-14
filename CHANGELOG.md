@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/phenology` parameter descriptions (glossary in the CLI, REST API, MCP tools and docs) no
+  longer say the value is "the day of the year". It is DWD's `Jultag`, which is the day of the
+  year only for a date in the reference year and, in a leap year since about 1952, only before
+  1 March; the descriptions now say so. Only the text changed, not the values (GH-2833)
+
 ## [0.151.0] - 2026-10-14
 
 ### Fixed
