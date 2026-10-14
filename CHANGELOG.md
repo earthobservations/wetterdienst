@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `noaa/ghcn` daily stations FR000007510 (Bordeaux-Merignac), FRE00104044 (Caen-Carpiquet) and
+  SP000008416 (Valencia) are listed west of Greenwich, at -0.6914, -0.4558 and -0.3664, no longer
+  east of it. `ghcnd-stations.txt` has lost the sign of their longitude, which put them 63 to 109
+  km off, so a nearest-station search or an interpolation near them picked the wrong stations
+  (GH-2645)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed
