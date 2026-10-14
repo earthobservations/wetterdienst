@@ -960,6 +960,8 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
         pytest.param(["cache"], id="cache"),
         pytest.param(["info"], id="info"),
         pytest.param(["about", "coverage"], id="about-coverage"),
+        pytest.param(["about", "coverage", "--provider=dwd", "--network=observation"], id="about-coverage-one-network"),
+        pytest.param(["radar", "--dwd"], id="radar"),
         pytest.param(["about", "auth", "--provider=aemet", "--network=observation"], id="about-auth"),
         pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
         pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
@@ -984,6 +986,28 @@ def test_cli_tells_a_malformed_setting_by_its_variable(monkeypatch: pytest.Monke
     assert "Error: WD_CACHE_DISABLE is invalid: Input should be a valid boolean" in result.output
     assert "secret-ish" not in result.output
     assert not isinstance(result.exception, ValidationError)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["about", "coverage", "--provider=dwd", "--network=radar"], id="coverage-no-discover"),
+        pytest.param(["about", "coverage", "--provider=nope", "--network=nope"], id="coverage-unknown-network"),
+        pytest.param(["about", "coverage", "--provider=dwd"], id="coverage-missing-network"),
+        pytest.param(["radar", "--odim-code=x"], id="radar-bad-code"),
+        pytest.param(["radar"], id="radar-no-selector"),
+    ],
+)
+def test_cli_tells_a_usage_error_before_a_malformed_setting(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
+    """Test a usage error of `about coverage` or `radar` is still exit 2 beside a malformed setting (GH-2619).
+
+    As in `stations` and `values`, the command line is checked before the environment is told.
+    """
+    monkeypatch.setenv("WD_CACHE_DISABLE", "secret-ish")
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 2, result.output
+    assert "WD_CACHE_DISABLE" not in result.output
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")

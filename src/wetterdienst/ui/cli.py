@@ -1013,6 +1013,9 @@ def coverage(
         msg = f"Coverage is not available for provider '{provider}' and network '{network}'."
         raise click.UsageError(msg)
 
+    # one network's metadata reads no setting, and a malformed one is told the same as for the listing
+    # of every network, after the usage errors above as in `stations` and `values` (GH-2619)
+    Settings()
     cov = api.discover(
         resolutions=resolutions_list,
         datasets=datasets_list,
@@ -2028,6 +2031,11 @@ def radar(
         # a lookup that finds nothing is an answer about the input, not a crash
         raise click.ClickException(e.args[0]) from e
 
+    # the sites are read from a file shipped with the package, but a malformed `WD_*` setting is refused
+    # by its variable here as it is for every other command, after the usage errors above as in `stations`
+    # and `values`, so that the exit status says whether the environment is valid, not whether this
+    # command happens to read it (GH-2619)
+    Settings()
     output = json.dumps(data, indent=indent)
 
     print(output)  # noqa: T201
