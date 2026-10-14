@@ -88,7 +88,8 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
                 "parameter": "temperature_air_2m",
                 "timestamp": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
-                "quality_flags": None,
+                # `temperature_Quality_Code` of the file's row (GH-2754)
+                "quality_flags": "1",
             },
         ],
         schema={
@@ -115,7 +116,7 @@ def test_api_hourly_wind_direction_999_is_no_direction(monkeypatch: pytest.Monke
     1942-01-28 14:00 reads 999 with no code and a wind speed of 4.1. The documentation words the missing precipitation
     as -9999.
     """
-    from tests.provider.value_stubs import serve  # noqa: PLC0415
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
 
     stations = (
@@ -131,11 +132,8 @@ def test_api_hourly_wind_direction_999_is_no_direction(monkeypatch: pytest.Monke
         4: {"wind_direction": "90", "wind_speed": "4.1", "sea_level_pressure": "1001.0", "precipitation": "0.2"},
         5: {"wind_direction": "999", "wind_speed": "4.1", "sea_level_pressure": "1000.0", "precipitation": "-9999.0"},
     }
-    lines = ["|".join(["STATION", "DATE", *columns])]
-    for hour, row in rows.items():
-        cells = [row.get(column, "") for column in columns]
-        lines.append("|".join(["ACM00078861", f"1942-01-17T{hour:02d}:00:00", *cells]))
-    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_ACM00078861": "\n".join(lines).encode("utf8")})
+    body = ghcnh_psv("ACM00078861", columns, [(f"1942-01-17T{hour:02d}:00:00", row) for hour, row in rows.items()])
+    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_ACM00078861": body})
     request = NoaaGhcnRequest(
         parameters=[("hourly", "data")],
         start=dt.datetime(1942, 1, 17, tzinfo=ZoneInfo("UTC")),
@@ -168,7 +166,7 @@ def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_
     ASN00086282 1985-07-06 17:00 reads 0 beside 1.5 m/s, the one of 11,347 zeros of that file with a speed above 0.
     The 0 is null, with `raw:0` after the flags, and the speed of 0.0 is a reading.
     """
-    from tests.provider.value_stubs import serve  # noqa: PLC0415
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
 
     stations = (
@@ -183,9 +181,11 @@ def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_
         ("2019-03-11T09:53:00", {"wind_direction": "0", "wind_speed": "1.5"}),
         ("2019-03-11T10:53:00", {"wind_direction": "0", "wind_speed": "0.0"}),
     ]
-    lines = ["|".join(["STATION", "DATE", *columns])]
-    lines += ["|".join(["USW00023174", date, *[row.get(column, "") for column in columns]]) for date, row in rows]
-    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_USW00023174": "\n".join(lines).encode("utf8")})
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_USW00023174": ghcnh_psv("USW00023174", columns, rows)},
+    )
     request = NoaaGhcnRequest(
         parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
         start=dt.datetime(2019, 3, 11, tzinfo=ZoneInfo("UTC")),
@@ -212,7 +212,7 @@ def test_api_hourly_snow_depth_is_millimeters(monkeypatch: pytest.MonkeyPatch) -
     number on, so the declared unit is what says what it is: millimeters, which the default unit target
     (centimeters) turns into 91.0.
     """
-    from tests.provider.value_stubs import serve  # noqa: PLC0415
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
 
     stations = (
@@ -225,9 +225,11 @@ def test_api_hourly_snow_depth_is_millimeters(monkeypatch: pytest.MonkeyPatch) -
     assert parameters["snow_depth"].unit == "millimeter"
     columns = [parameter.name_original for parameter in parameters.values()]
     rows = [("2023-02-13T12:53:00", {"snow_depth": "910"}), ("2023-02-13T13:53:00", {"snow_depth": "-None"})]
-    lines = ["|".join(["STATION", "DATE", *columns])]
-    lines += ["|".join(["USW00026451", date, *[row.get(column, "") for column in columns]]) for date, row in rows]
-    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_USW00026451": "\n".join(lines).encode("utf8")})
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_USW00026451": ghcnh_psv("USW00026451", columns, rows)},
+    )
 
     def values(options: Options) -> list[float]:
         request = NoaaGhcnRequest(
@@ -241,3 +243,86 @@ def test_api_hourly_snow_depth_is_millimeters(monkeypatch: pytest.MonkeyPatch) -
 
     assert values(Options(convert_units=False)) == [910.0]
     assert values(Options()) == [91.0]
+
+
+def test_api_hourly_quality_code_is_the_plain_flag_and_the_value_stays(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The `<element>_Quality_Code` of an hourly file is the quality flag as the file writes it (GH-2754).
+
+    Rows of the files read on 2026-10-14, the codes of Table 3 of ghcnh_DOCUMENTATION.pdf. Antigua
+    (GHCNh_ACM00078861_por.psv): 1988-01-27 11:00 reads a temperature of 50.0 with code 2, "Suspect", and a relative
+    humidity of 16 with the letter f, a derived value with a suspect input; the file keeps both as values.
+    1942-01-17 02:00 reads a wind direction of 999 with code 1: the sentinel is no direction, and the text of it
+    follows the code. Anchorage (GHCNh_USW00026451_por.psv): 2016-09-04 06:53 reads a wind speed of 4.4 and a direction
+    of 160, both with the letter U, and 2006-05-08 08:53 a speed of 4.0 with P, all of the legacy source 343. The stub
+    leaves out the code 1 that the Antigua file gives the wind speeds of 1988-01-27 11:00 and 1942-01-17 02:00, to have
+    values without a code, which have no flag.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+        b"USW00026451,61.169,-150.0278,38.0,AK,ANCHORAGE TED STEVENS INTL AP,,,70273,PANC,US\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    antigua = [
+        (
+            "1988-01-27T11:00:00",
+            {
+                "temperature": "50.0",
+                "temperature_Quality_Code": "2",
+                "relative_humidity": "16",
+                "relative_humidity_Quality_Code": "f",
+                "wind_speed": "4.1",
+            },
+        ),
+        ("1942-01-17T02:00:00", {"wind_direction": "999", "wind_direction_Quality_Code": "1", "wind_speed": "0.0"}),
+    ]
+    anchorage = [
+        (
+            "2016-09-04T06:53:00",
+            {
+                "wind_speed": "4.4",
+                "wind_speed_Quality_Code": "U",
+                "wind_direction": "160",
+                "wind_direction_Quality_Code": "U",
+            },
+        ),
+        ("2006-05-08T08:53:00", {"wind_speed": "4.0", "wind_speed_Quality_Code": "P"}),
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {
+            "ghcnh-station-list": stations,
+            "GHCNh_ACM00078861": ghcnh_psv("ACM00078861", columns, antigua),
+            "GHCNh_USW00026451": ghcnh_psv("USW00026451", columns, anchorage),
+        },
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data")],
+        start=dt.datetime(1942, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2017, 1, 1, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False, convert_units=False),
+    ).filter_by_station_id(["ACM00078861", "USW00026451"])
+    df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    got = {
+        (station, parameter, timestamp.strftime("%Y-%m-%d %H:%M")): (value, flags)
+        for station, parameter, timestamp, value, flags in df.select(
+            "station_id", "parameter", "timestamp", "value", "quality_flags"
+        ).iter_rows()
+    }
+    # the suspect values are values, flagged as the file flags them, case included
+    assert got["ACM00078861", "temperature_air_2m", "1988-01-27 11:00"] == (50.0, "2")
+    assert got["ACM00078861", "humidity_relative", "1988-01-27 11:00"] == (16.0, "f")
+    # a reading the file gave no code for has no flag
+    assert got["ACM00078861", "wind_speed", "1988-01-27 11:00"] == (4.1, None)
+    # the sentinel keeps its text after the code, as the last token
+    assert got["ACM00078861", "wind_direction", "1942-01-17 02:00"] == (None, "1,raw:999")
+    assert got["USW00026451", "wind_speed", "2016-09-04 06:53"] == (4.4, "U")
+    assert got["USW00026451", "wind_direction", "2016-09-04 06:53"] == (160.0, "U")
+    assert got["USW00026451", "wind_speed", "2006-05-08 08:53"] == (4.0, "P")
