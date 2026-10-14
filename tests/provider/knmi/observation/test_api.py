@@ -44,6 +44,7 @@ UTC = ZoneInfo("UTC")
 # De Bilt. KNMI keys stations by full WSI (0-20000-0-06260); the provider exposes just the
 # trailing WMO station number (06260) as station_id -- see parser.public_station_id.
 DE_BILT = "06260"
+EELDE = "06280"
 
 # Applied per-test (not module-level) so the offline unit tests below still run without a key.
 requires_knmi_credentials = pytest.mark.skipif(
@@ -545,17 +546,19 @@ def _fake_downloads(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Exception
 
     monkeypatch.setattr(
         "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
-        staticmethod(lambda *_args: pl.DataFrame({"station_id": [DE_BILT], "name": ["De Bilt"]})),
+        staticmethod(
+            lambda *_args: pl.DataFrame({"station_id": [DE_BILT, EELDE], "name": ["De Bilt", "Eelde"]}),
+        ),
     )
     monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", fake_fetch_netcdf)
     return attempted
 
 
-def _hourly_values(days: int) -> pl.DataFrame:
+def _hourly_values(days: int, station_ids: tuple[str, ...] = (DE_BILT,)) -> pl.DataFrame:
     start = dt.datetime(2020, 1, 1, tzinfo=UTC)
     return (
         _request([("hourly", "data", "temperature_air_2m")], start, start + dt.timedelta(days=days))
-        .filter_by_station_id(DE_BILT)
+        .filter_by_station_id(station_ids)
         .values.all()
         .df
     )
@@ -572,6 +575,32 @@ def test_knmi_values_offline_stop_at_first_moment_without_warning(
     assert df.is_empty()
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_knmi_values_offline_stop_at_first_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Offline, the request ends at the first download: the second station is not tried (GH-2620)."""
+    attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))
+    df = _hourly_values(days=30, station_ids=(DE_BILT, EELDE))
+    assert df.is_empty()
+    assert len(attempted) == 1
+
+
+def test_knmi_values_offline_stop_at_first_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Offline, the request ends at the first download: the station's other resolution is not tried (GH-2620)."""
+    attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))
+    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    df = (
+        _request(
+            [("hourly", "data", "temperature_air_2m"), ("daily", "data", "temperature_air_mean_2m")],
+            start,
+            start + dt.timedelta(days=3),
+        )
+        .filter_by_station_id(DE_BILT)
+        .values.all()
+        .df
+    )
+    assert df.is_empty()
+    assert len(attempted) == 1
 
 
 def test_knmi_values_going_offline_midway_keeps_what_was_read(

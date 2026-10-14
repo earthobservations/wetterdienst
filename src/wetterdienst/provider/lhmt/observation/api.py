@@ -84,8 +84,10 @@ class LhmtObservationValues(TimeseriesValues):
         for day in _days(self.sr.start, self.sr.end):
             content = self._download_day(station_id, day, settings)
             if isinstance(content, NoInternetError):
-                # offline, every remaining day would fail the same way: stop, and keep the days read
+                # offline, every remaining day (and station) would fail the same way: stop the request, and
+                # keep the days read
                 log.debug(f"No internet connection available for LHMT {station_id} on {day}, returning what was read.")
+                self.offline = True
                 break
             if content is None:
                 continue

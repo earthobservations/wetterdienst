@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `knmi/observation`, `aemet/observation` and `lhmt/observation` values requests that go offline
+  end at the first download answered with no connection, as the loop over files of one station
+  already did: the stations, datasets and parameters after it are no longer tried, each waiting
+  for the connection to fail. What was read before is returned (GH-2620)
+
 ## [0.152.0] - 2026-10-15
 
 ### Changed
