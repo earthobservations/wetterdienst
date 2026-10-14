@@ -58,8 +58,8 @@ Types of changes:
 - `geosphere/observation` station lists have a `wmo_id` column, the station's five-digit WMO number
   (`11021` for Litschau) from the list's `Synopstationsnummer`, null for the stations without one
   and for the 19 whose number has seven digits (`8989106`), which is no WMO number. It appears in
-  the frames, JSON and GeoJSON properties; several series of one place can share a number. The
-  list's other raw columns (`Synop`, `Verknüpfungsnummer`, ...) stay out (GH-2751, GH-2019)
+  the frames, JSON and GeoJSON properties. The composite series (`zusammengesetzt` `ja`, e.g. `1`
+  Aflenz) have none; the number is on their part series, which can share it (GH-2751, GH-2019)
 
 ## [0.151.0] - 2026-10-14
 

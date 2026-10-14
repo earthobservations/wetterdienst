@@ -11,9 +11,13 @@ authentication is required. As only historical data is offered, a date range is 
 requesting values.
 
 Each station's `wmo_id` is the WMO station number (five digits, `11021` for Litschau) from the
-station list's `Synopstationsnummer`, null for the stations without one. Several series of one
-place (a station that moved or was renumbered) can share a number. The list also gives 19
+station list's `Synopstationsnummer`, null for the stations without one. The list also gives 19
 stations a seven-digit number (`8989106`); it is no WMO number and is left out.
+
+The list holds a place's long series twice: as a composite series (`zusammengesetzt` is `ja`, the
+low ids such as `1` Aflenz) and as the parts it is chained from (Rohrbach `1415` and `1416`). The
+number sits on the parts, which can share it, and never on the composite series, so a lookup by
+the composite's id has a null `wmo_id`.
 
 ```{toctree}
 :hidden:

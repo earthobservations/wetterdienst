@@ -495,8 +495,9 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
     """A station's WMO number (`Synopstationsnummer`) is a column; the other raw columns of the list are not (GH-2751).
 
     The rows are copied from `klima-v2-1d/metadata/stations` as Geosphere publishes it (2026-10-14): Litschau
-    and its predecessor 501, which has no number, Rohrbach's two series that share one, and Liebenau-Gugu, whose
-    7-digit `8989106` is no WMO number (WMO numbers have 5 digits; 19 stations in the list carry such a number).
+    and its predecessor 501, which has no number, Rohrbach's two parts (1415, 1416) that share one and the composite
+    series 77 they belong to, which has none (all 216 composite rows have none), and Liebenau-Gugu, whose 7-digit
+    `8989106` is no WMO number (WMO numbers have 5 digits; 19 stations in the list carry such a number).
     """
     stations = (
         _STATIONS_HEADER
@@ -504,11 +505,13 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
         "Niederösterreich,True,True,,57,1983-11-01 00:00:00+00:00,,nein\n"
         "501,,Litschau,15.03333,48.96667,570.0,1962-07-01 00:00:00+00:00,1983-10-31 00:00:00+00:00,"
         "Niederösterreich,True,False,,57,1962-07-01 00:00:00+00:00,1983-10-31 23:59:59+00:00,nein\n"
-        "1415,11008,Rohrbach,13.99,48.6,600.0,1983-01-01 00:00:00+00:00,2000-12-31 00:00:00+00:00,"
-        "Oberösterreich,True,False,,,,,ja\n"
-        "1416,11008,Rohrbach,13.99,48.6,600.0,2001-01-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
-        "Oberösterreich,True,False,,,,,ja\n"
-        "1711,8989106,Liebenau-Gugu,14.7,48.4,800.0,2023-03-31 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "77,,Rohrbach,14.00444,48.56722,613.0,1948-05-23 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "Oberösterreich,True,True,,,,,ja\n"
+        "1415,11008,Rohrbach,13.99406,48.56961,596.9,1994-07-01 00:00:00+00:00,2021-10-31 00:00:00+00:00,"
+        "Oberösterreich,True,True,,77,1994-08-01 00:00:00+00:00,2021-10-14 23:59:59+00:00,nein\n"
+        "1416,11008,Rohrbach,14.00444,48.56722,613.0,2021-10-13 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "Oberösterreich,True,True,,77,2021-10-15 00:00:00+00:00,,nein\n"
+        "1711,8989106,Liebenau-Gugu,14.732778,48.5522,846.0,2023-03-31 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
         "Oberösterreich,False,False,,,,,nein\n"
     ).encode()
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
@@ -519,6 +522,7 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
     assert df.select("station_id", "wmo_id").rows() == [
         ("500", "11021"),
         ("501", None),
+        ("77", None),
         ("1415", "11008"),
         ("1416", "11008"),
         ("1711", None),
