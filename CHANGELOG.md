@@ -36,6 +36,11 @@ Types of changes:
   with HTTP 200). Both were read back for 5 minutes, the station list for 12 hours, so an expired
   link kept every request failing. A request that gets such a body now logs a warning and returns
   no data, not an exception, and the next one asks AEMET again (GH-2887)
+- `dwd/dmo` station P0563 (London Luton) is at longitude -0.37, no longer +0.37 (50 km east),
+  where the DMO station list loses its minus. Waddington (03377), Farnborough (03768) and
+  Castellon de la Plana (08286) are west of Greenwich and Bauru (F9424) south of the equator, no
+  longer east and north, where DWD publishes them in every file; they are in `dwd/mosmix` too.
+  A position is corrected only while DWD still publishes the wrong one (GH-2897)
 - The `dwd/phenology` overviews (the DWD index and the phenology page of the docs, the module
   docstrings) no longer open by calling the value "the day of the year". It is DWD's `Jultag`,
   which is that only for a date in the reference year and not for every date of a leap year
