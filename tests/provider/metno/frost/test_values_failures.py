@@ -446,7 +446,7 @@ def _oslo_values(
 def test_metno_frost_values_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the bounds of a request in local time reach Frost as the UTC instants they stand for (GH-2681)."""
     values, seen = _oslo_values(monkeypatch, lambda url: _failed(url, 412))
-    # the request holds the bounds in UTC already (GH-2682); the conversion at the send stays as the guard
+    # the request holds the bounds in UTC (GH-2682), which is all the send relies on
     assert values.sr.start == dt.datetime(2025, 3, 29, 23, tzinfo=dt.UTC)
     assert values.sr.end == dt.datetime(2025, 3, 30, 21, tzinfo=dt.UTC)
     assert values.all().df.is_empty()
@@ -525,13 +525,30 @@ def test_metno_frost_daily_request_stops_at_the_date_of_its_end(monkeypatch: pyt
         (dt.datetime(2020, 1, 2, tzinfo=dt.UTC), "2020-01-03T00:00:00"),
         (dt.datetime(2020, 1, 2, 12, 30, tzinfo=dt.UTC), "2020-01-03T00:00:00"),
         (dt.datetime(2020, 1, 2, 23, 59, 59, tzinfo=dt.UTC), "2020-01-03T00:00:00"),
-        # a bound in another zone is the date of its UTC instant: 2020-01-02 00:30 in Oslo is 2020-01-01 23:30Z
-        (dt.datetime(2020, 1, 2, 0, 30, tzinfo=OSLO), "2020-01-02T00:00:00"),
     ],
 )
 def test_metno_frost_end_of_a_daily_request_is_the_start_of_the_next_date(end: dt.datetime, expected: str) -> None:
     """Test that the end sent for a daily request is 00:00 UTC of the date after the date of the end (GH-2729)."""
     assert frost_api._frost_end(end, "daily") == expected  # noqa: SLF001
+
+
+def test_metno_frost_end_of_a_daily_request_in_another_zone_is_the_date_of_its_utc_instant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the date of the end of a daily request is that of its UTC instant (GH-2729, GH-2682).
+
+    2020-01-02 00:30 in Oslo is 2020-01-01 23:30Z, so the request asks for the date of the 1st, up to 00:00Z of the 2nd.
+    """
+    values, seen = _values(
+        monkeypatch,
+        _frost(DAILY_OBSERVATIONS),
+        DAILY,
+        start=dt.datetime(2020, 1, 1, 0, 30, tzinfo=OSLO),
+        end=dt.datetime(2020, 1, 2, 0, 30, tzinfo=OSLO),
+    )
+    values.all()
+    [url] = _observation_requests(seen)
+    assert "referencetime=2019-12-31T23:30:00/2020-01-02T00:00:00" in url
 
 
 @pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hour", "monthly", "annual"])

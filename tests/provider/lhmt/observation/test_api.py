@@ -123,18 +123,13 @@ def test_parse_lhmt_skips_malformed_items() -> None:
             dt.datetime(2020, 1, 1, tzinfo=UTC),
             [dt.date(2019, 12, 31), dt.date(2020, 1, 1)],
         ),
-        # a non-UTC start is converted to its UTC calendar date first: 01:00 in Vilnius (UTC+3) on
-        # 2020-07-01 is 2020-06-30 22:00 UTC -- the PREVIOUS calendar day -- so the window must begin
-        # on 2020-06-30 (a naive .date() without the UTC conversion would wrongly start on 2020-07-01)
-        (
-            dt.datetime(2020, 7, 1, 1, 0, tzinfo=ZoneInfo("Europe/Vilnius")),
-            dt.datetime(2020, 7, 1, 12, tzinfo=UTC),
-            [dt.date(2020, 6, 30), dt.date(2020, 7, 1)],
-        ),
     ],
 )
 def test_days_covers_range_inclusive(start: dt.datetime, end: dt.datetime, expected: list[dt.date]) -> None:
-    """`_days` yields every UTC calendar date in [start, end] inclusive, handling non-UTC inputs."""
+    """`_days` yields every calendar date in [start, end] inclusive, of bounds in UTC as a request holds them.
+
+    A request in another zone is converted before it gets here, which the Vilnius test below pins.
+    """
     from wetterdienst.provider.lhmt.observation.api import _days  # noqa: PLC0415
 
     assert list(_days(start, end)) == expected

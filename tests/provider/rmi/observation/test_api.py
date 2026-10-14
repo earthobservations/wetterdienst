@@ -13,6 +13,7 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
+from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
@@ -250,12 +251,13 @@ def test_collect_filters_a_zero_length_window_without_a_during_period() -> None:
     """A request with start == end (the one-day form) must not send `DURING X/X` (HTTP 400, GH-2823)."""
     dataset = _hourly_dataset()
     stamp = dt.datetime(2024, 6, 10, 2, tzinfo=ZoneInfo("Europe/Brussels"))  # 00:00 UTC
-    values = object.__new__(rmi_api.RmiObservationValues)
-    values.sr = SimpleNamespace(
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+    request = rmi_api.RmiObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_mean_2m")],
         start=stamp,
         end=stamp,
+        settings=Settings(cache_disable=True),
     )
+    values = rmi_api.RmiObservationValues(sr=stations_result(request, "hourly", "data", UCCLE))
     filters: list[str] = []
 
     def fake_pages(_layer: str, cql_filter: str, *_args: object, **_kwargs: object) -> list[pl.DataFrame]:

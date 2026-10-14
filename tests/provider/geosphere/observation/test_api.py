@@ -293,6 +293,8 @@ def test_geosphere_observation_windows_of_a_local_time_request_leave_no_gap(monk
     )
     request.filter_by_station_id("4821").values.all()
     assert len(windows) > 1
+    # 03:00 CEST (UTC+2) is 01:00 UTC, a day of buffer before it
+    assert windows[0][0] == datetime(2000, 10, 27, 1, tzinfo=ZoneInfo("UTC"))
     assert all(nxt[0] - prev[1] == timedelta(minutes=1) for prev, nxt in pairwise(windows))
 
 
