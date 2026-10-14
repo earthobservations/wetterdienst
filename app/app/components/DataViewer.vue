@@ -779,6 +779,11 @@ const chartRows = computed(() => displayData.value.flatMap((row) => {
 
 const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)
 
+// A trendline is named for its series in the language of the page: "Mean air temperature (Trendline)"
+function trendlineName(series: string) {
+  return `${series} (${t('dataViewer.trendline')})`
+}
+
 // Plotly traces for single chart
 const chartTraces = computed(() => {
   if (!chartRows.value.length)
@@ -843,7 +848,7 @@ const chartTraces = computed(() => {
     if (showTrendline.value && sortedX.length >= 2) {
       const trend = calculateLinearRegression(sortedXDates, sortedY)
       trendlineTraces.push({
-        name: `${data.name} (trend)`,
+        name: trendlineName(data.name),
         x: trend.x.map(d => d.toISOString()),
         y: trend.y,
         type: 'scatter',
@@ -937,7 +942,7 @@ const facetedChartData = computed((): FacetedChart[] => {
       if (showTrendline.value && sortedX.length >= 2) {
         const trend = calculateLinearRegression(sortedXDates, sortedY)
         trendlineTraces.push({
-          name: `${stationKey} (trend)`,
+          name: trendlineName(stationKey),
           x: trend.x.map(d => d.toISOString()),
           y: trend.y,
           type: 'scatter',
@@ -1089,6 +1094,9 @@ const chartLayout = computed((): Partial<PlotlyLayout> => {
     yaxis: {
       title: t('dataViewer.axisValue'),
     },
+    // Plotly cuts a series' name in a hover label after 15 characters, which a label such as
+    // "Mean air temperature (2 m)" is longer than
+    hoverlabel: { namelength: -1 },
     showlegend: true,
     legend: {
       orientation: 'h',
