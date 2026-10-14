@@ -191,7 +191,7 @@ Codes (precipitation_indicator_wr):
 | name                      | original name | description                              | unit  | constraints |
 |---------------------------|---------------|------------------------------------------|-------|-------------|
 | {term}`radiation_global`  | fg_st_10      | Global radiation per 10-minute interval (DWD: "momentane Globalstrahlung"). | J/cm² | >=0         |
-| {term}`sunshine_duration` | sd_st_10      | Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer"). | min   | >=0         |
+| {term}`sunshine_duration` | sd_st_10      | Sunshine duration per 10-minute interval (DWD: "momentane Sonnenscheindauer"). The values are hours, at most 0.17, though the parameter sheet says "Minute". | h     | >=0         |
 
 ### urban_temperature_air
 

@@ -370,6 +370,22 @@ def _dwd_10_minutes_urban_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool
     return _dwd_observation(monkeypatch, "10_minutes", "urban_wind", product, "15818", year=2025, drop_nulls=drop_nulls)
 
 
+def _dwd_10_minutes_urban_solar(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # climate_urban/10_minutes/solar/recent/10minutenwerte_SD_STADT_00399_akt.zip, read 2026-10-14: the sheet of the
+    # parameter says "Minute", the values are fractions of an hour -- 0.17 (10/60 rounded) in 1257 rows, never more,
+    # and 0.02 one minute -- so that a full-sun interval is 612 s, not 10.2 s (GH-2698); both columns write -999
+    product = (
+        "STATIONS_ID;MESS_DATUM;  QN;FG_ST_10;SD_ST_10;eor\n"
+        "        399;202504120000;    3;     -999;  0.00;eor\n"
+        "        399;202504121050;    3;     -999;  0.02;eor\n"
+        "        399;202504121200;    3;     -999;  0.17;eor\n"
+        "        399;202506182350;    3;     -999;-999;eor\n"
+    )
+    return _dwd_observation(
+        monkeypatch, "10_minutes", "urban_solar", product, "00399", year=2025, drop_nulls=drop_nulls
+    )
+
+
 def _dwd_10_minutes_extreme_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/10minutenwerte_extrema_wind_00003_19930429_19991231_hist.zip: the direction of the gust is 0 beside a
     # gust of 0.0 (1993-04-28 12:30), a calm, and beside one of 4.1 m/s (1993-06-15 15:30), a north (GH-2805)
@@ -1153,6 +1169,14 @@ STUBS = [
         reading=("wind_direction", 360.0),
         sentinels=(("wind_direction", 0.0),),
         tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation 10_minutes/urban_solar",
+        _dwd_10_minutes_urban_solar,
+        # hours in the file, seconds in the output: 0.17 h
+        reading=("sunshine_duration", 612.0),
+        sentinels=(("radiation_global", -999.0), ("sunshine_duration", -999.0)),
+        tokens=(("radiation_global", "-999", None), ("sunshine_duration", "-999", None)),
     ),
     ValueStub(
         "dwd/observation 10_minutes/wind_extreme",

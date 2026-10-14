@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: `dwd/observation` `10_minutes/urban_solar` `sunshine_duration` (`SD_ST_10`) is
+  declared in hours, no longer minutes. DWD's parameter sheet says "Minute", but the values are
+  fractions of an hour (0.17 is a full-sun interval of 10 minutes). With the default unit targets
+  a full-sun interval comes back as 612 s, not 10.2 s, so values you stored from before are 60
+  times too small in seconds; multiply them by 60. With `convert_units=False` the numbers are
+  unchanged, and their unit is `h`, not `min` (GH-2698)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed
