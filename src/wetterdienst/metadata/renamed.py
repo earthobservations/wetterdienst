@@ -133,6 +133,9 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "cloud_cover_below_1000ft": "cloud_cover_below_2km",
     # GH-2696: DWD's graupel columns, which were read as sleet; no provider has sleet days
     "count_weather_type_sleet": "count_weather_type_graupel",
+    # GH-2659: MOSMIX's error of ttt and td follows them to the spot names
+    "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
+    "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
 }
 
 _WIND_LAST_10MIN = {

@@ -77,6 +77,10 @@ def _find(models: Iterable[_NamedModel], item: str) -> _NamedModel | None:
 _MEAN_OF_A_READING = re.compile(r"^((?:error_absolute_)?temperature_[a-z_]+?)_mean((?:_\d+(?:_\d+)?m)?)$")
 
 
+# the resolutions from which a source that says nothing about the statistic keeps the `_mean_` name
+_COARSE_RESOLUTIONS = frozenset({"daily", "monthly", "annual"})
+
+
 def _spot_name(name: str) -> str | None:
     """Name the reading at one moment that a sub-daily `_mean_` temperature became, or None.
 
@@ -88,7 +92,7 @@ def _spot_name(name: str) -> str | None:
     return f"{match.group(1)}{match.group(2)}" if match else None
 
 
-def _renamed_hint(item: str, candidates: Iterable[str], dataset: DatasetModel | None) -> str:
+def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | None) -> str:
     """Name what a parameter the dataset does not have is called there, or return nothing.
 
     Looked up in this order, and only where the dataset has the name offered, so that the hint
@@ -98,14 +102,15 @@ def _renamed_hint(item: str, candidates: Iterable[str], dataset: DatasetModel | 
        dataset of the provider still has: `wind_speed` is `wind_speed_last_10min` in
        `hourly/data` but stays `wind_speed` in `daily/data`;
     2. the rename for 1.0 that holds everywhere (`RENAMED_PARAMETERS`);
-    3. the spot name of a `_mean_` temperature, which no table lists since the move covers the
-       sub-daily temperatures of most providers (GH-2673).
+    3. the spot name of a sub-daily `_mean_` temperature, which no table lists since the move
+       covers the sub-daily temperatures of most providers (GH-2673).
 
     The first two say "renamed", the third does not: a dataset that never had the `_mean_` name was
     not renamed, but is the one place the caller means. What none of them can name is a guess for
     the caller to weigh, which is the difflib one in the message.
     """
-    names = set(candidates)
+    # canonical names only: a source's own name may resolve to another parameter (Frost's `wind_speed`)
+    names = set(canonical)
     if dataset is not None and dataset.resolution is not None:
         resolution = dataset.resolution
         in_dataset = RENAMED_PARAMETERS_IN_DATASET.get(resolution.metadata_name, {}).get(
@@ -119,7 +124,9 @@ def _renamed_hint(item: str, candidates: Iterable[str], dataset: DatasetModel | 
         # a name this dataset had, renamed for 1.0: say so rather than guess at a near spelling
         return f" It was renamed to '{new}'."
     spot = _spot_name(item)
-    if spot in names:
+    # a daily or coarser `_mean_` is a mean of the interval where the source says so, not a renamed one
+    coarse = dataset is not None and dataset.resolution is not None and dataset.resolution.name in _COARSE_RESOLUTIONS
+    if spot in names and not coarse:
         return f" It is named '{spot}' here, a reading at one moment, not a mean."
     return ""
 
@@ -136,7 +143,9 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
     models = list(models)
     candidates = sorted({name for model in models for name in _names(model)})
     item_search = str(item).strip().lower()
-    suggestion = _renamed_hint(item_search, candidates, dataset) if kind == "parameters" else ""
+    suggestion = (
+        _renamed_hint(item_search, {model.name.lower() for model in models}, dataset) if kind == "parameters" else ""
+    )
     if not suggestion:
         close = difflib.get_close_matches(item_search, candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
         suggestion = f" Did you mean '{close[0]}'?" if close else ""
@@ -359,6 +368,7 @@ class MetadataModel(BaseModel):
 
     def model_post_init(self, _context: object, /) -> None:
         """Tell each resolution which declaration it belongs to."""
+        super().model_post_init(_context)
         for resolution in self.resolutions:
             resolution.metadata_name = self.name
 

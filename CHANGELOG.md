@@ -64,13 +64,16 @@ Types of changes:
   daily maxima for AEMET, `temperature_air_min_2m` for Geosphere 10-minute `temperature_air_mean_2m`
   and the 10 cm grass temperature for KNMI's. The old names still are not accepted (GH-2644,
   GH-2673)
+
+### Changed
+
 - **Breaking**: `dwd/mosmix` `hourly/large` `e_ttt` and `e_td`, the absolute error of `ttt` and
   `td`, are named `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`,
   no longer `error_absolute_temperature_air_mean_2m` and
   `error_absolute_temperature_dew_point_mean_2m`, so that a value and its error share a name.
   Request the new names; the old ones are not found (logged and dropped, or
-  `NoParametersFoundError` when no other parameter is requested), and values frames carry the new
-  names (GH-2659)
+  `NoParametersFoundError` when no other parameter is requested), values frames carry the new
+  names, and a `geo_station_distance` key by an old name is refused, naming the new one (GH-2659)
 
 ## [0.151.0] - 2026-10-14
 

@@ -269,22 +269,51 @@ def test_the_spot_name_of_a_mean_temperature(name: str, spot: str | None) -> Non
 
 
 def test_the_hint_never_names_a_parameter_the_dataset_lacks() -> None:
-    """A dataset without the spot name gets the closest spelling, not a name that is not there.
+    """A dataset without the name a rule produces is not answered with it.
 
-    `daily/kl` has `temperature_air_mean_2m` only, so the spot name of a name it does not have is
-    no answer, and the global renames are held to the same.
+    `daily/kl` has neither `temperature_dew_point_2m` (the spot name of the mean below) nor
+    `visibility` (the rename of `visibility_range`), so neither is offered.
     """
     dataset = DwdObservationMetadata["daily"]["kl"]
-    message = _not_found("parameters", "temperature_air_mean_2mm", dataset.parameters, dataset)
-    assert "It is named" not in message
-    assert "Did you mean 'temperature_air_mean_2m'?" in message
+    assert _spot_name("temperature_dew_point_mean_2m") == "temperature_dew_point_2m"
+    assert _find(dataset.parameters, "temperature_dew_point_2m") is None
+    assert RENAMED_PARAMETERS["visibility_range"] == "visibility"
+    assert _find(dataset.parameters, "visibility") is None
+    for item in ("temperature_dew_point_mean_2m", "visibility_range"):
+        message = _not_found("parameters", item, dataset.parameters, dataset)
+        assert "It is named" not in message
+        assert "renamed" not in message
+
+
+def test_the_spot_name_is_offered_for_a_sub_daily_dataset_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A daily or coarser `_mean_` is the source's mean or one it keeps, not a rename to a reading.
+
+    A coarse dataset that holds a spot name beside the mean it is asked for would otherwise be
+    said to have renamed it to a reading at one moment, which the source does not state there.
+    """
+    daily = DwdObservationMetadata["daily"]["kl"]
+    hourly = DwdObservationMetadata["hourly"]["temperature_air"]
+    assert _find(hourly.parameters, "temperature_air_2m") is not None
+    message = _not_found("parameters", "temperature_air_mean_2m", hourly.parameters, hourly)
+    assert "It is named 'temperature_air_2m' here" in message
+    # the same dataset taken for a daily one has its spot name, which is not answered for a mean
+    monkeypatch.setattr(hourly, "resolution", daily.resolution)
+    assert "It is named" not in _not_found("parameters", "temperature_air_mean_2m", hourly.parameters, hourly)
+
+
+@pytest.mark.parametrize("metadata", ALL_METADATA, ids=lambda metadata: metadata.name)
+def test_every_resolution_knows_the_declaration_it_belongs_to(metadata: MetadataModel) -> None:
+    """The rename of a dataset is looked up by its declaration, so each resolution must carry the name."""
+    assert metadata.name
+    assert {resolution.metadata_name for resolution in metadata} == {metadata.name}
 
 
 def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: pytest.LogCaptureFixture) -> None:
     """The error of `ttt` and `td` is named after `temperature_air_2m` and `temperature_dew_point_2m` (GH-2659).
 
     A caller pairs a value with its error by name, which `error_absolute_temperature_air_mean_2m`
-    did not allow once `ttt` was no mean. The old names answer with the new ones.
+    did not allow once `ttt` was no mean. The old names answer with the new ones, also as a key of
+    `geo_station_distance`.
     """
     # only `large` holds the errors, `small` has `ttt` and `td` alone
     names = {parameter.name_original: parameter.name for parameter in DwdMosmixMetadata["hourly"]["large"]}
@@ -300,4 +329,6 @@ def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: p
     for old in ("error_absolute_temperature_air_mean_2m", "error_absolute_temperature_dew_point_mean_2m"):
         assert old not in PARAMETERS
         assert parse_parameters(f"hourly/large/{old}", DwdMosmixMetadata) == []
-        assert f"It is named '{old.replace('_mean', '')}' here" in caplog.text
+        assert f"It was renamed to '{old.replace('_mean', '')}'." in caplog.text
+    with pytest.raises(ValidationError, match=r"'error_absolute_temperature_air_mean_2m' is now 'error_absolute"):
+        Options(geo_station_distance={"error_absolute_temperature_air_mean_2m": 10.0})
