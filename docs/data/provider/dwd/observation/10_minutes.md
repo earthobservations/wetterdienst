@@ -99,7 +99,7 @@ Codes (precipitation_index):
 |-----------------------------------|---------------|---------------------------------------------------------------------|------|-------------|
 | {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`temperature_air_max_2m` | tx_10 | Maximum of air temperature at 2 m height during the last 10 minutes. | °C | - |
-| {term}`temperature_air_max_0_05m` | tx5_10 | Maximum of air temperature at 5 cm height during the last 10 minutes. | °C | - |
+| {term}`temperature_air_max_0_05m` | tx5_10 | Maximum of air temperature at 5 cm height during the last 10 minutes. Only the historical files carry a value, up to 2009: recent and now hold none. | °C | - |
 | {term}`temperature_air_min_2m` | tn_10 | Minimum of air temperature at 2 m height during the last 10 minutes. | °C | - |
 | {term}`temperature_air_min_0_05m` | tn5_10 | Minimum of air temperature at 5 cm height during the last 10 minutes. | °C | - |
 

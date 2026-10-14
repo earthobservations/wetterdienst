@@ -201,3 +201,26 @@ def test_dwd_observation_no_declared_parameter_is_dropped() -> None:
     }
     both = sorted(site for site in declared if site[2] in DROPPABLE_PARAMETERS)
     assert not both, f"declared as parameters but dropped from the data: {both}"
+
+
+@pytest.mark.parametrize(
+    ("resolution", "dataset", "original", "until"),
+    [
+        ("10_minutes", "temperature_extreme", "tx5_10", "2009"),
+        ("hourly", "temperature_soil", "v_te002", "2019"),
+    ],
+)
+def test_dwd_observation_a_parameter_of_the_historical_files_says_so(
+    resolution: str, dataset: str, original: str, until: str
+) -> None:
+    """Test that a parameter only the historical files fill says where it ends (GH-2852).
+
+    DWD's `recent` (and `now`) files carry `TX5_10` and `V_TE002` as `-999` at every station, as the
+    historical files do from 2010 and 2020 on. The parameters stay declared, since the historical period
+    delivers them, so what keeps a request for `recent` from reading as a failure is the description.
+    """
+    from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata  # noqa: PLC0415
+
+    parameter = next(p for p in DwdObservationMetadata[resolution][dataset].parameters if p.name_original == original)
+    assert "Only the historical files carry a value" in parameter.description
+    assert f"up to {until}" in parameter.description

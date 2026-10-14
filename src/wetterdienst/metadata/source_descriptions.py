@@ -552,7 +552,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Minimum of air temperature at 2 m height during the last 10 minutes."
         ),
         ("10_minutes", "temperature_extreme", "tx5_10"): (
-            "Maximum of air temperature at 5 cm height during the last 10 minutes."
+            "Maximum of air temperature at 5 cm height during the last 10 minutes. Only the historical files "
+            "carry a value, up to 2009: recent and now hold none."
         ),
         ("10_minutes", "temperature_extreme", "tx_10"): (
             "Maximum of air temperature at 2 m height during the last 10 minutes."
@@ -899,7 +900,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "sun", "sd_so"): "Hourly sunshine duration.",
         ("hourly", "temperature_air", "rf_tu"): "Relative humidity.",
         ("hourly", "temperature_air", "tt_tu"): "Air temperature 2 m above ground.",
-        ("hourly", "temperature_soil", "v_te002"): "Soil temperature in 2 cm depth.",
+        ("hourly", "temperature_soil", "v_te002"): (
+            "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none."
+        ),
         ("hourly", "temperature_soil", "v_te005"): "Soil temperature in 5 cm depth.",
         ("hourly", "temperature_soil", "v_te010"): "Soil temperature in 10 cm depth.",
         ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth.",

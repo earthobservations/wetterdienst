@@ -256,7 +256,7 @@ Codes (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_0_02m`      | v_te002 | Soil temperature in 2 cm depth. | °C | - |
+| {term}`temperature_soil_0_02m`      | v_te002 | Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none. | °C | - |
 | {term}`temperature_soil_0_05m`      | v_te005 | Soil temperature in 5 cm depth. | °C | - |
 | {term}`temperature_soil_0_1m`      | v_te010 | Soil temperature in 10 cm depth. | °C | - |
 | {term}`temperature_soil_0_2m`      | v_te020 | Soil temperature in 20 cm depth. | °C | - |
