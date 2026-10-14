@@ -18,6 +18,17 @@ Types of changes:
 
 ### Fixed
 
+- `interpolate` and `summarize` no longer return a timestamp outside the requested window when
+  `start` or `end` is not on the resolution's grid (`start` 12:30 and `end` 12:30 two days later at
+  daily gave the next day's 00:00 after `end`; `start` 10:29 at hourly gave 10:00 before it). The
+  rows are the timestamps within `start` and `end`, both included, the ones `values` returns for
+  the same window, and a window holding none returns no rows (GH-2814)
+- `dwd/radar` converts an aware `start` or `end` to UTC, as a naive one already was taken to be, so
+  one instant selects one file: `2020-01-01T01:00+01:00` read January's `RW202001.tar.gz` where
+  the same instant as `00:00Z` reads December's, losing the hour before midnight, and a `+05:30`
+  bound matched no file; a bound in a named zone (`Europe/Berlin`) raised a polars `SchemaError`
+  on the recent and composite files. A historical RADOLAN_CDC request spanning months now reads
+  every month's archive, not only the one it opens in (GH-2818)
 - The warning for a parameter a dataset does not have no longer offers a near spelling whose
   leading words name another quantity: `temperature_dew_point_mean_2m` in `dwd/observation`
   `daily/kl` no longer suggests `temperature_air_mean_2m`, nor
