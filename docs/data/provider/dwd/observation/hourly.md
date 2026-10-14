@@ -27,17 +27,17 @@
 |-----------------------------|---------------|--------------------------|------|----------------------------------------|
 | {term}`quality` | qn_8 | Quality flag. | -             | - |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
-| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
-| {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ {1, 2} |
+| {term}`cloud_type_layer1` | v_s1_cs | Cloud type of 1. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
 | {term}`cloud_height_layer1` | v_s1_hhs | Lower boundary height of 1.layer. | m | >=0 |
 | {term}`cloud_cover_layer1` | v_s1_ns | Cloud cover in the first layer. | 1/8 | >=0,<=8 |
-| {term}`cloud_type_layer2` | v_s2_cs | Cloud type of 2. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_type_layer2` | v_s2_cs | Cloud type of 2. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
 | {term}`cloud_height_layer2` | v_s2_hhs | Lower boundary height of 2.layer. | m | >=0 |
 | {term}`cloud_cover_layer2` | v_s2_ns | Cloud cover in the second layer. | 1/8 | >=0,<=8 |
-| {term}`cloud_type_layer3` | v_s3_cs | Cloud type of 3. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_type_layer3` | v_s3_cs | Cloud type of 3. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
 | {term}`cloud_height_layer3` | v_s3_hhs | Lower boundary height of 3.layer. | m | >=0 |
 | {term}`cloud_cover_layer3` | v_s3_ns | Cloud cover in the third layer. | 1/8 | >=0,<=8 |
-| {term}`cloud_type_layer4` | v_s4_cs | Cloud type of 4. layer. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1\] |
+| {term}`cloud_type_layer4` | v_s4_cs | Cloud type of 4. layer. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1} |
 | {term}`cloud_height_layer4` | v_s4_hhs | Lower boundary height of 4.layer. | m | >=0 |
 | {term}`cloud_cover_layer4` | v_s4_ns | Cloud cover in the fourth layer. | 1/8 | >=0,<=8 |
 
@@ -73,7 +73,7 @@ Codes (cloud_type_layer):
 | name                            | original name | description                    | unit | constraints                         |
 |---------------------------------|---------------|--------------------------------|------|-------------------------------------|
 | {term}`quality` | qn_8 | Quality flag. | -             | - |
-| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
+| {term}`cloud_cover_total_measurement_method` | v_n_i | Index how measurement is taken, P = by human person,I = by instrument. Returned as 1 for P and 2 for I. | - | ∈ {1, 2} |
 | {term}`cloud_cover_total` | v_n | Total cloud cover. | 1/8 | >=0,<=8 |
 
 Codes (cloud_cover_total_measurement_method):
@@ -142,8 +142,8 @@ Codes (cloud_cover_total_measurement_method):
 | name                         | original name | description           | unit | constraints                  |
 |------------------------------|---------------|-----------------------|------|------------------------------|
 | {term}`precipitation_amount` | r1 | Precipitation height during the previous hour. | mm | >=0 |
-| {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ \[0, 1\] |
-| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ \[0, 1, 2, 3, 4, 6, 7, 8, 9\] |
+| {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ {0, 1} |
+| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ {0, 1, 2, 3, 4, 6, 7, 8, 9} |
 
 Codes (precipitation_indicator):
 
@@ -387,7 +387,7 @@ Codes (precipitation_form):
 
 | name                           | original name | description                    | unit | constraints |
 |--------------------------------|---------------|--------------------------------|------|-------------|
-| {term}`visibility_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. Returned as 1 for P and 2 for I. | - | ∈ \[1, 2\] |
+| {term}`visibility_measurement_method` | v_vv_i | Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. Returned as 1 for P and 2 for I. | - | ∈ {1, 2} |
 | {term}`visibility` | v_vv | Visibility range. | m | >=0 |
 
 Codes (visibility_measurement_method):

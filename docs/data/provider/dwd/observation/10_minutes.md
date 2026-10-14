@@ -28,7 +28,7 @@
 | {term}`quality` | qn | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`precipitation_duration` | rws_dau_10 | Duration of precipitation during the previous 10 minutes. | min | >=0 |
 | {term}`precipitation_amount` | rws_10 | Sum of the precipitation height of the previous 10 minutes. | mm | >=0 |
-| {term}`precipitation_index` | rws_ind_10 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ \[0, 1, 2, 3\] |
+| {term}`precipitation_index` | rws_ind_10 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ {0, 1, 2, 3} |
 
 Codes (precipitation_index):
 

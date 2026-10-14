@@ -618,6 +618,26 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
+# The one grammar of the `constraints` column: `-` for unconstrained, bounds as `>=lo` and `<=hi` joined by a
+# comma, and a set of admissible codes as `∈ {a, b, c}`. The model declares no range for a parameter, so the
+# cells are prose, and what a test can hold them to is that one bound is not written two ways (`0-100` beside
+# `>=0,<=100`), that an empty cell is no stand-in for `-`, and that a set is not escaped markup (GH-2006).
+_CONSTRAINT = re.compile(r"^(?:-|>=-?\d+(?:\.\d+)?(?:,<=-?\d+(?:\.\d+)?)?|<=-?\d+(?:\.\d+)?|∈ \{-?\d+(?:, -?\d+)*\})$")
+
+
+def test_docs_constraints_are_spelled_one_way() -> None:
+    """Test that every `constraints` cell is `-`, bounds like `>=0,<=100`, or a set like `∈ {0, 1}`."""
+    wrong = []
+    for provider, network, resolution, path in _documented_resolutions():
+        for (dataset, name, _original), shown in _documented_column(path, "constraints").items():
+            wrong.extend(
+                f"{provider}/{network}/{resolution.name}/{dataset} {name}: {cell!r}"
+                for cell in shown
+                if not _CONSTRAINT.match(cell)
+            )
+    assert not wrong, "\n".join(_capped(sorted(set(wrong)), 20, "the report"))
+
+
 def test_docs_change_parameters_are_not_constrained_to_be_positive() -> None:
     """Test that a documented `*_delta_*` parameter is not constrained to `>=0`.
 

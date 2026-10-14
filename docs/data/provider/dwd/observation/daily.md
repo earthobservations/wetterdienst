@@ -30,7 +30,7 @@
 | {term}`wind_speed` | fm | Daily mean of wind velocity. | m/s | >=0 |
 | {term}`quality_general` | qn_4 | Quality level of the following columns. | -             | - |
 | {term}`precipitation_amount` | rsk | Daily precipitation height. | mm | >=0 |
-| {term}`precipitation_form` | rskf | Precipitation form. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9\] |
+| {term}`precipitation_form` | rskf | Precipitation form. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |
 | {term}`snow_depth` | shk_tag | Daily snow depth. | cm | >=0 |
 | {term}`cloud_cover_total` | nm | Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | 1/8 | >=0,<=8 |
@@ -78,7 +78,7 @@ missing value and comes back as null.
 |------------------------------|---------------|----------------------------|------|-------------|
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`precipitation_amount` | rs | Daily precipitation height. | mm | >=0 |
-| {term}`precipitation_form` | rsf | Precipitation form. | - | ∈ \[0, 1, 2, 3, 4, 5, 6, 7, 8, 9\] |
+| {term}`precipitation_form` | rsf | Precipitation form. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`snow_depth` | sh_tag | Height of snow pack. | cm | >=0 |
 | {term}`snow_depth_new` | nsh_tag | Fresh snow depth. | cm | >=0 |
 
