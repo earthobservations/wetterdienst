@@ -1235,7 +1235,10 @@ def _bare_tls_failure(error: ClientSSLError) -> OSError:
     return failure
 
 
-@stamina.retry(on=_worth_retrying_listing, attempts=3)
+#: How often a listing that failed in a way worth asking again is attempted in all.
+_LISTING_ATTEMPTS = 3
+
+
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[str]:
@@ -1261,6 +1264,20 @@ def list_remote_files_fsspec(
             failure, a 4xx or anything else once.
 
     """
+    # a retry context rather than a `stamina.retry` decorator: the decorator hands the call's
+    # arguments to stamina's retry hook, which attaches them to its log record as
+    # `extra["stamina.kwargs"]` -- the live `Settings`, proxy password included, for a handler that
+    # serialises a pydantic object by its fields (GH-2904). A context has no arguments to hand over.
+    # The same policy as before: stamina's default time budget, `_LISTING_ATTEMPTS` attempts.
+    for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
+        with attempt:
+            return _list_files_once(url, settings, cache_expiry)
+    msg = "unreachable"
+    raise AssertionError(msg)
+
+
+def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
+    """Attempt ``list_remote_files_fsspec`` once; the caller asks again where the policy says so."""
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
         use_listings_cache=use_cache,
@@ -1278,7 +1295,7 @@ def list_remote_files_fsspec(
         #
         # Raised instead, and the two told apart here: a directory that is not there is an answer,
         # and callers have always had it as `[]`; anything else is a failure to read, which a
-        # caller should hear about rather than infer, after the retry above where it can help
+        # caller should hear about rather than infer, after the retry around this where it can help
         return fs.find(url, on_error="raise")
     except FileNotFoundError:
         return []
@@ -1304,15 +1321,14 @@ def list_remote_files_fsspec(
         return []
     except ClientResponseError as e:
         # an HTTP error status. One that a proxy answered carries the `Proxy-Authorization` header
-        # aiohttp built from its credentials in the request info, and the retry above logs the repr
+        # aiohttp built from its credentials in the request info, and the retry around this logs the repr
         # of whatever leaves here, so it is scrubbed before it does (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
-    # raised, and the retry above asks again only where `_worth_retrying_listing` says it can help:
-    # not for this, a TLS failure being the same on every attempt (GH-2618)
+    # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
+    # help: not for this, a TLS failure being the same on every attempt (GH-2618)
     raise tls_failure
 
 
-@stamina.retry(on=_worth_retrying_listing, attempts=3)
 def list_remote_directory_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[dict]:
@@ -1342,6 +1358,17 @@ def list_remote_directory_fsspec(
             else once.
 
     """
+    # a retry context, as in `list_remote_files_fsspec`, so that the settings stay out of stamina's
+    # log record (GH-2904)
+    for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
+        with attempt:
+            return _list_directory_once(url, settings, cache_expiry)
+    msg = "unreachable"
+    raise AssertionError(msg)
+
+
+def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[dict]:
+    """Attempt ``list_remote_directory_fsspec`` once; the caller asks again where the policy says so."""
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
         use_listings_cache=use_cache,
@@ -1362,8 +1389,8 @@ def list_remote_directory_fsspec(
         failure = _bare_tls_failure(e)
     except ClientConnectorError as e:
         # any other connector failure -- a refusing proxy, a DNS failure, a reset during the connect --
-        # keeps its type, so a caller that catches aiohttp's errors still does, and the retry above
-        # treats it as any failure to read. The proxy's credentials leave its connection key. The
+        # keeps its type, so a caller that catches aiohttp's errors still does, and the retry around
+        # this treats it as any failure to read. The proxy's credentials leave its connection key. The
         # traceback goes too, and that of `os_error`: a refusing proxy's key names no credentials,
         # so the helper leaves that error's frames alone, and their locals hold `proxy_auth` and the
         # encoded `Proxy-Authorization` header. So does the chain. Plain offline errors lose theirs
@@ -1376,8 +1403,8 @@ def list_remote_directory_fsspec(
     except ClientResponseError as e:
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
-    # raised, and the retry above asks again only where `_worth_retrying_listing` says it can help:
-    # not for this, a TLS failure being the same on every attempt (GH-2618)
+    # raised, and the retry around this asks again only where `_worth_retrying_listing` says it can
+    # help: not for this, a TLS failure being the same on every attempt (GH-2618)
     raise failure
 
 
