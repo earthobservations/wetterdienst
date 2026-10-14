@@ -22,6 +22,10 @@ Types of changes:
   malformed `WD_*` setting, naming the variable and exiting 1, as `about coverage` without
   arguments and every other command already do. They ran and exited 0, so the same environment
   gave `about coverage` two different exit codes (GH-2619)
+- The `dwd/phenology` overviews (the DWD index and the phenology page of the docs, the module
+  docstrings) no longer open by calling the value "the day of the year". It is DWD's `Jultag`,
+  which is that only for a date in the reference year and not for every date of a leap year
+  since about 1952; the openings now say so. Only the text changed, not the values (GH-2902)
 
 ## [0.151.0] - 2026-10-14
 

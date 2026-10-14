@@ -2,11 +2,11 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """DWD phenology metadata.
 
-The DWD phenological network records, for one plant at one station, the day of the year on which
-a given developmental phase was reached -- first flowering, leaf unfolding, harvest. Observations
-come from two reporter groups: the *Jahresmelder* (annual reporters), who submit their whole
-season at the end of the year, and the *Sofortmelder* (immediate reporters), who report a smaller
-set of phases within days of observing them.
+The DWD phenological network records, for one plant at one station, the day (DWD's ``Jultag``, not
+always the day of the year) on which a given developmental phase was reached -- first flowering,
+leaf unfolding, harvest. Observations come from two reporter groups: the *Jahresmelder* (annual
+reporters), who submit their whole season at the end of the year, and the *Sofortmelder*
+(immediate reporters), who report a smaller set of phases within days of observing them.
 
 The source publishes one semicolon-separated, latin-1 encoded text file per plant, per reporter
 group and per period, under
