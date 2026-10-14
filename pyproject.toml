@@ -401,6 +401,8 @@ scikit-learn = "sklearn"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
+    # a version bound only: `pybufrkit` calls `bitstring`, which 5.0.0 broke (GH-2930)
+    "bitstring",
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
     "h5netcdf",
