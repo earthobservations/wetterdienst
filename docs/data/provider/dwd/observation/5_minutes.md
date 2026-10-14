@@ -26,15 +26,16 @@
 | name                                 | original name | description                                                          | unit | constraints |
 |--------------------------------------|---------------|----------------------------------------------------------------------|------|-------------|
 | {term}`quality` | qn_5min | Quality flag published by the source for the values in the same dataset. | -             | - |
-| {term}`precipitation_index` | rs_ind_05 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ \[0,1,3\] |
+| {term}`precipitation_index` | rs_ind_05 | Indicator of precipitation; if QN = 1 then: 0 = no precipitation, permanent sensor installed; 1 = precipitation, permanent sensor installed; 2 = no precipitation, heating in operation, permanent sensor installed; 3 = precipitation, heating in operation, permanent sensor installed; if QN > 1 then: 0 = no precipitation; 1 = precipitation. | - | ∈ \[0, 1, 2, 3\] |
 | {term}`precipitation_amount` | rs_05 | Sum of the precipitation height of the previous 5 minutes. | mm | >=0 |
 | {term}`precipitation_amount_droplet` | rth_05 | Precipitation height of last 5min measured with droplet. | mm | >=0 |
 | {term}`precipitation_amount_rocker` | rwh_05 | Precipitation height of last 5min measured with rocker. | mm | >=0 |
 
-Codes (precipitation_form):
+Codes (precipitation_index):
 
-| code | meaning                                                   |
-|------|-----------------------------------------------------------|
-| 0    | no precipitation                                          |
-| 1    | precipitation has fallen                                  |
-| 3    | precipitation has fallen and heating of instrument was on |
+| code | meaning, if QN = 1                                                 | meaning, if QN > 1 |
+|------|--------------------------------------------------------------------|--------------------|
+| 0    | no precipitation, permanent sensor installed                       | no precipitation   |
+| 1    | precipitation, permanent sensor installed                          | precipitation      |
+| 2    | no precipitation, heating in operation, permanent sensor installed | not defined        |
+| 3    | precipitation, heating in operation, permanent sensor installed    | not defined        |

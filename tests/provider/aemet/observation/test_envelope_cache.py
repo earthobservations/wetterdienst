@@ -1,9 +1,10 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Tests for what AEMET's envelope leaves in the cache (GH-2750).
+"""Tests for what AEMET's envelope and "datos" body leave in the cache (GH-2750, GH-2887).
 
 AEMET reports most of its errors in the body of an HTTP 200, which the download layer caches for the
-whole `ttl` like an answer. These go through the real caching filesystem, against a local server
+whole `ttl` like an answer, and its "datos" link is pre-signed and can fail while the envelope that
+holds it is still cached. These go through the real caching filesystem, against a local server
 that answers as AEMET does, and without a key of AEMET's.
 """
 
@@ -27,17 +28,19 @@ if TYPE_CHECKING:
 
 _INVENTORY = "/valores/climatologicos/inventarioestaciones/todasestaciones"
 _ENVELOPE = "/envelope"
+_PAYLOAD = b'[{"indicativo": "0016A"}]'
 
 
 class _Aemet(BaseHTTPRequestHandler):
-    """Answer each path with its scripted bodies in turn, the last one for good, always as HTTP 200."""
+    """Answer each path with its scripted bodies in turn, the last for good, as HTTP 200 unless a status is given."""
 
     def do_GET(self) -> None:
         server = self.server
         server.requests.append(self.path)
         bodies = server.script[self.path]
         body = bodies.pop(0) if len(bodies) > 1 else bodies[0]
-        self.send_response(200)
+        status, body = body if isinstance(body, tuple) else (200, body)
+        self.send_response(status)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -88,20 +91,65 @@ def test_a_failed_envelope_is_asked_for_again(aemet: ThreadingHTTPServer, failur
     """An envelope that is a failure is not read back from the cache: the next request asks AEMET again."""
     aemet.script = {
         _ENVELOPE: [failure, _envelope(200, datos=_url(aemet, "/datos"))],
-        "/datos": [b"payload"],
+        "/datos": [_PAYLOAD],
     }
     settings = Settings()
     assert isinstance(_fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES), Exception)
-    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == b"payload"
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == _PAYLOAD
     assert aemet.requests == [_ENVELOPE, _ENVELOPE, "/datos"]
 
 
 def test_a_good_envelope_stays_in_the_cache(aemet: ThreadingHTTPServer) -> None:
     """Dropping what failed does not cost the cache what worked."""
-    aemet.script = {_ENVELOPE: [_envelope(200, datos=_url(aemet, "/datos"))], "/datos": [b"payload"]}
+    aemet.script = {_ENVELOPE: [_envelope(200, datos=_url(aemet, "/datos"))], "/datos": [_PAYLOAD]}
     settings = Settings()
-    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == b"payload"
-    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == b"payload"
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == _PAYLOAD
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == _PAYLOAD
+    assert aemet.requests == [_ENVELOPE, "/datos"]
+
+
+def test_an_envelope_whose_link_failed_is_asked_for_again(aemet: ThreadingHTTPServer) -> None:
+    """A link that cannot be fetched is not handed out again by the cached envelope that holds it."""
+    aemet.script = {
+        _ENVELOPE: [_envelope(200, datos=_url(aemet, "/expired")), _envelope(200, datos=_url(aemet, "/datos"))],
+        "/expired": [(404, b"expired")],
+        "/datos": [_PAYLOAD],
+    }
+    settings = Settings()
+    assert isinstance(_fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX), Exception)
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX) == _PAYLOAD
+    # the download layer tries the dead link more than once; what counts is that the envelope is asked again
+    assert aemet.requests[0] == _ENVELOPE
+    assert set(aemet.requests[1:-2]) == {"/expired"}
+    assert aemet.requests[-2:] == [_ENVELOPE, "/datos"]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(b"<html>maintenance</html>", id="html"),
+        pytest.param(_envelope(429), id="estado-429"),
+        pytest.param(b"", id="empty"),
+    ],
+)
+def test_a_datos_body_that_is_no_array_is_asked_for_again(aemet: ThreadingHTTPServer, failure: bytes) -> None:
+    """A body AEMET answered with a 200 but that is an error is not read back, nor is the link to it."""
+    aemet.script = {
+        _ENVELOPE: [_envelope(200, datos=_url(aemet, "/datos"))],
+        "/datos": [failure, _PAYLOAD],
+    }
+    settings = Settings()
+    assert isinstance(_fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX), Exception)
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX) == _PAYLOAD
+    assert aemet.requests == [_ENVELOPE, "/datos", _ENVELOPE, "/datos"]
+
+
+def test_an_empty_array_is_an_answer(aemet: ThreadingHTTPServer) -> None:
+    """A station without records in the range gets `[]`, which is data and stays in the cache."""
+    aemet.script = {_ENVELOPE: [_envelope(200, datos=_url(aemet, "/datos"))], "/datos": [b"[]"]}
+    settings = Settings()
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX) == b"[]"
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX) == b"[]"
     assert aemet.requests == [_ENVELOPE, "/datos"]
 
 
