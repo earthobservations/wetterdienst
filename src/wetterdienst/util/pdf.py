@@ -6,12 +6,13 @@ from io import StringIO
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.network import download_file
 
 
 def read_pdf(url: str) -> str:
     """Read text from a PDF file."""
-    import pypdf  # noqa: PLC0415
+    pypdf = import_optional("pypdf", "Reading a PDF", extra="pdf")
 
     text = StringIO()
     default_settings = Settings()
