@@ -55,6 +55,9 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- The `noaa/ghcn` hourly docs page no longer constrains `pressure_air_site_delta_last_3h` (the
+  3-hour pressure change) to `>=0`: it is negative when the pressure falls (-6.8 to 7.4 hPa at
+  Anchorage in 2023). Only the docs change, the values returned do not (GH-2874)
 
 ## [0.151.0] - 2026-10-14
 

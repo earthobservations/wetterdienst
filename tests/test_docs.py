@@ -618,6 +618,28 @@ def test_docs_parameter_units_name_the_quantity_the_model_declares() -> None:
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
+def test_docs_change_parameters_are_not_constrained_to_be_positive() -> None:
+    """Test that a documented `*_delta_*` parameter is not constrained to `>=0`.
+
+    A change is negative when the quantity falls: the 3-hour pressure change of GHCNh reads -6.8 to 7.4 hPa at
+    Anchorage in 2023 (GH-2874), yet its row said `>=0`, which holds for an air pressure.
+    """
+    wrong = []
+    for provider, network, resolution, path in _documented_resolutions():
+        constraints = _documented_column(path, "constraints")
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                if "_delta_" not in parameter.name:
+                    continue
+                key = (dataset.name, parameter.name, parameter.name_original)
+                wrong.extend(
+                    f"{provider}/{network}/{resolution.name}/{dataset.name} {parameter.name}: docs {shown!r}"
+                    for shown in constraints.get(key, [])
+                    if ">=0" in shown
+                )
+    assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
+
+
 def _documented_unit_spellings(
     resolution: "ResolutionModel",
     path: Path,
