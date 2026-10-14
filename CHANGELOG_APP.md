@@ -41,7 +41,11 @@ Types of changes:
 - `[Glossary]` `6_minutes` (Météo-France) and the datasets `core`, `others`, `rain`, `radiation`,
   `weather`, `temperature`, `soil_temperature`, `urban_solar`, `urban_temperature_extreme` and
   `urban_wind_extreme` have a label in all 11 languages, where the select showed their prettified
-  ids. The `dwd/phenology` datasets are still unlabelled, see GH-2866 (GH-2865)
+  ids (GH-2865)
+- `[Glossary]` The 110 `dwd/phenology` datasets have a label in all 11 languages, plant and
+  reporter group, where the select showed "Annual Winter Rye": "Annual reporters: Winter rye",
+  "Jahresmelder: Winterroggen". Low German and Luxembourgish give the plant's own word only where
+  it is certain and the German one otherwise (GH-2866)
 
 ### Security
 
