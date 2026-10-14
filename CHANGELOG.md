@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `noaa/ghcn` hourly `quality_flags` also carry the file's `<element>_Measurement_Code` and
+  `<element>_Source_Code`, as `measurement:<code>` and `source:<code>` after the quality code and
+  before `raw:` (`5,measurement:T,source:335`), as daily does. The source says which list a
+  quality code is read in (`4` is "passed gross limits" for source 335, "calculated" for 223); the
+  measurement code marks, by element, a trace of precipitation, a calm wind and the tendency of the
+  3-hour pressure change. The text `Null`, which sources 245 and 367 write for "no code", is left
+  out of the quality code too (it was returned as the flag `Null`) (GH-2925)
+
 ## [0.152.0] - 2026-10-15
 
 ### Changed
