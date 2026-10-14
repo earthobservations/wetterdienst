@@ -13,6 +13,7 @@ import pytest
 
 from wetterdienst import Wetterdienst
 from wetterdienst.exceptions import NoInternetError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.settings import Settings
@@ -94,6 +95,8 @@ def test_is_valid_is_one_short_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = _answer(monkeypatch, BytesIO(b"{}"), 200)
     assert MetnoFrostRequest.is_valid() is True
     assert calls[0]["attempts"] == 1
+    # an acceptance is cached for a minute, not an hour: a revoked client ID must not read True for an hour (GH-2750)
+    assert calls[0]["ttl"] is CacheExpiry.ONE_MINUTE
     assert calls[0]["client_kwargs"]["timeout"].total == PROBE_TIMEOUT_SECONDS
     assert Settings().fsspec_client_kwargs["timeout"] > PROBE_TIMEOUT_SECONDS
 
