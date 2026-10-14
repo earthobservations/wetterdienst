@@ -27,6 +27,9 @@ Types of changes:
   hour, so `is_valid()` and the credential check of the REST API and app stop reporting `True`
   for a revoked key within a minute. A refused or failed AEMET check is no longer kept at all
   (GH-2750)
+- `imgw/meteorology` returns the first station of the list, `249170080` Dzierżkowice, which the
+  reader took for the header: the list gave 799 of 800 stations and a request for that station
+  found nothing (GH-2650, GH-2752)
 
 ## [0.150.0] - 2026-10-13
 
