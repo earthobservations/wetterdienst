@@ -55,6 +55,11 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- `geosphere/observation` station lists have a `wmo_id` column, the station's five-digit WMO number
+  (`11021` for Litschau) from the list's `Synopstationsnummer`, null for the stations without one
+  and for the 19 whose number has seven digits (`8989106`), which is no WMO number. It appears in
+  the frames, JSON and GeoJSON properties; several series of one place can share a number. The
+  list's other raw columns (`Synop`, `Verknüpfungsnummer`, ...) stay out (GH-2751, GH-2019)
 
 ## [0.151.0] - 2026-10-14
 

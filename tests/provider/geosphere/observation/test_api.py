@@ -79,9 +79,14 @@ def test_geosphere_observation_api_radiation(
     assert df.get_column("value").sum() == expected_sum
 
 
+_STATIONS_HEADER = (
+    "id,Synopstationsnummer,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,"
+    "Sonnenschein,Globalstrahlung,Synop,Verknüpfungsnummer,Startdatum Teilzeitreihe,Enddatum Teilzeitreihe,"
+    "zusammengesetzt\n"
+)
 _STATIONS = (
-    "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-    "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
+    _STATIONS_HEADER
+    + "4821,,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True,,,,,ja\n"
 ).encode()
 
 
@@ -470,10 +475,11 @@ def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_
 def test_geosphere_observation_stations_that_still_report_have_no_end(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the 2100-12-31 the list gives a station that still reports is no end, and a real end is kept."""
     stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "1,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,True,True\n"
-        "12,Baden,16.235556,48.011391,244.8,1954-04-01 00:00:00+00:00,2012-05-31 23:59:59+00:00,Niederösterreich,"
-        "True,False\n"
+        _STATIONS_HEADER
+        + "1,,Aflenz,15.24069,47.54594,783.2,1983-05-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,Steiermark,"
+        "True,True,,,,,ja\n"
+        "12,,Baden,16.235556,48.011391,244.8,1954-04-01 00:00:00+00:00,2012-05-31 23:59:59+00:00,Niederösterreich,"
+        "True,False,,,,,ja\n"
     ).encode()
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
 
@@ -483,6 +489,54 @@ def test_geosphere_observation_stations_that_still_report_have_no_end(monkeypatc
         "1": None,
         "12": datetime(2012, 5, 31, 23, 59, 59, tzinfo=ZoneInfo("UTC")),
     }
+
+
+def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station's WMO number (`Synopstationsnummer`) is a column; the other raw columns of the list are not (GH-2751).
+
+    The rows are copied from `klima-v2-1d/metadata/stations` as Geosphere publishes it (2026-10-14): Litschau
+    and its predecessor 501, which has no number, Rohrbach's two series that share one, and Liebenau-Gugu, whose
+    7-digit `8989106` is no WMO number (WMO numbers have 5 digits; 19 stations in the list carry such a number).
+    """
+    stations = (
+        _STATIONS_HEADER
+        + "500,11021,Litschau,15.03831,48.95464,557.6,1983-11-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "Niederösterreich,True,True,,57,1983-11-01 00:00:00+00:00,,nein\n"
+        "501,,Litschau,15.03333,48.96667,570.0,1962-07-01 00:00:00+00:00,1983-10-31 00:00:00+00:00,"
+        "Niederösterreich,True,False,,57,1962-07-01 00:00:00+00:00,1983-10-31 23:59:59+00:00,nein\n"
+        "1415,11008,Rohrbach,13.99,48.6,600.0,1983-01-01 00:00:00+00:00,2000-12-31 00:00:00+00:00,"
+        "Oberösterreich,True,False,,,,,ja\n"
+        "1416,11008,Rohrbach,13.99,48.6,600.0,2001-01-01 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "Oberösterreich,True,False,,,,,ja\n"
+        "1711,8989106,Liebenau-Gugu,14.7,48.4,800.0,2023-03-31 00:00:00+00:00,2100-12-31 00:00:00+00:00,"
+        "Oberösterreich,False,False,,,,,nein\n"
+    ).encode()
+    monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
+
+    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+
+    assert df.schema["wmo_id"] == pl.String
+    assert df.select("station_id", "wmo_id").rows() == [
+        ("500", "11021"),
+        ("501", None),
+        ("1415", "11008"),
+        ("1416", "11008"),
+        ("1711", None),
+    ]
+    # the sunshine and radiation flags and the columns that chain a series to its predecessor's are no station columns
+    assert df.columns == [
+        "resolution",
+        "dataset",
+        "station_id",
+        "start_timestamp",
+        "end_timestamp",
+        "latitude",
+        "longitude",
+        "elevation",
+        "name",
+        "region",
+        "wmo_id",
+    ]
 
 
 def _serve_values(monkeypatch: pytest.MonkeyPatch, series: dict[str, list[float]]) -> None:

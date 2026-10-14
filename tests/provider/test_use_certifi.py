@@ -54,8 +54,10 @@ def _geosphere(monkeypatch: pytest.MonkeyPatch) -> Seen:
     from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest, api  # noqa: PLC0415
 
     stations = (
-        "id,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,Sonnenschein,Globalstrahlung\n"
-        "4821,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True\n"
+        "id,Synopstationsnummer,Stationsname,Länge [°E],Breite [°N],Höhe [m],Startdatum,Enddatum,Bundesland,"
+        "Sonnenschein,Globalstrahlung,Synop,Verknüpfungsnummer,Startdatum Teilzeitreihe,Enddatum Teilzeitreihe,"
+        "zusammengesetzt\n"
+        "4821,,Test,16.0,48.0,200,1992-05-20 00:00:00+00:00,2100-01-01 00:00:00+00:00,Wien,True,True,,,,,ja\n"
     ).encode()
 
     def answer(url: str) -> File:

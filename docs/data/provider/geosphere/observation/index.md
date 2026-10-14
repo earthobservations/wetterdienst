@@ -10,6 +10,11 @@ one request per dataset and station over the requested time window. The API is k
 authentication is required. As only historical data is offered, a date range is required when
 requesting values.
 
+Each station's `wmo_id` is the WMO station number (five digits, `11021` for Litschau) from the
+station list's `Synopstationsnummer`, null for the stations without one. Several series of one
+place (a station that moved or was renumbered) can share a number. The list also gives 19
+stations a seven-digit number (`8989106`); it is no WMO number and is left out.
+
 ```{toctree}
 :hidden:
 
