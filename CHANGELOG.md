@@ -60,6 +60,12 @@ Types of changes:
   and for the 19 whose number has seven digits (`8989106`), which is no WMO number. It appears in
   the frames, JSON and GeoJSON properties. The composite series (`zusammengesetzt` `ja`, e.g. `1`
   Aflenz) have none; the number is on their part series, which can share it (GH-2751, GH-2019)
+- The retry of `list_remote_files_fsspec` and `list_remote_directory_fsspec` no longer puts the
+  `Settings` of a keyword call (`settings=settings`) into stamina's log record as
+  `stamina.kwargs`, where a handler that serialises pydantic objects by their fields (logfire,
+  rich) would print a proxy password. The record now carries no arguments and names the retried
+  block `<context block>`, as `download_file`'s does, no longer the listing function. The retry
+  policy and the answers are unchanged (GH-2904, GH-2623)
 
 ## [0.151.0] - 2026-10-14
 
