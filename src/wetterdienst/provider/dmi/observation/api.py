@@ -14,7 +14,6 @@ import contextlib
 import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
-from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -35,7 +34,6 @@ if TYPE_CHECKING:
 
 
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
-_UTC = ZoneInfo("UTC")
 # DMI accepts a limit of up to 300000 records per page, so a short range is one page. DMI always
 # returns a "next" link regardless, so pagination stops on a short page.
 _PAGE_LIMIT = 300_000
@@ -288,11 +286,11 @@ class DmiObservationValues(TimeseriesValues):
         # Widen the requested window by a day on each side for those resolutions;
         # TimeseriesValues.query() trims the result back to the exact requested range by the
         # assigned `timestamp`. Hourly aggregates are already UTC-aligned (label == `from`), so no
-        # margin is needed and none is added -- widening would only fetch extra data. Normalise
-        # to UTC so the "Z" filter is true even for already-tz-aware, non-UTC callers.
+        # margin is needed and none is added -- widening would only fetch extra data. The
+        # request's bounds are UTC, so the "Z" filter is true.
         margin = dt.timedelta(0) if resolution == Resolution.HOURLY else dt.timedelta(days=1)
-        start = start_date.astimezone(_UTC) - margin
-        end = end_date.astimezone(_UTC) + margin
+        start = start_date - margin
+        end = end_date + margin
 
         # DMI returns every parameter for the station in one response; keep only the ones
         # mapped in this dataset's metadata (their raw parameterId is name_original).

@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
-from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -42,7 +41,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-_UTC = ZoneInfo("UTC")
 _BASE_URL = "https://opendata.chmi.cz/meteorology/climate/historical_csv"
 
 _EMPTY_VALUES_SCHEMA = {
@@ -169,11 +167,8 @@ class ChmiObservationValues(TimeseriesValues):
         category = element_config[0]
         if layout == "subdaily":
             frames = []
-            # the month files are named by UTC calendar month; normalise so a tz-aware, non-UTC
-            # request date near a month boundary still selects the correct file
-            start = cast("dt.datetime", self.sr.start).astimezone(_UTC)
-            end = cast("dt.datetime", self.sr.end).astimezone(_UTC)
-            for year, month in _months(start, end):
+            # the month files are named by UTC calendar month, which is the zone of the request's bounds
+            for year, month in _months(cast("dt.datetime", self.sr.start), cast("dt.datetime", self.sr.end)):
                 url = (
                     f"{_BASE_URL}/data/{config['path']}/{category}/{year}/"
                     f"{config['prefix']}-{station_id}-{element}-{year}{month:02d}.csv"

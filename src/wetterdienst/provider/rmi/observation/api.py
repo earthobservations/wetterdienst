@@ -16,7 +16,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 from urllib.parse import quote
-from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -35,7 +34,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.meteo.be/service/aws/wfs"
-_UTC = ZoneInfo("UTC")
 # GeoServer serves the whole matched set in one page for realistic station/date windows, but
 # paginate defensively (startIndex/count) so a very long range can never hit a server-side cap.
 _PAGE_LIMIT = 500_000
@@ -188,10 +186,10 @@ class RmiObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
         # Every RMI timestamp is a true UTC instant (label == the value CQL filters on), so the
-        # window needs no margin. Normalise to UTC so the "Z" bounds are correct even for callers
-        # that pass tz-aware, non-UTC dates; TimeseriesValues.query() trims to the exact range.
-        start = start_date.astimezone(_UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        end = end_date.astimezone(_UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # window needs no margin; the request's bounds are UTC, which the "Z" says.
+        # TimeseriesValues.query() trims to the exact range.
+        start = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         # `timestamp DURING X/X` (a one-day or single-instant request) is answered with HTTP 400
         # ("the beginning of the period must be earlier than the end"); `DURING` is otherwise
         # inclusive at both ends on this server, exactly what `>= AND <=` says, and accepts X == X

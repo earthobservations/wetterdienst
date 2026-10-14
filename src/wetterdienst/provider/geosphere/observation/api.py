@@ -139,9 +139,9 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
         # floored to the hour, so a repeat of an open-ended request builds the same URL (the cache key)
         # unless an hour boundary falls between them; the one-day buffer below still reaches past now
         end_date = self.sr.end or round_minutes(datetime.now(ZoneInfo("UTC")), 60)
-        # add buffers; the windows are cut in UTC, where a day is 24 hours, whatever zone the request is in
-        start_date = start_date.astimezone(ZoneInfo("UTC")) - timedelta(days=1)
-        end_date = end_date.astimezone(ZoneInfo("UTC")) + timedelta(days=1)
+        # add buffers; the bounds are UTC, where a day is 24 hours, whatever zone the request was made in
+        start_date -= timedelta(days=1)
+        end_date += timedelta(days=1)
         frames = []
         for window_start, window_end in _time_windows(
             start_date, end_date, self._window_span(resolution, len(parameters))
@@ -166,8 +166,8 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
             station_id=station_id,
             parameter=",".join(parameters),
             dataset=dataset.name_original,
-            start_date=start_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M"),
-            end_date=end_date.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M"),
+            start_date=start_date.strftime("%Y-%m-%dT%H:%M"),
+            end_date=end_date.strftime("%Y-%m-%dT%H:%M"),
         )
         settings = cast("Settings", self.sr.stations.settings)
         file = download_file(

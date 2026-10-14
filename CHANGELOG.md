@@ -64,6 +64,10 @@ Types of changes:
   outside the compass and which neither source defines: the daily 2007-09-05 of 31299001 and 14
   rows of the 1996 SYNOP file (89642, 61972). The value is null with `raw:400` as the last token
   of `quality_flags` (GH-2728, GH-2873)
+- `noaa/ghcn` daily stations that report in the current year have no `end_timestamp` (null) in the
+  station list, as for `chmi/observation`; it was 31 December of this year, a date not reached
+  yet, for 38,505 of 133,039 stations. The inventory gives only the year of the last observation,
+  so null reads as still reporting; a filter for such stations tests for null (GH-2643)
 
 ## [0.150.0] - 2026-10-13
 
