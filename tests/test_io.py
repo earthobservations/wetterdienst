@@ -4,6 +4,7 @@
 
 import contextlib
 import datetime as dt
+import importlib.machinery
 import json
 import logging
 import math
@@ -4215,7 +4216,9 @@ def test_driver_missing_names_the_driver_the_postgresql_extra_installs(
     from wetterdienst.io.export import _driver_missing  # noqa: PLC0415
 
     if installed:
-        monkeypatch.setitem(sys.modules, "psycopg", types.ModuleType("psycopg"))
+        stub = types.ModuleType("psycopg")
+        stub.__spec__ = importlib.machinery.ModuleSpec("psycopg", None)
+        monkeypatch.setitem(sys.modules, "psycopg", stub)
     else:
         monkeypatch.setitem(sys.modules, "psycopg", None)
 

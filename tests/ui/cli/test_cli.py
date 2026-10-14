@@ -1407,6 +1407,17 @@ def test_auth_requires_provider_and_network(args: list[str]) -> None:
     assert "Missing option" in result.stderr
 
 
+_ABOUT_FIELDS_DWD = [
+    "about",
+    "fields",
+    "--provider=dwd",
+    "--network=observation",
+    "--resolution=daily",
+    "--dataset=daily",
+    "--period=historical",
+]
+
+
 def test_cli_about_fields_without_pypdf_is_one_logged_line(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -1424,9 +1435,7 @@ def test_cli_about_fields_without_pypdf_is_one_logged_line(
 
     monkeypatch.setattr("wetterdienst.provider.dwd.observation.DwdObservationRequest.describe_fields", describe_fields)
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(
-            cli, ["about", "fields", "--resolution=daily", "--dataset=daily", "--period=historical"]
-        )
+        result = CliRunner().invoke(cli, _ABOUT_FIELDS_DWD)
 
     assert result.exit_code == 1
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
