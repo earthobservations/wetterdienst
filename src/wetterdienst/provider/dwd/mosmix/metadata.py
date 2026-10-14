@@ -276,12 +276,12 @@ DwdMosmixMetadata = {
                             "unit": "pascal",
                         },
                         {
-                            "name": "error_absolute_temperature_air_mean_2m",
+                            "name": "error_absolute_temperature_air_2m",
                             "name_original": "e_ttt",
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "error_absolute_temperature_dew_point_mean_2m",
+                            "name": "error_absolute_temperature_dew_point_2m",
                             "name_original": "e_td",
                             "unit": "degree_kelvin",
                         },

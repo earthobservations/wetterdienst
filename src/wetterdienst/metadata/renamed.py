@@ -135,6 +135,66 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "count_weather_type_sleet": "count_weather_type_graupel",
 }
 
+_WIND_LAST_10MIN = {
+    "wind_speed": "wind_speed_last_10min",
+    "wind_direction": "wind_direction_last_10min",
+}
+_EXTREMES_LAST_12H = {
+    "temperature_air_max_2m": "temperature_air_max_2m_last_12h",
+    "temperature_air_min_2m": "temperature_air_min_2m_last_12h",
+}
+_EXTREMES_OF_THE_PERIOD = {
+    "temperature_air_max_2m_multiday": "temperature_air_max_2m",
+    "temperature_air_min_2m_multiday": "temperature_air_min_2m",
+}
+_EXTREMES_MEAN_OF_DAILY = {
+    "temperature_air_max_2m": "temperature_air_max_2m_mean",
+    "temperature_air_min_2m": "temperature_air_min_2m_mean",
+}
+
+#: canonical parameter names renamed inside one dataset, for a name that another dataset of the
+#: provider still has, so that `RENAMED_PARAMETERS` cannot hold it. Keyed by the name of the
+#: provider's metadata declaration (`MetadataModel.name`), then by `(resolution, dataset)`, to
+#: `{old name: new name}`. A request for the old name in that dataset is answered with the new one,
+#: as the global renames are, instead of a guess at a near spelling. Not every such rename is listed
+#: (the sub-daily `_mean_` temperatures follow a rule, `model.metadata._spot_name`), but each one
+#: that is has the old name in the table and the new one in the dataset, which
+#: `tests/metadata/test_renamed.py` holds it to.
+RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    # GH-2614, GH-2644
+    "AemetObservationMetadata": {
+        ("monthly", "data"): _EXTREMES_OF_THE_PERIOD,
+        ("annual", "data"): _EXTREMES_OF_THE_PERIOD,
+        # GH-2697
+        ("hourly", "data"): _WIND_LAST_10MIN,
+    },
+    "ChmiObservationMetadata": {
+        ("monthly", "data"): _EXTREMES_MEAN_OF_DAILY,
+        ("annual", "data"): _EXTREMES_MEAN_OF_DAILY,
+    },
+    "DwdMosmixMetadata": {
+        ("hourly", "small"): _EXTREMES_LAST_12H,
+        ("hourly", "large"): _EXTREMES_LAST_12H,
+    },
+    "DwdDmoMetadata": {
+        ("hourly", "icon"): _EXTREMES_LAST_12H,
+        ("hourly", "icon_eu"): _EXTREMES_LAST_12H,
+    },
+    # GH-2697, GH-2707, GH-2733, GH-2835: the mean of the last 10 minutes, no longer the row's interval
+    "DwdObservationMetadata": {("hourly", "wind_synoptic"): {"wind_speed": "wind_speed_last_10min"}},
+    "DwdPoiMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
+    "FmiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
+    "KnmiObservationMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
+    "MeteoFranceObservationMetadata": {
+        # GH-2834: FXY is the hour's highest 10-minute mean wind, no gust
+        ("hourly", "core"): {**_WIND_LAST_10MIN, "wind_gust_max": "wind_speed_rolling_mean_max"},
+    },
+    "MeteoFranceSynopMetadata": {("subdaily", "data"): _WIND_LAST_10MIN},
+    # Frost's own element `wind_speed` still selects its row, so only the direction is not found
+    "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
+    "SmhiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
+}
+
 #: request arguments, old name to new
 RENAMED_ARGUMENTS: dict[str, str] = {
     # GH-2437: the window is a pair of UTC timestamps, not of dates

@@ -30,6 +30,11 @@ Types of changes:
 - `[DataViewer]` The table shows the one string column `quality_flags` the backend gives a values
   row in the release following 0.146.0 in place of `quality`: against an older backend the numeric
   `quality` column moves to the end of the table (GH-2758)
+- `[Glossary]` MOSMIX `error_absolute_temperature_air_2m` and
+  `error_absolute_temperature_dew_point_2m` have a label in all 11 languages: the names the
+  backend gives `e_ttt` and `e_td` in the release following 0.151.0, in place of the `_mean_`
+  ones. Against an older backend the labels of the old names are gone and the prettified id shows
+  (GH-2659)
 
 ### Fixed
 

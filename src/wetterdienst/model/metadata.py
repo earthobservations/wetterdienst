@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import difflib
 import logging
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, TypeVar
@@ -17,7 +18,7 @@ from pydantic_extra_types.timezone_name import (
 
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET
 from wetterdienst.metadata.resolution import Resolution  # noqa: TC001, needs to stay here for pydantic model to work
 
 if TYPE_CHECKING:
@@ -70,22 +71,74 @@ def _find(models: Iterable[_NamedModel], item: str) -> _NamedModel | None:
     return None
 
 
-def _not_found(kind: str, item: str, models: Iterable[_NamedModel]) -> str:
+# a `_mean_` temperature of a reading, not of an extreme: `temperature_air_mean_2m`,
+# `temperature_soil_mean_0_05m`, `temperature_surface_mean`, `error_absolute_temperature_air_mean_2m`.
+# `temperature_air_max_2m_mean` (the mean of the daily maxima) is none: no spot name succeeds it
+_MEAN_OF_A_READING = re.compile(r"^((?:error_absolute_)?temperature_[a-z_]+?)_mean((?:_\d+(?:_\d+)?m)?)$")
+
+
+def _spot_name(name: str) -> str | None:
+    """Name the reading at one moment that a sub-daily `_mean_` temperature became, or None.
+
+    A sub-daily temperature whose source states no mean is named `temperature_air_2m`, no longer
+    `temperature_air_mean_2m` (GH-2651, GH-2657). Which datasets that moved is not declared
+    anywhere, so the caller keeps the candidate only where the dataset has it.
+    """
+    match = _MEAN_OF_A_READING.match(name)
+    return f"{match.group(1)}{match.group(2)}" if match else None
+
+
+def _renamed_hint(item: str, candidates: Iterable[str], dataset: DatasetModel | None) -> str:
+    """Name what a parameter the dataset does not have is called there, or return nothing.
+
+    Looked up in this order, and only where the dataset has the name offered, so that the hint
+    never sends a caller to a parameter that is not there:
+
+    1. the rename declared for this dataset (`RENAMED_PARAMETERS_IN_DATASET`), for a name another
+       dataset of the provider still has: `wind_speed` is `wind_speed_last_10min` in
+       `hourly/data` but stays `wind_speed` in `daily/data`;
+    2. the rename for 1.0 that holds everywhere (`RENAMED_PARAMETERS`);
+    3. the spot name of a `_mean_` temperature, which no table lists since the move covers the
+       sub-daily temperatures of most providers (GH-2673).
+
+    The first two say "renamed", the third does not: a dataset that never had the `_mean_` name was
+    not renamed, but is the one place the caller means. What none of them can name is a guess for
+    the caller to weigh, which is the difflib one in the message.
+    """
+    names = set(candidates)
+    if dataset is not None and dataset.resolution is not None:
+        resolution = dataset.resolution
+        in_dataset = RENAMED_PARAMETERS_IN_DATASET.get(resolution.metadata_name, {}).get(
+            (resolution.name, dataset.name)
+        )
+        new = (in_dataset or {}).get(item)
+        if new in names:
+            return f" It was renamed to '{new}' in this dataset."
+    new = RENAMED_PARAMETERS.get(item)
+    if new in names:
+        # a name this dataset had, renamed for 1.0: say so rather than guess at a near spelling
+        return f" It was renamed to '{new}'."
+    spot = _spot_name(item)
+    if spot in names:
+        return f" It is named '{spot}' here, a reading at one moment, not a mean."
+    return ""
+
+
+def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: DatasetModel | None = None) -> str:
     """Build the message for a name that no model matched.
 
     Names a close match where there is one, because the common failure is a typo or a name taken
     from another provider, and the available-names list alone leaves the user to spot the
-    difference themselves. A parameter renamed for 1.0 is answered with its new name instead of a
-    guess, where this dataset has it.
+    difference themselves. A parameter that is called something else in this dataset is answered
+    with its name there instead of a guess (see `_renamed_hint`); `dataset` is the one a
+    parameter was looked up in.
     """
     models = list(models)
     candidates = sorted({name for model in models for name in _names(model)})
-    renamed = RENAMED_PARAMETERS.get(str(item).strip().lower()) if kind == "parameters" else None
-    close = difflib.get_close_matches(str(item).strip().lower(), candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
-    if renamed in candidates:
-        # a name this dataset had, renamed for 1.0: say so rather than guess at a near spelling
-        suggestion = f" It was renamed to '{renamed}'."
-    else:
+    item_search = str(item).strip().lower()
+    suggestion = _renamed_hint(item_search, candidates, dataset) if kind == "parameters" else ""
+    if not suggestion:
+        close = difflib.get_close_matches(item_search, candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
         suggestion = f" Did you mean '{close[0]}'?" if close else ""
     available = ", ".join(
         f"{model.name}/{model.name_original}" if model.name != model.name_original else model.name for model in models
@@ -190,14 +243,14 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
             return self.parameters[item]
         parameter = _find(self.parameters, item)
         if parameter is None:
-            raise KeyError(_not_found("parameters", item, self.parameters))
+            raise KeyError(_not_found("parameters", item, self.parameters, self))
         return parameter
 
     def __getattr__(self, item: str) -> ParameterModel:
         """Get a parameter by name."""
         parameter = _find(self.parameters, item)
         if parameter is None:
-            raise AttributeError(_not_found("parameters", item, self.parameters))
+            raise AttributeError(_not_found("parameters", item, self.parameters, self))
         return parameter
 
     # on purpose, not pydantic's iteration over (name, value) pairs of the fields: a model here is iterated
@@ -219,6 +272,9 @@ class ResolutionModel(BaseModel):
     description: str | None = None
     date_required: bool | None = None
     datasets: list[DatasetModel]
+    # the name of the provider's metadata declaration, which `MetadataModel` sets once it holds this
+    # resolution, so that a dataset can tell which provider it belongs to (see `RENAMED_PARAMETERS_IN_DATASET`)
+    metadata_name: str = Field(default="", exclude=True, repr=False)
 
     @field_validator("datasets", mode="before")
     @classmethod
@@ -301,6 +357,11 @@ class MetadataModel(BaseModel):
     auth: bool = False
     resolutions: list[ResolutionModel]
 
+    def model_post_init(self, _context: object, /) -> None:
+        """Tell each resolution which declaration it belongs to."""
+        for resolution in self.resolutions:
+            resolution.metadata_name = self.name
+
     def __getitem__(self, item: str | int) -> ResolutionModel:
         """Get a resolution by name."""
         if isinstance(item, int):
@@ -347,7 +408,7 @@ class MetadataModel(BaseModel):
         # flag is answered with the explanation below instead of with "no such parameter"
         parameter = _find(dataset.parameters, parameter_search.parameter)
         if parameter is None:
-            raise KeyError(_not_found("parameters", parameter_search.parameter, dataset))
+            raise KeyError(_not_found("parameters", parameter_search.parameter, dataset, dataset))
         if parameter.name.startswith("quality"):
             msg = (
                 f"'{parameter_search.parameter}' is a quality flag. Quality flags are returned in the "

@@ -55,6 +55,22 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- A request for a parameter name that a dataset renamed (logged and dropped, or
+  `NoParametersFoundError`) now says what it is called there: "It was renamed to
+  'temperature_air_max_2m_last_12h' in this dataset" for MOSMIX `temperature_air_max_2m`, AEMET
+  monthly `temperature_air_max_2m_multiday` and the `wind_*_last_10min` renames; "It is named
+  'temperature_air_2m' here" for a sub-daily `temperature_air_mean_2m`, `temperature_soil_mean_2m`
+  and the like. It named the closest spelling before, which was another quantity: the mean of the
+  daily maxima for AEMET, `temperature_air_min_2m` for Geosphere 10-minute `temperature_air_mean_2m`
+  and the 10 cm grass temperature for KNMI's. The old names still are not accepted (GH-2644,
+  GH-2673)
+- **Breaking**: `dwd/mosmix` `hourly/large` `e_ttt` and `e_td`, the absolute error of `ttt` and
+  `td`, are named `error_absolute_temperature_air_2m` and `error_absolute_temperature_dew_point_2m`,
+  no longer `error_absolute_temperature_air_mean_2m` and
+  `error_absolute_temperature_dew_point_mean_2m`, so that a value and its error share a name.
+  Request the new names; the old ones are not found (logged and dropped, or
+  `NoParametersFoundError` when no other parameter is requested), and values frames carry the new
+  names (GH-2659)
 
 ## [0.151.0] - 2026-10-14
 

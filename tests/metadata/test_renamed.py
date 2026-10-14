@@ -3,13 +3,19 @@
 import pytest
 from pydantic import ValidationError
 
+from tests.test_api import ALL_METADATA
 from wetterdienst import Options
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
-from wetterdienst.model.metadata import MetadataModel, parse_parameters
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET
+from wetterdienst.model.metadata import DatasetModel, MetadataModel, _find, _not_found, _spot_name, parse_parameters
+from wetterdienst.provider.aemet.observation import AemetObservationMetadata
+from wetterdienst.provider.chmi.observation import ChmiObservationMetadata
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
+from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
+from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 
 
 def test_renamed_parameters_point_from_a_retired_name_to_a_canonical_one() -> None:
@@ -81,3 +87,217 @@ def test_sleet_as_a_station_distance_key_names_graupel() -> None:
     """The retired sleet name in `geo_station_distance` is refused with the name to use (GH-2696)."""
     with pytest.raises(ValidationError, match=r"'count_weather_type_sleet' is now 'count_weather_type_graupel'"):
         Options(geo_station_distance={"count_weather_type_sleet": 10.0})
+
+
+def _find_dataset(metadata_name: str, resolution: str, dataset: str) -> DatasetModel:
+    """Find the dataset a rename is declared for, by the metadata declaration's name."""
+    metadata = next(metadata for metadata in ALL_METADATA if metadata.name == metadata_name)
+    return metadata[resolution][dataset]
+
+
+_RENAMES_IN_DATASET = [
+    (metadata_name, resolution, dataset, old, new)
+    for metadata_name, datasets in RENAMED_PARAMETERS_IN_DATASET.items()
+    for (resolution, dataset), renames in datasets.items()
+    for old, new in renames.items()
+]
+
+
+@pytest.mark.parametrize(
+    ("metadata_name", "resolution", "dataset", "old", "new"),
+    _RENAMES_IN_DATASET,
+    ids=[f"{metadata}/{resolution}/{dataset}/{old}" for metadata, resolution, dataset, old, _ in _RENAMES_IN_DATASET],
+)
+def test_a_rename_in_a_dataset_leads_from_a_name_it_lacks_to_one_it_has(
+    metadata_name: str, resolution: str, dataset: str, old: str, new: str
+) -> None:
+    """A rename in one dataset names a canonical parameter the dataset does not answer to, and one it holds.
+
+    An old name that the dataset still answers to (as a canonical or as the source's own name)
+    would never reach the hint, a new one it does not have would send the caller to a parameter
+    that is not there, and an old name that is no canonical name at all is a misspelling that no
+    caller wrote.
+    """
+    dataset_model = _find_dataset(metadata_name, resolution, dataset)
+    assert old in PARAMETERS
+    assert new in PARAMETERS
+    assert _find(dataset_model.parameters, old) is None
+    assert _find(dataset_model.parameters, new) is not None
+    # one that holds in every dataset belongs in RENAMED_PARAMETERS
+    assert old not in RENAMED_PARAMETERS
+
+
+def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> None:
+    """The keys name a metadata declaration, a resolution and a dataset that exist."""
+    names = {metadata.name for metadata in ALL_METADATA}
+    assert sorted(set(RENAMED_PARAMETERS_IN_DATASET) - names) == []
+    for metadata_name, datasets in RENAMED_PARAMETERS_IN_DATASET.items():
+        for resolution, dataset in datasets:
+            # raises a KeyError naming what is missing
+            _find_dataset(metadata_name, resolution, dataset)
+
+
+@pytest.mark.parametrize(
+    ("metadata", "value", "message"),
+    [
+        # GH-2644: the old name stays valid elsewhere (NOAA's multiday maximum, the 12 h maximum of DWD's
+        # other datasets), so the answer is the rename in this dataset and not the closest spelling, which
+        # was `temperature_air_max_2m_mean` (the mean of the daily maxima: 10.4 for 15.7)
+        (
+            AemetObservationMetadata,
+            "monthly/data/temperature_air_max_2m_multiday",
+            "It was renamed to 'temperature_air_max_2m' in this dataset.",
+        ),
+        (
+            AemetObservationMetadata,
+            "annual/data/temperature_air_min_2m_multiday",
+            "It was renamed to 'temperature_air_min_2m' in this dataset.",
+        ),
+        (
+            DwdMosmixMetadata,
+            "hourly/large/temperature_air_max_2m",
+            "It was renamed to 'temperature_air_max_2m_last_12h' in this dataset.",
+        ),
+        (
+            DwdDmoMetadata,
+            "hourly/icon_eu/temperature_air_min_2m",
+            "It was renamed to 'temperature_air_min_2m_last_12h' in this dataset.",
+        ),
+        (
+            ChmiObservationMetadata,
+            "monthly/data/temperature_air_max_2m",
+            "It was renamed to 'temperature_air_max_2m_mean' in this dataset.",
+        ),
+        (
+            KnmiObservationMetadata,
+            "hourly/data/wind_direction",
+            "It was renamed to 'wind_direction_last_10min' in this dataset.",
+        ),
+        # GH-2673: a `_mean_` temperature that moved to the spot name, which difflib took for another
+        # quantity: the minimum, the 20 cm soil and the 10 cm grass temperature
+        (
+            GeosphereObservationMetadata,
+            "10_minutes/data/temperature_air_mean_2m",
+            "It is named 'temperature_air_2m' here, a reading at one moment, not a mean.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "hourly/data/temperature_soil_mean_2m",
+            "It is named 'temperature_soil_2m' here, a reading at one moment, not a mean.",
+        ),
+        (
+            KnmiObservationMetadata,
+            "10_minutes/data/temperature_air_mean_2m",
+            "It is named 'temperature_air_2m' here, a reading at one moment, not a mean.",
+        ),
+        (
+            DwdObservationMetadata,
+            "hourly/temperature_air/temperature_air_mean_2m",
+            "It is named 'temperature_air_2m' here, a reading at one moment, not a mean.",
+        ),
+        (
+            DwdSwsmosMetadata,
+            "hourly/data/temperature_surface_mean",
+            "It is named 'temperature_surface' here, a reading at one moment, not a mean.",
+        ),
+        # a name the dataset never had and no rule maps keeps the closest spelling
+        (
+            DwdObservationMetadata,
+            "daily/kl/temperature_air_mean_200",
+            "Did you mean 'temperature_air_mean_2m'?",
+        ),
+    ],
+)
+def test_a_name_a_dataset_lacks_is_answered_with_the_name_it_has(
+    metadata: MetadataModel, value: str, message: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The warning for a parameter a dataset does not have names the one it has under another name."""
+    assert parse_parameters(value, metadata) == []
+    assert message in caplog.text
+    # not a guess besides the answer
+    assert caplog.text.count("Did you mean") == int("Did you mean" in message)
+
+
+def test_a_rename_in_a_dataset_answers_attribute_and_item_access_too() -> None:
+    """`dataset.<old>` and `dataset["<old>"]` name the new parameter, as a request for the old one does."""
+    dataset = AemetObservationMetadata["monthly"]["data"]
+    with pytest.raises(AttributeError, match=r"It was renamed to 'temperature_air_max_2m' in this dataset"):
+        _ = dataset.temperature_air_max_2m_multiday
+    with pytest.raises(KeyError, match=r"It was renamed to 'temperature_air_max_2m' in this dataset"):
+        _ = dataset["temperature_air_max_2m_multiday"]
+
+
+def test_a_rename_in_a_dataset_leaves_the_name_alone_in_a_dataset_that_has_it() -> None:
+    """The old name still resolves where it is the parameter's own, which is why it is a rename per dataset."""
+    assert [p.name for p in parse_parameters("daily/data/wind_speed", AemetObservationMetadata)] == ["wind_speed"]
+    assert [p.name for p in parse_parameters("daily/data/wind_speed", KnmiObservationMetadata)] == ["wind_speed"]
+    assert parse_parameters("hourly/data/wind_speed", AemetObservationMetadata) == []
+
+
+def test_a_request_for_several_parameters_names_the_renamed_one_and_keeps_the_rest(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The old name is dropped with a hint that says what it is called, and the others are returned."""
+    found = parse_parameters(
+        ["hourly/large/temperature_air_max_2m", "hourly/large/temperature_air_2m"], DwdMosmixMetadata
+    )
+    assert [parameter.name for parameter in found] == ["temperature_air_2m"]
+    assert "It was renamed to 'temperature_air_max_2m_last_12h' in this dataset." in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("name", "spot"),
+    [
+        ("temperature_air_mean_2m", "temperature_air_2m"),
+        ("temperature_dew_point_mean_2m", "temperature_dew_point_2m"),
+        ("temperature_soil_mean_0_05m", "temperature_soil_0_05m"),
+        ("temperature_soil_mean_2m", "temperature_soil_2m"),
+        ("temperature_surface_mean", "temperature_surface"),
+        ("error_absolute_temperature_air_mean_2m", "error_absolute_temperature_air_2m"),
+        # the mean of an extreme, or of a window, is no reading's mean: nothing succeeded it
+        ("temperature_air_max_2m_mean", None),
+        ("temperature_air_min_2m_mean", None),
+        ("temperature_air_mean_2m_last_24h", None),
+        ("temperature_soil_mean_loamy_sand_0_05m", None),
+        ("humidity_relative_mean", None),
+        ("temperature_air_2m", None),
+    ],
+)
+def test_the_spot_name_of_a_mean_temperature(name: str, spot: str | None) -> None:
+    """A sub-daily `_mean_` temperature of a reading maps to its spot name, any other name to none."""
+    assert _spot_name(name) == spot
+
+
+def test_the_hint_never_names_a_parameter_the_dataset_lacks() -> None:
+    """A dataset without the spot name gets the closest spelling, not a name that is not there.
+
+    `daily/kl` has `temperature_air_mean_2m` only, so the spot name of a name it does not have is
+    no answer, and the global renames are held to the same.
+    """
+    dataset = DwdObservationMetadata["daily"]["kl"]
+    message = _not_found("parameters", "temperature_air_mean_2mm", dataset.parameters, dataset)
+    assert "It is named" not in message
+    assert "Did you mean 'temperature_air_mean_2m'?" in message
+
+
+def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: pytest.LogCaptureFixture) -> None:
+    """The error of `ttt` and `td` is named after `temperature_air_2m` and `temperature_dew_point_2m` (GH-2659).
+
+    A caller pairs a value with its error by name, which `error_absolute_temperature_air_mean_2m`
+    did not allow once `ttt` was no mean. The old names answer with the new ones.
+    """
+    # only `large` holds the errors, `small` has `ttt` and `td` alone
+    names = {parameter.name_original: parameter.name for parameter in DwdMosmixMetadata["hourly"]["large"]}
+    assert names["ttt"] == "temperature_air_2m"
+    assert names["e_ttt"] == "error_absolute_temperature_air_2m"
+    assert names["td"] == "temperature_dew_point_2m"
+    assert names["e_td"] == "error_absolute_temperature_dew_point_2m"
+    assert PARAMETERS["error_absolute_temperature_air_2m"].unit_type == PARAMETERS["temperature_air_2m"].unit_type
+    assert (
+        PARAMETERS["error_absolute_temperature_dew_point_2m"].unit_type
+        == PARAMETERS["temperature_dew_point_2m"].unit_type
+    )
+    for old in ("error_absolute_temperature_air_mean_2m", "error_absolute_temperature_dew_point_mean_2m"):
+        assert old not in PARAMETERS
+        assert parse_parameters(f"hourly/large/{old}", DwdMosmixMetadata) == []
+        assert f"It is named '{old.replace('_mean', '')}' here" in caplog.text
