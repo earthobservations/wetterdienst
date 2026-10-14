@@ -22,6 +22,10 @@ Types of changes:
   malformed `WD_*` setting, naming the variable and exiting 1, as `about coverage` without
   arguments and every other command already do. They ran and exited 0, so the same environment
   gave `about coverage` two different exit codes (GH-2619)
+- The `dwd/observation` docs list the code sets DWD publishes: `hourly/precipitation` `wrtr` as
+  0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
+  precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
+  QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
 
 ## [0.151.0] - 2026-10-14
 
