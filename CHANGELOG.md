@@ -39,6 +39,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst[radarplus]` installs `bitstring` below 5, because `pybufrkit` 0.2.25 calls
+  `bitstring.BitStream`, which 5.0.0 removed: with it, decoding a BUFR file with `pybufrkit`
+  raised `AttributeError`. (GH-2930)
 - A TLS failure (a certificate that does not verify, a failed handshake) is no longer retried: a
   listing asked for it three times and a download or a post twice, each with a retry warning and
   the same error at the end. The listings (`list_remote_files_fsspec`,
