@@ -48,7 +48,8 @@ Types of changes:
 - `dwd/phenology` parameter descriptions (glossary in the CLI, REST API, MCP tools and docs) no
   longer say the value is "the day of the year". It is DWD's `Jultag`, which is the day of the
   year only for a date in the reference year and, in a leap year since about 1952, only before
-  1 March; the descriptions now say so. Only the text changed, not the values (GH-2833)
+  29 February; the descriptions now say so. Only the text changed, not the values (GH-2833,
+  GH-2914)
 - `repr(settings)` and `str(settings)` no longer raise for `fsspec_client_kwargs` that aiohttp takes
   but JSON cannot hold, such as `ClientTimeout(total=5)` or a `yarl.URL` as `proxy`. Such a value
   is masked like the rest of the client kwargs, so a failed file listing is retried and raises its
@@ -76,6 +77,9 @@ Types of changes:
   0, 1, 4, 6, 7, 8, 9, plus 2 and 3, which the files hold and the sheet does not define, and the
   precipitation indicators `rs_ind_01`, `rs_ind_05`, `rws_ind_10` as 0 to 3 with their meaning by
   QN, no longer 0, 1, 3. Only the docs change; the values returned do not (GH-2703)
+- The `dwd/observation` daily docs list the precipitation form `rskf` and `rsf` as the codes 0 to 9
+  (the 2021 sheet defines 0, 1, 4, 6, 7, 8, 9; the files also hold 2, 3, 5), no longer as `>=0`.
+  Only the docs change; the values returned do not (GH-2911)
 - A request for a parameter name that a dataset renamed (logged and dropped, or
   `NoParametersFoundError`) now says what it is called there: "It was renamed to
   'temperature_air_max_2m_last_12h' in this dataset" for MOSMIX `temperature_air_max_2m`, AEMET

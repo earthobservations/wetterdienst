@@ -1449,9 +1449,10 @@ NO_STUB = {
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
-        "JULTAG is a day of the year relative to the reference year (negative for a phase in the year before) and the "
-        "reader maps no sentinel: no -999 in the 832,590 rows of 94 files of annual and immediate reporters, recent "
-        "and historical (2026-10-12), whose lowest JULTAG is -120"
+        "the value is DWD's JULTAG, which is the day of the year only for a date in the reference year (negative "
+        "for a date before it, past 365 for one after it) and the reader maps no sentinel: no -999 or other "
+        "sentinel in the 424 files of annual and immediate reporters (crops, farming, fruit, vine, wild; recent and "
+        "historical, 2026-10-14), whose lowest JULTAG is -130 and highest 443"
     ),
     "dwd/radar": (
         "no timeseries: the files are handed over as DWD wrote them, and the BUFR path (`read_radar_bufr`) turns the "
