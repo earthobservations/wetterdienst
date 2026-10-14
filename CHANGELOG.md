@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The `radar` extra no longer installs `tabula`, an unrelated package ("Ascii table") that has no
+  `read_pdf`; nothing at runtime imported it. Only the maintainers' radar-sites generator
+  (`provider/dwd/radar/sites.py`) reads a PDF with `tabula`, and needs `pip install tabula-py` and
+  a Java runtime itself. `uv sync --extra radar` drops `tabula` and, with it, `setuptools` (GH-2764)
+
 ## [0.150.0] - 2026-10-13
 
 ### Fixed
