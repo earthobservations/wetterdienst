@@ -879,7 +879,16 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        df = pl.read_csv(file.content, encoding="utf8", separator=";", skip_rows=1, infer_schema_length=0)
+        # the list has a single header line: skip it and read every row after it as a station, so
+        # that the first station is not taken for the header
+        df = pl.read_csv(
+            file.content,
+            encoding="utf8",
+            has_header=False,
+            separator=";",
+            skip_rows=1,
+            infer_schema_length=0,
+        )
         df = df[:, 1:]
         # drop the "Rok założenia" (station founding year) column, which isn't part of our schema. The list gives
         # "Rzeka", the river catchment with its hydrographic code such as `Odra (1)`, and no region: `region` stays null

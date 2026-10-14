@@ -46,6 +46,18 @@ GHCNH_WIND_DIRECTION_CALM = "0"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 
+# three stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of
+# it, 63 to 109 km off. The latitudes agree with the other catalogues to 0.02 degree, so the sign of the longitude is
+# the only difference (GH-2645). Read 2026-10-14, with the list's value, the other catalogues' and the true place:
+# - FR000007510 BORDEAUX-MERIGNAC (07510): 0.6914; GHCNh FRMU0027510 -0.7, DWD MOSMIX 44.50 -0.42 in degrees and minutes
+#   (-0.70), OpenStreetMap, aerodrome of Bordeaux-Merignac (LFBD) -0.7126
+# - FRE00104044 CAEN-CARPIQUET (07027): 0.4558; GHCNh FRU14137001 -0.456, DWD MOSMIX 49.11 -0.27 (-0.45), OpenStreetMap,
+#   aerodrome of Caen-Carpiquet -0.4544
+# - SP000008416 VALENCIA (08285): 0.3664; GHCNh SPMU0098285 -0.38, AEMET station 8416 (Valencia, Viveros; the id carries
+#   the AEMET code) 39 28' 50" N, 0 21' 59" W (-0.3664)
+# The longitude of these is taken as west whatever sign the list gives, so a list corrected by NOAA is read as it is.
+GHCND_WEST_LONGITUDE_STATIONS = ("FR000007510", "FRE00104044", "SP000008416")
+
 
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
@@ -451,6 +463,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .then(None)
             .otherwise(pl.col("elevation").replace(["-999.9", "-100.0"], None))
             .alias("elevation"),
+        )
+
+        df = df.with_columns(
+            pl.when(pl.col("station_id").is_in(GHCND_WEST_LONGITUDE_STATIONS))
+            .then(pl.lit("-") + pl.col("longitude").str.strip_chars_start("-"))
+            .otherwise(pl.col("longitude"))
+            .alias("longitude"),
         )
 
         inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
