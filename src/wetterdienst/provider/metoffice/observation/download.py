@@ -27,6 +27,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
+from wetterdienst.exceptions import NoInternetError
 from wetterdienst.util.network import post_file
 
 if TYPE_CHECKING:
@@ -100,11 +101,15 @@ def get_ceda_token(settings: Settings) -> str | None:
             client_kwargs=settings.fsspec_client_kwargs,
             use_certifi=settings.use_certifi,
         )
+        if isinstance(file.content, NoInternetError):
+            # raised rather than answered with no token: every request of this provider starts here,
+            # and an offline one would end as an empty result with a warning (GH-2640)
+            raise file.content
         if isinstance(file.content, Exception):
-            # said out loud whichever way it failed, and once every three days at that: a refused
-            # connection, an intercepted TLS handshake and an unreachable host all arrive here, and
-            # every one of them ends as an empty Met Office result the user would otherwise have no
-            # account of. The reason is named rather than the account blamed.
+            # said out loud whichever way it failed, and once every three days at that: an
+            # intercepted TLS handshake and a refusing server both arrive here, and every one of
+            # them ends as an empty Met Office result the user would otherwise have no account of.
+            # The reason is named rather than the account blamed.
             log.warning(f"Failed to obtain CEDA access token: {file.content}")
             return None
         if file.status != 200:

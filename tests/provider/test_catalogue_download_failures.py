@@ -4,11 +4,10 @@
 
 The values downloads of these networks were made to raise in GH-2461. Their catalogues still logged the failure and
 returned an empty frame, so a timeout or a 5xx on the one file listing the stations answered a station request with an
-empty result and a success status. Each catalogue is a single required file, so a 404 raises as well, and
-`NoInternetError` stays quiet.
+empty result and a success status. Each catalogue is a single required file, so a 404 raises as well. So does
+`NoInternetError`: a library that is offline has no stations to list, which is not a network without any (GH-2640).
 """
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -149,20 +148,17 @@ def test_a_failed_catalogue_download_is_raised(
 
 
 @pytest.mark.parametrize(("modules", "driver"), _SITES)
-def test_no_connection_at_all_stays_quiet(
+def test_no_connection_at_all_raises(
     serve: Callable[[list[Any], Exception, int], None],
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     modules: list[Any],
     driver: Callable[[pytest.MonkeyPatch], object],
 ) -> None:
-    """A `NoInternetError` gives no stations and no warning, so working offline still returns empty.
+    """A `NoInternetError` raises, where it used to give no stations: offline is not a network without any (GH-2640)."""
+    error = NoInternetError("offline")
+    serve(modules, error, 503)
 
-    The catalogues used to warn here as for any failure (the release listing never did); `raise_if_exception`
-    logs it at debug, as `dmi` and `rmi` do.
-    """
-    serve(modules, NoInternetError("offline"), 503)
-    caplog.set_level(logging.WARNING)
+    with pytest.raises(NoInternetError) as excinfo:
+        driver(monkeypatch)
 
-    assert _gives_nothing(driver(monkeypatch))
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    assert excinfo.value is error

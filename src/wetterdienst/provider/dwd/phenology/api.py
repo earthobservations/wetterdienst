@@ -256,7 +256,7 @@ class DwdPhenologyValues(TimeseriesValues):
             )
             # one file holds every station, at a fixed name or one just listed, so any failure of it
             # -- a 404 included -- is an outage, which swallowed would read as every station without
-            # observations (GH-2461). NoInternetError returns silently, to give an empty frame
+            # observations (GH-2461). A failed connection (NoInternetError) is raised as well (GH-2640)
             file.raise_if_exception()
             if not isinstance(file.content, Exception):
                 df = _parse_values(file.content.read(), DWD_PHENOLOGY_OBJECT_IDS[dataset.name])
@@ -350,8 +350,8 @@ class DwdPhenologyRequest(TimeseriesRequest):
             use_certifi=settings.use_certifi,
         )
         # a reporter group's catalogue is one required file, so any failure of it -- a 404 included --
-        # is an outage, which swallowed would read as a group without stations (GH-2519).
-        # NoInternetError returns silently, to give an empty frame
+        # is an outage, which swallowed would read as a group without stations (GH-2519). A failed
+        # connection (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.DataFrame()

@@ -56,8 +56,8 @@ class IpmaObservationValues(TimeseriesValues):
         A single ``observations.json`` holds every station, so parsing it per station (once per
         ``_collect_station_parameter_or_dataset`` call in a rank loop) would re-run ``json.loads`` over
         the whole payload N times. The parsed feed is cached here so it is deserialised exactly once
-        per query; ``None`` signals that no connection could be made and is intentionally not cached so
-        it is retried. Any other failure to fetch the feed raises.
+        per query. A failure to fetch the feed raises, a failed connection (``NoInternetError``) included
+        (GH-2640), and is not cached, so that it is attempted again.
         """
         cached = getattr(self, "_feed_cache", None)
         if cached is not None:
@@ -74,7 +74,7 @@ class IpmaObservationValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         # one feed holds every station, so any failure of it -- a 404 included -- is an outage, not
-        # a station without data, and is raised (GH-2461). NoInternetError returns silently
+        # a station without data, and is raised (GH-2461), a failed connection (NoInternetError) too
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return None
@@ -129,8 +129,8 @@ class IpmaObservationRequest(TimeseriesRequest):
             use_certifi=settings.use_certifi,
         )
         # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
-        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
-        # silently, to give an empty frame
+        # which swallowed would read as a network without stations (GH-2519). A failed connection
+        # (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()

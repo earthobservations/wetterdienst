@@ -11,7 +11,7 @@ import pytest
 
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as synop_api
 
@@ -104,7 +104,7 @@ def test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes(monkeypatch: py
     }
     assert by_parameter == {"wind_direction_last_10min": [190.0, 170.0], "wind_speed_last_10min": [2.0, 1.0]}
     for old in ("wind_speed", "wind_direction"):
-        with pytest.raises(NoParametersFoundError):
+        with pytest.raises(InvalidParameterError):
             MeteoFranceSynopRequest(parameters=[("subdaily", "data", old)])
 
 

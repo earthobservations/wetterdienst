@@ -131,8 +131,7 @@ class DwdPoiValues(TimeseriesValues):
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch POI report for station {station_id}: {file.content}")
+            log.warning(f"Failed to fetch POI report for station {station_id}: {file.content}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # DWD rewrites all ~970 files every hour, and a rewrite in progress can be served as an
         # empty 200. polars raises NoDataError on those bytes, which would abort a whole

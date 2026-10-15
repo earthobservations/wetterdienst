@@ -22,9 +22,11 @@ from wetterdienst.exceptions import (
     ImageTooLargeError,
     InvalidBoundingBoxError,
     InvalidEnumerationError,
+    InvalidParameterError,
     InvalidTimeIntervalError,
     IssueNotFoundError,
     LocationOutOfRangeError,
+    MetadataNotFoundError,
     MetaFileFormatError,
     MetaFileNotFoundError,
     MissingDependencyError,
@@ -51,6 +53,7 @@ from wetterdienst.exceptions import (
 #: the module has to be given a row here, which is how it gets its place.
 _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[BaseException], ...]]] = {
     InvalidEnumerationError: (RequestError, (ValueError,)),
+    InvalidParameterError: (RequestError, (ValueError,)),
     NoParametersFoundError: (RequestError, (ValueError,)),
     NoPeriodsFoundError: (RequestError, (ValueError,)),
     MetaFileNotFoundError: (UpstreamError, (FileNotFoundError, OSError)),
@@ -68,6 +71,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     ProviderNotFoundError: (NotFoundError, (Exception,)),
     StationNotFoundError: (NotFoundError, (Exception,)),
     ApiNotFoundError: (NotFoundError, (Exception,)),
+    MetadataNotFoundError: (NotFoundError, (LookupError,)),
     NoInternetError: (UpstreamError, (OSError,)),
     DownloadError: (UpstreamError, (Exception,)),
     MissingDependencyError: (ConfigurationError, (ImportError,)),

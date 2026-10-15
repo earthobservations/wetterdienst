@@ -4,12 +4,11 @@
 
 Eleven networks logged the failure and went on with nothing -- an empty frame, `None`, or the next file -- so an
 upstream outage read as a station without data. Each now raises it as a `DownloadError`, except a 404 where that is
-how the network says a file is not there, and except `NoInternetError`, which stays quiet. `dwd/swsmos`, the twelfth,
+how the network says a file is not there. `NoInternetError` is raised as well (GH-2640). `dwd/swsmos`, the twelfth,
 is tested beside its other run tests.
 """
 
 import datetime as dt
-import logging
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
@@ -90,7 +89,7 @@ def _ipma(module: Any) -> object:  # noqa: ANN401
 
 
 def _dmi(module: Any) -> object:  # noqa: ANN401
-    # the read as a whole: the pager raises `NoInternetError` for the collect to end the windows quietly
+    # the read as a whole: the pager raises `NoInternetError`, which the collect lets through
     start = dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
     values = _values(module.DmiObservationValues, start=start, end=start + dt.timedelta(days=1))
     dataset = module.DmiObservationMetadata["hourly"].datasets[0]
@@ -107,7 +106,7 @@ def _metoffice(module: Any) -> object:  # noqa: ANN401
 
 
 def _lhmt(module: Any) -> object:  # noqa: ANN401
-    # the read as a whole: `_download_day` hands `NoInternetError` to the collect, which ends the days quietly
+    # the read as a whole: `_download_day` raises `NoInternetError` at the first day
     start = dt.datetime(2020, 1, 1, tzinfo=UTC)
     values = _values(module.LhmtObservationValues, start=start, end=start)
     return values._collect_station_parameter_or_dataset(  # noqa: SLF001
@@ -236,19 +235,20 @@ def test_a_404_is_dropped_where_the_file_is_simply_not_there(
 
 
 @pytest.mark.parametrize(("module", "driver", "drops_404"), _SITES)
-def test_no_connection_at_all_stays_quiet(
+def test_no_connection_at_all_raises(
     serve: Callable[[Any, Exception, int], None],
-    caplog: pytest.LogCaptureFixture,
     module: Any,  # noqa: ANN401
     driver: Callable[[Any], object],
     drops_404: bool,  # noqa: ARG001, FBT001
 ) -> None:
-    """A `NoInternetError` gives no data and no warning, as before, so working offline still returns empty."""
-    serve(module, NoInternetError("offline"), 503)
-    caplog.set_level(logging.WARNING)
+    """A `NoInternetError` is raised, even where a 404 is dropped: an outage is no station without data (GH-2640)."""
+    error = NoInternetError("offline")
+    serve(module, error, 503)
 
-    assert _gives_nothing(driver(module))
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    with pytest.raises(NoInternetError) as excinfo:
+        driver(module)
+
+    assert excinfo.value is error
 
 
 def test_a_404_for_a_past_synop_year_is_raised(serve: Callable[[Any, Exception, int], None]) -> None:

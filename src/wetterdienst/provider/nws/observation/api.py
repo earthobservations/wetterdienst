@@ -244,8 +244,7 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
             use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
-        # not dead after the raise above: `raise_if_exception` lets a NoInternetError through
-        # silently, so that a request made offline yields an empty frame rather than an error
+        # narrows the type; `raise_if_exception` has raised for any failed download
         if isinstance(file.content, Exception):
             return pl.DataFrame()
         # Every quantity is read as a float: the endpoint types `value` as a number, and polars truncates a

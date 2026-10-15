@@ -12,6 +12,15 @@ Data is retrieved from the ECCC OGC API
 service. No authentication is required. As only historical data is offered, a date range is
 required when requesting values.
 
+A station is listed for the hourly or the daily resolution only if the station list gives its hourly
+(`HLY_FIRST_DATE`) or daily (`DLY_FIRST_DATE`) collection a first date, and its `start_timestamp` and
+`end_timestamp` are the dates of that collection, not those of the station as a whole. The list gives
+no such date for 6750 of its 8435 stations for hourly and 95 for daily. None of the 95 has a daily
+row and none of 1049 of the 6750 drawn at random has an hourly one (read 2026-10-15); of the 1961
+probed earlier 2 have, 4333 with no value in any column and 27490 with hourly precipitation of 2008,
+which is not reached. The monthly dates of the list are null for stations that do have monthly
+values, so every station is listed for monthly.
+
 ```{toctree}
 :hidden:
 

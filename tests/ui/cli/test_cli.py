@@ -270,6 +270,23 @@ def test_coverage_resolution_1_minute() -> None:
     assert response.keys() == {"1_minute"}
 
 
+@pytest.mark.parametrize(
+    ("option", "message"),
+    [
+        ("--resolutions=foo", "Resolution 'foo' not found in DwdObservationMetadata. Available resolutions: "),
+        ("--datasets=foo", "Dataset 'foo' not found in DwdObservationMetadata. Available datasets: "),
+    ],
+)
+def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_usage_error(option: str, message: str) -> None:
+    """Test a name the network does not have is a one-line usage error, not an empty answer (GH-2636)."""
+    result = CliRunner().invoke(cli, ["about", "coverage", "--provider=dwd", "--network=observation", option])
+
+    assert result.exit_code == 2, result.output
+    error = result.stderr.split("\n\nError: ")[-1]
+    assert error.startswith(message)
+    assert error.count("\n") == 1
+
+
 def test_coverage_dataset_climate_summary() -> None:
     """Test coverage for dataset climate_summary."""
     runner = CliRunner()
