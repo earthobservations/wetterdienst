@@ -26,8 +26,11 @@ from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
     EA_NO_POSITION,
+    FMI_ANTARCTICA,
     GHCN_NAMES,
     GHCN_NO_POSITION,
+    WSV_NO_POSITION,
+    WSV_TIEL,
 )
 from wetterdienst import Wetterdienst
 
@@ -54,13 +57,7 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     "dwd/dmo": (DWD_NAMES,),
     "dwd/mosmix": (DWD_NAMES,),
     "ea/hydrology": (EA_NO_POSITION,),
-    "fmi/observation": (
-        Accepted(
-            "coordinates_outside_country",
-            "Antarktis Aboa is the Finnish research station in Antarctica",
-            where=lambda row: row["station_id"] == "112275",
-        ),
-    ),
+    "fmi/observation": (FMI_ANTARCTICA,),
     "geosphere/observation": (
         Accepted(
             "date_in_the_future",
@@ -70,17 +67,7 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     ),
     "metno/frost": (Accepted("coordinates_missing", "Frost lists 26 sources without a position (GH-2655)"),),
     "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES),
-    "wsv/pegel": (
-        Accepted(
-            "coordinates_missing",
-            "PEGELONLINE publishes no position for these gauges, among them those of the Austrian Danube",
-        ),
-        Accepted(
-            "coordinates_outside_country",
-            "PEGELONLINE lists TIEL, a gauge on the Waal in the Netherlands",
-            where=lambda row: row["station_id"] == "123456781",
-        ),
-    ),
+    "wsv/pegel": (WSV_NO_POSITION, WSV_TIEL),
 }
 
 
