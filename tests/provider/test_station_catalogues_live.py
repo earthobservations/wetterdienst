@@ -25,6 +25,7 @@ from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_soun
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
+    EA_NO_POSITION,
     GHCN_NAMES,
     GHCN_NO_POSITION,
 )
@@ -52,6 +53,7 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     ),
     "dwd/dmo": (DWD_NAMES,),
     "dwd/mosmix": (DWD_NAMES,),
+    "ea/hydrology": (EA_NO_POSITION,),
     "fmi/observation": (
         Accepted(
             "coordinates_outside_country",

@@ -5,9 +5,10 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import polars as pl
@@ -28,6 +29,9 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# the listing answers with a page of 100 stations unless asked for more, and gives 9537 (2026-10-15)
+_STATIONS_LIMIT = 20_000
 
 
 EAHydrologyMetadata = {
@@ -312,6 +316,32 @@ class EAHydrologyValues(TimeseriesValues[ParameterModel]):
         )
 
 
+def _station_row(item: dict[str, Any]) -> dict[str, Any]:
+    """Give the fields of one station of the listing that the reader keeps, each as a scalar.
+
+    A field the listing holds more than once for a station is an array there: `label` for a station with two
+    spellings of its name, `dateClosed` for one that closed twice (GH-2933). The first label is taken, the first
+    spelling the listing gives. The latest `dateClosed` is taken, for the station reported until then.
+    """
+    label = item.get("label")
+    if isinstance(label, list):
+        label = label[0] if label else None
+    closed = item.get("dateClosed")
+    if isinstance(closed, list):
+        closed = max(closed, default=None)
+    return {
+        "label": label,
+        "notation": item.get("notation"),
+        "lat": item.get("lat"),
+        "long": item.get("long"),
+        "dateOpened": item.get("dateOpened"),
+        "dateClosed": closed,
+        "measures": [
+            {"@id": measure.get("@id"), "period": measure.get("period")} for measure in item.get("measures") or []
+        ],
+    }
+
+
 @dataclass
 class EAHydrologyRequest(TimeseriesRequest):
     """Request class for Environment Agency hydrology data."""
@@ -327,9 +357,10 @@ class EAHydrologyRequest(TimeseriesRequest):
 
         settings = cast("Settings", self.settings)
         file = download_file(
-            url=self._url,
+            url=f"{self._url}?{urlencode({'_limit': _STATIONS_LIMIT})}",
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
+            # the whole listing is 17 MB, and the stations of the Environment Agency change on the scale of days
+            ttl=CacheExpiry.METAINDEX,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
@@ -337,35 +368,23 @@ class EAHydrologyRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        df = pl.read_json(
-            file.content,
+        items = json.load(file.content)["items"]
+        if len(items) >= _STATIONS_LIMIT:
+            # the endpoint does not say that it stopped at the limit (GH-2933)
+            log.warning("The EA hydrology station listing holds %d stations, the page limit: it may be cut", len(items))
+        df = pl.DataFrame(
+            [_station_row(item) for item in items],
             schema={
-                "items": pl.List(
-                    pl.Struct(
-                        {
-                            "label": pl.String,
-                            "notation": pl.String,
-                            "easting": pl.Int64,
-                            "northing": pl.Int64,
-                            "lat": pl.Float64,
-                            "long": pl.Float64,
-                            "dateOpened": pl.String,
-                            "dateClosed": pl.String,
-                            "measures": pl.List(
-                                pl.Struct(
-                                    [
-                                        pl.Field("@id", pl.String),
-                                        pl.Field("period", pl.Int64),
-                                    ],
-                                ),
-                            ),
-                        },
-                    ),
-                ),
+                "label": pl.String,
+                "notation": pl.String,
+                "lat": pl.Float64,
+                "long": pl.Float64,
+                "dateOpened": pl.String,
+                "dateClosed": pl.String,
+                "measures": pl.List(pl.Struct({"@id": pl.String, "period": pl.Int64})),
             },
         )
         df = df.lazy()
-        df = df.select(pl.col("items").explode(empty_as_null=True).struct.unnest())
         df = df.explode("measures", empty_as_null=True)
         df = df.with_columns(pl.col("measures").struct.unnest())
         df = df.rename(

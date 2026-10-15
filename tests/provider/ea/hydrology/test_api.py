@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from tests.conftest import skip_if_upstream_unavailable
+from tests.provider.station_catalogue_stubs import EA_HYDROLOGY_LISTING
 from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
     from wetterdienst import Settings
     from wetterdienst.model.metadata import ParameterModel
 
-STATIONS_URL = "https://environment.data.gov.uk/hydrology/id/stations.json"
+STATIONS_URL = "https://environment.data.gov.uk/hydrology/id/stations.json?_limit=20000"
 STATION_URL = "https://environment.data.gov.uk/hydrology/id/stations/{station_id}.json"
 MEASURE_URL = "https://environment.data.gov.uk/hydrology/id/measures/{notation}"
 
@@ -265,6 +266,93 @@ def test_ea_a_station_is_listed_once_however_many_measures_match(
     assert ranked.df.get_column("station_id").to_list() == ["0001", "0002"]
 
 
+def test_ea_stations_are_asked_for_the_whole_listing(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the listing is asked for with a `_limit` above its size, not left at the default page (GH-2933).
+
+    Without one the endpoint answers with 100 of the 9537 stations (2026-10-15) and says nothing of the rest.
+    """
+    requested = []
+
+    def download(**kwargs: Any) -> File:  # noqa: ANN401
+        requested.append(kwargs["url"])
+        return File(url=kwargs["url"], content=BytesIO(json.dumps({"items": []}).encode()), status=200)
+
+    monkeypatch.setattr(ea_api, "download_file", download)
+    EAHydrologyRequest(parameters=[("15_minutes", "data", "stage")], settings=default_settings).all()
+    assert len(requested) == 1
+    url = urlparse(requested[0])
+    assert url.path == "/hydrology/id/stations.json"
+    assert int(parse_qs(url.query)["_limit"][0]) > 9537
+
+
+@pytest.mark.parametrize(
+    ("parameter", "expected"),
+    [
+        (
+            ("15_minutes", "data", "stage"),
+            {
+                "fcdd7420-c000-4db7-99fa-3835a65372fe": ("Beach's Mill", None),
+                "ab5db73f-059e-4d10-9b92-5a640db3c1ab": ("Udford", dt.datetime(2024, 3, 14, tzinfo=dt.UTC)),
+            },
+        ),
+        (
+            ("15_minutes", "data", "groundwater_level"),
+            {
+                "3e7d8886-824c-4c3b-80d3-038758ba3179": ("Beer Football Ground", None),
+                "c7e13884-4a02-4df3-b184-09aea28cf8e8_3_020": ("Burton Coggles", None),
+            },
+        ),
+    ],
+)
+def test_ea_stations_with_an_array_for_a_field_are_listed(
+    parameter: tuple[str, str, str],
+    expected: dict[str, tuple[str, dt.datetime | None]],
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the listing of 2026-10-15 is read, with an array where a string is the common shape (GH-2933).
+
+    `label` is an array for "Beach's Mill", which has two spellings of its name, and `dateClosed` for "Udford",
+    which closed twice. The first label is listed, and the later of the two dates of closing, the day until which
+    the station was reported. The boreholes are listed for the groundwater level only, and the river stations for
+    the stage only; "Burton Coggles" has a second measure with no `period`, and "Siddington", which has only such a
+    measure (a hand-dipped one), is listed for neither.
+    """
+    listing = json.dumps({"items": EA_HYDROLOGY_LISTING}).encode()
+    monkeypatch.setattr(ea_api, "download_file", _serve({STATIONS_URL: listing}))
+    df = EAHydrologyRequest(parameters=[parameter], settings=default_settings).all().df
+    assert {row["station_id"]: (row["name"], row["end_timestamp"]) for row in df.iter_rows(named=True)} == expected
+
+
+def test_ea_a_station_without_a_position_is_listed(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that "Banks Road", which the listing gives no `lat`, `long`, `easting` or `northing`, is still a station."""
+    listing = json.dumps({"items": EA_HYDROLOGY_LISTING}).encode()
+    monkeypatch.setattr(ea_api, "download_file", _serve({STATIONS_URL: listing}))
+    df = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings).all().df
+    banks_road = df.filter(df.get_column("station_id") == "32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028")
+    assert banks_road.select("name", "latitude", "longitude").row(0) == ("Banks Road", None, None)
+
+
+def test_ea_a_listing_as_long_as_the_limit_is_reported_as_cut(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a listing that fills the page is reported, as the endpoint does not say that it stopped (GH-2933)."""
+    monkeypatch.setattr(ea_api, "_STATIONS_LIMIT", 2)
+    listing = json.dumps({"items": [_station("0001", ["flow-i-900"]), _station("0002", ["flow-i-900"])]}).encode()
+    monkeypatch.setattr(ea_api, "download_file", _serve({STATIONS_URL.replace("20000", "2"): listing}))
+    with caplog.at_level("WARNING", logger=ea_api.log.name):
+        EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings).all()
+    assert "may be cut" in caplog.text
+
+
 def test_ea_values_read_the_measure_of_the_requested_parameter(
     default_settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
@@ -399,15 +487,21 @@ def test_ea_15_minute_values_come_from_the_window_asked_for(default_settings: Se
 @skip_if_upstream_unavailable()
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    "parameter",
-    [("15_minutes", "data", "discharge"), ("15_minutes", "data", "stage"), ("daily", "data", "stage_max")],
+    ("parameter", "at_least"),
+    [
+        # 2026-10-15: 1103, 2638, 2638 and 1074 stations; the listing answers with 100 stations when not asked for more
+        (("15_minutes", "data", "discharge"), 1000),
+        (("15_minutes", "data", "stage"), 2500),
+        (("daily", "data", "stage_max"), 2500),
+        (("15_minutes", "data", "groundwater_level"), 1000),
+    ],
 )
-def test_ea_stations_are_reachable(parameter: tuple[str, str, str], default_settings: Settings) -> None:
-    """Test that the resolutions list stations at all, for the flow and the river level.
+def test_ea_stations_are_reachable(parameter: tuple[str, str, str], at_least: int, default_settings: Settings) -> None:
+    """Test that the resolutions list the stations of the whole listing, for the flow, the river and the borehole level.
 
     The stubbed tests above pin the matching; this one pins that the notations the metadata
-    declares are still the ones the service publishes, which no fixture can tell us. The groundwater
-    logger is left out: the first 100 stations the listing answers with (GH-2933) are rivers.
+    declares are still the ones the service publishes, which no fixture can tell us, and that the listing is
+    asked for whole (GH-2933): the page of 100 stations it answers with otherwise holds no borehole.
     """
     request = EAHydrologyRequest(parameters=[parameter], settings=default_settings).all()
-    assert not request.df.is_empty()
+    assert request.df.height >= at_least
