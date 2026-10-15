@@ -29,6 +29,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
 
 MADRID_RETIRO = "3195"
+BARCELONA = "0076"
 UTC = ZoneInfo("UTC")
 
 # Applied per-test (not as module-level pytestmark) so the local unit tests further down
@@ -520,6 +521,14 @@ def _fake_fetch_datos(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Excepti
                 "latitud": "402941N",
                 "longitud": "34041W",
             },
+            {
+                "indicativo": BARCELONA,
+                "nombre": "BARCELONA AEROPUERTO",
+                "provincia": "BARCELONA",
+                "altitud": "4",
+                "latitud": "412258N",
+                "longitud": "020412E",
+            },
         ],
     ).encode("latin-1")
 
@@ -533,7 +542,7 @@ def _fake_fetch_datos(monkeypatch: pytest.MonkeyPatch, *answers: bytes | Excepti
     return attempted
 
 
-def _values(resolution: str, years: int) -> pl.DataFrame:
+def _values(resolution: str, years: int, station_ids: tuple[str, ...] = (MADRID_RETIRO,)) -> pl.DataFrame:
     start = dt.datetime(2010, 1, 1, tzinfo=UTC)
     return (
         AemetObservationRequest(
@@ -542,7 +551,7 @@ def _values(resolution: str, years: int) -> pl.DataFrame:
             end=start.replace(year=start.year + years),
             settings=Settings(auth={"aemet": "dummy-key-for-test"}),
         )
-        .filter_by_station_id(MADRID_RETIRO)
+        .filter_by_station_id(station_ids)
         .values.all()
         .df
     )
@@ -561,6 +570,17 @@ def test_aemet_observation_values_offline_stop_at_first_chunk_without_warning(
     assert df.is_empty()
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
+def test_aemet_observation_values_offline_stop_at_first_station(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """Offline, the request ends at the first download: the second station is not tried (GH-2620)."""
+    attempted = _fake_fetch_datos(monkeypatch, NoInternetError("no route to host"))
+    df = _values(resolution, years=10, station_ids=(MADRID_RETIRO, BARCELONA))
+    assert df.is_empty()
+    assert len(attempted) == 1
 
 
 def test_aemet_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:

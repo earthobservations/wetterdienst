@@ -16,11 +16,67 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `noaa/ghcn` hourly `quality_flags` also carry the file's `<element>_Measurement_Code` and
+  `<element>_Source_Code`, as `measurement:<code>` and `source:<code>` after the quality code and
+  before `raw:` (`5,measurement:T,source:335`), as daily does. The source says which list a
+  quality code is read in (`4` is "passed gross limits" for source 335, "calculated" for 223); the
+  measurement code marks, by element, a trace of precipitation, a calm wind and the tendency of the
+  3-hour pressure change. The text `Null`, which sources 245 and 367 write for "no code", is left
+  out of the quality code too (it was returned as the flag `Null`) (GH-2925)
+- **Breaking**: `ea/hydrology` `quality_flags` carries the reading's `completeness` after its
+  quality, `Good,completeness:Complete` or `Good,completeness:Incomplete`, whether the value is
+  based on complete data. Daily readings carry it (not all of them); a reading without one, and
+  every 15 minute reading, keeps the quality alone (`Good`). A filter `quality_flags == 'Good'` no
+  longer holds for daily readings: use `str.starts_with('Good')` (GH-2762)
+
 ### Fixed
 
 - `wetterdienst restapi` on an install with `fastapi` and without `uvicorn` now prints that
   `uvicorn` is missing and to `pip install wetterdienst[restapi]`, in one line with exit status 1,
   no longer a `ModuleNotFoundError` traceback (GH-2928)
+- `knmi/observation`, `aemet/observation` and `lhmt/observation` values requests that go offline
+  end at the first download answered with no connection, as the loop over files of one station
+  already did: the stations and datasets after it are no longer tried, each waiting for the
+  connection to fail, and so return nothing even where their files were already downloaded. What
+  the station that found out had read is returned (GH-2620)
+- `knmi/observation` hourly `wind_direction_last_10min` is null, no longer 990 or 0, where KNMI
+  writes the code for a variable wind (990) or a calm (0); the code stays in `quality_flags` as
+  `raw:990` or `raw:0`. Only bearings (360 is north) are left as values (GH-2850)
+- **Breaking**: `ea/hydrology` returned the level of a river as `groundwater_level`. The Environment
+  Agency's `level-*` measures are river levels (2638 stations), so `daily/groundwater_level_max`
+  and `_min` had no groundwater behind them, and `15_minutes/groundwater_level` held rivers and no
+  borehole. The river level is now `15_minutes/stage` and `daily/stage_max` and `stage_min`, in
+  centimetres, no longer metres: request the new names (the old daily ones are not found) and
+  multiply stored values by 100. `15_minutes/groundwater_level` now holds the 1074 borehole
+  loggers, in metres above ordnance datum, every 15 minutes to hourly per station (GH-2632)
+- `interpolate` and `summarize` no longer return a timestamp outside the requested window when
+  `start` or `end` is not on the resolution's grid (`start` 12:30 and `end` 12:30 two days later at
+  daily gave the next day's 00:00 after `end`; `start` 10:29 at hourly gave 10:00 before it). The
+  rows are the timestamps within `start` and `end`, both included, the ones `values` returns for
+  the same window, and a window holding none returns no rows (GH-2814)
+- `dwd/radar` converts an aware `start` or `end` to UTC, as a naive one already was taken to be, so
+  one instant selects one file: `2020-01-01T01:00+01:00` read January's `RW202001.tar.gz` where
+  the same instant as `00:00Z` reads December's, losing the hour before midnight, and a `+05:30`
+  bound matched no file; a bound in a named zone (`Europe/Berlin`) raised a polars `SchemaError`
+  on the recent and composite files. A historical RADOLAN_CDC request spanning months now reads
+  every month's archive, not only the one it opens in (GH-2818)
+- `ea/hydrology` lists every station of the Environment Agency, not the first 100 of 9537 that
+  the API answers with unless asked for more: 2638 stations for `stage` and 1074 for
+  `groundwater_level` (it listed 1 borehole), 1103 for 15 minute `discharge`. A station the
+  listing gives two names is listed under the first, and one it gives two dates of closing
+  (Udford) ends on the later. The listing is cached for 12 hours, not 5 minutes (GH-2933)
+- The warning for a parameter a dataset does not have no longer offers a near spelling whose
+  leading words name another quantity: `temperature_dew_point_mean_2m` in `dwd/observation`
+  `daily/kl` no longer suggests `temperature_air_mean_2m`, nor
+  `error_absolute_temperature_air_mean_2m` in `dwd/mosmix` `hourly/small` `temperature_air_2m`.
+  A misspelling of a name the dataset has is still answered; otherwise the message lists the
+  available names (GH-2924)
+- The descriptions of `dwd/observation` `tx5_10` (`10_minutes/temperature_extreme`) and `v_te002`
+  (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
+  historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
+  `-999` at every station, so those periods never have a value for these two (GH-2852)
 
 ### Security
 

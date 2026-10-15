@@ -7,7 +7,8 @@ The EA runs the Hydrology interface as one of their offers to the public. Detail
 The data provided through ``wetterdienst`` includes:
 
 - flow
-- groundwater stage
+- river water level (stage)
+- groundwater level (15 minutes)
 
 in resolutions 15 minutes and daily for UK wide stations.
 

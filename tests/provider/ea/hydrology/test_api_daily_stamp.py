@@ -261,11 +261,12 @@ def test_ea_reading_quality_word_is_kept_in_quality_flags(
     reference (environment.data.gov.uk/hydrology/doc/reference, "Quality flags"): "quality: The quality of this
     reading -- Good, Estimated, Suspect, Unchecked, Missing". Checked against the live readings of
     f22f80f8-1bb0-4e77-b225-291487060c6f-flow-m-86400 for 2023 on 2026-10-11: 348 Good and 16 Suspect.
+    A reading without a `completeness` has the quality alone (GH-2762).
     """
     readings = [
-        {"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Good", "completeness": "Complete"},
-        {"dateTime": "2025-06-11T09:00:00", "value": 0.359, "quality": "Suspect", "completeness": "Complete"},
-        {"dateTime": "2025-06-12T09:00:00", "value": 0.304, "quality": "Estimated", "completeness": "Complete"},
+        {"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Good"},
+        {"dateTime": "2025-06-11T09:00:00", "value": 0.359, "quality": "Suspect"},
+        {"dateTime": "2025-06-12T09:00:00", "value": 0.304, "quality": "Estimated"},
     ]
     _serve(monkeypatch, "flow-m-86400", readings)
     request = EAHydrologyRequest(
@@ -278,3 +279,54 @@ def test_ea_reading_quality_word_is_kept_in_quality_flags(
     assert df.select("value", "quality_flags").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
+
+
+def test_ea_reading_completeness_follows_the_quality_word_in_quality_flags(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that a daily reading's `completeness` is written as a further kind after its quality (GH-2762).
+
+    The reference ("Quality flags") gives `completeness` as "Whether the value is based on complete data or not":
+    `Complete` or `Incomplete`. Sampled on 2026-10-15 from the 2015 readings of twelve measures of each kind: the
+    daily flow and level carry `Complete` (mostly) or `Incomplete`, and an `Incomplete` reading is `Good` or
+    `Missing` (no value); the 15 minute readings and some daily ones carry none, and have the quality alone.
+    """
+    readings = [
+        {"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Good", "completeness": "Complete"},
+        {"dateTime": "2025-06-11T09:00:00", "value": 0.359, "quality": "Good", "completeness": "Incomplete"},
+        {"dateTime": "2025-06-12T09:00:00", "value": None, "quality": "Missing", "completeness": "Incomplete"},
+        {"dateTime": "2025-06-13T09:00:00", "value": 0.304, "quality": "Suspect", "completeness": None},
+        {"dateTime": "2025-06-14T09:00:00", "value": 0.301, "quality": None, "completeness": "Complete"},
+    ]
+    _serve(monkeypatch, "flow-m-86400", readings)
+    request = EAHydrologyRequest(
+        parameters=[("daily", "data", "discharge_mean")],
+        start="2025-06-10",
+        end="2025-06-14",
+        settings=default_settings,
+        options={"drop_nulls": False},
+    )
+    df = request.all().values.all().df.sort("timestamp")
+    assert df.get_column("quality_flags").to_list() == [
+        "Good,completeness:Complete",
+        "Good,completeness:Incomplete",
+        "Missing,completeness:Incomplete",
+        "Suspect",
+        "completeness:Complete",
+    ]
+
+
+def test_ea_15_minute_reading_without_completeness_has_the_quality_alone(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that a 15 minute reading, which the endpoint gives no `completeness`, keeps its bare quality (GH-2762)."""
+    readings = [{"dateTime": "2025-06-10T09:00:00", "value": 0.448, "quality": "Good"}]
+    _serve(monkeypatch, "flow-i-900", readings)
+    request = EAHydrologyRequest(
+        parameters=[("15_minutes", "data", "discharge")],
+        start="2025-06-10",
+        end="2025-06-11",
+        settings=default_settings,
+    )
+    df = request.all().values.all().df
+    assert df.get_column("quality_flags").to_list() == ["Good"]

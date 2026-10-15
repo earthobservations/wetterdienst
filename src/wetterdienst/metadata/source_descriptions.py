@@ -52,14 +52,16 @@ source; the sub-daily temperature rows listed in GH-2660 were. ``tests/metadata/
 reads a statistic out of an entry only if it is not in ``DERIVED_DESCRIPTIONS``.
 
 Keyed by metadata model name, then ``(resolution, dataset, name_original)``. Applied by
-``build_metadata_model``.
+``build_metadata_model``. A parameter none of the tables here describes reads the canonical sentence
+of its quantity, so an entry that repeats that sentence is redundant and
+``test_no_description_repeats_the_canonical_one`` fails for it.
 """
 
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
 # resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
-# name that drifts out of step leaves its parameters with no description, which
-# `test_wsv_every_parameter_is_described` catches.
+# name that drifts out of step leaves its parameters with the canonical sentence in place of the
+# source's, which `test_wsv_every_parameter_is_described` catches.
 _WSV_PEGEL_RESOLUTIONS = ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
 _HUBEAU_RESOLUTIONS = ("5_minutes", "6_minutes", "10_minutes", "15_minutes", "hourly")
 
@@ -153,10 +155,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
     },
     "DwdPoiMetadata": {
-        ("hourly", "data", "cloud_cover_total"): "Fraction of the sky covered by cloud of any kind.",
-        ("hourly", "data", "daily_mean_of_temperature_previous_day"): (
-            "Mean air temperature at 2 m above ground on the previous day."
-        ),
         ("hourly", "data", "depth_of_new_snow"): "Depth of the snow that fell since the previous observation.",
         ("hourly", "data", "dew_point_temperature_at_2_meter_above_ground"): (
             "Dew point temperature at 2 m above ground."
@@ -171,12 +169,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "height_of_base_of_lowest_cloud_above_station"): (
             "Height above the station of the base of the lowest cloud."
         ),
-        ("hourly", "data", "horizontal_visibility"): "Horizontal distance at which an object can still be made out.",
         ("hourly", "data", "maximum_of_10_minutes_mean_of_wind_speed_for_previous_day"): (
             "Highest 10-minute mean wind speed on the previous day."
-        ),
-        ("hourly", "data", "maximum_of_temperature_for_previous_day"): (
-            "Maximum air temperature at 2 m above ground on the previous day."
         ),
         ("hourly", "data", "maximum_temperature_last_12_hours_2_meters_above_ground"): (
             "Maximum air temperature at 2 m above ground in the preceding 12 hours."
@@ -185,7 +179,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Highest 10-minute mean wind speed in the preceding hour."
         ),
         ("hourly", "data", "maximum_wind_speed_during_last_6_hours"): "Strongest gust in the preceding 6 hours.",
-        ("hourly", "data", "maximum_wind_speed_for_previous_day"): "Strongest gust on the previous day.",
         ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
         ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
             "Mean wind direction over the last 10 minutes, at 10 m above ground. "
@@ -197,16 +190,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "minimum_of_temperature_at_5_cm_above_ground_for_previous_day"): (
             "Minimum air temperature at 5 cm above ground on the previous day."
         ),
-        ("hourly", "data", "minimum_of_temperature_for_previous_day"): (
-            "Minimum air temperature at 2 m above ground on the previous day."
-        ),
         ("hourly", "data", "minimum_temperature_last_12_hours_2_meters_above_ground"): (
             "Minimum air temperature at 2 m above ground in the preceding 12 hours."
         ),
         ("hourly", "data", "minimum_temperature_last_12_hours_5_cm_above_ground"): (
             "Minimum air temperature at 5 cm above ground in the preceding 12 hours."
         ),
-        ("hourly", "data", "past_weather_1"): "Coded weather observed over the preceding 3 hours.",
         ("hourly", "data", "past_weather_2"): "Second coded weather observed over the preceding 3 hours.",
         ("hourly", "data", "precipitation_amount_last_24_hours"): "Precipitation collected in the preceding 24 hours.",
         ("hourly", "data", "precipitation_amount_last_3_hours"): "Precipitation collected in the preceding 3 hours.",
@@ -220,7 +209,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "relative_humidity"): "Relative humidity of the air.",
         ("hourly", "data", "sea/water_temperature"): "Temperature of the sea or lake water at the station.",
         ("hourly", "data", "temperature_at_5_cm_above_ground"): "Air temperature at 5 cm above ground.",
-        ("hourly", "data", "total_snow_depth"): "Depth of the snow lying on the ground.",
         ("hourly", "data", "total_time_of_sunshine_during_last_hour"): (
             "Length of time the sun shone in the preceding hour."
         ),
@@ -564,7 +552,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Minimum of air temperature at 2 m height during the last 10 minutes."
         ),
         ("10_minutes", "temperature_extreme", "tx5_10"): (
-            "Maximum of air temperature at 5 cm height during the last 10 minutes."
+            "Maximum of air temperature at 5 cm height during the last 10 minutes. Only the historical files "
+            "carry a value, up to 2009: recent and now hold none."
         ),
         ("10_minutes", "temperature_extreme", "tx_10"): (
             "Maximum of air temperature at 2 m height during the last 10 minutes."
@@ -911,7 +900,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "sun", "sd_so"): "Hourly sunshine duration.",
         ("hourly", "temperature_air", "rf_tu"): "Relative humidity.",
         ("hourly", "temperature_air", "tt_tu"): "Air temperature 2 m above ground.",
-        ("hourly", "temperature_soil", "v_te002"): "Soil temperature in 2 cm depth.",
+        ("hourly", "temperature_soil", "v_te002"): (
+            "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none."
+        ),
         ("hourly", "temperature_soil", "v_te005"): "Soil temperature in 5 cm depth.",
         ("hourly", "temperature_soil", "v_te010"): "Soil temperature in 10 cm depth.",
         ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth.",
@@ -1120,12 +1111,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "EAHydrologyMetadata": {
         ("15_minutes", "data", "flow-i-900"): "instant flow at timestamp",
-        ("15_minutes", "data", "level-i-900"): "instant groundwater level at timestamp",
+        ("15_minutes", "data", "level-i-900"): "instant river water level at timestamp",
+        ("15_minutes", "data", "gw-logged-i-subdaily"): (
+            "logged groundwater level at timestamp, in metres above ordnance datum, every 15 minutes to every hour"
+        ),
         ("daily", "data", "flow-m-86400"): "daily mean flow",
         ("daily", "data", "flow-max-86400"): "daily maximum flow",
         ("daily", "data", "flow-min-86400"): "daily min flow",
-        ("daily", "data", "level-max-86400"): "daily maximum groundwater level",
-        ("daily", "data", "level-min-86400"): "daily minimum groundwater level",
+        ("daily", "data", "level-max-86400"): "daily maximum river water level",
+        ("daily", "data", "level-min-86400"): "daily minimum river water level",
     },
     "EcccObservationMetadata": {
         ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
@@ -2468,8 +2462,10 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("hourly", "data"): "Hourly weather reports of the last day, for the stations DWD forecasts for.",
     },
     "EAHydrologyMetadata": {
-        ("15_minutes", "data"): "Historical 15 minute station observations of flow and groundwater level for the UK.",
-        ("daily", "data"): "Historical daily station observations of flow and groundwater level for the UK.",
+        ("15_minutes", "data"): (
+            "Historical 15 minute station observations of flow, river water level and groundwater level for the UK."
+        ),
+        ("daily", "data"): "Historical daily station observations of flow and river water level for the UK.",
     },
     "EcccObservationMetadata": {
         ("daily", "data"): "Historical daily station observations for Canada.",
@@ -2533,9 +2529,10 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
 
 # Derived rather than sourced: DWD publishes no prose for these fields in either language, so the
 # text is taken from the same canonical parameter at the same resolution elsewhere -- same quantity
-# over the same interval -- or, failing that, from the canonical sentence in ``parameter_table``.
-# Kept apart from SOURCE_DESCRIPTIONS so that a description here is not mistaken for the wording of
-# the source itself, and applied only where nothing else supplies one.
+# over the same interval. Where that is just the canonical sentence in ``parameter_table`` there is
+# no entry: the model falls back to the canonical sentence itself. Kept apart from
+# SOURCE_DESCRIPTIONS so that a description here is not mistaken for the wording of the source itself,
+# and applied only where nothing else supplies one.
 #
 # An entry may also be *narrower* than the canonical sentence where the field is narrower: the three
 # ``Kuehltage`` below count days with at least one cooling hour, which is what DWD's Kuehltage is,
@@ -2592,12 +2589,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("annual", "climate_indices", "qn_4"): (
             "Quality flag published by the source for the values in the same dataset."
-        ),
-        ("annual", "climate_summary", "qn_4"): (
-            "Quality flag published by the source, applying to the dataset as a whole."
-        ),
-        ("annual", "climate_summary", "qn_6"): (
-            "Quality flag published by the source for `precipitation` in the same dataset."
         ),
         ("annual", "precipitation_indices", "qn_6"): (
             "Quality flag published by the source for the values in the same dataset."
@@ -2665,212 +2656,23 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Quality flag published by the source for the values in the same dataset."
         ),
         ("subdaily", "visibility", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
-        ("subdaily", "wind_extreme", "qn_8_3"): (
-            "Quality flag for the 3-hourly maximum wind gust reported in the same dataset."
-        ),
-        ("subdaily", "wind_extreme", "qn_8_6"): (
-            "Quality flag for the 6-hourly maximum wind gust reported in the same dataset."
-        ),
         ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
     },
     "DwdSwsmosMetadata": {
-        ("hourly", "data", "RC"): "Coded condition of the road surface, such as dry, wet or icy.",
         ("hourly", "data", "TL"): "Temperature 2m above surface.",
     },
     "DmiObservationMetadata": {
-        ("annual", "data", "acc_heating_degree_days_17"): (
-            "Heating degree days, the temperature shortfall below a base value summed over each day."
-        ),
-        ("annual", "data", "acc_precip"): "Depth of precipitation collected over the period.",
-        ("annual", "data", "max_precip_24h"): (
-            "Greatest precipitation depth recorded in any single interval of the period."
-        ),
-        ("annual", "data", "max_temp_w_date"): "Maximum air temperature at 2 m above ground.",
-        ("annual", "data", "max_wind_speed_10min"): "Highest rolling mean wind speed over the period.",
-        ("annual", "data", "max_wind_speed_3sec"): "Speed of the strongest gust of the period.",
-        ("annual", "data", "mean_daily_max_temp"): (
-            "Mean of the daily maximum air temperature at 2 m above ground over the period."
-        ),
-        ("annual", "data", "mean_daily_min_temp"): (
-            "Mean of the daily minimum air temperature at 2 m above ground over the period."
-        ),
-        ("annual", "data", "mean_pressure"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("annual", "data", "mean_relative_hum"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("annual", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
         ("annual", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("annual", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
-        ("annual", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
-        ("daily", "data", "acc_heating_degree_days_17"): (
-            "Heating degree days, the temperature shortfall below a base value summed over each day."
-        ),
-        ("daily", "data", "acc_precip"): "Depth of precipitation collected over the period.",
-        ("daily", "data", "max_precip_30m"): (
-            "Greatest precipitation depth recorded in any single interval of the period."
-        ),
-        ("daily", "data", "max_temp_w_date"): "Maximum air temperature at 2 m above ground.",
-        ("daily", "data", "max_wind_speed_10min"): "Highest rolling mean wind speed over the period.",
-        ("daily", "data", "max_wind_speed_3sec"): "Speed of the strongest gust of the period.",
-        ("daily", "data", "mean_pressure"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("daily", "data", "mean_relative_hum"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("daily", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
         ("daily", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("daily", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
-        ("daily", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
-        ("hourly", "data", "acc_precip"): "Depth of precipitation collected over the period.",
-        ("hourly", "data", "max_temp_w_date"): "Maximum air temperature at 2 m above ground.",
-        ("hourly", "data", "max_wind_speed_10min"): "Highest rolling mean wind speed over the period.",
-        ("hourly", "data", "max_wind_speed_3sec"): "Speed of the strongest gust of the period.",
-        ("hourly", "data", "mean_pressure"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("hourly", "data", "mean_relative_hum"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
         ("hourly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("hourly", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
-        ("hourly", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
-        ("monthly", "data", "acc_heating_degree_days_17"): (
-            "Heating degree days, the temperature shortfall below a base value summed over each day."
-        ),
-        ("monthly", "data", "acc_precip"): "Depth of precipitation collected over the period.",
-        ("monthly", "data", "max_precip_24h"): (
-            "Greatest precipitation depth recorded in any single interval of the period."
-        ),
-        ("monthly", "data", "max_relative_hum"): "Highest relative humidity over the period.",
-        ("monthly", "data", "max_temp_w_date"): "Maximum air temperature at 2 m above ground.",
-        ("monthly", "data", "max_wind_speed_10min"): "Highest rolling mean wind speed over the period.",
-        ("monthly", "data", "max_wind_speed_3sec"): "Speed of the strongest gust of the period.",
-        ("monthly", "data", "mean_daily_max_temp"): (
-            "Mean of the daily maximum air temperature at 2 m above ground over the period."
-        ),
-        ("monthly", "data", "mean_daily_min_temp"): (
-            "Mean of the daily minimum air temperature at 2 m above ground over the period."
-        ),
-        ("monthly", "data", "mean_pressure"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("monthly", "data", "mean_relative_hum"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("monthly", "data", "mean_temp"): "Mean air temperature at 2 m above ground.",
         ("monthly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
-        ("monthly", "data", "mean_wind_speed"): "Mean speed of the wind over the period.",
-        ("monthly", "data", "min_relative_hum"): "Lowest relative humidity over the period.",
-        ("monthly", "data", "min_temp"): "Minimum air temperature at 2 m above ground.",
-    },
-    "EcccObservationMetadata": {
-        ("daily", "data", "max_rel_humidity"): "Highest relative humidity over the period.",
-        ("daily", "data", "min_rel_humidity"): "Lowest relative humidity over the period.",
     },
     "ImgwMeteorologyMetadata": {
-        ("daily", "synop", "suma opadu dzień"): "Depth of precipitation collected during the daytime hours.",
-        ("daily", "synop", "suma opadu noc"): "Depth of precipitation collected during the night hours.",
-        ("daily", "synop", "średnie dobowe ciśnienie na pozimie morza"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
         ("monthly", "synop", "maksymalna dobowa suma opadów"): "precipitation height max",
-        ("monthly", "synop", "suma opadu dzień"): "Depth of precipitation collected during the daytime hours.",
-        ("monthly", "synop", "suma opadu noc"): "Depth of precipitation collected during the night hours.",
-    },
-    "IpmaObservationMetadata": {
-        ("hourly", "data", "humidade"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "data", "idDireccVento"): "Direction the wind is blowing from, clockwise from true north.",
-        ("hourly", "data", "intensidadeVento"): "Mean speed of the wind over the period.",
-        ("hourly", "data", "precAcumulada"): "Depth of precipitation collected over the period.",
-        ("hourly", "data", "pressao"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("hourly", "data", "radiacao"): (
-            "Global radiation received on a horizontal surface, accumulated as energy over the interval."
-        ),
     },
     "MeteoFranceSynopMetadata": {
-        ("subdaily", "data", "n"): "Fraction of the sky covered by cloud of any kind.",
-        ("subdaily", "data", "pmer"): (
-            "Air pressure reduced to mean sea level, so that stations at different heights compare."
-        ),
-        ("subdaily", "data", "pres"): "Air pressure as measured at station height.",
-        ("subdaily", "data", "raf10"): "Speed of the strongest gust of the period.",
-        ("subdaily", "data", "rr1"): "Depth of precipitation collected over the preceding hour.",
-        ("subdaily", "data", "rr12"): "Depth of precipitation collected over the preceding 12 hours.",
-        ("subdaily", "data", "rr24"): "Depth of precipitation collected over the preceding 24 hours.",
-        ("subdaily", "data", "rr3"): "Depth of precipitation collected over the preceding 3 hours.",
-        ("subdaily", "data", "rr6"): "Depth of precipitation collected over the preceding 6 hours.",
         ("subdaily", "data", "td"): (
             "Dew point at 2 m above ground, the temperature at which the air would become saturated."
         ),
-        ("subdaily", "data", "tn24"): "Minimum air temperature at 2 m above ground over the preceding 24 hours.",
-        ("subdaily", "data", "tx24"): "Maximum air temperature at 2 m above ground over the preceding 24 hours.",
-        ("subdaily", "data", "u"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("subdaily", "data", "vv"): "Horizontal distance at which an object can still be made out.",
-    },
-    "RmiObservationMetadata": {
-        ("10_minutes", "data", "humidity_rel_shelter_avg"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("10_minutes", "data", "precip_quantity"): "Depth of precipitation collected over the period.",
-        ("10_minutes", "data", "pressure"): "Air pressure as measured at station height.",
-        ("10_minutes", "data", "short_wave_from_sky_avg"): (
-            "Global irradiance on a horizontal surface, reported as power rather than energy."
-        ),
-        ("10_minutes", "data", "sun_duration"): "Length of time the sun shone unobstructed.",
-        ("10_minutes", "data", "temp_dry_shelter_avg"): "Mean air temperature at 2 m above ground.",
-        ("10_minutes", "data", "temp_grass_pt100_avg"): "Mean air temperature at 0.05 m above ground.",
-        ("10_minutes", "data", "temp_soil_avg_10cm"): "Mean soil temperature at 0.1 m depth.",
-        ("10_minutes", "data", "temp_soil_avg_20cm"): "Mean soil temperature at 0.2 m depth.",
-        ("10_minutes", "data", "temp_soil_avg_50cm"): "Mean soil temperature at 0.5 m depth.",
-        ("10_minutes", "data", "temp_soil_avg_5cm"): "Mean soil temperature at 0.05 m depth.",
-        ("10_minutes", "data", "wind_direction"): "Direction the wind is blowing from, clockwise from true north.",
-        ("10_minutes", "data", "wind_gusts_speed"): "Speed of the strongest gust of the period.",
-        ("10_minutes", "data", "wind_speed_10m"): "Mean speed of the wind over the period.",
-        ("daily", "data", "humidity_rel_shelter_avg"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("daily", "data", "precip_quantity"): "Depth of precipitation collected over the period.",
-        ("daily", "data", "pressure"): "Air pressure as measured at station height.",
-        ("daily", "data", "short_wave_from_sky_avg"): (
-            "Global irradiance on a horizontal surface, reported as power rather than energy."
-        ),
-        ("daily", "data", "sun_duration"): "Length of time the sun shone unobstructed.",
-        ("daily", "data", "temp_avg"): "Mean air temperature at 2 m above ground.",
-        ("daily", "data", "temp_grass_pt100_avg"): "Mean air temperature at 0.05 m above ground.",
-        ("daily", "data", "temp_max"): "Maximum air temperature at 2 m above ground.",
-        ("daily", "data", "temp_min"): "Minimum air temperature at 2 m above ground.",
-        ("daily", "data", "temp_soil_avg_10cm"): "Mean soil temperature at 0.1 m depth.",
-        ("daily", "data", "temp_soil_avg_20cm"): "Mean soil temperature at 0.2 m depth.",
-        ("daily", "data", "temp_soil_avg_50cm"): "Mean soil temperature at 0.5 m depth.",
-        ("daily", "data", "temp_soil_avg_5cm"): "Mean soil temperature at 0.05 m depth.",
-        ("daily", "data", "wind_gusts_speed"): "Speed of the strongest gust of the period.",
-        ("daily", "data", "wind_speed_10m"): "Mean speed of the wind over the period.",
-        ("hourly", "data", "humidity_rel_shelter_avg"): (
-            "Relative humidity of the air, the fraction of the moisture it could hold at that temperature."
-        ),
-        ("hourly", "data", "precip_quantity"): "Depth of precipitation collected over the period.",
-        ("hourly", "data", "pressure"): "Air pressure as measured at station height.",
-        ("hourly", "data", "short_wave_from_sky_avg"): (
-            "Global irradiance on a horizontal surface, reported as power rather than energy."
-        ),
-        ("hourly", "data", "sun_duration"): "Length of time the sun shone unobstructed.",
-        ("hourly", "data", "temp_dry_shelter_avg"): "Mean air temperature at 2 m above ground.",
-        ("hourly", "data", "temp_grass_pt100_avg"): "Mean air temperature at 0.05 m above ground.",
-        ("hourly", "data", "temp_soil_avg_10cm"): "Mean soil temperature at 0.1 m depth.",
-        ("hourly", "data", "temp_soil_avg_20cm"): "Mean soil temperature at 0.2 m depth.",
-        ("hourly", "data", "temp_soil_avg_50cm"): "Mean soil temperature at 0.5 m depth.",
-        ("hourly", "data", "temp_soil_avg_5cm"): "Mean soil temperature at 0.05 m depth.",
-        ("hourly", "data", "wind_gusts_speed"): "Speed of the strongest gust of the period.",
-        ("hourly", "data", "wind_speed_10m"): "Mean speed of the wind over the period.",
     },
 }
