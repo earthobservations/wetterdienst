@@ -963,7 +963,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Visibility index, noting how the measurement is taken,P=by human person,I=by an instrument. "
             "Returned as 1 for P and 2 for I."
         ),
-        ("hourly", "weather_phenomena", "ww"): "Weather code of current condition.",
+        ("hourly", "weather_phenomena", "ww"): (
+            "Present weather code (for 20-29 and 120-126 that of the past hour). One column holds two tables with "
+            "disjoint numbers: 0-99 is WMO code table 4677 (ww, manned stations), 100-199 is WMO code table 4680 "
+            "(wawa, automatic stations) with 100 added. A station's historical file holds either or both, the "
+            "recent file of an automated station only 100-199. The meaning of every code is in DWD's "
+            "Wetter_Beschreibung.txt, the text its WW_Text column repeats. The source's -1 (weather not reported) "
+            "is null."
+        ),
         ("hourly", "wind", "d"): "Mean wind direction. The source's 0 (a calm or variable wind) is null.",
         ("hourly", "wind", "f"): "Mean wind speed.",
         ("hourly", "wind_extreme", "fx_911"): "Wind speed, wind gust: the highest wind peak of the last hour.",
