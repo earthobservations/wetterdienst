@@ -138,14 +138,11 @@ def test_days_covers_range_inclusive(start: dt.datetime, end: dt.datetime, expec
 
 # ---------------------------------------------------------------------------
 # Remote tests -- hit the live (key-less) api.meteo.lt. Historical data is stable, so exact values
-# can be asserted. xfail (not hard-fail) on an outage matches the CHMI/AEMET precedent.
+# can be asserted. An outage skips the test (the `remote` marker, see `tests/conftest.py`).
 # ---------------------------------------------------------------------------
-
-xfail_if_lhmt_unavailable = pytest.mark.xfail(strict=False, reason="LHMT API intermittently unavailable")
 
 
 @pytest.mark.remote
-@xfail_if_lhmt_unavailable
 def test_lhmt_observation_stations() -> None:
     """The station catalogue resolves to Lithuanian stations, including Vilnius."""
     df = LhmtObservationRequest(parameters=[("hourly", "data")]).all().df
@@ -160,7 +157,6 @@ def test_lhmt_observation_stations() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_lhmt_unavailable
 def test_lhmt_observation_values() -> None:
     """Historical hourly values at Vilnius for 2020-07-01 match the api.meteo.lt reference values."""
     df = (

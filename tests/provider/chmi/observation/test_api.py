@@ -185,11 +185,6 @@ def test_parse_chmi_values_daily_has_no_aggregate_flag_tokens() -> None:
     assert df.get_column("quality_flags").to_list() == ["0,element:T", "3"]
 
 
-# CHMI's open-data portal is a live third-party service; xfail rather than a hard failure keeps a
-# transient blip from blocking CI/merges, matching the AEMET/FMI precedent.
-xfail_if_chmi_unavailable = pytest.mark.xfail(strict=False, reason="CHMI server intermittently unavailable")
-
-
 def _values(resolution: str, start: dt.datetime, end: dt.datetime) -> pl.DataFrame:
     return (
         ChmiObservationRequest(
@@ -208,7 +203,6 @@ def _value_of(df: pl.DataFrame, parameter: str, date: dt.datetime) -> float:
 
 
 @pytest.mark.remote
-@xfail_if_chmi_unavailable
 def test_chmi_observation_stations() -> None:
     """Station metadata for Cheb matches the CHMI catalogue."""
     request = ChmiObservationRequest(
@@ -234,7 +228,6 @@ def test_chmi_observation_stations() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_chmi_unavailable
 def test_chmi_observation_values_10_minutes() -> None:
     """10-minute values at Cheb for 2020-01-01 00:00 match the CHMI reference values."""
     df = _values("10_minutes", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 1, 0, 10, tzinfo=UTC))
@@ -246,7 +239,6 @@ def test_chmi_observation_values_10_minutes() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_chmi_unavailable
 def test_chmi_observation_values_hourly() -> None:
     """Hourly values at Cheb for 2020-01-01 00:00 match the CHMI reference values."""
     df = _values("hourly", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 1, 1, tzinfo=UTC))
@@ -257,7 +249,6 @@ def test_chmi_observation_values_hourly() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_chmi_unavailable
 def test_chmi_observation_values_daily() -> None:
     """Daily values at Cheb for 2020-01-01 match the CHMI reference values."""
     df = _values("daily", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 2, tzinfo=UTC))
@@ -278,7 +269,6 @@ def test_chmi_observation_values_daily() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_chmi_unavailable
 def test_chmi_observation_values_monthly() -> None:
     """Monthly values at Cheb for 2020-01 match the CHMI reference values (means and sum)."""
     df = _values("monthly", dt.datetime(2020, 1, 1, tzinfo=UTC), dt.datetime(2020, 1, 2, tzinfo=UTC))
@@ -292,7 +282,6 @@ def test_chmi_observation_values_monthly() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_chmi_unavailable
 def test_chmi_observation_values_annual() -> None:
     """Annual values at Cheb for 2018 match the CHMI reference values (means and sum)."""
     df = _values("annual", dt.datetime(2018, 1, 1, tzinfo=UTC), dt.datetime(2018, 1, 2, tzinfo=UTC))

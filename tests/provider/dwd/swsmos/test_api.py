@@ -62,14 +62,12 @@ def test_issue_string_parsed_to_utc_hour() -> None:
 
 # ---------------------------------------------------------------------------
 # Remote tests -- hit the live DWD opendata server. SWSMOS is a rolling forecast, so values are
-# time-dependent; assert structure/ranges. xfail on outage matches the DWD/CHMI precedent.
+# time-dependent; assert structure/ranges. An outage skips the test (the `remote` marker, see
+# `tests/conftest.py`).
 # ---------------------------------------------------------------------------
-
-xfail_if_dwd_unavailable = pytest.mark.xfail(strict=False, reason="DWD opendata intermittently unavailable")
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_swsmos_stations() -> None:
     """The road-station catalogue resolves to a populated set of German stations."""
     df = DwdSwsmosRequest(parameters=[("hourly", "data")]).all().df
@@ -83,7 +81,6 @@ def test_swsmos_stations() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_swsmos_values() -> None:
     """The latest run returns an hourly forecast with the expected parameters and sane ranges."""
     request = DwdSwsmosRequest(parameters=[("hourly", "data")])

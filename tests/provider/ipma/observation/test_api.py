@@ -119,15 +119,12 @@ def test_parse_ipma_observations_skips_absent_station() -> None:
 
 # ---------------------------------------------------------------------------
 # Remote tests -- hit the live (key-less) IPMA feed. It is a rolling ~1-day window, so values
-# are time-dependent; assert structure/ranges rather than exact numbers. xfail (not hard-fail) on an
-# outage keeps a transient blip from blocking CI, matching the CHMI/AEMET precedent.
+# are time-dependent; assert structure/ranges rather than exact numbers. An outage skips the test
+# (the `remote` marker, see `tests/conftest.py`).
 # ---------------------------------------------------------------------------
-
-xfail_if_ipma_unavailable = pytest.mark.xfail(strict=False, reason="IPMA API intermittently unavailable")
 
 
 @pytest.mark.remote
-@xfail_if_ipma_unavailable
 def test_ipma_observation_stations() -> None:
     """The station catalogue resolves to a populated set of Portuguese stations."""
     df = IpmaObservationRequest(parameters=[("hourly", "data")]).all().df
@@ -141,7 +138,6 @@ def test_ipma_observation_stations() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_ipma_unavailable
 def test_ipma_observation_values() -> None:
     """A station returns recent hourly values with sane ranges and 45°-quantised wind direction."""
     request = IpmaObservationRequest(

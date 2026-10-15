@@ -19,10 +19,6 @@ from wetterdienst.provider.fmi.observation.parser import (
 HELSINKI_KAISANIEMI = "100971"
 UTC = ZoneInfo("UTC")
 
-# FMI's open-data WFS is a live third-party service; xfail rather than a hard failure keeps a
-# transient blip from blocking CI/merges, matching the AEMET/SMHI precedent.
-xfail_if_fmi_unavailable = pytest.mark.xfail(strict=False, reason="FMI server intermittently unavailable")
-
 
 def test_parse_fmi_observations_trace_sentinel() -> None:
     """FMI's -1 'no precipitation/no snow' sentinel is normalised to 0.0, other values untouched."""
@@ -158,7 +154,6 @@ def test_parse_fmi_stations_active_station_end_timestamp_null() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_fmi_unavailable
 def test_fmi_observation_stations() -> None:
     """Station metadata for Helsinki Kaisaniemi matches the FMI station catalogue."""
     request = FmiObservationRequest(
@@ -182,7 +177,6 @@ def test_fmi_observation_stations() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_fmi_unavailable
 def test_fmi_observation_values_hourly() -> None:
     """Hourly values at Helsinki Kaisaniemi for 2024-01-01 00:00 match the FMI reference values."""
     df = (
@@ -215,7 +209,6 @@ def test_fmi_observation_values_hourly() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_fmi_unavailable
 def test_fmi_observation_values_daily() -> None:
     """Daily values at Helsinki Kaisaniemi for 2024-01-01 match the FMI reference values."""
     df = (

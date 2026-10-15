@@ -13,14 +13,8 @@ from wetterdienst.provider.smhi.observation import SmhiObservationRequest
 ABISKO = "188790"
 UTC = ZoneInfo("UTC")
 
-# SMHI's live service has not been observed to be chronically flaky the way AEMET/Frost
-# have been, but it's a live third-party API like any other -- xfail rather than a hard
-# failure keeps a transient blip from blocking CI/merges, matching the AEMET/ECCC precedent.
-xfail_if_smhi_unavailable = pytest.mark.xfail(strict=False, reason="SMHI server intermittently unavailable")
-
 
 @pytest.mark.remote
-@xfail_if_smhi_unavailable
 def test_smhi_observation_stations() -> None:
     """Station metadata for Abisko Aut matches the SMHI station registry."""
     request = SmhiObservationRequest(
@@ -45,7 +39,6 @@ def test_smhi_observation_stations() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_smhi_unavailable
 def test_smhi_observation_values_daily() -> None:
     """Daily values at Abisko Aut for 2020-01-01 match the SMHI reference values."""
     df = (
@@ -72,7 +65,6 @@ def test_smhi_observation_values_daily() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_smhi_unavailable
 def test_smhi_observation_values_hourly() -> None:
     """Hourly values at Abisko Aut for 2020-01-01 00:00 match the SMHI reference values."""
     df = (
@@ -105,7 +97,6 @@ def test_smhi_observation_values_hourly() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_smhi_unavailable
 def test_smhi_observation_values_monthly() -> None:
     """Monthly values at Abisko Aut for January 2020 match the SMHI reference values."""
     df = (
@@ -130,7 +121,6 @@ def test_smhi_observation_values_monthly() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_smhi_unavailable
 def test_smhi_observation_values_minute_1() -> None:
     """1-minute values at Abisko Aut are live/rolling data with no fixed historical window.
 
