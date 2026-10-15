@@ -130,14 +130,20 @@ def serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes 
     monkeypatch.setattr(module, "download_file", download_file)
 
 
-def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, str]]]) -> bytes:
-    """Write a GHCNh by-station file with a column per element and, beside each, its `_Quality_Code`.
+GHCNH_ATTRIBUTES = ("Measurement_Code", "Quality_Code", "Report_Type", "Source_Code", "Source_Station_ID")
 
-    NOAA writes four more attribute columns beside every element, which the reader does not read. A cell a row does
-    not name is empty; a row names a code as `<element>_Quality_Code` (`temperature_Quality_Code`), and a name that is
-    in no column is an error, so that a typo cannot leave a stub testing nothing.
+
+def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, str]]]) -> bytes:
+    """Write a GHCNh by-station file with a column per element and, beside each, its five attribute columns.
+
+    NOAA writes `<element>_Measurement_Code`, `_Quality_Code`, `_Report_Type`, `_Source_Code` and `_Source_Station_ID`
+    beside every element, in that order. A cell a row does not name is empty; a row names an attribute as
+    `<element>_<attribute>` (`temperature_Quality_Code`), and a name that is in no column is an error, so that a typo
+    cannot leave a stub testing nothing.
     """
-    header = ["STATION", "DATE"] + [name for column in columns for name in (column, f"{column}_Quality_Code")]
+    header = ["STATION", "DATE"] + [
+        name for column in columns for name in (column, *(f"{column}_{attribute}" for attribute in GHCNH_ATTRIBUTES))
+    ]
     for _, row in rows:
         unknown = set(row) - set(header)
         assert not unknown, f"the file has no column {sorted(unknown)}"
@@ -508,13 +514,16 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
     # `<element>_Quality_Code` beside each value (GH-2754): 1942-01-17 02:00 reads 1 for the temperature and for the
-    # direction 999, so that the text of the sentinel follows the code (`1,raw:999`)
+    # direction 999, so that the text of the sentinel follows the code. The file gives the direction the measurement
+    # code C and source 220 too (GH-2925), which come between the two (`1,measurement:C,source:220,raw:999`)
     rows = [
         {
             "temperature": "23.5",
             "temperature_Quality_Code": "1",
             "wind_direction": "999",
+            "wind_direction_Measurement_Code": "C",
             "wind_direction_Quality_Code": "1",
+            "wind_direction_Source_Code": "220",
             "wind_speed": "0.0",
             "precipitation": "-9999",
         },
