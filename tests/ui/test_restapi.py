@@ -3628,7 +3628,9 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
                 ("daily", "precipitation_more", "precipitation_amount"),
             ],
         )
-        values = SimpleNamespace(sr=SimpleNamespace(parameters=request.parameters, settings=request.settings))
+        values = SimpleNamespace(
+            sr=SimpleNamespace(parameters=request.parameters, settings=request.settings, options=request.options)
+        )
         df_values = TimeseriesValues._widen_df(values, df_values)  # noqa: SLF001
     return ValuesResult(stations=stations, values=None, df=df_values)
 
@@ -4087,6 +4089,8 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
         {"timestamp": "2019-01-01T00:00:00.000000+00:00", "value": 9.5},
         {"timestamp": None, "value": None},
     ]
+    csv = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048", "format": "csv"})
+    assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5"
 
 
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:

@@ -222,6 +222,49 @@ def test_a_wide_result_has_the_wide_schema_and_is_a_string_throughout() -> None:
     assert pl.concat([populated, empty]).height == 6
 
 
+def test_the_wide_columns_follow_the_request_whatever_order_the_source_delivers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the parameter columns of a populated wide frame are in the request's order, as an empty one's are.
+
+    They came in the order the source's rows did, so a request for `tmk, txk` answered by a source that sent
+    `txk` first had its columns the other way round from an empty answer, and the two did not concatenate.
+    """
+
+    def collect(self: DwdObservationValues, station_id: str, parameter_or_dataset: object) -> pl.DataFrame:  # noqa: ARG001
+        return pl.DataFrame(
+            [
+                {
+                    "station_id": station_id,
+                    "resolution": "daily",
+                    "dataset": "climate_summary",
+                    "parameter": name,
+                    "timestamp": dt.datetime(2020, 1, 1, tzinfo=dt.UTC),
+                    "value": 1.0,
+                    "quality_flags": None,
+                }
+                for name in ("txk", "tmk")
+            ],
+            schema=LONG_SCHEMA,
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    request = DwdObservationRequest(
+        parameters=[
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "climate_summary", "temperature_air_max_2m"),
+        ],
+        start="2020-01-01",
+        end="2020-01-03",
+        settings=Settings(cache_disable=True),
+        options=Options(shape="wide"),
+    )
+    populated = _stations(request, "01048").values.all().df
+    empty = _stations(request).values.all().df
+    assert populated.schema == empty.schema == wide_schema(["temperature_air_mean_2m", "temperature_air_max_2m"])
+    assert pl.concat([populated, empty]).height == 1
+
+
 @pytest.mark.usefixtures("served")
 def test_the_series_of_a_query_have_the_schema_the_aggregated_result_has() -> None:
     """Test that the frame of one station, from `query()`, is the one `all()` puts together."""
@@ -330,10 +373,10 @@ def test_a_summarized_result_has_the_summarized_schema(monkeypatch: pytest.Monke
 
 def test_the_cores_build_their_frames_from_the_schemas() -> None:
     """Test that the intermediate frames of the cores are the schemas' columns, in the order the cores use."""
+    pytest.importorskip("shapely")
     from wetterdienst.core.interpolate import calculate_interpolation  # noqa: PLC0415
     from wetterdienst.core.summarize import calculate_summary  # noqa: PLC0415
 
-    pytest.importorskip("shapely")
     interpolated = calculate_interpolation(0.0, 0.0, {}, {}, None)
     summarized = calculate_summary({}, {})
     # the stamp first, and no station: the point's own id is put in front when the request has the result

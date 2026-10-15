@@ -84,7 +84,7 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.mcp import is_tool_request
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.util.datetime import format_timestamp
+from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
 
@@ -1525,7 +1525,7 @@ def stripes_values(
         raise _failure(e, request, "get stripes data") from e
 
     if request.format == "csv":
-        content = stripes_data.df.write_csv()
+        content = timestamps_to_string(stripes_data.df).write_csv()
         media_type = "text/csv"
     else:
         data = {

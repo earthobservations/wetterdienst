@@ -394,8 +394,23 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         )
         df_wide = df.select(pl.col("station_id"), pl.col("resolution"), dataset, pl.col("timestamp")).unique()
 
+        # the columns of the parameters in the order the request names them, as the empty frame has them,
+        # and not in the order the source happened to deliver its rows in
+        requested = []
+        for parameter in self.sr.parameters:
+            name = parameter.name_original if not self.sr.options.humanize else parameter.name
+            requested.append(f"{parameter.dataset.name}_{name}" if len(datasets) > 1 else name)
+
         if not df.is_empty():
-            for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
+            delivered = {
+                key[0]: df_parameter
+                for key, df_parameter in df.partition_by(["parameter"], as_dict=True, maintain_order=True).items()
+            }
+            # a name the provider spells otherwise than the request does (WSV's `w` for `W`) follows
+            ordered = [name for name in requested if name in delivered]
+            ordered += [name for name in delivered if name not in ordered]
+            for parameter in ordered:
+                df_parameter = delivered[parameter]
                 df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality_flags"])
                 df_parameter = df_parameter.rename(
                     mapping={
@@ -410,13 +425,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # -- three quarters of a 15-minute series joined against an hourly one
                 df_wide = df_wide.join(df_parameter, on=["resolution", "timestamp"], how="left")
         else:
-            for parameter in self.sr.parameters:
-                parameter_name = parameter.name_original if not self.sr.options.humanize else parameter.name
-                # prefixed on the same condition as the populated branch above, so that an empty
-                # frame carries the column names a populated one would have rather than the
-                # unprefixed names it used to, which named no column the request could produce
-                if len(datasets) > 1:
-                    parameter_name = f"{parameter.dataset.name}_{parameter_name}"
+            # named as the populated branch above names them, so that an empty frame carries the column
+            # names a populated one would have rather than the unprefixed names it used to, which named
+            # no column the request could produce
+            for parameter_name in requested:
                 df_wide = df_wide.with_columns(
                     pl.lit(None, WIDE_VALUE_DTYPE).alias(parameter_name),
                     pl.lit(None, WIDE_FLAGS_DTYPE).alias(f"{parameter_name}{WIDE_FLAGS_SUFFIX}"),

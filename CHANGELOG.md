@@ -20,10 +20,9 @@ Types of changes:
 
 - `wetterdienst.model.schema` exports the schema of every public frame as an object to assert
   against: `STATIONS_SCHEMA`, `LONG_SCHEMA`, `WIDE_SCHEMA` (with `wide_schema(names)` for the
-  parameters' columns), `INTERPOLATED_SCHEMA` and `SUMMARIZED_SCHEMA`. A test holds each to the
-  columns, order and dtypes of what a result returns. `HistoryResult` and `TimeseriesHistory` have
-  `to_dict` and `to_json`, the body `/api/history` and `wetterdienst history` answer with
-  (GH-2633)
+  parameters' columns), `INTERPOLATED_SCHEMA` and `SUMMARIZED_SCHEMA`. `HistoryResult` and
+  `TimeseriesHistory` have `to_dict` and `to_json`, the body that `/api/history` and the `history`
+  command answer with (GH-2633)
 
 ### Changed
 
@@ -33,10 +32,12 @@ Types of changes:
   stations frame, concatenate across requests or take `is_in` with an absent name. Drop the casts
   back to `String`; code that read the `Enum`'s categories takes them from the data (GH-2633)
 - **Breaking**: every timestamp in a JSON, GeoJSON or CSV body is written the way values wrote it,
-  ISO 8601 in UTC to the microsecond, `2026-09-01T00:00:00.000000+00:00`: also in history
-  (`valid_from`, `valid_to`), alerts, issue lists, climate stripes and stations of any time unit.
-  They were `1926-05-01T00:00:00+00:00` there. Read them with a parser that takes a fraction, as
-  `datetime.fromisoformat` does (GH-2633)
+  ISO 8601 in UTC to the microsecond, `2026-09-01T00:00:00.000000+00:00`. History (`valid_from`,
+  `valid_to`), alerts, issue lists and climate stripes wrote `1926-05-01T00:00:00+00:00`, and the
+  CSV of alerts and stripes `1926-05-01T00:00:00.000000+0000`. Read them with a parser that takes a
+  fraction, as `datetime.fromisoformat` does (GH-2633)
+- The parameter columns of a wide values frame are in the order the request names its parameters,
+  as an empty frame has them, not in the order the source delivered its rows in (GH-2633)
 
 ## [0.154.0] - 2026-10-15
 

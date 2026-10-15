@@ -15,7 +15,8 @@ populated or empty, from one request or from another, so that two results concat
 joins against a stations frame without a cast. ``timestamp`` is UTC to the microsecond.
 
 A schema is a :class:`polars.Schema`, which is ordered and compares equal to another with the same
-names, order and dtypes (and to a ``dict`` of them).
+names, order and dtypes (and to a ``dict`` of them). The library builds its frames from these very
+objects, so treat them as read-only: copy one with ``pl.Schema(LONG_SCHEMA)`` to change it.
 """
 
 from __future__ import annotations
@@ -36,7 +37,8 @@ TIMESTAMP_DTYPE = pl.Datetime(time_unit="us", time_zone="UTC")
 IDENTITY_COLUMNS = ("station_id", "resolution", "dataset", "parameter")
 
 #: what a request's stations are described by (``StationsResult.df``). A provider may add columns of
-#: its own after these, such as WSV's ``gauge_zero``, and they follow in the provider's order.
+#: its own, such as WSV's ``gauge_zero`` or the ``icao_id`` of the DWD forecast networks, among or after
+#: these; these columns keep their dtypes and their order relative to each other.
 STATIONS_SCHEMA = pl.Schema(
     {
         "resolution": pl.String,
@@ -71,8 +73,9 @@ LONG_SCHEMA = pl.Schema(
 
 #: the columns of the wide shape (``Options(shape="wide")``) that do not depend on the request, one
 #: row per timestamp. ``dataset`` is null on a row of a resolution that holds several requested
-#: datasets, whose columns are then prefixed with their dataset's name. The columns of the parameters
-#: follow, see :func:`wide_schema`.
+#: datasets. When the request spans several datasets, the columns of the parameters are prefixed with
+#: their dataset's name. They follow these, in the order the request names the parameters, see
+#: :func:`wide_schema`.
 WIDE_SCHEMA = pl.Schema(
     {
         "station_id": pl.String,

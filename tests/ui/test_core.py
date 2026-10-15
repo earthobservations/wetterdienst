@@ -402,6 +402,30 @@ def test_point_on_the_equator_is_a_point(
     assert recorder.calls == [("point", (0.0, 8.97))]
 
 
+@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
+def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest]) -> None:
+    """Test the issue asked of dwd/swsmos reaches its request rather than reading the latest run (GH-2299)."""
+    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    request = model.model_validate(
+        {
+            "provider": "dwd",
+            "network": "swsmos",
+            "parameters": "hourly/data",
+            "station": "A006",
+            "issue": "2026-10-01T11:00",
+        },
+    )
+    stations_request = core._get_stations_request(  # noqa: SLF001
+        api=DwdSwsmosRequest,
+        request=request,
+        timestamp=None,
+        settings=Settings(),
+    )
+    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.UTC)
+
+
 def test_swsmos_without_issue_reads_the_latest_run() -> None:
     """Test a dwd/swsmos request without an issue still targets the latest run (GH-2299)."""
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415

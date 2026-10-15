@@ -153,18 +153,7 @@ class TimeseriesRequest:
         self.periods = self._resolve_periods(self.periods)
 
     # Columns that should be contained within any stations information
-    _base_columns: ClassVar = (
-        "resolution",
-        "dataset",
-        "station_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
-    )
+    _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
 
     # The parameters that may be interpolated or summarized, which is a property of the measured
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a

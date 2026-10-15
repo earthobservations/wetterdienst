@@ -458,7 +458,7 @@ merged = df.join(stations.df, on="station_id")
 
 | Schema | Frame |
 | --- | --- |
-| `STATIONS_SCHEMA` | `request.df` and `StationsResult.df`: the columns every station has, in order; a provider may add its own after them |
+| `STATIONS_SCHEMA` | `request.df` and `StationsResult.df`: the columns every station has, in this order; a provider may add its own, among or after them |
 | `LONG_SCHEMA` | `ValuesResult.df` with `Options(shape="long")` |
 | `WIDE_SCHEMA`, `wide_schema(names)` | `ValuesResult.df` with `Options(shape="wide")`: the columns that do not depend on the request, and with the parameters' columns named |
 | `INTERPOLATED_SCHEMA` | `InterpolatedValuesResult.df` |
@@ -468,7 +468,7 @@ A test in the library holds each of them against what a result returns, so a cha
 dtype or its place is a visible diff in a pull request and a breaking change.
 
 ```{note}
-**Migrating from 0.x.** `.values.all().df` used to store the four identity columns as polars `Enum`,
+**Migrating from 0.154.0 or earlier.** `.values.all().df` used to store the four identity columns as polars `Enum`,
 with the categories taken from the data of each result, while an empty result and an interpolated or
 summarized one had `String`. They are `String` now. Code that cast them back, such as
 `df.with_columns(pl.col(pl.Enum).cast(pl.String))`, or cast a join key or the column of an `is_in`,
