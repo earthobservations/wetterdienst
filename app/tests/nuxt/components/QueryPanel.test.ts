@@ -71,6 +71,43 @@ describe('queryPanel', () => {
     const rows = await transform('SELECT station_id, resolution, dataset, parameter, timestamp::TIMESTAMP AS timestamp, value, quality_flags, COUNT(*) OVER () AS n FROM data')
     expect(rows).toEqual([{ ...data[0], n: 1 }])
   })
+
+  it('does not read the fields of the rows it is given (GH-2958)', async () => {
+    // the panel watched its rows deeply, so every Fetch read every field of every row: about 0.2 s
+    // of the main thread at 1.1 million rows. Replacing the rows is what it watches for
+    let reads = 0
+    const counted = (rows: Value[]) => rows.map((row) => {
+      const counting = {} as Value
+      for (const [key, value] of Object.entries(row)) {
+        Object.defineProperty(counting, key, { enumerable: true, get: () => {
+          reads++
+          return value
+        } })
+      }
+      return counting
+    })
+    const wrapper = await mountSuspended(QueryPanel, { props: { data: counted(data), expectedColumns: Object.keys(data[0]!) } })
+    mounted.push(wrapper)
+
+    // after the mount, which the test utils read the props of themselves
+    reads = 0
+    await wrapper.setProps({ data: counted([{ ...data[0]!, station_id: '04411' }]) })
+    await flushPromises()
+
+    expect(reads).toBe(0)
+  })
+
+  it('leaves query mode when its rows are replaced', async () => {
+    // the array is what is watched: a Fetch's answer is a new one
+    const wrapper = await mountSuspended(QueryPanel, { props: { data, expectedColumns: Object.keys(data[0]!) } })
+    mounted.push(wrapper)
+    await wrapper.find('button').trigger('click')
+    expect(wrapper.find('textarea').exists()).toBe(true)
+
+    await wrapper.setProps({ data: [{ ...data[0]!, station_id: '04411' }] })
+
+    expect(wrapper.find('textarea').exists()).toBe(false)
+  })
 })
 
 // A hold on a statement, opened by the test at the point where the order of two callers matters

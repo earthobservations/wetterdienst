@@ -63,6 +63,12 @@ Types of changes:
 - `[Meteogram]` The Tx/Tn band holds each value across the 12 hours before its stamp, as DWD gives
   it, in steps, where a line between the two daily stamps let the temperature curve out of the
   band for a tenth to a sixth of the hours (GH-2647)
+- `[Explorer]` A link with `stations=` restores its stations whichever of the station list and the
+  parameter selection answers first, where it lost them (and the `stations=` of the address) when
+  the list came first, which it usually does. Choosing other parameters of the same dataset no
+  longer clears stations restored from a link either (GH-2959)
+- `[DataViewer]` The query panel no longer reads every field of every row at each answer: about
+  0.2 s less main-thread time on 1.1 million rows (GH-2958)
 
 ### Security
 

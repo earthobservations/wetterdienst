@@ -225,7 +225,7 @@ function loadTable(rows: Value[], { again = false } = {}): Promise<void> {
 // longer it, or whose rows a Fetch has replaced, tells nothing: its statements may have met the
 // newer rows' load between its DROP and CREATE, and its answer is about text since edited
 let currentCheck = 0
-// a check has answered, or was answering, about rows a Fetch has since replaced or changed: entering
+// a check has answered, or was answering, about rows a Fetch has since replaced: entering
 // query mode checks the query again, rather than show its answer for the rows before (GH-2142)
 let recheck = false
 
@@ -494,10 +494,12 @@ function disableQueryMode() {
   emit('dataTransformed', props.data) // Reset to original data
 }
 
-// Watch for data changes - reset query mode
+// Watch for data changes - reset query mode. The rows are replaced, never changed in place, so the
+// array itself is what is watched: a deep watch read every field of every row at each answer, about
+// 0.2 s of the main thread at 1.1 million rows (GH-2958)
 watch(() => props.data, () => {
   // the table no longer holds the panel's rows: a load of them under way stops before its next
-  // batch, and the next run or check loads the rows now held, replaced or changed in place
+  // batch, and the next run or check loads the rows now held
   tableLoad = null
   // a query edited since the panel opened, whose check has answered about the rows before or is
   // still due: entering query mode checks it against the rows now held, and a check still due is
@@ -510,7 +512,7 @@ watch(() => props.data, () => {
   if (isQueryMode.value) {
     disableQueryMode()
   }
-}, { deep: true })
+})
 
 // Cleanup on unmount
 onUnmounted(async () => {
