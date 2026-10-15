@@ -188,6 +188,60 @@ describe('stationSelection', () => {
     expect(vm.allStations).toEqual(stationsResponse.stations)
   })
 
+  describe('stations restored from a shared URL (GH-2959)', () => {
+    // ParameterSelection answers the link it was given with a new selection of the same dataset (it
+    // adds `dateRequired`) once it has checked it against the coverage. The station list, which the
+    // link needs at once, is usually in before that, and the answer cleared the stations just restored
+    async function mountRestored() {
+      let calls = 0
+      registerEndpoint('/api/stations', () => {
+        calls++
+        return stationsResponse
+      })
+      const wrapper = await mountSuspended(StationSelection, {
+        props: { parameterSelection, initialStationIds: ['00001'], multiple: true },
+        attachTo: document.body,
+      })
+      onTestFinished(() => wrapper.unmount())
+      const vm = wrapper.vm as any
+      await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(1))
+      return { wrapper, vm, calls: () => calls }
+    }
+
+    it('keeps them when the selection is answered with an equal one', async () => {
+      const { wrapper, vm, calls } = await mountRestored()
+
+      await wrapper.setProps({ parameterSelection: { ...parameterSelection, dateRequired: false } })
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })])
+      expect(vm.allStations).toEqual(stationsResponse.stations)
+      expect(calls()).toBe(1)
+    })
+
+    it('keeps them when other parameters of the dataset are chosen', async () => {
+      const { wrapper, vm, calls } = await mountRestored()
+
+      await wrapper.setProps({ parameterSelection: { ...parameterSelection, parameters: ['precipitation_amount'] } })
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      expect(vm.selectedStations).toEqual([expect.objectContaining({ station_id: '00001' })])
+      expect(calls()).toBe(1)
+    })
+
+    it('drops them, and asks for the list of the dataset, when another dataset is chosen', async () => {
+      const { wrapper, vm, calls } = await mountRestored()
+      vm.selectOpen = true
+
+      await wrapper.setProps({
+        parameterSelection: { ...parameterSelection, dataset: 'precipitation_more', parameters: ['precipitation_amount'] },
+      })
+      await vi.waitFor(() => expect(calls()).toBe(2))
+
+      expect(vm.selectedStations).toEqual([])
+    })
+  })
+
   it.each([true, false])('labels a station without a region by name and id alone (multiple: %s)', async (multiple) => {
     // A network without regions, e.g. DWD MOSMIX, sends `region: null` for every station.
     registerEndpoint('/api/stations', () => ({

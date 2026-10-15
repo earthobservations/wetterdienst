@@ -110,18 +110,34 @@ watch(allStations, (stations) => {
   hasRestoredInitialStations.value = true
 })
 
+// What the station list is for: it is asked per dataset, so anything else in the selection (the
+// parameters, `dateRequired`) leaves it as it is. `null` before the first selection with parameters
+let listedFor: string | null = null
+function listKey(ps: ParameterSelectionState['selection']) {
+  return [ps.provider, ps.network, ps.resolution, ps.dataset].join('|')
+}
+
 watch(() => props.parameterSelection, (ps) => {
   if (!ps.parameters?.length) {
     stationsData.value = { stations: [] }
     selectedStations.value = []
     stationsLoaded.value = false
+    listedFor = null
     return
   }
-  // Clear selected stations when parameters change (but not on initial load)
+  // The same dataset again: the selection was replaced by an equal one (ParameterSelection answers
+  // the link it was given once it has checked it), or other parameters were chosen. The list and the
+  // stations chosen from it stay; clearing them here lost the stations of a shared link whenever
+  // the list arrived before that answer (GH-2959)
+  const key = listKey(ps)
+  if (key === listedFor)
+    return
+  listedFor = key
+  // Clear selected stations when the dataset changes (but not on initial load)
   if (hasRestoredInitialStations.value) {
     selectedStations.value = []
   }
-  // Parameters changed -- any previously fetched station list is now stale.
+  // The dataset changed -- any previously fetched station list is now stale.
   stationsData.value = { stations: [] }
   stationsLoaded.value = false
   // Fetch right away only to restore stations preselected via a shared URL, or when a picker is
