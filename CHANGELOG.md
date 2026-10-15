@@ -59,6 +59,11 @@ Types of changes:
   bound matched no file; a bound in a named zone (`Europe/Berlin`) raised a polars `SchemaError`
   on the recent and composite files. A historical RADOLAN_CDC request spanning months now reads
   every month's archive, not only the one it opens in (GH-2818)
+- `ea/hydrology` lists every station of the Environment Agency, not the first 100 of 9537 that
+  the API answers with unless asked for more: 2638 stations for `stage` and 1074 for
+  `groundwater_level` (it listed 1 borehole), 1103 for 15 minute `discharge`. A station the
+  listing gives two names is listed under the first, and one it gives two dates of closing
+  (Udford) ends on the later. The listing is cached for 12 hours, not 5 minutes (GH-2933)
 - The warning for a parameter a dataset does not have no longer offers a near spelling whose
   leading words name another quantity: `temperature_dew_point_mean_2m` in `dwd/observation`
   `daily/kl` no longer suggests `temperature_air_mean_2m`, nor

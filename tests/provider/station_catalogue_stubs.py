@@ -35,6 +35,8 @@ from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as swsmos_api
+from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
+from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.provider.geosphere.observation import api as geosphere_api
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
@@ -383,6 +385,229 @@ CHMI_NAME = Accepted(
     where=lambda row: row["station_id"] == "0-203-0-41302035001",
 )
 
+# the stations of the Environment Agency's hydrology listing (`?_limit=20000`, 9537 stations on 2026-10-15) that are
+# not of the common shape, trimmed to the fields the reader reads and `colocatedStation` (GH-2933). "Beach's Mill"
+# has two spellings of its name, so `label` is an array there, and "Udford" has closed twice, so `dateClosed` is;
+# of the 9537 stations 1 has each, and 821 have a `colocatedStation` array, which the reader does not read. "Banks
+# Road" has no position and no `easting` or `northing`, "Burton Coggles" has a measure with no `period`, and "Beer
+# Football Ground" is a borehole
+EA_HYDROLOGY_LISTING = [
+    {
+        "label": ["Beach's Mill", "Beach'S Mill"],
+        "notation": "fcdd7420-c000-4db7-99fa-3835a65372fe",
+        "easting": 569009,
+        "northing": 207165,
+        "lat": 51.737703,
+        "long": 0.446302,
+        "dateOpened": "1962-04-01",
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-flow-i-900-m3s-qualified",
+                "parameter": "flow",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-flow-min-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-flow-m-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/mean"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-level-i-900-m-qualified",
+                "parameter": "level",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-flow-max-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/maximum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-level-min-86400-m-qualified",
+                "parameter": "level",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/fcdd7420-c000-4db7-99fa-3835a65372fe-level-max-86400-m-qualified",
+                "parameter": "level",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/maximum"},
+            },
+        ],
+    },
+    {
+        "label": "Udford",
+        "notation": "ab5db73f-059e-4d10-9b92-5a640db3c1ab",
+        "easting": 357570,
+        "northing": 530450,
+        "lat": 54.667313,
+        "long": -2.659359,
+        "dateOpened": "1976-01-06",
+        "dateClosed": ["2015-01-31", "2024-03-14"],
+        "colocatedStation": [
+            {"@id": "http://environment.data.gov.uk/hydrology/id/stations/ab5db73f-059e-4d10-9b92-5a640db3c1ab_762007"}
+        ],
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-level-i-900-m-qualified",
+                "parameter": "level",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-flow-i-900-m3s-qualified",
+                "parameter": "flow",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-level-max-86400-m-qualified",
+                "parameter": "level",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/maximum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-flow-m-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/mean"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-level-min-86400-m-qualified",
+                "parameter": "level",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-flow-max-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/maximum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/ab5db73f-059e-4d10-9b92-5a640db3c1ab-flow-min-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+        ],
+    },
+    {
+        "label": "Beer Football Ground",
+        "notation": "3e7d8886-824c-4c3b-80d3-038758ba3179",
+        "easting": 311900,
+        "northing": 98773,
+        "lat": 50.781813,
+        "long": -3.25102,
+        "dateOpened": "2016-04-19",
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/3e7d8886-824c-4c3b-80d3-038758ba3179-gw-logged-i-subdaily-mAOD-qualified",
+                "parameter": "level",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            }
+        ],
+    },
+    {
+        "label": "Banks Road",
+        "notation": "32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028",
+        "dateOpened": "1999-08-22",
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028-flow-min-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028-flow-max-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/maximum"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028-flow-m-86400-m3s-qualified",
+                "parameter": "flow",
+                "period": 86400,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/mean"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028-flow-i-900-m3s-qualified",
+                "parameter": "flow",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+        ],
+    },
+    {
+        "label": "Burton Coggles",
+        "notation": "c7e13884-4a02-4df3-b184-09aea28cf8e8_3_020",
+        "easting": 498965,
+        "northing": 325135,
+        "lat": 52.814674,
+        "long": -0.533054,
+        "dateOpened": "1974-07-30",
+        "colocatedStation": [
+            {"@id": "http://environment.data.gov.uk/hydrology/id/stations/c7e13884-4a02-4df3-b184-09aea28cf8e8"}
+        ],
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/c7e13884-4a02-4df3-b184-09aea28cf8e8_3_020-gw-logged-i-subdaily-mAOD-qualified",
+                "parameter": "level",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/c7e13884-4a02-4df3-b184-09aea28cf8e8_3_020-gw-dipped-i-mAOD-qualified",
+                "parameter": "level",
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+        ],
+    },
+    {
+        "label": "Siddington",
+        "notation": "0a037c75-cb02-4c6f-a717-a8a1132b132e_SU09_56",
+        "easting": 404065,
+        "northing": 199885,
+        "lat": 51.697692,
+        "long": -1.942576,
+        "dateClosed": "1982-11-11",
+        "colocatedStation": [
+            {"@id": "http://environment.data.gov.uk/hydrology/id/stations/0a037c75-cb02-4c6f-a717-a8a1132b132e"}
+        ],
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/0a037c75-cb02-4c6f-a717-a8a1132b132e_SU09_56-gw-dipped-i-mAOD-qualified",
+                "parameter": "level",
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            }
+        ],
+    },
+]
+EA_NO_POSITION = Accepted(
+    "coordinates_missing",
+    "the listing gives the station Banks Road no position, the only one of 9537; a station without one is picked by "
+    "no search, and its readings are still reached by its id (GH-2933)",
+    where=lambda row: row["station_id"] == "32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028",
+)
+
+
+def _ea_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _serve(monkeypatch, ea_api, {"stations.json": json.dumps({"items": EA_HYDROLOGY_LISTING}).encode("utf8")})
+    return _stations(EAHydrologyRequest, ("15_minutes", "data"))
+
+
 STUBS = [
     Stub("aemet/observation daily/data", _aemet),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
@@ -404,6 +629,7 @@ STUBS = [
     ),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
+    Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),
     Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
     Stub("imgw/meteorology daily/climate", _imgw_meteorology),
 ]

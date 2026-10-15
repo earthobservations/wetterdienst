@@ -98,7 +98,7 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
         "measures": [measure],
     }
     responses = {
-        "https://environment.data.gov.uk/hydrology/id/stations.json": {"items": [station]},
+        "https://environment.data.gov.uk/hydrology/id/stations.json?_limit=20000": {"items": [station]},
         "https://environment.data.gov.uk/hydrology/id/stations/0001.json": {"items": [{"measures": [measure]}]},
     }
     readings = {"items": [{"dateTime": "2020-01-01T00:00:00", "value": 1.0, "quality": "Good"}]}
