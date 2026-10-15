@@ -104,10 +104,10 @@ def test_resolving_a_local_name_is_not(blocked_network: list[object]) -> None:
 
 
 def test_the_refusal_is_not_an_oserror() -> None:
-    """What the guard raises has to be outside everything the library degrades on.
+    """What the guard raises has to be outside what the library reports as being offline.
 
-    aiohttp turns an `OSError` from a connect into `ClientConnectorError`, which is the library's
-    signal for being offline -- and being offline is a thing it answers rather than reports.
+    aiohttp turns an `OSError` from a connect into `ClientConnectorError`, which the library turns
+    into `NoInternetError` -- and a missing marker is not a lost connection.
     """
     assert not issubclass(NetworkAccessBlockedError, OSError)
 
@@ -115,10 +115,9 @@ def test_the_refusal_is_not_an_oserror() -> None:
 def test_a_blocked_listing_says_so_rather_than_coming_back_empty(blocked_network: list[object]) -> None:
     """A directory that is not there and one that was never asked for are different answers.
 
-    `list_remote_files_fsspec` returns `[]` for both a missing directory and an offline library, so
-    a guard it could absorb left a test asserting an empty listing passing while testing nothing,
-    and every other test failing as `url ... does not have a list of files` -- an upstream
-    restructure, to read it.
+    `list_remote_files_fsspec` returns `[]` for a missing directory, so a guard it could absorb
+    left a test asserting an empty listing passing while testing nothing. An offline library raises
+    `NoInternetError` (GH-2640), which a guard that was an `OSError` would have been read as.
     """
     with pytest.raises(NetworkAccessBlockedError):
         list_remote_files_fsspec(
@@ -136,10 +135,9 @@ def test_a_blocked_download_says_so_rather_than_carrying_no_internet(
 ) -> None:
     """A refused download leaves by raising, and not as the `File` every real failure comes back as.
 
-    `download_file` answers a failure with a `File` carrying the exception, and `raise_if_exception`
-    logs the offline one at debug and returns -- which is how a provider ends up handing back an
-    empty frame instead of failing. A missing marker has to be louder than the condition it
-    imitates, so this one case leaves through the call stack.
+    `download_file` answers a failure with a `File` carrying the exception, and a provider that
+    reads the `File` itself can degrade on it into an empty frame. A missing marker has to be louder
+    than the condition it imitates, so this one case leaves through the call stack.
     """
     with pytest.raises(NetworkAccessBlockedError):
         download_file(

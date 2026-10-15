@@ -183,6 +183,22 @@ def test_query_wraps_download_failure(monkeypatch: pytest.MonkeyPatch) -> None:
         DwdWeatherAlertRequest().query()
 
 
+def test_query_raises_no_internet_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify a missing connection is the `NoInternetError` naming the URL, not wrapped as a plain OSError (GH-2640)."""
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    error = NoInternetError("No internet connection: could not reach http://x")
+
+    def fake_download(*_a: object, **_k: object) -> File:
+        return File(url="http://x", content=error, status=503)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", fake_download)
+    with pytest.raises(NoInternetError) as raised:
+        DwdWeatherAlertRequest().query()
+    assert raised.value is error
+
+
 def test_query_wraps_bad_zip(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify a non-zip 200 body becomes a clean OSError instead of a raw BadZipFile."""
     from wetterdienst.util.network import File  # noqa: PLC0415

@@ -201,15 +201,15 @@ class DwdSwsmosValues(TimeseriesValues):
         The listing is asked only after the 404, so a run fetched or cached costs no listing and is
         served whatever the listing says by now. It decides because a 404 alone does not: a run the
         listing names is the server's to serve, and refusing it would have `available_issues` offer
-        a run this then called the caller's mistake; a listing naming no run is a directory moved or
-        the host offline, which says nothing about the issue. Both are warned about, as the 404 is.
+        a run this then called the caller's mistake; a listing naming no run is a directory moved,
+        which says nothing about the issue. Both are warned about, as the 404 is.
         `LATEST` names no run of its own and asks only for runs the listing has just named, so a 404
         there is a run gone since, never the caller's. A listing that fails after the 404 raises, as
         it does for `LATEST`.
 
         A fetch that fails otherwise -- a timeout, a 5xx after the retries -- raises a
         `DownloadError`, as `dwd/observation` does: answered with `None` it read as a run holding
-        nothing for the station (GH-2461). A connection that cannot be made at all stays quiet.
+        nothing for the station (GH-2461). A connection that cannot be made at all raises `NoInternetError` (GH-2640).
         """
         file = download_file(
             url=url,
@@ -231,8 +231,7 @@ class DwdSwsmosValues(TimeseriesValues):
             # for the station (GH-2461)
             if file.status != HTTPStatus.NOT_FOUND:
                 file.raise_if_exception()
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
+            log.warning(f"Failed to fetch SWSMOS run {url}: {file.content}")
             return None
         return file.content.read()
 
@@ -270,8 +269,8 @@ class DwdSwsmosValues(TimeseriesValues):
         answers the stations after that point from the new one -- a frame quietly mixing two model
         runs, with no cache entry in the way to make it rare.
 
-        A run the server does not have (a 404), or none that can be reached, is kept as an empty
-        frame, where `ipma` deliberately leaves a failed fetch uncached to be retried: there, a
+        A run the server does not have (a 404) is kept as an empty frame, where `ipma`
+        deliberately leaves a failed fetch uncached to be retried: there, a
         feed that fails costs that feed's stations, while here one file is the whole request, so
         asking again per station cannot answer a different question. `download_file` has already
         asked twice by then -- `_worth_retrying_download` governs what a blip is -- and 1,836
@@ -438,10 +437,10 @@ class DwdSwsmosRequest(TimeseriesRequest):
         """
         _, runs = _list_runs(settings)
         if not runs:
-            # answered with no issues, and said to be. Not blamed on renamed files: offline, the
-            # listing comes back empty too
+            # answered with no issues, and said to be. Not blamed on renamed files: a directory that
+            # moved lists as empty too. Offline is not that: the listing raises `NoInternetError`
             log.warning(
-                f"No SWSMOS run listed within {_BASE_URL}/; a listing that failed looks the same as one that is empty",
+                f"No SWSMOS run listed within {_BASE_URL}/; a directory that moved looks the same as one that is empty",
             )
             return []
         return [
@@ -460,8 +459,8 @@ class DwdSwsmosRequest(TimeseriesRequest):
             use_certifi=settings.use_certifi,
         )
         # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
-        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
-        # silently, to give an empty frame
+        # which swallowed would read as a network without stations (GH-2519). A failed connection
+        # (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()

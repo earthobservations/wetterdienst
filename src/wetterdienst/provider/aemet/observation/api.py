@@ -173,8 +173,8 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                # no network is not a blip two more retries clear: report it at once, as an
-                # offline listing does (the 503 `download_file` gives it would otherwise match)
+                # no network is not a blip two more retries clear: report it at once (the 503
+                # `download_file` gives it would otherwise match)
                 if (
                     isinstance(last_file.content, Exception)
                     and not last_file.is_no_internet_error
@@ -397,9 +397,7 @@ class AemetObservationValues(TimeseriesValues):
         url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         if isinstance(payload, NoInternetError):
-            log.debug(f"No internet connection available for AEMET station {station_id}, returning no values.")
-            self.offline = True
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            raise payload
         if isinstance(payload, Exception):
             log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -441,11 +439,9 @@ class AemetObservationValues(TimeseriesValues):
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, NoInternetError):
-                # offline, every remaining chunk (and station) would fail the same way: stop the request,
-                # and log it as `File.raise_if_exception` does
-                log.debug(f"No internet connection available for AEMET station {station_id}, stopping at {url}.")
-                self.offline = True
-                break
+                # offline, every remaining chunk (and station) would fail the same way: the request
+                # ends here, with the error, rather than with the chunks read (GH-2620, GH-2640)
+                raise payload
             if isinstance(payload, Exception):
                 # rate-limit retries (if applicable) are already exhausted at this point,
                 # so this chunk's data is genuinely missing from the result.
@@ -513,9 +509,7 @@ class AemetObservationValues(TimeseriesValues):
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, NoInternetError):
-                log.debug(f"No internet connection available for AEMET station {station_id}, stopping at {url}.")
-                self.offline = True
-                break
+                raise payload
             if isinstance(payload, Exception):
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
@@ -595,6 +589,9 @@ class AemetObservationRequest(TimeseriesRequest):
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         payload = _fetch_datos(self._endpoint, settings, CacheExpiry.METAINDEX)
+        if isinstance(payload, NoInternetError):
+            # an unreachable AEMET is no network without stations (GH-2640)
+            raise payload
         if isinstance(payload, Exception):
             log.warning(f"Failed to fetch AEMET stations: {payload}")
             return pl.LazyFrame()

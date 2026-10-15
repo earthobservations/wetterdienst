@@ -10,7 +10,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -21,7 +21,9 @@ from rapidfuzz import utils as fuzz_utils
 
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
+    InvalidParameterError,
     LocationOutOfRangeError,
+    MetadataNotFoundError,
     MissingTimeIntervalError,
     NoParametersFoundError,
     NoPeriodsFoundError,
@@ -38,6 +40,7 @@ from wetterdienst.model.metadata import (
     MetadataModel,
     ParameterModel,
     ResolutionModel,
+    check_on_unknown,
     parse_parameters,
 )
 from wetterdienst.model.result import (
@@ -64,9 +67,12 @@ EARTH_RADIUS_KM = 6371
 # types
 # either of
 # str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
-# tuple of strings: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m")
+# tuple of strings: ("daily", "kl") or ("daily", "kl", "temperature_air_mean_2m"), the resolution
+# also as its member, Resolution.DAILY
 # Parameter: DwdObservationMetadata.daily.kl.temperature_air_mean_2m or DwdObservationMetadata["daily"]["kl"]["temperature_air_mean_2m"]  # noqa: E501, ERA001
-_PARAMETER_TYPE_SINGULAR = str | tuple[str, str] | tuple[str, str, str] | ParameterModel | DatasetModel
+_PARAMETER_TYPE_SINGULAR = (
+    str | tuple[str | Resolution, str] | tuple[str | Resolution, str, str] | ParameterModel | DatasetModel
+)
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
 _DATETIME_TYPE = str | dt.datetime | None
 # either of
@@ -108,6 +114,12 @@ class TimeseriesRequest:
     # Keyword-only, so that it moves none of the arguments a subclass adds after `periods` (`issue` of
     # the forecasts)
     options: Options | dict | None = field(default=None, kw_only=True)
+    # What to do with a parameter the provider does not have or that is not shaped like one:
+    # "raise" refuses the request with an `InvalidParameterError` naming each, "warn" logs them
+    # and goes on with the parameters that did resolve. On the request rather than in `Options`,
+    # which is about how values come back and not about how the request is read, and keyword-only
+    # like it.
+    on_unknown: Literal["raise", "warn"] = field(default="raise", kw_only=True)
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.
@@ -140,12 +152,22 @@ class TimeseriesRequest:
         if isinstance(requested, Iterator):
             # parse_parameters consumes an iterator, so keep the values for the message below,
             # which would otherwise render the exhausted iterator rather than what was asked for
-            requested = list(requested)
+            requested = cast("_PARAMETER_TYPE", list(requested))
+        check_on_unknown(self.on_unknown)
         if requested:
-            self.parameters = parse_parameters(requested, self.metadata)  # type: list[ParameterModel]
+            try:
+                self.parameters = parse_parameters(requested, self.metadata, self.on_unknown)  # type: list[ParameterModel]
+            except InvalidParameterError as e:
+                if not e.resolved:
+                    raise
+                msg = f"{str(e).rstrip('.')}. Pass on_unknown='warn' to skip these and read the others."
+                error = InvalidParameterError(msg)
+                error.resolved = True
+                raise error from None
         if not self.parameters:
-            # the warnings parse_parameters logged say per parameter what was wrong with it, but
-            # they are only visible to whoever configured logging, so name the request here too
+            # with on_unknown="warn" the warnings parse_parameters logged say per parameter what was
+            # wrong with it, but they are only visible to whoever configured logging, so name the
+            # request here too
             msg = f"No valid parameters could be parsed from {requested!r} for {type(self).__name__}"
             raise NoParametersFoundError(msg)
         # Has to follow the parameters, which say which datasets -- and so which periods -- were
@@ -253,6 +275,18 @@ class TimeseriesRequest:
         return series.cast(pl.String)
 
     @staticmethod
+    def _bound_to_utc(name: str, bound: _DATETIME_TYPE) -> dt.datetime | None:
+        """Read one bound of the window as a datetime in UTC, or None where none was given."""
+        if bound is not None and not isinstance(bound, str | dt.datetime):
+            msg = f"{name} must be a str or a datetime, got {type(bound).__name__} {bound!r}"
+            raise TypeError(msg)
+        if not bound:
+            return None
+        if isinstance(bound, str):
+            bound = dt.datetime.fromisoformat(bound)
+        return bound.replace(tzinfo=ZoneInfo("UTC")) if not bound.tzinfo else bound.astimezone(ZoneInfo("UTC"))
+
+    @staticmethod
     def convert_timestamps(
         start: _DATETIME_TYPE,
         end: _DATETIME_TYPE,
@@ -265,26 +299,24 @@ class TimeseriesRequest:
         provider that formats or floors a bound -- by its year, its date -- would do so in the
         caller's zone rather than the one the values are in.
 
+        A bound given alone is the whole window, ``start`` as much as ``end``: it names one instant
+        (``start == end``), so a date reads that day's values. It is not an open end.
+
         Args:
-            start: Start of the request.
-            end: End of the request.
+            start: Start of the request, an ISO 8601 string or a datetime.
+            end: End of the request, an ISO 8601 string or a datetime.
 
         Returns:
             tuple[None, None] | tuple[dt.datetime, dt.datetime]: Start and end of the request.
 
+        Raises:
+            TypeError: a bound is neither a string nor a datetime, an int such as ``2020`` among them.
+
         """
+        start = TimeseriesRequest._bound_to_utc("start", start)
+        end = TimeseriesRequest._bound_to_utc("end", end)
         if start is None and end is None:
             return None, None
-
-        if start:
-            if isinstance(start, str):
-                start = dt.datetime.fromisoformat(start)
-            start = start.replace(tzinfo=ZoneInfo("UTC")) if not start.tzinfo else start.astimezone(ZoneInfo("UTC"))
-
-        if end:
-            if isinstance(end, str):
-                end = dt.datetime.fromisoformat(end)
-            end = end.replace(tzinfo=ZoneInfo("UTC")) if not end.tzinfo else end.astimezone(ZoneInfo("UTC"))
 
         # If only one date given, set the other one to equal.
         if not start:
@@ -346,12 +378,18 @@ class TimeseriesRequest:
         and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
         side.
 
+        Names are matched by either name of a resolution or dataset, in any case.
+
         Args:
             resolutions: Resolutions to discover metadata for.
             datasets: Datasets to discover metadata for.
 
         Returns:
             dict: Metadata for the given resolutions and datasets.
+
+        Raises:
+            MetadataNotFoundError: a resolution or dataset the network does not have, a dataset being
+                looked for in the resolutions asked for.
 
         """
         if not resolutions:
@@ -364,28 +402,41 @@ class TimeseriesRequest:
                 resolution = resolution.name
             else:
                 resolution = str(resolution)
-            resolution_strings.append(resolution)
+            resolution_strings.append(resolution.strip())
         if not datasets:
             datasets = []
         dataset_strings = []
         for dataset in to_list(datasets):
             dataset = dataset.name if isinstance(dataset, DatasetModel) else str(dataset)
-            dataset_strings.append(dataset)
+            dataset_strings.append(dataset.strip())
+
+        def named(model: ResolutionModel | DatasetModel, names: list[str]) -> bool:
+            return bool({model.name.lower(), model.name_original.lower()} & {name.lower() for name in names})
+
+        selected = [
+            resolution for resolution in cls.metadata if not resolution_strings or named(resolution, resolution_strings)
+        ]
+        # an empty answer would read as "nothing published" where the name is only wrong
+        for name in resolution_strings:
+            if not any(named(resolution, [name]) for resolution in selected):
+                available = ", ".join(resolution.name for resolution in cls.metadata)
+                msg = f"Resolution '{name}' not found in {cls.metadata.name}. Available resolutions: {available}"
+                raise MetadataNotFoundError(msg)
+        for name in dataset_strings:
+            if not any(named(dataset, [name]) for resolution in selected for dataset in resolution):
+                available = ", ".join(sorted({dataset.name for resolution in selected for dataset in resolution}))
+                where = (
+                    f"{cls.metadata.name} for resolutions {', '.join(resolution_strings)}"
+                    if resolution_strings
+                    else cls.metadata.name
+                )
+                msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
+                raise MetadataNotFoundError(msg)
         data = {}
-        for resolution in cls.metadata:
-            if (
-                resolution_strings
-                and resolution.name not in resolution_strings
-                and resolution.name_original not in resolution_strings
-            ):
-                continue
+        for resolution in selected:
             described_datasets = {}
             for dataset in resolution:
-                if (
-                    dataset_strings
-                    and dataset.name not in dataset_strings
-                    and dataset.name_original not in dataset_strings
-                ):
+                if dataset_strings and not named(dataset, dataset_strings):
                     continue
                 described_datasets[dataset.name] = {
                     "description": dataset.description,

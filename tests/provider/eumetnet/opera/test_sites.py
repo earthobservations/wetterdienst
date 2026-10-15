@@ -70,12 +70,13 @@ def test_radar_sites_a_failed_listing_download_names_the_file(monkeypatch: pytes
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
-def test_radar_sites_listing_without_internet_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that being offline gives an empty listing rather than an error."""
+def test_radar_sites_listing_without_internet_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that being offline raises `NoInternetError`, not an empty listing (GH-2640)."""
     monkeypatch.setattr(
         sites,
         "download_file",
         lambda **kwargs: File(url=kwargs["url"], content=NoInternetError("offline"), status=503),
     )
 
-    assert OperaRadarSitesGenerator().get_opera_radar_sites() == []
+    with pytest.raises(NoInternetError):
+        OperaRadarSitesGenerator().get_opera_radar_sites()

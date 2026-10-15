@@ -37,21 +37,22 @@ def test_download_climate_derived_data_raises_a_failed_download(
     assert caught.value.__cause__ is failed.content
 
 
-@pytest.mark.parametrize(
-    "skipped",
-    [
-        pytest.param(_MISSING, id="404"),
-        pytest.param(
-            File(url="https://example.invalid/a.zip", content=NoInternetError("offline"), status=503),
-            id="no-internet",
-        ),
-    ],
-)
 def test_download_climate_derived_data_drops_a_missing_file(
     monkeypatch: pytest.MonkeyPatch,
     default_settings: Settings,
-    skipped: File,
 ) -> None:
-    """A 404 is a file that is not there, and no connection at all stays an empty result (GH-2430)."""
-    monkeypatch.setattr(dwd_derived_download, "download_files", lambda **_kwargs: [skipped])
+    """A 404 is a file that is not there, and an empty result (GH-2430)."""
+    monkeypatch.setattr(dwd_derived_download, "download_files", lambda **_kwargs: [_MISSING])
     assert download_climate_derived_data(pl.Series(["unused"]), default_settings) == []
+
+
+def test_download_climate_derived_data_raises_no_connection_at_all(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+) -> None:
+    """No connection at all is raised, not read as a station without data (GH-2640)."""
+    offline = File(url="https://example.invalid/a.zip", content=NoInternetError("offline"), status=503)
+    monkeypatch.setattr(dwd_derived_download, "download_files", lambda **_kwargs: [_MISSING, offline])
+    with pytest.raises(NoInternetError) as caught:
+        download_climate_derived_data(pl.Series(["unused"]), default_settings)
+    assert caught.value is offline.content
