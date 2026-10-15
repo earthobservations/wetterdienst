@@ -11,7 +11,6 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Options
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.model.result import StationsFilter, StationsResult
@@ -20,7 +19,6 @@ from wetterdienst.provider.eccc.observation import api as eccc_api
 from wetterdienst.util.network import File
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_api_stations(options_convert_units_false: Options) -> None:
     """Test fetching of ECCC stations."""
@@ -54,7 +52,6 @@ def test_eccc_api_stations(options_convert_units_false: Options) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_api_values(options_convert_units_false: Options) -> None:
     """Test fetching of ECCC data."""
@@ -165,7 +162,6 @@ def test_eccc_api_values(options_convert_units_false: Options) -> None:
     assert_frame_equal(given_df, expected_df)
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_degree_days_are_degree_days_not_day_counts(options_convert_units_false: Options) -> None:
     """Test that ECCC heating degree days hold a degree day value rather than a count of days.
@@ -187,7 +183,6 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(options_convert_units_f
     assert values["heating_degree_day"] > 1
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_hourly_returns_data(options_convert_units_false: Options) -> None:
     """Test that the hourly resolution returns data.
@@ -217,7 +212,6 @@ def test_eccc_hourly_returns_data(options_convert_units_false: Options) -> None:
     assert direction.max() > 36
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_eccc_monthly_returns_data(options_convert_units_false: Options) -> None:
     """Test that the monthly resolution returns data.

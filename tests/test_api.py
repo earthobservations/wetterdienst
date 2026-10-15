@@ -16,7 +16,7 @@ import polars as pl
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from tests.conftest import BUFR_AVAILABLE, skip_if_upstream_unavailable
+from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
@@ -684,7 +684,6 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_api_rmi_observation(default_settings: Settings) -> None:
     """Test rmi observation API."""
@@ -709,7 +708,6 @@ def test_api_rmi_observation(default_settings: Settings) -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_api_eccc_observation(default_settings: Settings) -> None:
     """Test eccc observation API."""
@@ -877,7 +875,6 @@ def test_api_nws_observation(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
-@skip_if_upstream_unavailable()
 def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     """Test eaufrance hubeau API."""
     request = HubeauRequest(parameters=[("5_minutes", "data", "discharge")], settings=default_settings).all()

@@ -10,6 +10,7 @@ import pytest
 from dirty_equals import IsDatetime, IsDict
 from polars.testing import assert_frame_equal
 
+from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -231,12 +232,20 @@ def test_dwd_observation_stations() -> None:
     """Test fetching of DWD observation stations."""
     skip_resolutions = [DwdObservationMetadata.minute_1]
     failed = []
+    outages = []
     for resolution in DwdObservationMetadata:
         if resolution in skip_resolutions:
             continue
         for dataset in resolution:
             try:
-                DwdObservationRequest(parameters=dataset).all()
+                with skip_if_upstream_unavailable():
+                    DwdObservationRequest(parameters=dataset).all()
+            except pytest.skip.Exception:
+                # collected rather than let out: a skip here would also drop the datasets that failed
+                # for a reason of their own before it, and never ask for the ones after it
+                outages.append(f"{resolution} - {dataset}")
             except Exception:  # noqa: BLE001
                 failed.append(f"{resolution} - {dataset}")
     assert not failed
+    if outages:
+        pytest.skip(f"upstream did not answer for {outages}")
