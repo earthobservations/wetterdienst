@@ -20,15 +20,14 @@ from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import (
     ApiNotFoundError,
+    ConfigurationError,
     DateRequiredError,
-    InvalidBoundingBoxError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
-    IssueNotFoundError,
-    LocationOutOfRangeError,
     NoParametersFoundError,
-    NoPeriodsFoundError,
     NotEnoughDataError,
+    NotFoundError,
+    RequestError,
     StartDateEndDateError,
     StationNotFoundError,
 )
@@ -1068,62 +1067,69 @@ class AlertsRequest(_RefusesRenamedParameters):
     debug: _DebugField = False
 
 
-# what a request can provoke on its way through `get_values`, `get_interpolate` and
-# `get_summarize` besides the refusals the REST API's handlers name: a date, period, parameter,
-# bounding box, point or issue that cannot be served as given, or a station the lookup does not
-# know. The station lookup of `/api/stations` and `/api/history`, the issue listing and the values of
-# the climate stripes provoke a subset of these, and two more: a dataset `/api/history` cannot list
-# without the date it has no field for (a refusal its handler names before this), and stripes
-# over years holding too little data.
-# An `OverflowError` is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a
-# provider converts it to its own zone, an issue a negative offset carries past year 9999 -- and the
-# dates on the way that come that close are the request's. Anything else -- a provider's file in a
-# layout its parser does not expect, an upstream that does not answer, a frame of an unexpected
-# shape -- is not the caller's to fix, and is a 500. Kept here rather than in the REST API so that
-# `wetterdienst issues` asks the same question without importing FastAPI: there a refusal is a usage
-# error, exit 2, and anything else a logged traceback, exit 1
-_CALLER_REFUSALS = (
-    OverflowError,
-    InvalidBoundingBoxError,
-    InvalidEnumerationError,
-    InvalidTimeIntervalError,
-    IssueNotFoundError,
-    LocationOutOfRangeError,
-    NoParametersFoundError,
-    NoPeriodsFoundError,
-    NotEnoughDataError,
-    StartDateEndDateError,
-    StationNotFoundError,
-)
+def failure_status(e: BaseException) -> int:
+    """Tell the HTTP status a failure is answered with, from its place in the `WetterdienstError` hierarchy.
+
+    A `RequestError` -- a date, period, parameter, bounding box, point or issue that cannot be
+    served as given -- is a 400, and a `NotFoundError` -- a provider, network, station or issue the
+    lookup does not know -- a 404. An `OverflowError` is a 400 as well: it is a date at the edge of
+    what a datetime holds -- `9999-12-31T23:00Z` once a provider converts it to its own zone, an
+    issue a negative offset carries past year 9999 -- and the dates on the way that come that close
+    are the request's. A `ConfigurationError`, a credential or an optional dependency this
+    installation lacks, is a 501: the request was well formed, and the deployment declines it.
+    Anything else is a 500, an `UpstreamError` and an unclassified `WetterdienstError` among it:
+    a provider's file in a layout its parser does not expect or an upstream that does not answer is
+    not the caller's to fix, so a class added to the hierarchy without a place here is the
+    server's error until it is given one.
+
+    Kept here rather than in the REST API so that `wetterdienst issues` asks the same question
+    without importing FastAPI: there a refusal is a usage error, exit 2, and anything else a logged
+    traceback, exit 1.
+    """
+    if isinstance(e, NotFoundError):
+        return 404
+    if isinstance(e, (RequestError, OverflowError)):
+        return 400
+    if isinstance(e, ConfigurationError):
+        return 501
+    return 500
+
+
+def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
+    """Tell the status of a failure that is the request's own, which the caller can rephrase, else None.
+
+    Beyond the hierarchy (`failure_status`): the caller's own `sql` or `sql_values` is the only SQL
+    run on the way, so a DuckDB error about the statement -- its syntax, a column or function it
+    names, a value it compares -- is theirs, a 400. So, where the request carries a clause, are the
+    refusals of the connection the clause runs on (`ExportMixin._filter_by_sql`): a file, URL or
+    extension it may not touch (`PermissionException`), more memory than the limit sized to the
+    frame lets it build (`OutOfMemoryException`), a construct DuckDB does not implement, such as an
+    outer join on a correlated column (`NotSupportedError`), and an extension DuckDB would install
+    on the fly, refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so
+    only the exact class counts: an `InternalException` or an `IOException` fails inside DuckDB and
+    stays a 500, and so does DuckDB running out of memory for a request without a clause. DuckDB is
+    optional, and an error of its can only be raised once it has been imported.
+    """
+    status = failure_status(e)
+    if status in (400, 404):
+        return status
+    duckdb = sys.modules.get("duckdb")
+    if duckdb is None:
+        return None
+    if isinstance(e, (duckdb.ProgrammingError, duckdb.DataError)):
+        return 400
+    clause_given = any(getattr(request, name, None) for name in ("sql", "sql_values"))
+    if clause_given and (
+        isinstance(e, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
+        or type(e) is duckdb.Error
+    ):
+        return 400
+    return None
 
 
 def _is_caller_refusal(e: Exception, request: BaseModel) -> bool:
-    """Tell whether a failure is the request's own, which the caller can rephrase.
-
-    The caller's own `sql` or `sql_values` is the only SQL run on the way, so a DuckDB error about
-    the statement -- its syntax, a column or function it names, a value it compares -- is theirs.
-    So, where the request carries a clause, are the refusals of the connection the clause runs on
-    (`ExportMixin._filter_by_sql`): a file, URL or extension it may not touch
-    (`PermissionException`), more memory than the limit sized to the frame lets it build
-    (`OutOfMemoryException`), a construct DuckDB does not implement, such as an outer join on a
-    correlated column (`NotSupportedError`), and an extension DuckDB would install on the fly,
-    refused with the bare `duckdb.Error`. Every DuckDB error derives from that one, so only the exact class counts:
-    an `InternalException` or an `IOException` fails inside DuckDB and stays a 500, and so does
-    DuckDB running out of memory for a request without a clause. DuckDB is optional, and an error of
-    its can only be raised once it has been imported.
-    """
-    duckdb = sys.modules.get("duckdb")
-    if isinstance(e, _CALLER_REFUSALS):
-        return True
-    if duckdb is None:
-        return False
-    if isinstance(e, (duckdb.ProgrammingError, duckdb.DataError)):
-        return True
-    clause_given = any(getattr(request, name, None) for name in ("sql", "sql_values"))
-    return clause_given and (
-        isinstance(e, (duckdb.PermissionException, duckdb.OutOfMemoryException, duckdb.NotSupportedError))
-        or type(e) is duckdb.Error
-    )
+    """Tell whether a failure is the request's own, which the caller can rephrase, see `_caller_refusal_status`."""
+    return _caller_refusal_status(e, request) is not None
 
 
 class AuthAnswer(TypedDict):

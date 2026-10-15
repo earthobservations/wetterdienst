@@ -12,6 +12,14 @@ from typing import Any
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
+from wetterdienst.exceptions import (
+    ConfigurationError,
+    ExportRefusedError,
+    NotFoundError,
+    RequestError,
+    UpstreamError,
+    WetterdienstError,
+)
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.options import Options
@@ -100,12 +108,18 @@ class Info:
 
 __all__ = [
     "Author",
+    "ConfigurationError",
+    "ExportRefusedError",
     "Info",
+    "NotFoundError",
     "Options",
     "Period",
+    "RequestError",
     "Resolution",
     "Settings",
+    "UpstreamError",
     "Wetterdienst",
+    "WetterdienstError",
     "__appname__",
     "__version__",
 ]

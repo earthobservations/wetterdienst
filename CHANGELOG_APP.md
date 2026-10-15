@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[API errors]` The app reads the backend's errors as RFC 9457 problems: a refused request shows
+  `errors`, one line for each invalid parameter, and else `detail`, which is text. The proxy answers
+  a backend it cannot reach as a problem too (`type`, `title`, `status`, `detail`). It still reads
+  the list a backend from before the change put under `detail` (GH-2634)
+
 ### Fixed
 
 - `[Explorer]` The descriptions of the three modes and "How it works" are in Czech, Danish,

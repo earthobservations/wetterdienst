@@ -875,6 +875,43 @@ wetterdienst values --provider=dwd --network=observation \
     --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if_exists=append
 ```
 
+## Errors
+
+Every class of `wetterdienst.exceptions` derives from `WetterdienstError`
+(`from wetterdienst import WetterdienstError`), so one `except` catches them all. A bad argument
+the library refuses with a plain `ValueError` or `KeyError` is not one of them yet. Five classes
+below it say what kind of failure it is:
+
+| Class | Raised when | Also a |
+| --- | --- | --- |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter, period, date, window or point | `ValueError` |
+| `NotFoundError` | what the request names does not exist: a provider, network, station or forecast run | `LookupError` |
+| `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
+| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |
+| `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
+
+```python
+from wetterdienst import RequestError, UpstreamError, WetterdienstError
+
+try:
+    values = request.filter_by_station_id("01048").values.all()
+except RequestError as e:
+    print(f"rephrase the request: {e}")
+except UpstreamError as e:
+    print(f"the provider failed: {e}")
+except WetterdienstError as e:
+    print(f"wetterdienst refused: {e}")
+```
+
+Each class keeps the built-in classes it was before, so an `except ValueError`, `except OSError`,
+`except FileNotFoundError` or `except IndexError` that caught it still does: `InvalidEnumerationError` is
+a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an `OSError`,
+`IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
+`ConfigurationError` and an `ImportError`. The REST API, the MCP tools and the command line decide by
+the class what to answer: a `RequestError` is a 400 or a usage error (exit 2), a `NotFoundError` a 404,
+a `ConfigurationError` a 501, and anything else, an unclassified `WetterdienstError` included, the
+server's error. See [REST API](restapi.md#errors) for the body.
+
 ## Caching
 
 The backbone of wetterdienst uses fsspec caching. It requires to create a directory under ``/home`` for the
