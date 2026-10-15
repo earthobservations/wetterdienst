@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Python 3.15 is supported (tested on 3.15.0rc1) and declared as a classifier. The `mcp` extra needs
+  beartype 0.23 or newer there (0.22 does not import on 3.15; fastmcp brings it in without a
+  floor). h5py, duckdb, numcodecs and pyyaml, installed by the `knmi`/`radar`, `sql`, `export` and
+  `restapi` extras, have no 3.15 wheel yet and are built from source: h5py needs the HDF5
+  headers (`libhdf5-dev`) (GH-2568)
+
 ### Changed
 
 - `noaa/ghcn` hourly `quality_flags` also carry the file's `<element>_Measurement_Code` and
@@ -82,6 +90,8 @@ Types of changes:
   WMO table 4677 `ww`; 100-199, WMO table 4680 `wawa` plus 100), that a station's historical file
   can hold both, and that the code's text is in DWD's `Wetter_Beschreibung.txt`. The code is
   returned as written, neither table translated into the other (GH-2718)
+- A `dwd/radar` HDF5 request without `h5py` warns once, naming `pip install wetterdienst[radar]`,
+  and returns the files unverified, where it logged a traceback for every file (GH-2928)
 
 ### Security
 
