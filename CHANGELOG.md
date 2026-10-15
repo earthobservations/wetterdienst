@@ -58,6 +58,13 @@ Types of changes:
 - The parameter columns of a wide values frame are in the order the request names its parameters,
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
+- `eccc/observation` lists a station for `hourly` (`daily`) only if the station list gives it a
+  `HLY_FIRST_DATE` (`DLY_FIRST_DATE`): 1685 of 8435 stations for hourly, 8340 for daily, no longer
+  all of them, as the others have no row there. `stations`, `filter_by_rank` and
+  `filter_by_distance` hold only listed stations, and `interpolate_by_station_id` and
+  `summarize_by_station_id` raise `StationNotFoundError` for an unlisted one: pass its coordinates
+  instead. The hourly rows of 27490 (2008, after its `LAST_DATE`) are no longer returned, not even
+  for a request with dates (GH-2867)
 
 ## [0.154.0] - 2026-10-15
 
