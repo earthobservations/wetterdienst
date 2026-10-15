@@ -54,7 +54,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
 - EA (Environment Agency)
     - Hydrology
         - data of river network of UK
-        - parameters flow and ground water stage
+        - parameters flow, river water level (stage) and groundwater level
 - Eaufrance
     - Hubeau
         - data of river network of France (continental)

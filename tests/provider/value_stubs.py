@@ -1484,7 +1484,8 @@ NO_STUB = {
     "ea/hydrology": (
         "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`, and the "
         "daily (2015) and 15 minute (2024) discharge of the first six stations by id has no value that is no reading "
-        "(2026-10-12)"
+        "(2026-10-12); nor has the groundwater logger (`gw-logged-i-subdaily`) of eight stations in 2024, 2 to 63 "
+        "mAOD (2026-10-15)"
     ),
     "eaufrance/hubeau": (
         "no reader maps a sentinel of a value; -999 is a site altitude of the referential. The 15 minute discharge "
