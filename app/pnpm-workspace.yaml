@@ -11,6 +11,11 @@ minimumReleaseAgeExclude:
   - '@nuxt/kit@3.21.10'
   - '@nuxt/test-utils@4.1.0'
   - esbuild@0.28.1
+  # 3.4.3 drops simple-git, whose 3.x line carries four open command-execution advisories
+  # (a 4.x override breaks 3.4.2: no default export). Published 2026-10-14, inside the cooldown.
+  - '@nuxt/devtools@3.4.3'
+  - '@nuxt/devtools-kit@3.4.3'
+  - '@nuxt/devtools-wizard@3.4.3'
 
 trustPolicy: no-downgrade
 dangerouslyAllowAllBuilds: true

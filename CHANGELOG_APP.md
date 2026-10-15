@@ -59,9 +59,11 @@ Types of changes:
 ### Security
 
 - `[Build]` The `katex` advisory (low: prototype pollution) is resolved with 0.19.0 through a
-  `pnpm-workspace.yaml` override; `katex` is lint tooling the built app does not ship.
-  `simple-git` and its `@simple-git/argv-parser` (fixed only in 4.x, which `nuxt`'s devtools
-  cannot load), `braces` and `node-forge` (no fixed release) stay open in Dependabot (GH-2605)
+  `pnpm-workspace.yaml` override; `katex` is lint tooling the built app does not ship. The four
+  `simple-git` and `@simple-git/argv-parser` advisories (2 critical, 2 high: command execution)
+  are resolved with `@nuxt/devtools` 3.4.3, which no longer depends on `simple-git`; it is dev
+  server tooling the built app does not ship. `braces` and `node-forge` (no fixed release) stay
+  open in Dependabot (GH-2605)
 - `[Server]` The `/api` proxy answers a backend it cannot reach with a fixed text, "The backend
   could not be reached. The cause is in the server log.", with the status it had (502), where the
   detail was the connection error, which names the backend's host and port. The error is now in
