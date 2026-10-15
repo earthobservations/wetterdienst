@@ -67,18 +67,20 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     }
 
     // Backend unreachable. h3 wraps the connection failure as a 502 whose `message` is the constant
-    // "Bad Gateway", so the diagnostic worth surfacing (ECONNREFUSED, DNS failure) is on `cause`.
+    // "Bad Gateway"; the diagnostic worth having (ECONNREFUSED, DNS failure) is on `cause`, and it
+    // names the backend's host and port. That is for whoever runs this app, so it goes to the server
+    // log, and the client is answered a fixed text, as the backend answers its own 500s.
     const fetchError = error as {
       statusCode?: number
       status?: number
-      message?: string
-      cause?: { message?: string }
+      cause?: unknown
     }
+    console.error(`Request to the backend for ${path} failed:`, fetchError?.cause ?? error)
     const statusCode = fetchError?.statusCode || fetchError?.status || 502
     setResponseStatus(event, statusCode)
 
     return {
-      detail: fetchError?.cause?.message || fetchError?.message || 'An error occurred',
+      detail: 'The backend could not be reached. The cause is in the server log.',
     } satisfies ApiErrorResponse
   }
 })
