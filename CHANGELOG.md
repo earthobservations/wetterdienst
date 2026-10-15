@@ -26,6 +26,14 @@ Types of changes:
 
 ### Fixed
 
+- `knmi/observation`, `aemet/observation` and `lhmt/observation` values requests that go offline
+  end at the first download answered with no connection, as the loop over files of one station
+  already did: the stations and datasets after it are no longer tried, each waiting for the
+  connection to fail, and so return nothing even where their files were already downloaded. What
+  the station that found out had read is returned (GH-2620)
+- `knmi/observation` hourly `wind_direction_last_10min` is null, no longer 990 or 0, where KNMI
+  writes the code for a variable wind (990) or a calm (0); the code stays in `quality_flags` as
+  `raw:990` or `raw:0`. Only bearings (360 is north) are left as values (GH-2850)
 - **Breaking**: `ea/hydrology` returned the level of a river as `groundwater_level`. The Environment
   Agency's `level-*` measures are river levels (2638 stations), so `daily/groundwater_level_max`
   and `_min` had no groundwater behind them, and `15_minutes/groundwater_level` held rivers and no
