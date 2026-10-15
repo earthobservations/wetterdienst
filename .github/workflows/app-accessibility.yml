@@ -1,0 +1,99 @@
+name: App accessibility
+
+# The axe scan of every page (app/tests/e2e/accessibility.spec.ts) takes ten minutes and more, so
+# it is not part of App E2E: it runs on request. Either from the Actions tab (Run workflow), or on a
+# pull request that carries the `a11y` label, when the label is added and on every push after it.
+#
+# It has no path filter, and nothing here is a required check: a pull request without the label
+# gets a skipped job, which is no check at all. The spec answers every /api/* request itself, so
+# unlike App E2E it needs no backend.
+on:
+  pull_request:
+    types: [ labeled, synchronize ]
+  workflow_dispatch:
+
+# a new push, or the label added again, replaces a scan under way. Another label being added gets a
+# group of its own: its run is skipped, but it would otherwise queue behind, or cancel while waiting,
+# the run the `a11y` label started
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'a11y' && format('-{0}', github.run_id) || '' }}
+
+permissions: {}
+
+jobs:
+  accessibility:
+    name: Accessibility scan
+    runs-on: ubuntu-latest
+    # the image the baseline was recorded in (Firefox on Linux, with its fonts): the layout-dependent
+    # rules differ on another system. Keep the tag in step with @playwright/test in app/package.json
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    # a push to a labelled pull request, or the label itself being added (not any other label)
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (contains(github.event.pull_request.labels.*.name, 'a11y')
+      && (github.event.action == 'synchronize' || github.event.label.name == 'a11y'))
+
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # builds and serves the production build, which is what the baseline is of
+      - name: Run accessibility scan
+        run: pnpm run test:a11y
+
+      - name: Report accessibility baseline
+        if: always()
+        run: node tests/e2e/accessibility/report.mjs >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-accessibility
+          path: app/playwright-report/
+          retention-days: 7
+
+      # what the scans found, to re-record the baseline from where it is judged
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-scans
+          path: app/test-results/accessibility/
+          retention-days: 7

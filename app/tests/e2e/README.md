@@ -126,7 +126,8 @@ tests/e2e/
 ├── global-setup.ts       # Health checks for backend/app
 ├── api.spec.ts           # API endpoint tests
 ├── pages.spec.ts         # Page navigation and UI tests
-└── integration.spec.ts   # Full user flow tests
+├── integration.spec.ts   # Full user flow tests
+└── accessibility.spec.ts # axe scans of every page, on request (A11Y=1; mocked backend)
 ```
 
 ## Test Categories
@@ -145,6 +146,15 @@ tests/e2e/
 - Tests complete user workflows
 - Verifies app-backend integration
 - Tests data loading and API calls
+
+### Accessibility Tests (`accessibility.spec.ts`)
+- **On request only**: `playwright.config.ts` ignores it unless `A11Y=1`, so `pnpm test:e2e` and the
+  App E2E workflow do not run it. Run it with `pnpm test:a11y`, from the Actions tab ("App
+  accessibility"), or by putting the `a11y` label on a pull request
+- Scans every page with axe (WCAG 2.2 AA), in light and dark mode and in two languages, and in the
+  states a first paint does not show (map, chart, menu, error)
+- Answers every `/api/*` request itself, so it reaches neither the backend nor a provider
+- Fails on a violation outside `accessibility/baseline.json`; see [ACCESSIBILITY.md](../../ACCESSIBILITY.md)
 
 ## Environment Variables
 

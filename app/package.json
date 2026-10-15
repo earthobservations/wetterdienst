@@ -21,7 +21,10 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "test:a11y": "A11Y=1 CI=true playwright test accessibility.spec.ts",
+    "test:a11y:baseline": "A11Y=1 CI=true A11Y_RECORD=1 playwright test accessibility.spec.ts && node tests/e2e/accessibility/report.mjs --write-baseline",
+    "test:a11y:report": "node tests/e2e/accessibility/report.mjs"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
@@ -47,6 +50,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
+    "@axe-core/playwright": "^4.13.0",
     "@intlify/eslint-plugin-vue-i18n": "^4.5.1",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.3.2",

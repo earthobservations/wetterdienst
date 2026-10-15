@@ -69,3 +69,19 @@ workflow whose filter spans both sides of the repository.
 
 **Artifacts:**
 - Playwright HTML report (retained for 7 days)
+
+### `app-accessibility.yml`
+
+The axe scan of every page (`app/tests/e2e/accessibility.spec.ts`), **on request only**: it takes ten
+minutes and more, so `app-e2e.yml` leaves it out (`playwright.config.ts` ignores it unless `A11Y=1`).
+It runs from the Actions tab (*Run workflow*), or on a pull request that carries the `a11y` label - when
+the label is added and on every push after it. A pull request without the label gets a skipped job.
+
+It has no path filter, and it is not, and must not be made, a required check. It needs no backend: the
+spec answers every `/api/*` request itself. It runs in the Playwright image the baseline was recorded in
+(`mcr.microsoft.com/playwright`, tag to be kept in step with `@playwright/test`), builds and serves the
+production build, scans, holds the
+app to `app/tests/e2e/accessibility/baseline.json` (a violation outside it fails the run, and so does a
+baseline entry that is no longer found), and writes the baseline's size and this run's result to the
+run's summary page; the scans' results are uploaded as an artifact, to re-record the baseline from. See
+`app/ACCESSIBILITY.md`.

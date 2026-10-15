@@ -3,6 +3,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // The accessibility scan (84 page loads, ten minutes and more) runs on request, not with the rest:
+  // `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md)
+  testIgnore: process.env.A11Y === '1' ? undefined : '**/accessibility.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

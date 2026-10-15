@@ -46,6 +46,10 @@ async function checkBackendHealth() {
 }
 
 export default async function globalSetup(_config: FullConfig) {
+  // the accessibility spec (A11Y=1) answers every /api/* request itself and needs no backend
+  if (process.env.A11Y === '1')
+    return
+
   const isHealthy = await checkBackendHealth()
 
   if (!isHealthy) {
