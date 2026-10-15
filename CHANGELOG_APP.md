@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-15
+
 ### Changed
 
 - `[Meteogram]` The temperature and dew point panels read MOSMIX `temperature_air_2m` and
@@ -1122,7 +1124,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...HEAD
+[0.20.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...app-v0.20.0
 [0.19.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...app-v0.19.0
 [0.18.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...app-v0.18.1
 [0.18.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.17.0...app-v0.18.0
