@@ -17,6 +17,11 @@ function tagline(locale: string): string {
 
 const COOKIE = 'wd_lang'
 
+// The app server rate-limits by client address (150 requests per 5 minutes), and the pages of the
+// suites after this one failed with "429 Too Many Requests" once i18n-layout.spec.ts had used the
+// address up: this one loads as a client of its own, as that one does
+test.use({ extraHTTPHeaders: { 'x-forwarded-for': '203.0.113.50' } })
+
 /** The browser languages, as navigator.languages carries them. */
 const visits: { name: string, languages: string[], cookie?: string, shown: string }[] = [
   { name: 'de-AT opens in German', languages: ['de-AT'], shown: 'de' },
