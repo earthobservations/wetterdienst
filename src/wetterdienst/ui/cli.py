@@ -24,6 +24,7 @@ from wetterdienst.exceptions import (
     DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
+    MetadataNotFoundError,
     MissingDependencyError,
     ReversedTimeIntervalError,
 )
@@ -1008,10 +1009,15 @@ def coverage(
     # one network's metadata reads no setting, and a malformed one is told the same as for the listing
     # of every network, after the usage errors above as in `stations` and `values` (GH-2619)
     Settings()
-    cov = api.discover(
-        resolutions=resolutions_list,
-        datasets=datasets_list,
-    )
+    try:
+        cov = api.discover(
+            resolutions=resolutions_list,
+            datasets=datasets_list,
+        )
+    except MetadataNotFoundError as e:
+        # a resolution or dataset that does not exist is the command line's mistake, which
+        # `/api/coverage` answers with a 404
+        raise click.UsageError(str(e)) from e
 
     print(json.dumps(cov, indent=2))  # noqa: T201
 
