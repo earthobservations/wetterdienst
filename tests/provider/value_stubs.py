@@ -422,13 +422,23 @@ def _dwd_10_minutes_extreme_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bo
 
 
 def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # station 01869: `WW_Text` says "Wetter wurde nicht gemeldet" for the -1
+    # station 01048, stundenwerte_WW_01048_19750701_20251231_hist.zip, 2022-08-01 05:00 to 09:00 (read 2026-10-15): the
+    # station reports from the 0-99 table (21, 61) and from the 100-199 table (123, 100) within these five hours,
+    # and `WW_Text` says "Wetter wurde nicht gemeldet" for the -1
     product = (
         "STATIONS_ID;MESS_DATUM;QN_8;  WW;WW_Text;eor\n"
-        "       1869;2025040800;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
-        "       1869;2025040801;    3;  61;Regen;eor\n"
+        "       1048;2022080105;    3;  -1;Wetter wurde nicht gemeldet;eor\n"
+        "       1048;2022080106;    3;  21;Regen, nicht gefrierend (nicht zur Zeit der Beobachtung): an der Station in "
+        "der letzen Stunde, kein Schauercharakter;eor\n"
+        "       1048;2022080107;    3;  61;Regen ohne Unterbrechungen: leicht;eor\n"
+        "       1048;2022080108;    3; 123;Regen, nicht gefrierend (nicht zum Beobachtungszeitpunkt): an der "
+        "Station in der letzten Stunde;eor\n"
+        "       1048;2022080109;    3; 100;bei Bewölkung (> 0/8) zum Beobachtungstermin: keine signifikanten "
+        "Wettererscheinungen beobachtet;eor\n"
     )
-    return _dwd_observation(monkeypatch, "hourly", "weather_phenomena", product, "01869", drop_nulls=drop_nulls)
+    return _dwd_observation(
+        monkeypatch, "hourly", "weather_phenomena", product, "01048", year=2022, drop_nulls=drop_nulls
+    )
 
 
 def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
