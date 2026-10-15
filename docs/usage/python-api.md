@@ -374,6 +374,29 @@ df = stations.df
 df
 ```
 
+#### Station columns of a provider
+
+The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
+sub-national unit the source names (a state, province, county, canton or département), whatever it is called
+there, and null where the source names none. The provider's page tells which. Behind them, a provider adds the
+columns of its own that its station list has, null for a station the source gives none:
+
+| Provider and network | Column | What it holds |
+| --- | --- | --- |
+| `dmi/observation` | `country` | DMI's three-letter code of the country the station is in: `DNK`, `GRL` or `FRO` |
+| `dwd/mosmix`, `dwd/dmo`, `dwd/poi` | `icao_id` | the ICAO location indicator of the station, where it has one |
+| `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
+| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the reference system it is given in |
+| `geosphere/observation` | `wmo_id` | the WMO station number, five digits |
+| `imgw/meteorology` | `river` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`) |
+| `knmi/observation` | `wigos_id` | the WIGOS station identifier (`0-20000-0-06260`), of which `station_id` is the WMO number at the end |
+| `noaa/ghcn` | `wmo_id` | the WMO station number, five digits, null for a station without one |
+| `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres |
+| `wsv/pegel` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the datum it is given in |
+| `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge |
+
+A test holds this table to the columns the providers declare, so a column added to a provider is added here.
+
 ### Values
 
 Values are just an extension of requests. You can query data by using the

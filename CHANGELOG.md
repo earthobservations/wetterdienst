@@ -58,6 +58,11 @@ Types of changes:
 - The parameter columns of a wide values frame are in the order the request names its parameters,
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
+- `meteofrance/observation` stations have a `region`, the code of their département as the registry
+  lists it, with two digits (`09`) or three overseas (`972`); it was null. Corsica's two
+  départements are both `20`, as in the registry. The columns a provider adds to the station frame
+  are listed in the Python API page, and a test holds the list to what the providers declare
+  (GH-2019)
 
 ## [0.154.0] - 2026-10-15
 
