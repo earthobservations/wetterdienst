@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
 
+from wetterdienst.exceptions import MissingDependencyError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -508,6 +509,7 @@ class DwdRadarValues:  # noqa: PLW1641
                 return
 
             # Iterate list of files and yield "RadarResult" items.
+            verify_hdf5_files = self.format == DwdRadarDataFormat.HDF5
             for row in file_index.iter_rows(named=True):
                 date_time = row["datetime"]
                 url = row["filename"]
@@ -516,9 +518,13 @@ class DwdRadarValues:  # noqa: PLW1641
                     if not result.timestamp:
                         result.timestamp = date_time
 
-                    if self.format == DwdRadarDataFormat.HDF5:
+                    if verify_hdf5_files:
                         try:
                             verify_hdf5(result.data)
+                        except MissingDependencyError as exc:
+                            # no h5py: every file would say the same, so say it once and go on without
+                            verify_hdf5_files = False
+                            log.warning(f"{str(exc).rstrip('.')}. The HDF5 files are returned unverified.")
                         except Exception:  # pragma: no cover
                             log.exception("Unable to read HDF5 file.")
                     self._attach_bufr(result)

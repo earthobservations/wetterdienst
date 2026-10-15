@@ -3,10 +3,14 @@
 """Stubs of the station catalogues, for `test_station_catalogue_stubs.py` to hold to the rules (GH-2616).
 
 A stub is the catalogue a provider's own reader turns into stations, made from a few rows of the real list: the first
-stations of it and the ones that showed a defect, copied as they are published, with the source's own padding,
-encoding and decimal separator. Standing in for the download, it runs the provider's own reader (`_all()` and the
-frame handling of `all()`), so a reader that loses a sign or drops a column shows here without the network. The one
-exception is the workbook of `dwd/road`, whose sheet is served in place of the Excel read.
+stations of it and the ones that showed a defect, copied as they are published, with the source's own encoding and
+decimal separator, and the padding too where a comment does not say it was cut. Standing in for the download, it runs
+the provider's own reader (`_all()` and the frame handling of `all()`), so a reader that loses a sign or drops a column
+shows here without the network. What a stub serves in place of the reader's lower layer is said in its comment: the
+sheet of `dwd/road` for the Excel read, the directory listings of `dwd/dmo`, `dwd/poi`, `dwd/observation` and
+`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`. A comment also says
+which fields a stub made up (the observations a Hubeau station's resolution is measured from, the file names of
+`dwd/observation` but two) and which it left out.
 
 To hold another provider to the rules, add a stub to `STUBS`: serve the rows through `_serve`, call the request, and
 give the rows a fault the source really has if there is one, so that the rule is seen to find it.
@@ -29,14 +33,33 @@ from wetterdienst.provider.aemet.observation import AemetObservationRequest
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation import api as chmi_api
+from wetterdienst.provider.dmi.observation import DmiObservationRequest
+from wetterdienst.provider.dmi.observation import api as dmi_api
 from wetterdienst.provider.dwd import catalogue as dwd_catalogue
+from wetterdienst.provider.dwd.derived import DwdDerivedRequest
+from wetterdienst.provider.dwd.derived import metaindex as derived_metaindex
+from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+from wetterdienst.provider.dwd.dmo import api as dmo_api
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.observation import fileindex as dwd_fileindex
+from wetterdienst.provider.dwd.observation import metaindex as dwd_metaindex
+from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest
+from wetterdienst.provider.dwd.phenology import api as phenology_api
+from wetterdienst.provider.dwd.poi import DwdPoiRequest
+from wetterdienst.provider.dwd.poi import api as poi_api
 from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as swsmos_api
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
+from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
+from wetterdienst.provider.eaufrance.hubeau import api as hubeau_api
+from wetterdienst.provider.eccc.observation import EcccObservationRequest
+from wetterdienst.provider.eccc.observation import api as eccc_api
+from wetterdienst.provider.fmi.observation import FmiObservationRequest
+from wetterdienst.provider.fmi.observation import api as fmi_api
 from wetterdienst.provider.geosphere.observation import GeosphereObservationRequest
 from wetterdienst.provider.geosphere.observation import api as geosphere_api
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
@@ -47,12 +70,26 @@ from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation import api as lhmt_api
+from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest
+from wetterdienst.provider.meteofrance.observation import api as meteofrance_api
+from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
+from wetterdienst.provider.meteofrance.synop import api as meteofrance_synop_api
+from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationRequest
+from wetterdienst.provider.meteoswiss.observation import api as meteoswiss_api
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequest
 from wetterdienst.provider.metoffice.observation import api as metoffice_api
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
+from wetterdienst.provider.nws.observation import NwsObservationRequest
+from wetterdienst.provider.nws.observation import api as nws_api
+from wetterdienst.provider.rmi.observation import RmiObservationRequest
+from wetterdienst.provider.rmi.observation import api as rmi_api
+from wetterdienst.provider.smhi.observation import SmhiObservationRequest
+from wetterdienst.provider.smhi.observation import api as smhi_api
+from wetterdienst.provider.wsv.pegel import WsvPegelRequest
+from wetterdienst.provider.wsv.pegel import api as wsv_api
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -88,8 +125,8 @@ def _serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes
     monkeypatch.setattr(module, "download_file", download_file)
 
 
-def _stations(request_class: type, *parameters: tuple[str, str]) -> pl.DataFrame:
-    request = request_class(parameters=list(parameters), settings=Settings(cache_disable=True))
+def _stations(request_class: type, *parameters: tuple[str, str], **kwargs: Any) -> pl.DataFrame:  # noqa: ANN401
+    request = request_class(parameters=list(parameters), settings=Settings(cache_disable=True), **kwargs)
     return request.all().df
 
 
@@ -264,19 +301,22 @@ def _lhmt(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(LhmtObservationRequest, ("hourly", "data"))
 
 
+# positions are degrees and minutes (`44.50` is 44°50'), west and south signed
+MOSMIX_CATALOGUE = (
+    "ID    ICAO NAME                 LAT    LON     ELEV\n"
+    "----- ---- -------------------- -----  ------- -----\n"
+    "01001 ENJA JAN MAYEN             70.56   -8.40    10\n"
+    "03772 EGLL LONDON                51.29   -0.27    24\n"
+    "07510 LFBD BORDEAUX              44.50   -0.42    49\n"
+    "10147 EDDH HAMBURG-FU.           53.38   10.00    16\n"
+    " A191 ---- WAGERSROTT            54.40    9.49    40\n"
+    "23205 ---- NAR?JAN-MAR           67.38   53.01   139\n"
+    "72520 KPIT PITTSBURGH INT.       40.30  -80.13   367\n"
+)
+
+
 def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # positions are degrees and minutes (`44.50` is 44°50'), west and south signed
-    catalogue = (
-        "ID    ICAO NAME                 LAT    LON     ELEV\n"
-        "----- ---- -------------------- -----  ------- -----\n"
-        "01001 ENJA JAN MAYEN             70.56   -8.40    10\n"
-        "03772 EGLL LONDON                51.29   -0.27    24\n"
-        "07510 LFBD BORDEAUX              44.50   -0.42    49\n"
-        "10147 EDDH HAMBURG-FU.           53.38   10.00    16\n"
-        "23205 ---- NAR?JAN-MAR           67.38   53.01   139\n"
-        "72520 KPIT PITTSBURGH INT.       40.30  -80.13   367\n"
-    )
-    _serve(monkeypatch, dwd_catalogue, {"mosmix_stationskatalog": catalogue.encode("latin-1")})
+    _serve(monkeypatch, dwd_catalogue, {"mosmix_stationskatalog": MOSMIX_CATALOGUE.encode("latin-1")})
     return _stations(DwdMosmixRequest, ("hourly", "small"))
 
 
@@ -608,9 +648,696 @@ def _ea_hydrology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(EAHydrologyRequest, ("15_minutes", "data"))
 
 
+def _dwd_poi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the stations are those of the MOSMIX catalogue that have a report file, whose name pads an id of four characters
+    # with an underscore (`A191_-BEOB.csv`, as listed on 2026-10-15)
+    _serve(monkeypatch, dwd_catalogue, {"mosmix_stationskatalog": MOSMIX_CATALOGUE.encode("latin-1")})
+    base = "https://opendata.dwd.de/weather/weather_reports/poi/"
+    files = [f"{base}{station_id:_<5}-BEOB.csv" for station_id in ("01001", "10147", "A191", "23205")]
+    monkeypatch.setattr(poi_api, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
+    return _stations(DwdPoiRequest, ("hourly", "data"))
+
+
+def _dwd_dmo(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `dmo_stationsliste_txt.asc` (2026-10-15), the rows that showed a defect: a position with no whole degrees (`.31`,
+    # `-.27`) or a blank for the tens of minutes (`. 4`), which the sign of a west or south position is lost with
+    # (GH-2897), and the stations DWD publishes at the wrong place (GH-2646). The list is no country's, so the rules
+    # hold these rows to a position that is there and on Earth, not to where it is
+    catalogue = (
+        "ID    ICAO NAME                 LAT    LON     ELEV\r\n"
+        "----- ---- -------------------- -----  ------- -----\r\n"
+        "01001 ENJA JAN MAYEN             70.56   -8.40    10\r\n"
+        "01025 ---- TROMSOE               69.41   18.55    10\r\n"
+        "03377 ---- WADDINGTON            53.10     .31    68\r\n"
+        "03768 ---- FARNBOROUGH           51.17     .46    65\r\n"
+        "03772 EGLL LONDON                51.29    -.27    24\r\n"
+        "08286 LECN CASTELLON DE LA PLAN  39.57     . 4    36\r\n"
+        "08370 ---- JAVEA/YUNTAMIEN       38.47    -.10    15\r\n"
+        "10147 EDDH HAMBURG-FU.           53.38   10.00    16\r\n"
+        "F9424 SBAE BAURU/AREALVA APT.    22.09  -49.04   594\r\n"
+        "P0563 EGGW LONDON LUTON          51.52     .22   160\r\n"
+    )
+    _serve(monkeypatch, dmo_api, {"dmo_stationsliste_txt": catalogue.encode("latin-1")})
+    # the product forecasts for the stations that have a directory, here every one the list names
+    ids = ["01001", "01025", "03377", "03768", "03772", "08286", "08370", "10147", "F9424", "P0563"]
+    directories = [{"name": f"single_stations/{station_id}/"} for station_id in ids]
+    monkeypatch.setattr(dmo_api, "list_remote_directory_fsspec", lambda *_args, **_kwargs: directories)
+    return _stations(DwdDmoRequest, ("hourly", "icon"))
+
+
+def _dwd_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `KL_Tageswerte_Beschreibung_Stationen.txt` (2026-10-15) with the blanks its lines are padded to a thousand
+    # characters with cut off: names with blanks, commas and umlauts, a row with no `Frei`, and stations that report
+    # today
+    catalogue = (
+        "Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\r\n"
+        "----------- --------- --------- ------------- --------- --------- ----------------------------------------- "
+        "---------- ------\r\n"
+        "00001 19370101 19860630            478     47.8413    8.8493 Aach                                     "
+        "Baden-Württemberg                        Frei\r\n"
+        "00003 18910101 20110331            202     50.7827    6.0941 Aachen                                   "
+        "Nordrhein-Westfalen                      Frei\r\n"
+        "00011 19800901 20261013            680     47.9736    8.5205 Donaueschingen (Landeplatz)              "
+        "Baden-Württemberg                        Frei\r\n"
+        "00106 19710101 20061201            500     51.7976   10.4429 Altenau                                  "
+        "Niedersachsen\r\n"
+        "00197 19900801 20261013            365     51.3219    9.0558 Arolsen-Volkhardinghausen, Bad           "
+        "Hessen                                   Frei\r\n"
+        "00314 18631201 20261013            234     51.1604   14.5042 Kubschütz, Kr. Bautzen                   "
+        "Sachsen                                  Frei\r\n"
+        "01332 19660701 20261013            471     48.4832   12.7241 Falkenberg,Kr.Rottal-Inn                 "
+        "Bayern                                   Frei\r\n"
+        "03657 19830601 20150831            341     50.9081    7.5543 Nümbrecht auf dem Lindchen               "
+        "Nordrhein-Westfalen                      Frei\r\n"
+    )
+    # the directory lists the description and a file for each station, named `tageswerte_KL_<id>_<from>_<to>_hist.zip`
+    # (the names of 00001 and 00003 as listed, the others worded after them), but for Altenau (00106), which has none
+    # in the directory (2026-10-15): the reader drops a station that is described and has no file
+    base = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/historical/"
+    files = [f"{base}KL_Tageswerte_Beschreibung_Stationen.txt"]
+    for line in catalogue.splitlines()[2:]:
+        if line.startswith("00106"):
+            continue
+        files.append(f"{base}tageswerte_KL_{line[:5]}_{line[6:14]}_{line[15:23]}_hist.zip")
+    monkeypatch.setattr(dwd_fileindex, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
+    _serve(monkeypatch, dwd_metaindex, {"Beschreibung_Stationen": catalogue.encode("latin-1")})
+    return _stations(DwdObservationRequest, ("daily", "climate_summary"), periods="historical")
+
+
+def _dwd_derived(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `fg_duett_Beschreibung_Stationen.txt` (2026-10-15), whose stations are named `<name>_DUETT`, with the blanks its
+    # lines are padded with cut off
+    catalogue = (
+        "Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland\r\n"
+        "----------- --------- --------- ------------- --------- --------- ----------------------------------------- "
+        "----------\r\n"
+        "18000 20240401 20261014            680     47.9736    8.5205 Donaueschingen (Landeplatz)_DUETT        "
+        "Baden-Württemberg\r\n"
+        "18001 20240401 20261014             44     52.9336    8.2370 Großenkneten_DUETT                       "
+        "Niedersachsen\r\n"
+        "18008 20240401 20261014              0     53.8633    8.1275 Leuchtturm Alte Weser_DUETT              "
+        "Niedersachsen\r\n"
+        "18020 20240401 20261014            365     51.3219    9.0558 Arolsen-Volkhardinghausen, Bad_DUETT     "
+        "Hessen\r\n"
+    )
+    _serve(monkeypatch, derived_metaindex, {"fg_duett_Beschreibung_Stationen": catalogue.encode("latin-1")})
+    # a file for each station, `stundenwerte_duett_FG_<id>_akt.zip` as listed
+    base = (
+        "https://opendata.dwd.de/climate_environment/CDC/derived_germany/climate/hourly/duett/radiation_global/recent/"
+    )
+    files = [f"{base}stundenwerte_duett_FG_{station_id}_akt.zip" for station_id in ("18000", "18001", "18008", "18020")]
+    monkeypatch.setattr(dwd_fileindex, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
+    return _stations(DwdDerivedRequest, ("hourly", "radiation_global"))
+
+
+def _dwd_phenology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `PH_Beschreibung_Phaenologie_Stationen_Jahresmelder.txt` and `..._Sofortmelder.txt` (2026-10-15), the values of
+    # five rows as published, laid out again with narrower padding (the lines are padded to 800 characters):
+    # positions in decimal degrees, the day a station was dissolved empty while it runs, the header with the stray
+    # tab inside "Naturraumgruppe", latin-1
+    header = (
+        "Stations_id;Stationsname                               ;geograph.Breite;geograph.Laenge;Stationshoehe;"
+        "Naturraumgruppe_Code;Naturraumgruppe                                           \t\t    ;Naturraum_Code;"
+        "Naturraum                                                                ;Datum Stationsaufloesung;"
+        "Bundesland                              ;eor;"
+    )
+
+    def row(*fields: str) -> str:
+        station_id, name, lat, lon, elevation, group_code, group, area_code, area, closed, region = fields
+        return (
+            f"{station_id:<22};{name:<40};{lat:>12}    ;{lon:>10}     ;{elevation:>5}       ;{group_code};{group:<60};"
+            f"{area_code};{area:<80};{closed:<23};{region:<40};eor;"
+        )
+
+    annual = [
+        header,
+        row(
+            *("07501", "Flensburg, kreisfreie Stadt Flensburg", "54.7833", "9.4333", "25", "70"),
+            *("Schleswig-Holsteinisches Hügelland", "7000", "Angeln", "31.12.1999", "Schleswig-Holstein"),
+        ),
+        row(
+            *("07532", "Norder-Hever-Koog", "54.4000", "8.7667", "2", "68"),
+            *(
+                "Schleswig-Holsteinische Marschen (und Nordseeinseln)",
+                "6830",
+                "Eiderstedter Marsch",
+                "",
+                "Schleswig-Holstein",
+            ),
+        ),
+        row(
+            *("08382", "Bederkesa, Bad", "53.6283", "8.8324", "10", "63"),
+            *("Stader Geest", "6330", "Wesermünder Geest", "", "Niedersachsen"),
+        ),
+    ]
+    immediate = [
+        header,
+        row(
+            *("07502", "Kiel-Pries", "54.4000", "10.1500", "25", "70"),
+            *("Schleswig-Holsteinisches Hügelland", "7020", "Ostholsteinisches Hügel- und Seenland"),
+            *("31.12.1998", "Schleswig-Holstein"),
+        ),
+        row(
+            *("09455", "König, Bad", "49.7333", "9.0000", "180", "14"),
+            *("Odenwald, Spessart und Südrhön", "1440", "Sandsteinodenwald", "", "Hessen"),
+        ),
+    ]
+    bodies = {
+        "Stationen_Jahresmelder": "\n".join(annual).encode("latin-1"),
+        "Stationen_Sofortmelder": "\r\n".join(immediate).encode("latin-1"),
+    }
+    _serve(monkeypatch, phenology_api, bodies)
+    return _stations(DwdPhenologyRequest, ("annual", "annual_apple"), ("annual", "immediate_apple"))
+
+
+def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `climateData/collections/station/items` (2026-10-15), trimmed to the properties the reader reads: DMI lists a
+    # station once for each period of its metadata, 1063 stations in 4666 records, of which these are the first and
+    # the last record of three stations. The first record of Pituffik has neither an elevation nor the position of the
+    # later ones, and the reader takes it, as `created` is the same on all the records of a station (GH-2946)
+    def feature(
+        station_id: str,
+        name: str,
+        country: str,
+        lon: float,
+        lat: float,
+        height: float | None,
+        valid: tuple[str, str | None],
+    ) -> dict[str, Any]:
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
+            "properties": {
+                "stationId": station_id,
+                "name": name,
+                "country": country,
+                "stationHeight": height,
+                "validFrom": valid[0],
+                "validTo": valid[1],
+                "created": "2026-09-30T11:59:36Z" if station_id == "04202" else "2026-09-30T11:59:37Z",
+            },
+        }
+
+    catalogue = {
+        "type": "FeatureCollection",
+        "features": [
+            feature(
+                "06180",
+                "Københavns Lufthavn",
+                "DNK",
+                12.6455,
+                55.614,
+                5.0,
+                ("1983-06-16T00:00:00Z", "2019-01-15T13:34:48Z"),
+            ),
+            feature("06180", "Københavns Lufthavn", "DNK", 12.6454, 55.614, 5.0, ("2024-11-14T16:10:37Z", None)),
+            feature(
+                "06041", "Skagen Fyr", "DNK", 10.6318, 57.7363, 3.2, ("1953-01-01T00:00:00Z", "2000-12-14T00:00:00Z")
+            ),
+            feature("06041", "Skagen Fyr", "DNK", 10.6316, 57.7364, 3.2, ("2019-01-30T15:42:23Z", None)),
+            feature(
+                "04202", "Pituffik", "GRL", -68.75, 76.5333, None, ("1948-12-31T00:00:00Z", "2006-10-16T00:00:00Z")
+            ),
+            feature("04202", "Pituffik", "GRL", -68.7031, 76.5311, 77.0, ("2019-01-15T13:34:47Z", None)),
+        ],
+    }
+    _serve(monkeypatch, dmi_api, {"station/items": json.dumps(catalogue).encode("utf8")})
+    return _stations(DmiObservationRequest, ("daily", "data"))
+
+
+def _eccc(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `collections/climate-stations/items` (2026-10-15), four of the 8435 features trimmed to the properties the reader
+    # reads, with the dates of the collections as published (Chemainus has no hourly collection, Gladman Point no
+    # monthly one). `LATITUDE` and `LONGITUDE` are packed degrees, minutes and seconds (`485500000` is 48 deg 55'),
+    # while the geometry of the feature is decimal degrees (GH-2942); `ELEVATION` is text, and null for a station
+    # without one
+    keys = ("FIRST", "LAST", "HLY_FIRST", "HLY_LAST", "DLY_FIRST", "DLY_LAST", "MLY_FIRST", "MLY_LAST")
+
+    def feature(
+        station_id: int,
+        name: str,
+        region: str,
+        packed: tuple[int, int],
+        zone: str,
+        elevation: str | None,
+        dates: tuple[str | None, ...],
+        geometry: list[float],
+    ) -> dict[str, Any]:
+        return {
+            "type": "Feature",
+            "properties": {
+                "STN_ID": station_id,
+                "STATION_NAME": name,
+                "PROV_STATE_TERR_CODE": region,
+                "LATITUDE": packed[0],
+                "LONGITUDE": packed[1],
+                "TIMEZONE": zone,
+                "ELEVATION": elevation,
+                **{f"{key}_DATE": date for key, date in zip(keys, dates, strict=True)},
+            },
+            "geometry": {"type": "Point", "coordinates": geometry},
+        }
+
+    catalogue = {
+        "type": "FeatureCollection",
+        "features": [
+            feature(
+                2,
+                "CHEMAINUS BARE POINT",
+                "BC",
+                (485500000, -1234200000),
+                "PST",
+                "3.00",
+                (
+                    *("1979-01-01 00:00:00", "1979-12-31 00:00:00", None, None),
+                    *("1979-11-01 00:00:00", "1979-12-31 00:00:00", "1979-01-01 00:00:00", "1979-12-01 00:00:00"),
+                ),
+                [-123.7, 48.916666666666664],
+            ),
+            feature(
+                52,
+                "ESQUIMALT HARBOUR",
+                "BC",
+                (482555100, -1232621600),
+                "PST",
+                "3.00",
+                (
+                    *("1957-01-01 00:00:00", "2026-10-12 12:30:10", "1994-02-01 00:00:00", "2026-10-12 12:30:10"),
+                    *("1957-10-01 00:00:00", "2026-10-12 00:00:00", "1957-01-01 00:00:00", "2005-09-01 00:00:00"),
+                ),
+                [-123.43933333333334, 48.43197222222222],
+            ),
+            feature(
+                2219,
+                "CARWAY",
+                "AB",
+                (485959010, -1132234000),
+                "MST",
+                "1354.00",
+                (
+                    *("1914-01-01 00:00:00", "2011-11-30 00:00:00", None, None),
+                    *("1914-08-01 00:00:00", "2011-11-30 00:00:00", "1914-01-01 00:00:00", "2007-11-01 00:00:00"),
+                ),
+                [-113.37611111111111, 48.999725],
+            ),
+            feature(
+                10904,
+                "GLADMAN POINT",
+                "NU",
+                (684049000, -974841000),
+                "CST",
+                None,
+                (
+                    *("1992-12-22 00:00:00", "1993-04-27 11:00:00", "1992-12-31 18:00:00", "1993-04-27 11:00:00"),
+                    *("1992-12-22 00:00:00", "1993-03-15 00:00:00", None, None),
+                ),
+                [-97.81138888888889, 68.68027777777777],
+            ),
+        ],
+    }
+    _serve(monkeypatch, eccc_api, {"climate-stations/items": json.dumps(catalogue).encode("utf8")})
+    return _stations(EcccObservationRequest, ("daily", "data"))
+
+
+FMI_ANTARCTICA = Accepted(
+    "coordinates_outside_country",
+    "Antarktis Aboa is the Finnish research station in Antarctica",
+    where=lambda row: row["station_id"] == "112275",
+)
+
+
+def _fmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `fmi::ef::stations` (2026-10-15), 439 facilities of which these four, cut down to the elements the reader reads
+    # (the `gml:id` shortened to the station id); the position is `lat lon`, a station still in service ends in
+    # `indeterminatePosition="now"`, and Helsinki Vuosaaren satama has no region
+    def facility(station_id: str, name: str, region: str | None, position: str, begin: str) -> str:
+        region_name = (
+            f'<gml:name codeSpace="http://xml.fmi.fi/namespace/location/region">{region}</gml:name>' if region else ""
+        )
+        return f"""
+  <wfs:member>
+    <ef:EnvironmentalMonitoringFacility gml:id="WFS-{station_id}">
+      <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">{station_id}</gml:identifier>
+      <gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">{name}</gml:name>
+      {region_name}
+      <ef:representativePoint>
+        <gml:Point gml:id="point-1" axisLabels="Lat Long" srsName="http://www.opengis.net/def/crs/EPSG/0/4258">
+          <gml:pos>{position}</gml:pos>
+        </gml:Point>
+      </ef:representativePoint>
+      <ef:operationalActivityPeriod>
+        <ef:OperationalActivityPeriod gml:id="oap-1-1">
+          <ef:activityTime>
+            <gml:TimePeriod gml:id="oap-tp-1-1">
+              <gml:beginPosition>{begin}</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="now"/>
+            </gml:TimePeriod>
+          </ef:activityTime>
+        </ef:OperationalActivityPeriod>
+      </ef:operationalActivityPeriod>
+    </ef:EnvironmentalMonitoringFacility>
+  </wfs:member>"""
+
+    members = "".join(
+        [
+            facility("100539", "Kemi Ajos", "Kemi", "65.673370 24.515260", "1922-06-14T00:00:00Z"),
+            facility("100540", "Raahe Lapaluoto", "Raahe", "64.666300 24.407080", "1922-06-15T00:00:00Z"),
+            facility("104089", "Helsinki Vuosaaren satama", None, "60.221730 25.179811", "2016-01-01T00:00:00Z"),
+            facility("112275", "Antarktis Aboa", "AQ", "-73.050000 -13.383330", "2003-11-25T00:00:00Z"),
+        ]
+    )
+    catalogue = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" '
+        'xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" '
+        'xmlns:ef="http://inspire.ec.europa.eu/schemas/ef/4.0">'
+        f"{members}\n</wfs:FeatureCollection>"
+    )
+    _serve(monkeypatch, fmi_api, {"ef%3A%3Astations": catalogue.encode("utf8")})
+    return _stations(FmiObservationRequest, ("hourly", "data"))
+
+
+def _meteoswiss(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `ogd-smn_meta_stations.csv` (2026-10-15), four of its 159 rows as published: semicolon-separated, windows-1252,
+    # CRLF, dates as `DD.MM.YYYY`, the barometer height empty for Oberageri
+    header = (
+        "station_abbr;station_name;station_canton;station_wigos_id;station_type_de;station_type_fr;station_type_it;"
+        "station_type_en;station_dataowner;station_data_since;station_height_masl;station_height_barometer_masl;"
+        "station_coordinates_lv95_east;station_coordinates_lv95_north;station_coordinates_wgs84_lat;"
+        "station_coordinates_wgs84_lon;station_exposition_de;station_exposition_fr;station_exposition_it;"
+        "station_exposition_en;station_url_de;station_url_fr;station_url_it;station_url_en"
+    )
+    types = (
+        "Automatische Wetterstationen - Messwerte;Stations météorologiques automatiques - Valeurs mesurées;"
+        "Stazioni meteorologiche automatiche - Valori misurati;Automatic weather stations - Measurement values"
+    )
+    pages = (
+        "https://www.meteoschweiz.admin.ch/service-und-publikationen/applikationen/messwerte-und-messnetze.html",
+        "https://www.meteosuisse.admin.ch/services-et-publications/applications/valeurs-mesurees-et-reseaux-de-mesure.html",
+        "https://www.meteosvizzera.admin.ch/servizi-e-pubblicazioni/applicazioni/valori-attuali-e-reti-di-misura.html",
+        "https://www.meteoswiss.admin.ch/services-and-publications/applications/measurement-values-and-measuring-networks.html",
+    )
+
+    def row(*fields: str) -> str:
+        abbr, name, canton, wigos, owner, since, height, barometer, east, north, lat, lon, *exposition = fields
+        urls = ";".join(f"{page}#param=messnetz-automatisch&station={abbr}" for page in pages)
+        return (
+            f"{abbr};{name};{canton};0-20000-0-{wigos};{types};{owner};{since};{height};{barometer};{east};{north};"
+            f"{lat};{lon};{';'.join(exposition)};{urls}"
+        )
+
+    rows = [
+        row(
+            *("ABO", "Adelboden", "BE", "06735", "MeteoSchweiz, SLF", "01.01.1901", "1321.0", "1326.0"),
+            *("2609372.0", "1148939.0", "46.491703", "7.560703"),
+            *("Südosthang", "Versant sud-est", "Versante sud-orientale", "south-eastern oriented slope"),
+        ),
+        row(
+            *("AEG", "Oberägeri", "ZG", "06676", "MeteoSchweiz", "01.02.1993", "724.0", ""),
+            *("2688729.0", "1220956.0", "47.133636", "8.608206", "Ebene", "Plaine", "Pianura", "plain"),
+        ),
+        row(
+            *("GSB", "Col du Grand St-Bernard", "VS", "06717", "MeteoSchweiz", "01.01.1818", "2472.0", "2488.0"),
+            *("2579191.0", "1079754.0", "45.869092", "7.170683", "Passlage", "Col", "Passo", "pass"),
+        ),
+        row(
+            *("SMA", "Zürich / Fluntern", "ZH", "06660", "MeteoSchweiz", "01.01.1864", "604.0", "605.0"),
+            *("2685223.0", "1248410.0", "47.381003", "8.567194"),
+            *("Südhang", "Versant sud", "Versante meridionale", "southern oriented slope"),
+        ),
+    ]
+    catalogue = "\r\n".join([header, *rows]) + "\r\n"
+    _serve(monkeypatch, meteoswiss_api, {"ogd-smn_meta_stations": catalogue.encode("windows-1252")})
+    return _stations(MeteoswissObservationRequest, ("daily", "data"))
+
+
+def _rmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `aws:aws_station` (2026-10-15), four of the 14 stations: a position is `[lon, lat]`, a station in service has no
+    # `date_end`, and the one of De Haan has a code of eight digits and a WIGOS id of another scheme
+    def feature(
+        code: int, name: str, lon: float, lat: float, begin: str, altitude: float, wigos: str
+    ) -> dict[str, Any]:
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
+            "properties": {
+                "code": code,
+                "name": name,
+                "date_begin": begin,
+                "date_end": None,
+                "altitude": altitude,
+                "wigos_id": wigos,
+            },
+        }
+
+    catalogue = {
+        "type": "FeatureCollection",
+        "features": [
+            feature(6414, "BEITEM", 3.122, 50.904, "2003-07-26T00:10:00Z", 24.8, "0-20000-0-06414"),
+            feature(6447, "UCCLE", 4.358, 50.797, "2003-12-01T00:00:00Z", 100.6, "0-20000-0-06447"),
+            feature(6438, "STABROEK", 4.364, 51.325, "2012-08-05T00:00:00Z", 4, "0-20000-0-06438"),
+            feature(10101002, "DE HAAN", 3.074, 51.28, "2025-03-06T00:00:00Z", 3.66, "0-056-101-01002"),
+        ],
+    }
+    _serve(monkeypatch, rmi_api, {"aws_station": json.dumps(catalogue).encode("utf8")})
+    return _stations(RmiObservationRequest, ("10_minutes", "data"))
+
+
+def _smhi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `parameter/1.json` (2026-10-15), trimmed to the fields the reader reads: `from` and `to` are milliseconds since
+    # the epoch (before 1970 negative), and a station in service has `to` of the last update; Kiruna is listed
+    # with a height of 0.0, where the airport of the same town is at 459 m
+    def station(key: int, name: str, height: float, lat: float, lon: float, start: int, end: int) -> dict[str, Any]:
+        return {
+            "key": str(key),
+            "id": key,
+            "name": name,
+            "height": height,
+            "latitude": lat,
+            "longitude": lon,
+            "active": end > 1_700_000_000_000,
+            "from": start,
+            "to": end,
+            "updated": end,
+        }
+
+    catalogue = {
+        "station": [
+            station(1, "Akalla", 23.0, 59.5, 17.8, 1356998400000, 1367366399000),
+            station(188800, "Abisko", 393.38, 68.3538, 18.8166, -1798761600000, 1580515199000),
+            station(85600, "Adelsnäs", 97.0, 58.1998, 15.9802, -1530662400000, -283975200000),
+            station(97400, "Stockholm-Arlanda Flygplats", 42.0, 59.6269, 17.9545, 1201824000000, 1792026000000),
+            station(25080, "Kiruna", 0.0, 67.8565, 20.2937, 1765443900000, 1792026000000),
+        ]
+    }
+    body = json.dumps(catalogue).encode("utf8")
+
+    def download_files(*, urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=BytesIO(body), status=200) for url in urls]
+
+    monkeypatch.setattr(smhi_api, "download_files", download_files)
+    return _stations(SmhiObservationRequest, ("hourly", "data"))
+
+
+def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the referential of stations and the one of sites (2026-10-15), of which these are the stations of the Seine at
+    # Paris (two stations of one site, with one position), the Garonne at La Reole, one without an altitude and a
+    # system of altitude, and Goyaves in Guadeloupe (overseas); the observations, which a station's resolution is
+    # measured from, are made up: one every five minutes for each
+    def station(
+        site: str,
+        station_id: str,
+        name: str,
+        position: tuple[float, float],
+        zero: float | None,
+        system: int | None,
+        opened: str,
+        department: str,
+    ) -> dict[str, Any]:
+        return {
+            "code_site": site,
+            "code_station": station_id,
+            "libelle_station": name,
+            "longitude_station": position[0],
+            "latitude_station": position[1],
+            "altitude_ref_alti_station": zero,
+            "code_systeme_alti_site": system,
+            "date_ouverture_station": f"{opened}T00:00:00Z",
+            "date_fermeture_station": None,
+            "libelle_departement": department,
+        }
+
+    stations = [
+        station(
+            *("F7000001", "F700000102", "La Seine à Paris - Austerlitz - station limni - secours CT"),
+            *((2.365510635, 48.84468962), 25.92, 3, "1990-01-01", "PARIS"),
+        ),
+        station(
+            *("F7000001", "F700000103", "La Seine à Paris - Austerlitz [>2006] - Station débitmétrique"),
+            *((2.365510635, 48.84468962), 25.92, 3, "2006-01-26", "PARIS"),
+        ),
+        station(
+            *("O9190010", "O919001001", "La Garonne à la Réole"),
+            *((-0.034612117, 44.579311754), 6.251, 1, "1990-01-01", "GIRONDE"),
+        ),
+        station(
+            *("O9195617", "O919561701", "[La Bassanne] à Savignac"),
+            *((-0.105816239, 44.520636408), None, None, "1998-05-14", "GIRONDE"),
+        ),
+        station(
+            *("10110001", "1011000101", "La Grande Rivière à Goyaves à Petit-Bourg [Barbotteau]"),
+            *((-61.658989597, 16.189402471), 0.0139, 0, "2012-11-11", "GUADELOUPE"),
+        ),
+    ]
+    sites = [
+        {"code_site": "F7000001", "altitude_site": 26.0},
+        {"code_site": "O9190010", "altitude_site": 15.0},
+        {"code_site": "O9195617", "altitude_site": 34.0},
+        {"code_site": "10110001", "altitude_site": 133.81},
+    ]
+    observations = [
+        {"code_station": row["code_station"], "date_obs": f"2026-10-15T01:{minute:02d}:00Z"}
+        for row in stations
+        for minute in range(0, 30, 5)
+    ]
+    bodies = {
+        "referentiel/stations": json.dumps({"data": stations}).encode("utf8"),
+        "referentiel/sites": json.dumps({"data": sites}).encode("utf8"),
+        "observations_tr": json.dumps({"data": observations}).encode("utf8"),
+    }
+    _serve(monkeypatch, hubeau_api, bodies)
+    return _stations(HubeauRequest, ("5_minutes", "data"))
+
+
+WSV_NO_POSITION = Accepted(
+    "coordinates_missing",
+    "PEGELONLINE publishes no position for these gauges, among them those of the Austrian Danube",
+)
+WSV_TIEL = Accepted(
+    "coordinates_outside_country",
+    "PEGELONLINE lists TIEL, a gauge on the Waal in the Netherlands",
+    where=lambda row: row["station_id"] == "123456781",
+)
+
+
+def _wsv(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `stations.json?includeTimeseries=true&includeCharacteristicValues=true` (2026-10-15), trimmed to what the reader
+    # reads: CELLE as it is published, two of the 57 gauges without a position (DORDRECHT, and KORNEUBURG on the
+    # Austrian Danube), and TIEL, a gauge in the Netherlands. A gauge is listed under the resolution of the
+    # `equidistance` of its water level: 15 minutes for CELLE and KORNEUBURG, 10 for the others
+    def gauge(number: str, name: str, km: float, water: str, position: dict[str, float], extra: dict[str, Any]) -> dict:
+        return {
+            "number": number,
+            "shortname": name,
+            "km": km,
+            **position,
+            "water": {"shortname": water},
+            "timeseries": [{"shortname": "W", **extra}],
+        }
+
+    values = [("M_I", 300.0), ("HHW", 528.0), ("M_II", 340.0), ("NNW", 50.0), ("MNW", 117.0), ("MW", 192.0)]
+    values += [("HSW", 310.0), ("MHW", 412.0), ("M_III", 400.0)]
+    celle = {
+        "equidistance": 15,
+        "gaugeZero": {"value": 31.82, "unit": "m. ü. NN"},
+        "characteristicValues": [{"shortname": key, "value": value} for key, value in values],
+    }
+    korneuburg = {
+        "equidistance": 15,
+        "gaugeZero": {"value": 159.87, "unit": "m ü. A."},
+        "characteristicValues": [{"shortname": "RNW", "value": 191.0}, {"shortname": "HSW", "value": 549.0}],
+    }
+    bare = {"equidistance": 10, "gaugeZero": None, "characteristicValues": []}
+    catalogue = [
+        gauge("48300105", "CELLE", 1.74, "ALLER", {"latitude": 52.622706, "longitude": 10.062164}, celle),
+        gauge("42013", "KORNEUBURG", 1941.5, "DONAU", {}, korneuburg),
+        gauge("123456785", "DORDRECHT", 975.0, "ALTE_MAAS", {}, bare),
+        gauge("123456781", "TIEL", 913.5, "WAAL", {"latitude": 51.900532, "longitude": 5.455684}, bare),
+    ]
+    _serve(monkeypatch, wsv_api, {"stations.json": json.dumps(catalogue).encode("utf8")})
+    return _stations(WsvPegelRequest, ("10_minutes", "data"), ("15_minutes", "data"))
+
+
+def _nws(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `METARTable.txt` of MADIS (2026-10-15), tab-separated with the columns padded: the world's METAR stations, of
+    # which the reader keeps those of `US` and the three of the Virgin Islands and Hawaii it files under a state
+    # code (PHBK, TIST, TISX); a missing elevation is 9999
+    catalogue = (
+        "0000072565\tKDEN\t39.83\t-104.66\t 1655\tDENVER/DENVER INTER, CO\tUS\tMTR\n"
+        "0000074486\tKJFK\t40.65\t -73.78\t    7\tNEW YORK/JF KENN, NY\tUS\tMTR\n"
+        "0000070273\tPANC\t61.17\t-150.02\t   40\tANCHORAGE INTL ARPT, AK\tUS\tMTR\n"
+        "0000000000\tK37W\t35.38\t -78.73\t 9999\tERWIN-HARNETT, NC   \tUS\tMTR\n"
+        "0000091162\tPHBK\t22.07\t-159.78\t    5\tBARKING SANDS ARPT, HI\tHI\tMTR\n"
+        "0000078543\tTIST\t18.33\t -64.97\t   67\tST. THOMAS/KING, VI \tVI\tMTR\n"
+        "0000078547\tTISX\t17.70\t -64.81\t   17\tST.CROIX/HAMILTN, VI\tVI\tMTR\n"
+        "0000010147\tEDDH\t53.63\t  10.00\t   16\tHAMBURG-FUHLSBUETTEL\tDL\tMTR\n"
+    )
+    _serve(monkeypatch, nws_api, {"METARTable": catalogue.encode("latin-1")})
+    return _stations(NwsObservationRequest, ("hourly", "data"))
+
+
+def _meteofrance_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the station registry of data.gouv.fr (2026-10-15), 14,729 stations of which these: many have no start date,
+    # a closed one has an end, and the overseas departments have codes of three digits
+    catalogue = (
+        "id,name,long_name,named_place,station_type,basin,lon,lat,alt,start_date,end_date,is_open,is_public,"
+        "department_id,is_daily,is_hourly,is_minutely\n"
+        "29293001,TREGUNC,TREGUNC,KERLEOGUY,1,J451,-3.868833,47.841333,25,2003-12-01,,true,true,29,true,true,true\n"
+        "09224001,PAILHES-SPC,,,5,,1.443,43.102167,287,,,true,true,9,true,true,false\n"
+        "72061001,LA CHAPELLE D A,LA CHAPELLE-D'ALIGNE (LA CHAPELLE D A),LES GRINGUENIERES,4,M153,-0.216667,"
+        "47.716667,50,1951-04-01,1993-09-30,true,true,72,true,false,false\n"
+        "97228006,STE MARIE PEROU,SAINTE-MARIE (STE MARIE PEROU),PEROU DDST,2,NR,-61.024167,14.761167,200,"
+        "1993-02-20,,true,true,972,true,true,true\n"
+        "98719002,MANGAREVA TAKU,GAMBIER (MANGAREVA TAKU),TAKU,4,NR,-134.96,-23.098333,134,1966-07-01,1968-05-31,"
+        "false,true,987,true,true,false\n"
+    )
+    _serve(monkeypatch, meteofrance_api, {"5ec141e4-3650-4365-82b1-db459efe690c": catalogue.encode("utf8")})
+    return _stations(MeteoFranceObservationRequest, ("daily", "core"))
+
+
+def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `postes_synop.geojson` (2026-10-15), 187 stations of which these; a position is `[lon, lat]`, and the list
+    # reaches the French territories in the Indian Ocean and Antarctica
+    def feature(station_id: str, name: str, altitude: int, opened: str, lon: float, lat: float) -> dict[str, Any]:
+        return {
+            "type": "Feature",
+            "properties": {"Id": station_id, "Nom": name, "Altitude": altitude, "Date_ouverture": opened},
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
+        }
+
+    catalogue = {
+        "type": "FeatureCollection",
+        "features": [
+            feature("07002", "BOULOGNE-SEM", 73, "1947-01-01", 1.599667, 50.7325),
+            feature("07149", "ORLY", 86, "1921-03-01", 2.397, 48.718),
+            feature("61968", "GLORIEUSES", 3, "1960-01-01", 47.289667, -11.582667),
+            feature("78897", "LE RAIZET AERO", 11, "1950-01-01", -61.516333, 16.264),
+            feature("89642", "DUMONT D'URVILLE", 43, "1956-01-18", 140.001, -66.663167),
+        ],
+    }
+    _serve(monkeypatch, meteofrance_synop_api, {"postes_synop": json.dumps(catalogue).encode("utf8")})
+    return _stations(MeteoFranceSynopRequest, ("subdaily", "data"))
+
+
 STUBS = [
     Stub("aemet/observation daily/data", _aemet),
+    Stub("dmi/observation daily/data", _dmi),
+    Stub("fmi/observation hourly/data", _fmi, (FMI_ANTARCTICA,)),
+    Stub("meteoswiss/observation daily/data", _meteoswiss),
+    Stub("rmi/observation 10_minutes/data", _rmi),
+    Stub("smhi/observation hourly/data", _smhi),
+    Stub("eaufrance/hubeau 5_minutes/data", _hubeau),
+    Stub("wsv/pegel 10_minutes+15_minutes/data", _wsv, (WSV_NO_POSITION, WSV_TIEL)),
+    Stub("nws/observation hourly/data", _nws),
+    Stub("meteofrance/observation daily/core", _meteofrance_observation),
+    Stub("meteofrance/synop subdaily/data", _meteofrance_synop),
+    Stub("eccc/observation daily/data", _eccc),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
+    Stub("dwd/poi hourly/data", _dwd_poi, (DWD_NAMES,)),
+    Stub("dwd/dmo hourly/icon", _dwd_dmo),
+    Stub("dwd/observation daily/climate_summary", _dwd_observation),
+    Stub("dwd/derived hourly/radiation_global", _dwd_derived),
+    Stub("dwd/phenology annual/annual_apple", _dwd_phenology),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
     Stub("metno/frost hourly/data", _metno_frost),

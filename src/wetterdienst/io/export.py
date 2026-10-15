@@ -818,7 +818,7 @@ class ExportMixin:
 
             Install Python driver::
 
-                pip install crate[sqlalchemy] crash
+                pip install wetterdienst[cratedb] crash
 
             Run database::
 

@@ -85,6 +85,7 @@ from wetterdienst.ui.core import (
 )
 from wetterdienst.ui.mcp import is_tool_request
 from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -1263,13 +1264,28 @@ def _refusal_detail(e: Exception, what: str) -> str:
     return str(e)
 
 
+def _server_error(e: Exception) -> HTTPException:
+    """Answer a failure that is the server's with a 500 that names its type and nothing else (GH-2767).
+
+    The text of an exception is whatever the library underneath wrote: a cache directory that cannot
+    be created names its path, an `OSError` of any kind the file it met, a failed download the URL.
+    The caller of an unauthenticated API has no use for the server's file system layout, so the
+    body carries a fixed sentence and the exception's class, and the text stays where the traceback
+    is, in the server log. The body is still `{"detail": <string>}`, as it was.
+    """
+    return HTTPException(
+        status_code=500,
+        detail=f"Internal server error ({type(e).__name__}). The cause is in the server log.",
+    )
+
+
 def _failure(e: Exception, request: BaseModel, what: str, *, refusal_status: int = 400) -> HTTPException:
     """Log a failure at the level it deserves and answer it with the status it deserves.
 
     One decision for every catch-all that tells a caller's refusal from a failure of ours: a request
     the caller phrased wrong is theirs to fix, so an info line without a traceback and a 400 (or
     `refusal_status`); a credential or an optional dependency the server lacks is a 501; anything
-    else is a logged traceback and a 500.
+    else is a logged traceback and a 500 that does not repeat the exception's text (`_server_error`).
     """
     if isinstance(e, MissingDependencyError):
         return _dependency_missing_on_the_server(e, what)
@@ -1277,7 +1293,7 @@ def _failure(e: Exception, request: BaseModel, what: str, *, refusal_status: int
         return _credential_missing_on_the_server(e, request, what)
     if not _is_caller_refusal(e, request):
         log.error(f"Failed to {what}.", exc_info=e)
-        return HTTPException(status_code=500, detail=str(e))
+        return _server_error(e)
     detail = _refusal_detail(e, what)
     log.info(f"Failed to {what}: {detail}")
     return HTTPException(status_code=refusal_status, detail=detail)
@@ -1477,7 +1493,7 @@ def stripes_stations(
         # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         log.exception("Failed to get stripes stations")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise _server_error(e) from e
     content = stations.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
     media_type = "text/csv" if request.format == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
@@ -1587,7 +1603,7 @@ def history(
         # past the station lookup the request has nothing left to refuse: what fails from here on
         # is the server's or the data source's, whatever its type
         log.exception("Failed to acquire history provider")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise _server_error(e) from e
 
     data: dict[str, Any] = {}
     if request.with_metadata:
@@ -1601,7 +1617,7 @@ def history(
             data["histories"].append(select_history_sections(history, request.sections))
     except Exception as e:
         log.exception("Failed to collect station history")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise _server_error(e) from e
     return Response(
         content=json.dumps(
             data,
@@ -1646,7 +1662,7 @@ def alerts(
         # a feed that does not list, download or read, and an alert in it the parser does not
         # expect: the date was converted already, so not even an `OverflowError` is the caller's
         log.exception("Failed to get weather alerts")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise _server_error(e) from e
 
     content = result.to_format(request.format, indent=request.pretty)
     media_type = "text/csv" if request.format == "csv" else "application/json"
@@ -1700,7 +1716,7 @@ mcp_enabled = _mount_mcp(app)
 
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
-    from uvicorn.main import run  # noqa: PLC0415
+    run = import_optional("uvicorn.main", "The REST API", extra="restapi").run
 
     setup_logging()
 
