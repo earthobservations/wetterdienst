@@ -30,7 +30,7 @@ library returns those values as they are; filter on the flag to leave them out.
 
 Data is © DMI (Danish Meteorological Institute) and licensed under
 [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-See [DMI Open Data](https://opendatadocs.dmi.govcloud.dk/) for further information and usage
+See [DMI Open Data](https://www.dmi.dk/friedata/dokumentation/basics) for further information and usage
 conditions.
 
 ```{toctree}

@@ -414,7 +414,7 @@ Codes (visibility_measurement_method):
 |----------------------|---------------|-----------------------------------|------|-------------|
 | {term}`weather` | ww | Present weather code (for 20-29 and 120-126 that of the past hour). One column holds two tables with disjoint numbers: 0-99 is WMO code table 4677 (ww, manned stations), 100-199 is WMO code table 4680 (wawa, automatic stations) with 100 added. A station's historical file holds either or both, the recent file of an automated station only 100-199. The meaning of every code is in DWD's Wetter_Beschreibung.txt, the text its WW_Text column repeats. The source's -1 (weather not reported) is null. | - | - |
 
-weather codes and descriptions: [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/historical/Wetter_Beschreibung.txt)
+weather codes and descriptions: [here](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/recent/Wetter_Beschreibung.txt)
 
 ### wind
 

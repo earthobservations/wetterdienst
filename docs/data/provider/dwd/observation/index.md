@@ -207,7 +207,7 @@ The DWD designates its data points with specific quality levels expressed as "qu
 - The "historical" data are quality controlled measurements and observations.
 
 The following information has been taken from PDF documents on the DWD open data
-server like [data set description for historical hourly station observations of precipitation for Germany](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/precipitation/historical/DESCRIPTION_obsgermany_climate_hourly_precipitation_historical_en.pdf).
+server like [data set description for historical hourly station observations of precipitation for Germany](https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/precipitation/DESCRIPTION_obsgermany_climate_hourly_precipitation_en.pdf).
 Wetterdienst provides convenient access to the relevant details
 by using routines to parse specific sections of the PDF documents.
 

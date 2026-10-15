@@ -70,6 +70,7 @@ The following settings are available:
 | fsspec_client_kwargs | pass arguments to fsspec, especially for querying data behind a proxy | User-Agent header, timeout 30      |
 | use_certifi          | use certifi certificate bundle instead of system certificates         | False                              |
 | read_bufr            | parse DWD radar BUFR products into `RadarResult.df` (needs the `bufr` extra) | False               |
+| auth                 | credentials of the providers that need them, each from its own variable, `WD_AUTH__AEMET`, `WD_AUTH__KNMI`, `WD_AUTH__METNO_FROST` or `WD_AUTH__CEDA`; held as secrets and not printed (see the provider pages) | none |
 | restapi_sql          | let REST API and MCP clients filter with `sql` / `sql_values` (refused with a 403 otherwise); the clause runs in DuckDB on the server, see [REST API](restapi.md#sql-filters) | False |
 
 ### Python

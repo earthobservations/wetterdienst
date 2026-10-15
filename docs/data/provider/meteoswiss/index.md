@@ -4,7 +4,7 @@ Federal Office of Meteorology and Climatology MeteoSwiss / MétéoSuisse / Meteo
 
 ## Overview
 
-MeteoSwiss publishes observation data of the SwissMetNet automatic weather station network (158 stations) as part of
+MeteoSwiss publishes observation data of the SwissMetNet automatic weather station network (~158 stations) as part of
 its Open Government Data (OGD) offering, accessible through a STAC API.
 
 ## License

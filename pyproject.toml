@@ -306,6 +306,8 @@ zizmor = "uv run zizmor ."
 # docs -- the same build Read the Docs runs, which is sphinx against docs/conf.py. There is no
 # Makefile in docs/, so `make html` had nothing to make
 docs = "uv run --group docs sphinx-build --builder html docs docs/_build/html"
+# the external links of the pages, with the notebooks not executed. Needs the internet, so it is not part of any test
+"docs:linkcheck" = "uv run --group docs sphinx-build --builder linkcheck -D nb_execution_mode=off docs docs/_build/linkcheck"
 "docs:clean" = "uv run python -c \"import shutil; shutil.rmtree('docs/_build', ignore_errors=True)\""
 "test:parallel" = "uv run pytest -vvv --numprocesses=auto -m 'not (explorer or cflake)'"
 "test:cflakes" = "uv run pytest -vvv -m cflake"

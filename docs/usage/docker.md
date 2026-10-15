@@ -4,9 +4,11 @@ The wetterdienst Docker image comes with several extras installed so you can use
 - bufr
 - cratedb
 - duckdb
-- explorer
+- export
 - influxdb
 - interpolation
+- knmi
+- mcp
 - plotting
 - postgresql
 - radar

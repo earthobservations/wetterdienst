@@ -21,7 +21,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - `small` (MOSMIX-S): 40 parameters, `large` (MOSMIX-L): 122
     - DMO - timeseries extracted from weather models
         - Point forecast
-        - `icon`: 5757 stations worldwide, 23 parameters
+        - `icon`: 5894 stations worldwide, 23 parameters
         - `icon_eu`: the 3688 stations it is published for, 19 parameters
     - Road
         - Historical weather observations of German highway stations
@@ -32,7 +32,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - observed plant development dates from the phenological network, reaching back to 1925
         - annual resolution; 110 plant datasets across the annual and immediate reporter groups
     - Radar
-        - 16 locations in Germany
+        - 17 locations in Germany
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
@@ -50,7 +50,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Observation
         - quality-controlled climate data from stations in Denmark, Greenland and the Faroe Islands
         - hourly, daily, monthly and annual resolution
-        - ~280 stations; open data, no authentication required
+        - ~1060 stations; open data, no authentication required
 - EA (Environment Agency)
     - Hydrology
         - data of river network of UK
@@ -62,7 +62,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
 - ECCC (Environnement et Changement Climatique Canada / Environment and Climate Change Canada / Canada)
     - Historical Weather Observations
         - Historical (last ~180 years)
-        - Hourly, daily, monthly, (annual) resolution
+        - Hourly, daily, monthly resolution
         - Time series of stations in Canada
 - FMI (Ilmatieteen laitos / Finnish Meteorological Institute / Finland)
     - Observation

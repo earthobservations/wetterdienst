@@ -22,6 +22,7 @@ uv run poe unused            # deptry unused-dependency check
 uv run poe sync              # uv sync
 uv run poe docs              # sphinx build into docs/_build/html, as Read the Docs runs it
 uv run poe "docs:clean"      # remove docs/_build
+uv run poe "docs:linkcheck"  # check the external links of the docs (needs the internet)
 
 # Single file / single test
 uv run pytest tests/provider/dwd/observation/test_api.py -vvv

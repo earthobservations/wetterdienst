@@ -12,12 +12,11 @@ cache entirely.
 
 Running this
 
-```python
-import wetterdienst
-wetterdienst.info()
+```bash
+wetterdienst cache
 ```
 
-will guide you the path to your caching folder.
+prints the path to your caching folder (`wetterdienst info` shows it among other details).
 
 ## SSL Certificate Verification Issues
 

@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Docs that stated a wrong fact are corrected: `wetterdienst.info()` is `wetterdienst cache`; the
+  DMO `periods==recent` REST example is refused (DMO has `future` only); interpolation and summary
+  work for any provider, not DWD alone; stripes read annual, not daily, observations; DMI needs no
+  API key; the Docker image has the `export`, `knmi` and `mcp` extras and no `explorer`; the image
+  is built from `docker/Dockerfile` without a wheel (GH-2621)
+
 ## [0.153.0] - 2026-10-15
 
 ### Added

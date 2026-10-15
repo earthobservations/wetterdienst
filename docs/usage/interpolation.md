@@ -16,7 +16,8 @@ derive a time series for an arbitrary location from the surrounding station netw
   timestamp, walking outwards through nearby stations to fill gaps. Use this when you want
   the most complete real-measurement series near a location, rather than a computed blend.
 
-Both features currently work with `DwdObservationRequest` and require the `interpolation`
+Both features work with the observation request of any provider, not only DWD's (see
+[Supported parameters](#supported-parameters)), and require the `interpolation`
 extra (`scipy`, `shapely`, `utm`):
 
 ```bash
@@ -364,7 +365,7 @@ the summarized values of the parameter ``temperature_air_mean_2m`` from multiple
 
 ![summary example](../assets/summary.png)
 
-It currently only works for ``DwdObservationRequest`` and individual parameters. It supports
+It works with the observation request of any provider, and for individual parameters. It supports
 the same parameters as interpolation, listed in the
 [parameter glossary](../data/parameters.md), and decides whether a station is close enough by
 [the search radius](#the-search-radius) above, resolution scaling and all. The scaling is about how

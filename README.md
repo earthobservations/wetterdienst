@@ -15,7 +15,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
 [![Conda version](https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg)](https://anaconda.org/conda-forge/wetterdienst)
 [![Python version compatibility](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
-[![Project license](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/main/LICENSE)
+[![Project license](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md)
 [![PyPI downloads](https://static.pepy.tech/personalized-badge/wetterdienst?period=month&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20downloads/month)](https://pepy.tech/project/wetterdienst)
 [![Citation reference](https://zenodo.org/badge/DOI/10.5281/zenodo.3960624.svg)](https://doi.org/10.5281/zenodo.3960624)
 
@@ -38,7 +38,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
 | [DWD](https://www.dwd.de/)                                                                     | 🇩🇪 Germany     | observations, MOSMIX/DMO forecasts, radar, warnings, road weather, derived indices |
 | [AEMET](https://www.aemet.es/)                                                                 | 🇪🇸 Spain       | observations (API key)                                                |
 | [CHMI](https://www.chmi.cz/)                                                                   | 🇨🇿 Czechia     | observations                                                          |
-| [DMI](https://www.dmi.dk/)                                                                     | 🇩🇰 Denmark     | observations, incl. Greenland and the Faroe Islands (API key)         |
+| [DMI](https://www.dmi.dk/)                                                                     | 🇩🇰 Denmark     | observations, incl. Greenland and the Faroe Islands                   |
 | [EA](https://environment.data.gov.uk/)                                                         | 🇬🇧 England     | hydrology                                                             |
 | [Eaufrance](https://hubeau.eaufrance.fr/)                                                      | 🇫🇷 France      | hydrology                                                             |
 | [ECCC](https://climate.weather.gc.ca/)                                                         | 🇨🇦 Canada      | observations                                                          |
@@ -58,7 +58,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
 | [SMHI](https://www.smhi.se/)                                                                   | 🇸🇪 Sweden      | observations                                                          |
 | [WSV](https://www.pegelonline.wsv.de/)                                                         | 🇩🇪 Germany     | hydrology (Pegelonline)                                               |
 
-Across those: **nearly 600 canonical parameters**, resolutions from **1 minute to annual**, and archives
+Across those: **over 600 canonical parameters**, resolutions from **1 minute to annual**, and archives
 reaching back centuries where the service keeps them. Every provider is reached the same way, and a
 parameter means the same thing whichever service reports it — `temperature_air_mean_2m` is the mean
 air temperature at 2 m, converted to the same unit, everywhere.
