@@ -1,4 +1,4 @@
-FROM python:3.14-slim-trixie AS build
+FROM python:3.15-slim-trixie AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/
 
@@ -7,6 +7,12 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV UV_NO_EDITABLE=1
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
+
+# Compiler and HDF5 headers: some dependencies have no wheel for Python 3.15 yet and are built
+# from source (GH-2568); the slim image has neither
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential libhdf5-dev pkg-config && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory for build
 WORKDIR /app
@@ -25,7 +31,7 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
 
 # Dev stage: editable install so uvicorn --reload picks up source changes.
 # Installs the same extras and OS packages as the final stage for feature parity.
-FROM python:3.14-slim-trixie AS dev
+FROM python:3.15-slim-trixie AS dev
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/
 
@@ -35,9 +41,12 @@ ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
 # Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
 # library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra
-# load to decode BUFR -- the lock installs the bindings only
+# load to decode BUFR -- the lock installs the bindings only. The dev stage installs in place, so it
+# also has the compiler and the HDF5 headers (which bring the HDF5 library h5py links to) that the
+# build stage has
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data && \
+    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data \
+    build-essential libhdf5-dev pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -54,17 +63,19 @@ EXPOSE 3000
 CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000", "--reload"]
 
 # Final stage
-FROM python:3.14-slim-trixie
+FROM python:3.15-slim-trixie
 
 # Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
 # library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra
-# load to decode BUFR -- the lock installs the bindings only
+# load to decode BUFR -- the lock installs the bindings only. libhdf5-310 and libhdf5-hl-310 are the
+# HDF5 libraries that h5py, built from source in the build stage, links to
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data && \
+    apt-get install -y --no-install-recommends chromium curl libeccodes0 libeccodes-data \
+    libhdf5-310 libhdf5-hl-310 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from build stage
-COPY --from=build /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
+COPY --from=build /usr/local/lib/python3.15/site-packages /usr/local/lib/python3.15/site-packages
 COPY --from=build /usr/local/bin /usr/local/bin
 
 # Run unprivileged: the server parses what the network gives it, and starts a Chromium for every
