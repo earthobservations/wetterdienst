@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Python 3.15 is supported (tested on 3.15.0rc1) and declared as a classifier. The `mcp` extra needs
+  beartype 0.23 or newer there (0.22 does not import on 3.15; fastmcp brings it in without a
+  floor). h5py, duckdb, numcodecs and pyyaml, installed by the `knmi`/`radar`, `sql`, `export` and
+  `restapi` extras, have no 3.15 wheel yet and are built from source: h5py needs the HDF5
+  headers (`libhdf5-dev`) (GH-2568)
+
 ### Changed
 
 - `noaa/ghcn` hourly `quality_flags` also carry the file's `<element>_Measurement_Code` and
@@ -77,6 +85,8 @@ Types of changes:
   (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
   historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
   `-999` at every station, so those periods never have a value for these two (GH-2852)
+- A `dwd/radar` HDF5 request without `h5py` warns once, naming `pip install wetterdienst[radar]`,
+  and returns the files unverified, where it logged a traceback for every file (GH-2928)
 - `eccc/observation` stations are placed at the position ECCC's list gives in decimal degrees, no
   longer at its packed degrees, minutes and seconds read as degrees: 8431 of 8435 stations move,
   4904 by more than 0.25 degrees on an axis and up to 53 km. `CARWAY` (2219) on the Alberta border
