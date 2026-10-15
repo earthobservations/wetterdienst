@@ -30,6 +30,10 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
+    # Firefox refuses to start as root when $HOME (/github/home in a container job) belongs to
+    # another user; the image's own advice for GitHub Actions
+    env:
+      HOME: /root
     # a push to a labelled pull request, or the label itself being added (not any other label)
     if: >-
       github.event_name == 'workflow_dispatch'
