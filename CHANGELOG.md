@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.154.0] - 2026-10-15
+
+### Changed
+
+- The Docker images run on Python 3.15 (was 3.14). Packages without a 3.15 wheel are built from
+  source when the image is built, so a local or compose build takes longer (GH-2568)
+
 ### Fixed
 
 - Docs that stated a wrong fact are corrected: `wetterdienst.info()` is `wetterdienst cache`; the
@@ -48,8 +55,6 @@ Types of changes:
   based on complete data. Daily readings carry it (not all of them); a reading without one, and
   every 15 minute reading, keeps the quality alone (`Good`). A filter `quality_flags == 'Good'` no
   longer holds for daily readings: use `str.starts_with('Good')` (GH-2762)
-- The Docker images run on Python 3.15 (was 3.14). Packages without a 3.15 wheel are built from
-  source when the image is built, so a local or compose build takes longer (GH-2568)
 
 ### Fixed
 
@@ -5075,7 +5080,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.153.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.154.0...HEAD
+[0.154.0]: https://github.com/earthobservations/wetterdienst/compare/v0.153.0...v0.154.0
 [0.153.0]: https://github.com/earthobservations/wetterdienst/compare/v0.152.0...v0.153.0
 [0.152.0]: https://github.com/earthobservations/wetterdienst/compare/v0.151.0...v0.152.0
 [0.151.0]: https://github.com/earthobservations/wetterdienst/compare/v0.150.0...v0.151.0
