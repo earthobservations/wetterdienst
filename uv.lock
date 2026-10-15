@@ -6921,6 +6921,7 @@ mcp = [
     { name = "fastapi" },
     { name = "fastmcp" },
     { name = "httpx2" },
+    { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 mysql = [
@@ -6952,6 +6953,7 @@ radarplus = [
 ]
 restapi = [
     { name = "fastapi" },
+    { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 sql = [
@@ -7046,6 +7048,7 @@ requires-dist = [
     { name = "sqlalchemy", marker = "extra == 'postgresql'", specifier = ">=2,<3" },
     { name = "sqlalchemy-cratedb", marker = "extra == 'cratedb'", specifier = ">=0.40,<1" },
     { name = "stamina", specifier = ">=25.1.0,<27" },
+    { name = "starlette", marker = "extra == 'restapi'", specifier = ">=0.46,<2" },
     { name = "tabulate", specifier = ">=0.9,<1" },
     { name = "tqdm", specifier = ">=4.64,<5" },
     { name = "typing-extensions", specifier = ">=4.15.0,<5" },
