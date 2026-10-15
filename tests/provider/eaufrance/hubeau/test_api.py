@@ -14,7 +14,6 @@ import pytest
 from aiohttp import ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
-from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
@@ -318,7 +317,6 @@ def test_all_serves_only_the_resolutions_asked_for() -> None:
 
 
 @pytest.mark.remote
-@skip_if_upstream_unavailable()
 def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Settings) -> None:
     """Test that the live network places every station under a single interval.
 
@@ -335,7 +333,6 @@ def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Sett
 
 
 @pytest.mark.remote
-@skip_if_upstream_unavailable()
 def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(default_settings: Settings) -> None:
     """Test that a station listed at fifteen minutes actually returns a fifteen-minute series.
 
