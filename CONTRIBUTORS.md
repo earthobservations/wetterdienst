@@ -1,6 +1,6 @@
 This is a list of the people who directly contributed to wetterdienst in one way or another.
 
-* Benjamin Gutzmann ([github](https://github.com/gutzbenj), [mail](mailto:gutzemann@gmail.com))
+* Benjamin Gutzmann ([github](https://github.com/gutzbenj))
 * Andreas Motl ([github](https://github.com/amotl), [mail](mailto:andreas.motl@panodata.org))
 * Daniel Lassahn ([github](https://github.com/meteoDaniel))
     - UI/Browser interface
