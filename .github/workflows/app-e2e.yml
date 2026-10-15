@@ -122,12 +122,6 @@ jobs:
           BACKEND_URL: http://localhost:3000
           CI: true
 
-      # the accessibility spec holds the app to tests/e2e/accessibility/baseline.json; this puts the
-      # baseline's size, and what the run found against it, on the run's summary page
-      - name: Report accessibility baseline
-        if: always()
-        run: node tests/e2e/accessibility/report.mjs >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7

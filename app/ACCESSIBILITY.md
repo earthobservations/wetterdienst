@@ -29,7 +29,20 @@ rule, page and state, with the modes and languages it occurs in. A scan fails on
 - a rule in the baseline that is no longer broken, so whoever fixes a violation removes its entry and the
   baseline only shrinks.
 
-The CI job summary of `app-e2e.yml` reports the baseline's size.
+## On request, not by default
+
+The scan takes ten minutes and more, so it is not part of `pnpm test:e2e` or of the App E2E workflow
+(`playwright.config.ts` ignores the spec unless `A11Y=1`). It runs
+
+- from the Actions tab: *App accessibility*, *Run workflow*, or
+- on a pull request that carries the **`a11y` label**: when the label is added, and on every push after it.
+
+The *App accessibility* workflow (`.github/workflows/app-accessibility.yml`) has no path filter and is not
+a required check. When it runs, the baseline is the gate: a rule broken that it does not list fails the
+run, and so does an entry that is no longer broken. The run's summary page reports the baseline's size,
+by rule, and what the run found against it; the scans' results are an artifact of the run. It runs in the
+Playwright image the baseline was recorded in. A change that touches the markup, colours or ARIA of the app
+should be run with the label before it lands.
 
 ## Running it
 
@@ -37,8 +50,7 @@ The CI job summary of `app-e2e.yml` reports the baseline's size.
 cd app
 pnpm install
 npx playwright install firefox
-# the backend must answer /health (the e2e global setup checks it): docker compose --profile backend up -d
-pnpm test:a11y             # the spec, against the baseline
+pnpm test:a11y             # the spec, against the baseline; needs no backend
 pnpm test:a11y:report      # the baseline's size, as the job summary shows it
 pnpm test:a11y:baseline    # regenerate the baseline from what the scans find now
 ```

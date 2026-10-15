@@ -325,6 +325,14 @@ function holdToBaseline(result: Awaited<ReturnType<typeof scan>>) {
   expect(stale, `${where}: rules in the baseline that are no longer broken -- remove them from tests/e2e/accessibility/baseline.json`).toEqual([])
 }
 
+// The app server rate-limits by client address (nuxt-security: 150 requests per 5 minutes, which
+// its own /api proxy counts against too), and 84 page loads from one address would starve the later
+// scans, and any spec that shares the server with this one. So each scan comes from a client of its own (`x-forwarded-for`, which the
+// limiter reads): the address space 203.0.113.100-199, documentation space (RFC 5737) that the
+// other specs (10-13 and 50) do not use. A scan is one page load, far under the budget.
+let scansDeclared = 0
+const nextClientAddress = () => `203.0.113.${100 + scansDeclared++}`
+
 for (const variant of VARIANTS) {
   test.describe(`accessibility ${variantKey(variant)}`, () => {
     test.use({ locale: variant.locale === 'en' ? 'en-US' : 'de-DE' })
@@ -340,7 +348,9 @@ for (const variant of VARIANTS) {
     })
 
     for (const target of PAGES) {
+      const client = nextClientAddress()
       test(`${target.page}: first paint`, async ({ page, baseURL }) => {
+        await page.setExtraHTTPHeaders({ 'x-forwarded-for': client })
         const backend = await mockBackend(page, baseURL!)
         await open(page, target.path, variant)
         if (target.ready)
@@ -358,7 +368,9 @@ for (const variant of VARIANTS) {
       return
 
     for (const state of STATES) {
+      const client = nextClientAddress()
       test(`${state.page}: ${state.state}`, async ({ page, baseURL }) => {
+        await page.setExtraHTTPHeaders({ 'x-forwarded-for': client })
         if (state.viewport)
           await page.setViewportSize(state.viewport)
         const backend = await mockBackend(page, baseURL!, state.handlers)
