@@ -2630,6 +2630,30 @@ describe('dataViewer names what it shows in the active locale', () => {
       const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
       expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
     })
+
+    it('writes the statistics\' numbers with the locale\'s decimal separator', async () => {
+      // `toFixed` writes a point in every language: "2.50" where German, French and Polish read "2,50"
+      const { viewer } = await mountIn(locale, false)
+      const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
+        parameterStats: { parameter: string }[]
+        statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
+      }
+      const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
+      const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_last_10min')!
+      expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2,50', '2,50', '2,50', '2,50'])
+    })
+  })
+
+  it('writes the statistics\' numbers with a point in English, and nothing as a dash', async () => {
+    const { viewer } = await mountIn('en', false)
+    const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
+      parameterStats: { parameter: string }[]
+      statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
+    }
+    const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
+    const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_last_10min')!
+    expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2.50', '2.50', '2.50', '2.50'])
+    expect(cell('mean', { mean: null })).toBe('-')
   })
 
   // a day's row each of the two parameters, from 2020-01-01 on: each series long enough for a trendline

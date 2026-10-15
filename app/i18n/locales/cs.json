@@ -408,7 +408,9 @@
     "plotDataAvailability": "Dostupnost dat",
     "plotSource": "Zdroj: Deutscher Wetterdienst",
     "chooseOnMap": "Vyberte na mapě",
-    "mapHint": "Klepnutím na bod na mapě vyberte tuto stanici."
+    "mapHint": "Klepnutím na bod na mapě vyberte tuto stanici.",
+    "hoverValue": "Hodnota",
+    "hoverTrend": "Trend"
   },
   "explorer": {
     "title": "Průzkumník",
@@ -468,13 +470,13 @@
     "leadTimeShort": "Krátký: do 78 h, hodinový",
     "leadTimeLong": "Dlouhý: 78 až 168 h, tříhodinový",
     "leadTimeHint": "DWD zveřejňuje předpověď ICON DMO jako dva běhy. Krátký obsahuje hodinové parametry srážek, záření a sněhu, dlouhý místo nich tříhodinové; všechny ostatní jsou v obou. Nabízeny jsou parametry, které zvolený běh obsahuje.",
-    "modeStationDesc": "Fetch observations directly from one or more weather stations.",
-    "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
-    "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
-    "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
-    "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
-    "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeStationDesc": "Načtěte pozorování přímo z jedné nebo více meteorologických stanic.",
+    "modeInterpolationDesc": "Matematicky odhadne hodnotu počasí na libovolném místě, i když tam žádná stanice není.",
+    "modeSummaryDesc": "Vrátí skutečně naměřenou hodnotu z nejbližší stanice, která má v daném okamžiku data.",
+    "modeStationHow": "Naměřené hodnoty se vracejí beze změny, volitelně s převodem jednotek a čitelnými názvy parametrů. Níže vyberte jednu nebo více stanic.",
+    "modeInterpolationHow": "Shromáždí hodnoty ze stanic, které prostorově obklopují cílový bod, a proloží jimi triangulaci (Delaunay + lineární interpolace v prostoru UTM). V každém časovém kroku vznikne syntetická hodnota přesně v zadaných souřadnicích – přesnější než výběr nejbližší stanice, zejména tam, kde je stanic dostatek. Vyžaduje alespoň 3 obklopující stanice a rozsah dat. U parametrů srážek se navíc používá kontrola výskytu, aby se zabránilo nesmyslným hodnotám blízkým nule.",
+    "modeSummaryHow": "Pro každý parametr a každý časový krok prohledává okolí od cílového místa směrem ven a vybere první stanici s platným měřením – žádný odhad, jen nejbližší skutečné měření. Výstup obsahuje ID přispívající stanice a její vzdálenost, takže vždy přesně víte, odkud data pocházejí. Rozsah dat je povinný.",
+    "modeHowItWorks": "Jak to funguje"
   },
   "stationTable": {
     "stationId": "ID stanice",
@@ -588,6 +590,30 @@
     "statMax": "Max.",
     "statMean": "Průměr",
     "statSum": "Součet"
+  },
+  "query": {
+    "enable": "Transformovat pomocí SQL dotazu",
+    "title": "Transformace SQL dotazem",
+    "run": "Spustit dotaz",
+    "cancel": "Zrušit",
+    "placeholder": "Zde zadejte svůj SQL dotaz...",
+    "syntaxError": "Chyba syntaxe",
+    "hint": "Dotazujte se na tabulku {table} pomocí standardního SQL.",
+    "availableColumns": "Dostupné sloupce: {columns}",
+    "examples": "Příklady dotazů",
+    "success": "Dotaz byl úspěšně proveden. Vrácené řádky: {count}",
+    "exampleAll": "Všechna data (omezená)",
+    "exampleParameter": "Filtrovat podle parametru",
+    "exampleTimestamp": "Agregovat podle časové značky",
+    "exampleRange": "Filtrovat podle rozsahu hodnot",
+    "exampleRecent": "Pouze nedávná data",
+    "exampleStations": "Seskupit podle zdrojových stanic",
+    "exampleStation": "Seskupit podle zdrojové stanice",
+    "noData": "Žádná data k dotazování",
+    "initFailed": "Databázi se nepodařilo inicializovat: {error}",
+    "loadFailed": "Data se nepodařilo načíst: {error}",
+    "unknownError": "Neznámá chyba",
+    "queryFailed": "Chyba dotazu: {error}"
   },
   "validation": {
     "queryEmpty": "Dotaz nemůže být prázdný",

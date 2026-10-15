@@ -234,6 +234,45 @@ describe('stripes Page years', () => {
     expect(traces[0]!.x).toEqual([2019, 2020])
     expect(layout.annotations.map(a => a.text)).toEqual(expect.arrayContaining(['2019', '2020']))
   })
+
+  it('names the value and the trend of the hover texts in the active language', async () => {
+    // they read "Value:" and "Trend:" in every language (GH-2610)
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as any).setLocale('de')
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    try {
+      wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=temperature&show_timeseries=true&show_trendline=true' })
+      const vm = wrapper.vm as any
+      await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+      vm.selectedStation = station
+      await nextTick()
+      plotly.newPlot.mockClear()
+
+      await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Anzeigen')!.trigger('click')
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+
+      const [, traces] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ hovertemplate?: string }>]
+      const hovers = traces.map(trace => trace.hovertemplate).filter(Boolean)
+      expect(hovers).toContain('<b>%{x}</b><br>Wert: %{customdata}<extra></extra>')
+      expect(hovers).toContain('<b>%{x}</b><br>Wert: %{customdata:.2f}<extra></extra>')
+      expect(hovers).toContain('<b>%{x}</b><br>Trend: %{customdata:.2f}<extra></extra>')
+      expect(hovers.join()).not.toContain('Value')
+    }
+    finally {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    }
+  })
 })
 
 // a failing Plotly load can take seconds on a busy runner, past the default test timeout

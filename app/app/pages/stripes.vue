@@ -333,7 +333,7 @@ async function drawStripes(data: StripesValuesResponse) {
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: '<b>%{x}</b><br>Value: %{customdata}<extra></extra>',
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -361,7 +361,7 @@ async function drawStripes(data: StripesValuesResponse) {
     mode: 'lines' as const,
     line: { color: 'black', width: 2 },
     showlegend: false,
-    hovertemplate: '<b>%{x}</b><br>Value: %{customdata:.2f}<extra></extra>',
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
     customdata: values,
   }
 
@@ -388,7 +388,7 @@ async function drawStripes(data: StripesValuesResponse) {
       mode: 'lines' as const,
       line: { color: 'black', width: 4, dash: 'dash' },
       showlegend: false,
-      hovertemplate: '<b>%{x}</b><br>Trend: %{customdata:.2f}<extra></extra>',
+      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}: %{customdata:.2f}<extra></extra>`,
       customdata: trendlineValues,
     }
   }
@@ -676,7 +676,7 @@ onMounted(() => {
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4 break-words">
         {{ t('stripes.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">

@@ -408,7 +408,9 @@
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
     "chooseOnMap": "Kies op de kaart",
-    "mapHint": "Tik op een punt op de kaart om dat station te kiezen."
+    "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
+    "hoverValue": "Waarde",
+    "hoverTrend": "Trend"
   },
   "explorer": {
     "title": "Verkenner",
@@ -468,13 +470,13 @@
     "leadTimeShort": "Kort: tot 78 u, per uur",
     "leadTimeLong": "Lang: 78 tot 168 u, per 3 uur",
     "leadTimeHint": "De DWD publiceert de ICON DMO-verwachting als twee runs. De korte bevat de uurlijkse neerslag-, stralings- en sneeuwparameters, de lange in plaats daarvan die per 3 uur; alle andere zitten in beide. Aangeboden worden de parameters die de gekozen run bevat.",
-    "modeStationDesc": "Fetch observations directly from one or more weather stations.",
-    "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
-    "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
-    "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
-    "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
-    "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeStationDesc": "Haal waarnemingen rechtstreeks op van een of meer weerstations.",
+    "modeInterpolationDesc": "Schat wiskundig de weerwaarde op elke locatie, ook zonder station ter plaatse.",
+    "modeSummaryDesc": "Geeft de werkelijk gemeten waarde van het dichtstbijzijnde station dat op elk tijdstip gegevens heeft.",
+    "modeStationHow": "Ruwe gemeten waarden worden ongewijzigd teruggegeven, optioneel met eenhedenomrekening en leesbare parameternamen. Selecteer hieronder een of meer stations.",
+    "modeInterpolationHow": "Verzamelt waarden van stations die je doelpunt ruimtelijk omringen en legt daar een triangulatie overheen (Delaunay + lineaire interpolatie in UTM-ruimte). Elke tijdstap levert een synthetische waarde op je exacte coördinaten op – nauwkeuriger dan het dichtstbijzijnde station kiezen, vooral waar de stationsdekking goed is. Vereist minstens 3 omringende stations en een datumbereik. Voor neerslagparameters geldt bovendien een aanwezigheidscontrole om valse waarden dicht bij nul te voorkomen.",
+    "modeSummaryHow": "Voor elke parameter en elke tijdstap wordt vanaf je doellocatie naar buiten gezocht en het eerste station met een geldige meting gekozen – geen schatting, alleen de dichtstbijzijnde echte meting. De uitvoer bevat de ID van het bijdragende station en de afstand ertoe, zodat je altijd precies weet waar de gegevens vandaan komen. Een datumbereik is vereist.",
+    "modeHowItWorks": "Hoe het werkt"
   },
   "stationTable": {
     "stationId": "Station-id",
@@ -588,6 +590,30 @@
     "statMax": "Max.",
     "statMean": "Gemiddelde",
     "statSum": "Som"
+  },
+  "query": {
+    "enable": "Transformeren met SQL-query",
+    "title": "SQL-querytransformatie",
+    "run": "Query uitvoeren",
+    "cancel": "Annuleren",
+    "placeholder": "Voer hier je SQL-query in...",
+    "syntaxError": "Syntaxisfout",
+    "hint": "Bevraag de tabel {table} met standaard-SQL.",
+    "availableColumns": "Beschikbare kolommen: {columns}",
+    "examples": "Voorbeeldqueries",
+    "success": "Query succesvol uitgevoerd. Aantal rijen: {count}",
+    "exampleAll": "Alle gegevens (beperkt)",
+    "exampleParameter": "Filteren op parameter",
+    "exampleTimestamp": "Aggregeren op tijdstempel",
+    "exampleRange": "Filteren op waardebereik",
+    "exampleRecent": "Alleen recente gegevens",
+    "exampleStations": "Groeperen op bronstations",
+    "exampleStation": "Groeperen op bronstation",
+    "noData": "Geen gegevens om te bevragen",
+    "initFailed": "Database initialiseren mislukt: {error}",
+    "loadFailed": "Gegevens laden mislukt: {error}",
+    "unknownError": "Onbekende fout",
+    "queryFailed": "Queryfout: {error}"
   },
   "validation": {
     "queryEmpty": "Query mag niet leeg zijn",

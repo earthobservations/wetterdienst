@@ -7,7 +7,7 @@ import type { StationMode, StationSelectionState } from '~/types/station-selecti
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
-import { formatDate } from '~/utils/format'
+import { formatDate, formatNumber } from '~/utils/format'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -22,7 +22,7 @@ const props = defineProps<{
   unitTargetDefaults?: Record<string, string>
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
 
@@ -1284,10 +1284,10 @@ const statsTableColumns = computed<TableColumn<ParameterStats>[]>(() => [
   { accessorKey: 'dataset', header: t('dataViewer.statDataset'), cell: ({ row }) => datasetLabel(row.original.dataset) },
   { accessorKey: 'parameter', header: t('dataViewer.statParameter'), cell: ({ row }) => parameterLabel(row.original.parameter) },
   { accessorKey: 'count', header: t('dataViewer.statCount') },
-  { accessorKey: 'min', header: t('dataViewer.statMin'), cell: ({ row }) => row.original.min?.toFixed(2) ?? '-' },
-  { accessorKey: 'max', header: t('dataViewer.statMax'), cell: ({ row }) => row.original.max?.toFixed(2) ?? '-' },
-  { accessorKey: 'mean', header: t('dataViewer.statMean'), cell: ({ row }) => row.original.mean?.toFixed(2) ?? '-' },
-  { accessorKey: 'sum', header: t('dataViewer.statSum'), cell: ({ row }) => row.original.sum?.toFixed(2) ?? '-' },
+  { accessorKey: 'min', header: t('dataViewer.statMin'), cell: ({ row }) => row.original.min != null ? formatNumber(row.original.min, locale.value, 2) : '-' },
+  { accessorKey: 'max', header: t('dataViewer.statMax'), cell: ({ row }) => row.original.max != null ? formatNumber(row.original.max, locale.value, 2) : '-' },
+  { accessorKey: 'mean', header: t('dataViewer.statMean'), cell: ({ row }) => row.original.mean != null ? formatNumber(row.original.mean, locale.value, 2) : '-' },
+  { accessorKey: 'sum', header: t('dataViewer.statSum'), cell: ({ row }) => row.original.sum != null ? formatNumber(row.original.sum, locale.value, 2) : '-' },
 ])
 
 // Expose stats and fetch function for parent component

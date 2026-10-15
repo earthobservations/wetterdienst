@@ -408,7 +408,9 @@
     "plotDataAvailability": "Datenverfügbarkeit",
     "plotSource": "Quelle: Deutscher Wetterdienst",
     "chooseOnMap": "Auf der Karte aussuchen",
-    "mapHint": "Tipp auf einen Punkt auf der Karte, dann nimmst du die Station."
+    "mapHint": "Tipp auf einen Punkt auf der Karte, dann nimmst du die Station.",
+    "hoverValue": "Wert",
+    "hoverTrend": "Trend"
   },
   "explorer": {
     "title": "Explorer",
@@ -588,6 +590,30 @@
     "statMax": "Max",
     "statMean": "Mittel",
     "statSum": "Summe"
+  },
+  "query": {
+    "enable": "Mit SQL-Abfrage transformieren",
+    "title": "SQL-Abfrage-Transformation",
+    "run": "Abfrage ausführen",
+    "cancel": "Abbrechen",
+    "placeholder": "Gib hier deine SQL-Abfrage ein...",
+    "syntaxError": "Syntaxfehler",
+    "hint": "Frag die Tabelle {table} mit Standard-SQL ab.",
+    "availableColumns": "Verfügbare Spalten: {columns}",
+    "examples": "Beispielabfragen",
+    "success": "Abfrage erfolgreich ausgeführt. Zurückgegebene Zeilen: {count}",
+    "exampleAll": "Alle Daten (begrenzt)",
+    "exampleParameter": "Nach Parameter filtern",
+    "exampleTimestamp": "Nach Zeitstempel aggregieren",
+    "exampleRange": "Nach Wertebereich filtern",
+    "exampleRecent": "Nur aktuelle Daten",
+    "exampleStations": "Nach Quellstationen gruppieren",
+    "exampleStation": "Nach Quellstation gruppieren",
+    "noData": "Keine Daten zum Abfragen vorhanden",
+    "initFailed": "Die Datenbank konnte nicht initialisiert werden: {error}",
+    "loadFailed": "Die Daten konnten nicht geladen werden: {error}",
+    "unknownError": "Unbekannter Fehler",
+    "queryFailed": "Abfragefehler: {error}"
   },
   "validation": {
     "queryEmpty": "Die Abfrage darf nicht leer sein",

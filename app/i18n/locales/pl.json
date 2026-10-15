@@ -408,7 +408,9 @@
     "plotDataAvailability": "Dostępność danych",
     "plotSource": "Źródło: Deutscher Wetterdienst",
     "chooseOnMap": "Wybierz na mapie",
-    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację."
+    "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
+    "hoverValue": "Wartość",
+    "hoverTrend": "Trend"
   },
   "explorer": {
     "title": "Eksplorator",
@@ -468,13 +470,13 @@
     "leadTimeShort": "Krótki: do 78 h, godzinowy",
     "leadTimeLong": "Długi: od 78 do 168 h, trzygodzinny",
     "leadTimeHint": "DWD publikuje prognozę ICON DMO jako dwa przebiegi. Krótki zawiera godzinowe parametry opadu, promieniowania i śniegu, długi w ich miejsce trzygodzinne; wszystkie pozostałe są w obu. Oferowane są parametry, które zawiera wybrany przebieg.",
-    "modeStationDesc": "Fetch observations directly from one or more weather stations.",
-    "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
-    "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
-    "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
-    "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
-    "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeStationDesc": "Pobierz obserwacje bezpośrednio z jednej lub kilku stacji meteorologicznych.",
+    "modeInterpolationDesc": "Matematycznie szacuje wartość pogodową w dowolnym miejscu, nawet jeśli nie ma tam stacji.",
+    "modeSummaryDesc": "Zwraca faktycznie zmierzoną wartość z najbliższej stacji, która ma dane w każdej chwili.",
+    "modeStationHow": "Surowe wartości pomiarowe są zwracane bez zmian, opcjonalnie z przeliczeniem jednostek i czytelnymi nazwami parametrów. Wybierz poniżej jedną lub kilka stacji.",
+    "modeInterpolationHow": "Zbiera wartości ze stacji, które przestrzennie otaczają punkt docelowy, i dopasowuje do nich triangulację (Delaunay + interpolacja liniowa w przestrzeni UTM). Każdy krok czasowy daje wartość syntetyczną dokładnie w podanych współrzędnych – dokładniejszą niż wybór najbliższej stacji, zwłaszcza tam, gdzie stacji jest dużo. Wymaga co najmniej 3 otaczających stacji oraz zakresu dat. Dla parametrów opadów stosowane jest dodatkowo sprawdzenie występowania, aby uniknąć fałszywych wartości bliskich zeru.",
+    "modeSummaryHow": "Dla każdego parametru i każdego kroku czasowego przeszukuje okolicę od miejsca docelowego na zewnątrz i wybiera pierwszą stację z prawidłowym odczytem – bez szacowania, tylko najbliższy rzeczywisty pomiar. Wynik zawiera ID stacji, z której pochodzą dane, oraz jej odległość, więc zawsze wiadomo dokładnie, skąd dane pochodzą. Wymagany jest zakres dat.",
+    "modeHowItWorks": "Jak to działa"
   },
   "stationTable": {
     "stationId": "Identyfikator stacji",
@@ -588,6 +590,30 @@
     "statMax": "Maks.",
     "statMean": "Średnia",
     "statSum": "Suma"
+  },
+  "query": {
+    "enable": "Przekształć zapytaniem SQL",
+    "title": "Przekształcenie zapytaniem SQL",
+    "run": "Uruchom zapytanie",
+    "cancel": "Anuluj",
+    "placeholder": "Wpisz tutaj swoje zapytanie SQL...",
+    "syntaxError": "Błąd składni",
+    "hint": "Odpytaj tabelę {table} za pomocą standardowego SQL.",
+    "availableColumns": "Dostępne kolumny: {columns}",
+    "examples": "Przykładowe zapytania",
+    "success": "Zapytanie wykonane pomyślnie. Zwrócone wiersze: {count}",
+    "exampleAll": "Wszystkie dane (z limitem)",
+    "exampleParameter": "Filtruj według parametru",
+    "exampleTimestamp": "Agreguj według znacznika czasu",
+    "exampleRange": "Filtruj według zakresu wartości",
+    "exampleRecent": "Tylko najnowsze dane",
+    "exampleStations": "Grupuj według stacji źródłowych",
+    "exampleStation": "Grupuj według stacji źródłowej",
+    "noData": "Brak danych do zapytania",
+    "initFailed": "Nie udało się zainicjować bazy danych: {error}",
+    "loadFailed": "Nie udało się załadować danych: {error}",
+    "unknownError": "Nieznany błąd",
+    "queryFailed": "Błąd zapytania: {error}"
   },
   "validation": {
     "queryEmpty": "Zapytanie nie może być puste",

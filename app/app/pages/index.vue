@@ -116,7 +116,7 @@ const dataKinds = computed(() => [
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4">
     <div class="text-center mb-10">
-      <h1 class="text-3xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4 break-words">
         Wetterdienst
       </h1>
       <p class="text-xl text-gray-600 dark:text-gray-400">

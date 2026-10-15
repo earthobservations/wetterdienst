@@ -604,7 +604,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
 <template>
   <UContainer class="mx-auto max-w-3xl px-4 py-6 space-y-6">
     <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-4">
+      <h1 class="text-3xl font-bold mb-4 break-words">
         {{ t('explorer.title') }}
       </h1>
       <p class="text-gray-600 dark:text-gray-400">
