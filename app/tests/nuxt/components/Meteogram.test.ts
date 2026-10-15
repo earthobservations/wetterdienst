@@ -191,6 +191,58 @@ describe('meteogram low clouds', { timeout: 15_000 }, () => {
   })
 })
 
+describe('meteogram temperature band', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // dwd/mosmix station 10147, the run of 2026-10-15 04:00 UTC, as /api/values answered: the hourly
+  // temperature from 04:00 to 06:00 the next day, and `tx` and `tn` stamped at 06:00 and 18:00, each
+  // the extreme of the 12 hours before it (GH-2647)
+  const temperature = [8.2, 8.3, 8.7, 9.7, 10.9, 12.5, 13.8, 15.1, 16.0, 16.5, 16.7, 16.5, 15.7, 14.6, 13.8, 13.3, 12.7, 12.6, 12.5, 12.6, 12.6, 12.5, 12.6, 12.6, 12.6, 12.8, 13.1]
+  const stamped = {
+    temperature_air_max_2m_last_12h: [['2026-10-15T06:00:00+00:00', 10.3], ['2026-10-15T18:00:00+00:00', 17.4], ['2026-10-16T06:00:00+00:00', 13.9]],
+    temperature_air_min_2m_last_12h: [['2026-10-15T06:00:00+00:00', 6.5], ['2026-10-15T18:00:00+00:00', 8.0], ['2026-10-16T06:00:00+00:00', 11.6]],
+  } as const
+  const rows = [
+    ...temperature.map((value, i) => ({ ...values[0]!, parameter: 'temperature_air_2m', timestamp: new Date(Date.parse('2026-10-15T04:00:00Z') + i * 3_600_000).toISOString(), value })),
+    ...Object.entries(stamped).flatMap(([parameter, points]) => points.map(([timestamp, value]) => ({ ...values[0]!, parameter, timestamp, value }))),
+  ]
+
+  it('holds each maximum and minimum across the hours it covers, so the temperature stays inside', async () => {
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Hamburg' }, attachTo: document.body })
+    await wrapper.setProps({ values: rows })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    const [, traces] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string, x: string[], y: number[] }[]]
+    const trace = (name: string) => traces.find(t => t.name === name)!
+    const [mean, high, low] = [trace('Mean Temp °C'), trace('Max Temp °C'), trace('Min Temp °C')]
+    // an hour belongs to the window that ends at or after it, which a date's one point holds
+    const boundAt = (bound: typeof high, hour: string) => bound.y[bound.x.indexOf(hour)]!
+    expect(mean.x).toHaveLength(temperature.length)
+    for (const [i, hour] of mean.x.entries()) {
+      expect(mean.y[i]!, `${hour} above its maximum`).toBeLessThanOrEqual(boundAt(high, hour))
+      expect(mean.y[i]!, `${hour} below its minimum`).toBeGreaterThanOrEqual(boundAt(low, hour))
+    }
+    // as drawn between the stamps, 16.7 degrees at 14:00 was above the maximum line (14.1)
+    expect(boundAt(high, '2026-10-15T14:00:00.000Z')).toBe(17.4)
+    expect(boundAt(low, '2026-10-15T14:00:00.000Z')).toBe(8)
+  })
+
+  it('draws no band, and calls the curve the temperature, where the maximum and minimum hold no value', async () => {
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Hamburg' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...rows.filter(row => row.parameter === 'temperature_air_2m'), ...Object.entries(stamped).flatMap(([parameter, points]) => points.map(([timestamp]) => ({ ...values[0]!, parameter, timestamp, value: null })))] })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    const [, traces] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string }[]]
+    expect(traces.map(trace => trace.name)).not.toContain('Max Temp °C')
+    expect(traces.map(trace => trace.name)).not.toContain('Mean Temp °C')
+  })
+})
+
 describe('meteogram chart after a Retry', { timeout: 15_000 }, () => {
   // the focus Retry held fell to the page's body once a Retry that worked took the note away
   const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
