@@ -286,6 +286,7 @@
     "parametersTitle": "Parameters",
     "searchPlaceholder": "Zoek op naam of beschrijving…",
     "allUnitTypes": "Alle grootheden",
+    "unitTypeLabel": "Grootheid",
     "loading": "Laden…",
     "noResults": "Geen parameter komt overeen met je zoekopdracht.",
     "count": "{count} van {total} parameters"
@@ -476,7 +477,8 @@
     "modeStationHow": "Ruwe gemeten waarden worden ongewijzigd teruggegeven, optioneel met eenhedenomrekening en leesbare parameternamen. Selecteer hieronder een of meer stations.",
     "modeInterpolationHow": "Verzamelt waarden van stations die je doelpunt ruimtelijk omringen en legt daar een triangulatie overheen (Delaunay + lineaire interpolatie in UTM-ruimte). Elke tijdstap levert een synthetische waarde op je exacte coördinaten op – nauwkeuriger dan het dichtstbijzijnde station kiezen, vooral waar de stationsdekking goed is. Vereist minstens 3 omringende stations en een datumbereik. Voor neerslagparameters geldt bovendien een aanwezigheidscontrole om valse waarden dicht bij nul te voorkomen.",
     "modeSummaryHow": "Voor elke parameter en elke tijdstap wordt vanaf je doellocatie naar buiten gezocht en het eerste station met een geldige meting gekozen – geen schatting, alleen de dichtstbijzijnde echte meting. De uitvoer bevat de ID van het bijdragende station en de afstand ertoe, zodat je altijd precies weet waar de gegevens vandaan komen. Een datumbereik is vereist.",
-    "modeHowItWorks": "Hoe het werkt"
+    "modeHowItWorks": "Hoe het werkt",
+    "removeParameterDistance": "Afstand voor {parameter} verwijderen"
   },
   "stationTable": {
     "stationId": "Station-id",
@@ -511,6 +513,7 @@
     "selectStation": "Selecteer een station",
     "selectedStations": "Geselecteerde stations:",
     "clearAll": "Alles wissen",
+    "clearStation": "Geselecteerd station wissen",
     "showMap": "Kaart tonen",
     "chooseOnMap": "Kies op de kaart",
     "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
@@ -557,6 +560,10 @@
     "columns": "Kolommen",
     "copyCurrentPage": "Huidige pagina kopiëren",
     "copyAllValues": "Alle waarden kopiëren",
+    "viewTable": "Als tabel tonen",
+    "viewChart": "Als grafiek tonen",
+    "download": "Waarden downloaden",
+    "downloadChart": "Grafiek downloaden",
     "chartSettings": "Grafiekinstellingen",
     "paramLabel": "Parameterlabel",
     "facetByParameter": "Opsplitsen per parameter",

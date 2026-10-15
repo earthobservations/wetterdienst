@@ -62,6 +62,7 @@ const selectedItem = computed({
       variant="ghost"
       icon="i-lucide-x"
       size="sm"
+      :aria-label="t('stationSelection.clearStation')"
       @click="emit('update:modelValue', null)"
     />
   </div>

@@ -1935,7 +1935,7 @@ watch(
         <div v-if="!compact" class="flex flex-wrap items-center gap-2 min-w-0">
           <!-- Interactive Panel Selectors -->
           <div class="flex items-center gap-1">
-            <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
+            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
 
             <button
               type="button"
@@ -1944,7 +1944,7 @@ watch(
               :class="[
                 visiblePanels.temp
                   ? 'bg-red-500/10 border-red-200/60 text-red-600 dark:border-red-900/40 dark:text-red-400 ring-1 ring-red-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
               ]"
               @click="visiblePanels.temp = !visiblePanels.temp"
             >
@@ -1958,7 +1958,7 @@ watch(
               :class="[
                 visiblePanels.wind
                   ? 'bg-cyan-500/10 border-cyan-200/60 text-cyan-600 dark:border-cyan-900/40 dark:text-cyan-400 ring-1 ring-cyan-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
               ]"
               @click="visiblePanels.wind = !visiblePanels.wind"
             >
@@ -1972,7 +1972,7 @@ watch(
               :class="[
                 visiblePanels.precip
                   ? 'bg-blue-500/10 border-blue-200/60 text-blue-600 dark:border-blue-900/40 dark:text-blue-400 ring-1 ring-blue-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
               ]"
               @click="visiblePanels.precip = !visiblePanels.precip"
             >
@@ -1986,7 +1986,7 @@ watch(
               :class="[
                 visiblePanels.cloud
                   ? 'bg-slate-500/10 border-slate-200/60 text-slate-600 dark:border-slate-800/60 dark:text-slate-300 ring-1 ring-slate-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
               ]"
               :disabled="compact"
               @click="visiblePanels.cloud = !visiblePanels.cloud"
@@ -2001,7 +2001,7 @@ watch(
               :class="[
                 visiblePanels.pressure
                   ? 'bg-lime-500/10 border-lime-200/60 text-lime-600 dark:border-lime-900/40 dark:text-lime-400 ring-1 ring-lime-400/10'
-                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
+                  : 'bg-white/40 dark:bg-gray-900/40 border-gray-200/80 dark:border-gray-800/80 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700',
               ]"
               @click="visiblePanels.pressure = !visiblePanels.pressure"
             >
@@ -2018,7 +2018,7 @@ watch(
               class="text-xs px-2.5 py-1 rounded-md transition-all duration-150 select-none cursor-pointer"
               :class="horizonHours === opt.value
                 ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white font-semibold'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'"
               @click="horizonHours = opt.value"
             >
               {{ opt.label }}
@@ -2056,30 +2056,30 @@ watch(
       <div v-if="summaryStats && !widget" class="flex flex-wrap gap-x-5 gap-y-2 px-1 text-sm">
         <div v-if="summaryStats.temp" class="flex items-center gap-1.5">
           <UIcon name="i-lucide-thermometer" class="w-4 h-4 text-red-500 shrink-0" />
-          <span class="text-blue-500 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
-          <span class="text-gray-400">/</span>
-          <span class="text-red-500 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
+          <span class="text-blue-600 dark:text-blue-400 font-semibold">{{ summaryStats.temp.min }}°</span>
+          <span class="text-gray-500 dark:text-gray-400">/</span>
+          <span class="text-red-600 dark:text-red-400 font-semibold">{{ summaryStats.temp.max }}°C</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-lucide-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.gust, locale, 1) }}</span>
-          <span class="text-gray-400 text-xs">m/s</span>
-          <span class="text-cyan-500 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">m/s</span>
+          <span class="text-cyan-700 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-lucide-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.precip, locale, 1) }}</span>
-          <span class="text-gray-400 text-xs">mm</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">mm</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-lucide-cloud" class="w-4 h-4 text-slate-400 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.cloud }}</span>
-          <span class="text-gray-400 text-xs">%</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">%</span>
         </div>
         <div v-if="summaryStats.pressure" class="flex items-center gap-1.5">
           <UIcon name="i-lucide-gauge" class="w-4 h-4 text-lime-500 shrink-0" />
           <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.pressure.min }}–{{ summaryStats.pressure.max }}</span>
-          <span class="text-gray-400 text-xs">hPa</span>
+          <span class="text-gray-500 dark:text-gray-400 text-xs">hPa</span>
         </div>
       </div>
 
@@ -2124,7 +2124,7 @@ watch(
                   : 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/70 hover:border-gray-200 dark:hover:border-gray-700',
               ]"
             >
-              <div class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+              <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                 {{ d.isToday ? t('meteogram.chart.today') : d.label.split(' ')[0] }}
               </div>
               <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow">
@@ -2136,7 +2136,7 @@ watch(
               <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
                 {{ d.tempLabel }}
               </div>
-              <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-500 dark:text-blue-400 mt-1 select-none">
+              <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
                 💧 {{ d.precipLabel }}
               </div>
             </div>

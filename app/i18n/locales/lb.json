@@ -286,6 +286,7 @@
     "parametersTitle": "Parameteren",
     "searchPlaceholder": "Numm oder Beschreiwung sichen…",
     "allUnitTypes": "All Gréissten",
+    "unitTypeLabel": "Gréisst",
     "loading": "Gëtt gelueden…",
     "noResults": "Keen Parameter passt zu der Sich.",
     "count": "{count} vu(n) {total} Parameteren"
@@ -476,7 +477,8 @@
     "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
     "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
     "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeHowItWorks": "How it works",
+    "removeParameterDistance": "Distanz fir {parameter} läschen"
   },
   "stationTable": {
     "stationId": "Statiouns-ID",
@@ -511,6 +513,7 @@
     "selectStation": "Wielt eng Statioun",
     "selectedStations": "Ausgewielte Statiounen:",
     "clearAll": "Alles läschen",
+    "clearStation": "Déi ausgewielte Statioun läschen",
     "showMap": "Kaart weisen",
     "chooseOnMap": "Op der Kaart auswielen",
     "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen.",
@@ -557,6 +560,10 @@
     "columns": "Kolonnen",
     "copyCurrentPage": "Aktuell Säit kopéieren",
     "copyAllValues": "All Wäerter kopéieren",
+    "viewTable": "Als Tabell weisen",
+    "viewChart": "Als Diagramm weisen",
+    "download": "Wäerter eroflueden",
+    "downloadChart": "Diagramm eroflueden",
     "chartSettings": "Diagramm-Astellungen",
     "paramLabel": "Parameter-Etikett",
     "facetByParameter": "No Parameter opdeelen",

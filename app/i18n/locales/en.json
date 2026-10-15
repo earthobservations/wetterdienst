@@ -286,6 +286,7 @@
     "parametersTitle": "Parameters",
     "searchPlaceholder": "Search name or description…",
     "allUnitTypes": "All quantities",
+    "unitTypeLabel": "Quantity",
     "loading": "Loading…",
     "noResults": "No parameter matches your search.",
     "count": "{count} of {total} parameters"
@@ -476,7 +477,8 @@
     "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
     "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
     "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeHowItWorks": "How it works",
+    "removeParameterDistance": "Remove the distance for {parameter}"
   },
   "stationTable": {
     "stationId": "Station ID",
@@ -511,6 +513,7 @@
     "selectStation": "Select a station",
     "selectedStations": "Selected Stations:",
     "clearAll": "Clear all",
+    "clearStation": "Clear the selected station",
     "showMap": "Show map",
     "chooseOnMap": "Choose on the map",
     "mapHint": "Tap a marker on the map to pick that station.",
@@ -557,6 +560,10 @@
     "columns": "Columns",
     "copyCurrentPage": "Copy current page",
     "copyAllValues": "Copy all values",
+    "viewTable": "Show as table",
+    "viewChart": "Show as chart",
+    "download": "Download values",
+    "downloadChart": "Download chart",
     "chartSettings": "Chart Settings",
     "paramLabel": "Parameter label",
     "facetByParameter": "Facet by parameter",

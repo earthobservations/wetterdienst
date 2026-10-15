@@ -648,7 +648,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             </ul>
           </div>
 
-          <p class="text-sm text-gray-500">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
             {{ t('explorer.aboutFooter') }}
           </p>
         </div>
@@ -769,7 +769,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                 />
                 <template #content>
                   <div class="pt-3 space-y-2" data-testid="unit-targets">
-                    <p class="text-xs text-gray-500 mb-2">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       {{ t('explorer.unitTargetsHint') }}
                     </p>
                     <div
@@ -878,9 +878,9 @@ function handleUnitTargetChange(unitType: string, value: string) {
                     size="sm"
                     class="w-32"
                   />
-                  <span class="text-sm text-gray-500">km</span>
+                  <span class="text-sm text-gray-500 dark:text-gray-400">km</span>
                 </div>
-                <p class="text-xs text-gray-500">
+                <p class="text-xs text-gray-500 dark:text-gray-400">
                   {{ t('explorer.nearbyDistanceHint') }}
                 </p>
               </div>
@@ -898,13 +898,13 @@ function handleUnitTargetChange(unitType: string, value: string) {
                     <!-- Station Distance Mapping -->
                     <div class="space-y-2">
                       <label class="text-sm font-medium">{{ t('explorer.stationDistanceByParam') }}:</label>
-                      <p class="text-xs text-gray-500 mb-2">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
                         {{ t('explorer.stationDistanceHint') }}
                       </p>
 
                       <!-- The two default radii, one per kind of parameter -->
                       <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-600 w-32">{{ t('explorer.stationDistanceHomogeneous') }}:</span>
+                        <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHomogeneous') }}:</span>
                         <UInputNumber
                           v-model="dataSettings.stationDistanceHomogeneous"
                           :min="0"
@@ -913,10 +913,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           size="xs"
                           class="w-28"
                         />
-                        <span class="text-xs text-gray-500">km</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
                       </div>
                       <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-600 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}:</span>
+                        <span class="text-xs text-gray-600 dark:text-gray-400 w-32">{{ t('explorer.stationDistanceHeterogeneous') }}:</span>
                         <UInputNumber
                           v-model="dataSettings.stationDistanceHeterogeneous"
                           :min="0"
@@ -925,7 +925,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           size="xs"
                           class="w-28"
                         />
-                        <span class="text-xs text-gray-500">km</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
                       </div>
 
                       <!-- One list for every row: it used to be rendered inside the loop, so each
@@ -959,9 +959,10 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           class="w-28"
                           @update:model-value="updateParameterDistance(entry.id, entry.paramName, Number($event))"
                         />
-                        <span class="text-xs text-gray-500">km</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
                         <UButton
                           icon="i-lucide-trash-2"
+                          :aria-label="t('explorer.removeParameterDistance', { parameter: entry.paramName })"
                           color="error"
                           variant="ghost"
                           size="xs"
@@ -982,7 +983,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           size="xs"
                           @click="addParameterDistance"
                         />
-                        <span v-if="selectedParameters.length > 0" class="text-xs text-gray-500">
+                        <span v-if="selectedParameters.length > 0" class="text-xs text-gray-500 dark:text-gray-400">
                           {{ t('explorer.available') }}: {{ selectedParameters.join(', ') }}
                         </span>
                       </div>
@@ -1000,7 +1001,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           class="w-32"
                         />
                       </div>
-                      <p class="text-xs text-gray-500">
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
                         {{ t('explorer.minGainHint') }}
                       </p>
                     </div>
@@ -1016,7 +1017,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           class="w-32"
                         />
                       </div>
-                      <p class="text-xs text-gray-500">
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
                         {{ t('explorer.additionalStationsHint') }}
                       </p>
                     </div>

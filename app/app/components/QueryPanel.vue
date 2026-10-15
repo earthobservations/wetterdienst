@@ -589,7 +589,7 @@ onUnmounted(async () => {
               :class="syntaxError ? 'border-red-500 dark:border-red-400' : ''"
             />
             <div v-if="isValidating" class="absolute top-2 right-2">
-              <UIcon name="i-heroicons-arrow-path" class="animate-spin text-gray-400" />
+              <UIcon name="i-heroicons-arrow-path" class="animate-spin text-gray-500 dark:text-gray-400" />
             </div>
           </div>
 
@@ -603,13 +603,13 @@ onUnmounted(async () => {
             :description="syntaxError"
           />
 
-          <div class="text-xs text-gray-500">
+          <div class="text-xs text-gray-500 dark:text-gray-400">
             <i18n-t keypath="query.hint" tag="span">
               <template #table>
                 <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">data</code>
               </template>
             </i18n-t>
-            <div class="text-gray-400">
+            <div class="text-gray-500 dark:text-gray-400">
               <i18n-t keypath="query.availableColumns" tag="span">
                 <template #columns>
                   <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{{ expectedColumns.join(', ') }}</code>
@@ -620,7 +620,7 @@ onUnmounted(async () => {
         </div>
 
         <!-- DuckDB-wasm hands these types over as others, which the query panel does not undo (GH-2102, GH-2134) -->
-        <p class="text-xs text-gray-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
           {{ t('validation.misreadTypes') }}
         </p>
 
@@ -676,7 +676,7 @@ onUnmounted(async () => {
         />
 
         <!-- Results Info -->
-        <div v-if="queryResults" class="text-sm font-medium text-green-600 dark:text-green-400">
+        <div v-if="queryResults" class="text-sm font-medium text-green-700 dark:text-green-400">
           ✓ {{ t('query.success', { count: queryResults.length }) }}
         </div>
       </div>

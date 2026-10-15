@@ -29,6 +29,18 @@ rule, page and state, with the modes and languages it occurs in. A scan fails on
 - a rule in the baseline that is no longer broken, so whoever fixes a violation removes its entry and the
   baseline only shrinks.
 
+What is left in it, and why it is not fixed in the app's own markup:
+
+- `aria-required-children` and `scrollable-region-focusable`, the open station list: Nuxt UI's
+  `USelectMenu` puts the search field and a focus scope inside the element with `role="listbox"`, and
+  its scrolling viewport is not focusable. The app has no way to set either attribute; the fix is in
+  Nuxt UI / Reka UI.
+- `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
+  `aria-hidden` and focusable. Also upstream.
+- `color-contrast`, in light mode: the white label of a solid primary button (the "Show" button, the
+  Meteogram's Compact/Normal button) on the brand green is 2.2:1, and 1.9:1 hovered. The colour is the brand's, so
+  it is a design decision rather than a token fix (a darker green fill, or a dark label as in dark mode).
+
 ## On request, not by default
 
 The scan takes ten minutes and more, so it is not part of `pnpm test:e2e` or of the App E2E workflow

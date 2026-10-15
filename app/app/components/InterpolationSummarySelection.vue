@@ -157,7 +157,7 @@ const displayCoords = computed(() => {
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-2">
-      <span class="text-sm text-gray-500">{{ t('interpolation.source') }}:</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('interpolation.source') }}:</span>
       <UFieldGroup>
         <UButton
           v-for="option in sourceOptions"
@@ -210,7 +210,7 @@ const displayCoords = computed(() => {
           class="w-full"
           :class="{ 'needs-input': !modelValue.station }"
         />
-        <div v-else class="text-sm text-gray-500">
+        <div v-else class="text-sm text-gray-500 dark:text-gray-400">
           {{ t('interpolation.loadingStations') }}
         </div>
         <!-- a failed list leaves the select empty, and nothing asks for it again until the selection
@@ -240,7 +240,7 @@ const displayCoords = computed(() => {
       />
     </UFormField>
 
-    <div v-if="displayCoords" class="text-sm text-gray-500">
+    <div v-if="displayCoords" class="text-sm text-gray-500 dark:text-gray-400">
       {{ t('interpolation.coords', { coords: displayCoords }) }}
     </div>
   </div>

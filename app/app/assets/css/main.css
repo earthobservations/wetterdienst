@@ -1,6 +1,38 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Colour contrast, WCAG 2.2 AA (4.5:1 for text). Nuxt UI's defaults miss it in three places; each is
+   moved the least that clears the ratio, and the fills (--ui-primary, --ui-error) stay as they are. */
+
+/* Placeholders and other dimmed text: neutral-400 on white (2.6:1) and neutral-500 on the dark
+   background (3.7:1). Dark takes the next lighter shade, which is what muted text already is there.
+   Light takes a quarter of the way from neutral-500 to neutral-600, so that it still clears 4.5:1
+   when a hovered field is tinted (4.9:1 on neutral-100), and muted text takes the same colour, so
+   that a placeholder does not read stronger than a description. */
+:root {
+  --ui-text-dimmed: color-mix(in oklab, var(--ui-color-neutral-500), var(--ui-color-neutral-600) 25%);
+  --ui-text-muted: var(--ui-text-dimmed);
+}
+.dark {
+  --ui-text-dimmed: var(--ui-color-neutral-400);
+}
+
+/* Text in the primary or error colour on white or on its own tint (outline, soft and link buttons,
+   badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
+   tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
+   fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
+   (4.7:1; shade 700 alone is 4.3:1 there). The solid buttons, white on --ui-primary, are not
+   touched: that is the colour of the brand. In the utilities layer and with no extra specificity, so
+   that the hover and active colours of a link button still win. */
+@layer utilities {
+  :where(:root:not(.dark)) .text-primary {
+    color: color-mix(in oklab, var(--ui-color-primary-700), var(--ui-color-primary-800) 20%);
+  }
+  :where(:root:not(.dark)) .text-error {
+    color: var(--ui-color-error-700);
+  }
+}
+
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
    Plotly layers multiple <svg class="main-svg"> that must overlap;
    Tailwind's `svg { display: block }` causes them to stack vertically. */

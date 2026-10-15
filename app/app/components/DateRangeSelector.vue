@@ -133,7 +133,7 @@ defineExpose({ isValid, validationError })
     </div>
 
     <div v-if="isHighResolution && estimatedValues !== null" class="text-sm">
-      <span :class="exceedsLimit ? 'text-red-500' : 'text-gray-500'">
+      <span :class="exceedsLimit ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'">
         {{ t('dateRange.estimatedValues', { count: estimatedValues.toLocaleString(locale) }) }}
         <span v-if="exceedsLimit"> ({{ t('dateRange.max', { max: MAX_VALUES.toLocaleString(locale) }) }})</span>
       </span>

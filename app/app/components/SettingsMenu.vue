@@ -34,6 +34,7 @@ const themeOptions = computed(() => [
           <USelect
             v-model="selectedLanguage"
             :items="languageItems"
+            :aria-label="t('settings.language')"
             size="sm"
             class="w-full"
           />

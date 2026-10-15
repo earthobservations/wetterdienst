@@ -834,7 +834,7 @@ onMounted(() => {
 
       <div>
         <div v-if="isLoading" class="flex items-center justify-center h-64">
-          <div class="flex items-center gap-2 text-gray-500">
+          <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <UIcon name="i-lucide-loader-circle" class="animate-spin" />
             {{ t('stripes.loadingViz') }}
           </div>
@@ -847,7 +847,7 @@ onMounted(() => {
           <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
           <span class="text-sm">{{ fetchError }}</span>
         </div>
-        <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+        <div v-else-if="!hasPlot" class="flex flex-col items-center justify-center h-64 gap-3 text-gray-500 dark:text-gray-400">
           <UIcon name="i-lucide-bar-chart-big" class="w-12 h-12 opacity-30" />
           <p class="text-sm">
             {{ t('stripes.emptyHint') }}
@@ -878,7 +878,10 @@ onMounted(() => {
           class="w-full overflow-hidden" style="min-height: 400px;"
         />
         <div v-if="hasPlot && !plotFailed" class="mt-4">
+          <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its
+               own trigger is still focusable in it -->
           <UDropdownMenu
+            :modal="false"
             :items="[
               [
                 { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },

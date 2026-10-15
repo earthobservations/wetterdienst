@@ -244,7 +244,7 @@ function clear() {
           :multiple="true"
         />
       </div>
-      <div v-else class="text-sm text-gray-500">
+      <div v-else class="text-sm text-gray-500 dark:text-gray-400">
         {{ t('history.selectFirst') }}
       </div>
     </UCard>
@@ -292,7 +292,7 @@ function clear() {
       </template>
 
       <div>
-        <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600">
+        <div v-if="!data || (data.histories && data.histories.length === 0)" class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('history.noHistories') }}
         </div>
         <div v-else class="space-y-6">

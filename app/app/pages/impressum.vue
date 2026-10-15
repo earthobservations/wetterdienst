@@ -75,10 +75,10 @@ const hasPlaceholders = computed(() =>
       </template>
       <div class="space-y-2">
         <p class="text-gray-600 dark:text-gray-400">
-          {{ t('impressum.emailLabel') }}: <a :href="`mailto:${operator.email}`" class="text-primary-500 hover:underline">{{ operator.email }}</a>
+          {{ t('impressum.emailLabel') }}: <a :href="`mailto:${operator.email}`" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ operator.email }}</a>
         </p>
         <p class="text-gray-600 dark:text-gray-400">
-          {{ t('impressum.githubLabel') }}: <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary-500 hover:underline">@{{ operator.github }}</a>
+          {{ t('impressum.githubLabel') }}: <a :href="`https://github.com/${operator.github}`" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">@{{ operator.github }}</a>
         </p>
       </div>
     </UCard>
@@ -139,7 +139,7 @@ const hasPlaceholders = computed(() =>
       </template>
       <i18n-t keypath="impressum.openSourceText" tag="p" class="text-gray-600 dark:text-gray-400" scope="global">
         <template #link>
-          <a href="https://github.com/earthobservations/wetterdienst" target="_blank" class="text-primary-500 hover:underline">GitHub</a>
+          <a href="https://github.com/earthobservations/wetterdienst" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">GitHub</a>
         </template>
       </i18n-t>
     </UCard>

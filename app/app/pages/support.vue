@@ -82,10 +82,10 @@ const { t } = useI18n()
       <div class="mt-3">
         <ul class="space-y-2 text-gray-700 dark:text-gray-300">
           <li class="flex items-center gap-2">
-            <UIcon name="i-simple-icons-github" class="size-4" /><a href="https://github.com/sponsors/gutzbenj" target="_blank" class="text-primary-500 hover:underline">gutzbenj</a>
+            <UIcon name="i-simple-icons-github" class="size-4" /><a href="https://github.com/sponsors/gutzbenj" target="_blank" class="text-primary-700 dark:text-primary-500 hover:underline">gutzbenj</a>
           </li>
           <li class="flex items-center gap-2">
-            <UIcon name="i-simple-icons-paypal" class="size-4" /><a href="https://paypal.me/BenjaminGutzmann" target="_blank" class="text-primary-500 hover:underline">paypal.me/BenjaminGutzmann</a>
+            <UIcon name="i-simple-icons-paypal" class="size-4" /><a href="https://paypal.me/BenjaminGutzmann" target="_blank" class="text-primary-700 dark:text-primary-500 hover:underline">paypal.me/BenjaminGutzmann</a>
           </li>
         </ul>
       </div>

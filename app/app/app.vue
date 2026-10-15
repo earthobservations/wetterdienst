@@ -195,7 +195,7 @@ const items = computed<NavigationMenuItem[]>(() =>
               :to="item.to as string"
               class="flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-colors"
               :class="item.active
-                ? 'bg-primary-50 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
+                ? 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-400'
                 : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'"
               @click="mobileMenuOpen = false"
             >
@@ -268,8 +268,8 @@ const items = computed<NavigationMenuItem[]>(() =>
     </UMain>
     <UFooter v-if="!isWidget">
       <div class="w-full flex flex-col items-center gap-2 text-center">
-        <div class="text-xs text-gray-400 dark:text-gray-600">
-          <span class="text-green-600 dark:text-green-400 font-medium">App</span> {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}
+        <div class="text-xs text-gray-500 dark:text-gray-400">
+          <span class="text-green-700 dark:text-green-400 font-medium">App</span> {{ appVersion === 'unknown' ? appVersion : `v${appVersion}` }}
           <span class="mx-1">|</span>
           <span class="text-blue-600 dark:text-blue-400 font-medium">Backend</span> {{ backendVersion }}
         </div>
@@ -280,15 +280,15 @@ const items = computed<NavigationMenuItem[]>(() =>
         <div class="flex flex-wrap justify-center items-center gap-x-4 sm:gap-x-3 gap-y-1">
           <span>{{ t('footer.copyright', { year: new Date().getFullYear() }) }}</span>
           <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/about" class="text-gray-500 hover:text-primary-500 transition-colors">
+          <NuxtLink to="/about" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
             {{ t('footer.about') }}
           </NuxtLink>
           <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/support" class="text-gray-500 hover:text-primary-500 transition-colors">
+          <NuxtLink to="/support" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
             {{ t('nav.support') }}
           </NuxtLink>
           <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
-          <NuxtLink to="/impressum" class="text-gray-500 hover:text-primary-500 transition-colors">
+          <NuxtLink to="/impressum" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
             {{ t('footer.legal') }}
           </NuxtLink>
         </div>

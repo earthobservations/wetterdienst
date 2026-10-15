@@ -228,7 +228,7 @@ function removeStation(station: Station) {
     <p v-if="stationsError && !stationsPending" class="text-sm text-error text-center">
       {{ t('stationSelection.loadError') }}
     </p>
-    <p v-else-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 text-center">
+    <p v-else-if="stationsLoaded && !stationsPending && !allStations.length" class="text-sm text-gray-500 dark:text-gray-400 text-center">
       {{ t('stationSelection.noneFound') }}
     </p>
     <UContainer v-if="selectedStations.length > 0" class="mt-2">

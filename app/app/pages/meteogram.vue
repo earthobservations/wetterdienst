@@ -262,8 +262,9 @@ onMounted(async () => {
           <UIcon name="i-lucide-map-pin" class="text-primary-500 shrink-0" />
           <span class="text-lg font-bold">{{ t('explorer.dataSource') }}</span>
           <div class="ml-auto flex items-center gap-2">
-            <span class="text-xs text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</span>
+            <label for="meteogram-run" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ t('meteogram.runLabel') }}</label>
             <select
+              id="meteogram-run"
               v-model="selectedIssue"
               class="text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-2 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 w-48"
             >
@@ -277,7 +278,7 @@ onMounted(async () => {
       <MeteogramStationSearch v-model="selectedStation" />
 
       <!-- "or" divider, signalling the map is an equal alternative to search. -->
-      <div class="flex items-center gap-3 my-4 text-xs uppercase tracking-wide text-gray-400">
+      <div class="flex items-center gap-3 my-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
         <span>{{ t('meteogram.orChooseMap') }}</span>
         <div class="flex-1 border-t border-gray-200 dark:border-gray-700" />
@@ -296,7 +297,7 @@ onMounted(async () => {
         />
         <template #content>
           <ClientOnly>
-            <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500">
+            <div v-if="mapLoading" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
               <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin text-primary-500" />
               <span>{{ t('stationSelection.loading') }}</span>
             </div>
@@ -318,7 +319,7 @@ onMounted(async () => {
     </UCard>
 
     <!-- Loading state -->
-    <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500">
+    <div v-if="pending" class="flex items-center justify-center gap-3 py-12 text-gray-500 dark:text-gray-400">
       <UIcon name="i-lucide-loader-circle" class="w-6 h-6 animate-spin text-primary-500" />
       <span>{{ t('meteogram.loading') }}</span>
     </div>
@@ -338,7 +339,7 @@ onMounted(async () => {
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-cloud-sun" class="text-primary-500" />
           <span class="text-lg font-bold">{{ selectedStation.name }}</span>
-          <span class="text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
+          <span class="text-gray-500 dark:text-gray-400 text-sm">({{ selectedStation.station_id }})</span>
           <UButton
             :to="`/widget?station=${selectedStation.station_id}`"
             target="_blank"
@@ -361,7 +362,7 @@ onMounted(async () => {
     <!-- Empty state before selection -->
     <div
       v-else-if="!selectedStation"
-      class="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-16 text-center text-gray-400 space-y-2"
+      class="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-16 text-center text-gray-500 dark:text-gray-400 space-y-2"
     >
       <UIcon name="i-lucide-cloud-sun" class="w-12 h-12 mx-auto opacity-30" />
       <p class="text-sm">
