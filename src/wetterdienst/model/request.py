@@ -46,6 +46,7 @@ from wetterdienst.model.result import (
     StationsResult,
     SummarizedValuesResult,
 )
+from wetterdienst.model.schema import INTERPOLATED_SCHEMA, STATIONS_SCHEMA, SUMMARIZED_SCHEMA, coerce
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.settings import Settings, resolve_options
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -420,19 +421,10 @@ class TimeseriesRequest:
             }
         return data
 
-    @staticmethod
-    def _coerce_meta_fields(df: pl.DataFrame) -> pl.DataFrame:
-        """Coerce metadata fields to the correct types."""
-        return df.with_columns(
-            pl.col("station_id").cast(pl.String),
-            pl.col("elevation").cast(pl.Float64),
-            pl.col("latitude").cast(pl.Float64),
-            pl.col("longitude").cast(pl.Float64),
-            pl.col("name").cast(pl.String),
-            pl.col("region").cast(pl.String),
-            pl.col("start_timestamp").cast(pl.Datetime(time_zone="UTC")),
-            pl.col("end_timestamp").cast(pl.Datetime(time_zone="UTC")),
-        )
+    @classmethod
+    def _coerce_meta_fields(cls, df: pl.DataFrame) -> pl.DataFrame:
+        """Coerce the station columns to the dtypes of `STATIONS_SCHEMA`."""
+        return coerce(df, STATIONS_SCHEMA)
 
     @abstractmethod
     def _all(self) -> pl.LazyFrame:
@@ -461,7 +453,10 @@ class TimeseriesRequest:
         if not df.is_empty():
             df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
         else:
-            df = pl.DataFrame(schema=dict.fromkeys(self._base_columns, pl.String), orient="col")
+            # a column of the schema has its dtype, any other the provider declared is a String as before
+            df = pl.DataFrame(
+                schema={column: STATIONS_SCHEMA.get(column, pl.String) for column in self._base_columns}, orient="col"
+            )
 
         df = self._coerce_meta_fields(df)
 
@@ -798,15 +793,12 @@ class TimeseriesRequest:
             else f"interpolation({lat:.4f},{lon:.4f},{elevation:.1f}m)"
         )
         station_id = create_station_id_from_string(point)
-        df_interpolated = df_interpolated.select(
-            pl.lit(station_id).alias("station_id"),
-            pl.col("resolution"),
-            pl.col("dataset"),
-            pl.col("parameter"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("distance_mean"),
-            pl.col("taken_station_ids"),
+        df_interpolated = coerce(
+            df_interpolated.select(
+                pl.lit(station_id).alias("station_id"),
+                *(pl.col(column) for column in INTERPOLATED_SCHEMA if column != "station_id"),
+            ),
+            INTERPOLATED_SCHEMA,
         )
         df_stations = df_all.join(
             other=df_interpolated.select(pl.col("taken_station_ids").alias("station_id"))
@@ -915,15 +907,12 @@ class TimeseriesRequest:
             f"summary({lat:.4f},{lon:.4f})" if elevation is None else f"summary({lat:.4f},{lon:.4f},{elevation:.1f}m)"
         )
         station_id = create_station_id_from_string(point)
-        summarized_values = summarized_values.select(
-            pl.lit(station_id).alias("station_id"),
-            pl.col("resolution"),
-            pl.col("dataset"),
-            pl.col("parameter"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("distance"),
-            pl.col("taken_station_id"),
+        summarized_values = coerce(
+            summarized_values.select(
+                pl.lit(station_id).alias("station_id"),
+                *(pl.col(column) for column in SUMMARIZED_SCHEMA if column != "station_id"),
+            ),
+            SUMMARIZED_SCHEMA,
         )
         df_stations = df_all.join(
             other=summarized_values.select(pl.col("taken_station_id")).unique(),

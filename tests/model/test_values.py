@@ -17,48 +17,6 @@ from wetterdienst.provider.wsv.pegel.api import WsvPegelValues
 from wetterdienst.settings import Settings
 
 
-def test_cast_metadata_to_enum_uses_sorted_unique_categories() -> None:
-    """Metadata columns become Enum with categories taken from the sorted unique values."""
-    df = pl.DataFrame(
-        {
-            "station_id": ["00044", "00011", "00044"],
-            "resolution": ["daily", "daily", "daily"],
-            "dataset": ["climate_summary"] * 3,
-            "parameter": ["temperature_air_mean_2m", "precipitation_amount", "temperature_air_mean_2m"],
-            "value": [1.0, 2.0, 3.0],
-        },
-    )
-
-    result = TimeseriesValues._cast_metadata_to_enum(df)  # noqa: SLF001
-
-    assert result.schema["station_id"] == pl.Enum(["00011", "00044"])
-    assert result.schema["resolution"] == pl.Enum(["daily"])
-    assert result.schema["dataset"] == pl.Enum(["climate_summary"])
-    assert result.schema["parameter"] == pl.Enum(["precipitation_amount", "temperature_air_mean_2m"])
-    # value column is untouched and the data is preserved
-    assert result.schema["value"] == pl.Float64
-    assert_frame_equal(result.with_columns(pl.col(pl.Enum).cast(pl.String)), df)
-
-
-def test_cast_metadata_to_enum_never_fails_on_unexpected_values() -> None:
-    """Categories come from the data itself, so provider casing quirks (e.g. WSV 'w') never crash."""
-    df = pl.DataFrame({"station_id": ["x"], "parameter": ["w"], "value": [1.0]})
-
-    result = TimeseriesValues._cast_metadata_to_enum(df)  # noqa: SLF001
-
-    assert result.schema["parameter"] == pl.Enum(["w"])
-
-
-def test_cast_metadata_to_enum_skips_absent_columns() -> None:
-    """Columns not present (e.g. no `parameter` in wide shape) are simply skipped."""
-    df = pl.DataFrame({"station_id": ["x"], "resolution": ["daily"], "value": [1.0]})
-
-    result = TimeseriesValues._cast_metadata_to_enum(df)  # noqa: SLF001
-
-    assert result.schema["station_id"] == pl.Enum(["x"])
-    assert "parameter" not in result.columns
-
-
 def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
     """Build a values object for the given parameters without touching the network."""
     request = WsvPegelRequest(parameters=parameters)
@@ -780,7 +738,7 @@ def test_a_station_is_kept_when_one_dataset_leaves_its_start_timestamp_out(monke
 
     # the stub hands out 1930 readings for either dataset; the one asked about is the dataset whose
     # start is unknown, which was dropped with the station
-    assert df.filter(pl.col("dataset").cast(pl.String) == "climate_summary").height == 3
+    assert df.filter(pl.col("dataset") == "climate_summary").height == 3
 
 
 def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(

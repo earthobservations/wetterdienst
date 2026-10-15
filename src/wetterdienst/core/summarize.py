@@ -27,6 +27,7 @@ from wetterdienst.core.util import (
     unanswerable_at_elevation,
 )
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.schema import SUMMARIZED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
@@ -262,15 +263,10 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
     """Calculate summary of stations and parameters."""
     data = [
         pl.DataFrame(
-            schema={
-                "timestamp": pl.Datetime(time_zone="UTC"),
-                "resolution": pl.String,
-                "dataset": pl.String,
-                "parameter": pl.String,
-                "value": pl.Float64,
-                "distance": pl.Float64,
-                "taken_station_id": pl.String,
-            },
+            schema=select_schema(
+                SUMMARIZED_SCHEMA,
+                ("timestamp", "resolution", "dataset", "parameter", "value", "distance", "taken_station_id"),
+            ),
         ),
     ]
     for (resolution, dataset, parameter), param_data in param_dict.items():
@@ -285,14 +281,9 @@ def calculate_summary(stations_dict: dict, param_dict: dict) -> pl.DataFrame:
             results.append(apply_summary(row, stations_dict, resolution, dataset, parameter))
         results = pl.DataFrame(
             results,
-            schema={
-                "resolution": pl.String,
-                "dataset": pl.String,
-                "parameter": pl.String,
-                "value": pl.Float64,
-                "distance": pl.Float64,
-                "taken_station_id": pl.String,
-            },
+            schema=select_schema(
+                SUMMARIZED_SCHEMA, ("resolution", "dataset", "parameter", "value", "distance", "taken_station_id")
+            ),
             orient="row",
         ).with_columns(pl.col("value").round(param_data.decimals))
         param_df = pl.concat([param_df, results], how="horizontal_extend")

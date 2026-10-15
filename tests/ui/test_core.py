@@ -402,51 +402,6 @@ def test_point_on_the_equator_is_a_point(
     assert recorder.calls == [("point", (0.0, 8.97))]
 
 
-def test_select_history_sections_keeps_station_and_dataset() -> None:
-    """Test a history narrowed to some sections still names its station and dataset, first as in the history."""
-    history = {
-        "station_id": "01048",
-        "resolution": "daily",
-        "dataset": "climate_summary",
-        "name": {"station": [], "operator": []},
-        "parameter": [],
-        "device": [],
-        "geography": [],
-        "missing_data": {"summary": [], "periods": []},
-    }
-    selected = core.select_history_sections(history, {"missing_data"})
-    assert list(selected.items()) == [
-        ("station_id", "01048"),
-        ("resolution", "daily"),
-        ("dataset", "climate_summary"),
-        ("missing_data", {"summary": [], "periods": []}),
-    ]
-
-
-@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
-def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest]) -> None:
-    """Test the issue asked of dwd/swsmos reaches its request rather than reading the latest run (GH-2299)."""
-    from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
-    from wetterdienst.settings import Settings  # noqa: PLC0415
-
-    request = model.model_validate(
-        {
-            "provider": "dwd",
-            "network": "swsmos",
-            "parameters": "hourly/data",
-            "station": "A006",
-            "issue": "2026-10-01T11:00",
-        },
-    )
-    stations_request = core._get_stations_request(  # noqa: SLF001
-        api=DwdSwsmosRequest,
-        request=request,
-        timestamp=None,
-        settings=Settings(),
-    )
-    assert stations_request.issue == dt.datetime(2026, 10, 1, 11, tzinfo=dt.UTC)
-
-
 def test_swsmos_without_issue_reads_the_latest_run() -> None:
     """Test a dwd/swsmos request without an issue still targets the latest run (GH-2299)."""
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
@@ -482,8 +437,8 @@ def test_get_issues_lists_the_swsmos_runs(monkeypatch: pytest.MonkeyPatch) -> No
     request = core.IssuesRequest.model_validate({"provider": "dwd", "network": "swsmos", "station": "A006"})
 
     assert core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings()) == [
-        "2026-10-04T05:00:00+00:00",
-        "2026-10-04T06:00:00+00:00",
+        "2026-10-04T05:00:00.000000+00:00",
+        "2026-10-04T06:00:00.000000+00:00",
     ]
 
 

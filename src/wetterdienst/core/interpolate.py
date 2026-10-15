@@ -38,6 +38,7 @@ from wetterdienst.core.util import (
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.model.schema import INTERPOLATED_SCHEMA, select_schema
 from wetterdienst.util.logging import TqdmToLogger
 
 if TYPE_CHECKING:
@@ -378,15 +379,10 @@ def calculate_interpolation(
     """
     data = [
         pl.DataFrame(
-            schema={
-                "timestamp": pl.Datetime(time_zone="UTC"),
-                "resolution": pl.String,
-                "dataset": pl.String,
-                "parameter": pl.String,
-                "value": pl.Float64,
-                "distance_mean": pl.Float64,
-                "taken_station_ids": pl.List(inner=pl.String),
-            },
+            schema=select_schema(
+                INTERPOLATED_SCHEMA,
+                ("timestamp", "resolution", "dataset", "parameter", "value", "distance_mean", "taken_station_ids"),
+            ),
         ),
     ]
     valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
@@ -419,14 +415,10 @@ def calculate_interpolation(
             )
         results = pl.DataFrame(
             results,
-            schema={
-                "resolution": pl.String,
-                "dataset": pl.String,
-                "parameter": pl.String,
-                "value": pl.Float64,
-                "distance_mean": pl.Float64,
-                "taken_station_ids": pl.List(inner=pl.String),
-            },
+            schema=select_schema(
+                INTERPOLATED_SCHEMA,
+                ("resolution", "dataset", "parameter", "value", "distance_mean", "taken_station_ids"),
+            ),
             orient="row",
         ).with_columns(pl.col("value").round(param_data.decimals))
         param_df = pl.concat([param_df, results], how="horizontal_extend")

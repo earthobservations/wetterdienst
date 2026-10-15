@@ -305,12 +305,12 @@ describe('history Page', () => {
       histories: [{
         station_id: '00001',
         name: {
-          station: [{ station_id: '00001', station_name: 'Foo Station', valid_from: '1926-05-01T00:00:00+00:00', valid_to: null }],
+          station: [{ station_id: '00001', station_name: 'Foo Station', valid_from: '1926-05-01T00:00:00.000000+00:00', valid_to: null }],
           operator: [],
         },
         geography: [
-          { station_id: '00001', station_name: 'Foo Station', latitude: 51.0883, longitude: 13.7601, station_elevation: 152, valid_from: '1926-05-01T00:00:00+00:00', valid_to: '1935-07-10T00:00:00+00:00' },
-          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, valid_from: '2019-08-14T00:00:00+00:00', valid_to: null },
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.0883, longitude: 13.7601, station_elevation: 152, valid_from: '1926-05-01T00:00:00.000000+00:00', valid_to: '1935-07-10T00:00:00.000000+00:00' },
+          { station_id: '00001', station_name: 'Foo Station', latitude: 51.1278, longitude: 13.7543, station_elevation: 227.57, valid_from: '2019-08-14T00:00:00.000000+00:00', valid_to: null },
         ],
       }],
     }))
@@ -331,8 +331,8 @@ describe('history Page', () => {
         : []
     }
     await vi.waitFor(() => expect(rows()).toEqual([
-      ['1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00', '51.0883', '13.7601', '152'],
-      ['2019-08-14T00:00:00+00:00', '-', '51.1278', '13.7543', '227.57'],
+      ['1926-05-01T00:00:00Z', '1935-07-10T00:00:00Z', '51.0883', '13.7601', '152'],
+      ['2019-08-14T00:00:00Z', '-', '51.1278', '13.7543', '227.57'],
     ]), { timeout: 5000 })
   })
 
@@ -371,7 +371,7 @@ describe('history Page results', () => {
   })
 
   it('shows a number of 0 as 0, and one the backend has no value for as -', async () => {
-    const period = { station_id: '00001', station_name: 'Foo Station', valid_from: '2000-01-01T00:00:00+00:00', valid_to: '2001-01-01T00:00:00+00:00' }
+    const period = { station_id: '00001', station_name: 'Foo Station', valid_from: '2000-01-01T00:00:00.000000+00:00', valid_to: '2001-01-01T00:00:00.000000+00:00' }
     // each table a row with its numbers at 0, and one with them null, as the backend sends a field it has no value for
     const { wrapper, showButton } = await mountWithSelection(() => ({
       histories: [{
@@ -440,12 +440,12 @@ describe('history Page results', () => {
     const { wrapper, header } = await cardHeader({
       name: {
         station: [
-          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
-          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', null),
+          named('Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', '1935-07-10T00:00:00.000000+00:00'),
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00.000000+00:00', null),
         ],
         operator: [],
       },
-      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00')],
     })
 
     expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
@@ -458,12 +458,12 @@ describe('history Page results', () => {
     const { header } = await cardHeader({
       name: {
         station: [
-          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', null),
-          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00.000000+00:00', null),
+          named('Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', '1935-07-10T00:00:00.000000+00:00'),
         ],
         operator: [],
       },
-      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00')],
     })
 
     expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
@@ -473,12 +473,12 @@ describe('history Page results', () => {
     const { header } = await cardHeader({
       name: {
         station: [
-          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', null),
-          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', null),
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00.000000+00:00', null),
+          named('Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', null),
         ],
         operator: [],
       },
-      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00')],
     })
 
     expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
@@ -488,12 +488,12 @@ describe('history Page results', () => {
     const { header } = await cardHeader({
       name: {
         station: [
-          named('Dresden-Klotzsche', '1934-01-01T00:00:00+00:00', '2020-01-01T00:00:00+00:00'),
-          named('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+          named('Dresden-Klotzsche', '1934-01-01T00:00:00.000000+00:00', '2020-01-01T00:00:00.000000+00:00'),
+          named('Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', '1935-07-10T00:00:00.000000+00:00'),
         ],
         operator: [],
       },
-      geography: [placed('Elsewhere', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00')],
+      geography: [placed('Elsewhere', '1926-05-01T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00')],
     })
 
     expect(header).toBe('Station ID: 00001 Dresden-Klotzsche')
@@ -503,8 +503,8 @@ describe('history Page results', () => {
     const { header } = await cardHeader({
       name: { station: [], operator: [] },
       geography: [
-        placed('Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
-        placed('Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00'),
+        placed('Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', '1935-07-10T00:00:00.000000+00:00'),
+        placed('Dresden-Klotzsche', '1935-07-10T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00'),
       ],
     })
 
@@ -515,9 +515,9 @@ describe('history Page results', () => {
     // TMK's periods, then TXK's: the last record listed is an old one
     const { header } = await cardHeader({
       parameter: [
-        measured('TMK', 'Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
-        measured('TMK', 'Dresden-Klotzsche', '1935-07-10T00:00:00+00:00', '2026-09-30T00:00:00+00:00'),
-        measured('TXK', 'Dresden-Heller', '1926-05-01T00:00:00+00:00', '1935-07-10T00:00:00+00:00'),
+        measured('TMK', 'Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', '1935-07-10T00:00:00.000000+00:00'),
+        measured('TMK', 'Dresden-Klotzsche', '1935-07-10T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00'),
+        measured('TXK', 'Dresden-Heller', '1926-05-01T00:00:00.000000+00:00', '1935-07-10T00:00:00.000000+00:00'),
       ],
     })
 
@@ -526,12 +526,12 @@ describe('history Page results', () => {
 
   it('names the card from the missing data section where no other section names it', async () => {
     const missing = (station_name: string, valid_to: string) =>
-      ({ station_id: '00001', station_name, parameter: 'TMK', valid_from: '1926-05-01T00:00:00+00:00', valid_to, missing_count: 3, description: null })
+      ({ station_id: '00001', station_name, parameter: 'TMK', valid_from: '1926-05-01T00:00:00.000000+00:00', valid_to, missing_count: 3, description: null })
     const { header } = await cardHeader({
       // a section before it whose record has no name
-      device: [{ ...placed('', '1926-05-01T00:00:00+00:00', '2026-09-30T00:00:00+00:00'), station_name: null, device_type: null, device_height: null, method: null }],
+      device: [{ ...placed('', '1926-05-01T00:00:00.000000+00:00', '2026-09-30T00:00:00.000000+00:00'), station_name: null, device_type: null, device_height: null, method: null }],
       missing_data: {
-        summary: [missing('Dresden-Klotzsche', '2026-09-30T00:00:00+00:00'), missing('Dresden-Heller', '1935-07-10T00:00:00+00:00')],
+        summary: [missing('Dresden-Klotzsche', '2026-09-30T00:00:00.000000+00:00'), missing('Dresden-Heller', '1935-07-10T00:00:00.000000+00:00')],
         periods: [],
       },
     })
@@ -580,7 +580,7 @@ describe('history Page station card id', () => {
     // a record whose id is spelt otherwise than the history's, so the header tells which it reads
     const header = await cardHeader({
       station_id: '01048',
-      parameter: [{ station_id: '1048', station_name: 'Dresden-Klotzsche', parameter: 'TMK', valid_from: '1934-01-01T00:00:00+00:00', valid_to: '2026-09-30T00:00:00+00:00', description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null }],
+      parameter: [{ station_id: '1048', station_name: 'Dresden-Klotzsche', parameter: 'TMK', valid_from: '1934-01-01T00:00:00.000000+00:00', valid_to: '2026-09-30T00:00:00.000000+00:00', description: null, unit: null, data_source: null, extra_info: null, special: null, literature: null }],
     })
 
     expect(header).toBe('Station ID: 01048 Dresden-Klotzsche')

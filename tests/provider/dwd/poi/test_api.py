@@ -174,7 +174,7 @@ def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(m
         options=Options(drop_nulls=False),
     )
     df = stations_result(request, "hourly", "data", "10147").values.all().df
-    df = df.with_columns(pl.col("parameter").cast(pl.String)).sort("timestamp")
+    df = df.sort("timestamp")
     direction = df.filter(pl.col("parameter") == "wind_direction_last_10min")
     assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (None, "raw:0"), (360.0, None)]
     speeds = df.filter(pl.col("parameter") == "wind_speed_last_10min")

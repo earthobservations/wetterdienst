@@ -12,14 +12,16 @@ from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, Field
 
-from wetterdienst.model.result import HistoryResult, StationsResult
+from wetterdienst.model.result import HistoryResult, StationsResult, history_to_dict, history_to_json
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from collections.abc import Set as AbstractSet
 
     import polars as pl
 
     from wetterdienst.model.metadata import DatasetModel
+    from wetterdienst.model.result import _HistoryDict
 
 log = logging.getLogger(__name__)
 
@@ -165,6 +167,43 @@ class TimeseriesHistory(ABC):
             # Collect data for this station
             for history in self._collect_station_history(station_id, available_datasets):  # , available_datasets
                 yield HistoryResult(stations=self.sr, history=history)
+
+    def to_dict(
+        self,
+        *,
+        with_metadata: bool = False,
+        with_stations: bool = False,
+        sections: AbstractSet[str] | None = None,
+    ) -> _HistoryDict:
+        """Collect the history of every station and format it as one dictionary, as `HistoryResult.to_dict` does one.
+
+        This is the body of `/api/history` and of `wetterdienst history`.
+        """
+        return history_to_dict(
+            self.sr,
+            (result.history for result in self.query()),
+            with_metadata=with_metadata,
+            with_stations=with_stations,
+            sections=sections,
+        )
+
+    def to_json(
+        self,
+        *,
+        with_metadata: bool = False,
+        with_stations: bool = False,
+        sections: AbstractSet[str] | None = None,
+        indent: int | bool | None = 4,
+    ) -> str:
+        """Collect the history of every station and format it as JSON, as `to_dict` has it."""
+        return history_to_json(
+            self.sr,
+            (result.history for result in self.query()),
+            with_metadata=with_metadata,
+            with_stations=with_stations,
+            sections=sections,
+            indent=indent,
+        )
 
     def _get_available_datasets(self, df: pl.DataFrame) -> list[DatasetModel]:
         """Extract available datasets for the station."""

@@ -248,7 +248,7 @@ def test_nws_values_carry_the_madis_quality_control_flag_of_each_quantity(monkey
     serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
     request = _request(Settings(cache_disable=True), Options(drop_nulls=False))
     sr = stations_result(request, "hourly", "data", "KDEN")
-    df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = NwsObservationValues(sr=sr).all().df
     temperature = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")
     assert temperature.select("value", "quality_flags").rows() == [(16.0, "V"), (15.0, "S"), (None, "Z")]
     assert "quality" not in df.columns
@@ -284,7 +284,7 @@ def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch
         options=Options(drop_nulls=False),
     )
     sr = stations_result(request, "hourly", "data", "KBOS")
-    df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = NwsObservationValues(sr=sr).all().df
     direction = df.filter(pl.col("parameter") == "wind_direction").sort("timestamp")
     assert direction.select("value", "quality_flags").rows() == [(360.0, "V"), (None, "V,raw:0"), (None, "Z")]
     wind_speed = df.filter(pl.col("parameter") == "wind_speed").sort("timestamp")
@@ -331,7 +331,7 @@ def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeyp
         options=Options(drop_nulls=False),
     )
     sr = stations_result(request, "hourly", "data", "KBOS")
-    df = NwsObservationValues(sr=sr).all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = NwsObservationValues(sr=sr).all().df
     values = dict(df.select("parameter", "value").rows())
     assert values["wind_direction"] == 60.0
     # the gust arrives in km/h and is returned in m/s, the pressures arrive in Pa and are returned in hPa

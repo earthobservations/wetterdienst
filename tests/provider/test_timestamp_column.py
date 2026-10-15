@@ -18,7 +18,7 @@ from tests.provider.timestamps import TIMESTAMP_DTYPE, timestamp_problem
 from wetterdienst import Settings
 from wetterdienst.model import result as results
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest, DwdObservationValues
 
 UTC = ZoneInfo("UTC")
@@ -26,7 +26,7 @@ UTC = ZoneInfo("UTC")
 
 def test_the_declared_schema_is_utc_microseconds() -> None:
     """Test that the schema every provider's long frame is built against has the one timestamp type."""
-    assert TimeseriesValues._long_fields["timestamp"] == TIMESTAMP_DTYPE  # noqa: SLF001
+    assert LONG_SCHEMA["timestamp"] == TIMESTAMP_DTYPE
 
 
 @pytest.mark.parametrize(

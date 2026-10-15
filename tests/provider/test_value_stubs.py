@@ -22,7 +22,7 @@ PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 
 def _carried(df: pl.DataFrame, stub: ValueStub) -> list[tuple[str, float]]:
     """Give the sentinels of the stub that the output holds, as (parameter, value)."""
-    parameter = df.get_column("parameter").cast(pl.String)
+    parameter = df.get_column("parameter")
     return [
         (name, value)
         for name, value in stub.sentinels
@@ -44,7 +44,7 @@ def test_a_stub_source_leaves_no_sentinel_in_the_values(
     df = stub.build(monkeypatch)
 
     parameter, value = stub.reading
-    arrived = df.filter(pl.col("parameter").cast(pl.String) == parameter).get_column("value").to_list()
+    arrived = df.filter(pl.col("parameter") == parameter).get_column("value").to_list()
     assert value in arrived, f"{stub.provider}: the reading {parameter}={value} did not arrive, got {arrived}"
     if stub.empty_at:
         at = df.filter(pl.col("timestamp") == stub.empty_at)
@@ -88,7 +88,7 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
     assert without_text == set(), f"{stub.provider}: no `raw:` token is named for {sorted(without_text)}"
     flags = pl.col("quality_flags").str.split(",")
     df = df.with_columns(
-        pl.col("parameter").cast(pl.String),
+        pl.col("parameter"),
         flags.list.last().alias("last"),
         flags.list.eval(pl.element().str.starts_with("raw:")).list.sum().alias("raws"),
     )
