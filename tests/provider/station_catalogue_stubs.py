@@ -813,8 +813,10 @@ def _dwd_phenology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # `climateData/collections/station/items` (2026-10-15), trimmed to the properties the reader reads: DMI lists a
     # station once for each period of its metadata, 1063 stations in 4666 records, of which these are the first and
-    # the last record of three stations. The first record of Pituffik has neither an elevation nor the position of the
-    # later ones, and the reader takes it, as `created` is the same on all the records of a station (GH-2946)
+    # the last record of Københavns Lufthavn and Skagen Fyr and all the records of Pituffik and Qaanaaq, oldest first.
+    # The reader takes the one still open (`validTo` null): the earlier records of Pituffik and Qaanaaq have neither the
+    # elevation nor the position and name of the later ones, and `created` is the same on all records of a station
+    # (see GH-2946)
     def feature(
         station_id: str,
         name: str,
@@ -834,7 +836,7 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
                 "stationHeight": height,
                 "validFrom": valid[0],
                 "validTo": valid[1],
-                "created": "2026-09-30T11:59:36Z" if station_id == "04202" else "2026-09-30T11:59:37Z",
+                "created": "2026-09-30T11:59:36Z" if station_id in {"04202", "04205"} else "2026-09-30T11:59:37Z",
             },
         }
 
@@ -858,7 +860,21 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
             feature(
                 "04202", "Pituffik", "GRL", -68.75, 76.5333, None, ("1948-12-31T00:00:00Z", "2006-10-16T00:00:00Z")
             ),
+            feature(
+                "04202", "Pituffik", "GRL", -68.7031, 76.5311, 76.5, ("2006-10-16T00:00:00Z", "2019-01-15T13:34:47Z")
+            ),
             feature("04202", "Pituffik", "GRL", -68.7031, 76.5311, 77.0, ("2019-01-15T13:34:47Z", None)),
+            feature("04205", "Qaanaaq", "GRL", -69.2, 77.4833, None, ("1964-01-01T00:00:00Z", "1980-07-01T00:00:00Z")),
+            feature(
+                "04205",
+                "Mittarfik Qaanaaq",
+                "GRL",
+                -69.3744,
+                77.4853,
+                16.0,
+                ("1980-07-01T00:00:00Z", "2019-01-15T13:34:47Z"),
+            ),
+            feature("04205", "Mittarfik Qaanaaq", "GRL", -69.3744, 77.4853, 16.0, ("2019-01-15T13:34:47Z", None)),
         ],
     }
     _serve(monkeypatch, dmi_api, {"station/items": json.dumps(catalogue).encode("utf8")})

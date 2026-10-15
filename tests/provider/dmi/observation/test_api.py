@@ -193,7 +193,7 @@ def test_dmi_station_list_gives_the_country_not_a_region(monkeypatch: pytest.Mon
 
     DMI's `country` is `DNK`, `GRL` or `FRO` (4517, 127 and 22 of the 4666 station records on 2026-10-11), so
     it said which of the three a station is in and nothing about a region within it; the column that holds
-    the sub-national region of every other provider held a country for DMI. The newest record of a station
+    the sub-national region of every other provider held a country for DMI. The current record of a station
     gives its country.
     """
 
@@ -614,3 +614,95 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
         ("mean_temp", 5.3): None,
         ("mean_temp", 5.5): "validity:false",
     }
+
+
+def _dmi_record(
+    station_id: str,
+    name: str,
+    coordinates: tuple[float, float],
+    elevation: float | None,
+    valid_from: str,
+    valid_to: str | None,
+    created: str = "2026-09-30T11:59:36Z",
+) -> dict:
+    """Give a record of ``climateData/collections/station/items`` with the properties the reader reads."""
+    return {
+        "geometry": {"coordinates": list(coordinates)},
+        "properties": {
+            "stationId": station_id,
+            "name": name,
+            "country": "GRL",
+            "stationHeight": elevation,
+            "validFrom": valid_from,
+            "validTo": valid_to,
+            "created": created,
+        },
+    }
+
+
+# Qaanaaq (04205) and Pituffik (04202) as the station list gave them on 2026-10-15, oldest record first, with the same
+# `created` on all records of a station (964 of the 967 stations with several records)
+_QAANAAQ = [
+    _dmi_record("04205", "Qaanaaq", (-69.2, 77.4833), None, "1964-01-01T00:00:00Z", "1980-07-01T00:00:00Z"),
+    _dmi_record(
+        "04205", "Mittarfik Qaanaaq", (-69.3744, 77.4853), 16.0, "1980-07-01T00:00:00Z", "2019-01-15T13:34:47Z"
+    ),
+    _dmi_record("04205", "Mittarfik Qaanaaq", (-69.3744, 77.4853), 16.0, "2019-01-15T13:34:47Z", None),
+]
+_PITUFFIK = [
+    _dmi_record("04202", "Pituffik", (-68.75, 76.5333), None, "1948-12-31T00:00:00Z", "2006-10-16T00:00:00Z"),
+    _dmi_record("04202", "Pituffik", (-68.7031, 76.5311), 76.5, "2006-10-16T00:00:00Z", "2019-01-15T13:34:47Z"),
+    _dmi_record("04202", "Pituffik", (-68.7031, 76.5311), 77.0, "2019-01-15T13:34:47Z", None),
+]
+
+
+def _dmi_stations(monkeypatch: pytest.MonkeyPatch, records: list[dict]) -> list[tuple]:
+    """Read the station list from the records and give name, latitude, longitude and elevation per station."""
+    body = json.dumps({"features": records}).encode()
+    monkeypatch.setattr(
+        dmi_api, "download_file", lambda **kwargs: File(url=kwargs["url"], content=BytesIO(body), status=200)
+    )
+    df = dmi_api.DmiObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+    return sorted(df.select("station_id", "name", "latitude", "longitude", "elevation").rows())
+
+
+def test_dmi_station_is_listed_with_its_current_record_not_its_oldest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station with several records takes name, position and elevation of the one still open (GH-2946).
+
+    `created` is the same on all the records of a station and the list has them oldest first, so a sort by it left the
+    oldest record: Qaanaaq as `Qaanaaq` at 77.4833 / -69.2 without an elevation, Pituffik without one.
+    """
+    assert _dmi_stations(monkeypatch, [*_QAANAAQ, *_PITUFFIK]) == [
+        ("04202", "Pituffik", 76.5311, -68.7031, 77.0),
+        ("04205", "Mittarfik Qaanaaq", 77.4853, -69.3744, 16.0),
+    ]
+
+
+def test_dmi_current_record_does_not_depend_on_the_order_of_the_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The record is picked by the period it is valid for, wherever the list puts it (GH-2946)."""
+    assert _dmi_stations(monkeypatch, list(reversed(_PITUFFIK))) == [("04202", "Pituffik", 76.5311, -68.7031, 77.0)]
+
+
+def test_dmi_station_without_an_open_record_takes_the_one_that_ended_last(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station whose records are all closed takes the one with the latest `validTo` (GH-2946)."""
+    first = _dmi_record("04202", "Old", (-68.0, 76.0), None, "1900-01-01T00:00:00Z", "1948-12-31T00:00:00Z")
+    assert _dmi_stations(monkeypatch, [first, *_PITUFFIK[:2]]) == [("04202", "Pituffik", 76.5311, -68.7031, 76.5)]
+
+
+def test_dmi_records_of_one_period_take_the_one_written_last(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Of records with the same period the one with the latest `created` is the current one (GH-2946)."""
+    period = ("2019-01-15T13:34:47Z", None)
+    records = [
+        _dmi_record("04202", "Pituffik", (-68.7, 76.5), None, *period, created="2026-09-30T11:59:36Z"),
+        _dmi_record("04202", "Pituffik AB", (-68.7, 76.5), 77.0, *period, created="2026-10-01T00:00:00Z"),
+    ]
+    assert _dmi_stations(monkeypatch, list(reversed(records))) == [("04202", "Pituffik AB", 76.5, -68.7, 77.0)]
+
+
+def test_dmi_records_of_one_period_and_one_creation_take_the_one_listed_last(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Of records that differ in nothing but their content the one the list gives last is the current one (GH-2946)."""
+    period = ("2019-01-15T13:34:47Z", None)
+    first = _dmi_record("04202", "Pituffik", (-68.7, 76.5), None, *period)
+    last = _dmi_record("04202", "Pituffik AB", (-68.7, 76.5), 77.0, *period)
+    assert _dmi_stations(monkeypatch, [first, last]) == [("04202", "Pituffik AB", 76.5, -68.7, 77.0)]
+    assert _dmi_stations(monkeypatch, [last, first]) == [("04202", "Pituffik", 76.5, -68.7, None)]
