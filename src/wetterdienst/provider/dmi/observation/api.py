@@ -401,18 +401,32 @@ class DmiObservationRequest(TimeseriesRequest):
             .alias("end_timestamp"),
             pl.col("properties").struct.field("created").alias("created"),
         )
-        # DMI lists a station once per validity period. Collapse to one row per station: keep
-        # the most recent metadata (name, coordinates, elevation) and span the full active range
+        # DMI lists a station once per validity period. Collapse to one row per station: keep the
+        # current metadata (name, country, coordinates, elevation) and span the full active range
         # (earliest validFrom; a null validTo on any record means "still active" -> null).
-        # `sort_by("created").first()` inside the aggregation picks the newest record per group
-        # order-independently -- relying on a pre-sort + `first()` would not be deterministic
-        # without group_by(maintain_order=True).
+        # The current record is the one still open (validTo null), else the one that ended last, and
+        # of records that tie the one that began last, was written last, and stands last in the list.
+        # `created` is the time DMI wrote a record to the list, not the time its metadata began, and
+        # is the same on 964 of the 967 stations with several records, so it only breaks a tie
+        # (GH-2946). The sort sits inside the aggregation, which makes it independent of the order
+        # of the groups.
+        current = [
+            pl.col("end_timestamp").is_null(),
+            pl.col("end_timestamp"),
+            pl.col("start_timestamp"),
+            pl.col("created"),
+            pl.int_range(pl.len()),
+        ]
+
+        def newest(column: str) -> pl.Expr:
+            return pl.col(column).sort_by(current, descending=True, nulls_last=True).first().alias(column)
+
         df = df.group_by("station_id").agg(
-            pl.col("name").sort_by("created", descending=True).first().alias("name"),
-            pl.col("country").sort_by("created", descending=True).first().alias("country"),
-            pl.col("latitude").sort_by("created", descending=True).first().alias("latitude"),
-            pl.col("longitude").sort_by("created", descending=True).first().alias("longitude"),
-            pl.col("elevation").sort_by("created", descending=True).first().alias("elevation"),
+            newest("name"),
+            newest("country"),
+            newest("latitude"),
+            newest("longitude"),
+            newest("elevation"),
             pl.col("start_timestamp").min(),
             pl.when(pl.col("end_timestamp").is_null().any())
             .then(None)

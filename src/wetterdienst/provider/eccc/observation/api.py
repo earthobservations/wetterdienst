@@ -449,13 +449,13 @@ class EcccObservationRequest(TimeseriesRequest):
                         pl.Struct(
                             {
                                 "type": pl.String,
+                                # decimal degrees, longitude first
+                                "geometry": pl.Struct({"coordinates": pl.List(pl.Float64)}),
                                 "properties": pl.Struct(
                                     {
                                         "STN_ID": pl.Int64,
                                         "STATION_NAME": pl.String,
                                         "PROV_STATE_TERR_CODE": pl.String,  # alternative: ENG_PROV_NAME
-                                        "LATITUDE": pl.Int64,
-                                        "LONGITUDE": pl.Int64,
                                         "TIMEZONE": pl.String,
                                         "ELEVATION": pl.String,
                                         "FIRST_DATE": pl.String,
@@ -475,8 +475,19 @@ class EcccObservationRequest(TimeseriesRequest):
             pl.col("features").struct.field("properties").struct.field("STN_ID").alias("station_id"),
             pl.col("features").struct.field("properties").struct.field("STATION_NAME").alias("name"),
             pl.col("features").struct.field("properties").struct.field("PROV_STATE_TERR_CODE").alias("region"),
-            pl.col("features").struct.field("properties").struct.field("LATITUDE").alias("latitude"),
-            pl.col("features").struct.field("properties").struct.field("LONGITUDE").alias("longitude"),
+            # not `LATITUDE` and `LONGITUDE` of the properties: they pack degrees, minutes and seconds into one
+            # integer (`485500000` is 48 deg 55' 00"), which read as degrees times 10^7 put 8431 of the 8435 stations
+            # up to 0.4 degrees off the feature's own geometry (GH-2942)
+            pl.col("features")
+            .struct.field("geometry")
+            .struct.field("coordinates")
+            .list.get(1, null_on_oob=True)
+            .alias("latitude"),
+            pl.col("features")
+            .struct.field("geometry")
+            .struct.field("coordinates")
+            .list.get(0, null_on_oob=True)
+            .alias("longitude"),
             pl.col("features").struct.field("properties").struct.field("ELEVATION").alias("elevation"),
             pl.col("features").struct.field("properties").struct.field("FIRST_DATE").alias("first_date"),
             pl.col("features").struct.field("properties").struct.field("LAST_DATE").alias("last_date"),
@@ -493,10 +504,6 @@ class EcccObservationRequest(TimeseriesRequest):
                 "first_date", "last_date", *(column.lower() for column in _COLLECTION_DATE_COLUMN_NAMES)
             ).str.to_datetime("%Y-%m-%d %H:%M:%S"),
             pl.col("elevation").cast(pl.Float64),
-        )
-        df_raw = df_raw.with_columns(
-            pl.col("latitude") / 10_000_000,
-            pl.col("longitude") / 10_000_000,
         )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415

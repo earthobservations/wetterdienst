@@ -40,8 +40,10 @@ def test_eccc_api_stations(options_convert_units_false: Options) -> None:
                 # the first daily row of the station, not its FIRST_DATE 1984-01-01 (GH-2747)
                 "start_timestamp": dt.datetime(1984, 7, 1, tzinfo=ZoneInfo("UTC")),
                 "end_timestamp": dt.datetime(1996, 11, 30, tzinfo=ZoneInfo("UTC")),
-                "latitude": 48.52,
-                "longitude": -123.17,
+                # the geometry of the feature, 48 deg 52' N and 123 deg 17' W; LATITUDE and LONGITUDE (485200000,
+                # -1231700000) packed degrees, minutes and seconds, which were read as degrees (GH-2942)
+                "latitude": 48.86666666666667,
+                "longitude": -123.28333333333333,
                 "elevation": 4.0,
                 "name": "ACTIVE PASS",
                 "region": "BC",
@@ -286,6 +288,13 @@ def _as_instant(local_date: str) -> str:
     return f"{local_date}-01 00:00:00" if len(local_date) == 7 else local_date
 
 
+def _degrees(packed: int) -> float:
+    """Give the decimal degrees of a position packed as degrees, minutes and seconds, ``485500000`` for 48 deg 55'."""
+    magnitude = abs(packed)
+    degrees, minutes, seconds = magnitude // 10**7, magnitude // 10**5 % 100, magnitude % 10**5 / 1000
+    return (degrees + minutes / 60 + seconds / 3600) * (-1 if packed < 0 else 1)
+
+
 def _serve_eccc(
     monkeypatch: pytest.MonkeyPatch,
     collection_properties: list[dict] | dict[str, list[dict]],
@@ -323,7 +332,17 @@ def _serve_eccc(
             )[: int(query["limit"])]
         if "climate-stations" in url:
             properties = [station or _TORONTO_STATION]
-        content = json.dumps({"features": [{"type": "Feature", "properties": p} for p in properties]})
+        # the geometry of a station feature is its position in decimal degrees, as the list gives it
+        features = [
+            {"type": "Feature", "properties": p}
+            | (
+                {"geometry": {"type": "Point", "coordinates": [_degrees(p["LONGITUDE"]), _degrees(p["LATITUDE"])]}}
+                if "climate-stations" in url
+                else {}
+            )
+            for p in properties
+        ]
+        content = json.dumps({"features": features})
         return File(url=url, content=BytesIO(content.encode()), status=200)
 
     monkeypatch.setattr(eccc_api, "download_file", _download)
@@ -1227,3 +1246,46 @@ def test_eccc_collects_the_years_of_a_station_with_the_in_memory_engine(
     )
     assert not request.filter_by_station_id("51459").values.all().df.is_empty()
     assert collect_engines["provider/eccc/observation/api.py"][-1] == "in-memory"
+
+
+def test_eccc_station_position_is_the_geometry_of_the_feature(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station is placed where the geometry of its feature says, not where `LATITUDE` and `LONGITUDE` read as degrees.
+
+    The two properties pack degrees, minutes and seconds into one integer (`485500000` is 48 deg 55' 00", `-1234200000`
+    123 deg 42' 00" west), the geometry of the same feature is decimal degrees. Divided by 10^7 the properties gave
+    48.55 / -123.42 for CHEMAINUS BARE POINT, 0.37 degrees south and 0.28 east of the geometry, and CARWAY on the
+    Alberta border at 49 deg N was placed in Montana. Rows as the list gave them on 2026-10-15 (GH-2942).
+    """
+    stations = [
+        (2, "CHEMAINUS BARE POINT", 485500000, -1234200000, [-123.7, 48.916666666666664]),
+        (14, "ACTIVE PASS", 485200000, -1231700000, [-123.28333333333333, 48.86666666666667]),
+        (2219, "CARWAY", 485959010, -1132234000, [-113.37611111111111, 48.999725]),
+    ]
+    catalogue = {
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "STN_ID": station_id,
+                    "STATION_NAME": name,
+                    "PROV_STATE_TERR_CODE": "BC",
+                    "LATITUDE": latitude,
+                    "LONGITUDE": longitude,
+                    "TIMEZONE": "PST",
+                    "ELEVATION": "4.00",
+                },
+                "geometry": {"type": "Point", "coordinates": coordinates},
+            }
+            for station_id, name, latitude, longitude, coordinates in stations
+        ]
+    }
+    body = json.dumps(catalogue).encode()
+    monkeypatch.setattr(
+        eccc_api, "download_file", lambda **kwargs: File(url=kwargs["url"], content=BytesIO(body), status=200)
+    )
+    df = EcccObservationRequest(parameters=[("daily", "data")]).all().df
+    assert df.sort("station_id").select("station_id", "latitude", "longitude").rows() == [
+        ("14", 48.86666666666667, -123.28333333333333),
+        ("2", 48.916666666666664, -123.7),
+        ("2219", 48.999725, -113.37611111111111),
+    ]

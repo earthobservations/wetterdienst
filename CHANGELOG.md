@@ -77,6 +77,16 @@ Types of changes:
   (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
   historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
   `-999` at every station, so those periods never have a value for these two (GH-2852)
+- `eccc/observation` stations are placed at the position ECCC's list gives in decimal degrees, no
+  longer at its packed degrees, minutes and seconds read as degrees: 8431 of 8435 stations move,
+  4904 by more than 0.25 degrees on an axis and up to 53 km. `CARWAY` (2219) on the Alberta border
+  was at 48.5959 N, now 48.9997 N. Distance searches, interpolation and summaries pick stations by
+  it (GH-2942)
+- `dmi/observation` lists a station with the name, country, position and elevation of its
+  current record (`validTo` null), no longer of its oldest: 696 of the 967 stations with several
+  records change, by up to 1.75 degrees; 52 gain an elevation and one loses it. `04205` is now
+  `Mittarfik Qaanaaq` at 77.4853 N with 16.0 m, no longer `Qaanaaq` at 77.4833 N without one
+  (GH-2946)
 
 ### Security
 
