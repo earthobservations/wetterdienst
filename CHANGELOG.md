@@ -59,6 +59,23 @@ Types of changes:
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
 
+### Removed
+
+- **Breaking**: `dwd/mosmix` `large` no longer declares `h_bsc`, `rr1`, `rr3`, `rr6`, `rrh`, `rrd`,
+  `rads3` and `radl3`, which MOSMIX-L never delivers (none of the 114 elements of its 5648
+  stations); a request that named one got an empty frame and is now logged and dropped, or raises
+  `NoParametersFoundError` when no other parameter is requested. Drop them from the request;
+  MOSMIX-L's precipitation totals are `rr1c`, `rr3c`, `rr6c`, `rrhc` and `rrdc`. The description of
+  `sund3` says it is not a sliding 3 hour total (GH-2851)
+
+### Fixed
+
+- `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is null in a file that holds
+  one value in each of at least 500 readings, which is the pressure of a station without a
+  barometer and no reading (761 of the 1314 files hold one value, e.g. 997.3 for station 14072);
+  the value stays as the last `quality_flags` token, `raw:997.3`. A constant that changed once in
+  a file is not caught. Take the pressure of another source for such a station (GH-2699)
+
 ## [0.154.0] - 2026-10-15
 
 ### Changed

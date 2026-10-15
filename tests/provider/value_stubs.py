@@ -321,11 +321,21 @@ def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool
 def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the description says `missing value = -999`; the files write -99.9
     # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
-    # in stundenwerte_TF_14006_20201104_20251231_hist.zip)
+    # in stundenwerte_TF_14006_20201104_20251231_hist.zip). That file holds 995.9 in P_STD in all of its 44531 rows, the
+    # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the reader
+    # nulls a constant from 500 readings on (GH-2699), so the file is served with 500 rows
+    rows = [
+        "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor",
+        "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor",
+    ]
+    start = dt.datetime(2025, 1, 5, 2, tzinfo=_UTC)
+    rows += [
+        f"   14006;{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;   4.0;   5.0;  -0.5;  995.9;"
+        "  -0.2;  90.0;  -0.9;eor"
+        for hour in range(498)
+    ]
     product = (
-        "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
-        "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor\n"
-        "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor\n"
+        "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n" + "\n".join(rows) + "\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006", drop_nulls=drop_nulls)
 
@@ -1216,6 +1226,8 @@ STUBS = [
         tokens=(
             ("humidity_absolute", "-99.9", None),
             ("humidity_relative", "-99.9", None),
+            # the pressure of a file that holds one value, null with the text the file wrote (GH-2699)
+            ("pressure_air_site", "995.9", None),
             ("pressure_vapor", "-99.9", None),
             ("temperature_dew_point_2m", "-99.9", None),
             ("temperature_wet_2m", "-99.9", None),

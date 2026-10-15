@@ -4,6 +4,7 @@
 
 import datetime as dt
 import logging
+import re
 import time
 from collections.abc import Iterator
 from io import BytesIO
@@ -933,3 +934,28 @@ def test_mosmix_a_naive_date_handed_to_the_url_lookup_is_utc(monkeypatch: pytest
     )
 
     assert resolved == "https://example.com/kml/MOSMIX_L_2026100109_01001.kmz"
+
+
+# The 114 elements MOSMIX_L carried in every one of the 5648 stations of MOSMIX_L_LATEST.kmz (the 15Z run of
+# 2026-10-15) and in the single-station files of 10637, 10147 and 10382 (GH-2851). MetElementDefinition.xml defines
+# more, among them H_BsC, RR1, RR3, RR6, RRh, RRd, RadS3 and RadL3, which no MOSMIX_L file delivers.
+MOSMIX_L_DELIVERED = frozenset(
+    re.findall(
+        r"\S+",
+        "dd drr1 e_dd e_ff e_ppp e_td e_ttt ff fx1 fx3 fx625 fx640 fx655 fxh fxh25 fxh40 fxh55 n n05 neff nh nl "
+        "nlm nm pevap pppp psd00 psd30 psd60 r101 r102 r103 r105 r107 r110 r120 r130 r150 r600 r602 r610 r650 "
+        "rad1h rd00 rd02 rd10 rd50 rh00 rh02 rh10 rh50 rr1c rr1o1 rr1u1 rr1w1 rr3c rr6c rrad1 rrdc rrhc rrl1c "
+        "rrs1c rrs3c rsund sund sund1 sund3 t5cm td tg tm tn ttt tx vv vv10 w1w2 wpc11 wpc31 wpc61 wpcd1 wpch1 ww "
+        "ww3 wwc wwc6 wwch wwd wwd6 wwdh wwf wwf6 wwfh wwl wwl6 wwlh wwm wwm6 wwmd wwmh wwp wwp6 wwpd wwph wws "
+        "wws6 wwsh wwt wwt6 wwtd wwth wwz wwz6 wwzh",
+    ),
+)
+
+
+def test_mosmix_large_declares_the_elements_mosmix_l_delivers() -> None:
+    """`large` advertises exactly the elements of a MOSMIX_L file, not the eight that are defined and never sent."""
+    from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
+
+    declared = {parameter.name_original for parameter in api.DwdMosmixMetadata.hourly.large.parameters}
+    assert declared == MOSMIX_L_DELIVERED
+    assert len(declared) == 114
