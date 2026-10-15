@@ -343,7 +343,7 @@ Notes:
 
 Notes:
 
-- **observation/hourly**: Library: \`timestamp\` parsed with \`%Y-%m-%dT%H:%M:%S%z\` into UTC (src/wetterdienst/provider/nws/observation/api.py); request start/end sent upstream converted to UTC with \`astimezone(utc)\` (api.py), window applied again afterwards, both ends inclusive. Source: OpenAPI Observation schema: "timestamp": \{"type": "string", "format": "date-time"\}; property names "maxTemperatureLast24Hours", "precipitationLastHour", "precipitationLast3Hours", "precipitationLast6Hours" (https://api.weather.gov/openapi.json); a live value reads '2026-10-10T19:45:00+00:00' (KJFK). No prose definition of the reference time found in the spec.
+- **observation/hourly**: Library: \`timestamp\` parsed with \`%Y-%m-%dT%H:%M:%S%z\` into UTC (src/wetterdienst/provider/nws/observation/api.py); request start/end sent upstream converted to UTC with \`astimezone(utc)\` and widened by 30 minutes on both sides (api.py), window applied again afterwards, both ends inclusive. Of the endpoint's observations (a 5-minute ASOS row at each multiple of five minutes, the METAR at :51 to :54, SPECI) one is kept for each full hour (GH-2857): a METAR or SPECI over a 5-minute row, then the one nearest to the full hour it is nearest to, then the earlier; it is stamped with that full hour, not with its own minute (the METAR of 14:54 is 15:00). Source: OpenAPI Observation schema: "timestamp": \{"type": "string", "format": "date-time"\}; property names "maxTemperatureLast24Hours", "precipitationLastHour", "precipitationLast3Hours", "precipitationLast6Hours" (https://api.weather.gov/openapi.json); a live value reads '2026-10-10T19:45:00+00:00' (KJFK). No prose definition of the reference time found in the spec.
 
 ## eaufrance
 

@@ -58,6 +58,14 @@ Types of changes:
 - The parameter columns of a wide values frame are in the order the request names its parameters,
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
+- **Breaking**: `nws/observation` `hourly` returns one observation for each station-hour, stamped
+  with the full hour, no longer the 12 an hour the endpoint serves (5-minute ASOS rows, METAR,
+  SPECI). The kept one is the METAR or SPECI report nearest to the full hour, normally the METAR at
+  :51 to :54; an hour with no report keeps its nearest 5-minute row. The 5-minute rows and the
+  minute of a report are no longer available; read `api.weather.gov` for them. Precipitation is a
+  running total since the last routine METAR and the winds are 2-minute means; a SPECI nearer the
+  full hour than a synoptic METAR takes its 3- and 6-hour amounts with it, see the provider page
+  (GH-2857)
 
 ### Fixed
 

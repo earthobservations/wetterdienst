@@ -2507,7 +2507,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "NwsObservationMetadata": {
         ("hourly", "data"): (
-            "Historical hourly station observations (temperature, pressure, precipitation, etc.) for the US."
+            "Station observations (temperature, pressure, precipitation, etc.) for the US, one report for each "
+            "hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row."
         ),
     },
     "WsvPegelMetadata": {

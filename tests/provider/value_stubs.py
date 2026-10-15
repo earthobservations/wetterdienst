@@ -1065,18 +1065,26 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 
 def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # api.weather.gov/stations/KBOS/observations (read 2026-10-12): 12:54Z is the METAR `36005KT`, a direction of 360,
-    # and 14:54Z `00000KT`, a calm, which the endpoint gives as a direction of 0 beside a speed of 0 (GH-2794)
-    def observation(hour: int, direction: int, speed: float) -> dict[str, Any]:
-        return {
-            "properties": {
-                "station": "https://api.weather.gov/stations/KBOS",
-                "timestamp": f"2026-10-12T{hour:02d}:54:00+00:00",
-                "windDirection": {"unitCode": "wmoUnit:degree_(angle)", "value": direction, "qualityControl": "V"},
-                "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": "V"},
-            }
+    # and 14:54Z `00000KT`, a calm, which the endpoint gives as a direction of 0 beside a speed of 0 (GH-2794). The
+    # METAR carries the `precipitationLastHour` key and a 5-minute ASOS row, which the endpoint serves beside it at the
+    # minutes 0, 5, 10, ..., does not; the rows at 12:55 and 15:00 are the 5-minute rows `hourly` leaves out (GH-2857)
+    def observation(timestamp: str, direction: int, speed: float, *, report: bool) -> dict[str, Any]:
+        properties = {
+            "station": "https://api.weather.gov/stations/KBOS",
+            "timestamp": f"2026-10-12T{timestamp}:00+00:00",
+            "windDirection": {"unitCode": "wmoUnit:degree_(angle)", "value": direction, "qualityControl": "V"},
+            "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": "V"},
         }
+        if report:
+            properties["precipitationLastHour"] = {"unitCode": "wmoUnit:mm", "value": None, "qualityControl": "Z"}
+        return {"properties": properties}
 
-    features = [observation(12, 360, 9.36), observation(14, 0, 0)]
+    features = [
+        observation("12:54", 360, 9.36, report=True),
+        observation("12:55", 350, 11.1, report=False),
+        observation("14:54", 0, 0, report=True),
+        observation("15:00", 0, 0, report=False),
+    ]
     serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
     request = NwsObservationRequest(
         parameters=[("hourly", "data")],
