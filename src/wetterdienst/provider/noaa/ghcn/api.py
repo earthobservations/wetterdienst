@@ -46,6 +46,9 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 GHCNH_WIND_DIRECTION_CALM = "0"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
+# the text some sources write in a code column for "no code": 245 at CAMU0019904 (6,191 hours of temperature), 367 at
+# UKI0000EGLL (20,623 hours of sea level pressure)
+GHCNH_NO_CODE = "Null"
 
 # stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of it, 6 to
 # 756 km off: the list has lost the sign of the longitude (GH-2645, GH-2886). Each was checked against two or more
@@ -121,21 +124,32 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         )
         parameters = [parameter.name_original for parameter in dataset]
         # `<element>_Quality_Code` is what the source's own quality control made of the value, a code that Table 3 of
-        # the documentation lists per source (`<element>_Source_Code`, not returned). In the legacy sources 313, 314,
-        # 315, 322, 335, 343, 344, 346 `2` is "Suspect", `3` "Erroneous" and `1` "Passed all quality control checks"; in
-        # 220, 221, 222, 223, 347, 348 `2` and `3` are the same and `1` is "Good"; source 345 has its own (`1` "Issue",
-        # `3` "Error"). A letter is a check of the integration on six elements (`c` climatological outlier, `s` spike,
-        # `f` frequent value) or a legacy flag (`f` and `o` of a derived humidity, `A`, `P`, `U`, `q`). Sources Table 3
-        # does not list occur too (`0` of source 401). The value stays as the file gives it, suspect or erroneous too,
-        # and the code travels with it through the unpivot as the field of a struct, written as the source writes it,
-        # case included (`q` and `Q` differ) (GH-2754)
+        # the documentation lists per source, and `<element>_Source_Code` is that source (ghcnh-source-list.pdf), which
+        # says which list the code is read in. In the legacy sources 313, 314, 315, 322, 335, 343, 344, 346 `2` is
+        # "Suspect", `3` "Erroneous" and `1` "Passed all quality control checks"; in 220, 221, 222, 223, 347, 348 `2`
+        # and `3` are the same and `1` is "Good"; source 345 has its own (`1` "Issue", `3` "Error"). A letter is a check
+        # of the integration on six elements (`c` climatological outlier, `s` spike, `f` frequent value) or a legacy
+        # flag (`f` and `o` of a derived humidity, `A`, `P`, `U`, `q`). Sources Table 3 does not list occur too (`0` of
+        # source 401). The value stays as the file gives it, suspect or erroneous too, and the code travels with it
+        # through the unpivot as the field of a struct, written as the source writes it, case included (`q` and `Q`
+        # differ) (GH-2754).
+        # `<element>_Measurement_Code` says how the value was made (Table 2, by element and by source): `N` a normal
+        # and `C` a calm wind, `D` a derived humidity, `0` to `8` the tendency of the 3-hour pressure change, `T` or `2`
+        # a trace of precipitation (`T` is Table 1's wording, Table 2 gives `2` for most sources). Both
+        # follow the quality code as the tokens `measurement:` and `source:`, as in daily
+        # (`QFLAG,measurement:MFLAG,source:SFLAG`), as the file writes them (GH-2925). Elements this reader does not
+        # return write several codes in one cell (`06:4`, `M;N`), none of those returned does (8 stations read on
+        # 2026-10-15). `<element>_Report_Type` (`SAO`, `FM15`, ...) and `<element>_Source_Station_ID` are not returned.
+        # A code of `Null` is no code (sources 245 and 367 write it): left out.
         df = df.select(
             "station_id",
             "timestamp",
             *(
                 pl.struct(
                     pl.col(parameter).alias("value"),
-                    pl.col(f"{parameter}_Quality_Code").alias("quality"),
+                    pl.col(f"{parameter}_Quality_Code").replace(GHCNH_NO_CODE, None).alias("quality"),
+                    pl.col(f"{parameter}_Measurement_Code").replace(GHCNH_NO_CODE, None).alias("measurement"),
+                    pl.col(f"{parameter}_Source_Code").replace(GHCNH_NO_CODE, None).alias("source"),
                 ).alias(parameter)
                 for parameter in parameters
             ),
@@ -148,6 +162,8 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         )
         df = df.with_columns(
             pl.col("value").struct.field("quality"),
+            pl.col("value").struct.field("measurement"),
+            pl.col("value").struct.field("source"),
             pl.col("value").struct.field("value"),
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -173,8 +189,8 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         )
         return df.with_columns(
             value.cast(pl.Float64).alias("value"),
-            join_quality_flags(pl.col("quality"), raw=raw),
-        ).drop("quality")
+            join_quality_flags(pl.col("quality"), measurement=pl.col("measurement"), source=pl.col("source"), raw=raw),
+        ).drop("quality", "measurement", "source")
 
     def _collect_station_parameter_for_daily(
         self,

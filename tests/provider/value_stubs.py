@@ -130,14 +130,20 @@ def serve(monkeypatch: pytest.MonkeyPatch, module: Any, bodies: dict[str, bytes 
     monkeypatch.setattr(module, "download_file", download_file)
 
 
-def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, str]]]) -> bytes:
-    """Write a GHCNh by-station file with a column per element and, beside each, its `_Quality_Code`.
+GHCNH_ATTRIBUTES = ("Measurement_Code", "Quality_Code", "Report_Type", "Source_Code", "Source_Station_ID")
 
-    NOAA writes four more attribute columns beside every element, which the reader does not read. A cell a row does
-    not name is empty; a row names a code as `<element>_Quality_Code` (`temperature_Quality_Code`), and a name that is
-    in no column is an error, so that a typo cannot leave a stub testing nothing.
+
+def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, str]]]) -> bytes:
+    """Write a GHCNh by-station file with a column per element and, beside each, its five attribute columns.
+
+    NOAA writes `<element>_Measurement_Code`, `_Quality_Code`, `_Report_Type`, `_Source_Code` and `_Source_Station_ID`
+    beside every element, in that order. A cell a row does not name is empty; a row names an attribute as
+    `<element>_<attribute>` (`temperature_Quality_Code`), and a name that is in no column is an error, so that a typo
+    cannot leave a stub testing nothing.
     """
-    header = ["STATION", "DATE"] + [name for column in columns for name in (column, f"{column}_Quality_Code")]
+    header = ["STATION", "DATE"] + [
+        name for column in columns for name in (column, *(f"{column}_{attribute}" for attribute in GHCNH_ATTRIBUTES))
+    ]
     for _, row in rows:
         unknown = set(row) - set(header)
         assert not unknown, f"the file has no column {sorted(unknown)}"
@@ -508,13 +514,16 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     hourly = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     columns = [parameter.name_original for parameter in hourly.metadata["hourly"]["data"]]
     # `<element>_Quality_Code` beside each value (GH-2754): 1942-01-17 02:00 reads 1 for the temperature and for the
-    # direction 999, so that the text of the sentinel follows the code (`1,raw:999`)
+    # direction 999, so that the text of the sentinel follows the code. The file gives the direction the measurement
+    # code C and source 220 too (GH-2925), which come between the two (`1,measurement:C,source:220,raw:999`)
     rows = [
         {
             "temperature": "23.5",
             "temperature_Quality_Code": "1",
             "wind_direction": "999",
+            "wind_direction_Measurement_Code": "C",
             "wind_direction_Quality_Code": "1",
+            "wind_direction_Source_Code": "220",
             "wind_speed": "0.0",
             "precipitation": "-9999",
         },
@@ -941,33 +950,43 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
     return stations_result(request, "hourly", "data", "SN18700").values.all().df
 
 
-def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+def _knmi_netcdf(values: dict[str, float]) -> bytes:
+    """Write the file KNMI serves for one timestamp: a variable per name, laid out as (station, time), one station."""
     h5py = pytest.importorskip("h5py")
     h5netcdf = pytest.importorskip("h5netcdf")
 
-    # a file per day for the whole network (here one station), the variables laid out as (station, time): a missing
-    # observation is the NaN _FillValue and a trace of precipitation a -1 in RH
-    days = {"20240101": (3.2, 1.4), "20240102": (float("nan"), -1.0)}
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "knmi.nc"
+        with h5netcdf.File(path, "w") as file:
+            file.dimensions = {"station": 1, "time": 1}
+            station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
+            station[:] = ["0-20000-0-06260"]
+            for name, value in values.items():
+                variable = file.create_variable(name, ("station", "time"), dtype="f8")
+                variable[:] = [[value]]
+        return path.read_bytes()
 
-    def netcdf(temperature: float, precipitation: float) -> bytes:
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "knmi.nc"
-            with h5netcdf.File(path, "w") as file:
-                file.dimensions = {"station": 1, "time": 1}
-                station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
-                station[:] = ["0-20000-0-06260"]
-                for name, value in (("TG", temperature), ("RH", precipitation)):
-                    variable = file.create_variable(name, ("station", "time"), dtype="f8")
-                    variable[:] = [[value]]
-            return path.read_bytes()
 
-    payloads = {day: netcdf(*values) for day, values in days.items()}
+def _knmi_serve(monkeypatch: pytest.MonkeyPatch, payloads: dict[str, bytes]) -> None:
+    """Serve the file of each timestamp, by the part of its filename that names it."""
     monkeypatch.setattr(
         knmi_api,
         "_fetch_netcdf",
         lambda _dataset, _version, filename, _settings: next(
-            payload for day, payload in payloads.items() if day in filename
+            payload for moment, payload in payloads.items() if moment in filename
         ),
+    )
+
+
+def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # a file per day for the whole network (here one station): a missing observation is the NaN _FillValue and a trace
+    # of precipitation a -1 in RH
+    _knmi_serve(
+        monkeypatch,
+        {
+            "20240101": _knmi_netcdf({"TG": 3.2, "RH": 1.4}),
+            "20240102": _knmi_netcdf({"TG": float("nan"), "RH": -1.0}),
+        },
     )
     request = KnmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "precipitation_amount")],
@@ -977,6 +996,28 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "06260").values.all().df
+
+
+def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # DD is "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (GH-2850): a bearing at 00 UTC, the code for
+    # a variable wind at 01 UTC (hourly-observations-validated-20261012-08.nc has Horst at 990 with FF 1.0 m/s) and the
+    # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue
+    _knmi_serve(
+        monkeypatch,
+        {
+            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0}),
+            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0}),
+            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0}),
+        },
+    )
+    request = KnmiObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_direction_last_10min")],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 1, 2),
+        settings=_settings(auth={"knmi": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "06260").values.all().df
 
 
 def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1283,6 +1324,18 @@ STUBS = [
         reading=("temperature_air_mean_2m", 3.2),
         sentinels=(("precipitation_amount", -1.0),),
         tokens=(("temperature_air_mean_2m", "NaN", None), ("precipitation_amount", "-1", 0.0)),
+    ),
+    ValueStub(
+        "knmi/observation hourly/data",
+        _knmi_hourly,
+        reading=("wind_direction_last_10min", 250.0),
+        # 0 is a calm and 990 a variable wind, neither a bearing (GH-2850)
+        sentinels=(("wind_direction_last_10min", 0.0), ("wind_direction_last_10min", 990.0)),
+        tokens=(
+            ("temperature_air_2m", "NaN", None),
+            ("wind_direction_last_10min", "0", None),
+            ("wind_direction_last_10min", "990", None),
+        ),
     ),
     ValueStub(
         "fmi/observation hourly/data",

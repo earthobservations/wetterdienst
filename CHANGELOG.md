@@ -18,6 +18,13 @@ Types of changes:
 
 ### Changed
 
+- `noaa/ghcn` hourly `quality_flags` also carry the file's `<element>_Measurement_Code` and
+  `<element>_Source_Code`, as `measurement:<code>` and `source:<code>` after the quality code and
+  before `raw:` (`5,measurement:T,source:335`), as daily does. The source says which list a
+  quality code is read in (`4` is "passed gross limits" for source 335, "calculated" for 223); the
+  measurement code marks, by element, a trace of precipitation, a calm wind and the tendency of the
+  3-hour pressure change. The text `Null`, which sources 245 and 367 write for "no code", is left
+  out of the quality code too (it was returned as the flag `Null`) (GH-2925)
 - **Breaking**: `ea/hydrology` `quality_flags` carries the reading's `completeness` after its
   quality, `Good,completeness:Complete` or `Good,completeness:Incomplete`, whether the value is
   based on complete data. Daily readings carry it (not all of them); a reading without one, and
@@ -26,6 +33,14 @@ Types of changes:
 
 ### Fixed
 
+- `knmi/observation`, `aemet/observation` and `lhmt/observation` values requests that go offline
+  end at the first download answered with no connection, as the loop over files of one station
+  already did: the stations and datasets after it are no longer tried, each waiting for the
+  connection to fail, and so return nothing even where their files were already downloaded. What
+  the station that found out had read is returned (GH-2620)
+- `knmi/observation` hourly `wind_direction_last_10min` is null, no longer 990 or 0, where KNMI
+  writes the code for a variable wind (990) or a calm (0); the code stays in `quality_flags` as
+  `raw:990` or `raw:0`. Only bearings (360 is north) are left as values (GH-2850)
 - **Breaking**: `ea/hydrology` returned the level of a river as `groundwater_level`. The Environment
   Agency's `level-*` measures are river levels (2638 stations), so `daily/groundwater_level_max`
   and `_min` had no groundwater behind them, and `15_minutes/groundwater_level` held rivers and no
@@ -49,6 +64,16 @@ Types of changes:
   `groundwater_level` (it listed 1 borehole), 1103 for 15 minute `discharge`. A station the
   listing gives two names is listed under the first, and one it gives two dates of closing
   (Udford) ends on the later. The listing is cached for 12 hours, not 5 minutes (GH-2933)
+- The warning for a parameter a dataset does not have no longer offers a near spelling whose
+  leading words name another quantity: `temperature_dew_point_mean_2m` in `dwd/observation`
+  `daily/kl` no longer suggests `temperature_air_mean_2m`, nor
+  `error_absolute_temperature_air_mean_2m` in `dwd/mosmix` `hourly/small` `temperature_air_2m`.
+  A misspelling of a name the dataset has is still answered; otherwise the message lists the
+  available names (GH-2924)
+- The descriptions of `dwd/observation` `tx5_10` (`10_minutes/temperature_extreme`) and `v_te002`
+  (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
+  historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
+  `-999` at every station, so those periods never have a value for these two (GH-2852)
 
 ## [0.152.0] - 2026-10-15
 

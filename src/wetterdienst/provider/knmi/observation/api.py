@@ -239,8 +239,10 @@ class KnmiObservationValues(TimeseriesValues):
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
             if isinstance(payload, NoInternetError):
                 # offline, every remaining moment would fail the same way (and an hourly month
-                # is 720 of them): stop, and log it as `File.raise_if_exception` does
+                # is 720 of them), nor would the next station's: stop the request, and log it as
+                # `File.raise_if_exception` does
                 log.debug(f"No internet connection available for KNMI file {filename}, returning what was read.")
+                self.offline = True
                 break
             if isinstance(payload, Exception):
                 # a single missing/failed timestamp shouldn't sink the whole range --

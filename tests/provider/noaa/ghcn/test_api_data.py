@@ -88,8 +88,8 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
                 "parameter": "temperature_air_2m",
                 "timestamp": dt.datetime(1977, 1, 10, 2, tzinfo=ZoneInfo("UTC")),
                 "value": 1.0,
-                # `temperature_Quality_Code` of the file's row (GH-2754)
-                "quality_flags": "1",
+                # `temperature_Quality_Code` and `temperature_Source_Code` (221) of the file's row (GH-2754, GH-2925)
+                "quality_flags": "1,source:221",
             },
         ],
         schema={
@@ -326,3 +326,103 @@ def test_api_hourly_quality_code_is_the_plain_flag_and_the_value_stays(monkeypat
     assert got["USW00026451", "wind_speed", "2016-09-04 06:53"] == (4.4, "U")
     assert got["USW00026451", "wind_direction", "2016-09-04 06:53"] == (160.0, "U")
     assert got["USW00026451", "wind_speed", "2006-05-08 08:53"] == (4.0, "P")
+
+
+def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The measurement and source codes are the tokens `measurement:` and `source:` after the quality code (GH-2925).
+
+    Rows of the files read on 2026-10-15 (the report type is `SAO` throughout, which nothing reads). The same quality
+    code reads differently by source (Table 3 of ghcnh_DOCUMENTATION.pdf): Anchorage (GHCNh_USW00026451_por.psv)
+    writes `4` for
+    "Passed gross limits check, NCEI" of a temperature of source 335 (1953-11-01 10:00) and "Calculated" of source 223
+    (1997-01-31 11:50), and ASN00086282 is source 401 with a `0` that Table 3 does not list (1970-06-30 23:00). The
+    measurement code is a trace of precipitation `T` (Anchorage 1996-07-08 19:00, with the quality code `5` of source
+    335) and the tendency `7` of the 3-hour pressure change, "a decrease" (Antigua 1942-09-01 06:00, -1.4 hPa). Antigua
+    1942-01-17 02:00 reads a wind direction of 999 and a speed of 0.0, both with the measurement code C, the quality
+    code 1 and source 220: the text of the sentinel stays the last token. CAMU0019904 writes the text `Null` for a code
+    it has none of (source 245), which is no code.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+        b"USW00026451,61.169,-150.0278,38.0,AK,ANCHORAGE TED STEVENS INTL AP,,,70273,PANC,US\n"
+        b"ASN00086282,-37.6733,144.8433,113.4,,MELBOURNE AIRPORT,,,94866,YMML,AS\n"
+        b"CAMU0019904,45.5,-73.5,30.0,,MONTREAL,,,,,CA\n"
+    )
+
+    def attributes(element: str, measurement: str | None, quality: str, source: str) -> dict[str, str]:
+        row = {f"{element}_Quality_Code": quality, f"{element}_Source_Code": source, f"{element}_Report_Type": "SAO"}
+        if measurement is not None:
+            row[f"{element}_Measurement_Code"] = measurement
+        return row
+
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    files = {
+        "ACM00078861": [
+            (
+                "1942-01-17T02:00:00",
+                {
+                    "wind_direction": "999",
+                    **attributes("wind_direction", "C", "1", "220"),
+                    "wind_speed": "0.0",
+                    **attributes("wind_speed", "C", "1", "220"),
+                },
+            ),
+            (
+                "1942-09-01T06:00:00",
+                {"pressure_3hr_change": "-1.4", **attributes("pressure_3hr_change", "7", "1", "220")},
+            ),
+        ],
+        "USW00026451": [
+            ("1953-11-01T10:00:00", {"temperature": "-12.2", **attributes("temperature", None, "4", "335")}),
+            ("1996-07-08T19:00:00", {"precipitation": "0.0", **attributes("precipitation", "T", "5", "335")}),
+            ("1997-01-31T11:50:00", {"temperature": "0.4", **attributes("temperature", None, "4", "223")}),
+        ],
+        "ASN00086282": [
+            ("1970-06-30T23:00:00", {"temperature": "10.4", **attributes("temperature", None, "0", "401")})
+        ],
+        "CAMU0019904": [
+            ("1940-01-01T12:00:00", {"temperature": "-28.9", **attributes("temperature", "Null", "Null", "245")}),
+        ],
+    }
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations}
+        | {f"GHCNh_{station}": ghcnh_psv(station, columns, rows) for station, rows in files.items()},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data")],
+        start=dt.datetime(1940, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False, convert_units=False),
+    ).filter_by_station_id(list(files))
+    df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    got = {
+        (station, parameter, timestamp.strftime("%Y-%m-%d %H:%M")): (value, flags)
+        for station, parameter, timestamp, value, flags in df.select(
+            "station_id", "parameter", "timestamp", "value", "quality_flags"
+        ).iter_rows()
+        if value is not None or flags is not None
+    }
+    # the quality code means "passed gross limits" for source 335 and "calculated" for source 223: the source says which
+    assert got["USW00026451", "temperature_air_2m", "1953-11-01 10:00"] == (-12.2, "4,source:335")
+    assert got["USW00026451", "temperature_air_2m", "1997-01-31 11:50"] == (0.4, "4,source:223")
+    assert got["ASN00086282", "temperature_air_2m", "1970-06-30 23:00"] == (10.4, "0,source:401")
+    # the measurement code is the trace of a precipitation of 0.0 and the tendency of a pressure change
+    assert got["USW00026451", "precipitation_amount", "1996-07-08 19:00"] == (0.0, "5,measurement:T,source:335")
+    assert got["ACM00078861", "pressure_air_site_delta_last_3h", "1942-09-01 06:00"] == (
+        -1.4,
+        "1,measurement:7,source:220",
+    )
+    # a calm is the measurement code C; the text of the sentinel is still the last token
+    assert got["ACM00078861", "wind_speed", "1942-01-17 02:00"] == (0.0, "1,measurement:C,source:220")
+    assert got["ACM00078861", "wind_direction", "1942-01-17 02:00"] == (None, "1,measurement:C,source:220,raw:999")
+    # `Null` is the source's way of writing no code: the reading has no flag but the source
+    assert got["CAMU0019904", "temperature_air_2m", "1940-01-01 12:00"] == (-28.9, "source:245")

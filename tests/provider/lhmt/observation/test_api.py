@@ -20,6 +20,7 @@ from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 VILNIUS = "vilniaus-ams"
+KAUNAS = "kauno-ams"
 
 
 def test_parse_lhmt_stations() -> None:
@@ -191,7 +192,9 @@ def test_lhmt_observation_values() -> None:
 
 _STATIONS_JSON = (
     b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
-    b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}]'
+    b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}, '
+    b'{"code": "kauno-ams", "name": "Kauno AMS", '
+    b'"coordinates": {"latitude": 54.8847, "longitude": 23.8363}}]'
 )
 _DAY_JSON = (
     b'{"station": {"code": "vilniaus-ams"}, "observations": ['
@@ -245,6 +248,20 @@ def test_lhmt_observation_values_offline_stop_at_first_day_without_warning(
     assert df.is_empty()
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_lhmt_observation_values_offline_stop_at_first_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Offline, the request ends at the first download: the second station is not tried (GH-2620)."""
+    attempted = _fake_download_file(monkeypatch, NoInternetError("no route to host"))
+    start = dt.datetime(2020, 7, 1, tzinfo=UTC)
+    df = (
+        LhmtObservationRequest(parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=29))
+        .filter_by_station_id([VILNIUS, KAUNAS])
+        .values.all()
+        .df
+    )
+    assert df.is_empty()
+    assert len(attempted) == 1
 
 
 def test_lhmt_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:
