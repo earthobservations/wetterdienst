@@ -145,19 +145,22 @@ describe('widget Page station lookup answered with a 503 once', () => {
   })
 })
 
+// what the backend answers a failure of its own: the exception's type, never its text (GH-2767)
+const backendDetail = 'Internal server error (RuntimeError). The cause is in the server log.'
+
 describe('widget Page station lookup', () => {
   it('tells a failed lookup by the backend\'s detail, not as a station not found', async () => {
     onTestFinished(registerEndpoint('/api/stations', (event) => {
       setResponseStatus(event, 500)
-      return { detail: 'Failed to download the MOSMIX station list' }
+      return { detail: backendDetail }
     }))
     globalThis.fetch = vi.fn()
     const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=01001' })
     onTestFinished(() => wrapper.unmount())
     const vm = wrapper.vm as any
 
-    await vi.waitFor(() => expect(vm.error).toBe('Backend error 500: Failed to download the MOSMIX station list'))
-    expect(wrapper.text()).toContain('Backend error 500: Failed to download the MOSMIX station list')
+    await vi.waitFor(() => expect(vm.error).toBe(`Backend error 500: ${backendDetail}`))
+    expect(wrapper.text()).toContain(`Backend error 500: ${backendDetail}`)
     expect(wrapper.text()).not.toContain('Station not found')
   })
 

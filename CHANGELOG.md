@@ -74,6 +74,8 @@ Types of changes:
   (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
   historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
   `-999` at every station, so those periods never have a value for these two (GH-2852)
+- A `dwd/radar` HDF5 request without `h5py` warns once, naming `pip install wetterdienst[radar]`,
+  and returns the files unverified, where it logged a traceback for every file (GH-2928)
 
 ## [0.152.0] - 2026-10-15
 
