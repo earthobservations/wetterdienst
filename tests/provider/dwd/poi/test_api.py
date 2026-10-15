@@ -11,6 +11,7 @@ from polars.exceptions import NoDataError
 
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings
+from wetterdienst.exceptions import NoParametersFoundError
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata, DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
 from wetterdienst.provider.dwd.poi.api import _read_poi_csv, _station_file_url, _station_id_from_file_name
@@ -179,3 +180,44 @@ def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(m
     assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (None, "raw:0"), (360.0, None)]
     speeds = df.filter(pl.col("parameter") == "wind_speed_last_10min")
     assert speeds.select("value", "quality_flags").rows() == [(0.0, None), (1.1111, None), (3.0556, None)]
+
+
+def test_dwd_poi_maximum_wind_of_the_previous_day_is_the_maximum_of_the_last_6_hours(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that DWD's "previous day" wind maximum is the maximum of the 6 hourly values up to the stamp (GH-2817).
+
+    Rows of 10637-BEOB.csv (Frankfurt), read 2026-10-15 20:29 UTC: the column
+    `maximum_of_10_minutes_mean_of_wind_speed_for_previous_day` ("Maximalwind (vergangener Tag)") holds a value at
+    00, 06, 12 and 18 UTC only. The 12:00 value of 12 km/h is the maximum of the hourly
+    `maximum_wind_speed_as_10_minutes_mean_during_last_hour` stamped 07:00 to 12:00 (4, 5, 6, 9, 9, 12), the report's
+    own row included: the six values stamped 06:00 to 11:00 have a maximum of 9. The 18:00 value of 13 is that of
+    13:00 to 18:00 (13, 13, 11, 8, 7, 3), which is not the day's maximum either.
+    """
+    previous_day = "maximum_of_10_minutes_mean_of_wind_speed_for_previous_day"
+    last_hour = "maximum_wind_speed_as_10_minutes_mean_during_last_hour"
+    hourly = {18: 3, 17: 7, 16: 8, 15: 11, 14: 13, 13: 13, 12: 12, 11: 9, 10: 9, 9: 6, 8: 5, 7: 4}
+    previous = {18: "13", 12: "12"}
+    rows = "".join(f"15.10.26;{hour:02d}:00;{previous.get(hour, '---')};{value}\n" for hour, value in hourly.items())
+    csv = (
+        f"surface observations;Parameter description;{previous_day};{last_hour}\n"
+        "10637;Unit;km/h;km/h\n"
+        "Datum;Uhrzeit (UTC);Maximalwind (vergangener Tag);Maximalwind (letzte Stunde)\n" + rows
+    ).encode("latin-1")
+    serve(monkeypatch, dwd_poi_api, {"10637-BEOB.csv": csv})
+    request = DwdPoiRequest(
+        parameters=[("hourly", "data", "wind_speed_rolling_mean_max_last_6h")],
+        start=dt.datetime(2026, 10, 15, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 16, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=True),
+    )
+    df = stations_result(request, "hourly", "data", "10637").values.all().df.sort("timestamp")
+    reported = {stamp.hour: value for stamp, value in df.select("timestamp", "value").rows()}
+    # km/h as m/s; the stamp's own hour is one of the 6 (06:00 to 11:00 alone would give 9 km/h at 12:00)
+    assert reported == {hour: round(max(hourly[h] for h in range(hour - 5, hour + 1)) / 3.6, 4) for hour in (12, 18)}
+    assert reported == {12: 3.3333, 18: 3.6111}
+
+    # the old name is not accepted and says what to use instead
+    with pytest.raises(NoParametersFoundError):
+        DwdPoiRequest(parameters=[("hourly", "data", "wind_speed_rolling_mean_max_yesterday")])

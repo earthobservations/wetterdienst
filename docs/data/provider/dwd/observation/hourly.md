@@ -221,7 +221,7 @@ Codes (precipitation_form):
 
 | name                      | original name | description              | unit | constraints |
 |---------------------------|---------------|--------------------------|------|-------------|
-| {term}`sunshine_duration` | sd_so | Hourly sunshine duration. | min | >=0 |
+| {term}`sunshine_duration` | sd_so | Hourly sunshine duration. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in WOZ" (the older periods of 528 of 636 stations, at some of them to 2006) are the hour of the station's local true solar time, not UTC: they are returned as written, not shifted, and their `quality_flags` carry `zone:woz` (`10,zone:woz`). The other stamps are UTC. | min | >=0 |
 
 ### temperature_air
 
@@ -370,7 +370,7 @@ Codes (precipitation_form):
 | name                   | original name       | description         | unit | constraints |
 |------------------------|---------------------|---------------------|------|-------------|
 | {term}`wind_speed` | windgeschwindigkeit | Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | m/s | >=0 |
-| {term}`wind_direction` | windrichtung | Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | ° | >=0,<=360 |
+| {term}`wind_direction` | windrichtung | Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). The source's 0 comes with a wind speed of 0.1 to 0.8 m/s, never 0, and DWD does not say whether it is a calm or north, so it is returned as 0, unlike the calm of `10_minutes/urban_wind`. | ° | >=0,<=360 |
 
 ### visibility
 
