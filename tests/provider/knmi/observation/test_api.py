@@ -439,6 +439,21 @@ def test_knmi_station_list_gives_the_wigos_identifier(monkeypatch: pytest.Monkey
     ]
 
 
+@pytest.mark.parametrize("where", ["lookup", "file"])
+def test_knmi_station_list_offline_raises(monkeypatch: pytest.MonkeyPatch, where: str) -> None:
+    """An unreachable KNMI is no network without stations, whether the lookup or the file meets it (GH-2640)."""
+    offline = NoInternetError("no route to host")
+    lookup = offline if where == "lookup" else "latest.nc"
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._latest_filename", lambda *_args: lookup)
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", lambda *_args: offline)
+
+    request = _request([("daily", "data", "temperature_air_mean_2m")], dt.datetime(2020, 1, 1, tzinfo=UTC), None)
+
+    with pytest.raises(NoInternetError) as raised:
+        request.all()
+    assert raised.value is offline
+
+
 def test_knmi_station_list_without_h5netcdf_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
     """The station list reads a NetCDF file too, and without h5netcdf says what to install (GH-2667)."""
     monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._latest_filename", lambda *_args: "latest.nc")
@@ -583,78 +598,51 @@ def _hourly_values(days: int, station_ids: tuple[str, ...] = (DE_BILT,)) -> pl.D
     )
 
 
-def test_knmi_values_offline_stop_at_first_moment_without_warning(
+def test_knmi_values_offline_raise_at_the_first_moment(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Offline, the per-moment loop stops after one download and logs no warning."""
+    """Offline, the per-moment loop raises `NoInternetError` after one download and logs no warning (GH-2640)."""
     attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))
-    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.knmi"):
-        df = _hourly_values(days=30)
-    assert df.is_empty()
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.knmi"), pytest.raises(NoInternetError):
+        _hourly_values(days=30)
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
-def test_knmi_values_offline_stop_at_first_station(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_knmi_values_offline_raise_at_the_first_station(monkeypatch: pytest.MonkeyPatch) -> None:
     """Offline, the request ends at the first download: the second station is not tried (GH-2620)."""
     attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))
-    df = _hourly_values(days=30, station_ids=(DE_BILT, EELDE))
-    assert df.is_empty()
+    with pytest.raises(NoInternetError):
+        _hourly_values(days=30, station_ids=(DE_BILT, EELDE))
     assert len(attempted) == 1
 
 
-def test_knmi_values_going_offline_keeps_the_station_that_found_out_and_stops_there(
-    monkeypatch: pytest.MonkeyPatch,
-    netcdf_payload: bytes,
-) -> None:
-    """The first station keeps what it read before the network went, the second is not tried (GH-2620)."""
-    attempted = _fake_downloads(monkeypatch, netcdf_payload, NoInternetError("no route to host"))
-    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
-    df = (
-        _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=5))
-        .filter_by_station_id((DE_BILT, EELDE))
-        .values.all()
-        .df
-    )
-    assert len(attempted) == 2
-    assert df.get_column("station_id").unique().to_list() == [DE_BILT]
-    assert df.get_column("value").to_list() == [6.6]
-
-
-def test_knmi_values_offline_stop_at_first_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_knmi_values_offline_raise_at_the_first_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     """Offline, the request ends at the first download: the station's other resolution is not tried (GH-2620)."""
     attempted = _fake_downloads(monkeypatch, NoInternetError("no route to host"))
     start = dt.datetime(2020, 1, 1, tzinfo=UTC)
-    df = (
-        _request(
-            [("hourly", "data", "temperature_air_2m"), ("daily", "data", "temperature_air_mean_2m")],
-            start,
-            start + dt.timedelta(days=3),
-        )
-        .filter_by_station_id(DE_BILT)
-        .values.all()
-        .df
-    )
-    assert df.is_empty()
+    request = _request(
+        [("hourly", "data", "temperature_air_2m"), ("daily", "data", "temperature_air_mean_2m")],
+        start,
+        start + dt.timedelta(days=3),
+    ).filter_by_station_id(DE_BILT)
+    with pytest.raises(NoInternetError):
+        request.values.all()
     assert len(attempted) == 1
 
 
-def test_knmi_values_going_offline_midway_keeps_what_was_read(
+def test_knmi_values_going_offline_midway_raises(
     monkeypatch: pytest.MonkeyPatch,
     netcdf_payload: bytes,
 ) -> None:
-    """A network lost after the first file ends the loop there, with that file's values."""
+    """A network lost after the first file raises, rather than answering with the values read (GH-2640)."""
     attempted = _fake_downloads(monkeypatch, netcdf_payload, NoInternetError("no route to host"))
     start = dt.datetime(2020, 1, 1, tzinfo=UTC)
-    df = (
-        _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=5))
-        .filter_by_station_id(DE_BILT)
-        .values.all()
-        .df
-    )
+    request = _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=5))
+    with pytest.raises(NoInternetError):
+        request.filter_by_station_id((DE_BILT, EELDE)).values.all()
     assert len(attempted) == 2
-    assert df.get_column("value").to_list() == [6.6]
 
 
 def test_knmi_values_failed_moment_is_skipped_and_logged(

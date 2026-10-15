@@ -95,7 +95,7 @@ DWD has multiple networks: `observation`, `mosmix`, `dmo`, `road`, `radar`, `der
 
 ### Network / caching
 
-All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `stamina` retry logic. Cache dir is configurable via `WD_CACHE_DIR`.
+All HTTP goes through `util/network.py`, wrapping fsspec with TTL caching and `stamina` retry logic. Cache dir is configurable via `WD_CACHE_DIR`. A connection that cannot be made is a `NoInternetError` (URL in the message, the OS error as `__cause__`), raised by `File.raise_if_exception` and by the file listings for every provider, catalogues included; a provider that reads `file.content` itself must `raise` it, never answer an empty frame. Only a listing of a directory that is not there, or is empty, is `[]`.
 
 ### UI layer
 

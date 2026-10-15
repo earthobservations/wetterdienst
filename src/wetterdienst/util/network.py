@@ -102,16 +102,17 @@ class File:
     def raise_if_exception(self) -> None:
         """Raise an exception if the content is not a BytesIO object.
 
-        For NoInternetError, logs at debug level and returns silently instead of raising,
-        allowing callers to return empty frames rather than propagating the error.
+        A failed connection -- no network, a DNS failure, a refusing host -- is raised as the
+        `NoInternetError` the download stored, naming the URL, with the connection error underneath
+        as its `__cause__`. It is no longer let through silently for the caller to answer with an
+        empty frame, which a scheduled job cannot tell from a source with no data (GH-2640).
 
-        What is raised is a `DownloadError` naming the file, with the stored exception as its
+        Any other failure is a `DownloadError` naming the file, with the stored exception as its
         `__cause__`: a timeout's own message is empty, and a dropped connection's or a cut-short
         body's says nothing of which file it was (GH-2460).
         """
         if isinstance(self.content, NoInternetError):
-            log.debug(f"No internet connection available for {self.url}, returning empty result.")
-            return
+            raise self.content
         if isinstance(self.content, Exception):
             raise _download_error(self.content, self.url) from self.content
 
@@ -171,6 +172,22 @@ def _download_error(error: Exception, url: str) -> DownloadError:
     if not reason or "://" in reason:
         reason = type(error).__name__
     return DownloadError(_without_url_secrets(url), reason)
+
+
+def _no_internet_error(url: str, error: ClientConnectorError) -> NoInternetError:
+    """Say that a connection could not be made to ``url``, with the connection error underneath as its cause.
+
+    What is stored under `__cause__` is the `OSError` aiohttp wraps (a refused connection, a failed
+    name lookup), without its traceback or chain: the aiohttp error holds the connection key, which
+    renders the password of a proxy named in `HTTPS_PROXY`, and its frames hold the request as
+    locals (GH-2602). The URL is shown without its query and user information, which can carry a key.
+    """
+    cause = error.os_error.with_traceback(None)
+    cause.__cause__ = None
+    cause.__context__ = None
+    failure = NoInternetError(f"No internet connection: could not reach {_without_url_secrets(url)} ({error})")
+    failure.__cause__ = cause
+    return failure
 
 
 #: The directories that could not be used as a cache, each with the temporary one standing in for it.
@@ -1221,6 +1238,22 @@ def _worth_retrying_listing(error: Exception) -> bool:
     return _worth_retrying(error)
 
 
+def _scrubbed_connector_error(error: ClientConnectorError) -> ClientConnectorError:
+    """Return a connector error with nothing on it that leads to a proxy's credentials.
+
+    The connection key loses the proxy's userinfo and ``proxy_auth``, the traceback goes, and that
+    of ``os_error``: a refusing proxy's key names no credentials, so ``_without_proxy_credentials``
+    leaves that error's frames alone, and their locals hold ``proxy_auth`` and the encoded
+    ``Proxy-Authorization`` header. So does the chain. Plain offline errors lose theirs as well,
+    which costs little: the message names the host, and ``os_error`` is still there (GH-2602).
+    """
+    failure = _without_proxy_credentials(error).with_traceback(None)
+    failure.os_error.with_traceback(None)
+    failure.__cause__ = None
+    failure.__context__ = None
+    return failure
+
+
 def _bare_tls_failure(error: ClientSSLError) -> OSError:
     """Return the ``ssl.SSLError`` under an aiohttp TLS failure, with nothing on it that leads back to ``error``.
 
@@ -1252,10 +1285,12 @@ def list_remote_files_fsspec(
         cache_expiry: The cache expiration time.
 
     Returns:
-        A list of all files on the server, or no files if the directory is not there or the
-        library is offline
+        A list of all files on the server, or no files if the directory is not there
 
     Raises:
+        NoInternetError: If no connection could be made after three attempts (no network, a DNS
+            failure, a refusing host), naming the URL, the connection error as its ``__cause__``.
+            A directory that is not there is an answer, `[]`; being offline is not (GH-2640).
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
             attempt: asking again would meet the same certificate.
         Exception: If the listing could not be read for another reason: an ``OSError`` such as a
@@ -1264,14 +1299,21 @@ def list_remote_files_fsspec(
             failure, a 4xx or anything else once.
 
     """
-    # a retry context rather than a `stamina.retry` decorator: the decorator hands the call's
-    # arguments to stamina's retry hook, which attaches them to its log record as
-    # `extra["stamina.kwargs"]` -- the live `Settings`, proxy password included, for a handler that
-    # serialises a pydantic object by its fields (GH-2904). A context has no arguments to hand over.
-    # The same policy as before: stamina's default time budget, `_LISTING_ATTEMPTS` attempts.
-    for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
-        with attempt:
-            return _list_files_once(url, settings, cache_expiry)
+    offline: ClientConnectorError | None = None
+    try:
+        # a retry context rather than a `stamina.retry` decorator: the decorator hands the call's
+        # arguments to stamina's retry hook, which attaches them to its log record as
+        # `extra["stamina.kwargs"]` -- the live `Settings`, proxy password included, for a handler that
+        # serialises a pydantic object by its fields (GH-2904). A context has no arguments to hand over.
+        # The same policy as before: stamina's default time budget, `_LISTING_ATTEMPTS` attempts.
+        for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
+            with attempt:
+                return _list_files_once(url, settings, cache_expiry)
+    except ClientConnectorError as e:
+        offline = e
+    if offline is not None:
+        # raised outside the `except`, so that the aiohttp error is not its `__context__`
+        raise _no_internet_error(url, offline)
     msg = "unreachable"
     raise AssertionError(msg)
 
@@ -1310,15 +1352,14 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # `from None` hides from a printed traceback but not from anything that walks the chain
         log.info(f"Failed to list {url}.")
         tls_failure = _bare_tls_failure(e)
-    except ClientConnectorError:
-        # the one `OSError` that is not a failure to read this listing: it is the whole library
-        # being offline, which every other path here degrades on rather than reports -- a download
-        # comes back carrying `NoInternetError` for `raise_if_exception` to log at debug, and
-        # providers answer with empty frames. A listing has no `File` to carry that in, so it
-        # degrades the way it always did, and the offline user keeps getting empty frames instead
-        # of an aiohttp traceback from the one path that lists
-        log.debug(f"No internet connection available for {url}, returning no files.")
-        return []
+    except ClientConnectorError as e:
+        # being offline: a refusing proxy or host, a DNS failure, a reset during the connect. Not an
+        # empty directory -- an offline library answered `[]`, which every caller then had to read
+        # as a source with no files (GH-2640). Kept as the connector error, scrubbed of a proxy's
+        # credentials, so that the retry around this asks again as it does for a download; the
+        # caller turns what is left after the last attempt into a `NoInternetError`. Raised below,
+        # outside this block, for the reason given above
+        tls_failure = _scrubbed_connector_error(e)
     except ClientResponseError as e:
         # an HTTP error status. One that a proxy answered carries the `Proxy-Authorization` header
         # aiohttp built from its credentials in the request info, and the retry around this logs the repr
@@ -1349,20 +1390,27 @@ def list_remote_directory_fsspec(
     Raises:
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
             attempt: asking again would meet the same certificate.
+        NoInternetError: If no connection could be made after three attempts, as for
+            ``list_remote_files_fsspec`` (GH-2640).
         Exception: If the listing could not be read for another reason: a missing directory
-            (``FileNotFoundError``), an offline connection (``ClientConnectorError``, its
-            connection key and traceback stripped of a proxy's credentials) or an HTTP error
-            status. Unlike ``list_remote_files_fsspec``, none of these returns no entries. A
-            failed connection (offline included), a timeout, a broken body or a 5xx is asked for
-            three times before it is raised; a TLS failure, a 4xx, a missing directory or anything
-            else once.
+            (``FileNotFoundError``) or an HTTP error status. Unlike ``list_remote_files_fsspec``,
+            none of these returns no entries. A failed connection, a timeout, a broken body or a
+            5xx is asked for three times before it is raised; a TLS failure, a 4xx, a missing
+            directory or anything else once.
 
     """
-    # a retry context, as in `list_remote_files_fsspec`, so that the settings stay out of stamina's
-    # log record (GH-2904)
-    for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
-        with attempt:
-            return _list_directory_once(url, settings, cache_expiry)
+    offline: ClientConnectorError | None = None
+    try:
+        # a retry context, as in `list_remote_files_fsspec`, so that the settings stay out of stamina's
+        # log record (GH-2904)
+        for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
+            with attempt:
+                return _list_directory_once(url, settings, cache_expiry)
+    except ClientConnectorError as e:
+        offline = e
+    if offline is not None:
+        # raised outside the `except`, so that the aiohttp error is not its `__context__`
+        raise _no_internet_error(url, offline)
     msg = "unreachable"
     raise AssertionError(msg)
 
@@ -1389,17 +1437,10 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
         failure = _bare_tls_failure(e)
     except ClientConnectorError as e:
         # any other connector failure -- a refusing proxy, a DNS failure, a reset during the connect --
-        # keeps its type, so a caller that catches aiohttp's errors still does, and the retry around
-        # this treats it as any failure to read. The proxy's credentials leave its connection key. The
-        # traceback goes too, and that of `os_error`: a refusing proxy's key names no credentials,
-        # so the helper leaves that error's frames alone, and their locals hold `proxy_auth` and the
-        # encoded `Proxy-Authorization` header. So does the chain. Plain offline errors lose theirs
-        # as well, which costs little: the message names the host, and `os_error` is still there
-        # (GH-2602). Raised below for the same reason as above
-        failure = _without_proxy_credentials(e).with_traceback(None)
-        failure.os_error.with_traceback(None)
-        failure.__cause__ = None
-        failure.__context__ = None
+        # keeps its type for the retry around this, which treats it as any failure to read, and the
+        # caller turns what is left after the last attempt into a `NoInternetError`. Scrubbed of a
+        # proxy's credentials (GH-2602). Raised below for the same reason as above
+        failure = _scrubbed_connector_error(e)
     except ClientResponseError as e:
         # an HTTP error status, scrubbed as in `list_remote_files_fsspec` (GH-2603)
         raise _without_credentials(e, sent_credentials=False) from None
@@ -1520,7 +1561,7 @@ def download_file(
         )
     except ClientConnectorError as e:
         log.info(f"No internet connection while downloading file {url}.")
-        return File(url=url, content=NoInternetError(str(e)), status=503)
+        return File(url=url, content=_no_internet_error(url, e), status=503)
     except ClientResponseError as e:
         log.info(f"Failed to download file {url}.")
         return File(
@@ -1807,7 +1848,7 @@ def post_file(
         )
     except ClientConnectorError as e:
         log.info(f"No internet connection while posting to {url}.")
-        return File(url=url, content=NoInternetError(str(e)), status=503)
+        return File(url=url, content=_no_internet_error(url, e), status=503)
     except (FSTimeoutError, TimeoutError) as e:
         log.info(f"Failed to post to {url}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)

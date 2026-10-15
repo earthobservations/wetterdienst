@@ -2738,6 +2738,178 @@ def test_a_reader_missing_on_the_server_is_a_501(
     assert "pip install wetterdienst[bufr]" in caplog.text
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "params"),
+    [
+        (
+            "/api/stations",
+            "get_stations",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl",
+                "periods": "recent",
+                "all": "true",
+            },
+        ),
+        (
+            "/api/values",
+            "get_values",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31/1986-11-01",
+            },
+        ),
+        (
+            "/api/interpolate",
+            "get_interpolate",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31",
+            },
+        ),
+        (
+            "/api/summarize",
+            "get_summarize",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31",
+            },
+        ),
+    ],
+)
+def test_a_provider_the_server_cannot_reach_is_a_503(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, str],
+) -> None:
+    """A server without a connection to the provider answers 503, as an outage that can be retried (GH-2640).
+
+    Not a 500, which is the server's own bug, and not an empty 200, which a client cannot tell from
+    a provider with no data. The provider's address is for the log, not for the caller.
+    """
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    def offline(**_kwargs: object) -> None:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", offline)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 503
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["status"] == 503
+    assert "could not reach the data provider" in body["detail"]
+    assert "opendata.dwd.de" not in response.text
+    # said where the server's operator reads it, without a traceback: it is no defect
+    assert "opendata.dwd.de/some/dir/" in caplog.text
+    assert all(record.exc_info is None for record in caplog.records if record.name == "wetterdienst.ui.restapi")
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "target", "params"),
+    [
+        ("/api/alerts", "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest.query", {}),
+        ("/api/stripes/stations", "wetterdienst.ui.restapi._get_stripes_stations", {"kind": "temperature"}),
+    ],
+)
+def test_a_provider_the_server_cannot_reach_is_a_503_without_a_traceback_where_the_handler_is_a_catch_all(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    target: str,
+    params: dict[str, str],
+) -> None:
+    """The routes that answer every failure of the lookup as the server's say 503 for an outage, without a traceback."""
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    def offline(*_args: object, **_kwargs: object) -> None:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(target, offline)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 503
+    assert "could not reach the data provider" in response.json()["detail"]
+    assert "opendata.dwd.de" not in response.text
+    assert all(record.exc_info is None for record in caplog.records if record.name == "wetterdienst.ui.restapi")
+
+
+def test_mcp_a_provider_the_server_cannot_reach_is_a_tool_error_that_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tool error of an offline provider is the REST API's 503 and its sentence, for the agent to read (GH-2640)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    def offline(**_kwargs: object) -> None:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_stations", offline)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("stations", {**_OBSERVATION, "all": True})
+
+    with pytest.raises(ToolError, match="HTTP error 503") as error:
+        asyncio.run(_call())
+    assert "could not reach the data provider" in str(error.value)
+    assert "opendata.dwd.de" not in str(error.value)
+
+
+def test_an_offline_server_answers_503_through_the_whole_request(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The network layer failing to connect reaches the caller of a real route as a 503 (GH-2640).
+
+    FMI's catalogue is one download, so the request goes through its own code, the shared download
+    and the REST handler, with only the connection replaced.
+    """
+    from unittest.mock import MagicMock, Mock  # noqa: PLC0415
+
+    import stamina  # noqa: PLC0415
+    from aiohttp import ClientConnectorError  # noqa: PLC0415
+
+    filesystem = MagicMock()
+    filesystem.cat_file.side_effect = ClientConnectorError(
+        Mock(ssl=None, host="opendata.fmi.fi", port=443), OSError("offline")
+    )
+    monkeypatch.setattr("wetterdienst.util.network.NetworkFilesystemManager.get", lambda **_kwargs: filesystem)
+    with stamina.set_testing(True, attempts=1):
+        response = client.get(
+            "/api/stations",
+            params={"provider": "fmi", "network": "observation", "parameters": "hourly/data", "all": "true"},
+        )
+
+    assert response.status_code == 503
+    assert "could not reach the data provider" in response.json()["detail"]
+
+
 def test_values_a_value_error_from_the_values_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

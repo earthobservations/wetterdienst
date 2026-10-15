@@ -953,8 +953,30 @@ a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an
 `IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
 `ConfigurationError` and an `ImportError`. The REST API, the MCP tools and the command line decide by
 the class what to answer: a `RequestError` is a 400 or a usage error (exit 2), a `NotFoundError` a 404,
-a `ConfigurationError` a 501, and anything else, an unclassified `WetterdienstError` included, the
-server's error. See [REST API](restapi.md#errors) for the body.
+a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
+`WetterdienstError` included, the server's error. See [REST API](restapi.md#errors) for the body.
+
+### Offline
+
+A request made without a network connection raises `NoInternetError`: every provider, for its station
+catalogue as for its values, and for a file listing as for a download. The message names the URL (without
+its query or credentials) and the connection error is on `__cause__`. It is not an empty frame, which a
+scheduled job could not tell from a source that has no data. It is told apart from a source that answered
+badly, a 4xx or 5xx, a timeout or a body cut short, which is a `DownloadError`, and from a directory that
+is not there, which lists as empty.
+
+Catch it where an empty result is what the caller wants when offline:
+
+```python
+import polars as pl
+
+from wetterdienst.exceptions import NoInternetError
+
+try:
+    df = request.all().df
+except NoInternetError:
+    df = pl.DataFrame()
+```
 
 ## Caching
 

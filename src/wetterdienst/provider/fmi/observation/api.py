@@ -193,13 +193,12 @@ class FmiObservationValues(TimeseriesValues):
         # without data (GH-2461). The exception is the 400 "Unknown 'fmisid' value!" that FMI answers
         # for a few stations of its own catalogue, which have no data and are warned about. Any 400
         # is dropped, since the status is all this sees: FMI answers 400 as well for a stored query or
-        # parameter it no longer has, which the warning is then the only sign of. NoInternetError
-        # returns silently, to give an empty frame.
+        # parameter it no longer has, which the warning is then the only sign of. A failed
+        # connection (NoInternetError) is raised, as any other failure.
         if file.status != 400:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
+            log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
             return pl.DataFrame(
                 schema={
                     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
@@ -244,8 +243,8 @@ class FmiObservationRequest(TimeseriesRequest):
             use_certifi=settings.use_certifi,
         )
         # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
-        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
-        # silently, to give an empty frame
+        # which swallowed would read as a network without stations (GH-2519). A failed connection
+        # (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()

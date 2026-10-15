@@ -260,6 +260,10 @@ def _create_meta_index_for_subdaily_extreme_wind(period: Period, settings: Setti
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
+    # a failed download, a lost connection included (GH-2640), is raised: read as it is, it would
+    # fail further down on a join or an archive that is no archive
+    file_fx3.raise_if_exception()
+    file_fx6.raise_if_exception()
     df_fx3 = _read_meta_df(file_fx3)
     df_fx6 = _read_meta_df(file_fx6)
     df_fx6 = df_fx6.join(df_fx3.select("station_id"), on=["station_id"], how="inner")
@@ -289,6 +293,9 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
+    # a failed download, a lost connection included (GH-2640), is raised rather than parsed as an archive
+    for file in files:
+        file.raise_if_exception()
     dfs = [
         _parse_geo_metadata(file=file, station_id=station_id)
         for file, (_, station_id) in zip(files, urls_and_station_ids, strict=False)

@@ -166,7 +166,24 @@ class MetadataNotFoundError(NotFoundError):
 
 
 class NoInternetError(UpstreamError, OSError):
-    """Raised when no internet connection is available."""
+    """Raised when no connection to the provider could be made: no network, a failed name lookup, a refusing host.
+
+    Raised by every download and every listing, for every provider, station catalogues included: an
+    offline library does not answer with an empty frame, which a scheduled job cannot tell from a
+    source that has no data (GH-2640). The message names the URL, without its query or user
+    information, and the connection error underneath is its `__cause__`.
+
+    Told apart from `DownloadError`, which is a source that answered badly -- a 4xx or 5xx, a
+    timeout, a body cut short -- and from an empty listing, which is an answer. A caller that
+    prefers an empty result when offline catches it::
+
+        try:
+            df = request.all().df
+        except NoInternetError:
+            df = pl.DataFrame()
+
+    The REST API answers it with a 503, and the command line prints it as one line, exit 1.
+    """
 
 
 class DownloadError(UpstreamError):

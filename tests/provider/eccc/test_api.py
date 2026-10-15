@@ -957,10 +957,10 @@ def test_eccc_a_request_without_dates_for_a_hand_built_result_asks_for_the_years
     assert daily == list(range(1929, 2001))
 
 
-def test_eccc_a_request_without_dates_offline_returns_nothing_rather_than_raising(
+def test_eccc_a_request_without_dates_offline_raises(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that a first-row request that gets no connection ends the station's collection empty, as a year does."""
+    """Test that a first-row request that gets no connection raises `NoInternetError`, as a year does (GH-2640)."""
 
     def _download(**kwargs: object) -> File:
         url = str(kwargs["url"])
@@ -973,7 +973,8 @@ def test_eccc_a_request_without_dates_offline_returns_nothing_rather_than_raisin
     request = EcccObservationRequest(
         parameters=[("hourly", "data", "temperature_air_2m")], options=options_convert_units_false
     )
-    assert request.filter_by_station_id("925").values.all().df.is_empty()
+    with pytest.raises(NoInternetError):
+        request.filter_by_station_id("925").values.all()
 
 
 def test_eccc_the_years_of_the_last_hours_of_the_utc_year_follow_the_last_hourly_row(
