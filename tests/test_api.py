@@ -1218,6 +1218,69 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
     assert not wrong, "\n".join(wrong[:10])
 
 
+def test_a_parameter_nothing_describes_reads_the_canonical_description() -> None:
+    """Test that `build_metadata_model` falls back to the canonical sentence of the quantity (GH-1979).
+
+    A provider whose field means what the quantity means declares no sentence of its own, so the
+    glossary and the provider docs cannot drift apart over it. A sentence it does declare, inline or
+    in `SOURCE_DESCRIPTIONS`, still wins.
+    """
+
+    def parameter(name: str, **declared: str) -> dict:
+        return {"name": name, "name_original": "x", "unit": "degree_celsius", **declared}
+
+    def build(*parameters: dict) -> list:
+        dataset = {
+            "name": "data",
+            "name_original": "data",
+            "grouped": False,
+            "periods": ["historical"],
+            "date_required": False,
+            "parameters": list(parameters),
+        }
+        metadata = {
+            "name_short": "T",
+            "name_english": "Test",
+            "name_local": "Test",
+            "country": "Nowhere",
+            "copyright": "-",
+            "url": "https://example.org",
+            "kind": "observation",
+            "timezone": "UTC",
+            "resolutions": [{"name": "daily", "name_original": "daily", "datasets": [dataset]}],
+        }
+        return build_metadata_model(metadata, "NotAMetadataModel")["daily"]["data"].parameters
+
+    canonical = PARAMETERS["temperature_air_mean_2m"].description
+    assert build(parameter("temperature_air_mean_2m"))[0].description == canonical
+    assert build(parameter("temperature_air_mean_2m", description="Our own."))[0].description == "Our own."
+
+
+def test_no_description_repeats_the_canonical_one() -> None:
+    """Test that no description table spells out the sentence the model reads without it (GH-1979).
+
+    An entry equal to the canonical sentence of its parameter is a second copy with nothing tying it
+    to the first: sharpening one leaves the other behind. A provider that means something else keeps
+    its own sentence, which is not equal and is not reported.
+    """
+    from wetterdienst.metadata.source_descriptions import (  # noqa: PLC0415
+        DERIVED_DESCRIPTIONS,
+        SOURCE_DESCRIPTIONS,
+    )
+
+    repeated = []
+    for metadata in ALL_METADATA:
+        for table_name, table in (("SOURCE", SOURCE_DESCRIPTIONS), ("DERIVED", DERIVED_DESCRIPTIONS)):
+            entries = table.get(metadata.name, {})
+            for resolution in metadata:
+                for dataset in resolution:
+                    for parameter in dataset.parameters:
+                        key = (resolution.name, dataset.name, parameter.name_original)
+                        if entries.get(key) == PARAMETERS[parameter.name].description:
+                            repeated.append(f"{table_name}_DESCRIPTIONS {metadata.name} {'/'.join(key)}")
+    assert not repeated, "\n".join(repeated[:10])
+
+
 def test_metadata_monthly_and_annual_parameters_carry_no_hourly_window() -> None:
     """Test that no monthly or annual parameter is named for a window of hours.
 

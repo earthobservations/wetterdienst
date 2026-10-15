@@ -950,33 +950,43 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
     return stations_result(request, "hourly", "data", "SN18700").values.all().df
 
 
-def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+def _knmi_netcdf(values: dict[str, float]) -> bytes:
+    """Write the file KNMI serves for one timestamp: a variable per name, laid out as (station, time), one station."""
     h5py = pytest.importorskip("h5py")
     h5netcdf = pytest.importorskip("h5netcdf")
 
-    # a file per day for the whole network (here one station), the variables laid out as (station, time): a missing
-    # observation is the NaN _FillValue and a trace of precipitation a -1 in RH
-    days = {"20240101": (3.2, 1.4), "20240102": (float("nan"), -1.0)}
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "knmi.nc"
+        with h5netcdf.File(path, "w") as file:
+            file.dimensions = {"station": 1, "time": 1}
+            station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
+            station[:] = ["0-20000-0-06260"]
+            for name, value in values.items():
+                variable = file.create_variable(name, ("station", "time"), dtype="f8")
+                variable[:] = [[value]]
+        return path.read_bytes()
 
-    def netcdf(temperature: float, precipitation: float) -> bytes:
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "knmi.nc"
-            with h5netcdf.File(path, "w") as file:
-                file.dimensions = {"station": 1, "time": 1}
-                station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
-                station[:] = ["0-20000-0-06260"]
-                for name, value in (("TG", temperature), ("RH", precipitation)):
-                    variable = file.create_variable(name, ("station", "time"), dtype="f8")
-                    variable[:] = [[value]]
-            return path.read_bytes()
 
-    payloads = {day: netcdf(*values) for day, values in days.items()}
+def _knmi_serve(monkeypatch: pytest.MonkeyPatch, payloads: dict[str, bytes]) -> None:
+    """Serve the file of each timestamp, by the part of its filename that names it."""
     monkeypatch.setattr(
         knmi_api,
         "_fetch_netcdf",
         lambda _dataset, _version, filename, _settings: next(
-            payload for day, payload in payloads.items() if day in filename
+            payload for moment, payload in payloads.items() if moment in filename
         ),
+    )
+
+
+def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # a file per day for the whole network (here one station): a missing observation is the NaN _FillValue and a trace
+    # of precipitation a -1 in RH
+    _knmi_serve(
+        monkeypatch,
+        {
+            "20240101": _knmi_netcdf({"TG": 3.2, "RH": 1.4}),
+            "20240102": _knmi_netcdf({"TG": float("nan"), "RH": -1.0}),
+        },
     )
     request = KnmiObservationRequest(
         parameters=[("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "precipitation_amount")],
@@ -986,6 +996,28 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "06260").values.all().df
+
+
+def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # DD is "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (GH-2850): a bearing at 00 UTC, the code for
+    # a variable wind at 01 UTC (hourly-observations-validated-20261012-08.nc has Horst at 990 with FF 1.0 m/s) and the
+    # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue
+    _knmi_serve(
+        monkeypatch,
+        {
+            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0}),
+            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0}),
+            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0}),
+        },
+    )
+    request = KnmiObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_direction_last_10min")],
+        start=_day(2024, 1, 1),
+        end=_day(2024, 1, 1, 2),
+        settings=_settings(auth={"knmi": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "06260").values.all().df
 
 
 def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1294,6 +1326,18 @@ STUBS = [
         tokens=(("temperature_air_mean_2m", "NaN", None), ("precipitation_amount", "-1", 0.0)),
     ),
     ValueStub(
+        "knmi/observation hourly/data",
+        _knmi_hourly,
+        reading=("wind_direction_last_10min", 250.0),
+        # 0 is a calm and 990 a variable wind, neither a bearing (GH-2850)
+        sentinels=(("wind_direction_last_10min", 0.0), ("wind_direction_last_10min", 990.0)),
+        tokens=(
+            ("temperature_air_2m", "NaN", None),
+            ("wind_direction_last_10min", "0", None),
+            ("wind_direction_last_10min", "990", None),
+        ),
+    ),
+    ValueStub(
         "fmi/observation hourly/data",
         _fmi_hourly,
         reading=("temperature_air_2m", -3.5),
@@ -1493,7 +1537,8 @@ NO_STUB = {
     "ea/hydrology": (
         "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`, and the "
         "daily (2015) and 15 minute (2024) discharge of the first six stations by id has no value that is no reading "
-        "(2026-10-12)"
+        "(2026-10-12); nor has the groundwater logger (`gw-logged-i-subdaily`) of eight stations in 2024, 2 to 63 "
+        "mAOD (2026-10-15)"
     ),
     "eaufrance/hubeau": (
         "no reader maps a sentinel of a value; -999 is a site altitude of the referential. The 15 minute discharge "

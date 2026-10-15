@@ -399,6 +399,7 @@ class AemetObservationValues(TimeseriesValues):
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         if isinstance(payload, NoInternetError):
             log.debug(f"No internet connection available for AEMET station {station_id}, returning no values.")
+            self.offline = True
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(payload, Exception):
             log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
@@ -441,9 +442,10 @@ class AemetObservationValues(TimeseriesValues):
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, NoInternetError):
-                # offline, every remaining chunk would fail the same way: stop, and log it as
-                # `File.raise_if_exception` does
+                # offline, every remaining chunk (and station) would fail the same way: stop the request,
+                # and log it as `File.raise_if_exception` does
                 log.debug(f"No internet connection available for AEMET station {station_id}, stopping at {url}.")
+                self.offline = True
                 break
             if isinstance(payload, Exception):
                 # rate-limit retries (if applicable) are already exhausted at this point,
@@ -513,6 +515,7 @@ class AemetObservationValues(TimeseriesValues):
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             if isinstance(payload, NoInternetError):
                 log.debug(f"No internet connection available for AEMET station {station_id}, stopping at {url}.")
+                self.offline = True
                 break
             if isinstance(payload, Exception):
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")

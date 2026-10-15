@@ -145,6 +145,12 @@ def read_radar_bufr(data: BytesIO, parameter: DwdRadarParameter) -> pl.DataFrame
     )
 
 
+def _as_utc(timestamp: dt.datetime) -> dt.datetime:
+    """Give the instant a bound names in UTC, a naive one being taken as UTC already."""
+    utc = ZoneInfo("UTC")
+    return timestamp.replace(tzinfo=utc) if timestamp.tzinfo is None else timestamp.astimezone(utc)
+
+
 # TODO: add core class information
 class DwdRadarValues:  # noqa: PLW1641
     """API for DWD radar data requests.
@@ -271,11 +277,13 @@ class DwdRadarValues:  # noqa: PLW1641
                 start = dt.datetime.fromisoformat(start)
             if end and isinstance(end, str):
                 end = dt.datetime.fromisoformat(end)
-            # set timezone if not set
-            if isinstance(start, dt.datetime) and start.tzinfo is None:
-                start = start.replace(tzinfo=ZoneInfo("UTC"))
-            if end and isinstance(end, dt.datetime) and end.tzinfo is None:
-                end = end.replace(tzinfo=ZoneInfo("UTC"))
+            # a naive bound is UTC and an aware one is the instant it names, in UTC: the files are
+            # selected and aligned on the UTC clock they are published on, so a bound left in its
+            # own zone selected another file than the same instant written in UTC
+            if isinstance(start, dt.datetime):
+                start = _as_utc(start)
+            if end and isinstance(end, dt.datetime):
+                end = _as_utc(end)
             self.start = start
             self.end = end
             self.adjust_datetimes()
@@ -441,12 +449,13 @@ class DwdRadarValues:  # noqa: PLW1641
                         ),
                     )
 
-                # This is for matching historical data, e.g. "RW-200509.tar.gz".
+                # This is for matching historical data, e.g. "RW-200509.tar.gz", one file a month,
+                # dated to the first: every month the window touches, not only the one it opens in.
                 else:
                     start_date_dt = cast("dt.datetime", self.start)
+                    first_month = start_date_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
                     file_index = file_index.filter(
-                        pl.col("datetime").dt.year().eq(start_date_dt.year)
-                        & pl.col("datetime").dt.month().eq(start_date_dt.month),
+                        pl.col("datetime").is_between(first_month, cast("dt.datetime", self.end), closed="both"),
                     )
 
                 results.append(file_index)
