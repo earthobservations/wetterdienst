@@ -20,11 +20,19 @@ WORKDIR /app
 # Copy dependency files
 COPY uv.lock pyproject.toml ./
 
+# Install the dependencies first, without the project (GH-2952): this layer depends on the two files
+# above only, so a change in src/ leaves it cached and does not compile h5py, duckdb and the others
+# again (they have no wheel for Python 3.15 yet, GH-2568). The cache mount does not travel with the
+# layer cache of the CI, the layer itself does.
+RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
+    uv sync --frozen --active --no-install-project \
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
+
 # Copy source code
 COPY src ./src
 COPY README.md LICENSE.md ./
 
-# Install wetterdienst with all extras using uv
+# Install wetterdienst itself with all extras using uv
 RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
     --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
@@ -52,6 +60,12 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY uv.lock pyproject.toml ./
+
+# Dependencies before the source, as in the build stage (GH-2952)
+RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
+    uv sync --frozen --active --no-install-project \
+    --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
+
 COPY src ./src
 COPY README.md LICENSE.md ./
 
