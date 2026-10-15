@@ -1111,12 +1111,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "EAHydrologyMetadata": {
         ("15_minutes", "data", "flow-i-900"): "instant flow at timestamp",
-        ("15_minutes", "data", "level-i-900"): "instant groundwater level at timestamp",
+        ("15_minutes", "data", "level-i-900"): "instant river water level at timestamp",
+        ("15_minutes", "data", "gw-logged-i-subdaily"): (
+            "logged groundwater level at timestamp, in metres above ordnance datum, every 15 minutes to every hour"
+        ),
         ("daily", "data", "flow-m-86400"): "daily mean flow",
         ("daily", "data", "flow-max-86400"): "daily maximum flow",
         ("daily", "data", "flow-min-86400"): "daily min flow",
-        ("daily", "data", "level-max-86400"): "daily maximum groundwater level",
-        ("daily", "data", "level-min-86400"): "daily minimum groundwater level",
+        ("daily", "data", "level-max-86400"): "daily maximum river water level",
+        ("daily", "data", "level-min-86400"): "daily minimum river water level",
     },
     "EcccObservationMetadata": {
         ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
@@ -2459,8 +2462,10 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("hourly", "data"): "Hourly weather reports of the last day, for the stations DWD forecasts for.",
     },
     "EAHydrologyMetadata": {
-        ("15_minutes", "data"): "Historical 15 minute station observations of flow and groundwater level for the UK.",
-        ("daily", "data"): "Historical daily station observations of flow and groundwater level for the UK.",
+        ("15_minutes", "data"): (
+            "Historical 15 minute station observations of flow, river water level and groundwater level for the UK."
+        ),
+        ("daily", "data"): "Historical daily station observations of flow and river water level for the UK.",
     },
     "EcccObservationMetadata": {
         ("daily", "data"): "Historical daily station observations for Canada.",

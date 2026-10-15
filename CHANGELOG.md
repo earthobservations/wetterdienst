@@ -16,8 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `ea/hydrology` `quality_flags` carries the reading's `completeness` after its
+  quality, `Good,completeness:Complete` or `Good,completeness:Incomplete`, whether the value is
+  based on complete data. Daily readings carry it (not all of them); a reading without one, and
+  every 15 minute reading, keeps the quality alone (`Good`). A filter `quality_flags == 'Good'` no
+  longer holds for daily readings: use `str.starts_with('Good')` (GH-2762)
+
 ### Fixed
 
+- **Breaking**: `ea/hydrology` returned the level of a river as `groundwater_level`. The Environment
+  Agency's `level-*` measures are river levels (2638 stations), so `daily/groundwater_level_max`
+  and `_min` had no groundwater behind them, and `15_minutes/groundwater_level` held rivers and no
+  borehole. The river level is now `15_minutes/stage` and `daily/stage_max` and `stage_min`, in
+  centimetres, no longer metres: request the new names (the old daily ones are not found) and
+  multiply stored values by 100. `15_minutes/groundwater_level` now holds the 1074 borehole
+  loggers, in metres above ordnance datum, every 15 minutes to hourly per station (GH-2632)
 - `interpolate` and `summarize` no longer return a timestamp outside the requested window when
   `start` or `end` is not on the resolution's grid (`start` 12:30 and `end` 12:30 two days later at
   daily gave the next day's 00:00 after `end`; `start` 10:29 at hourly gave 10:00 before it). The
