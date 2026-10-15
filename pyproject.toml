@@ -224,6 +224,8 @@ radarplus = [
 restapi = [
     # >=0.142: ui/restapi.py passes `FastAPI(telemetry=...)`, which 0.142 added
     "fastapi>=0.142,<1",
+    # ui/restapi.py imports starlette.exceptions.HTTPException and registers a handler for it; the floor is FastAPI's own
+    "starlette>=0.46,<2",
     "uvicorn[standard]>=0.30,<1",
 ]
 sql = [

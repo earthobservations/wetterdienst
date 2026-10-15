@@ -402,27 +402,6 @@ def test_point_on_the_equator_is_a_point(
     assert recorder.calls == [("point", (0.0, 8.97))]
 
 
-def test_select_history_sections_keeps_station_and_dataset() -> None:
-    """Test a history narrowed to some sections still names its station and dataset, first as in the history."""
-    history = {
-        "station_id": "01048",
-        "resolution": "daily",
-        "dataset": "climate_summary",
-        "name": {"station": [], "operator": []},
-        "parameter": [],
-        "device": [],
-        "geography": [],
-        "missing_data": {"summary": [], "periods": []},
-    }
-    selected = core.select_history_sections(history, {"missing_data"})
-    assert list(selected.items()) == [
-        ("station_id", "01048"),
-        ("resolution", "daily"),
-        ("dataset", "climate_summary"),
-        ("missing_data", {"summary": [], "periods": []}),
-    ]
-
-
 @pytest.mark.parametrize("model", [StationsRequest, ValuesRequest])
 def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest]) -> None:
     """Test the issue asked of dwd/swsmos reaches its request rather than reading the latest run (GH-2299)."""
@@ -482,8 +461,8 @@ def test_get_issues_lists_the_swsmos_runs(monkeypatch: pytest.MonkeyPatch) -> No
     request = core.IssuesRequest.model_validate({"provider": "dwd", "network": "swsmos", "station": "A006"})
 
     assert core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings()) == [
-        "2026-10-04T05:00:00+00:00",
-        "2026-10-04T06:00:00+00:00",
+        "2026-10-04T05:00:00.000000+00:00",
+        "2026-10-04T06:00:00.000000+00:00",
     ]
 
 
@@ -643,3 +622,100 @@ def test_date_is_refused_naming_timestamp(model: type[ValuesRequest | Interpolat
             "ctx": {"renamed_to": "timestamp"},
         }
     ]
+
+
+# what each class of `exceptions.py` is answered with, by name so that a class added to the module
+# has to be given its status here (GH-2634)
+_STATUS_OF = {
+    "ApiNotFoundError": 404,
+    "BufrReaderMissingError": 501,
+    "ConfigurationError": 501,
+    "CredentialMissingError": 501,
+    "DateRequiredError": 400,
+    "DownloadError": 500,
+    "ExportRefusedError": 500,
+    "ImageTooLargeError": 400,
+    "InvalidBoundingBoxError": 400,
+    "InvalidEnumerationError": 400,
+    "InvalidTimeIntervalError": 400,
+    "IssueNotFoundError": 404,
+    "LocationOutOfRangeError": 400,
+    "MetaFileFormatError": 500,
+    "MetaFileNotFoundError": 500,
+    "MissingDependencyError": 501,
+    "MissingTimeIntervalError": 400,
+    "NoInternetError": 500,
+    "NoParametersFoundError": 400,
+    "NoPeriodsFoundError": 400,
+    "NoStationsWithElevationError": 400,
+    "NotEnoughDataError": 400,
+    "NotFoundError": 404,
+    "ParameterNotCarriedError": 400,
+    "ProductFileNotFoundError": 500,
+    "ProviderNotFoundError": 404,
+    "RequestError": 400,
+    "ReversedTimeIntervalError": 400,
+    "StartDateEndDateError": 400,
+    "StationNotFoundError": 404,
+    "UpstreamError": 500,
+    "WetterdienstError": 500,
+}
+
+
+def _exception_classes() -> list[type[BaseException]]:
+    import inspect  # noqa: PLC0415
+
+    from wetterdienst import exceptions  # noqa: PLC0415
+
+    return [
+        cls
+        for _, cls in inspect.getmembers(exceptions, inspect.isclass)
+        if cls.__module__ == exceptions.__name__ and issubclass(cls, BaseException)
+    ]
+
+
+def test_every_exception_class_is_classified() -> None:
+    """Each class of `exceptions.py` has a status above, and `failure_status` gives it that one (GH-2634).
+
+    The REST API, the command line and the MCP tools ask `failure_status` instead of keeping a list of
+    the refusals, so a class that is not in the table above was never decided on.
+    """
+    classes = {cls.__name__: cls for cls in _exception_classes()}
+    assert sorted(classes) == sorted(_STATUS_OF)
+    for name, cls in classes.items():
+        assert core.failure_status(cls.__new__(cls)) == _STATUS_OF[name], name
+
+
+def test_an_unclassified_wetterdienst_error_is_a_server_error() -> None:
+    """A class derived from the root alone, whoever adds it, is answered as the server's error (GH-2634)."""
+    from wetterdienst.exceptions import WetterdienstError  # noqa: PLC0415
+
+    class UnplacedError(WetterdienstError):
+        """An exception nobody has given a kind."""
+
+    assert core.failure_status(UnplacedError("x")) == 500
+    assert not core._is_caller_refusal(UnplacedError("x"), SimpleNamespace())  # noqa: SLF001
+
+
+def test_failures_the_library_does_not_name_are_server_errors() -> None:
+    """A defect or the failure of a library underneath is a 500, whatever its built-in class (GH-2634)."""
+    for error in (ValueError("x"), KeyError("x"), IndexError("x"), OSError("x"), RuntimeError("x")):
+        assert core.failure_status(error) == 500
+    # a date at the edge of what a datetime holds is the request's
+    assert core.failure_status(OverflowError("date value out of range")) == 400
+
+
+def test_a_refusal_is_told_by_its_class_and_not_by_the_class_it_also_is() -> None:
+    """A `ValueError` of the library's is a refusal by being a `RequestError`; one that is not, is not."""
+    from wetterdienst.exceptions import (  # noqa: PLC0415
+        CredentialMissingError,
+        InvalidEnumerationError,
+        MetaFileFormatError,
+    )
+
+    request = SimpleNamespace()
+    # both are `ValueError`s; one is the caller's to fix, one is a file in a layout the parser does not expect
+    assert core._is_caller_refusal(InvalidEnumerationError("x"), request)  # noqa: SLF001
+    assert not core._is_caller_refusal(MetaFileFormatError("x"), request)  # noqa: SLF001
+    # a missing credential is the deployment's lack: neither a refusal nor a defect
+    assert not core._is_caller_refusal(CredentialMissingError("x"), request)  # noqa: SLF001

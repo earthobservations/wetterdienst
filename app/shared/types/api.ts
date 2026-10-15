@@ -403,6 +403,14 @@ export interface HistoryResponse {
 // Error Response
 // ============================================================================
 
+/**
+ * An error, as the backend answers it: an RFC 9457 problem (`application/problem+json`).
+ * `detail` is always text; `errors` lists the invalid parameters of a request that fails validation (422).
+ */
 export interface ApiErrorResponse {
+  type: string
+  title: string
+  status: number
   detail: string
+  errors?: { loc?: (string | number)[], msg?: string, type?: string }[]
 }

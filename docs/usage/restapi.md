@@ -40,6 +40,10 @@ query parameters are. `interpolate` and `summarize` also report the settings the
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
+Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts and stripes alike,
+and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
+the microsecond, with its offset, for instance `2026-09-01T00:00:00.000000+00:00`.
+
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
 ## Examples
@@ -182,6 +186,54 @@ A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with 
 the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
+
+### Errors
+
+Every error of the `/api` routes is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
+problem, served as `application/problem+json`, whatever its status: a 400, a 404, a 422, a 500 or
+the 404 of a path that does not exist. The `/mcp` endpoint answers its own errors as JSON-RPC.
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so 'provider' and 'network' must be given with them."
+}
+```
+
+`detail` is always text, the whole reason, with one line for each thing wrong where a request is
+wrong in several. A request that fails validation (422) also carries `errors`, a list with one
+entry for each invalid parameter, where `loc` names it:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Unprocessable Content",
+  "status": 422,
+  "detail": "limit: Input should be greater than or equal to 1",
+  "errors": [
+    {"type": "greater_than_equal", "loc": ["query", "limit"], "msg": "Input should be greater than or equal to 1", "input": "0", "ctx": {"ge": 1}}
+  ]
+}
+```
+
+| Status | When |
+| --- | --- |
+| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range |
+| 404 | what the request names does not exist: a provider, network, station, forecast run, or a path |
+| 403 | the server declines it: `sql` filters it has not enabled |
+| 405 | the method is not allowed for the path |
+| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
+| 501 | the server cannot serve it: a credential or an optional package it lacks, which the body does not name |
+| 500 | the server's own error, or the provider's: the body names the exception's type and nothing else, the cause is in the server log |
+
+Read `status` for what happened and `detail` for a sentence to show; the wording of `detail` is not
+part of the contract, and `type` is `about:blank` until the errors have codes of their own. A client
+that read `detail` as the list of a 422 reads `errors` now.
+
+The MCP tools put the same text into the tool error of an error the API answers, as `HTTP error
+422: Unprocessable Content - limit: Input should be greater than or equal to 1`.
 
 ## MCP endpoint
 

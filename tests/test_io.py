@@ -36,6 +36,7 @@ from wetterdienst.model.result import (
     SummarizedValuesResult,
     ValuesResult,
 )
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.util import filter_by_date
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.observation import (
@@ -427,9 +428,6 @@ def test_values_to_dict_with_metadata(
 
 def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_result_mock: StationsResult) -> None:
     """Test export of DataFrame of values to OGC feature collection."""
-    # mirror the real all() output where metadata columns (incl. station_id) are Enum, to exercise
-    # the stations<->values join in to_ogc_feature_collection (regression test for an Enum/String mismatch)
-    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
@@ -463,7 +461,6 @@ def test_values_to_ogc_feature_collection_with_metadata(
     metadata: dict,
 ) -> None:
     """Test export of DataFrame of values to OGC feature collection with metadata."""
-    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
         with_metadata=True,
     )
@@ -2600,8 +2597,6 @@ def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero(
         schema_overrides={"quality_flags": pl.String},
         orient="row",
     )
-    # station_id as Enum, as a real values frame has it
-    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     result = ValuesResult(stations=_gauge_stations_result(), values=None, df=df_values)
     features = json.loads(result.to_geojson())["data"]["features"]
     assert {
@@ -3114,9 +3109,8 @@ def _two_dataset_stations_result() -> StationsResult:
 
 
 def _values_result(stations: StationsResult, rows: list[dict]) -> ValuesResult:
-    """Build a values result of hand-written rows, its metadata columns Enum as a real one's are."""
+    """Build a values result of hand-written rows."""
     df_values = pl.DataFrame(rows, schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")}, orient="row")
-    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     return ValuesResult(stations=stations, values=None, df=df_values)
 
 
@@ -3572,7 +3566,7 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
     # one reading of the last series missing, which the wide shape writes as a null where another
     # series of its resolution has a reading at that timestamp
     rows.pop()
-    df_collected = pl.DataFrame(rows, schema=TimeseriesValues._long_fields)  # noqa: SLF001
+    df_collected = pl.DataFrame(rows, schema=LONG_SCHEMA)
     # shaped and sorted one station at a time and then put together, as a request does
     stations_collected = [df for _, df in df_collected.group_by("station_id", maintain_order=True)]
     df_long = pl.concat(df.sort("resolution", "dataset", "parameter", "timestamp") for df in stations_collected)
@@ -3581,8 +3575,8 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
         [values._widen_df(df).sort("resolution", "dataset", "timestamp") for df in stations_collected],  # noqa: SLF001
         how="diagonal",
     )
-    long = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_long))  # noqa: SLF001
-    wide = ValuesResult(stations=stations, values=values, df=values._cast_metadata_to_enum(df_wide))  # noqa: SLF001
+    long = ValuesResult(stations=stations, values=values, df=df_long)
+    wide = ValuesResult(stations=stations, values=values, df=df_wide)
     assert "parameter" not in df_wide.columns
     assert _plot_of(wide) == _plot_of(long)
 
@@ -3597,7 +3591,7 @@ def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
     )
-    df = stations.values._widen_df(pl.DataFrame(schema=TimeseriesValues._long_fields))  # noqa: SLF001
+    df = stations.values._widen_df(pl.DataFrame(schema=LONG_SCHEMA))  # noqa: SLF001
     assert ValuesResult(stations=stations, values=stations.values, df=df).to_plot().data == ()
 
 

@@ -187,10 +187,10 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resoluti
     """
     if df.is_empty() or "parameter" not in df.columns or "value" not in df.columns:
         return pl.DataFrame()
-    parameters = [str(one) for one in df.get_column("parameter").cast(pl.String).unique().to_list()]
+    parameters = [str(one) for one in df.get_column("parameter").unique().to_list()]
     low: dict[str, float] = {}
     high: dict[str, float] = {}
-    resolutions = df.get_column("resolution").cast(pl.String).unique().to_list() if "resolution" in df.columns else []
+    resolutions = df.get_column("resolution").unique().to_list() if "resolution" in df.columns else []
     if resolution is None and len(resolutions) == 1:
         resolution = resolutions[0]
     for parameter in parameters:
@@ -199,7 +199,7 @@ def out_of_range(df: pl.DataFrame, names: dict[str, str] | None = None, resoluti
             low[parameter], high[parameter] = bounds
     if not low:
         return pl.DataFrame()
-    parameter = pl.col("parameter").cast(pl.String)
+    parameter = pl.col("parameter")
     value = pl.col("value").cast(pl.Float64, strict=False)
     outside = (value < parameter.replace_strict(low, default=-_INF, return_dtype=pl.Float64)) | (
         value > parameter.replace_strict(high, default=_INF, return_dtype=pl.Float64)

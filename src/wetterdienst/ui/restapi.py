@@ -7,12 +7,17 @@ from __future__ import annotations
 import json
 import logging
 import math
+from http import HTTPStatus
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema, with_config
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
@@ -21,16 +26,15 @@ from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
+    ConfigurationError,
     CredentialMissingError,
     DateRequiredError,
     ImageTooLargeError,
     InvalidTimeIntervalError,
     MissingDependencyError,
     MissingTimeIntervalError,
-    NoStationsWithElevationError,
-    ParameterNotCarriedError,
     ReversedTimeIntervalError,
-    StationNotFoundError,
+    WetterdienstError,
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.resolution import Resolution
@@ -66,9 +70,9 @@ from wetterdienst.ui.core import (
     StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
+    _caller_refusal_status,
     _get_stripes_data,
     _get_stripes_stations,
-    _is_caller_refusal,
     _plot_stripes,
     check_timeseries_api,
     get_auth,
@@ -80,16 +84,16 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     overlay_options,
-    select_history_sections,
     set_logging_level,
 )
 from wetterdienst.ui.mcp import is_tool_request
 from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection
+    from collections.abc import Callable, Collection, Mapping
 
     from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -166,6 +170,106 @@ REQUEST_EXAMPLES = {
 }
 
 
+#: the media type of every error body, RFC 9457
+PROBLEM_MEDIA_TYPE = "application/problem+json"
+
+
+def _problem_response(
+    request: Request,
+    status_code: int,
+    detail: str,
+    *,
+    errors: list[Any] | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> JSONResponse:
+    """Answer a failure with the one error body of this API, an RFC 9457 problem (GH-2634).
+
+    `{"type": "about:blank", "title": <the status' phrase>, "status": <int>, "detail": <str>}`, as
+    the RFC has a problem with no meaning beyond its status. `detail` is always text, the whole
+    reason, one line for each thing wrong where a request is wrong in several; a client that only
+    wants a sentence reads that. `errors` is added where a request failed validation: the list of
+    pydantic's entries, each with the `loc` of its parameter, as `detail` was for such a request
+    until then, and what a client that wants the invalid fields reads.
+
+    An MCP tool's request is answered with the text alone, as a JSON string: FastMCP puts the body
+    of a failed call into the tool error as Python writes it, and a dict would read as its repr.
+    """
+    if is_tool_request(request.scope):
+        return JSONResponse(detail, status_code=status_code, headers=headers)
+    problem: dict[str, Any] = {
+        "type": "about:blank",
+        "title": _status_phrase(status_code),
+        "status": status_code,
+        "detail": detail,
+    }
+    if errors:
+        problem["errors"] = errors
+    return JSONResponse(problem, status_code=status_code, headers=headers, media_type=PROBLEM_MEDIA_TYPE)
+
+
+def _status_phrase(status_code: int) -> str:
+    """Give the phrase of a status, as RFC 9457 asks of the `title` of a problem with no type of its own."""
+    try:
+        return HTTPStatus(status_code).phrase
+    except ValueError:
+        return "Error"
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
+    """Answer an `HTTPException`, and Starlette's own for an unknown path or a method not allowed, as a problem."""
+    if not is_body_allowed_for_status_code(exc.status_code):
+        return Response(status_code=exc.status_code, headers=exc.headers)
+    detail = exc.detail if isinstance(exc.detail, str) else _status_phrase(exc.status_code)
+    return _problem_response(request, exc.status_code, detail, headers=exc.headers)
+
+
+def _describe_validation_errors(errors: list[dict[str, Any]]) -> str:
+    """Tell each entry of a validation error by the parameter it is located at, one line each.
+
+    The `query` in front of a location says where the parameter came from and is left out; a rule
+    about no parameter in particular is told by its message alone.
+    """
+    lines = []
+    for error in errors:
+        where = ".".join(str(part) for part in error.get("loc", ())[1:])
+        lines.append(f"{where}: {error['msg']}" if where else str(error["msg"]))
+    return "\n".join(lines)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Answer a request that fails validation with a 422 problem, its entries under `errors`."""
+    errors = jsonable_encoder(exc.errors())
+    return _problem_response(request, 422, _describe_validation_errors(errors), errors=errors)
+
+
+class _NoRequestModel(BaseModel):
+    """The request model of a failure raised where no endpoint's request is at hand: it carries no field."""
+
+
+@app.exception_handler(WetterdienstError)
+async def _wetterdienst_error_handler(request: Request, exc: WetterdienstError) -> JSONResponse:
+    """Answer an exception of the library that escaped an endpoint's own handling by its place in the hierarchy.
+
+    The endpoints decide with `_failure` inside their handlers; this is for what is raised outside
+    them, such as while a result is rendered, and gives it the status `failure_status` gives it.
+    """
+    error = _failure(exc, _NoRequestModel(), f"serve {request.url.path}")
+    return _problem_response(request, error.status_code, error.detail)
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Answer a failure no endpoint handled with the 500 problem of `_server_error`, the traceback in the log.
+
+    Starlette sends this answer and then raises the exception again, so the server logs it as it
+    did when the answer was its plain-text one.
+    """
+    error = _server_error(exc)
+    return _problem_response(request, error.status_code, error.detail)
+
+
 def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> HTTPException:
     """Report a dependency this deployment does not have as the server's lack, not the caller's error.
 
@@ -200,7 +304,7 @@ async def _missing_dependency_handler(request: Request, exc: MissingDependencyEr
     such as rendering an image after the values were collected.
     """
     error = _dependency_missing_on_the_server(exc, f"serve {request.url.path}")
-    return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
+    return _problem_response(request, error.status_code, error.detail)
 
 
 def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseModel, what: str) -> HTTPException:
@@ -300,9 +404,7 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
     300 px tall for each, and before the browser is started.
     """
     log.info(f"Refused {request.url.path}: {exc}")
-    return JSONResponse(
-        status_code=400, content={"detail": f"{exc} Lower scale, give a smaller height, or ask for fewer parameters."}
-    )
+    return _problem_response(request, 400, f"{exc} Lower scale, give a smaller height, or ask for fewer parameters.")
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
@@ -696,7 +798,7 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     apply to this answer alone.
     """
     given = http_request.query_params.keys()
-    # a malformed server setting is the bare 500 FastAPI answers, which does not read its value back
+    # a malformed server setting is the app's unhandled 500, which does not read its value back
     Settings()
     # built once for the endpoints no parameter given applies to, as each build reads the
     # environment and the `.env` again
@@ -717,6 +819,39 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
         raise HTTPException(status_code=400, detail="\n".join(refused))
     content = ServerSettings.model_validate(reported)
     return Response(content=content.model_dump_json(), media_type="application/json")
+
+
+def _declare_problem_schema(schema: dict[str, Any]) -> None:
+    """Describe the error body in the schema: the 422 of each operation is the `Problem` of `_problem_response`.
+
+    FastAPI documents the 422 it adds to every operation with a query as `HTTPValidationError`,
+    `{"detail": [ValidationError]}`, which this API no longer answers: its `detail` is text and the
+    entries are under `errors`. Changed in place, and the same when it runs again.
+    """
+    schemas = schema.setdefault("components", {}).setdefault("schemas", {})
+    schemas.pop("HTTPValidationError", None)
+    schemas["Problem"] = {
+        "title": "Problem",
+        "description": "An error, as RFC 9457 describes it (`application/problem+json`).",
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "default": "about:blank", "description": "Always `about:blank` for now."},
+            "title": {"type": "string", "description": "The phrase of the status."},
+            "status": {"type": "integer", "description": "The HTTP status."},
+            "detail": {"type": "string", "description": "The reason, one line for each thing wrong in a request."},
+            "errors": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/ValidationError"},
+                "description": "The invalid parameters, each with the `loc` of its parameter, of a 422.",
+            },
+        },
+        "required": ["type", "title", "status", "detail"],
+    }
+    for path in schema.get("paths", {}).values():
+        for operation in path.values():
+            response = operation.get("responses", {}).get("422")
+            if response is not None:
+                response["content"] = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
 
 
 def _openapi() -> dict[str, Any]:
@@ -751,6 +886,7 @@ def _openapi() -> dict[str, Any]:
     schema = FastAPI.openapi(app)
     if schema is kept:
         return schema
+    _declare_problem_schema(schema)
     try:
         server = Options()
     except Exception:  # noqa: BLE001
@@ -987,7 +1123,7 @@ def glossary(
     including any `unit_targets` option override.
     """
     set_logging_level(debug=request.debug)
-    # a malformed server setting is the bare 500 FastAPI answers, as for the data endpoints
+    # a malformed server setting is the app's unhandled 500, as for the data endpoints
     Settings()
 
     return get_glossary(parameter=request.parameter, unit_type=request.unit_type, limit=request.limit)
@@ -1039,7 +1175,7 @@ def stations(
     api = _get_timeseries_api(request.provider, request.network)
 
     # outside the handler below: nothing of the caller's reaches these settings, so a malformed
-    # server setting is the bare 500 FastAPI answers, which does not read its value back
+    # server setting is the app's unhandled 500, which does not read its value back
     settings = Settings()
     try:
         stations_ = get_stations(
@@ -1146,7 +1282,7 @@ def values(
     api = _get_timeseries_api(request.provider, request.network)
 
     # outside the handlers: nothing of the caller's reaches the server's settings, so a malformed one
-    # is the bare 500 FastAPI answers, which does not read its value back
+    # is the app's unhandled 500, which does not read its value back
     settings = Settings()
     # a unit target given for a quantity or unit the converter has none for is the request's 400
     options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
@@ -1183,7 +1319,7 @@ def _request_options(request: BaseModel, given: Collection[str], applied: type[_
     the server sets for the option.
 
     The server's own options are built first, and outside the handler: one malformed there is the
-    bare 500 FastAPI answers, which does not read its value back. Where an error is located would
+    unhandled 500, which does not read its value back. Where an error is located would
     not tell, as the request's dicts are merged into the ones the server sets. With the server's
     valid on their own, an error once the request's fields are added is the request's, and is told
     by its field with the value the request gave, not the dict merged from it and the server's.
@@ -1274,7 +1410,7 @@ def _server_error(e: Exception) -> HTTPException:
     be created names its path, an `OSError` of any kind the file it met, a failed download the URL.
     The caller of an unauthenticated API has no use for the server's file system layout, so the
     body carries a fixed sentence and the exception's class, and the text stays where the traceback
-    is, in the server log. The body is still `{"detail": <string>}`, as it was.
+    is, in the server log. The body is the problem of `_problem_response`, with that text as its `detail`.
     """
     return HTTPException(
         status_code=500,
@@ -1282,24 +1418,43 @@ def _server_error(e: Exception) -> HTTPException:
     )
 
 
-def _failure(e: Exception, request: BaseModel, what: str, *, refusal_status: int = 400) -> HTTPException:
+def _configuration_missing_on_the_server(e: ConfigurationError, what: str) -> HTTPException:
+    """Report a lack of this deployment that no more specific answer names as a 501, not a crash.
+
+    The message names a setting or a package of the server, which is for whoever runs it, so it moves
+    to the log, as it does for a missing dependency or credential (`_dependency_missing_on_the_server`).
+    """
+    log.error(f"Failed to {what}, this deployment is not configured to serve it: {e}")
+    return HTTPException(
+        status_code=501,
+        detail="This server is not configured to serve the request. The request was valid; "
+        "ask whoever runs this instance.",
+    )
+
+
+def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     """Log a failure at the level it deserves and answer it with the status it deserves.
 
-    One decision for every catch-all that tells a caller's refusal from a failure of ours: a request
-    the caller phrased wrong is theirs to fix, so an info line without a traceback and a 400 (or
-    `refusal_status`); a credential or an optional dependency the server lacks is a 501; anything
-    else is a logged traceback and a 500 that does not repeat the exception's text (`_server_error`).
+    One decision for every catch-all that tells a caller's refusal from a failure of ours, made from
+    the exception's place in the `WetterdienstError` hierarchy (`failure_status`): a request the
+    caller phrased wrong is theirs to fix, so an info line without a traceback and a 400, and a
+    provider, network, station or issue that does not exist a 404; a credential or an optional
+    dependency the server lacks is a 501; anything else is a logged traceback and a 500 that does
+    not repeat the exception's text (`_server_error`).
     """
     if isinstance(e, MissingDependencyError):
         return _dependency_missing_on_the_server(e, what)
     if isinstance(e, CredentialMissingError):
         return _credential_missing_on_the_server(e, request, what)
-    if not _is_caller_refusal(e, request):
+    if isinstance(e, ConfigurationError):
+        return _configuration_missing_on_the_server(e, what)
+    status = _caller_refusal_status(e, request)
+    if status is None:
         log.error(f"Failed to {what}.", exc_info=e)
         return _server_error(e)
     detail = _refusal_detail(e, what)
     log.info(f"Failed to {what}: {detail}")
-    return HTTPException(status_code=refusal_status, detail=detail)
+    return HTTPException(status_code=status, detail=detail)
 
 
 def _values(
@@ -1316,10 +1471,6 @@ def _values(
     """
     try:
         return get_values(api=api, request=request, settings=settings, options=options)
-    except ParameterNotCarriedError as e:
-        # the message is the whole of it: which parameters, and the lead time that carries them
-        log.info(f"Failed to get values: {e}")
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix
@@ -1344,24 +1495,18 @@ def _geo_values(
     beyond the latitudes UTM covers (a summary converts nothing to UTM), a window that ends before
     it starts, a date or an issue that does not parse. Those are 400s, as `/api/values` answers
     them, and each is logged here as an info line: the caller's to fix, so no traceback of ours. A
-    station the lookup does not know keeps its 404, "no such station"; an issue the source does not
-    list is a 400, as `/api/values` answers it. A reader missing on the server is a 501; the same
+    station the lookup does not know, or an issue the source does not list, is a 404, "no such
+    thing", as `/api/values` answers an issue. A reader missing on the server is a 501; the same
     decisions in both places, so they are made here rather than twice over.
     """
     try:
         return get(api=api, request=request, settings=settings, options=options)
-    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
-        # the message is the whole of it: which parameters lost their stations, and that asking
-        # without an elevation gets them back; or which parameters the run does not carry, and the
-        # lead time that does
-        log.info(f"Failed to {what}: {e}")
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix
         raise
     except Exception as e:
-        raise _failure(e, request, what, refusal_status=404 if isinstance(e, StationNotFoundError) else 400) from e
+        raise _failure(e, request, what) from e
 
 
 # response models for the different formats are
@@ -1487,7 +1632,7 @@ def stripes_stations(
     set_logging_level(debug=request.debug)
 
     # the provider request below builds its settings from the environment inside the handler: checked
-    # here first, a malformed server setting is the bare 500 FastAPI answers, which does not read its
+    # here first, a malformed server setting is the app's unhandled 500, which does not read its
     # value back
     Settings()
     try:
@@ -1525,14 +1670,14 @@ def stripes_values(
         raise _failure(e, request, "get stripes data") from e
 
     if request.format == "csv":
-        content = stripes_data.df.write_csv()
+        content = timestamps_to_string(stripes_data.df).write_csv()
         media_type = "text/csv"
     else:
         data = {
             "metadata": stripes_data.metadata.model_dump(),
             "values": [
                 {
-                    "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
+                    "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
                     "value": row["value"],
                 }
                 for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
@@ -1608,27 +1753,17 @@ def history(
         log.exception("Failed to acquire history provider")
         raise _server_error(e) from e
 
-    data: dict[str, Any] = {}
-    if request.with_metadata:
-        data["metadata"] = stations_.get_metadata()
-    if request.with_stations:
-        data["stations"] = stations_.to_dict(with_metadata=False)["stations"]
-    data["histories"] = []
     try:
-        for history_result in history_provider.query():
-            history = history_result.history.model_dump()
-            data["histories"].append(select_history_sections(history, request.sections))
+        content = history_provider.to_json(
+            with_metadata=request.with_metadata,
+            with_stations=request.with_stations,
+            sections=request.sections,
+            indent=4 if request.pretty else None,
+        )
     except Exception as e:
         log.exception("Failed to collect station history")
         raise _server_error(e) from e
-    return Response(
-        content=json.dumps(
-            data,
-            indent=4 if request.pretty else None,
-            default=lambda o: o.isoformat() if hasattr(o, "isoformat") else str(o),
-        ),
-        media_type="application/json",
-    )
+    return Response(content=content, media_type="application/json")
 
 
 @app.get("/api/alerts")

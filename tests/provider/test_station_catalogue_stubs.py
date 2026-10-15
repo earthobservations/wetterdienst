@@ -7,6 +7,7 @@ import pytest
 
 from tests.provider.station_catalogue import assert_sound
 from tests.provider.station_catalogue_stubs import STUBS, Stub
+from wetterdienst.model.schema import STATIONS_SCHEMA
 
 
 def assert_expected(stations: pl.DataFrame, stub: Stub) -> None:
@@ -37,3 +38,16 @@ def test_a_stub_catalogue_is_sound(stub: Stub, monkeypatch: pytest.MonkeyPatch) 
     stations = stub.build(monkeypatch)
     assert_sound(stations, stub.catalogue, bbox=stub.bbox, accepted=stub.accepted)
     assert_expected(stations, stub)
+
+
+@pytest.mark.parametrize("stub", STUBS, ids=lambda stub: stub.catalogue)
+def test_a_stub_catalogue_has_the_stations_schema(stub: Stub, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hold the stations of every stubbed catalogue to `STATIONS_SCHEMA`: its columns, dtypes and relative order.
+
+    A provider may put columns of its own among them, as the DWD forecast networks put `icao_id` after
+    `station_id`, but the core columns are the ones a caller reads the same on every provider (GH-2633).
+    """
+    schema = stub.build(monkeypatch).schema
+    core = {name: dtype for name, dtype in schema.items() if name in STATIONS_SCHEMA}
+    assert core == dict(STATIONS_SCHEMA), stub.catalogue
+    assert list(core) == list(STATIONS_SCHEMA), stub.catalogue

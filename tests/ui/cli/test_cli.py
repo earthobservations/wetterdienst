@@ -1071,7 +1071,7 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=swsmos", "--station=A006"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00+00:00"]}
+    assert json.loads(result.output) == {"issues": ["2026-10-04T06:00:00.000000+00:00"]}
 
 
 @pytest.mark.parametrize("option", ["dataset", "lead_time"])

@@ -6,15 +6,17 @@ const BACKEND = 'http://wetterdienst-backend.internal:3000/api'
 
 async function proxyOutcome(failure: unknown) {
   const setResponseStatus = vi.fn()
+  const setResponseHeader = vi.fn()
   vi.stubGlobal('defineEventHandler', (handler: unknown) => handler)
   vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBase: BACKEND } }))
   vi.stubGlobal('getQuery', () => ({}))
   vi.stubGlobal('sendProxy', vi.fn().mockRejectedValue(failure))
   vi.stubGlobal('setResponseStatus', setResponseStatus)
+  vi.stubGlobal('setResponseHeader', setResponseHeader)
   const { default: handler } = await import('../../server/api/[...].get')
   const event = { path: '/api/stations', handled: false, node: { res: {} } }
   const body = await (handler as unknown as (event: unknown) => Promise<unknown>)(event)
-  return { body, setResponseStatus }
+  return { body, setResponseStatus, setResponseHeader }
 }
 
 afterEach(() => {
@@ -29,10 +31,16 @@ describe('the /api proxy with an unreachable backend', () => {
     const cause = new Error('connect ECONNREFUSED 10.0.3.7:3000')
     const refused = Object.assign(new Error('Bad Gateway'), { statusCode: 502, cause })
 
-    const { body, setResponseStatus } = await proxyOutcome(refused)
+    const { body, setResponseStatus, setResponseHeader } = await proxyOutcome(refused)
 
     expect(setResponseStatus).toHaveBeenCalledWith(expect.anything(), 502)
-    expect(body).toEqual({ detail: 'The backend could not be reached. The cause is in the server log.' })
+    expect(setResponseHeader).toHaveBeenCalledWith(expect.anything(), 'content-type', 'application/problem+json')
+    expect(body).toEqual({
+      type: 'about:blank',
+      title: 'Bad Gateway',
+      status: 502,
+      detail: 'The backend could not be reached. The cause is in the server log.',
+    })
     expect(JSON.stringify(body)).not.toMatch(/ECONNREFUSED|10\.0\.3\.7|3000|internal/)
     expect(logged).toHaveBeenCalledOnce()
     expect(logged.mock.calls[0]).toContain(cause)
@@ -45,7 +53,12 @@ describe('the /api proxy with an unreachable backend', () => {
     const { body, setResponseStatus } = await proxyOutcome(odd)
 
     expect(setResponseStatus).toHaveBeenCalledWith(expect.anything(), 502)
-    expect(body).toEqual({ detail: 'The backend could not be reached. The cause is in the server log.' })
+    expect(body).toEqual({
+      type: 'about:blank',
+      title: 'Bad Gateway',
+      status: 502,
+      detail: 'The backend could not be reached. The cause is in the server log.',
+    })
     expect(logged.mock.calls[0]).toContain(odd)
   })
 })

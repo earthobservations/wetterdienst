@@ -19,11 +19,14 @@ from dirty_equals import IsInstance, IsStr
 
 from tests.conftest import IS_WINDOWS, is_html_document
 from wetterdienst.exceptions import (
+    DownloadError,
+    IssueNotFoundError,
     LocationOutOfRangeError,
     NoParametersFoundError,
     NoStationsWithElevationError,
     ParameterNotCarriedError,
     StationNotFoundError,
+    WetterdienstError,
 )
 from wetterdienst.ui.cli import cli
 
@@ -1093,6 +1096,7 @@ def test_cli_values_image_wide() -> None:
         pytest.param(LocationOutOfRangeError("latitude 85.0 is beyond the latitudes UTM covers"), id="location"),
         pytest.param(NoParametersFoundError("No valid parameters could be parsed"), id="parameters"),
         pytest.param(StationNotFoundError("no station 99999"), id="station"),
+        pytest.param(IssueNotFoundError("no run at 2020-01-01T00:00"), id="issue"),
     ],
 )
 def test_cli_values_tells_a_refusal_in_one_line(
@@ -1146,6 +1150,39 @@ def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest
 
     assert result.exit_code == 1
     assert isinstance(result.exception, FileNotFoundError)
+    assert "Usage:" not in result.output
+
+
+class _UnplacedError(WetterdienstError):
+    """An exception of the library that nobody has given a kind."""
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(DownloadError("https://example.com/a", "timed out"), id="upstream"),
+        pytest.param(_UnplacedError("not placed in the hierarchy"), id="unplaced"),
+    ],
+)
+def test_cli_values_leaves_a_wetterdienst_error_that_is_no_refusal_its_traceback(
+    failure: Exception, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test an `UpstreamError`, and a `WetterdienstError` no kind was given, keep the traceback, exit 1 (GH-2634).
+
+    The command line asks the class what the REST API asks, so a class added to the hierarchy without
+    a kind is a defect to show, as it is a 500 there.
+    """
+
+    def fail(**_kwargs: object) -> None:
+        raise failure
+
+    monkeypatch.setattr("wetterdienst.ui.cli.get_values", fail)
+    result = CliRunner().invoke(
+        cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is failure
     assert "Usage:" not in result.output
 
 

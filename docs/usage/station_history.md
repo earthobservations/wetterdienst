@@ -27,6 +27,8 @@ request = DwdObservationRequest(
     settings=settings
 ).filter_by_station_id(1048)
 history = next(request.history.query())
+# the same as JSON, as `/api/history` and `wetterdienst history` return it
+print(history.to_json(sections={"name"}))
 # access history for climate summary daily station 1048 (Dresden Klotzsche)
 # the station it belongs to, "01048" as the stations frame spells it
 print(history.history.station_id)
@@ -69,6 +71,8 @@ name still in use, and for the station's current position in `geography`, `valid
 Each history also gives its station's `station_id` and the `resolution` and `dataset` it belongs
 to, whichever sections are asked for. DWD observation publishes station metadata per dataset, so a
 request for several datasets answers up to one history per station and dataset.
+The `valid_from` and `valid_to` of a record are written as the timestamps of every other result,
+ISO 8601 in UTC to the microsecond, such as `1926-05-01T00:00:00.000000+00:00`.
 The result is returned as JSON; use `--target file://history.json` to write it to a file
 (the target must end with `.json`).
 

@@ -172,7 +172,7 @@ def physical_range_findings(request: pytest.FixtureRequest) -> Generator[list[st
         if not names:
             return df
         resolution = dataset.resolution.name
-        df_checked = df.filter(pl.col("parameter").cast(pl.String).str.to_lowercase().is_in(list(names)))
+        df_checked = df.filter(pl.col("parameter").str.to_lowercase().is_in(list(names)))
         outside = out_of_range(df_checked, names, resolution)
         if not outside.is_empty():
             provider = type(self).__module__.removeprefix("wetterdienst.provider.")
