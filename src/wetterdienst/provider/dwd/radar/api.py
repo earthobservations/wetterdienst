@@ -524,7 +524,7 @@ class DwdRadarValues:  # noqa: PLW1641
                         except MissingDependencyError as exc:
                             # no h5py: every file would say the same, so say it once and go on without
                             verify_hdf5_files = False
-                            log.warning(f"{exc}. The HDF5 files are returned unverified.")
+                            log.warning(f"{str(exc).rstrip('.')}. The HDF5 files are returned unverified.")
                         except Exception:  # pragma: no cover
                             log.exception("Unable to read HDF5 file.")
                     self._attach_bufr(result)
