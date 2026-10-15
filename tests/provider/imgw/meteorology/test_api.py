@@ -1201,3 +1201,68 @@ def test_imgw_meteorology_daily_climate_across_the_end_of_k_d_t() -> None:
         .df
     )
     assert values.height == 366
+
+
+def _meteorology_urls(
+    monkeypatch: pytest.MonkeyPatch, resolution: str, files: list[str], start: dt.datetime, end: dt.datetime
+) -> list[str]:
+    """Run the file selection of ``_get_urls`` on a listing, for a window of UTC instants."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api  # noqa: PLC0415
+
+    values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
+    values.sr = SimpleNamespace(start=start, end=end, settings=Settings())  # ty: ignore[invalid-assignment]
+    monkeypatch.setattr(imgw_meteorology_api, "list_files_for_interval", lambda *_args, **_kwargs: files)
+    dataset = getattr(ImgwMeteorologyMetadata, resolution).climate
+    return [url.rsplit("/", 1)[-1] for url in values._get_urls(dataset, "249180010")]  # noqa: SLF001
+
+
+def _utc(*args: int) -> dt.datetime:
+    return dt.datetime(*args, tzinfo=ZoneInfo("UTC"))
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        # a file named by the year covers it, one named by year and month covers that month, both ends included
+        (_utc(2023, 5, 31), _utc(2023, 6, 2), ["2023_k.zip", "2023_05_k.zip"]),
+        (_utc(2023, 4, 30, 23), _utc(2023, 4, 30, 23), ["2023_k.zip"]),
+        (_utc(2023, 12, 31), _utc(2024, 1, 1), ["2023_k.zip", "2024_01_k.zip"]),
+        (_utc(2022, 12, 31), _utc(2022, 12, 31), []),
+    ],
+)
+def test_imgw_meteorology_daily_files_are_selected_by_the_period_their_name_gives(
+    monkeypatch: pytest.MonkeyPatch, start: dt.datetime, end: dt.datetime, expected: list[str]
+) -> None:
+    """Test that a daily file is kept when the year or month of its name overlaps the window."""
+    names = ["2023_k.zip", "2023_05_k.zip", "2024_01_k.zip", "k_d_format.txt", "?C=D;O=A"]
+    files = [f"https://example.invalid/{name}" for name in names]
+    assert _meteorology_urls(monkeypatch, "daily", files, start, end) == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        # "1951_m_k.zip" is one year, "1951_1955_m_k.zip" the years from the first to the second, included
+        (_utc(1955, 6, 1), _utc(1956, 1, 1), ["1951_1955_m_k.zip", "1956_1960_m_k.zip"]),
+        (_utc(1951, 12, 31), _utc(1951, 12, 31), ["1951_m_k.zip", "1951_1955_m_k.zip"]),
+        (_utc(1961, 1, 1), _utc(1961, 1, 1), ["1961_m_k.zip"]),
+        (_utc(1962, 1, 1), _utc(1962, 1, 1), []),
+    ],
+)
+def test_imgw_meteorology_monthly_files_are_selected_by_the_years_their_name_gives(
+    monkeypatch: pytest.MonkeyPatch, start: dt.datetime, end: dt.datetime, expected: list[str]
+) -> None:
+    """Test that a monthly file is kept when the years of its name overlap the window."""
+    names = ["1951_m_k.zip", "1951_1955_m_k.zip", "1956_1960_m_k.zip", "1961_m_k.zip", "k_m_t_format.txt"]
+    files = [f"https://example.invalid/{name}" for name in names]
+    assert _meteorology_urls(monkeypatch, "monthly", files, start, end) == expected
+
+
+def test_imgw_meteorology_a_file_name_without_a_period_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a name the period cannot be read from is reported, not left out with its data."""
+    files = ["https://example.invalid/2023_k.zip", "https://example.invalid/abcd_k.zip"]
+    with pytest.raises(ValueError, match=r"abcd_k\.zip"):
+        _meteorology_urls(monkeypatch, "daily", files, _utc(2023, 1, 1), _utc(2023, 2, 1))

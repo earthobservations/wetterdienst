@@ -20,6 +20,7 @@ import re
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import portion
 
 from wetterdienst.metadata.cache import CacheExpiry
@@ -68,3 +69,33 @@ def list_files_for_interval(
         folder_entries = list_remote_directory_fsspec(folder, settings, cache_expiry)
         files.extend(entry["name"] for entry in folder_entries if entry["type"] == "file")
     return files
+
+
+def keep_files_overlapping(
+    df_files: pl.DataFrame,
+    start: pl.Expr,
+    end: pl.Expr,
+    interval: portion.Interval,
+) -> pl.DataFrame:
+    """Keep the files whose period, from ``start`` to ``end`` (both included), overlaps ``interval``.
+
+    ``start`` and ``end`` are expressions on the columns of ``df_files`` that give the first and last instant a file
+    covers, read from its name. A name they cannot be read from is an error, not a file to leave out: a period
+    that is not there has nothing to compare, and dropping the file would drop its data without a word.
+    """
+    df_files = df_files.with_columns(start.alias("start_timestamp"), end.alias("end_timestamp"))
+    unreadable = df_files.filter(pl.col("start_timestamp").is_null() | pl.col("end_timestamp").is_null())
+    if not unreadable.is_empty():
+        msg = f"Cannot read the period of IMGW file(s) from their names: {unreadable.get_column('file').to_list()}"
+        raise ValueError(msg)
+    if interval.empty:
+        return df_files.clear()
+    # the instants are compared, whatever zone the request's bounds are written in
+    upper = pl.lit(interval.upper).dt.convert_time_zone("UTC")
+    lower = pl.lit(interval.lower).dt.convert_time_zone("UTC")
+    # a period that ends before it starts is empty, and overlaps nothing
+    return df_files.filter(
+        (pl.col("start_timestamp") <= pl.col("end_timestamp"))
+        & (pl.col("start_timestamp") <= upper)
+        & (pl.col("end_timestamp") >= lower)
+    )

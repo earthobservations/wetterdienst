@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING, ClassVar
-from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion
@@ -23,7 +21,7 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_meta
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.imgw.fileindex import list_files_for_interval
+from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
@@ -146,24 +144,30 @@ ImgwHydrologyMetadata = {
 ImgwHydrologyMetadata = build_metadata_model(ImgwHydrologyMetadata, "ImgwHydrologyMetadata")
 
 
-def _hydrology_daily_file_date_range(year: int, month: int | None) -> list[dt.datetime]:
-    """Compute the date range covered by a hydrology daily zip file from its filename year/month.
+def _hydrology_daily_file_period() -> tuple[pl.Expr, pl.Expr]:
+    """Give the first and last instant a hydrology daily zip file covers, from the ``year`` and ``month`` of its name.
 
     Daily files are either per-month (``codz_YYYY_MM.zip``, historical) or a single
     consolidated file per year (``codz_YYYY.zip``, used from 2023 onwards). ``month`` is
-    None for the latter, in which case the whole hydrological year is covered.
+    null for the latter, in which case the whole hydrological year is covered.
     """
-    if month is None:
-        d = dt.datetime(year, 1, 1, tzinfo=ZoneInfo("UTC"))
-        return [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)]
+    year, month = pl.col("year"), pl.col("month")
+    hydrological_year = pl.datetime(year, 1, 1, time_zone="UTC")
     # shift hydrological year/month to calendar year/month, mirroring __parse_file below
-    if month <= 2:
-        year -= 1
-    month = month - 2 if month + 10 > 12 else month + 10
-    return [
-        dt.datetime(year, month, 1, tzinfo=ZoneInfo("UTC")),
-        dt.datetime(year, month, 1, tzinfo=ZoneInfo("UTC")) + relativedelta(months=1) - relativedelta(days=1),
-    ]
+    month_start = pl.datetime(
+        year - (month <= 2).cast(pl.Int64),
+        pl.when(month > 2).then(month - 2).otherwise(month + 10),
+        1,
+        time_zone="UTC",
+    )
+    start = pl.when(month.is_null()).then(hydrological_year.dt.offset_by("-2mo")).otherwise(month_start)
+    end = (
+        pl.when(month.is_null())
+        .then(hydrological_year.dt.offset_by("11mo"))
+        .otherwise(month_start.dt.offset_by("1mo"))
+        .dt.offset_by("-1d")
+    )
+    return start, end
 
 
 def _normalize_hydrology_csv(data: bytes) -> tuple[bytes, str]:
@@ -386,7 +390,7 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
             if dataset.resolution.value == Resolution.DAILY:
                 # daily files are either per-month ("codz_YYYY_MM.zip", historical) or a single
                 # consolidated file per year ("codz_YYYY.zip", used from 2023 onwards); month is
-                # null for the latter and _hydrology_daily_file_date_range() covers the whole year
+                # null for the latter and _hydrology_daily_file_period() covers the whole year
                 df_files = df_files.with_columns(
                     pl.col("file").str.strip_chars_end(".zip").str.split("_").list.slice(1).alias("year_month"),
                 )
@@ -394,43 +398,20 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
                     pl.col("year_month").list.first().cast(pl.Int64).alias("year"),
                     pl.col("year_month").list.get(1, null_on_oob=True).cast(pl.Int64).alias("month"),
                 )
-                df_files = df_files.with_columns(
-                    pl.struct(["year", "month"])
-                    .map_elements(
-                        lambda x: _hydrology_daily_file_date_range(x["year"], x["month"]),
-                        return_dtype=pl.Array(pl.Datetime, shape=2),
-                    )
-                    .alias("date_range"),
-                )
+                start, end = _hydrology_daily_file_period()
             else:
-                df_files = df_files.with_columns(
+                # the hydrological year of the file's year starts two months before it, in November; it is kept
+                # until the end of the November after, a month past its end, as it always was
+                year = (
                     pl.col("file")
                     .str.strip_chars_end(".zip")
                     .str.split("_")
                     .list.last()
                     .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                    .map_elements(
-                        lambda d: [d - relativedelta(months=2), d + relativedelta(months=11) - relativedelta(days=1)],
-                        return_dtype=pl.Array(pl.Datetime, shape=2),
-                    )
-                    .alias("date_range"),
                 )
-            df_files = df_files.select(
-                pl.col("url"),
-                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
-                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
-            )
-            df_files = df_files.with_columns(
-                pl.struct(["start_timestamp", "end_timestamp"])
-                .map_elements(
-                    lambda dates: portion.closed(dates["start_timestamp"], dates["end_timestamp"]),
-                    return_dtype=pl.Object,
-                )
-                .alias("interval"),
-            )
-            df_files = df_files.filter(
-                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
-            )
+                start = year.dt.offset_by("-2mo")
+                end = year.dt.offset_by("11mo").dt.offset_by("-1d")
+            df_files = keep_files_overlapping(df_files, start, end, interval)
         return df_files.get_column("url").to_list()
 
 
@@ -484,8 +465,8 @@ class ImgwHydrologyRequest(TimeseriesRequest):
             # the list pads some names with a trailing blank (`LUDŹMIERZ `),
             # which an exact comparison of the name then misses
             pl.col("name").str.strip_chars(),
-            pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
-            pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
+            convert_dms_string_to_dd(pl.col("latitude")),
+            convert_dms_string_to_dd(pl.col("longitude")),
         )
         # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
         resolutions_and_datasets = {

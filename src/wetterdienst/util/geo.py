@@ -3,7 +3,7 @@
 """Geo utilities for the wetterdienst package."""
 
 import math
-from typing import Any
+from typing import Any, TypeVar
 
 import polars as pl
 import pyarrow as pa
@@ -13,6 +13,9 @@ import pyarrow.compute as _pc
 pc: Any = _pc
 
 EARTH_RADIUS_IN_KM = 6371
+
+# the conversions are plain arithmetic, so a column expression and a series run through the same body
+_SeriesOrExpr = TypeVar("_SeriesOrExpr", pl.Series, pl.Expr)
 
 
 def derive_nearest_neighbours(
@@ -52,40 +55,36 @@ def derive_nearest_neighbours(
     return pc.round(distance, 4).to_pylist()
 
 
-def convert_dm_to_dd(dm: pl.Series) -> pl.Series:
+def convert_dm_to_dd(dm: _SeriesOrExpr) -> _SeriesOrExpr:
     """Convert degree minutes (floats) to decimal degree.
 
     Args:
-        dm: Series with degree minutes as float
+        dm: Series or expression with degree minutes as float
 
     Returns:
-        Series with decimal degree
+        Series or expression with decimal degree
 
     """
-    degrees = dm.cast(int)
-    minutes = dm - degrees
+    value: Any = dm  # a series and an expression have the same arithmetic, which a type checker cannot follow
+    degrees = value.cast(int)
+    minutes = value - degrees
     decimals = (minutes / 60 * 100).round(2)
     return degrees + decimals
 
 
-def convert_dms_string_to_dd(dms: pl.Series) -> pl.Series:
+def convert_dms_string_to_dd(dms: _SeriesOrExpr) -> _SeriesOrExpr:
     """Convert degree minutes seconds (string) to decimal degree.
 
     Args:
-        dms: Series with degree minutes seconds as string
+        dms: Series or expression with degree minutes seconds as string
 
     Returns:
-        Series with decimal degree
+        Series or expression with decimal degree
 
     """
-    dms_frame = dms.str.split(" ").to_frame("dms")
-    dms_frame = dms_frame.select(
-        pl.col("dms").list.get(0).cast(pl.Float64).alias("degrees"),
-        pl.col("dms").list.get(1).cast(pl.Float64).alias("minutes"),
-        pl.col("dms").list.get(2).cast(pl.Float64).alias("seconds"),
-    )
-    return (
-        dms_frame.get_column("degrees").rename("")
-        + (dms_frame.get_column("minutes") / 60)
-        + (dms_frame.get_column("seconds") / 3600)
-    )
+    value: Any = dms
+    parts = value.str.split(" ")
+    degrees = parts.list.get(0).cast(pl.Float64)
+    minutes = parts.list.get(1).cast(pl.Float64)
+    seconds = parts.list.get(2).cast(pl.Float64)
+    return degrees + (minutes / 60) + (seconds / 3600)

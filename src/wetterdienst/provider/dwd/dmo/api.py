@@ -394,7 +394,7 @@ def _dm_degrees(column: str) -> pl.Expr:
     really are positive. They are read as written -- Luton 50 km east of the airport -- and
     `STATION_POSITION_CORRECTIONS` moves each back by id (GH-2897).
     """
-    return (
+    degrees_minutes = (
         pl.col(column)
         .str.replace_all(" ", "")
         # the sign belongs to the value, not to its minutes: `.-6` -> `-.6`
@@ -404,8 +404,8 @@ def _dm_degrees(column: str) -> pl.Expr:
         .str.replace(r"^(-?)\.(\d)$", "${1}0.0${2}")
         .str.replace(r"^(-?)\.(\d\d)$", "${1}0.${2}")
         .cast(float)
-        .map_batches(convert_dm_to_dd, return_dtype=pl.Float64)
     )
+    return convert_dm_to_dd(degrees_minutes)
 
 
 def _dmo_product_dir(dataset_name_original: str) -> str:

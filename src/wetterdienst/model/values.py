@@ -111,9 +111,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         ):
             lambda_, decimals = conversions[parameter.lower()]
             # rounded to avoid long floats, by as many decimals as the target unit needs to keep the
-            # reading's precision -- see `UnitConverter.decimals`
+            # reading's precision -- see `UnitConverter.decimals`. The conversions are plain arithmetic, so
+            # the column goes through them as an expression, as the Float64 the long form declares; named
+            # again because `9 / 5 * x` is named after its leftmost operand, the literal
             df_group = df_group.with_columns(
-                pl.col("value").map_batches(lambda_, return_dtype=pl.Float64).round(decimals),
+                lambda_(pl.col("value").cast(pl.Float64)).round(decimals).alias("value"),
             )
             data.append(df_group)
 
