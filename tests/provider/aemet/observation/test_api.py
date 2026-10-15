@@ -6,16 +6,24 @@ import contextlib
 import datetime as dt
 import json
 import logging
+from collections.abc import Callable
+from http import HTTPStatus
 from io import BytesIO
 from itertools import pairwise
+from typing import Any
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientResponseError
+from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.aemet.observation.api import (
+    AemetKeyRejectedError,
     AemetObservationRequest,
     AemetObservationValues,
     _download_with_rate_limit_retry,
@@ -26,7 +34,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
+from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File, _worth_retrying
 
 MADRID_RETIRO = "3195"
 BARCELONA = "0076"
@@ -38,6 +46,53 @@ requires_aemet_credentials = pytest.mark.skipif(
     not AemetObservationRequest.is_configured(),
     reason="AEMET credentials not set — provide WD_AUTH__AEMET=<api_key>",
 )
+
+
+def _is_refusal_or_outage(failure: Exception) -> bool:
+    """Tell whether AEMET did not answer the request: a refused key, an HTTP 429, a timeout or an HTTP 5xx.
+
+    A rate limit or a fault that AEMET reports in the envelope of an HTTP 200 (`estado` 429 or 5xx) reaches
+    here as a plain `Exception` that is not told from a 404 of the envelope, so it still fails the test.
+
+    A 400, a 404 or an envelope that says there is no data is AEMET answering, and what it most likely says is
+    that the request was built wrong, which is what these tests are there to catch (see `tests/conftest.py`).
+    """
+    if isinstance(failure, AemetKeyRejectedError):
+        return True
+    if isinstance(failure, ClientResponseError) and failure.status == HTTPStatus.TOO_MANY_REQUESTS:
+        return True
+    return _worth_retrying(failure)
+
+
+def _values_or_skip(
+    make_request: Callable[[], AemetObservationRequest],
+    monkeypatch: pytest.MonkeyPatch,
+) -> pl.DataFrame:
+    """Build a request and read its values, and skip the test if AEMET refused or did not answer (GH-2965).
+
+    The reader logs the failure of a station list or a chunk and goes on with an empty frame, so a 401, a 429
+    or a 5xx never reaches the test as the exception that `skip_if_upstream_unavailable` skips on. CI runs
+    every job of both workflows on one key, and AEMET answers that with a 401 or a 429 for part of the calls;
+    the test asserts what AEMET publishes, which a refusal says nothing about. The request is built here,
+    because filtering by station id already reads the station list.
+
+    Only an empty frame after failures that all are a refusal or an outage skips (a revoked key skips the
+    same way, and the reason names it). Any other failure, such as a 404, and an empty frame without one fail.
+    """
+    failures: list[Exception] = []
+    fetch = aemet_api._fetch_datos  # noqa: SLF001
+
+    def recording_fetch(*args: Any, **kwargs: Any) -> bytes | Exception:  # noqa: ANN401
+        payload = fetch(*args, **kwargs)
+        if isinstance(payload, Exception):
+            failures.append(payload)
+        return payload
+
+    monkeypatch.setattr(aemet_api, "_fetch_datos", recording_fetch)
+    df = make_request().values.all().df
+    if df.is_empty() and failures and all(_is_refusal_or_outage(failure) for failure in failures):
+        pytest.skip(f"AEMET did not hand out the data: {failures[0]!r}")
+    return df
 
 
 @pytest.mark.remote
@@ -89,21 +144,19 @@ def test_aemet_observation_stations() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-def test_aemet_observation_values_daily() -> None:
+def test_aemet_observation_values_daily(monkeypatch: pytest.MonkeyPatch) -> None:
     """Daily climatological values at Madrid/Retiro match the AEMET reference values.
 
     2020-01-01 through 2020-01-05 is a fixed historical window unaffected by AEMET's
     real-time backfill/QC delay, so the expected values are stable.
     """
-    df = (
-        AemetObservationRequest(
+    df = _values_or_skip(
+        lambda: AemetObservationRequest(
             parameters=[("daily", "data")],
             start=dt.datetime(2020, 1, 1, tzinfo=UTC),
             end=dt.datetime(2020, 1, 5, tzinfo=UTC),
-        )
-        .filter_by_station_id(MADRID_RETIRO)
-        .values.all()
-        .df
+        ).filter_by_station_id(MADRID_RETIRO),
+        monkeypatch,
     )
     assert df["station_id"].unique().to_list() == [MADRID_RETIRO]
     assert df["resolution"].unique().to_list() == ["daily"]
@@ -119,7 +172,7 @@ def test_aemet_observation_values_daily() -> None:
     assert value_on("precipitation_amount", day1) == pytest.approx(0.0)
     assert value_on("wind_speed", day1) == pytest.approx(0.3)
     assert value_on("wind_gust_max", day1) == pytest.approx(3.3)
-    assert value_on("wind_direction", day1) == pytest.approx(50.0)
+    assert value_on("wind_direction_gust_max", day1) == pytest.approx(50.0)
     assert value_on("pressure_air_site_max", day1) == pytest.approx(954.2)
     assert value_on("pressure_air_site_min", day1) == pytest.approx(952.0)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
@@ -131,22 +184,20 @@ def test_aemet_observation_values_daily() -> None:
     # rather than an actual direction. The parser must turn that into a null rather than
     # a bogus 990°; with the default drop_nulls=True, a null value means no row at all.
     day2 = dt.datetime(2020, 1, 2, tzinfo=UTC)
-    assert df.filter(pl.col("parameter").eq("wind_direction"), pl.col("timestamp").eq(day2)).is_empty()
+    assert df.filter(pl.col("parameter").eq("wind_direction_gust_max"), pl.col("timestamp").eq(day2)).is_empty()
 
 
 @pytest.mark.remote
 @requires_aemet_credentials
-def test_aemet_observation_values_monthly() -> None:
+def test_aemet_observation_values_monthly(monkeypatch: pytest.MonkeyPatch) -> None:
     """Monthly climatological values at Madrid/Retiro for January 2020 match the AEMET reference values."""
-    df = (
-        AemetObservationRequest(
+    df = _values_or_skip(
+        lambda: AemetObservationRequest(
             parameters=[("monthly", "data")],
             start=dt.datetime(2020, 1, 1, tzinfo=UTC),
             end=dt.datetime(2020, 1, 31, tzinfo=UTC),
-        )
-        .filter_by_station_id(MADRID_RETIRO)
-        .values.all()
-        .df
+        ).filter_by_station_id(MADRID_RETIRO),
+        monkeypatch,
     )
     assert df["station_id"].unique().to_list() == [MADRID_RETIRO]
     assert df["resolution"].unique().to_list() == ["monthly"]
@@ -170,7 +221,7 @@ def test_aemet_observation_values_monthly() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-def test_aemet_observation_values_annual() -> None:
+def test_aemet_observation_values_annual(monkeypatch: pytest.MonkeyPatch) -> None:
     """Annual climatological values at Madrid/Retiro for 2020 match the AEMET reference values.
 
     Also verifies that monthly and annual values are correctly split out of the same
@@ -178,15 +229,13 @@ def test_aemet_observation_values_annual() -> None:
     AEMET omits from the annual aggregate (like humidity) are simply absent rather than
     wrongly carried over from a monthly row.
     """
-    df = (
-        AemetObservationRequest(
+    df = _values_or_skip(
+        lambda: AemetObservationRequest(
             parameters=[("annual", "data")],
             start=dt.datetime(2020, 1, 1, tzinfo=UTC),
             end=dt.datetime(2020, 12, 31, tzinfo=UTC),
-        )
-        .filter_by_station_id(MADRID_RETIRO)
-        .values.all()
-        .df
+        ).filter_by_station_id(MADRID_RETIRO),
+        monkeypatch,
     )
     assert df["station_id"].unique().to_list() == [MADRID_RETIRO]
     assert df["resolution"].unique().to_list() == ["annual"]
@@ -209,7 +258,7 @@ def test_aemet_observation_values_annual() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-def test_aemet_observation_values_hourly_realtime() -> None:
+def test_aemet_observation_values_hourly_realtime(monkeypatch: pytest.MonkeyPatch) -> None:
     """Real-time (observación convencional) hourly values at Madrid/Retiro are structurally sane.
 
     This is live current-weather data with no fixed historical window (AEMET's endpoint
@@ -217,7 +266,10 @@ def test_aemet_observation_values_hourly_realtime() -> None:
     hours it currently holds), so exact values can't be asserted like the other
     resolutions. This checks shape, recency, and physically plausible value ranges instead.
     """
-    df = AemetObservationRequest(parameters=[("hourly", "data")]).filter_by_station_id(MADRID_RETIRO).values.all().df
+    df = _values_or_skip(
+        lambda: AemetObservationRequest(parameters=[("hourly", "data")]).filter_by_station_id(MADRID_RETIRO),
+        monkeypatch,
+    )
     assert not df.is_empty()
     assert df["station_id"].unique().to_list() == [MADRID_RETIRO]
     assert df["resolution"].unique().to_list() == ["hourly"]
@@ -595,6 +647,81 @@ def test_aemet_observation_values_failed_chunk_is_skipped_and_logged(
     assert df.is_empty()
     assert len(attempted) == chunks
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == chunks
+
+
+def _response_error(status: int) -> ClientResponseError:
+    return ClientResponseError(request_info=MagicMock(), history=(), status=status)
+
+
+def _daily_request() -> AemetObservationRequest:
+    return AemetObservationRequest(
+        parameters=[("daily", "data")],
+        start=dt.datetime(2020, 1, 1, tzinfo=UTC),
+        end=dt.datetime(2020, 1, 5, tzinfo=UTC),
+        settings=Settings(auth={"aemet": "dummy-key-for-test"}),
+    ).filter_by_station_id(MADRID_RETIRO)
+
+
+def _not_skipped(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    """Run the helper on a daily request, and turn a skip into a failure so that a wrong skip cannot pass as one."""
+    try:
+        return _values_or_skip(_daily_request, monkeypatch)
+    except pytest.skip.Exception as skipped:
+        return pytest.fail(f"skipped: {skipped}")
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        pytest.param(AemetKeyRejectedError("AEMET answered HTTP 401: Unauthorized"), id="key-rejected"),
+        pytest.param(_response_error(429), id="rate-limit"),
+        pytest.param(_response_error(503), id="5xx"),
+        pytest.param(FSTimeoutError(), id="timeout"),
+    ],
+)
+def test_values_or_skip_skips_when_aemet_refused_the_data(monkeypatch: pytest.MonkeyPatch, refusal: Exception) -> None:
+    """A chunk AEMET refused or did not answer (a 401 or a 429 of a key shared by CI) skips, naming the answer."""
+    _fake_fetch_datos(monkeypatch, refusal)
+    with pytest.raises(pytest.skip.Exception, match="AEMET did not hand out the data"):
+        _values_or_skip(_daily_request, monkeypatch)
+
+
+def test_values_or_skip_skips_when_the_station_list_was_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The station list is read by the request, under the helper, and its refusal skips too."""
+    refusal = AemetKeyRejectedError("AEMET answered HTTP 401: Unauthorized")
+    monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *_args, **_kwargs: refusal)
+    with pytest.raises(pytest.skip.Exception, match="HTTP 401"):
+        _values_or_skip(_daily_request, monkeypatch)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(Exception("No hay datos que satisfagan esos criterios de busqueda"), id="envelope-no-data"),
+        pytest.param(_response_error(404), id="404"),
+        pytest.param(_response_error(400), id="400"),
+    ],
+)
+def test_values_or_skip_does_not_skip_an_answer_that_is_no_refusal(
+    monkeypatch: pytest.MonkeyPatch, answer: Exception
+) -> None:
+    """AEMET answering that it has no data, or that the request is wrong, goes back as the empty frame it is."""
+    _fake_fetch_datos(monkeypatch, answer)
+    assert _not_skipped(monkeypatch).is_empty()
+
+
+def test_values_or_skip_does_not_skip_an_empty_array(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An empty array is AEMET answering with no data: the frame goes back, empty, to fail the test."""
+    _fake_fetch_datos(monkeypatch, b"[]")
+    assert _not_skipped(monkeypatch).is_empty()
+
+
+def test_values_or_skip_hands_out_what_aemet_answered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Values that arrived are returned for the test to assert on."""
+    records = json.dumps([{"fecha": "2020-01-01", "tmed": "6,6", "dir": "05"}]).encode("latin-1")
+    _fake_fetch_datos(monkeypatch, records)
+    df = _not_skipped(monkeypatch)
+    assert df.filter(pl.col("parameter").eq("wind_direction_gust_max")).get_column("value").to_list() == [50.0]
 
 
 def _probe_answering(monkeypatch: pytest.MonkeyPatch, *files: File) -> list[dict]:

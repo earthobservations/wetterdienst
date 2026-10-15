@@ -269,7 +269,8 @@ dev = [
     "pybufrkit>=0.2.25",
     "pytest>=9.1",
     "pytest-cov>=7.1",
-    "pytest-rerunfailures>=16.4",
+    # 16.7 matches `--only-rerun` against the cause chain too, which tests/conftest.py's `_rerun_will_retry` models
+    "pytest-rerunfailures>=16.7",
     "pytest-xdist>=3.8",
     "pyyaml>=6",
     # formatting and linting
