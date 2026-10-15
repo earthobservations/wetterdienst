@@ -10,7 +10,9 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
   parameter syntax and how to read results (so agents don't re-request the same data in different
   formats),
 - clean tool names (``values`` instead of ``values_api_values_get``),
-- the refusal of an argument a tool does not take, which FastMCP would drop, and
+- the refusal of an argument a tool does not take, which FastMCP would drop,
+- an error that reads as prose: the REST API answers a tool's request with the text of its problem,
+  not the object, so that the tool error does not carry a Python repr (``restapi._problem_response``), and
 - exclusion of the non-data endpoints (index, robots, health, version, settings) so the tool
   list stays focused. The settings a data tool used come back in its own answer with
   ``with_metadata``.

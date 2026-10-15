@@ -11,6 +11,7 @@ import pathlib
 import sys
 import zipfile
 from collections.abc import Callable, Iterator
+from http import HTTPStatus
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_args
@@ -60,12 +61,30 @@ def client() -> TestClient:
 def _is_a_500_naming_only(response: object, exception_type: str, *, hides: str) -> None:
     """Assert the body of a 500: a fixed sentence and the exception's type, none of its text (GH-2767).
 
-    The body is the `{"detail": <string>}` every other error of the API has; `hides` is the text of
-    the exception, which belongs in the server log.
+    The body is the problem every other error of the API has (GH-2634); `hides` is the text of the
+    exception, which belongs in the server log.
     """
     assert response.status_code == 500
-    assert response.json() == {"detail": f"Internal server error ({exception_type}). The cause is in the server log."}
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Internal Server Error",
+        "status": 500,
+        "detail": f"Internal server error ({exception_type}). The cause is in the server log.",
+    }
     assert hides not in response.text
+
+
+def _is_an_unhandled_500(response: object, exception_type: str = "ValidationError") -> None:
+    """Assert the body of a 500 that no endpoint handled, which the app answers as a problem too (GH-2634).
+
+    It names the exception's type and nothing else, as the endpoints' own 500s do, and tells the
+    failure of the settings, which no endpoint handles, from one an endpoint answered with a type of
+    its own.
+    """
+    assert response.status_code == 500
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["detail"] == f"Internal server error ({exception_type}). The cause is in the server log."
 
 
 def test_index(client: TestClient) -> None:
@@ -436,7 +455,7 @@ def test_stations_wrong_format(client: TestClient) -> None:
     )
     assert response.status_code == 422
     assert (
-        response.json()["detail"][0]["msg"]
+        response.json()["errors"][0]["msg"]
         == "Input should be 'json', 'geojson', 'csv', 'html', 'png', 'jpg', 'webp', 'svg' or 'pdf'"
     )
 
@@ -633,7 +652,7 @@ def test_stations_dwd_obs_image_png_wrong_settings(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Input should be greater than 0"
+    assert response.json()["errors"][0]["msg"] == "Input should be greater than 0"
 
 
 @pytest.mark.remote
@@ -675,7 +694,7 @@ def test_values_dwd_no_station(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"] == [
+    assert response.json()["errors"] == [
         {
             "type": "missing_one_of",
             "loc": ["query"],
@@ -705,7 +724,7 @@ def test_history_no_station_selection(client: TestClient) -> None:
         params={"provider": "dwd", "network": "observation", "parameters": "daily/kl"},
     )
     assert response.status_code == 422
-    assert response.json()["detail"] == [
+    assert response.json()["errors"] == [
         {
             "type": "missing_one_of",
             "loc": ["query"],
@@ -735,7 +754,7 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
     )
     assert response.status_code == 422
     # located at each query parameter involved, as FastAPI locates one parameter's error
-    assert response.json()["detail"] == [
+    assert response.json()["errors"] == [
         {
             "type": "mutually_exclusive",
             "loc": ["query", "station"],
@@ -1961,7 +1980,7 @@ def test_stripes_refused_as_the_other_endpoints_refuse(
     """
     response = client.get(endpoint, params={"kind": "temperature", **query})
     assert response.status_code == 422
-    assert response.json()["detail"] == detail
+    assert response.json()["errors"] == detail
 
 
 @pytest.mark.remote
@@ -1974,8 +1993,8 @@ def test_stripes_values_unknown_name(client: TestClient) -> None:
             "name": "foobar",
         },
     )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "No station with a name similar to 'foobar' found"}
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No station with a name similar to 'foobar' found"
 
 
 @pytest.mark.remote
@@ -1990,7 +2009,7 @@ def test_stripes_values_unknown_format(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Input should be 'json' or 'csv'"
+    assert response.json()["errors"][0]["msg"] == "Input should be 'json' or 'csv'"
 
 
 @pytest.mark.remote
@@ -2060,8 +2079,8 @@ def test_stripes_image_unknown_name(client: TestClient) -> None:
             "name": "foobar",
         },
     )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "No station with a name similar to 'foobar' found"}
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No station with a name similar to 'foobar' found"
 
 
 @pytest.mark.remote
@@ -2076,7 +2095,7 @@ def test_stripes_image_unknown_format(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Input should be 'png', 'jpg', 'svg' or 'pdf'"
+    assert response.json()["errors"][0]["msg"] == "Input should be 'png', 'jpg', 'svg' or 'pdf'"
 
 
 @pytest.mark.remote
@@ -2091,7 +2110,7 @@ def test_stripes_image_wrong_dpi(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Input should be greater than 0"
+    assert response.json()["errors"][0]["msg"] == "Input should be greater than 0"
 
 
 @pytest.mark.remote
@@ -2773,7 +2792,7 @@ def test_a_500_does_not_name_the_servers_paths_but_the_log_does(
     The text of an exception is whatever the library underneath wrote, and an `OSError` of any kind
     (a cache directory below a regular file, permissions, a full disk) names the file it met. The
     caller of an unauthenticated API gets a fixed sentence and the exception's type; the path stays
-    in the traceback of the server log. The body is the `{"detail": <string>}` it always was.
+    in the traceback of the server log. The body is the problem of every error, with that sentence as its `detail`.
     """
     msg = '[Errno 20] Cache directory "/srv/wd/notadir/cache/43200.0" does not exist and could not be created'
 
@@ -3348,11 +3367,11 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     assert detail in response.json()["detail"]
 
 
-def test_values_an_issue_the_source_does_not_list_keeps_its_400(
+def test_values_an_issue_the_source_does_not_list_is_a_404(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A forecast run asked for by an issue the listing does not hold is still a 400 (GH-2252)."""
+    """A forecast run asked for by an issue the listing does not hold is a `NotFoundError`, a 404 (GH-2634)."""
     import polars as pl  # noqa: PLC0415
 
     from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
@@ -3386,7 +3405,7 @@ def test_values_an_issue_the_source_does_not_list_keeps_its_400(
         },
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 404
     assert response.json()["detail"].startswith("Unable to find 2020-01-01 00:00:00 file within")
 
 
@@ -3880,32 +3899,34 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
 
 @pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
 @pytest.mark.parametrize(
-    ("stations", "values", "detail"),
+    ("stations", "values", "status", "detail"),
     [
-        pytest.param([], {}, "No station with a station_id similar to '99999' found", id="unknown-station"),
+        pytest.param([], {}, 404, "No station with a station_id similar to '99999' found", id="unknown-station"),
         pytest.param(
             [{"station_id": "99999", "name": "Somewhere"}],
             {2000: 1.0},
+            400,
             "At least two years with data are required to create climate stripes; station 99999 has data "
             "from 2000 to 2000",
             id="one-year-with-data",
         ),
     ],
 )
-def test_stripes_a_refusal_keeps_its_400(
+def test_stripes_a_refusal_is_the_callers_4xx(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     endpoint: str,
     stations: list[dict],
     values: dict[int, float | None],
+    status: int,
     detail: str,
 ) -> None:
-    """A station the stripes do not know, or one with too little data, is still the caller's 400 (GH-2276)."""
+    """A station the stripes do not know is a 404, one with too little data the caller's 400 (GH-2276, GH-2634)."""
     _stub_stripes(monkeypatch, stations, values)
 
     response = client.get(endpoint, params={"kind": "temperature", "station": "99999"})
 
-    assert response.status_code == 400
+    assert response.status_code == status
     assert response.json()["detail"] == detail
 
 
@@ -4099,10 +4120,9 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
 
     response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
 
-    # Starlette's own answer to an exception nothing handled, so the settings are what failed: a
+    # the app's answer to an exception nothing handled, so the settings are what failed: a
     # request that got past them would fail on the network and answer with a detail of its own
-    assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    _is_an_unhandled_500(response)
 
 
 @pytest.mark.parametrize(
@@ -4151,9 +4171,8 @@ def test_a_setting_the_server_environment_got_wrong_is_not_the_callers(
 
     response = client.get(endpoint, params=params)
 
-    # Starlette's own answer to an exception nothing handled, so the settings are what failed
-    assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    # the app's answer to an exception nothing handled, so the settings are what failed
+    _is_an_unhandled_500(response)
 
 
 @pytest.mark.parametrize("endpoint", ["/api/interpolate", "/api/summarize"])
@@ -4279,9 +4298,7 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
         response = client.get("/api/alerts", params=params)
 
     assert response.status_code == 500
-    assert response.json() == {
-        "detail": IsStr(regex=r"Internal server error \(\w+\)\. The cause is in the server log\.")
-    }
+    assert response.json()["detail"] == IsStr(regex=r"Internal server error \(\w+\)\. The cause is in the server log\.")
     assert detail not in response.text
     assert detail in caplog.text
 
@@ -4323,8 +4340,7 @@ def test_geo_a_dict_setting_the_server_got_wrong_is_not_the_callers(
 
     response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
-    assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    _is_an_unhandled_500(response)
 
 
 _DAYS = ["1990-01-01", "1990-01-02", "1990-01-03"]
@@ -4525,9 +4541,8 @@ def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_caller
 
     response = client.get("/api/values", params=params)
 
-    # Starlette's own answer to an exception nothing handled, so the settings are what failed
-    assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    # the app's answer to an exception nothing handled, so the settings are what failed
+    _is_an_unhandled_500(response)
 
 
 @pytest.mark.parametrize(
@@ -4559,9 +4574,8 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
 
     response = client.get(endpoint, params=params)
 
-    # Starlette's own answer to an exception nothing handled, so the settings are what failed
-    assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    # the app's answer to an exception nothing handled, so the settings are what failed
+    _is_an_unhandled_500(response)
 
 
 def test_summarize_use_nearby_station_distance_is_deprecated(
@@ -4946,7 +4960,7 @@ def test_values_refuses_a_skip_threshold_outside_zero_to_one(client: TestClient,
         },
     )
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["query", "skip_threshold"]
+    assert response.json()["errors"][0]["loc"] == ["query", "skip_threshold"]
 
 
 def test_values_skip_threshold_bounds_are_in_the_schema_the_mcp_tools_take() -> None:
@@ -4976,7 +4990,7 @@ def test_issues_dwd_swsmos(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test /api/values answers an swsmos issue DWD does not hold with a 400, not an empty 200 (GH-2324)."""
+    """Test /api/values answers an swsmos issue DWD does not hold with a 404, not an empty 200 (GH-2324, GH-2634)."""
     import bz2  # noqa: PLC0415
 
     from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
@@ -5012,7 +5026,7 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
         },
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 404
     assert "swsmos_20200101000000_opendata.csv.bz2" in response.json()["detail"]
 
 
@@ -5788,7 +5802,7 @@ def test_settings_refuses_an_unknown_parameter(client: TestClient, parameter: st
     response = client.get("/api/settings", params={parameter: "1"})
 
     assert response.status_code == 422
-    (problem,) = response.json()["detail"]
+    (problem,) = response.json()["errors"]
     assert (problem["type"], problem["loc"]) == ("extra_forbidden", ["query", parameter])
 
 
@@ -6734,13 +6748,13 @@ def test_mcp_a_refusal_of_the_request_keeps_the_rest_apis_status(
 @pytest.mark.parametrize(
     ("endpoint", "entry_point"), [("interpolate", "get_interpolate"), ("summarize", "get_summarize")]
 )
-def test_geo_an_issue_the_source_does_not_list_is_a_400(
+def test_geo_an_issue_the_source_does_not_list_is_a_404(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     endpoint: str,
     entry_point: str,
 ) -> None:
-    """A forecast run the listing does not hold is a 400, as `/api/values` answers it (GH-2429)."""
+    """A forecast run the listing does not hold is a `NotFoundError`, a 404, as `/api/values` answers it (GH-2634)."""
     from wetterdienst.exceptions import IssueNotFoundError  # noqa: PLC0415
 
     msg = "Unable to find 2020-01-01 00:00:00 file within https://example.com/kmz"
@@ -6751,7 +6765,7 @@ def test_geo_an_issue_the_source_does_not_list_is_a_400(
     monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
     response = client.get(f"/api/{endpoint}", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
-    assert response.status_code == 400
+    assert response.status_code == 404
     assert response.json()["detail"] == msg
 
 
@@ -6788,7 +6802,7 @@ def test_date_is_refused_naming_timestamp(
     response = client.get(f"/api/{endpoint}", params={**query, "date": "2020-06-30"})
 
     assert response.status_code == 422, response.text
-    assert response.json()["detail"] == [
+    assert response.json()["errors"] == [
         {
             "type": "renamed",
             "loc": ["query", "date"],
@@ -6956,7 +6970,7 @@ def test_unknown_parameter_is_refused(
     response = client.get(endpoint, params={**query, "limt": "1"})
 
     assert response.status_code == 422, response.text
-    assert response.json()["detail"] == [
+    assert response.json()["errors"] == [
         {
             "type": "extra_forbidden",
             "loc": ["query", "limt"],
@@ -7064,7 +7078,7 @@ def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoin
         "loc": ["query", "limt"],
         "msg": "Extra inputs are not permitted",
         "input": "1",
-    } in (response.json()["detail"])
+    } in (response.json()["errors"])
 
 
 @pytest.mark.parametrize(
@@ -7192,7 +7206,7 @@ def test_coverage_unknown_provider_or_network_is_a_404(client: TestClient, param
     """An unknown provider or network is a 404 pointing at the coverage listing, as in /api/auth (GH-2496)."""
     response = client.get("/api/coverage", params=params)
     assert response.status_code == 404
-    assert response.json() == {"detail": "Choose provider and network from /api/coverage"}
+    assert response.json()["detail"] == "Choose provider and network from /api/coverage"
 
 
 @pytest.mark.parametrize(
@@ -7238,10 +7252,10 @@ def test_coverage_filter_without_provider_and_network_is_a_400(client: TestClien
     """A resolutions or datasets filter has nothing to narrow without a provider and network (GH-2496)."""
     response = client.get("/api/coverage", params=params)
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
-        "'provider' and 'network' must be given with them.",
-    }
+    assert response.json()["detail"] == (
+        "'resolutions' and 'datasets' narrow the coverage of one provider and network, so "
+        "'provider' and 'network' must be given with them."
+    )
 
 
 @pytest.mark.parametrize("limit", [0, -5])
@@ -7250,7 +7264,7 @@ def test_glossary_limit_below_one_is_refused(client: TestClient, limit: int) -> 
     response = client.get("/api/glossary", params={"limit": limit})
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["msg"] == "Input should be greater than or equal to 1"
+    assert response.json()["errors"][0]["msg"] == "Input should be greater than or equal to 1"
 
 
 @pytest.mark.parametrize("limit", [0, -5])
@@ -7297,7 +7311,7 @@ def test_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
     response = client.get(endpoint, params={**_WINDOWED_DATASET, **params})
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "timestamp is required for this dataset"}
+    assert response.json()["detail"] == "timestamp is required for this dataset"
 
 
 @pytest.mark.parametrize(
@@ -8383,3 +8397,217 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
     )
     assert response.status_code == 400, response.text
     assert "The image would be 7000 x 9000 px" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------------------------
+# one error body, an RFC 9457 problem, for every status (GH-2634)
+# ---------------------------------------------------------------------------------------------
+
+
+def _is_a_problem(response: object, status: int, detail: str | None = None) -> dict[str, object]:
+    """Assert the body every error of the API has, and return it: `type`, `title`, `status`, `detail`."""
+    assert response.status_code == status, response.text
+    assert response.headers["content-type"] == "application/problem+json"
+    body = response.json()
+    assert {"type", "title", "status", "detail"} <= set(body)
+    assert body["type"] == "about:blank"
+    assert body["status"] == status
+    assert body["title"] == HTTPStatus(status).phrase
+    # always text, so a client reading `detail` still gets a sentence
+    assert isinstance(body["detail"], str)
+    if detail is not None:
+        assert body["detail"] == detail
+    return body
+
+
+def test_an_error_the_endpoint_raises_is_a_problem(client: TestClient) -> None:
+    """A 400 and a 404 an endpoint raises carry the problem's fields, the text still in `detail`."""
+    bad = client.get("/api/coverage", params={"resolutions": "daily"})
+    body = _is_a_problem(bad, 400)
+    assert "narrow the coverage of one provider and network" in body["detail"]
+    assert "errors" not in body
+
+    missing = client.get("/api/coverage", params={"provider": "nope", "network": "nope"})
+    _is_a_problem(missing, 404, "Choose provider and network from /api/coverage")
+
+
+def test_an_unknown_path_and_a_method_not_allowed_are_problems_too(client: TestClient) -> None:
+    """Starlette's own 404 and 405 are answered in the one shape, the `Allow` header kept."""
+    _is_a_problem(client.get("/api/nope"), 404, "Not Found")
+    not_allowed = client.post("/api/values")
+    _is_a_problem(not_allowed, 405, "Method Not Allowed")
+    assert "GET" in not_allowed.headers["allow"]
+
+
+def test_a_request_that_fails_validation_is_a_422_problem_with_its_fields(client: TestClient) -> None:
+    """`detail` is the text, one line for each invalid parameter; the entries are under `errors` (GH-2634)."""
+    response = client.get("/api/stations", params={**_OBSERVATION, "station": "01048", "name": "Hamburg"})
+
+    body = _is_a_problem(response, 422)
+    assert body["detail"] == "station: Cannot be combined with name\nname: Cannot be combined with station"
+    assert [(error["type"], error["loc"]) for error in body["errors"]] == [
+        ("mutually_exclusive", ["query", "station"]),
+        ("mutually_exclusive", ["query", "name"]),
+    ]
+
+
+def test_a_rule_about_no_parameter_in_particular_is_told_by_its_message(client: TestClient) -> None:
+    """An entry located at the query alone has no parameter to name, so its line is the message."""
+    response = client.get(
+        "/api/history", params={"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
+    )
+
+    body = _is_a_problem(response, 422, "Exactly one of all or station is required")
+    assert body["errors"][0]["loc"] == ["query"]
+
+
+def test_the_422_is_the_problem_in_the_openapi_document(client: TestClient) -> None:
+    """The schema tells the 422 as the `Problem` it is answered with, not FastAPI's `HTTPValidationError`."""
+    schema = client.get("/openapi.json").json()
+
+    assert "HTTPValidationError" not in schema["components"]["schemas"]
+    problem = schema["components"]["schemas"]["Problem"]
+    assert set(problem["required"]) == {"type", "title", "status", "detail"}
+    assert problem["properties"]["errors"]["items"] == {"$ref": "#/components/schemas/ValidationError"}
+    answers = [
+        operation["responses"]["422"]
+        for path in schema["paths"].values()
+        for operation in path.values()
+        if "422" in operation.get("responses", {})
+    ]
+    assert answers
+    for answer in answers:
+        assert answer["content"] == {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}}}
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        pytest.param("NotFoundError", 404, id="not-found"),
+        pytest.param("StationNotFoundError", 404, id="station"),
+        pytest.param("RequestError", 400, id="request"),
+        pytest.param("ConfigurationError", 501, id="configuration"),
+        pytest.param("UpstreamError", 500, id="upstream"),
+        pytest.param("WetterdienstError", 500, id="root"),
+    ],
+)
+def test_the_status_of_a_failure_is_its_place_in_the_hierarchy(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, error: str, status: int
+) -> None:
+    """The REST API answers by asking `isinstance` of the hierarchy, a class nobody listed included (GH-2634)."""
+    from wetterdienst import exceptions  # noqa: PLC0415
+
+    reason = "a reason only the log should hold"
+
+    def raises(**_kwargs: object) -> None:
+        raise getattr(exceptions, error)(reason)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_values", raises)
+
+    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+
+    body = _is_a_problem(response, status)
+    if status == 500:
+        assert body["detail"] == f"Internal server error ({error}). The cause is in the server log."
+    if status == 501:
+        # the message names the server's setting or package: it is for the log
+        assert "only the log" not in response.text
+    if status in (400, 404):
+        assert body["detail"] == "a reason only the log should hold"
+
+
+def test_an_unclassified_wetterdienst_error_is_a_logged_500(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A class added under the root and given no kind is the server's error, with its traceback in the log."""
+    from wetterdienst.exceptions import WetterdienstError  # noqa: PLC0415
+
+    class UnplacedError(WetterdienstError):
+        """An exception nobody has given a kind."""
+
+    reason = "secret detail"
+
+    def raises(**_kwargs: object) -> None:
+        raise UnplacedError(reason)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_values", raises)
+    with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+
+    _is_an_unhandled_500(response, "UnplacedError")
+    assert "secret detail" not in response.text
+    records = _the_restapi_records(caplog)
+    assert [record.levelno for record in records] == [logging.ERROR]
+    assert records[0].exc_info
+
+
+def test_an_exception_nothing_handled_is_a_problem_and_still_raised_for_the_log(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The 500 of the catch-all handler is the problem too, and the exception is raised on for the log."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from wetterdienst.ui.restapi import app  # noqa: PLC0415
+
+    def broken(*_args: object, **_kwargs: object) -> None:
+        msg = "/srv/secret/path"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_glossary", broken)
+
+    answered = TestClient(app, raise_server_exceptions=False).get("/api/glossary")
+    _is_an_unhandled_500(answered, "RuntimeError")
+    assert "/srv/secret/path" not in answered.text
+
+    with pytest.raises(RuntimeError, match="/srv/secret/path"):
+        TestClient(app).get("/api/glossary")
+
+
+def test_an_mcp_tool_error_is_prose_without_a_python_repr() -> None:
+    """The tools turn the problem into its text: `HTTP error 422: Unprocessable Content - limit: ...`, no dict repr."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def _call(tool: str, arguments: dict[str, object]) -> None:
+        # one server for each call: its client is closed with the connection
+        async with Client(build_mcp_server(restapi.app)) as client:
+            await client.call_tool(tool, arguments)
+
+    with pytest.raises(ToolError) as validation:
+        asyncio.run(_call("glossary", {"limit": 0}))
+    message = str(validation.value)
+    assert message.endswith("limit: Input should be greater than or equal to 1")
+    # the repr of a dict or a list of them
+    assert not any(token in message for token in ("{'", "[{", "'detail'", "'loc'"))
+
+    with pytest.raises(ToolError) as refusal:
+        asyncio.run(_call("coverage", {"resolutions": "daily"}))
+    assert "HTTP error 400" in str(refusal.value)
+    assert "narrow the coverage of one provider and network" in str(refusal.value)
+    assert not any(token in str(refusal.value) for token in ("{'", "'detail'", "'title'"))
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [("RequestError", 400), ("NotFoundError", 404), ("ConfigurationError", 501), ("UpstreamError", 500)],
+)
+def test_an_exception_of_the_library_outside_an_endpoints_handling_is_answered_by_its_kind(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, error: str, status: int
+) -> None:
+    """What `/api/glossary` does not catch itself is still answered by the hierarchy, not as a plain 500 (GH-2634)."""
+    from wetterdienst import exceptions  # noqa: PLC0415
+
+    reason = "a reason only the log should hold"
+
+    def raises(**_kwargs: object) -> None:
+        raise getattr(exceptions, error)(reason)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_glossary", raises)
+
+    body = _is_a_problem(client.get("/api/glossary"), status)
+    assert (reason in body["detail"]) is (status in (400, 404))

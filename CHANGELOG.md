@@ -16,6 +16,31 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `WetterdienstError` is the root of every class of `wetterdienst.exceptions`, so
+  `except WetterdienstError` catches them all. Below it `RequestError` (a `ValueError`),
+  `NotFoundError` (a `LookupError`), `ConfigurationError`, `UpstreamError` and `ExportRefusedError`
+  say what kind of failure it is; all six are importable from `wetterdienst`. Every class keeps the
+  built-in classes it had (`ValueError`, `OSError`, `FileNotFoundError`, `IndexError`,
+  `ImportError`), so an existing `except` still catches it. New: `StartDateEndDateError` and
+  `ImageTooLargeError` are also `ValueError`s, and `ProviderNotFoundError`, `StationNotFoundError`
+  and `ApiNotFoundError` are also `LookupError`s (GH-2634)
+
+### Changed
+
+- **Breaking**: the REST API answers every error, a 400, 404, 422 or 500, as an RFC 9457 problem
+  (`application/problem+json`): `type`, `title`, `status` and `detail`, which is always text. A 422
+  put pydantic's list under `detail`; the list is now `errors`, and `detail` is its lines as text.
+  Read `errors` for the invalid parameters, and `detail` for a sentence. The MCP tools show the
+  text of `detail` in their errors, no longer a Python dict (GH-2634, GH-2561)
+- **Breaking**: the REST API answers a `NotFoundError` with a 404: a station
+  `/api/stripes/values` and `/api/stripes/image` do not know, and a forecast run (`issue`) the
+  source does not list on `/api/values`, `/api/interpolate` and `/api/summarize`, were a 400. Which
+  answer a failure gets, here and in the command line, follows from its class (`RequestError` 400,
+  `NotFoundError` 404, `ConfigurationError` 501, any other 500), so a `WetterdienstError` of a new
+  class is a server error until it is given a kind (GH-2634)
+
 ## [0.154.0] - 2026-10-15
 
 ### Changed

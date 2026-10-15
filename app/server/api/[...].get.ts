@@ -16,6 +16,13 @@ function buildSearchParams(query: QueryObject): URLSearchParams {
   return params
 }
 
+// the phrase of the status an unreachable backend is answered with, as RFC 9457 asks of a problem's title
+const GATEWAY_STATUS_PHRASES: Record<number, string> = {
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+}
+
 export default defineEventHandler(async (event): Promise<unknown> => {
   const { public: { apiBase } } = useRuntimeConfig()
   const fullPath = event.path.replace(/^\/api/, '') || '/'
@@ -36,8 +43,9 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     // headers (including `cookie` and `authorization`) to the backend, which `$fetch` never did.
     // This route is GET-only, so there is no request body to carry over either.
     //
-    // Backend errors need no special handling anymore: FastAPI's error body is already the shape
-    // we want, and `sendProxy` forwards a non-2xx status and body verbatim instead of throwing.
+    // Backend errors need no special handling anymore: the backend's error body (an RFC 9457
+    // problem) is already the shape we want, and `sendProxy` forwards a non-2xx status and body
+    // verbatim instead of throwing.
     return await sendProxy(event, url, {
       // Streaming also relays the backend's response headers, which buffering never did. Most are
       // harmless, but a few are the backend's to own rather than ours to republish under this
@@ -78,8 +86,12 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     console.error(`Request to the backend for ${path} failed:`, fetchError?.cause ?? error)
     const statusCode = fetchError?.statusCode || fetchError?.status || 502
     setResponseStatus(event, statusCode)
+    setResponseHeader(event, 'content-type', 'application/problem+json')
 
     return {
+      type: 'about:blank',
+      title: GATEWAY_STATUS_PHRASES[statusCode] ?? 'Bad Gateway',
+      status: statusCode,
       detail: 'The backend could not be reached. The cause is in the server log.',
     } satisfies ApiErrorResponse
   }

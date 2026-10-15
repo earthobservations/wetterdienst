@@ -1,37 +1,95 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Custom exceptions for the wetterdienst library."""
+"""Custom exceptions for the wetterdienst library.
+
+Every class here derives from `WetterdienstError`, so a caller can catch the library's own
+exceptions with one `except` (a plain `ValueError` or `KeyError` raised for a bad argument is not
+one of them yet), and the REST API, the MCP tools and the
+command line can tell what to answer from the class instead of keeping a list of them::
+
+    WetterdienstError
+    ├── RequestError      the request cannot be served as phrased (a `ValueError`)
+    ├── NotFoundError     what the request names does not exist (a `LookupError`)
+    ├── ConfigurationError  this installation is not set up to serve it
+    ├── UpstreamError     the provider's side failed or sent what the parser does not expect
+    └── ExportRefusedError  a sink will not perform the export it was asked for
+
+Each class that was an exception of its own before keeps the built-in classes it derived from, so an
+`except ValueError`, `except OSError`, `except FileNotFoundError` or `except IndexError` that caught
+it still does.
+"""
 
 
-class InvalidEnumerationError(ValueError):
+class WetterdienstError(Exception):
+    """Root of the exception classes of wetterdienst.
+
+    Not raised itself. An error the library did not name -- a defect, a failure of a library
+    underneath that is not mapped to one of these -- is not a `WetterdienstError`, and the REST API
+    answers one that is a subclass of this and of none of the below with a 500, the server's error.
+    """
+
+
+class RequestError(WetterdienstError, ValueError):
+    """Raised when the request cannot be served as phrased, and the caller can rephrase it.
+
+    A `ValueError`, which is what these refusals have been. The REST API answers it with a 400 and
+    the command line with a usage error, exit 2.
+    """
+
+
+class NotFoundError(WetterdienstError, LookupError):
+    """Raised when something the request names does not exist: a provider, a network, a station, an issue.
+
+    A `LookupError`. The REST API answers it with a 404 and the command line with a usage error.
+    """
+
+
+class ConfigurationError(WetterdienstError):
+    """Raised when this installation is not set up to serve what was asked, and the caller cannot change that.
+
+    A missing credential or optional dependency: the request was well formed, whoever runs the
+    process has to act. The REST API answers it with a 501 and does not repeat the message, which
+    names a setting or a package of the server.
+    """
+
+
+class UpstreamError(WetterdienstError):
+    """Raised when the provider's side failed: it did not answer, or sent what the parser does not expect.
+
+    Not the caller's mistake, and not ours either, so the REST API answers it as a server error and
+    the command line keeps its traceback.
+    """
+
+
+class InvalidEnumerationError(RequestError):
     """Raised when an invalid enumeration is provided."""
 
 
-class NoParametersFoundError(ValueError):
+class NoParametersFoundError(RequestError):
     """Raised when no parameters are found."""
 
 
-class NoPeriodsFoundError(ValueError):
+class NoPeriodsFoundError(RequestError):
     """Raised when none of the requested periods is published for the requested datasets."""
 
 
-class MetaFileNotFoundError(FileNotFoundError):
+class MetaFileNotFoundError(UpstreamError, FileNotFoundError):
     """Raised when a meta file is not found."""
 
 
-class MetaFileFormatError(ValueError):
+class MetaFileFormatError(UpstreamError, ValueError):
     """Raised when a meta file does not match the expected format."""
 
 
-class ProductFileNotFoundError(FileNotFoundError):
+class ProductFileNotFoundError(UpstreamError, FileNotFoundError):
     """Raised when a product file is not found."""
 
 
-class StartDateEndDateError(Exception):
+class StartDateEndDateError(RequestError):
     """Raised when the start date is after the end date."""
 
 
-class InvalidTimeIntervalError(ValueError):
+class InvalidTimeIntervalError(RequestError):
     """Raised when an invalid time interval is provided."""
 
 
@@ -61,39 +119,39 @@ class DateRequiredError(MissingTimeIntervalError, StartDateEndDateError):
     """
 
 
-class InvalidBoundingBoxError(ValueError):
+class InvalidBoundingBoxError(RequestError):
     """Raised when a bounding box's borders are given the wrong way round."""
 
 
-class LocationOutOfRangeError(ValueError):
+class LocationOutOfRangeError(RequestError):
     """Raised when a location lies outside the range a computation covers."""
 
 
-class IssueNotFoundError(IndexError):
+class IssueNotFoundError(NotFoundError, IndexError):
     """Raised when a forecast run is asked for by an issue time the source does not list."""
 
 
-class NotEnoughDataError(ValueError):
+class NotEnoughDataError(RequestError):
     """Raised when what a request selects holds too little data to answer it."""
 
 
-class ProviderNotFoundError(Exception):
+class ProviderNotFoundError(NotFoundError):
     """Raised when a provider is not found in the provider list."""
 
 
-class StationNotFoundError(Exception):
+class StationNotFoundError(NotFoundError):
     """Raised when a station is not found in the station list."""
 
 
-class ApiNotFoundError(Exception):
+class ApiNotFoundError(NotFoundError):
     """Raised when an API is not found in the API list."""
 
 
-class NoInternetError(OSError):
+class NoInternetError(UpstreamError, OSError):
     """Raised when no internet connection is available."""
 
 
-class DownloadError(Exception):
+class DownloadError(UpstreamError):
     """Raised when a download failed, saying which file it was and why.
 
     The failure a download met is on `__cause__`, as the exception it was: a timeout, a response
@@ -115,7 +173,7 @@ class DownloadError(Exception):
         return f"Failed to download {self.url}: {self.reason}"
 
 
-class MissingDependencyError(ImportError):
+class MissingDependencyError(ConfigurationError, ImportError):
     """Raised when something needs an optional dependency that is not installed.
 
     An `ImportError`, because that is what it is, and its own type because a caller reporting it
@@ -136,7 +194,7 @@ class BufrReaderMissingError(MissingDependencyError):
     """
 
 
-class CredentialMissingError(ValueError):
+class CredentialMissingError(ConfigurationError, ValueError):
     """Raised when a provider needs a credential to be asked anything and none is configured.
 
     A `ValueError`, which is what the providers raised before this had a type of its own, so that a
@@ -147,15 +205,15 @@ class CredentialMissingError(ValueError):
     """
 
 
-class NoStationsWithElevationError(ValueError):
+class NoStationsWithElevationError(RequestError):
     """Raised when an elevation is asked about and no station in reach reports one of its own."""
 
 
-class ParameterNotCarriedError(ValueError):
+class ParameterNotCarriedError(RequestError):
     """Raised when a parameter is asked for by name of a forecast run that never carries it."""
 
 
-class ImageTooLargeError(Exception):
+class ImageTooLargeError(RequestError):
     """Raised when a chart would be rendered larger than the caller allows (`max_side`), in pixels on a side.
 
     The REST API sets the limit and answers it with a 400. The size is only known once the figure is
@@ -174,7 +232,7 @@ class ImageTooLargeError(Exception):
         )
 
 
-class ExportRefusedError(Exception):
+class ExportRefusedError(WetterdienstError):
     """Raised when a sink will not perform an export, for a reason the caller can act on.
 
     Four shapes of the same thing: `if_exists` asked for something this sink does not do, the

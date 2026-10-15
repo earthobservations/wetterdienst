@@ -25,8 +25,6 @@ from wetterdienst.exceptions import (
     ExportRefusedError,
     InvalidTimeIntervalError,
     MissingDependencyError,
-    NoStationsWithElevationError,
-    ParameterNotCarriedError,
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.export import require_kaleido
@@ -758,9 +756,10 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     Also the one place the catch-alls below tell a provider whose credential is missing, which is
     the environment's lack and no mistake of the command line's, as the last paragraph says.
 
-    A refusal the caller can rephrase -- one the REST API answers with a 4xx -- is told in one line,
-    exit 2, as a mistyped option is (GH-2426). Anything else -- an upstream failure or a defect -- is
-    left to the handler, and keeps its traceback and exit 1.
+    A refusal the caller can rephrase -- a `RequestError` or a `NotFoundError`, which the REST API
+    answers with a 400 or a 404 -- is told in one line, exit 2, as a mistyped option is (GH-2426).
+    Anything else -- an upstream failure or a defect -- is left to the handler, and keeps its
+    traceback and exit 1.
 
     A request refuses a window that ends before it starts, or one that a dataset needs and is not
     given, in terms of its `start` and `end`, which the command line spells `--timestamp` or
@@ -816,9 +815,6 @@ def _collect_or_exit(
         # the environment lacks the reader, so this is exit 1 rather than a usage error
         log.error(str(e))  # noqa: TRY400
         sys.exit(1)
-    except (NoStationsWithElevationError, ParameterNotCarriedError) as e:
-        # the message names what to ask instead; the REST API answers these with a 400 of their own
-        raise click.UsageError(str(e)) from e
     except Exception as e:
         _refuse_if_callers(e, request)
         if not isinstance(e, ValueError):
@@ -2263,7 +2259,7 @@ def stripes_values(
         fig = _plot_stripes(request)
     except Exception as e:
         # a station that is not found, or years holding too little data, is told in one line, as
-        # `/api/stripes/image` answers it with a 400; an upstream failure keeps its traceback
+        # `/api/stripes/image` answers it with a 4xx; an upstream failure keeps its traceback
         _refuse_if_callers(e, request)
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e

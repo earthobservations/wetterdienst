@@ -37,7 +37,7 @@ test.describe('API proxy', () => {
     expect(headers['set-cookie']).toBeUndefined()
   })
 
-  test('preserves the backend error status and FastAPI error shape', async ({ request }) => {
+  test('preserves the backend error status and problem shape', async ({ request }) => {
     // `/api/values` without parameters is a validation error. The proxy must not turn it into a
     // 500 or swallow `detail`, because the UI renders that field verbatim.
     const response = await request.get('/api/values', { timeout: REQUEST_TIMEOUT })
