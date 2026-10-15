@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
-from wetterdienst.exceptions import NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
@@ -83,12 +82,6 @@ class LhmtObservationValues(TimeseriesValues):
         frames = []
         for day in _days(self.sr.start, self.sr.end):
             content = self._download_day(station_id, day, settings)
-            if isinstance(content, NoInternetError):
-                # offline, every remaining day (and station) would fail the same way: stop the request, and
-                # keep the days read
-                log.debug(f"No internet connection available for LHMT {station_id} on {day}, returning what was read.")
-                self.offline = True
-                break
             if content is None:
                 continue
             df = parse_lhmt_observations(content)
@@ -107,7 +100,7 @@ class LhmtObservationValues(TimeseriesValues):
             pl.col("value"),
         )
 
-    def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | NoInternetError | None:
+    def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | None:
         url = f"{_BASE_URL}/stations/{station_id}/observations/{day.isoformat()}"
         # a settled past day is immutable, so it can be cached indefinitely; only the current (still
         # filling) day needs a short cache. This keeps repeated historical queries off the network
@@ -121,12 +114,10 @@ class LhmtObservationValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        # no network is handed to the caller, which stops the loop: every later day would fail alike
-        if isinstance(file.content, NoInternetError):
-            return file.content
         # a day before the station's record is a 404 and simply contributes no rows; any other
         # failure -- a timeout, a 5xx after the retries -- is an outage, which swallowed would read as
-        # a day without observations (GH-2461)
+        # a day without observations (GH-2461). A failed connection raises at the first day, so that
+        # the request does not wait for the connection to fail once per remaining day (GH-2620, GH-2640)
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
@@ -153,8 +144,8 @@ class LhmtObservationRequest(TimeseriesRequest):
             use_certifi=settings.use_certifi,
         )
         # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
-        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
-        # silently, to give an empty frame
+        # which swallowed would read as a network without stations (GH-2519). A failed connection
+        # (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()

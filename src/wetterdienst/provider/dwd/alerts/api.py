@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidTimeIntervalError
+from wetterdienst.exceptions import InvalidTimeIntervalError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
@@ -347,8 +347,11 @@ class DwdWeatherAlertRequest:
             use_certifi=self.settings.use_certifi,
         )
         # A download failure (e.g. HTTP 404 from a snapshot that rolled off the window between the
-        # directory listing and this download, a timeout, or no internet) is surfaced as content
-        # being an Exception; wrap it with context instead of leaking the raw fsspec error.
+        # directory listing and this download, a timeout) is surfaced as content being an
+        # Exception; wrap it with context instead of leaking the raw fsspec error. No internet is
+        # raised as it is, naming the URL (GH-2640).
+        if isinstance(file.content, NoInternetError):
+            raise file.content
         if isinstance(file.content, Exception):
             msg = f"could not download weather alerts snapshot from {url}"
             raise OSError(msg) from file.content

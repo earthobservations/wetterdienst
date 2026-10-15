@@ -547,38 +547,50 @@ def _values(resolution: str, years: int, station_ids: tuple[str, ...] = (MADRID_
 
 
 @pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
-def test_aemet_observation_values_offline_stop_at_first_chunk_without_warning(
+def test_aemet_observation_values_offline_raise_at_the_first_chunk(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     resolution: str,
 ) -> None:
-    """Offline, the per-chunk loops stop after one request and log no warning."""
+    """Offline, the per-chunk loops raise `NoInternetError` after one request, logging no warning (GH-2640)."""
     attempted = _fake_fetch_datos(monkeypatch, NoInternetError("no route to host"))
-    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.aemet"):
-        df = _values(resolution, years=10)
-    assert df.is_empty()
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.aemet"), pytest.raises(NoInternetError):
+        _values(resolution, years=10)
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 @pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
-def test_aemet_observation_values_offline_stop_at_first_station(
+def test_aemet_observation_values_offline_raise_at_the_first_station(
     monkeypatch: pytest.MonkeyPatch, resolution: str
 ) -> None:
     """Offline, the request ends at the first download: the second station is not tried (GH-2620)."""
     attempted = _fake_fetch_datos(monkeypatch, NoInternetError("no route to host"))
-    df = _values(resolution, years=10, station_ids=(MADRID_RETIRO, BARCELONA))
-    assert df.is_empty()
+    with pytest.raises(NoInternetError):
+        _values(resolution, years=10, station_ids=(MADRID_RETIRO, BARCELONA))
     assert len(attempted) == 1
 
 
-def test_aemet_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A network lost after the first chunk ends the loop there, with that chunk's values."""
+def test_aemet_observation_values_going_offline_midway_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network lost after the first chunk raises, rather than answering with the chunk read (GH-2640)."""
     records = json.dumps([{"fecha": "2010-01-01", "tmed": "5,5"}]).encode("latin-1")
     attempted = _fake_fetch_datos(monkeypatch, records, NoInternetError("no route to host"))
-    df = _values("daily", years=10)
+    with pytest.raises(NoInternetError):
+        _values("daily", years=10)
     assert len(attempted) == 2
-    assert df.get_column("value").drop_nulls().to_list() == [5.5]
+
+
+def test_aemet_observation_stations_offline_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unreachable AEMET is no network without stations (GH-2640)."""
+    monkeypatch.setattr(
+        "wetterdienst.provider.aemet.observation.api._fetch_datos",
+        lambda *_args, **_kwargs: NoInternetError("no route to host"),
+    )
+    request = AemetObservationRequest(
+        parameters=[("daily", "data")], settings=Settings(auth={"aemet": "dummy-key-for-test"})
+    )
+    with pytest.raises(NoInternetError):
+        request.all()
 
 
 @pytest.mark.parametrize(("resolution", "chunks"), [("daily", 21), ("monthly", 4), ("annual", 4)])

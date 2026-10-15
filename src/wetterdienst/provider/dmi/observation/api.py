@@ -10,14 +10,13 @@ request -- see https://opendatadocs.dmi.govcloud.dk/Data/Climate_Data.
 
 from __future__ import annotations
 
-import contextlib
 import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -208,8 +207,8 @@ class DmiObservationValues(TimeseriesValues):
             )
             # a station with no data for the window answers an empty (200) page, so any failure here
             # is an outage, a 404 included, and is raised: swallowed it read as a station without
-            # data (GH-2461). NoInternetError, an expected offline condition, is raised on for the
-            # caller to end the whole read quietly: the next window would meet it too
+            # data (GH-2461). A failed connection (NoInternetError) is raised the same way, ending the
+            # whole read: the next window would meet it too (GH-2640)
             file.raise_if_exception()
             if isinstance(file.content, Exception):
                 raise file.content
@@ -238,7 +237,6 @@ class DmiObservationValues(TimeseriesValues):
         A range whose records fill all the pages DMI lets one request reach is halved and each half
         read on its own, down to a span of a second, so no request asks for an offset above the cap.
         The two halves share their boundary instant, as DMI's datetime filter includes both ends.
-        Pages read before ``NoInternetError`` is raised stay in ``records``.
         """
         read = len(records)
         try:
@@ -303,15 +301,12 @@ class DmiObservationValues(TimeseriesValues):
         span = _WINDOW_SPAN.get(resolution)
         window_start = start
         records: list[pl.DataFrame] = []
-        with contextlib.suppress(NoInternetError):
-            while True:
-                window_end = min(window_start + span, end) if span else end
-                self._fetch_station_value_pages(
-                    station_id, time_resolution, window_start, window_end, settings, records
-                )
-                if window_end >= end:
-                    break
-                window_start = window_end
+        while True:
+            window_end = min(window_start + span, end) if span else end
+            self._fetch_station_value_pages(station_id, time_resolution, window_start, window_end, settings, records)
+            if window_end >= end:
+                break
+            window_start = window_end
         if not records:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 

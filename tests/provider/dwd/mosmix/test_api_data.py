@@ -445,7 +445,7 @@ def test_mosmix_directory_holding_nothing_costs_that_station_and_no_more(
     asked = api.DwdForecastDate.LATEST if date == "LATEST" else date
 
     assert values.get_url_for_date("https://example.com/kml/", asked, one_station_only=True) is None
-    assert "a listing that failed looks the same" in caplog.text
+    assert "a missing directory lists as empty" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -601,10 +601,9 @@ def test_mosmix_available_issues_answers_rather_than_raises(
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
 
     assert DwdMosmixRequest.available_issues("01001", Settings()) == expected
-    # a listing that came back empty is also what a listing that failed looks like: `fs.find`
-    # walks with `on_error="omit"` and aiohttp's `ClientOSError` is an `OSError`, so answering
-    # "no runs" without saying so turns a blip into a fact about the station
-    assert ("a listing that failed looks the same" in caplog.text) is (listing == [])
+    # a listing that came back empty is also what a path that no longer exists lists as, so
+    # answering "no runs" without saying so turns that into a fact about the station
+    assert ("a missing directory lists as empty" in caplog.text) is (listing == [])
     # and a listing that named things, none of which is a forecast, is the same misreading one
     # step later: that is what a renaming upstream looks like, not a station without runs
     named_nothing_usable = listing != [] and expected == []
@@ -742,9 +741,9 @@ def test_mosmix_an_empty_all_stations_listing_is_not_a_quiet_station(monkeypatch
     """An empty listing means "this station retired" only where the directory is one station's.
 
     The all-stations products publish every station in one directory, so one empty listing there is
-    every station at once: it means the listing failed or DWD moved the product, and `fs.find`
-    swallowing an `OSError` makes those look identical to an empty directory. Answering `None`
-    would turn a connection reset into an empty result for the whole request, exit 0 and HTTP 200.
+    every station at once: it means DWD moved the product, which looks like an empty directory.
+    Answering `None` would turn that into an empty result for the whole request, exit 0 and HTTP
+    200. A listing that failed raises, offline as `NoInternetError` (GH-2640).
     """
     from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
 
@@ -756,7 +755,7 @@ def test_mosmix_an_empty_all_stations_listing_is_not_a_quiet_station(monkeypatch
         values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True) is None
     )
     # the product's directory: not an answer
-    with pytest.raises(IndexError, match="a listing that failed looks the same"):
+    with pytest.raises(IndexError, match="a missing directory lists as empty"):
         values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=False)
 
 

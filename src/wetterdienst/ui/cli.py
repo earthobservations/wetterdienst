@@ -25,6 +25,7 @@ from wetterdienst.exceptions import (
     ExportRefusedError,
     InvalidTimeIntervalError,
     MissingDependencyError,
+    NoInternetError,
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.export import require_kaleido
@@ -766,13 +767,14 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
 
     An optional dependency that is not installed (`MissingDependencyError`) is the environment's to
     fix, not the command line's: it is let through, to `_Cli.invoke`, which prints its message -- what
-    to install -- as the one line it is, exit 1.
+    to install -- as the one line it is, exit 1. So is a provider that could not be reached
+    (`NoInternetError`), whose message names the URL (GH-2640).
 
     A provider that needs a credential none is configured for is told in one line, exit 1: the
     message names the setting to change, which is what the person at the command line can do, and
     the command line was right, so it is no usage error.
     """
-    if isinstance(e, MissingDependencyError):
+    if isinstance(e, (MissingDependencyError, NoInternetError)):
         raise e
     if isinstance(e, CredentialMissingError):
         raise click.ClickException(str(e)) from e
@@ -881,6 +883,12 @@ class _Cli(click.Group):
         except MissingDependencyError as e:
             # whatever the command was doing when it reached for a package that is not installed,
             # such as rendering an image: the message names what to install, and is the whole of it
+            log.error(str(e))  # noqa: TRY400
+            sys.exit(1)
+        except NoInternetError as e:
+            # whatever the command was fetching: no connection to the provider could be made, which
+            # is told in the one line it is, naming the URL, and not as a traceback. An empty result
+            # would be exit 1 as well, but would not say why (GH-2640)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except (ValidationError, SettingsError) as e:
@@ -1435,6 +1443,9 @@ def history(
             sections=request.sections,
             indent=4 if pretty else None,
         )
+    except NoInternetError:
+        # told by `_Cli.invoke` in one line
+        raise
     except Exception:
         log.exception("Failed to collect station history")
         sys.exit(1)
@@ -2112,6 +2123,9 @@ def alerts(
         # a date before DWD's rolling window, the one refusal of the request's own `query` raises;
         # any other `ValueError` comes from DWD's feed (a timestamp, polygon or filename it cannot read)
         raise click.BadParameter(str(e), param_hint="--timestamp") from e
+    except NoInternetError:
+        # told by `_Cli.invoke` in one line
+        raise
     except Exception as e:
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e

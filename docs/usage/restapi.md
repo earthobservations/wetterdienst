@@ -226,6 +226,7 @@ entry for each invalid parameter, where `loc` names it:
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
 | 501 | the server cannot serve it: a credential or an optional package it lacks, which the body does not name |
+| 503 | the server could not reach the data provider (no network connection); the request was valid and can be retried, the body says so and does not name the provider's address |
 | 500 | the server's own error, or the provider's: the body names the exception's type and nothing else, the cause is in the server log |
 
 Read `status` for what happened and `detail` for a sentence to show; the wording of `detail` is not

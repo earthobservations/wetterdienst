@@ -644,7 +644,7 @@ _STATUS_OF = {
     "MetaFileNotFoundError": 500,
     "MissingDependencyError": 501,
     "MissingTimeIntervalError": 400,
-    "NoInternetError": 500,
+    "NoInternetError": 503,
     "NoParametersFoundError": 400,
     "NoPeriodsFoundError": 400,
     "NoStationsWithElevationError": 400,
