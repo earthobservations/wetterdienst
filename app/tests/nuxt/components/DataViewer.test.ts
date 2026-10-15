@@ -59,6 +59,19 @@ const plotly = vi.hoisted(() => {
 })
 vi.mock('plotly.js-basic-dist-min', () => plotly)
 
+// The date reader as it is, counted: the chart reads one date for every row it plots
+const { timestampDates } = vi.hoisted(() => ({ timestampDates: { calls: 0 } }))
+vi.mock('~/utils/timestamp', async (importOriginal) => {
+  const original = await importOriginal<typeof import('~/utils/timestamp')>()
+  return {
+    ...original,
+    timestampDate: (text: string) => {
+      timestampDates.calls++
+      return original.timestampDate(text)
+    },
+  }
+})
+
 // Nuxt's reload of the page, for every test in the file: the test's document, whose address earlier
 // tests' downloads have moved, does not take it
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
@@ -1101,6 +1114,29 @@ describe('dataViewer rows without a timestamp', () => {
     await vi.waitFor(() => expect(draw).toHaveBeenCalled())
     const [trace] = draw.mock.lastCall![1] as { x: string[], y: number[] }[]
     expect([trace!.x, trace!.y]).toEqual([['2020-01-01T00:00:00.000Z'], [1.5]])
+  })
+})
+
+describe('dataViewer work on a large answer', () => {
+  // Fetch opens the table, and the chart's rows, series and facets were made at once all the same: the
+  // render watchers read them whatever the view, a second pass over every row of an answer of a million
+  // for a chart not on screen (GH-2560)
+  it.each([false, true])('reads the rows for the chart once the chart is shown, not before, faceted: %s', async (faceted) => {
+    registerEndpoint('/api/values', () => ({ values: rows(50, '01048') }))
+    const { wrapper, viewer } = await mountDataViewer()
+    timestampDates.calls = 0
+    await fetchData(viewer)
+    await flushPromises()
+    expect(wrapper.findAll('tbody tr')).toHaveLength(50)
+    expect(timestampDates.calls).toBe(0)
+
+    plotly.newPlot.mockClear()
+    plotly.react.mockClear()
+    await showChart(wrapper, faceted)
+    const draw = faceted ? plotly.react : plotly.newPlot
+    await vi.waitFor(() => expect(draw).toHaveBeenCalled())
+    // once for each row, by the series or by the facets, not by both nor by every computed that reads them
+    expect(timestampDates.calls).toBe(50)
   })
 })
 

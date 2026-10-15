@@ -4,7 +4,7 @@ import type { Value } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { interpSeries, METEOGRAM_SERIES, nearestNeighbor, wetBulbApprox } from '~/utils/meteogram'
+import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 
 const props = defineProps<{
   values: Value[]
@@ -793,8 +793,7 @@ function resampleSeries(
   maxTime: number,
   stepKeys: Set<string> = new Set(),
 ): Map<string, { x: Date[], y: number[] }> {
-  const rangeHours = (maxTime - minTime) / 3_600_000
-  const cadenceMs = rangeHours > 120 ? 3 * 3_600_000 : 3_600_000
+  const cadenceMs = resampleCadenceMs(minTime, maxTime)
   const resampled = new Map<string, { x: Date[], y: number[] }>()
 
   for (const [key, s] of series) {
@@ -1213,9 +1212,16 @@ async function renderChartActual() {
     tempMaxY = Math.max(...s.y)
     const xs = s.x.map(d => d.toISOString())
 
-    const hasTxTn = !!(txKey && resampledSeries.has(txKey) && tnKey && resampledSeries.has(tnKey))
-    const sTx = hasTxTn ? resampledSeries.get(txKey)! : null
-    const sTn = hasTxTn ? resampledSeries.get(tnKey)! : null
+    // The maximum and minimum are held across the hours each covers, not resampled to a line between
+    // their few stamps, which let the curve out of the band (GH-2647)
+    const stepMs = resampleCadenceMs(minTime, displayMaxTime)
+    const extremeSteps = (key: string | undefined) => {
+      const raw = key ? series.get(key) : undefined
+      return raw ? extremeWindowSteps(raw.x, raw.y, extremeWindowHours(key!) * 3_600_000, minTime, displayMaxTime, stepMs) : null
+    }
+    const sTx = extremeSteps(txKey)
+    const sTn = extremeSteps(tnKey)
+    const hasTxTn = !!(sTx?.x.length && sTn?.x.length)
 
     const dewLookup = new Map<string, number>()
     if (dewKey && resampledSeries.has(dewKey)) {
@@ -1241,13 +1247,6 @@ async function renderChartActual() {
       }
     }
 
-    const txLookup = new Map<string, number>()
-    const tnLookup = new Map<string, number>()
-    if (hasTxTn && sTx && sTn) {
-      sTx.x.forEach((d, i) => txLookup.set(d.toISOString(), sTx.y[i]!))
-      sTn.x.forEach((d, i) => tnLookup.set(d.toISOString(), sTn.y[i]!))
-    }
-
     traces.push({
       name: hasTxTn ? t('meteogram.chart.seriesMeanTemp') : t('meteogram.chart.seriesTemperature'),
       x: xs,
@@ -1270,7 +1269,7 @@ async function renderChartActual() {
         y: sTx.y,
         type: 'scatter',
         mode: 'lines',
-        line: { color: isDark.value ? '#fca5a5' : '#b91c1c', width: 1.5, dash: 'dash', shape: 'spline' },
+        line: { color: isDark.value ? '#fca5a5' : '#b91c1c', width: 1.5, dash: 'dash', shape: 'vh' },
         yaxis: 'y3',
         hovertemplate: `<b>${t('meteogram.chart.hoverMaxTemp')}</b>: %{y:.1f}°C<extra></extra>`,
         showlegend: false,
@@ -1281,13 +1280,13 @@ async function renderChartActual() {
         y: sTn.y,
         type: 'scatter',
         mode: 'lines',
-        line: { color: isDark.value ? '#93c5fd' : '#1d4ed8', width: 1.5, dash: 'dash', shape: 'spline' },
+        line: { color: isDark.value ? '#93c5fd' : '#1d4ed8', width: 1.5, dash: 'dash', shape: 'vh' },
         yaxis: 'y3',
         hovertemplate: `<b>${t('meteogram.chart.hoverMinTemp')}</b>: %{y:.1f}°C<extra></extra>`,
         showlegend: false,
       })
-      tempMinY = Math.min(tempMinY, ...sTn.y)
-      tempMaxY = Math.max(tempMaxY, ...sTx.y)
+      tempMinY = Math.min(tempMinY, ...sTn.y.filter((v): v is number => v !== null))
+      tempMaxY = Math.max(tempMaxY, ...sTx.y.filter((v): v is number => v !== null))
     }
 
     if (dewKey && resampledSeries.has(dewKey)) {

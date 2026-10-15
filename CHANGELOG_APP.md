@@ -55,6 +55,14 @@ Types of changes:
   "... (Trendlinie)", where every language read "... (trend)" (GH-2869)
 - `[DataViewer]` The hover label of the chart shows a series' name whole, where Plotly cut it after
   15 characters (GH-2870)
+- `[DataViewer]` A Fetch shows its table sooner: the chart's rows, series and facets are made when
+  the chart is opened, not for every answer. Measured on `dwd/observation` `daily/climate_summary`,
+  14 parameters, 3 stations (1.1 million rows), the table came up after 5.4 s, where it takes 3.8 s
+  now; the server's part (2.7 s) did not change. Opening the chart takes about 1.6 s longer
+  (GH-2560)
+- `[Meteogram]` The Tx/Tn band holds each value across the 12 hours before its stamp, as DWD gives
+  it, in steps, where a line between the two daily stamps let the temperature curve out of the
+  band for a tenth to a sixth of the hours (GH-2647)
 
 ### Security
 
