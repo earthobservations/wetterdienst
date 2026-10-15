@@ -1131,9 +1131,12 @@ def test_cli_values_unknown_parameter_is_a_usage_error() -> None:
     )
 
     assert result.exit_code == 2, result.output
-    assert result.stderr.endswith(
-        "\n\nError: No valid parameters could be parsed from ['daily/nonexistent'] for DwdObservationRequest\n"
+    # the unknown name, with the datasets that would have matched, in one line (GH-2636)
+    error = result.stderr.split("\n\nError: ")[-1]
+    assert error.startswith(
+        "daily/nonexistent not found in DwdObservationMetadata: 'nonexistent'. Available datasets: "
     )
+    assert error.count("\n") == 1
 
 
 def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest.MonkeyPatch) -> None:

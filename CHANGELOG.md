@@ -66,6 +66,20 @@ Types of changes:
   connection dropped, and now raise. A source that answers badly is still a `DownloadError`. Catch
   `NoInternetError` where an empty result is wanted offline. The REST API answers 503 (retryable),
   the command line exits 1 with one line (GH-2640)
+- **Breaking**: a parameter the provider does not have, or one not shaped like a parameter, raises
+  `InvalidParameterError` (a `RequestError`, a 400 over REST) naming each with its close match; it
+  was logged and skipped, so the result held fewer parameters than asked for without saying so.
+  Fix the name, or pass `on_unknown="warn"` to the request for the old behaviour. A request where
+  none resolves raises it as well, no longer `NoParametersFoundError`; catch `RequestError` for
+  both (GH-2636)
+- **Breaking**: bad inputs are refused where they were answered with less or with an unrelated
+  error. `discover()` raises `MetadataNotFoundError` for a resolution or dataset the network does
+  not have (a 404 on `/api/coverage`, a usage error on `about coverage`), not `{}`;
+  `Wetterdienst.get_network_names("foo")` raises `ApiNotFoundError`, not `KeyError`; a date that is
+  neither a `str` nor a `datetime` (`start=2020`) raises `TypeError`, not `AttributeError`. Catch
+  `NotFoundError` or `LookupError` instead of `KeyError`. Also, an `InvalidEnumerationError` lists
+  the valid values, `(Resolution.DAILY, "kl")` works as `("daily", "kl")`, and `end` without `start`
+  stays one instant, as `start` alone is, now documented (GH-2636)
 
 ## [0.154.0] - 2026-10-15
 

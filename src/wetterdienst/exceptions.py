@@ -65,6 +65,20 @@ class InvalidEnumerationError(RequestError):
     """Raised when an invalid enumeration is provided."""
 
 
+class InvalidParameterError(RequestError):
+    """Raised when a requested parameter is unknown to the provider or not shaped like a parameter.
+
+    The message names each one with the close match, where there is one, and the names that would
+    have matched. Raised by default; a request built with `on_unknown="warn"` logs it and goes on
+    with the parameters that did resolve.
+
+    `resolved` says whether any other parameter of the request did resolve, that is whether
+    `on_unknown="warn"` would have gone on with something.
+    """
+
+    resolved: bool = False
+
+
 class NoParametersFoundError(RequestError):
     """Raised when no parameters are found."""
 
@@ -145,6 +159,10 @@ class StationNotFoundError(NotFoundError):
 
 class ApiNotFoundError(NotFoundError):
     """Raised when an API is not found in the API list."""
+
+
+class MetadataNotFoundError(NotFoundError):
+    """Raised when a resolution or dataset is asked about that the provider does not have."""
 
 
 class NoInternetError(UpstreamError, OSError):

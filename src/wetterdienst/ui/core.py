@@ -1351,8 +1351,8 @@ def _get_stations_request(
 
     parameters = parse_parameters(request.parameters, api.metadata)
     if not parameters:
-        # raised here rather than left to the request, which would only see the empty list this
-        # resolved to and could not name what was asked for
+        # an unknown parameter raised above; this is a request that names none at all, raised here
+        # rather than left to the request, which would only see the empty list it resolved to
         msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 
