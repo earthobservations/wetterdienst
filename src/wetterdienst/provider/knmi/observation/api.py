@@ -136,8 +136,8 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                # no network is not a blip two more retries clear: report it at once, as an
-                # offline listing does (the 503 `download_file` gives it would otherwise match)
+                # no network is not a blip two more retries clear: report it at once (the 503
+                # `download_file` gives it would otherwise match)
                 if (
                     isinstance(last_file.content, Exception)
                     and not last_file.is_no_internet_error
@@ -239,11 +239,9 @@ class KnmiObservationValues(TimeseriesValues):
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
             if isinstance(payload, NoInternetError):
                 # offline, every remaining moment would fail the same way (and an hourly month
-                # is 720 of them), nor would the next station's: stop the request, and log it as
-                # `File.raise_if_exception` does
-                log.debug(f"No internet connection available for KNMI file {filename}, returning what was read.")
-                self.offline = True
-                break
+                # is 720 of them), nor would the next station's: the request ends here, with the
+                # error, rather than with the moments read (GH-2620, GH-2640)
+                raise payload
             if isinstance(payload, Exception):
                 # a single missing/failed timestamp shouldn't sink the whole range --
                 # rate-limit/transient retries (if applicable) are already exhausted here.
@@ -366,10 +364,15 @@ class KnmiObservationRequest(TimeseriesRequest):
         """Read the station inventory from the most recent file of the given resolution."""
         dataset_name, version = _DATASET_BY_RESOLUTION[resolution]
         filename = _latest_filename(dataset_name, version, settings)
+        if isinstance(filename, NoInternetError):
+            # an unreachable KNMI is no network without stations (GH-2640)
+            raise filename
         if isinstance(filename, Exception):
             log.warning(f"Failed to look up latest KNMI {resolution.value} file: {filename}")
             return None
         payload = _fetch_netcdf(dataset_name, version, filename, settings)
+        if isinstance(payload, NoInternetError):
+            raise payload
         if isinstance(payload, Exception):
             log.warning(f"Failed to fetch KNMI {resolution.value} stations: {payload}")
             return None

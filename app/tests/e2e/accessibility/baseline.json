@@ -5,12 +5,6 @@
     { "rule": "aria-hidden-focus", "page": "explorer", "state": "values-error", "impact": "serious", "variants": ["dark/de", "light/en"] },
     { "rule": "aria-required-children", "page": "explorer", "state": "station-menu-open", "impact": "critical", "variants": ["dark/de", "light/en"] },
     { "rule": "aria-required-children", "page": "meteogram", "state": "station-menu-open", "impact": "critical", "variants": ["dark/de", "light/en"] },
-    { "rule": "color-contrast", "page": "explorer", "state": "selection-restored", "impact": "serious", "variants": ["light/en"] },
-    { "rule": "color-contrast", "page": "explorer", "state": "values-error", "impact": "serious", "variants": ["light/en"] },
-    { "rule": "color-contrast", "page": "meteogram", "state": "chart-drawn", "impact": "serious", "variants": ["light/en"] },
-    { "rule": "color-contrast", "page": "stripes", "state": "chart-drawn", "impact": "serious", "variants": ["light/en"] },
-    { "rule": "color-contrast", "page": "stripes", "state": "download-menu-open", "impact": "serious", "variants": ["light/en"] },
-    { "rule": "color-contrast", "page": "stripes", "state": "fetch-error", "impact": "serious", "variants": ["light/en"] },
     { "rule": "scrollable-region-focusable", "page": "explorer", "state": "station-menu-open", "impact": "serious", "variants": ["dark/de", "light/en"] }
   ]
 }

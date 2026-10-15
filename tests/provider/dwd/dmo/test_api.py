@@ -164,7 +164,7 @@ def test_dwd_dmo_available_issues(default_settings: Settings) -> None:
 @pytest.mark.parametrize(
     ("listing", "expected_warning"),
     [
-        pytest.param([], "a listing that failed looks the same", id="directory-holding-nothing"),
+        pytest.param([], "a missing directory lists as empty", id="directory-holding-nothing"),
         pytest.param(
             ["https://example.com/kmz/README.txt"],
             "is a 78 h forecast",
@@ -569,6 +569,27 @@ def test_dmo_coverage_is_read_from_the_directory_that_holds_one_entry_per_statio
     DwdDmoRequest(parameters=[("hourly", dataset)]).all()
 
     assert listed == [expected]
+
+
+def test_dmo_a_station_listing_made_offline_raises_instead_of_falling_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a connection the stations are not read from the wider shared catalogue, the request raises (GH-2640).
+
+    Any other failure of the listing keeps the catalogue and says why, as the test below has it: that
+    is a source that answered badly, which this is not.
+    """
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.dmo import api  # noqa: PLC0415
+
+    _stub_catalogue(monkeypatch, ["01001", "01023"])
+
+    def offline(*_args: object, **_kwargs: object) -> list[dict]:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(api, "list_remote_directory_fsspec", offline)
+
+    with pytest.raises(NoInternetError):
+        DwdDmoRequest(parameters=[("hourly", "icon_eu")]).all()
 
 
 def test_dmo_a_station_listing_that_cannot_be_read_keeps_the_catalogue_and_says_why(

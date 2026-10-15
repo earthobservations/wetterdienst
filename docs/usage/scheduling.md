@@ -33,6 +33,10 @@ Three properties of the CLI matter for a scheduler:
   `No data available for given constraints`. That is the same exit code as a real failure, so a
   schedule over a station that is merely quiet will look like a broken job. Either pick a query
   that always returns something, or let the wrapper decide what an empty result means.
+- **A run without a network connection fails, it does not write an empty result.** When the
+  provider cannot be reached the command exits `1` with `No internet connection: could not reach
+  <url> (...)`, and the target keeps what the last run wrote, so a dropped connection is not a
+  nightly export of an empty file.
 - **A run replaces what the last one wrote, unless you say otherwise.** `--if_exists` defaults to
   `replace`, which for a schedule means the target holds the newest run rather than a history: a
   `file://` target is rewritten in full, and a `duckdb://`, `sqlite://` or `crate://` table is

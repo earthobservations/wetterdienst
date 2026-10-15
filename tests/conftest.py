@@ -48,9 +48,10 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     off mid-read, or a 5xx -- which `download_file` asks twice, so a request made through it is
     skipped on only after its second attempt failed as well. A 404 is not among them: it is
     upstream answering, and the likelier cause is a URL built wrong, which is what such a test is
-    there to catch. Nor is a host that cannot be reached at all, though for want of a choice here:
-    `download_file` degrades that to an empty answer instead of raising. Anything else still fails
-    the test. Usable as a decorator or around the calls that reach upstream.
+    there to catch. Nor is a host that cannot be reached at all: that is a `NoInternetError`, which
+    fails the test as it fails a caller (GH-2640), so a runner that has lost its network is red and
+    not a wall of skips. Anything else still fails the test. Usable as a decorator or around the calls that
+    reach upstream.
 
     Every test marked `remote` is already run inside it (`pytest_runtest_call` below, GH-2522), so
     it is for a block that has to be skipped alone: one inside a test that catches what it raises,
@@ -242,15 +243,12 @@ def _guarded_gethostbyname_ex(host: Any) -> Any:  # noqa: ANN401
 class NetworkAccessBlockedError(Exception):
     """Raised in place of a connection an unmarked test tried to open.
 
-    Deliberately not an `OSError`. The library treats being offline as a condition to degrade on
-    rather than report: aiohttp turns any `OSError` from a connect into `ClientConnectorError`,
-    `list_remote_files_fsspec` answers that with `[]`, and `download_file` answers it with a `File`
-    carrying `NoInternetError` that `raise_if_exception` logs at debug. A guard that raised
-    `OSError` was therefore swallowed by all three: the test either failed as
-    `FileNotFoundError: url ... does not have a list of files`, which reads like an upstream
-    restructure, or -- where an empty listing is a legitimate answer -- passed while testing
-    nothing. Deriving straight from `Exception` puts this outside those three, so the missing
-    marker is what the failure says.
+    Deliberately not an `OSError`. aiohttp turns any `OSError` from a connect into
+    `ClientConnectorError`, which the library reports as `NoInternetError` (GH-2640). A guard that
+    raised `OSError` was therefore read as being offline: the test failed as `NoInternetError`,
+    which reads like a lost connection and not like a missing marker, or -- where a provider
+    degrades on it -- passed while testing nothing. Deriving straight from `Exception` puts this
+    outside that conversion, so the missing marker is what the failure says.
 
     Not a `BaseException`, which would escape more: fsspec's `sync()` carries a result back from
     the loop thread through `except Exception`, and anything outside that is dropped for a `None`

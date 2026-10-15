@@ -221,7 +221,7 @@ class EcccObservationValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            # no connection: nothing to ask for, as for a year
+            # narrows the type; `raise_if_exception` has raised for any failed download
             return None
         features = json.load(file.content).get("features") or []
         date = features[0]["properties"].get(date_field) if features else None

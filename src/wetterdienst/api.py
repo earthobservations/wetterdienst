@@ -275,6 +275,15 @@ class Wetterdienst:
 
     @classmethod
     def get_network_names(cls, provider: str) -> list[str]:
-        """Get all networks for a provider."""
+        """Get all networks for a provider.
+
+        Raises:
+            ApiNotFoundError: the provider is not in the registry, as `Wetterdienst(provider, network)` raises it.
+
+        """
         provider = provider.strip().lower()
-        return list(cls.registry[provider].keys())
+        try:
+            return list(cls.registry[provider].keys())
+        except KeyError as e:
+            msg = f"No API available for provider {provider}. Available providers: {', '.join(cls.registry)}"
+            raise ApiNotFoundError(msg) from e
