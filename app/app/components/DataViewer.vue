@@ -1315,16 +1315,12 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
 
 <template>
   <div class="space-y-4">
-    <UCollapsible default-open>
-      <template #summary>
-        <div class="flex items-center justify-between w-full">
-          <h3 class="text-lg font-bold">
-            {{ t('dataViewer.dataTitle') }}
-          </h3>
-        </div>
-      </template>
+    <div>
+      <h2 class="sr-only">
+        {{ t('dataViewer.dataTitle') }}
+      </h2>
 
-      <!-- Query Transform Panel - Inside collapsible for full width -->
+      <!-- Query Transform Panel -->
       <QueryPanel
         v-if="allValues.length > 0"
         :data="allValues"
@@ -1337,6 +1333,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <div class="flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <UButton
             icon="i-lucide-table"
+            :aria-label="t('dataViewer.viewTable')"
+            :aria-pressed="viewMode === 'table'"
             size="md"
             :variant="viewMode === 'table' ? 'solid' : 'ghost'"
             :color="viewMode === 'table' ? 'primary' : 'neutral'"
@@ -1344,6 +1342,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           />
           <UButton
             icon="i-lucide-chart-line"
+            :aria-label="t('dataViewer.viewChart')"
+            :aria-pressed="viewMode === 'graph'"
             size="md"
             :variant="viewMode === 'graph' ? 'solid' : 'ghost'"
             :color="viewMode === 'graph' ? 'primary' : 'neutral'"
@@ -1354,33 +1354,33 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
 
       <!-- Options bar -->
       <div class="flex items-center justify-between">
-        <span class="text-sm text-gray-500">
+        <span class="text-sm text-gray-500 dark:text-gray-400">
           <template v-if="valuesPending">{{ t('dataViewer.loadingValues') }}</template>
           <template v-else-if="isDataTransformed">{{ t('dataViewer.valuesTransformed', { count: displayData.length, total: allValues.length }) }}</template>
           <template v-else>{{ t('dataViewer.valuesCount', { count: allValues.length }) }}</template>
         </span>
         <div class="flex items-center gap-4">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
-            <span class="text-sm">{{ t('dataViewer.columns') }}:</span>
-            <USelectMenu v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
+            <label for="data-viewer-columns" class="text-sm">{{ t('dataViewer.columns') }}:</label>
+            <USelectMenu id="data-viewer-columns" v-model="selectedColumns" :items="columnOptions" :disabled="!columnOptions.length" multiple class="w-40" />
           </div>
           <div class="flex items-center gap-1">
             <template v-if="viewMode === 'table'">
               <UTooltip :text="t('dataViewer.copyCurrentPage')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy" :disabled="valuesPending || !paginatedValues.length"
+                  size="xs" variant="ghost" icon="i-lucide-copy" :aria-label="t('dataViewer.copyCurrentPage')" :disabled="valuesPending || !paginatedValues.length"
                   @click="copyCurrentPage"
                 />
               </UTooltip>
               <UTooltip :text="t('dataViewer.copyAllValues')">
                 <UButton
-                  size="xs" variant="ghost" icon="i-lucide-copy-check" :disabled="valuesPending || !sortedValues.length"
+                  size="xs" variant="ghost" icon="i-lucide-copy-check" :aria-label="t('dataViewer.copyAllValues')" :disabled="valuesPending || !sortedValues.length"
                   @click="copyAllValues"
                 />
               </UTooltip>
             </template>
-            <UDropdownMenu :items="downloadMenuItems">
-              <UButton size="xs" variant="ghost" icon="i-lucide-download" :disabled="valuesPending" />
+            <UDropdownMenu :items="downloadMenuItems" :modal="false">
+              <UButton size="xs" variant="ghost" icon="i-lucide-download" :aria-label="viewMode === 'graph' ? t('dataViewer.downloadChart') : t('dataViewer.download')" :disabled="valuesPending" />
             </UDropdownMenu>
           </div>
         </div>
@@ -1401,8 +1401,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <!-- Display Options -->
             <div class="flex flex-wrap items-center gap-4">
               <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-600 dark:text-gray-300">{{ t('dataViewer.paramLabel') }}:</label>
-                <USelect v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
+                <label for="data-viewer-param-label" class="text-sm text-gray-600 dark:text-gray-300">{{ t('dataViewer.paramLabel') }}:</label>
+                <USelect id="data-viewer-param-label" v-model="paramLabelFormat" :items="paramLabelItems" class="w-56" />
               </div>
               <UCheckbox v-model="facetByParameter" :label="t('dataViewer.facetByParameter')" />
               <UCheckbox v-model="showTrendline" :label="t('dataViewer.trendline')" />
@@ -1421,7 +1421,7 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
             <span class="text-sm">{{ fetchErrorMessage }}</span>
           </div>
-          <div v-else-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500">
+          <div v-else-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
             {{ t('dataViewer.emptyHint') }}
           </div>
           <UTable
@@ -1457,13 +1457,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             </div>
             <div
               v-else-if="allValues.length === 0"
-              class="flex items-center justify-center py-12 text-gray-500"
+              class="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400"
             >
               {{ t('dataViewer.emptyHint') }}
             </div>
             <div
               v-else-if="(facetByParameter && facetedChartData.length === 0) || (!facetByParameter && !hasChartData)"
-              class="flex items-center justify-center py-12 text-gray-500"
+              class="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400"
             >
               {{ t('dataViewer.noChartData') }}
             </div>
@@ -1494,13 +1494,13 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
         <template v-if="viewMode === 'table'" #footer>
           <div class="flex items-center justify-center gap-4">
             <div class="flex items-center gap-2">
-              <span class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</span>
-              <USelect v-model="pageSize" :items="pageSizeOptions" class="w-20" />
+              <label for="data-viewer-page-size" class="text-sm">{{ t('dataViewer.rowsPerPage') }}:</label>
+              <USelect id="data-viewer-page-size" v-model="pageSize" :items="pageSizeOptions" class="w-20" />
             </div>
             <UPagination v-model:page="currentPage" :total="displayData.length" :items-per-page="pageSize" />
           </div>
         </template>
       </UCard>
-    </ucollapsible>
+    </div>
   </div>
 </template>

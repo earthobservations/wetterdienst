@@ -286,6 +286,7 @@
     "parametersTitle": "Parametri",
     "searchPlaceholder": "Cerca nome o descrizione…",
     "allUnitTypes": "Tutte le grandezze",
+    "unitTypeLabel": "Grandezza",
     "loading": "Caricamento…",
     "noResults": "Nessun parametro corrisponde alla ricerca.",
     "count": "{count} di {total} parametri"
@@ -476,7 +477,8 @@
     "modeStationHow": "I valori misurati grezzi vengono restituiti così come sono, con conversione delle unità facoltativa e nomi dei parametri leggibili. Seleziona qui sotto una o più stazioni.",
     "modeInterpolationHow": "Raccoglie i valori delle stazioni che circondano spazialmente il tuo punto di destinazione e vi adatta una triangolazione (Delaunay + interpolazione lineare nello spazio UTM). Ogni passo temporale produce un valore sintetico alle tue coordinate esatte, più accurato che scegliere la stazione più vicina, soprattutto dove la copertura delle stazioni è buona. Richiede almeno 3 stazioni circostanti e un intervallo di date. Per i parametri di precipitazione viene applicato anche un controllo di occorrenza per evitare valori spuri prossimi a zero.",
     "modeSummaryHow": "Per ogni parametro e ogni passo temporale, cerca verso l'esterno a partire dalla tua posizione di destinazione e sceglie la prima stazione con una lettura valida: nessuna stima, solo la misurazione reale più vicina. L'output comprende l'ID della stazione che ha fornito il dato e la sua distanza, così sai sempre con esattezza da dove provengono i dati. È richiesto un intervallo di date.",
-    "modeHowItWorks": "Come funziona"
+    "modeHowItWorks": "Come funziona",
+    "removeParameterDistance": "Rimuovi la distanza di {parameter}"
   },
   "stationTable": {
     "stationId": "ID stazione",
@@ -511,6 +513,7 @@
     "selectStation": "Seleziona una stazione",
     "selectedStations": "Stazioni selezionate:",
     "clearAll": "Cancella tutto",
+    "clearStation": "Cancella la stazione selezionata",
     "showMap": "Mostra la mappa",
     "chooseOnMap": "Scegli sulla mappa",
     "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
@@ -557,6 +560,10 @@
     "columns": "Colonne",
     "copyCurrentPage": "Copia la pagina corrente",
     "copyAllValues": "Copia tutti i valori",
+    "viewTable": "Mostra come tabella",
+    "viewChart": "Mostra come grafico",
+    "download": "Scarica i valori",
+    "downloadChart": "Scarica il grafico",
     "chartSettings": "Impostazioni del grafico",
     "paramLabel": "Etichetta del parametro",
     "facetByParameter": "Suddividi per parametro",

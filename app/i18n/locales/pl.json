@@ -286,6 +286,7 @@
     "parametersTitle": "Parametry",
     "searchPlaceholder": "Szukaj nazwy lub opisu…",
     "allUnitTypes": "Wszystkie wielkości",
+    "unitTypeLabel": "Wielkość",
     "loading": "Ładowanie…",
     "noResults": "Żaden parametr nie pasuje do wyszukiwania.",
     "count": "{count} z {total} parametrów"
@@ -476,7 +477,8 @@
     "modeStationHow": "Surowe wartości pomiarowe są zwracane bez zmian, opcjonalnie z przeliczeniem jednostek i czytelnymi nazwami parametrów. Wybierz poniżej jedną lub kilka stacji.",
     "modeInterpolationHow": "Zbiera wartości ze stacji, które przestrzennie otaczają punkt docelowy, i dopasowuje do nich triangulację (Delaunay + interpolacja liniowa w przestrzeni UTM). Każdy krok czasowy daje wartość syntetyczną dokładnie w podanych współrzędnych – dokładniejszą niż wybór najbliższej stacji, zwłaszcza tam, gdzie stacji jest dużo. Wymaga co najmniej 3 otaczających stacji oraz zakresu dat. Dla parametrów opadów stosowane jest dodatkowo sprawdzenie występowania, aby uniknąć fałszywych wartości bliskich zeru.",
     "modeSummaryHow": "Dla każdego parametru i każdego kroku czasowego przeszukuje okolicę od miejsca docelowego na zewnątrz i wybiera pierwszą stację z prawidłowym odczytem – bez szacowania, tylko najbliższy rzeczywisty pomiar. Wynik zawiera ID stacji, z której pochodzą dane, oraz jej odległość, więc zawsze wiadomo dokładnie, skąd dane pochodzą. Wymagany jest zakres dat.",
-    "modeHowItWorks": "Jak to działa"
+    "modeHowItWorks": "Jak to działa",
+    "removeParameterDistance": "Usuń odległość dla {parameter}"
   },
   "stationTable": {
     "stationId": "Identyfikator stacji",
@@ -511,6 +513,7 @@
     "selectStation": "Wybierz stację",
     "selectedStations": "Wybrane stacje:",
     "clearAll": "Wyczyść wszystko",
+    "clearStation": "Wyczyść wybraną stację",
     "showMap": "Pokaż mapę",
     "chooseOnMap": "Wybierz na mapie",
     "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
@@ -557,6 +560,10 @@
     "columns": "Kolumny",
     "copyCurrentPage": "Kopiuj bieżącą stronę",
     "copyAllValues": "Kopiuj wszystkie wartości",
+    "viewTable": "Pokaż jako tabelę",
+    "viewChart": "Pokaż jako wykres",
+    "download": "Pobierz wartości",
+    "downloadChart": "Pobierz wykres",
     "chartSettings": "Ustawienia wykresu",
     "paramLabel": "Etykieta parametru",
     "facetByParameter": "Podziel według parametru",

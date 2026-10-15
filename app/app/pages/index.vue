@@ -149,7 +149,7 @@ const dataKinds = computed(() => [
           <p class="text-sm text-gray-600 dark:text-gray-400 flex-1">
             {{ task.description }}
           </p>
-          <span class="text-sm font-medium text-primary-500 group-hover:underline">
+          <span class="text-sm font-medium text-primary-700 dark:text-primary-500 group-hover:underline">
             {{ t('common.open') }} →
           </span>
         </UCard>
@@ -167,7 +167,7 @@ const dataKinds = computed(() => [
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <UCard v-for="stat in stats" :key="stat.label" :ui="{ body: 'text-center py-4' }">
-        <div class="text-2xl font-bold text-primary-500">
+        <div class="text-2xl font-bold text-primary-600 dark:text-primary-500">
           {{ stat.value }}
         </div>
         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -197,7 +197,7 @@ const dataKinds = computed(() => [
       </div>
       <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
         {{ t('home.dataProvidersDesc') }}
-        <NuxtLink to="/glossary" class="text-primary-500 hover:underline">
+        <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
           {{ t('home.glossaryHint') }}
         </NuxtLink>
       </p>

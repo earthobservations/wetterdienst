@@ -114,13 +114,13 @@ onMounted(async () => {
         <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">
           {{ station ? station.name : t('meteogram.title') }}
         </span>
-        <span v-if="station" class="text-xs text-gray-400 shrink-0">({{ station.station_id }})</span>
+        <span v-if="station" class="text-xs text-gray-500 dark:text-gray-400 shrink-0">({{ station.station_id }})</span>
       </div>
       <a
         :href="station ? `/meteogram?station=${station.station_id}` : '/meteogram'"
         target="_blank"
         rel="noopener"
-        class="inline-flex items-center gap-1 text-xs text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 shrink-0 ml-2"
+        class="inline-flex items-center gap-1 text-xs text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 shrink-0 ml-2"
         :title="t('widget.openFull')"
       >
         {{ t('common.open') }}
@@ -130,18 +130,18 @@ onMounted(async () => {
 
     <!-- Content -->
     <div class="flex-1 overflow-hidden">
-      <i18n-t v-if="!stationId" keypath="widget.noStation" tag="div" class="flex items-center justify-center h-full py-16 text-gray-400 text-sm" scope="global">
+      <i18n-t v-if="!stationId" keypath="widget.noStation" tag="div" class="flex items-center justify-center h-full py-16 text-gray-600 dark:text-gray-400 text-sm" scope="global">
         <template #param>
           <code class="mx-1 px-1 bg-gray-100 dark:bg-gray-800 rounded">?station=XXXXX</code>
         </template>
       </i18n-t>
 
-      <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-400 text-sm">
+      <div v-else-if="pending" class="flex items-center justify-center gap-2 py-16 text-gray-500 dark:text-gray-400 text-sm">
         <UIcon name="i-lucide-loader-circle" class="w-4 h-4 animate-spin text-primary-500" />
         {{ t('widget.loading') }}
       </div>
 
-      <div v-else-if="error" class="flex items-center justify-center py-16 text-red-500 text-sm">
+      <div v-else-if="error" class="flex items-center justify-center py-16 text-red-600 dark:text-red-400 text-sm">
         {{ error }}
       </div>
 
@@ -168,7 +168,7 @@ onMounted(async () => {
         href="https://github.com/earthobservations/wetterdienst"
         target="_blank"
         rel="noopener"
-        class="text-[10px] text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+        class="text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
       >
         {{ t('widget.poweredBy') }}
       </a>

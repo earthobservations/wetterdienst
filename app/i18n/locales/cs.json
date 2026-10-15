@@ -286,6 +286,7 @@
     "parametersTitle": "Parametry",
     "searchPlaceholder": "Hledat název nebo popis…",
     "allUnitTypes": "Všechny veličiny",
+    "unitTypeLabel": "Veličina",
     "loading": "Načítání…",
     "noResults": "Hledání neodpovídá žádný parametr.",
     "count": "{count} z {total} parametrů"
@@ -476,7 +477,8 @@
     "modeStationHow": "Naměřené hodnoty se vracejí beze změny, volitelně s převodem jednotek a čitelnými názvy parametrů. Níže vyberte jednu nebo více stanic.",
     "modeInterpolationHow": "Shromáždí hodnoty ze stanic, které prostorově obklopují cílový bod, a proloží jimi triangulaci (Delaunay + lineární interpolace v prostoru UTM). V každém časovém kroku vznikne syntetická hodnota přesně v zadaných souřadnicích – přesnější než výběr nejbližší stanice, zejména tam, kde je stanic dostatek. Vyžaduje alespoň 3 obklopující stanice a rozsah dat. U parametrů srážek se navíc používá kontrola výskytu, aby se zabránilo nesmyslným hodnotám blízkým nule.",
     "modeSummaryHow": "Pro každý parametr a každý časový krok prohledává okolí od cílového místa směrem ven a vybere první stanici s platným měřením – žádný odhad, jen nejbližší skutečné měření. Výstup obsahuje ID přispívající stanice a její vzdálenost, takže vždy přesně víte, odkud data pocházejí. Rozsah dat je povinný.",
-    "modeHowItWorks": "Jak to funguje"
+    "modeHowItWorks": "Jak to funguje",
+    "removeParameterDistance": "Odebrat vzdálenost pro {parameter}"
   },
   "stationTable": {
     "stationId": "ID stanice",
@@ -511,6 +513,7 @@
     "selectStation": "Vyberte stanici",
     "selectedStations": "Vybrané stanice:",
     "clearAll": "Vymazat vše",
+    "clearStation": "Vymazat vybranou stanici",
     "showMap": "Zobrazit mapu",
     "chooseOnMap": "Vyberte na mapě",
     "mapHint": "Klepnutím na bod na mapě vyberte tuto stanici.",
@@ -557,6 +560,10 @@
     "columns": "Sloupce",
     "copyCurrentPage": "Kopírovat aktuální stránku",
     "copyAllValues": "Kopírovat všechny hodnoty",
+    "viewTable": "Zobrazit jako tabulku",
+    "viewChart": "Zobrazit jako graf",
+    "download": "Stáhnout hodnoty",
+    "downloadChart": "Stáhnout graf",
     "chartSettings": "Nastavení grafu",
     "paramLabel": "Popisek parametru",
     "facetByParameter": "Rozdělit podle parametru",

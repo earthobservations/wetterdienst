@@ -134,7 +134,7 @@ const people = computed(() => [
               <h3 class="text-xl font-bold">
                 {{ person.name }}
               </h3>
-              <p class="text-sm text-primary-600 dark:text-primary-400 font-medium">
+              <p class="text-sm text-primary-700 dark:text-primary-400 font-medium">
                 {{ person.role }}
               </p>
             </div>
@@ -167,7 +167,7 @@ const people = computed(() => [
         <a
           href="https://github.com/earthobservations/wetterdienst/blob/main/CONTRIBUTORS.md"
           target="_blank"
-          class="text-primary-500 hover:underline"
+          class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
         >
           {{ t('about.contributorsLink') }}
         </a>

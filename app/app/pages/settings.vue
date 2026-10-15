@@ -76,6 +76,7 @@ function unitItems(units: readonly string[]) {
       <USelect
         v-model="selectedLanguage"
         :items="languageItems"
+        :aria-label="t('settings.language')"
         class="w-full sm:w-64"
       />
     </UCard>
@@ -116,33 +117,33 @@ function unitItems(units: readonly string[]) {
       <div class="space-y-5">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <div class="font-medium">
+            <label for="settings-friendly-labels" class="block font-medium">
               {{ t('settings.friendlyLabels') }}
-            </div>
+            </label>
             <p class="text-sm text-gray-500 dark:text-gray-400">
               {{ t('settings.friendlyLabelsHint') }}
             </p>
           </div>
-          <USwitch v-model="settings.friendlyLabels" />
+          <USwitch id="settings-friendly-labels" v-model="settings.friendlyLabels" />
         </div>
 
         <USeparator />
 
         <div class="flex items-start justify-between gap-4">
           <div>
-            <div class="font-medium">
+            <label for="settings-convert-units" class="block font-medium">
               {{ t('settings.convertUnits') }}
-            </div>
+            </label>
             <p class="text-sm text-gray-500 dark:text-gray-400">
               {{ t('settings.convertUnitsHint') }}
             </p>
           </div>
-          <USwitch v-model="settings.convertUnits" />
+          <USwitch id="settings-convert-units" v-model="settings.convertUnits" />
         </div>
 
         <div v-if="settings.convertUnits" class="space-y-5">
           <div class="space-y-3">
-            <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               {{ t('settings.unitsWeather') }}
             </div>
             <div
@@ -150,8 +151,9 @@ function unitItems(units: readonly string[]) {
               :key="group.key"
               class="flex items-center justify-between gap-4"
             >
-              <label class="text-sm">{{ t(group.label) }}</label>
+              <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
               <USelect
+                :id="`settings-unit-${group.key}`"
                 v-model="settings.units[group.key]"
                 :items="unitItems(group.units)"
                 class="w-56"
@@ -160,7 +162,7 @@ function unitItems(units: readonly string[]) {
           </div>
 
           <div class="space-y-3">
-            <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               {{ t('settings.unitsOther') }}
             </div>
             <div
@@ -168,8 +170,9 @@ function unitItems(units: readonly string[]) {
               :key="group.key"
               class="flex items-center justify-between gap-4"
             >
-              <label class="text-sm">{{ t(group.label) }}</label>
+              <label :for="`settings-unit-${group.key}`" class="text-sm">{{ t(group.label) }}</label>
               <USelect
+                :id="`settings-unit-${group.key}`"
                 v-model="settings.units[group.key]"
                 :items="unitItems(group.units)"
                 class="w-56"
@@ -181,7 +184,7 @@ function unitItems(units: readonly string[]) {
     </UCard>
 
     <div class="flex items-center justify-between">
-      <p class="text-xs text-gray-400">
+      <p class="text-xs text-gray-500 dark:text-gray-400">
         {{ t('settings.savedHint') }}
       </p>
       <UButton

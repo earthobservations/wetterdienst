@@ -140,8 +140,7 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(page.getByRole('table').first()).toBeVisible()
-      // the view toggle's buttons have an icon and no name (which the scan reports), so the second is the chart
-      await page.locator('div.rounded-lg.p-1 > button').nth(1).click()
+      await page.getByRole('button', { name: message(locale, 'dataViewer.viewChart'), exact: true }).click()
       await expect(plotly(page)).toBeVisible()
     },
   },

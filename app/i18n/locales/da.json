@@ -286,6 +286,7 @@
     "parametersTitle": "Parametre",
     "searchPlaceholder": "Søg efter navn eller beskrivelse…",
     "allUnitTypes": "Alle størrelser",
+    "unitTypeLabel": "Størrelse",
     "loading": "Indlæser…",
     "noResults": "Ingen parameter matcher din søgning.",
     "count": "{count} af {total} parametre"
@@ -476,7 +477,8 @@
     "modeStationHow": "Rå måleværdier returneres uændret, valgfrit med enhedsomregning og letlæselige parameternavne. Vælg en eller flere stationer nedenfor.",
     "modeInterpolationHow": "Indsamler værdier fra stationer, der rumligt omslutter dit målpunkt, og lægger en triangulering hen over dem (Delaunay + lineær interpolation i UTM-rum). Hvert tidstrin giver en syntetisk værdi i netop dine koordinater – mere præcist end at vælge den nærmeste station, især hvor stationsdækningen er god. Kræver mindst 3 omsluttende stationer og et datointerval. For nedbørsparametre anvendes desuden en forekomstkontrol for at undgå falske værdier tæt på nul.",
     "modeSummaryHow": "For hver parameter og hvert tidstrin søges der udad fra dit målsted, og den første station med en gyldig måling vælges – ingen estimering, blot den nærmeste egentlige måling. Outputtet indeholder ID'et på den bidragende station og dens afstand, så du altid ved præcis, hvor data kom fra. Et datointerval er påkrævet.",
-    "modeHowItWorks": "Sådan fungerer det"
+    "modeHowItWorks": "Sådan fungerer det",
+    "removeParameterDistance": "Fjern afstanden for {parameter}"
   },
   "stationTable": {
     "stationId": "Stations-id",
@@ -511,6 +513,7 @@
     "selectStation": "Vælg en station",
     "selectedStations": "Valgte stationer:",
     "clearAll": "Ryd alle",
+    "clearStation": "Ryd den valgte station",
     "showMap": "Vis kort",
     "chooseOnMap": "Vælg på kortet",
     "mapHint": "Tryk på et punkt på kortet for at vælge den station.",
@@ -557,6 +560,10 @@
     "columns": "Kolonner",
     "copyCurrentPage": "Kopiér aktuel side",
     "copyAllValues": "Kopiér alle værdier",
+    "viewTable": "Vis som tabel",
+    "viewChart": "Vis som diagram",
+    "download": "Download værdier",
+    "downloadChart": "Download diagram",
     "chartSettings": "Diagramindstillinger",
     "paramLabel": "Parameteretiket",
     "facetByParameter": "Opdel efter parameter",

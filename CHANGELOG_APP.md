@@ -34,6 +34,19 @@ Types of changes:
   reader (GH-2610)
 - `[Map]` The German map hints say "Tippen Sie auf ...", as the rest of the German text addresses
   the reader, where they said "Tippe" (GH-2610)
+- `[Accessibility]` The table/chart toggle, the copy, download, clear-station and remove-distance
+  buttons, the settings page's and popover's selects and switches, the data viewer's column,
+  rows-per-page and label selects, the forecast model run and the glossary's quantity filter have
+  a name a screen reader announces, in every language, where they had none (GH-2975)
+- `[DataViewer]` The SQL panel no longer claims to be an expandable control, which it is not, and
+  the download menus of the data viewer and of the stripes do not hide the page from assistive
+  technology while open (GH-2976)
+- `[Layout]` Grey, green and red text, and placeholders, reach the 4.5:1 contrast of WCAG 2.2 AA
+  on the light and the dark background: slightly darker in light mode, slightly lighter in dark
+  mode. The solid green buttons ("Show") keep their colour and stay at 2.2:1 until that colour is
+  chosen anew (GH-2974)
+- `[Layout]` Links inside running text are underlined, so they stand out without their colour
+  (GH-2977)
 
 ## [0.20.0] - 2026-10-15
 

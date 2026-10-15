@@ -84,6 +84,7 @@ const entries = computed<GlossaryEntry[]>(() => {
           :items="unitTypeItems"
           value-key="value"
           :placeholder="t('glossary.allUnitTypes')"
+          :aria-label="t('glossary.unitTypeLabel')"
           class="sm:w-56"
         />
       </div>
@@ -110,7 +111,7 @@ const entries = computed<GlossaryEntry[]>(() => {
           <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {{ entry.description }}
           </p>
-          <p class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">
+          <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1">
             {{ entry.name }}
           </p>
         </div>
