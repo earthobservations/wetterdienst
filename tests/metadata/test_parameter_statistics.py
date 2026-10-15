@@ -13,11 +13,12 @@ below daily resolution a temperature the source says nothing about takes the spo
 and the rules for that are the ones about spot and mean names further down. See GH-2614.
 
 The rules about spot and mean names read only what the source says: a description that comes from
-`DERIVED_DESCRIPTIONS` is written from the row's canonical name, so it would agree with whatever name
-the row has, and is left out (`_source_description`, GH-2660). The field's own name counts, as RMI's
-`temp_dry_shelter_avg` does. A mean over a window shorter than the row's interval, KNMI's "1 Min Mean"
-in a 10-minute row, is a reading at one moment (`_states_a_mean`). What this leaves out is a
-generated description that disagrees with its row's name: nothing reads it any more.
+`DERIVED_DESCRIPTIONS`, or the canonical sentence a parameter reads when no table describes it, is
+written from the row's canonical name, so it would agree with whatever name the row has, and is left
+out (`_source_description`, GH-2660). The field's own name counts, as RMI's
+`temp_dry_shelter_avg` does. A mean over a window shorter than the row's interval, KNMI's
+"1 Min Mean" in a 10-minute row, is a reading at one moment (`_states_a_mean`). What this leaves out
+is a generated description that disagrees with its row's name: nothing reads it any more.
 """
 
 import re
@@ -78,15 +79,23 @@ def _parameters() -> Iterator[tuple[str, str, ParameterModel]]:
 
 
 def _source_description(metadata_name: str, resolution: str, dataset: str, parameter: ParameterModel) -> str:
-    """Return the parameter's description, or "" where it is `DERIVED_DESCRIPTIONS`'.
+    """Return the parameter's description, or "" where it is `DERIVED_DESCRIPTIONS`' or the canonical one.
 
     A derived description is written from the canonical name of the row, so reading a statistic out of
     it asks the name whether it is right (GH-2660): "Mean temperature of the ground surface." for
     SWSMOS `TS` was generated from `temperature_surface_mean`, and the source says "Temperatur der
     Fahrbahnoberfläche". What a provider module declares and what `SOURCE_DESCRIPTIONS` holds count as
-    the source's, which `build_metadata_model` fills in before the derived text.
+    the source's, which `build_metadata_model` fills in before the derived text. The canonical sentence a
+    parameter reads when no table describes it (GH-1979) is written from the quantity as a derived one is,
+    and is left out the same way.
     """
     key = (resolution, dataset, parameter.name_original)
+    if (
+        key not in SOURCE_DESCRIPTIONS.get(metadata_name, {})
+        and key not in DERIVED_DESCRIPTIONS.get(metadata_name, {})
+        and parameter.description == PARAMETERS[parameter.name].description
+    ):
+        return ""
     derived = DERIVED_DESCRIPTIONS.get(metadata_name, {}).get(key)
     if (
         derived is not None
@@ -439,8 +448,9 @@ def test_a_spot_name_behaves_as_the_mean_name_beside_it() -> None:
 def test_a_derived_description_is_not_evidence_of_a_statistic() -> None:
     """A description written from the canonical name says nothing about the source, and is left out.
 
-    RMI's "Mean air temperature at 2 m above ground." is in `DERIVED_DESCRIPTIONS`, so it is not read
-    (the field name `temp_dry_shelter_avg` still is), whereas MeteoSwiss' "hourly mean" is the source's.
+    RMI's "Mean air temperature at 2 m above ground." is the canonical sentence the model falls back to
+    (GH-1979), and Météo-France SYNOP `td` is in `DERIVED_DESCRIPTIONS`, so neither is read (the field
+    name `temp_dry_shelter_avg` still is), whereas MeteoSwiss' "hourly mean" is the source's.
     """
     rmi = next(m for m in ALL_METADATA if m.name == "RmiObservationMetadata")
     swiss = next(m for m in ALL_METADATA if m.name == "MeteoswissObservationMetadata")
@@ -448,6 +458,10 @@ def test_a_derived_description_is_not_evidence_of_a_statistic() -> None:
     sourced = next(p for p in swiss["hourly"]["data"] if p.name_original == "tre200h0")
     assert derived.description == "Mean air temperature at 2 m above ground."
     assert _source_description(rmi.name, "hourly", "data", derived) == ""
+    synop = next(m for m in ALL_METADATA if m.name == "MeteoFranceSynopMetadata")
+    dew_point = next(p for p in synop["subdaily"]["data"] if p.name_original == "td")
+    assert dew_point.description
+    assert _source_description(synop.name, "subdaily", "data", dew_point) == ""
     assert "hourly mean" in sourced.description
     assert _source_description(swiss.name, "hourly", "data", sourced) == sourced.description
 
