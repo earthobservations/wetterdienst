@@ -38,6 +38,7 @@ pnpm build
 pnpm lint           # oxlint + eslint
 pnpm test:ci        # vitest run
 pnpm test:e2e       # playwright
+pnpm test:a11y      # the axe accessibility spec alone, against app/tests/e2e/accessibility/baseline.json
 ```
 
 ### Docker (`compose.yml`)

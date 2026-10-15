@@ -59,9 +59,12 @@ workflow whose filter spans both sides of the repository.
 1. Install Node.js, pnpm, and Playwright with Firefox
 2. Setup Python and install backend with uv
 3. Start backend API server on port 3000
-4. Run E2E tests against live backend
-5. Upload test artifacts (Playwright report)
-6. Cleanup backend process
+4. Run E2E tests against live backend (the accessibility spec among them answers every
+   `/api/*` request itself, in the browser, and holds the app to
+   `app/tests/e2e/accessibility/baseline.json`)
+5. Put the accessibility baseline's size on the run's summary page
+6. Upload test artifacts (Playwright report)
+7. Cleanup backend process
 
 **Caching:**
 - pnpm store cached for faster installs
