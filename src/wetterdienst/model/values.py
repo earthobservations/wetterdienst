@@ -400,13 +400,15 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         for parameter in self.sr.parameters:
             name = parameter.name_original if not self.sr.options.humanize else parameter.name
             requested.append(f"{parameter.dataset.name}_{name}" if len(datasets) > 1 else name)
+        # once: the same parameter of a dataset of one name at two resolutions is one column
+        requested = list(dict.fromkeys(requested))
 
         if not df.is_empty():
             delivered = {
                 key[0]: df_parameter
                 for key, df_parameter in df.partition_by(["parameter"], as_dict=True, maintain_order=True).items()
             }
-            # a name the provider spells otherwise than the request does (WSV's `w` for `W`) follows
+            # a name the request does not account for, which the humanize mapping did not cover, follows
             ordered = [name for name in requested if name in delivered]
             ordered += [name for name in delivered if name not in ordered]
             for parameter in ordered:

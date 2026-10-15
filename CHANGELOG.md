@@ -37,7 +37,8 @@ Types of changes:
   CSV of alerts and stripes `1926-05-01T00:00:00.000000+0000`. Read them with a parser that takes a
   fraction, as `datetime.fromisoformat` does (GH-2633)
 - The parameter columns of a wide values frame are in the order the request names its parameters,
-  as an empty frame has them, not in the order the source delivered its rows in (GH-2633)
+  as an empty frame has them, not in the order the source delivered its rows in. A parameter no
+  station delivered has no column in a populated frame (GH-2633)
 
 ## [0.154.0] - 2026-10-15
 

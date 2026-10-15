@@ -439,7 +439,7 @@ is that whole day -- all 24 readings of it for hourly data -- ``"2020-08"`` the 
 first span to the end of the second. A date carrying a time, ``"2020-08-01T12"``, names one
 instant and is matched exactly.
 
-The frame of every result has one schema, whatever the provider and whether it holds rows or not:
+The frame of every result has one schema, whatever the provider and whether it holds rows or not (a wide frame has the columns of the parameters that were delivered):
 ``station_id``, ``resolution``, ``dataset`` and ``parameter`` are ``String``, ``timestamp`` is
 ``Datetime("us", "UTC")``, so two results concatenate, and a values frame joins against a stations
 frame, without a cast. The schemas are exported as objects to assert against:

@@ -126,6 +126,9 @@ SUMMARIZED_SCHEMA = pl.Schema(
 def wide_schema(parameters: Iterable[str]) -> pl.Schema:
     """Give the schema of a wide frame for the named parameters, in the order a result holds them.
 
+    A populated frame has the columns of the parameters that were delivered, so it is this schema when
+    every named parameter was.
+
     Args:
         parameters: the names of the columns of the parameters, which carry their dataset's name as
             a prefix when the request spans several datasets.

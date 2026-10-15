@@ -871,3 +871,26 @@ def test_filter_by_window_keeps_both_ends_of_a_window_across_a_clock_change(monk
     assert windowed.height == 23
     assert windowed.get_column("timestamp").min() == dt.datetime(2025, 3, 29, 22, tzinfo=utc)
     assert windowed.get_column("timestamp").max() == dt.datetime(2025, 3, 30, 20, tzinfo=utc)
+
+
+def test_widen_df_has_one_column_for_a_parameter_of_a_dataset_at_two_resolutions() -> None:
+    """Test that `precipitation_amount` of the hourly and of the 10-minute precipitation is one column, not two.
+
+    The request names the parameter once per dataset, and the two datasets share their name, so the
+    order of the columns the request gives has the name twice; joining the parameter's rows twice left
+    a `precipitation_amount_right` beside it.
+    """
+    values = _dwd_values([("hourly", "precipitation"), ("minute_10", "precipitation")])
+    df = _long(
+        [
+            ("hourly", "precipitation", "precipitation_amount", 0, 1.0),
+            ("minute_10", "precipitation", "precipitation_amount", 0, 0.5),
+            ("minute_10", "precipitation", "precipitation_amount", 10, 0.5),
+        ],
+    )
+
+    result = values._widen_df(df)  # noqa: SLF001
+
+    assert not [column for column in result.columns if column.endswith("_right")]
+    assert result.columns.count("precipitation_amount") == 1
+    assert sorted(result.get_column("precipitation_amount").to_list()) == [0.5, 0.5, 1.0]
