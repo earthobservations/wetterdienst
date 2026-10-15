@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Python 3.15 is supported (tested on 3.15.0rc1) and declared as a classifier. The `mcp` extra needs
+  beartype 0.23 or newer there (0.22 does not import on 3.15; fastmcp brings it in without a
+  floor). h5py, duckdb, numcodecs and pyyaml, installed by the `knmi`/`radar`, `sql`, `export` and
+  `restapi` extras, have no 3.15 wheel yet and are built from source: h5py needs the HDF5
+  headers (`libhdf5-dev`) (GH-2568)
+
 ### Changed
 
 - `noaa/ghcn` hourly `quality_flags` also carry the file's `<element>_Measurement_Code` and
