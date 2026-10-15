@@ -295,3 +295,86 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
         ("temperatura wody", 9.9),
         ("temperatura wody", None),
     ]
+
+
+def _hydrology_urls(
+    monkeypatch: pytest.MonkeyPatch, dataset_resolution: str, files: list[str], start: dt.datetime, end: dt.datetime
+) -> list[str]:
+    """Run the file selection of ``_get_urls`` on a listing, for a window of UTC instants."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api  # noqa: PLC0415
+    from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
+
+    values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
+    values.sr = SimpleNamespace(start=start, end=end, settings=Settings())  # ty: ignore[invalid-assignment]
+    monkeypatch.setattr(imgw_hydrology_api, "list_files_for_interval", lambda *_args, **_kwargs: files)
+    dataset = getattr(ImgwHydrologyMetadata, dataset_resolution).hydrology
+    return values._get_urls(dataset)  # noqa: SLF001
+
+
+def _utc(*args: int) -> dt.datetime:
+    return dt.datetime(*args, tzinfo=ZoneInfo("UTC"))
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        # codz_2023_03 is the third month of the hydrological year 2023, which starts in November: January 2023.
+        # The file of the whole year starts on 2022-11-01
+        (_utc(2023, 1, 15), _utc(2023, 1, 16), ["codz_2023.zip", "codz_2023_03.zip"]),
+        # codz_2022_12 is October 2022, which ends at 2022-10-31 00:00: a window that touches it keeps it, one
+        # that starts the next day does not (both ends of a period are in it)
+        (_utc(2022, 10, 31), _utc(2022, 10, 31), ["codz_2022_12.zip"]),
+        (_utc(2022, 11, 1), _utc(2022, 11, 1), ["codz_2023.zip", "codz_2023_01.zip"]),
+        # the first two months of a hydrological year belong to the calendar year before it
+        (_utc(2022, 12, 31), _utc(2023, 1, 1), ["codz_2023.zip", "codz_2023_02.zip", "codz_2023_03.zip"]),
+        (_utc(2024, 1, 1), _utc(2024, 1, 2), []),
+    ],
+)
+def test_imgw_hydrology_daily_files_are_selected_by_the_period_their_name_gives(
+    monkeypatch: pytest.MonkeyPatch, start: dt.datetime, end: dt.datetime, expected: list[str]
+) -> None:
+    """Test that a daily file is kept when the hydrological months of its name overlap the window."""
+    files = [
+        f"https://example.invalid/{name}"
+        for name in (
+            "codz_2022_12.zip",
+            "codz_2023.zip",
+            "codz_2023_01.zip",
+            "codz_2023_02.zip",
+            "codz_2023_03.zip",
+            "codz_2023_04.zip",
+            "zjaw_2023.zip",
+            "UWAGA.txt",
+        )
+    ]
+    urls = _hydrology_urls(monkeypatch, "daily", files, start, end)
+    assert [url.rsplit("/", 1)[-1] for url in urls] == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        # mies_2023 is the hydrological year 2023, which starts on 2022-11-01
+        (_utc(2022, 10, 31), _utc(2022, 10, 31), ["mies_2022.zip"]),
+        (_utc(2023, 10, 31), _utc(2023, 10, 31), ["mies_2023.zip"]),
+        (_utc(2023, 12, 1), _utc(2023, 12, 1), ["mies_2024.zip"]),
+        (_utc(2022, 6, 1), _utc(2023, 2, 1), ["mies_2022.zip", "mies_2023.zip"]),
+    ],
+)
+def test_imgw_hydrology_monthly_files_are_selected_by_the_hydrological_year(
+    monkeypatch: pytest.MonkeyPatch, start: dt.datetime, end: dt.datetime, expected: list[str]
+) -> None:
+    """Test that a monthly file is kept when its hydrological year overlaps the window."""
+    files = [f"https://example.invalid/mies_{year}.zip" for year in (2022, 2023, 2024)]
+    urls = _hydrology_urls(monkeypatch, "monthly", files, start, end)
+    assert [url.rsplit("/", 1)[-1] for url in urls] == expected
+
+
+def test_imgw_hydrology_a_file_name_without_a_period_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a name the period cannot be read from is reported, not left out with its data."""
+    files = ["https://example.invalid/mies_2023.zip", "https://example.invalid/mies_xx.zip"]
+    with pytest.raises(ValueError, match=r"mies_xx\.zip"):
+        _hydrology_urls(monkeypatch, "monthly", files, _utc(2023, 1, 1), _utc(2023, 2, 1))
