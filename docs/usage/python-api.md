@@ -572,6 +572,11 @@ unless the table says so.
   declares. The long shape drops the rows without a value by default, so the token shows with
   `drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
   these rows then.
+- A value outside the physical range of its parameter that is no code (4021 degrees for a daily
+  maximum, 17,802 mm for a month of rain) is treated the same way where the table below names the
+  provider: null, with `raw:<number>` as the last token, the number as short as it can be written
+  (`raw:4021`, `raw:110.26`). The ranges are generous and the same for every resolution, so a value that
+  is only odd stays.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
   value with several tokens become null, so take the first token of a code that can be followed by
@@ -613,6 +618,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | DWD poi | `---`, and any text that is no number (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
+| DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter, such as the 17,802 mm of a month of rain (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
 | Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
 | IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
@@ -622,6 +628,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
 | Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` and `DXY` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
 | Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
+| RMI | a value outside the range of its parameter, such as the 4021 degrees of a daily maximum (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code

@@ -20,7 +20,7 @@ from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import OutOfRange, Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dmi.observation.metadata import DmiObservationMetadata
@@ -79,6 +79,42 @@ _CALM_WIND = Sentinel(
     "0",
     where=pl.col("parameterId").eq("mean_wind_dir")
     & pl.col("value").filter(pl.col("parameterId").eq(_MEAN_WIND_SPEED)).first().over("from", "to").eq(0),
+)
+
+# The range of a reading per parameterId, in the unit DMI writes it in, outside which no sensor can have produced it:
+# the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the source
+# (`test_physical_ranges.py` holds them to it). The sums over a month or a year of the Greenland station 04339 are
+# no readings:
+# 17,802 mm of precipitation in the month of 2011-10 and 9,574 mm in the year 2014, where the other stations'
+# yearly sums are 818 to 1150 mm (GH-2797). Such a value is read as null and keeps its text as `raw:17802`. Merely odd
+# values stay: one range holds for every resolution, so a daily 1978 mm (the same station, 14 days of 2011, which DMI
+# marks `validity: false`), under the 6,000 mm bound, is not found. The bound is far above what a gauge in Denmark,
+# the Faroe Islands or Greenland reads.
+_AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
+_PRECIPITATION = (0.0, 6_000.0)  # mm
+_WIND_SPEED = (0.0, 115.0)  # m/s
+_HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
+_RANGES: dict[str, tuple[float, float]] = {
+    "mean_temp": _AIR_TEMPERATURE,
+    "max_temp_w_date": _AIR_TEMPERATURE,
+    "min_temp": _AIR_TEMPERATURE,
+    "mean_daily_max_temp": _AIR_TEMPERATURE,
+    "mean_daily_min_temp": _AIR_TEMPERATURE,
+    "mean_relative_hum": _HUMIDITY,
+    "max_relative_hum": _HUMIDITY,
+    "min_relative_hum": _HUMIDITY,
+    "mean_pressure": (300.0, 1_100.0),  # hPa
+    "acc_precip": _PRECIPITATION,
+    "max_precip_30m": _PRECIPITATION,
+    "max_precip_24h": _PRECIPITATION,
+    "mean_wind_speed": _WIND_SPEED,
+    "max_wind_speed_10min": _WIND_SPEED,
+    "max_wind_speed_3sec": _WIND_SPEED,
+    "mean_wind_dir": (0.0, 360.0),  # degree
+    "acc_heating_degree_days_17": (0.0, 20_000.0),  # degree Celsius days; a year of heating is below 10,000
+}
+_OUT_OF_RANGE = tuple(
+    OutOfRange(low, high, where=pl.col("parameterId").eq(name)) for name, (low, high) in _RANGES.items()
 )
 
 _STATION_VALUE_SCHEMA = pl.Schema(
@@ -313,8 +349,9 @@ class DmiObservationValues(TimeseriesValues):
         df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
         if df.is_empty():
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        # the 0 of a calm wind is mapped before anything is made of the value, and stays as `raw:0` (GH-2794)
-        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, text=False)
+        # the 0 of a calm wind and a value outside the range of its parameter are mapped before anything is made of the
+        # value, and stay as `raw:0` (GH-2794) and `raw:17802` (GH-2797)
+        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, *_OUT_OF_RANGE, text=False)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -333,8 +370,9 @@ def _quality_flags(raw: pl.Expr) -> pl.Expr:
     plain code and ``validity`` follows as ``validity:true`` or ``validity:false``. DMI documents
     ``validity`` as "whether or not the value is considered valid by the climatologists. Invalid data is
     generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
-    record is kept, so a caller can drop it by the flag (GH-2797). ``raw`` is the text a mapped sentinel was written
-    with (``raw:0`` of a calm wind, GH-2794), which closes the column.
+    record is kept unless it is outside the physical range of its parameter, so a caller can drop it by the flag
+    (GH-2797). ``raw`` is the text a mapped sentinel or an impossible value was written with (``raw:0`` of a calm
+    wind, GH-2794; ``raw:17802`` of a month of rain, GH-2797), which closes the column.
     """
     return join_quality_flags(pl.col("qcStatus"), validity=pl.col("validity"), raw=raw)
 

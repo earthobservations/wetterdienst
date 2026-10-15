@@ -618,6 +618,55 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     }
 
 
+def test_collect_nulls_a_value_outside_the_range_of_its_parameter_and_keeps_what_it_was(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A month of 17,802 mm of 04339 (GH-2797) is null with `raw:17802`; the 2,500 mm beside it is only odd and stays.
+
+    Rows as DMI serves them for 04339 (checked 2026-10-15): the monthly `acc_precip` of 2011-10 is 17802.0 with
+    `qcStatus: manual` and `validity: false`. The 2,500 mm of the month before and the 4021 degrees of
+    `max_temp_w_date` are made up: the first is within the 6,000 mm bound of a precipitation, the second is
+    outside the range of an air temperature, each parameter having its own.
+    """
+    rows = [
+        # (parameterId, from, value, qcStatus, validity)
+        ("acc_precip", "2011-09-01T06:00:00+00:00", 2500.0, "manual", True),
+        ("acc_precip", "2011-10-01T06:00:00+00:00", 17802.0, "manual", False),
+        ("max_temp_w_date", "2011-09-01T06:00:00+00:00", 4021.0, "manual", True),
+        ("max_temp_w_date", "2011-10-01T06:00:00+00:00", 8.5, "manual", True),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": parameter,
+                "from": start,
+                "to": start,
+                "value": value,
+                "qcStatus": qc_status,
+                "validity": validity,
+            }
+        }
+        for parameter, start, value, qc_status, validity in rows
+    ]
+    content = json.dumps({"features": features}).encode()
+    monkeypatch.setattr(dmi_api, "download_file", lambda **_: File(url="", content=BytesIO(content), status=200))
+    values = object.__new__(dmi_api.DmiObservationValues)
+    values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
+        start=dt.datetime(2011, 9, 1, tzinfo=UTC),
+        end=dt.datetime(2011, 10, 1, tzinfo=UTC),
+        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+    )
+    dataset = dmi_api.DmiObservationMetadata["monthly"].datasets[0]
+    df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
+    found = {(row["parameter"], row["timestamp"].month): row for row in df.iter_rows(named=True)}
+    assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
+        ("acc_precip", 9): (2500.0, "manual,validity:true"),
+        ("acc_precip", 10): (None, "manual,validity:false,raw:17802"),
+        ("max_temp_w_date", 9): (None, "manual,validity:true,raw:4021"),
+        ("max_temp_w_date", 10): (8.5, "manual,validity:true"),
+    }
+
+
 def _dmi_record(
     station_id: str,
     name: str,

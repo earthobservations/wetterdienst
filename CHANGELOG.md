@@ -105,6 +105,16 @@ Types of changes:
   the value stays as the last `quality_flags` token, `raw:997.3`. A constant that changed once in
   a file is not caught. Take the pressure of another source for such a station (GH-2699)
 
+### Fixed
+
+- A value outside the physical range of its parameter, which no sensor can have produced, is null,
+  with the source's number (`raw:4021`) as the last token of `quality_flags`, no longer a reading:
+  `rmi/observation` (a daily `temp_max` of 4021 degrees, a `temp_avg` of 110, a humidity of -6999 %,
+  at 10 minutes to daily) and `dmi/observation` (a month of 17,802 mm and a year of 9,574 mm of
+  rain). The bounds are generous and the same at every resolution, so a merely odd value stays,
+  such as a daily 1978 mm of DMI or a gust of 81.5 m/s of RMI; the long shape drops the null rows
+  unless `drop_nulls=False` (GH-2797)
+
 ## [0.154.0] - 2026-10-15
 
 ### Changed
