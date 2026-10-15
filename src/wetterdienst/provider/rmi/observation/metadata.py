@@ -51,8 +51,10 @@ _COMMON = [
         "unit": "millimeter",
     },
     {
-        # air temperature just above the grass surface (PT100 sensor at ~5 cm)
-        "name": "temperature_air_mean_0_05m",
+        # RMI: "average temperature measured on the grass (by a PT100 probe)", a surface temperature and no air
+        # temperature: in the 10-minute data of Uccle (6447) on 1 to 20 July 2025 its daily range is 31.7 K where
+        # the shelter air's is 10.5 K, and at 11 UTC it reads 36.8 degrees C where the shelter air reads 23.0
+        "name": "temperature_surface_mean",
         "name_original": "temp_grass_pt100_avg",
         "unit": "degree_celsius",
     },

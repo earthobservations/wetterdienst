@@ -146,7 +146,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "DwdSwsmosMetadata": {
         ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours",
-        ("hourly", "data", "RR6"): "Total precipitation during the last 6 hours",
+        ("hourly", "data", "RR6"): "Total liquid precipitation during the last 6 hours",
         ("hourly", "data", "RRL1c"): (
             "Total liquid precipitation during the last hour consistent with significant weather"
         ),
@@ -196,7 +196,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "minimum_temperature_last_12_hours_5_cm_above_ground"): (
             "Minimum air temperature at 5 cm above ground in the preceding 12 hours."
         ),
-        ("hourly", "data", "past_weather_2"): "Second coded weather observed over the preceding 3 hours.",
         ("hourly", "data", "precipitation_amount_last_24_hours"): "Precipitation collected in the preceding 24 hours.",
         ("hourly", "data", "precipitation_amount_last_3_hours"): "Precipitation collected in the preceding 3 hours.",
         ("hourly", "data", "precipitation_amount_last_6_hours"): "Precipitation collected in the preceding 6 hours.",
@@ -1147,7 +1146,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "station_pressure"): "air pressure at site",
         ("hourly", "data", "temp"): "2m air temperature",
         ("hourly", "data", "visibility"): "visibility range",
-        ("hourly", "data", "wind_direction"): "wind direction (source: 10s deg). The source's 0 (a calm wind) is null.",
+        # the glossary: "the average direction during the two minute period ending at the time of observation"; the
+        # speed is the average of "the one-, two- or ten-minute period", the direction is stated for two only
+        ("hourly", "data", "wind_direction"): (
+            "wind direction (source: 10s deg), the average of the two minutes ending at the time of observation. "
+            "The source's 0 (a calm wind) is null."
+        ),
         ("hourly", "data", "wind_speed"): "wind speed",
         ("hourly", "data", "windchill"): "wind chill temperature",
         ("monthly", "data", "bright_sunshine"): "bright sunshine duration",
@@ -1654,7 +1658,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "wind_speed"): "Wind speed (meters per second)",
     },
     "NwsObservationMetadata": {
-        ("hourly", "data", "barometricpressure"): "air pressure at station height",
+        # barometricPressure equals the altimeter setting of the METAR (A#### x 33.86389 Pa) at 9 stations (GH-2840)
+        ("hourly", "data", "barometricpressure"): (
+            "air pressure reduced to mean sea level with the standard atmosphere, the altimeter setting"
+        ),
         ("hourly", "data", "dewpoint"): "dew point temperature",
         ("hourly", "data", "maxtemperaturelast24hours"): "maximum air temperature in the last 24 hours",
         ("hourly", "data", "mintemperaturelast24hours"): "minimum air temperature in the last 24 hours",
@@ -1668,9 +1675,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "windchill"): (
             "wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill)"
         ),
-        ("hourly", "data", "winddirection"): "wind direction. The source's 0 (a calm wind) is null.",
-        ("hourly", "data", "windgust"): "maximum wind gust",
-        ("hourly", "data", "windspeed"): "wind speed",
+        # ASOS User's Guide: "ASOS reports a 2-minute average" of the wind direction, and of the speed, and the
+        # reportable gust is "the highest gust stored in memory for the past 10 minutes"
+        ("hourly", "data", "winddirection"): (
+            "wind direction, the 2-minute average of the ASOS. The source's 0 (a calm wind) is null."
+        ),
+        ("hourly", "data", "windgust"): "maximum wind gust of the past 10 minutes",
+        ("hourly", "data", "windspeed"): "wind speed, the 2-minute average of the ASOS",
     },
     "WsvPegelMetadata": {
         (resolution, "data", name_original): description
@@ -1902,10 +1913,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "others", "UM"): "Daily mean of the hourly relative humidities.",
         ("hourly", "core", "DD"): (
             "Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. "
-            "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
-        ),
-        ("hourly", "core", "DXY"): (
-            "Direction of FXY, on the 360 degree compass. "
             "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
         ),
         ("hourly", "core", "FF"): "Wind force averaged over 10 minutes, measured at 10 m.",
@@ -2222,6 +2229,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     # and "ff vitesse du vent moyen 10 min" (réel, m/s), though the files hold whole numbers only (2927 of 2927
     # stamps of Orly 2024 equal the hourly FF of the climatological base cut to the integer)
     "MeteoFranceSynopMetadata": {
+        # the sheet: "raf10 rafales sur les 10 dernières minutes", beside "rafper rafales sur une période"
+        ("subdaily", "data", "raf10"): "Gusts over the last 10 minutes, in m/s.",
         ("subdaily", "data", "dd"): (
             "Direction of the mean wind over 10 minutes, in steps of 10 degrees, north being 360. "
             "The source's 0 (a calm wind, or no bearing) is null."

@@ -136,6 +136,15 @@ DwdRoadMetadata = {
                             # until GH-1984
                             "unit": "meter",
                         },
+                        # The three wind quantities keep the names of an interval, `wind_speed`,
+                        # `wind_direction` and `wind_gust_max`, because the BUFR template does not state one
+                        # averaging period for them: the time significance and period before the wind of the
+                        # `LATEST` file of each station group (read 2026-10-15) are a mean over the last 10
+                        # minutes in FN, ER, HL, HV, JO, KA, KO, MC, NI, RH, RP and SD (and the same before the
+                        # gust in FN, ER, JO, KA, KO, RH, RP and SD, but over 15 minutes in HL, HV, MC and NI),
+                        # a mean over the last 15 in HJ, KK and SH (KK and SH write none in some subsets), and
+                        # a mean over a period of 0 in DD, JA, KM, LH, ND, RB, SP and WW (the gust has no period
+                        # in those). One name for the dataset cannot be `_last_10min` for all of them (GH-2838)
                         {
                             "name": "wind_direction",
                             "name_original": "windDirection",

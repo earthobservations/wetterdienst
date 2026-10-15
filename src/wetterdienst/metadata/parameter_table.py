@@ -841,6 +841,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         zero_inflated=True,
     ),
     CanonicalParameter(
+        "precipitation_amount_liquid_last_6h",
+        "precipitation",
+        "Depth of the liquid part of the precipitation over the preceding 6 hours.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+    ),
+    CanonicalParameter(
         "precipitation_amount_liquid_significant_weather_last_1h",
         "precipitation",
         "Depth of liquid precipitation from significant weather in the preceding hour.",
@@ -954,7 +961,8 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "pressure_air_site_reduced",
         "pressure",
-        "Air pressure at station height reduced to a reference level.",
+        "Air pressure reduced to mean sea level with the temperature profile of the standard atmosphere, the "
+        "altimeter setting, not with the temperatures the station observed as `pressure_air_sea_level` is.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1261,12 +1269,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "probability_radiation_global_last_1h",
-        "fraction",
-        "Probability of measurable global radiation over the preceding hour.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
         "probability_sunshine_duration_relative_gt_0pct_last_24h",
         "fraction",
         "Probability that sunshine lasted more than 0 % of the possible duration over the preceding 24 hours.",
@@ -1447,6 +1449,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "radiation_global_last_3h",
         "energy_per_area",
         "Global radiation accumulated over the preceding 3 hours.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "radiation_global_relative_last_1h",
+        "fraction",
+        "Global radiation over the preceding hour relative to the radiation at the top of the atmosphere in that "
+        "hour, a clearness index.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2757,7 +2766,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "temperature_surface_mean",
         "temperature",
-        "Mean temperature of the ground surface.",
+        "Mean temperature of a surface (the ground, or the grass on it) as a probe lying on it reads it.",
         interpolation="homogeneous",
     ),
     CanonicalParameter("temperature_water", "temperature", "Temperature of the water."),
@@ -2880,16 +2889,20 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("wave_period", "time", "Mean time between successive wave crests."),
     CanonicalParameter("weather", "dimensionless", "Coded present weather at the time of observation."),
-    CanonicalParameter(
-        "weather_last_3h",
-        "dimensionless",
-        "Coded weather observed over the preceding 3 hours.",
-    ),
     CanonicalParameter("weather_last_6h", "dimensionless", "Coded weather observed over the preceding 6 hours."),
     CanonicalParameter(
-        "weather_secondary_last_3h",
+        "weather_past",
         "dimensionless",
-        "Second coded weather observed over the preceding 3 hours, where two kinds of weather occurred.",
+        "Coded past weather of a synoptic report (BUFR 0 20 004: 0 to 9 of WMO code table 4561 for a manned "
+        "station, 10 to 19 for an automatic one), over the 6 hours before the reports of 00, 06, 12 and 18 UTC "
+        "and the 3 hours before those of 03, 09, 15 and 21 UTC.",
+    ),
+    CanonicalParameter(
+        "weather_secondary_past",
+        "dimensionless",
+        "Second coded past weather of a synoptic report, where two kinds of weather occurred (BUFR 0 20 005, "
+        "coded as `weather_past` is), over the same hours: the 6 hours before the reports of 00, 06, 12 and 18 "
+        "UTC and the 3 hours before those of 03, 09, 15 and 21 UTC.",
     ),
     CanonicalParameter(
         "weather_significant", "significant_weather", "Coded significant weather at the time of observation."
@@ -3012,6 +3025,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "dataset's own interval.",
     ),
     CanonicalParameter(
+        "wind_direction_last_2min",
+        "angle",
+        "Mean direction the wind blew from over the 2 minutes before the timestamp, a window shorter than the "
+        "dataset's own interval.",
+    ),
+    CanonicalParameter(
         "wind_force_beaufort", "wind_scale", "Wind strength on the Beaufort scale.", interpolation="homogeneous"
     ),
     CanonicalParameter(
@@ -3033,6 +3052,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_gust_max_5sec", "speed", "Strongest gust averaged over five seconds.", interpolation="homogeneous"
     ),
     CanonicalParameter("wind_gust_max_instant", "speed", "Strongest instantaneous gust.", interpolation="homogeneous"),
+    CanonicalParameter(
+        "wind_gust_max_last_10min",
+        "speed",
+        "Strongest gust over the 10 minutes before the timestamp, a window shorter than the dataset's own "
+        "interval, not the strongest gust of the interval that `wind_gust_max` is.",
+        interpolation="homogeneous",
+    ),
     CanonicalParameter(
         "wind_gust_max_last_12h", "speed", "Strongest gust over the preceding 12 hours.", interpolation="homogeneous"
     ),
@@ -3074,6 +3100,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_speed_last_10min",
         "speed",
         "Mean wind speed over the 10 minutes before the timestamp, a window shorter than the dataset's own "
+        "interval, not the mean over the interval that `wind_speed` is.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "wind_speed_last_2min",
+        "speed",
+        "Mean wind speed over the 2 minutes before the timestamp, a window shorter than the dataset's own "
         "interval, not the mean over the interval that `wind_speed` is.",
         interpolation="homogeneous",
     ),

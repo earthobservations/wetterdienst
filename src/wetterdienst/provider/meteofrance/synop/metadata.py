@@ -38,7 +38,7 @@ MeteoFranceSynopMetadata = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_gust_max",
+                            "name": "wind_gust_max_last_10min",
                             "name_original": "raf10",
                             "unit": "meter_per_second",
                         },

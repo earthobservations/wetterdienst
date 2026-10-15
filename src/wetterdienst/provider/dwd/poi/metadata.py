@@ -30,8 +30,12 @@ siblings of both are mapped.
 
 ``present_weather`` is DWD's own 1..31 code table (documented at
 https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/csv/poi_present_weather_zuordnung_pdf.pdf),
-not WMO 4677. ``past_weather_1``/``past_weather_2`` are the BUFR 0 20 004 / 0 20 005 past-weather
-codes and are only reported at the three-hourly synoptic hours, which is the period they cover.
+not WMO 4677. ``past_weather_1``/``past_weather_2`` ("vergangenes Wetter 1/2") are the BUFR 0 20 004 /
+0 20 005 past-weather codes and are filled at the eight synoptic hours. DWD states no window for them; the
+WMO W1/W2 of a SYNOP report cover 6 hours in the reports of 00, 06, 12 and 18 UTC and 3 hours in those of
+03, 09, 15 and 21 UTC (code table 4561 for 0 to 9, a manned station; the file holds 10 to 19 too, an automatic
+one's), so neither ``weather_last_3h`` nor ``weather_last_6h`` fits them
+and they are ``weather_past`` and ``weather_secondary_past``.
 """
 
 from __future__ import annotations
@@ -215,12 +219,12 @@ DwdPoiMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "weather_last_3h",
+                            "name": "weather_past",
                             "name_original": "past_weather_1",
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "weather_secondary_last_3h",
+                            "name": "weather_secondary_past",
                             "name_original": "past_weather_2",
                             "unit": "dimensionless",
                         },

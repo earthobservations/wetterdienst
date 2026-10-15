@@ -199,7 +199,8 @@ def test_fmi_observation_values_hourly() -> None:
     assert value_at("temperature_air_2m", 0) == pytest.approx(-14.6)
     assert value_at("temperature_dew_point_2m", 0) == pytest.approx(-16.6)
     assert value_at("wind_speed_last_10min", 0) == pytest.approx(2.7)
-    assert value_at("wind_gust_max", 0) == pytest.approx(5.0)
+    # WG_10MIN, the strongest gust of the last 10 minutes
+    assert value_at("wind_gust_max_last_10min", 0) == pytest.approx(5.0)
     assert value_at("wind_direction_last_10min", 0) == pytest.approx(36.0)
     assert value_at("precipitation_amount", 0) == pytest.approx(0.0)
     # humidity is reported by FMI as percent, wetterdienst stores it as fraction

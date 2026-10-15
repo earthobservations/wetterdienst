@@ -181,11 +181,8 @@ MeteoFranceObservationMetadata = {
                             "name_original": "FXY",
                             "unit": "meter_per_second",
                         },
-                        {
-                            "name": "wind_direction_gust_max",
-                            "name_original": "DXY",
-                            "unit": "degree",
-                        },
+                        # DXY, "direction de FXY", is the direction of the hour's highest 10-minute mean, which
+                        # is no gust (GH-2836), and no canonical name says so: it is not read
                     ],
                 },
                 {

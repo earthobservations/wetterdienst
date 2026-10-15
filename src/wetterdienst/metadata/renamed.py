@@ -31,8 +31,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "evaporation_height_gras_sand": "evaporation_amount_grass_sand",
     "evaporation_height_winterwheat_loamysilt": "evaporation_amount_winter_wheat_loamy_silt",
     "evaporation_height_winterwheat_sand": "evaporation_amount_winter_wheat_sand",
-    "evapotranspiration_potential_gras_fao_last_24h": "evapotranspiration_potential_grass_fao_last_24h",
-    "evapotranspiration_potential_gras_haude_last_24h": "evapotranspiration_potential_grass_haude_last_24h",
+    "evapotranspiration_potential_gras_fao_last_24h": "evapotranspiration_potential_grass_fao",
+    "evapotranspiration_potential_gras_haude_last_24h": "evapotranspiration_potential_grass_haude",
     "number_of_days_per_month": "count_days_in_month",
     "number_of_hours_per_month": "count_hours_in_month",
     "soil_moisture_corn_loamysilt_00cm_60cm": "soil_moisture_corn_loamy_silt_00cm_60cm",
@@ -136,16 +136,24 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2659: MOSMIX's error of ttt and td follows them to the spot names
     "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
     "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
+    # GH-2843: MOSMIX's RRad1 is a relative global irradiance, no probability
+    "probability_radiation_global_last_1h": "radiation_global_relative_last_1h",
+    # GH-2844: the window of a synoptic past weather is 6 hours at 00, 06, 12 and 18 UTC and 3 hours at the others
+    "weather_last_3h": "weather_past",
+    "weather_secondary_last_3h": "weather_secondary_past",
 }
 
 _WIND_LAST_10MIN = {
     "wind_speed": "wind_speed_last_10min",
     "wind_direction": "wind_direction_last_10min",
 }
+_GUST_LAST_10MIN = {"wind_gust_max": "wind_gust_max_last_10min"}
 _EXTREMES_LAST_12H = {
     "temperature_air_max_2m": "temperature_air_max_2m_last_12h",
     "temperature_air_min_2m": "temperature_air_min_2m_last_12h",
 }
+# GH-2842: PPPP, "Surface pressure, reduced", is reduced to sea level
+_PPPP_SEA_LEVEL = {"pressure_air_site_reduced": "pressure_air_sea_level"}
 _EXTREMES_OF_THE_PERIOD = {
     "temperature_air_max_2m_multiday": "temperature_air_max_2m",
     "temperature_air_min_2m_multiday": "temperature_air_min_2m",
@@ -176,26 +184,59 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         ("annual", "data"): _EXTREMES_MEAN_OF_DAILY,
     },
     "DwdMosmixMetadata": {
-        ("hourly", "small"): _EXTREMES_LAST_12H,
-        ("hourly", "large"): _EXTREMES_LAST_12H,
+        ("hourly", "small"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
+        ("hourly", "large"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
     },
     "DwdDmoMetadata": {
-        ("hourly", "icon"): _EXTREMES_LAST_12H,
-        ("hourly", "icon_eu"): _EXTREMES_LAST_12H,
+        ("hourly", "icon"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
+        ("hourly", "icon_eu"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
     },
     # GH-2697, GH-2707, GH-2733, GH-2835: the mean of the last 10 minutes, no longer the row's interval
     "DwdObservationMetadata": {("hourly", "wind_synoptic"): {"wind_speed": "wind_speed_last_10min"}},
     "DwdPoiMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
-    "FmiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
+    # GH-2836: WG_10MIN is the strongest gust of the last 10 minutes
+    "FmiObservationMetadata": {("hourly", "data"): {**_WIND_LAST_10MIN, **_GUST_LAST_10MIN}},
     "KnmiObservationMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
     "MeteoFranceObservationMetadata": {
         # GH-2834: FXY is the hour's highest 10-minute mean wind, no gust
         ("hourly", "core"): {**_WIND_LAST_10MIN, "wind_gust_max": "wind_speed_rolling_mean_max"},
     },
-    "MeteoFranceSynopMetadata": {("subdaily", "data"): _WIND_LAST_10MIN},
+    "MeteoFranceSynopMetadata": {("subdaily", "data"): {**_WIND_LAST_10MIN, **_GUST_LAST_10MIN}},
     # Frost's own element `wind_speed` still selects its row, so only the direction is not found
     "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
     "SmhiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
+    # GH-2836, GH-2837, GH-2840: NWS's wind is the ASOS's 2-minute average, its gust the peak of the past 10 minutes
+    # and its barometricPressure the altimeter setting, the pressure at sea level of the standard atmosphere. ECCC's
+    # hourly direction, now `wind_direction_last_2min`, is not listed: `wind_direction` is also the source's own field
+    # name there, so a request for it still selects the row
+    "MetOfficeObservationMetadata": {("hourly", "weather"): _GUST_LAST_10MIN},
+    "NwsObservationMetadata": {
+        ("hourly", "data"): {
+            "wind_speed": "wind_speed_last_2min",
+            "wind_direction": "wind_direction_last_2min",
+            **_GUST_LAST_10MIN,
+            "pressure_air_site": "pressure_air_site_reduced",
+        },
+    },
+    # GH-2845: RR6 is DWD's liquid precipitation of the last 6 hours
+    "DwdSwsmosMetadata": {("hourly", "data"): {"precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h"}},
+    # GH-2846: RMI's PT100 probe measures the temperature on the grass, a surface temperature
+    "RmiObservationMetadata": {
+        (resolution, "data"): {"temperature_air_mean_0_05m": "temperature_surface_mean"}
+        for resolution in ("10_minutes", "hourly", "daily")
+    },
+    # GH-2847: a daily total of potential evapotranspiration is the day's, no trailing 24 hours
+    "MeteoswissObservationMetadata": {
+        ("daily", "data"): {
+            "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao"
+        },
+    },
+    "DwdDerivedMetadata": {
+        ("daily", "soil"): {
+            "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
+            "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude",
+        },
+    },
 }
 
 #: request arguments, old name to new

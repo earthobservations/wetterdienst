@@ -54,7 +54,7 @@ DwdDmoMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site_reduced",
+                            "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
                         },
@@ -164,7 +164,7 @@ DwdDmoMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site_reduced",
+                            "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
                         },

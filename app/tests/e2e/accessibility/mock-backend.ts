@@ -182,7 +182,7 @@ function forecastValues(url: URL): Value[] {
     cloud_cover_below_2km: hour => Math.min(1, Math.max(0, 0.3 + 0.3 * Math.sin(hour / 8))),
     cloud_cover_between_2km_and_7km: hour => Math.min(1, Math.max(0, 0.3 + 0.3 * Math.sin(hour / 10))),
     cloud_cover_above_7km: hour => Math.min(1, Math.max(0, 0.2 + 0.2 * Math.sin(hour / 12))),
-    pressure_air_site_reduced: hour => 1012 + 4 * Math.sin(hour / 20),
+    pressure_air_sea_level: hour => 1012 + 4 * Math.sin(hour / 20),
   }
   const values: Value[] = []
   for (const [parameterName, curve] of Object.entries(series)) {
