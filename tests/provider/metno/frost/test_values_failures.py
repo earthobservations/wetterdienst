@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.network import File
@@ -172,7 +172,7 @@ def test_metno_frost_hourly_wind_is_named_for_its_ten_minutes(monkeypatch: pytes
     df = values.all().df.sort("parameter")
     assert df["parameter"].to_list() == ["wind_direction_last_10min", "wind_speed_last_10min"]
     assert df["value"].to_list() == [90.0, 3.1]
-    with pytest.raises(NoParametersFoundError):
+    with pytest.raises(InvalidParameterError):
         MetnoFrostRequest(parameters=[("hourly", "data", "wind_direction")], start=START, end=END)
 
 

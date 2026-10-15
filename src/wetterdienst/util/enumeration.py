@@ -14,6 +14,15 @@ _E = TypeVar("_E", bound=Enum)
 _B = TypeVar("_B", bound=Enum)
 
 
+def valid_values(enumeration: type[Enum]) -> str:
+    """List the members of an enumeration as a caller writes them, for a message that refuses another.
+
+    A member is written as its value where that is a string -- ``historical``, ``recent`` -- and as
+    its name otherwise.
+    """
+    return ", ".join(member.value if isinstance(member.value, str) else member.name for member in enumeration)
+
+
 @overload
 def parse_enumeration_from_template(
     enum_: str | Enum,
@@ -96,7 +105,9 @@ def parse_enumeration_from_template(  # noqa: C901
             else:
                 enum_parsed = intermediate(enum_)
         except ValueError as e:
-            msg = f"{enum_} could not be parsed from {intermediate.__name__}."
+            msg = (
+                f"{enum_} could not be parsed from {intermediate.__name__}. Valid values: {valid_values(intermediate)}"
+            )
             raise InvalidEnumerationError(msg) from e
 
     if base:
@@ -106,7 +117,7 @@ def parse_enumeration_from_template(  # noqa: C901
             try:
                 enum_parsed = base(enum_parsed)
             except ValueError as e:
-                msg = f"{enum_parsed} could not be parsed from {base.__name__}."
+                msg = f"{enum_parsed} could not be parsed from {base.__name__}. Valid values: {valid_values(base)}"
                 raise InvalidEnumerationError(msg) from e
 
     return enum_parsed

@@ -11,8 +11,16 @@ import portion
 import pytest
 from polars.testing import assert_frame_equal
 
-from wetterdienst import Period, Settings
-from wetterdienst.exceptions import ReversedTimeIntervalError, StartDateEndDateError
+from wetterdienst import Period, Resolution, Settings, Wetterdienst
+from wetterdienst.exceptions import (
+    ApiNotFoundError,
+    InvalidEnumerationError,
+    InvalidParameterError,
+    MetadataNotFoundError,
+    NoParametersFoundError,
+    ReversedTimeIntervalError,
+    StartDateEndDateError,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -579,6 +587,110 @@ def test_request_refuses_a_reversed_window_in_its_own_terms() -> None:
     assert isinstance(raised.value, StartDateEndDateError)
     # no "Error: " of its own: the command line prefixes one to every usage error (GH-2513)
     assert str(raised.value) == "'start' must be smaller or equal to 'end'."
+
+
+def test_request_refuses_an_unknown_parameter_by_default() -> None:
+    """Test that an unknown parameter among valid ones is refused with its close match, not skipped (GH-2636)."""
+    with pytest.raises(InvalidParameterError) as raised:
+        DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m", "daily/klx"])
+    message = str(raised.value)
+    assert "'klx'. Did you mean 'kl'?" in message
+    # the way out is named for the caller who can take it
+    assert "on_unknown='warn'" in message
+
+
+def test_request_on_unknown_warn_goes_on_with_the_parameters_that_resolve(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that on_unknown="warn" keeps the old behaviour: a warning, and the rest (GH-2636)."""
+    request = DwdObservationRequest(
+        parameters=["daily/kl/temperature_air_mean_2m", "daily/foo"],
+        on_unknown="warn",
+    )
+    assert [parameter.name for parameter in request.parameters] == ["temperature_air_mean_2m"]
+    assert "daily/foo not found" in caplog.text
+
+
+def test_request_on_unknown_warn_still_needs_one_parameter() -> None:
+    """Test that nothing resolving is an error whichever way unknown parameters are handled (GH-2636)."""
+    with pytest.raises(NoParametersFoundError):
+        DwdObservationRequest(parameters=["daily/foo"], on_unknown="warn")
+    with pytest.raises(InvalidParameterError):
+        DwdObservationRequest(parameters=["daily/foo"])
+
+
+def test_request_refuses_an_on_unknown_it_does_not_know() -> None:
+    """Test that a misspelt on_unknown is not taken for the default (GH-2636)."""
+    with pytest.raises(InvalidEnumerationError, match="Valid values: raise, warn"):
+        DwdObservationRequest(parameters="daily/kl", on_unknown="skip")  # ty: ignore[invalid-argument-type]
+
+
+def test_request_accepts_the_resolution_as_its_member() -> None:
+    """Test that `Resolution`, which the package exports, works in the parameter tuple (GH-2636)."""
+    by_member = DwdObservationRequest(parameters=(Resolution.DAILY, "kl"))
+    by_name = DwdObservationRequest(parameters=("daily", "kl"))
+    assert by_member.parameters == by_name.parameters
+    assert by_member.parameters
+
+
+def test_request_periods_error_lists_the_valid_values() -> None:
+    """Test that an unknown period is answered with the periods there are (GH-2636)."""
+    with pytest.raises(InvalidEnumerationError) as raised:
+        DwdObservationRequest(parameters="daily/kl", periods="foo")
+    assert str(raised.value) == "foo could not be parsed from Period. Valid values: historical, recent, now, future"
+
+
+@pytest.mark.parametrize("bound", [2020, 2020.5, True, dt.date(2020, 1, 1), b"2020-01-01", ["2020-01-01"]])
+@pytest.mark.parametrize("argument", ["start", "end"])
+def test_request_refuses_a_date_that_is_neither_a_string_nor_a_datetime(argument: str, bound: object) -> None:
+    """Test that `start=2020` is a TypeError saying so, not an AttributeError about tzinfo (GH-2636)."""
+    with pytest.raises(TypeError, match=rf"{argument} must be a str or a datetime, got {type(bound).__name__}"):
+        DwdObservationRequest(parameters="daily/kl", **{argument: bound})  # ty: ignore[invalid-argument-type]
+    with pytest.raises(TypeError, match=argument):
+        TimeseriesRequest.convert_timestamps(**{"start": None, "end": None, argument: bound})  # ty: ignore[invalid-argument-type]
+
+
+def test_request_end_alone_is_the_whole_window() -> None:
+    """Test that `end` without `start` is one instant, as `start` without `end` is, and as the CLI reads it (GH-2636).
+
+    Refusing it would break `--end` of the command line, which is documented and tested to be a
+    single-point date, and the two bounds would no longer be read alike.
+    """
+    request = DwdObservationRequest(parameters="daily/kl", end="2020-01-05")
+    assert request.start == request.end == dt.datetime(2020, 1, 5, tzinfo=ZoneInfo("UTC"))
+    assert DwdObservationRequest(parameters="daily/kl", start="2020-01-05").end == request.end
+
+
+def test_discover_refuses_a_resolution_or_dataset_the_provider_does_not_have() -> None:
+    """Test that a name that matches nothing raises, where it answered an empty dict (GH-2636)."""
+    with pytest.raises(
+        MetadataNotFoundError, match=r"Resolution 'foo' not found in DwdObservationMetadata.*Available resolutions"
+    ):
+        DwdObservationRequest.discover(resolutions="foo")
+    with pytest.raises(
+        MetadataNotFoundError, match=r"Dataset 'foo' not found in DwdObservationMetadata.*Available datasets"
+    ):
+        DwdObservationRequest.discover(datasets="foo")
+    # a dataset of another resolution is not found in the one asked for
+    with pytest.raises(MetadataNotFoundError, match=r"Dataset 'dew_point' not found.*for resolutions daily"):
+        DwdObservationRequest.discover(resolutions="daily", datasets="dew_point")
+    # one name that is wrong among others that are right
+    with pytest.raises(MetadataNotFoundError, match="Resolution 'foo'"):
+        DwdObservationRequest.discover(resolutions=["daily", "foo"])
+
+
+def test_discover_still_narrows_to_what_is_named() -> None:
+    """Test that names that exist, by either name and in either resolution, are answered as before (GH-2636)."""
+    assert list(DwdObservationRequest.discover(resolutions="daily", datasets="kl")) == ["daily"]
+    assert list(DwdObservationRequest.discover(resolutions=["daily", "hourly"], datasets="kl")) == ["daily"]
+    assert list(DwdObservationRequest.discover(resolutions=Resolution.DAILY)) == ["daily"]
+
+
+def test_get_network_names_raises_what_the_constructor_raises() -> None:
+    """Test that an unknown provider is an `ApiNotFoundError` in both, not a bare KeyError in one (GH-2636)."""
+    with pytest.raises(ApiNotFoundError, match="No API available for provider foo"):
+        Wetterdienst("foo", "bar")
+    with pytest.raises(ApiNotFoundError, match=r"No API available for provider foo. Available providers: aemet, "):
+        Wetterdienst.get_network_names("foo")
+    assert "observation" in Wetterdienst.get_network_names(" DWD ")
 
 
 def _count_station_index_builds(monkeypatch: pytest.MonkeyPatch) -> list[None]:

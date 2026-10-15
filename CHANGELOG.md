@@ -58,6 +58,19 @@ Types of changes:
 - The parameter columns of a wide values frame are in the order the request names its parameters,
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
+- **Breaking**: a parameter the provider does not have, or one not shaped like a parameter, raises
+  `InvalidParameterError` (a `RequestError`, a 400 over REST) naming each with its close match; it
+  was logged and skipped, so the result held fewer parameters than asked for without saying so.
+  Fix the name, or pass `on_unknown="warn"` to the request for the old behaviour. A request where
+  none resolves now raises it as well, no longer `NoParametersFoundError` (GH-2636)
+- Bad inputs are refused where they were answered with less or with an unrelated error:
+  `discover()` raises `MetadataNotFoundError` for a resolution or dataset the network does not have
+  (a 404 on `/api/coverage`, a usage error on `about coverage`), not `{}`;
+  `Wetterdienst.get_network_names("foo")` raises `ApiNotFoundError`, not `KeyError`; a date that is
+  neither a `str` nor a `datetime` (`start=2020`) raises `TypeError`, not `AttributeError`; an
+  `InvalidEnumerationError` lists the valid values; and `(Resolution.DAILY, "kl")` works as
+  `("daily", "kl")`. `end` without `start` stays one instant, as `start` alone is, and is now
+  documented (GH-2636)
 
 ## [0.154.0] - 2026-10-15
 

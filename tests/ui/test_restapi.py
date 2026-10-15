@@ -26,7 +26,9 @@ from wetterdienst import Author, Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.history import TimeseriesHistory
+from wetterdienst.model.metadata import ParameterSearch
 from wetterdienst.options import Options
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
@@ -806,7 +808,7 @@ def test_unreachable_selection_is_a_server_error(
 
 
 def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
-    """Test that a parameter the provider does not have is answered with the request it was asked of."""
+    """Test that a parameter the provider does not have is answered with a 400 that names it (GH-2636)."""
     response = client.get(
         "/api/values",
         params={
@@ -817,8 +819,8 @@ def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
         },
     )
     assert response.status_code == 400
-    assert "No valid parameters could be parsed from" in response.text
-    assert "DwdObservationRequest" in response.text
+    assert response.json()["detail"] == _UNKNOWN_PARAMETER
+    assert "'abc'. Available datasets:" in response.text
 
 
 @pytest.mark.remote
@@ -3089,6 +3091,19 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
 _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
 
 
+def _unknown_parameter_detail() -> str:
+    """Say what the library says of `daily/abc`, which the REST API answers word for word (GH-2636)."""
+    try:
+        DwdObservationMetadata.search_parameter(ParameterSearch("daily", "abc"))
+    except KeyError as e:
+        return f"daily/abc not found in DwdObservationMetadata: {e.args[0]}"
+    raise AssertionError  # pragma: no cover
+
+
+_UNKNOWN_PARAMETER = _unknown_parameter_detail()
+_UNKNOWN_PERIOD = "foo could not be parsed from Period. Valid values: historical, recent, now, future"
+
+
 def _year_10000_message() -> str:
     """Python's own words for a year past 9999, which 3.14 changed."""
     import datetime as dt  # noqa: PLC0415
@@ -3136,21 +3151,21 @@ def _year_10000_message() -> str:
             "/api/values",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
             400,
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="values-unknown-parameter",
         ),
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "timestamp": "2020-06-30"},
             400,
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="interpolate-unknown-parameter",
         ),
         pytest.param(
             "/api/values",
             {**_OBSERVATION, "station": "01048", "periods": "foo"},
             400,
-            "foo could not be parsed from Period.",
+            _UNKNOWN_PERIOD,
             id="values-unknown-period",
         ),
         pytest.param(
@@ -3789,13 +3804,13 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         pytest.param(
             "/api/stations",
             {**_OBSERVATION, "parameters": "daily/abc", "all": "true"},
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="stations-unknown-parameter",
         ),
         pytest.param(
             "/api/stations",
             {**_OBSERVATION, "periods": "foo", "all": "true"},
-            "foo could not be parsed from Period.",
+            _UNKNOWN_PERIOD,
             id="stations-unknown-period",
         ),
         pytest.param(
@@ -3832,7 +3847,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         pytest.param(
             "/api/history",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="history-unknown-parameter",
         ),
         pytest.param(
@@ -7171,12 +7186,12 @@ def test_mcp_a_refused_window_is_worded_in_terms_of_timestamp(
         ),
         pytest.param(
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="unknown-parameter",
         ),
         pytest.param(
             {**_OBSERVATION, "station": "01048", "periods": "foo"},
-            "foo could not be parsed from Period.",
+            _UNKNOWN_PERIOD,
             id="unknown-period",
         ),
     ],
@@ -7902,6 +7917,23 @@ def test_coverage_of_dmo_carries_the_lead_times_the_others_leave_out(client: Tes
     assert dmo
     assert all(parameter["lead_times"] for parameter in dmo)
     assert not any("lead_times" in parameter for parameter in parameters_of("observation"))
+
+
+@pytest.mark.parametrize(
+    ("params", "detail"),
+    [
+        ({"resolutions": "foo"}, "Resolution 'foo' not found in DwdObservationMetadata. Available resolutions: "),
+        ({"datasets": "foo"}, "Dataset 'foo' not found in DwdObservationMetadata. Available datasets: "),
+    ],
+)
+def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_404(
+    client: TestClient, params: dict[str, str], detail: str
+) -> None:
+    """Test a name the network does not have is answered with a 404 that names it, not with `{}` (GH-2636)."""
+    response = client.get("/api/coverage", params={"provider": "dwd", "network": "observation", **params})
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["detail"].startswith(detail)
 
 
 def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:

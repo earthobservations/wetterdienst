@@ -220,8 +220,8 @@ entry for each invalid parameter, where `loc` names it:
 
 | Status | When |
 | --- | --- |
-| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range |
-| 404 | what the request names does not exist: a provider, network, station, forecast run, or a path |
+| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range |
+| 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
