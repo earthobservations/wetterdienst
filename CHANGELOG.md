@@ -59,6 +59,13 @@ Types of changes:
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
 
+### Fixed
+
+- `noaa/ghcn` daily: 9 more stations, in the UK (Hull, Rothamsted, Wisley, ...), Algeria (Oran,
+  Sidi Bel Abbes) and France (Espoey), are placed west of Greenwich, no longer east of it, where
+  `ghcnd-stations.txt` has lost the sign of their longitude. They were 25 to 144 km off, so a
+  nearest-station search or an interpolation near them picked the wrong stations (GH-2886)
+
 ## [0.154.0] - 2026-10-15
 
 ### Changed
