@@ -121,6 +121,26 @@ def test_the_restapi_command_names_its_extra(without, caplog: pytest.LogCaptureF
     assert all(record.exc_info is None for record in caplog.records)
 
 
+def test_the_restapi_command_without_uvicorn_names_its_extra(without, caplog: pytest.LogCaptureFixture) -> None:  # noqa: ANN001
+    """An install with fastapi and without uvicorn is told the extra, not a bare traceback (GH-2928).
+
+    Both come with the `restapi` extra, so only a partial install has one without the other.
+    """
+    import wetterdienst.ui.restapi  # noqa: F401, PLC0415 -- imported before uvicorn is masked, as the install has fastapi
+    from wetterdienst.ui.cli import cli  # noqa: PLC0415
+
+    without("uvicorn.main", "uvicorn")
+
+    result = CliRunner().invoke(cli, ["restapi"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [
+        "The REST API requires uvicorn, which is not installed. Install it with: pip install wetterdienst[restapi]"
+    ]
+    assert all(record.exc_info is None for record in caplog.records)
+
+
 def test_interpolation_names_its_extra(without) -> None:  # noqa: ANN001
     """`.interpolate()` without the extra says which extra, not just which module."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415

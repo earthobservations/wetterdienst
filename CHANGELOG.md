@@ -33,6 +33,9 @@ Types of changes:
 
 ### Fixed
 
+- `wetterdienst restapi` on an install with `fastapi` and without `uvicorn` now prints that
+  `uvicorn` is missing and to `pip install wetterdienst[restapi]`, in one line with exit status 1,
+  no longer a `ModuleNotFoundError` traceback (GH-2928)
 - `knmi/observation`, `aemet/observation` and `lhmt/observation` values requests that go offline
   end at the first download answered with no connection, as the loop over files of one station
   already did: the stations and datasets after it are no longer tried, each waiting for the
@@ -74,6 +77,14 @@ Types of changes:
   (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
   historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
   `-999` at every station, so those periods never have a value for these two (GH-2852)
+
+### Security
+
+- The REST API answers a failure of the server's own with a 500 whose `detail` is `Internal
+  server error (<ExceptionType>). The cause is in the server log.`, no longer the exception's
+  text, which names server paths (a cache directory, a file an `OSError` met) and upstream URLs.
+  The body is still `{"detail": "<string>"}` and the status is unchanged, as are the 4xx and 501
+  bodies; the text and traceback are in the server log, at error level as before (GH-2767)
 
 ## [0.152.0] - 2026-10-15
 

@@ -57,6 +57,17 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def _is_a_500_naming_only(response: object, exception_type: str, *, hides: str) -> None:
+    """Assert the body of a 500: a fixed sentence and the exception's type, none of its text (GH-2767).
+
+    The body is the `{"detail": <string>}` every other error of the API has; `hides` is the text of
+    the exception, which belongs in the server log.
+    """
+    assert response.status_code == 500
+    assert response.json() == {"detail": f"Internal server error ({exception_type}). The cause is in the server log."}
+    assert hides not in response.text
+
+
 def test_index(client: TestClient) -> None:
     """Test index."""
     response = client.get("/")
@@ -2694,7 +2705,7 @@ def test_values_a_value_error_from_the_values_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A `ValueError` raised while collecting the values reaches the caller as a 500 with its message.
+    """A `ValueError` raised while collecting the values reaches the caller as a 500 naming its type.
 
     `get_values` ended it with `sys.exit(1)`, a `SystemExit` the endpoint's `except Exception` does
     not catch, so the caller got a 500 with no message (GH-2218). It then answered a 400, which
@@ -2723,8 +2734,50 @@ def test_values_a_value_error_from_the_values_is_a_500(
         },
     )
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == msg
+    _is_a_500_naming_only(response, "ValueError", hides=msg)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point"),
+    [
+        pytest.param("/api/stations", "get_stations", id="stations"),
+        pytest.param("/api/values", "get_values", id="values"),
+        pytest.param("/api/stripes/stations", "_get_stripes_stations", id="stripes-stations"),
+        pytest.param("/api/history", "get_stations", id="history"),
+    ],
+)
+def test_a_500_does_not_name_the_servers_paths_but_the_log_does(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+) -> None:
+    """An `OSError` that names a path of the server is logged with it and answered without it (GH-2767).
+
+    The text of an exception is whatever the library underneath wrote, and an `OSError` of any kind
+    (a cache directory below a regular file, permissions, a full disk) names the file it met. The
+    caller of an unauthenticated API gets a fixed sentence and the exception's type; the path stays
+    in the traceback of the server log. The body is the `{"detail": <string>}` it always was.
+    """
+    msg = '[Errno 20] Cache directory "/srv/wd/notadir/cache/43200.0" does not exist and could not be created'
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise OSError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", fail)
+    params = {
+        "/api/stations": {**_OBSERVATION, "all": "true"},
+        "/api/values": {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"},
+        "/api/stripes/stations": {"kind": "temperature"},
+        "/api/history": {**_OBSERVATION, "station": "01048"},
+    }[endpoint]
+
+    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    _is_a_500_naming_only(response, "OSError", hides="/srv/wd")
+    assert "/srv/wd/notadir/cache/43200.0" in caplog.text
 
 
 def test_stations_schema_admits_null_core_columns_and_provider_columns(client: TestClient) -> None:
@@ -2973,7 +3026,7 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
     endpoint: str,
     entry_point: str,
 ) -> None:
-    """A failure on the server's side is a 500 with its message, not a 404 saying there is no such thing.
+    """A failure on the server's side is a 500 naming only its type, not a 404 saying there is no such thing.
 
     The same failure answered 400 from `/api/values` and 404 from these, and neither is the
     caller's to fix (GH-2252).
@@ -2995,8 +3048,7 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
         },
     )
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == msg
+    _is_a_500_naming_only(response, "ValueError", hides=msg)
 
 
 _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
@@ -3361,8 +3413,7 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
 
     response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == msg
+    _is_a_500_naming_only(response, "OutOfMemoryException", hides=msg)
 
 
 @pytest.mark.parametrize("schema_name", ["_StationsOgcFeature", "_ValuesOgcFeature"])
@@ -3439,8 +3490,7 @@ def test_values_a_duckdb_failure_inside_duckdb_is_a_500_with_a_clause_too(
         "/api/values", params={**_OBSERVATION, "station": "01048", "sql_values": "value > 0"}
     )
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == msg
+    _is_a_500_naming_only(response, name, hides=msg)
 
 
 @pytest.mark.sql
@@ -3471,8 +3521,11 @@ def test_values_the_bare_duckdb_error_is_the_callers_only_with_a_clause(
 
     response = TestClient(restapi.app, raise_server_exceptions=False).get("/api/values", params=params)
 
-    assert response.status_code == status
-    assert response.json()["detail"] == msg
+    if status == 500:
+        _is_a_500_naming_only(response, "Error", hides=msg)
+    else:
+        assert response.status_code == status
+        assert response.json()["detail"] == msg
 
 
 def test_ogc_feature_properties_schema_allows_a_null_dataset() -> None:
@@ -3914,7 +3967,7 @@ def test_a_failure_of_the_lookup_that_is_not_a_refusal_is_a_500(
     stub: object,
     params: dict[str, object],
 ) -> None:
-    """A failure on the server's side is a 500 with its message, as from `/api/values` (GH-2276).
+    """A failure on the server's side is a 500 naming only its type, as from `/api/values` (GH-2276).
 
     These answered it with a 400, which told the caller to rephrase a request that was fine.
     """
@@ -3922,8 +3975,7 @@ def test_a_failure_of_the_lookup_that_is_not_a_refusal_is_a_500(
 
     response = client.get(endpoint, params=params)
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == _UNEXPECTED
+    _is_a_500_naming_only(response, "ValueError", hides=_UNEXPECTED)
 
 
 def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
@@ -3975,8 +4027,7 @@ def test_a_failure_where_the_caller_has_no_input_is_a_500_whatever_its_type(
 
     response = client.get(endpoint, params=params)
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == _UNEXPECTED
+    _is_a_500_naming_only(response, "InvalidEnumerationError", hides=_UNEXPECTED)
 
 
 def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
@@ -3995,8 +4046,7 @@ def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == "list index out of range"
+    _is_a_500_naming_only(response, "IndexError", hides="list index out of range")
 
 
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
@@ -4191,11 +4241,15 @@ def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) ->
 def test_alerts_a_feed_that_cannot_be_read_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
     listing: list[dict[str, str]] | None,
     download: Callable[..., object] | None,
     detail: str,
 ) -> None:
-    """A CAP feed that does not list, download or read is the server's 500, not the caller's 400 (GH-2294)."""
+    """A CAP feed that does not list, download or read is the server's 500, not the caller's 400 (GH-2294).
+
+    The body says no more than the exception's type (GH-2767); what it said is in the log.
+    """
     params = {}
     if listing is not None:
         monkeypatch.setattr(
@@ -4206,10 +4260,15 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
     if download is not None:
         monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", download)
 
-    response = client.get("/api/alerts", params=params)
+    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+        response = client.get("/api/alerts", params=params)
 
     assert response.status_code == 500
-    assert detail in response.json()["detail"]
+    assert response.json() == {
+        "detail": IsStr(regex=r"Internal server error \(\w+\)\. The cause is in the server log\.")
+    }
+    assert detail not in response.text
+    assert detail in caplog.text
 
 
 def test_alerts_a_date_an_offset_carries_out_of_range_is_the_callers(client: TestClient) -> None:
@@ -4528,7 +4587,7 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     # each answered by the stub's failure, a 500, so each reached the entry point with its settings
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         response = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
-    assert (response.status_code, response.json()["detail"]) == (500, "taken")
+    _is_a_500_naming_only(response, "ValueError", hides="taken")
     assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
     caplog.clear()
     with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
@@ -6487,8 +6546,12 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
 def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """An upstream outage answers a 5xx, where it used to read as a station without data (GH-2430)."""
+    """An upstream outage answers a 5xx, where it used to read as a station without data (GH-2430).
+
+    The body names the type only (GH-2767); the status and the file are in the log.
+    """
     from aiohttp import ClientResponseError, RequestInfo  # noqa: PLC0415
     from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
     from yarl import URL  # noqa: PLC0415
@@ -6523,19 +6586,20 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     failed = File(url=url, content=error, status=503)
     monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
 
-    response = client.get(
-        "/api/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "parameters": "annual/climate_summary",
-            "periods": "historical",
-            "station": "01048",
-        },
-    )
+    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+        response = client.get(
+            "/api/values",
+            params={
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "annual/climate_summary",
+                "periods": "historical",
+                "station": "01048",
+            },
+        )
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == f"Failed to download {url}: 503, message='Service Unavailable'"
+    _is_a_500_naming_only(response, "DownloadError", hides=url)
+    assert f"Failed to download {url}: 503, message='Service Unavailable'" in caplog.text
 
 
 _GEO_REFUSALS = [
@@ -6792,8 +6856,15 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
     assert not {"start_date", "end_date"} & set(schema["properties"])
 
 
-def test_values_a_timed_out_download_names_the_file(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A download that timed out answers a 500 naming the file, where its `detail` was empty (GH-2460)."""
+def test_values_a_timed_out_download_is_logged_with_the_file(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A download that timed out is logged naming the file, where its message was empty (GH-2460).
+
+    The body of the 500 names the type only (GH-2767).
+    """
     from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
 
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
@@ -6824,19 +6895,20 @@ def test_values_a_timed_out_download_names_the_file(client: TestClient, monkeypa
     failed = File(url=url, content=FSTimeoutError(), status=408)
     monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
 
-    response = client.get(
-        "/api/values",
-        params={
-            "provider": "dwd",
-            "network": "observation",
-            "parameters": "annual/climate_summary",
-            "periods": "historical",
-            "station": "01048",
-        },
-    )
+    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+        response = client.get(
+            "/api/values",
+            params={
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "annual/climate_summary",
+                "periods": "historical",
+                "station": "01048",
+            },
+        )
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == f"Failed to download {url}: FSTimeoutError"
+    _is_a_500_naming_only(response, "DownloadError", hides=url)
+    assert f"Failed to download {url}" in caplog.text
 
 
 # each endpoint whose query parameters were taken loose, with a request it would otherwise serve,
@@ -7088,8 +7160,7 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
-    assert response.status_code == 500
-    assert response.json()["detail"] == msg
+    _is_a_500_naming_only(response, "ValueError", hides=msg)
     records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
     assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
     assert records[0].exc_info
@@ -7326,8 +7397,7 @@ def test_a_failure_that_is_not_a_refusal_is_logged_with_its_traceback(
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get(endpoint, params=params)
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == _UNEXPECTED
+    _is_a_500_naming_only(response, "ValueError", hides=_UNEXPECTED)
     records = _the_restapi_records(caplog)
     assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, f"Failed to {what}.")]
     assert records[0].exc_info
