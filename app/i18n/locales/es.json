@@ -22,7 +22,7 @@
     "stripesDesc": "El calentamiento de tu región mostrado como franjas de colores.",
     "explorerTitle": "Explorar datos",
     "explorerDesc": "Encuentra estaciones en el mapa y obtén mediciones.",
-    "featuresTitle": "Qué puede hacer con ellos",
+    "featuresTitle": "Qué puedes hacer con ellos",
     "featureExportTitle": "Exportación flexible",
     "featureExportDesc": "Descarga los datos en formato CSV, JSON o GeoJSON.",
     "featureAnalysisTitle": "Interpolación y resumen",
@@ -408,7 +408,9 @@
     "plotDataAvailability": "Disponibilidad de datos",
     "plotSource": "Fuente: Deutscher Wetterdienst",
     "chooseOnMap": "Elegir en el mapa",
-    "mapHint": "Toca un punto en el mapa para elegir esa estación."
+    "mapHint": "Toca un punto en el mapa para elegir esa estación.",
+    "hoverValue": "Valor",
+    "hoverTrend": "Tendencia"
   },
   "explorer": {
     "title": "Explorador",
@@ -468,13 +470,13 @@
     "leadTimeShort": "Corta: hasta 78 h, horaria",
     "leadTimeLong": "Larga: de 78 a 168 h, trihoraria",
     "leadTimeHint": "El DWD publica el pronóstico ICON DMO como dos pasadas. La corta contiene los parámetros horarios de precipitación, radiación y nieve; la larga, en su lugar, los trihorarios; todos los demás están en ambas. Se ofrecen los parámetros que contiene la pasada elegida.",
-    "modeStationDesc": "Fetch observations directly from one or more weather stations.",
-    "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
-    "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
-    "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
-    "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
-    "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeStationDesc": "Obtén observaciones directamente de una o varias estaciones meteorológicas.",
+    "modeInterpolationDesc": "Estima matemáticamente el valor meteorológico en cualquier lugar, incluso sin una estación allí.",
+    "modeSummaryDesc": "Devuelve el valor realmente medido de la estación más cercana que tiene datos en cada instante.",
+    "modeStationHow": "Los valores medidos en bruto se devuelven tal cual, con conversión de unidades opcional y nombres de parámetros legibles. Selecciona una o varias estaciones abajo.",
+    "modeInterpolationHow": "Reúne valores de las estaciones que rodean espacialmente tu punto objetivo y ajusta una triangulación entre ellas (Delaunay + interpolación lineal en el espacio UTM). Cada paso de tiempo produce un valor sintético en tus coordenadas exactas, más preciso que elegir la estación más cercana, sobre todo donde la cobertura de estaciones es buena. Requiere al menos 3 estaciones que rodeen el punto y un rango de fechas. En los parámetros de precipitación se aplica además una comprobación de ocurrencia para evitar valores espurios cercanos a cero.",
+    "modeSummaryHow": "Para cada parámetro y cada paso de tiempo, busca hacia fuera desde tu ubicación objetivo y elige la primera estación con una lectura válida: sin estimación, solo la medición real más cercana. La salida incluye el ID de la estación que aporta el dato y su distancia, así que siempre sabes exactamente de dónde provienen los datos. Se requiere un rango de fechas.",
+    "modeHowItWorks": "Cómo funciona"
   },
   "stationTable": {
     "stationId": "ID de estación",
@@ -588,6 +590,30 @@
     "statMax": "Máx",
     "statMean": "Media",
     "statSum": "Suma"
+  },
+  "query": {
+    "enable": "Transformar con consulta SQL",
+    "title": "Transformación con consulta SQL",
+    "run": "Ejecutar consulta",
+    "cancel": "Cancelar",
+    "placeholder": "Escribe aquí tu consulta SQL...",
+    "syntaxError": "Error de sintaxis",
+    "hint": "Consulta la tabla {table} con SQL estándar.",
+    "availableColumns": "Columnas disponibles: {columns}",
+    "examples": "Consultas de ejemplo",
+    "success": "Consulta ejecutada correctamente. Filas devueltas: {count}",
+    "exampleAll": "Todos los datos (limitado)",
+    "exampleParameter": "Filtrar por parámetro",
+    "exampleTimestamp": "Agregar por marca de tiempo",
+    "exampleRange": "Filtrar por rango de valores",
+    "exampleRecent": "Solo datos recientes",
+    "exampleStations": "Agrupar por estaciones de origen",
+    "exampleStation": "Agrupar por estación de origen",
+    "noData": "No hay datos para consultar",
+    "initFailed": "No se pudo inicializar la base de datos: {error}",
+    "loadFailed": "No se pudieron cargar los datos: {error}",
+    "unknownError": "Error desconocido",
+    "queryFailed": "Error de consulta: {error}"
   },
   "validation": {
     "queryEmpty": "La consulta no puede estar vacía",

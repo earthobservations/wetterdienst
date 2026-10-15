@@ -408,7 +408,9 @@
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "chooseOnMap": "Op der Kaart auswielen",
-    "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen."
+    "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen.",
+    "hoverValue": "Wäert",
+    "hoverTrend": "Trend"
   },
   "explorer": {
     "title": "Explorer",
@@ -588,6 +590,30 @@
     "statMax": "Max.",
     "statMean": "Duerchschnëtt",
     "statSum": "Zomm"
+  },
+  "query": {
+    "enable": "Transform with SQL Query",
+    "title": "SQL Query Transform",
+    "run": "Run Query",
+    "cancel": "Cancel",
+    "placeholder": "Enter your SQL query here...",
+    "syntaxError": "Syntax Error",
+    "hint": "Query the {table} table with standard SQL.",
+    "availableColumns": "Available columns: {columns}",
+    "examples": "Example Queries",
+    "success": "Query executed successfully: {count} row(s) returned",
+    "exampleAll": "All data (limited)",
+    "exampleParameter": "Filter by parameter",
+    "exampleTimestamp": "Aggregate by timestamp",
+    "exampleRange": "Filter by value range",
+    "exampleRecent": "Recent data only",
+    "exampleStations": "Group by source stations",
+    "exampleStation": "Group by source station",
+    "noData": "No data available to query",
+    "initFailed": "Failed to initialize database: {error}",
+    "loadFailed": "Failed to load data: {error}",
+    "unknownError": "Unknown error",
+    "queryFailed": "Query error: {error}"
   },
   "validation": {
     "queryEmpty": "D'Ufro däerf net eidel sinn",

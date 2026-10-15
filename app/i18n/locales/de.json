@@ -360,7 +360,7 @@
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station auf der Karte auswählen",
-    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
+    "mapHint": "Tippen Sie auf einen Punkt auf der Karte, um diese Station zu wählen.",
     "runLabel": "Modellauf",
     "runLatest": "Aktuellste (auto)"
   },
@@ -408,7 +408,9 @@
     "plotDataAvailability": "Datenverfügbarkeit",
     "plotSource": "Quelle: Deutscher Wetterdienst",
     "chooseOnMap": "Auf der Karte auswählen",
-    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen."
+    "mapHint": "Tippen Sie auf einen Punkt auf der Karte, um diese Station zu wählen.",
+    "hoverValue": "Wert",
+    "hoverTrend": "Trend"
   },
   "explorer": {
     "title": "Explorer",
@@ -511,8 +513,8 @@
     "clearAll": "Alle entfernen",
     "showMap": "Karte anzeigen",
     "chooseOnMap": "Auf der Karte auswählen",
-    "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
-    "mapHintMultiple": "Tippe auf Punkte auf der Karte, um Stationen hinzuzufügen oder zu entfernen."
+    "mapHint": "Tippen Sie auf einen Punkt auf der Karte, um diese Station zu wählen.",
+    "mapHintMultiple": "Tippen Sie auf Punkte auf der Karte, um Stationen hinzuzufügen oder zu entfernen."
   },
   "interpolation": {
     "source": "Quelle",
@@ -588,6 +590,30 @@
     "statMax": "Max",
     "statMean": "Mittel",
     "statSum": "Summe"
+  },
+  "query": {
+    "enable": "Mit SQL-Abfrage transformieren",
+    "title": "SQL-Abfrage-Transformation",
+    "run": "Abfrage ausführen",
+    "cancel": "Abbrechen",
+    "placeholder": "Geben Sie hier Ihre SQL-Abfrage ein...",
+    "syntaxError": "Syntaxfehler",
+    "hint": "Fragen Sie die Tabelle {table} mit Standard-SQL ab.",
+    "availableColumns": "Verfügbare Spalten: {columns}",
+    "examples": "Beispielabfragen",
+    "success": "Abfrage erfolgreich ausgeführt. Zurückgegebene Zeilen: {count}",
+    "exampleAll": "Alle Daten (begrenzt)",
+    "exampleParameter": "Nach Parameter filtern",
+    "exampleTimestamp": "Nach Zeitstempel aggregieren",
+    "exampleRange": "Nach Wertebereich filtern",
+    "exampleRecent": "Nur aktuelle Daten",
+    "exampleStations": "Nach Quellstationen gruppieren",
+    "exampleStation": "Nach Quellstation gruppieren",
+    "noData": "Keine Daten zum Abfragen vorhanden",
+    "initFailed": "Die Datenbank konnte nicht initialisiert werden: {error}",
+    "loadFailed": "Die Daten konnten nicht geladen werden: {error}",
+    "unknownError": "Unbekannter Fehler",
+    "queryFailed": "Abfragefehler: {error}"
   },
   "validation": {
     "queryEmpty": "Die Abfrage darf nicht leer sein",

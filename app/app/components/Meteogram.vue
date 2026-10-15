@@ -4,6 +4,7 @@ import type { Value } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { formatNumber } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 
 const props = defineProps<{
@@ -353,7 +354,7 @@ const compactDays = computed(() => {
 
     const label = `${weekdayShort(dt)} ${dt.toFormat('dd.MM')}`
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
-    const precipLabel = dayPrecip >= 0.1 ? `${dayPrecip.toFixed(1)} mm` : null
+    const precipLabel = dayPrecip >= 0.1 ? `${formatNumber(dayPrecip, locale.value, 1)} mm` : null
     const isToday = dt.hasSame(localNow, 'day')
     out.push({ date: dt, emoji, label, tempLabel, precipLabel, isToday })
     dt = dt.plus({ days: 1 })
@@ -2061,13 +2062,13 @@ watch(
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-lucide-wind" class="w-4 h-4 text-cyan-500 shrink-0" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.gust.toFixed(1) }}</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.gust, locale, 1) }}</span>
           <span class="text-gray-400 text-xs">m/s</span>
           <span class="text-cyan-500 dark:text-cyan-400 text-xs">({{ Math.round(summaryStats.gust * 3.6) }} km/h)</span>
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-lucide-cloud-rain" class="w-4 h-4 text-blue-500 shrink-0" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.precip.toFixed(1) }}</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ formatNumber(summaryStats.precip, locale, 1) }}</span>
           <span class="text-gray-400 text-xs">mm</span>
         </div>
         <div class="flex items-center gap-1.5">

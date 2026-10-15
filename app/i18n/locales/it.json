@@ -408,7 +408,9 @@
     "plotDataAvailability": "Disponibilità dei dati",
     "plotSource": "Fonte: Deutscher Wetterdienst",
     "chooseOnMap": "Scegli sulla mappa",
-    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione."
+    "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
+    "hoverValue": "Valore",
+    "hoverTrend": "Tendenza"
   },
   "explorer": {
     "title": "Esploratore",
@@ -468,13 +470,13 @@
     "leadTimeShort": "Breve: fino a 78 h, oraria",
     "leadTimeLong": "Lunga: da 78 a 168 h, trioraria",
     "leadTimeHint": "Il DWD pubblica la previsione ICON DMO come due corse. La breve contiene i parametri orari di precipitazione, radiazione e neve, la lunga al loro posto quelli triorari; tutti gli altri sono in entrambe. Sono offerti i parametri che la corsa scelta contiene.",
-    "modeStationDesc": "Fetch observations directly from one or more weather stations.",
-    "modeInterpolationDesc": "Mathematically estimates the weather value at any location, even without a station there.",
-    "modeSummaryDesc": "Returns the actual measured value from the nearest station that has data at each moment in time.",
-    "modeStationHow": "Raw measured values are returned as-is, with optional unit conversion and humanised parameter names. Select one or more stations below.",
-    "modeInterpolationHow": "Collects values from stations that spatially surround your target point and fits a triangulation across them (Delaunay + linear interpolation in UTM space). Each timestep produces a synthetic value at your exact coordinates — more accurate than picking the nearest station, especially where station coverage is good. Requires at least 3 enclosing stations and a date range. Precipitation parameters apply an additional occurrence check to avoid spurious near-zero values.",
-    "modeSummaryHow": "For every parameter and every timestep, scans outward from your target location and picks the first station with a valid reading — no estimation, just the closest real measurement. The output includes the contributing station ID and its distance, so you always know exactly where the data came from. A date range is required.",
-    "modeHowItWorks": "How it works"
+    "modeStationDesc": "Recupera le osservazioni direttamente da una o più stazioni meteorologiche.",
+    "modeInterpolationDesc": "Stima matematicamente il valore meteorologico in qualsiasi luogo, anche senza una stazione sul posto.",
+    "modeSummaryDesc": "Restituisce il valore effettivamente misurato dalla stazione più vicina che dispone di dati in ogni istante.",
+    "modeStationHow": "I valori misurati grezzi vengono restituiti così come sono, con conversione delle unità facoltativa e nomi dei parametri leggibili. Seleziona qui sotto una o più stazioni.",
+    "modeInterpolationHow": "Raccoglie i valori delle stazioni che circondano spazialmente il tuo punto di destinazione e vi adatta una triangolazione (Delaunay + interpolazione lineare nello spazio UTM). Ogni passo temporale produce un valore sintetico alle tue coordinate esatte, più accurato che scegliere la stazione più vicina, soprattutto dove la copertura delle stazioni è buona. Richiede almeno 3 stazioni circostanti e un intervallo di date. Per i parametri di precipitazione viene applicato anche un controllo di occorrenza per evitare valori spuri prossimi a zero.",
+    "modeSummaryHow": "Per ogni parametro e ogni passo temporale, cerca verso l'esterno a partire dalla tua posizione di destinazione e sceglie la prima stazione con una lettura valida: nessuna stima, solo la misurazione reale più vicina. L'output comprende l'ID della stazione che ha fornito il dato e la sua distanza, così sai sempre con esattezza da dove provengono i dati. È richiesto un intervallo di date.",
+    "modeHowItWorks": "Come funziona"
   },
   "stationTable": {
     "stationId": "ID stazione",
@@ -588,6 +590,30 @@
     "statMax": "Max",
     "statMean": "Media",
     "statSum": "Somma"
+  },
+  "query": {
+    "enable": "Trasforma con query SQL",
+    "title": "Trasformazione con query SQL",
+    "run": "Esegui query",
+    "cancel": "Annulla",
+    "placeholder": "Inserisci qui la tua query SQL...",
+    "syntaxError": "Errore di sintassi",
+    "hint": "Interroga la tabella {table} con SQL standard.",
+    "availableColumns": "Colonne disponibili: {columns}",
+    "examples": "Query di esempio",
+    "success": "Query eseguita con successo. Righe restituite: {count}",
+    "exampleAll": "Tutti i dati (limitati)",
+    "exampleParameter": "Filtra per parametro",
+    "exampleTimestamp": "Aggrega per marca temporale",
+    "exampleRange": "Filtra per intervallo di valori",
+    "exampleRecent": "Solo dati recenti",
+    "exampleStations": "Raggruppa per stazioni di origine",
+    "exampleStation": "Raggruppa per stazione di origine",
+    "noData": "Nessun dato da interrogare",
+    "initFailed": "Impossibile inizializzare il database: {error}",
+    "loadFailed": "Impossibile caricare i dati: {error}",
+    "unknownError": "Errore sconosciuto",
+    "queryFailed": "Errore nella query: {error}"
   },
   "validation": {
     "queryEmpty": "La query non può essere vuota",

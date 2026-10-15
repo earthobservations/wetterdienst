@@ -580,7 +580,7 @@ export const parameters: Record<string, string> = {
   water_film_thickness: 'Espesor de la lámina de agua en el firme',
   wave_height_max: 'Altura máxima de ola',
   wave_height_significant: 'Altura significativa de ola',
-  wave_period: 'Período de la ola',
+  wave_period: 'Periodo de la ola',
   weather_last_6h: 'Tiempo (últimas 6 h)',
   weather_secondary_last_3h: 'Segundo tiempo (últimas 3 h)',
   weather_last_3h: 'Tiempo (últimas 3 h)',

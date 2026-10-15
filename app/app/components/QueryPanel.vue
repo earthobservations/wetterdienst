@@ -41,37 +41,37 @@ const isValidating = ref(false)
 // `taken_station_id`
 const EXAMPLE_QUERIES = [
   {
-    label: 'All data (limited)',
+    labelKey: 'query.exampleAll',
     query: 'SELECT * FROM data LIMIT 100',
     reads: [],
   },
   {
-    label: 'Filter by parameter',
+    labelKey: 'query.exampleParameter',
     query: 'SELECT * FROM data WHERE parameter = \'temperature_air_mean_2m\' LIMIT 100',
     reads: ['parameter'],
   },
   {
-    label: 'Aggregate by timestamp',
+    labelKey: 'query.exampleTimestamp',
     query: 'SELECT timestamp, parameter, AVG(value) as avg_value FROM data GROUP BY timestamp, parameter ORDER BY timestamp LIMIT 100',
     reads: ['timestamp', 'parameter', 'value'],
   },
   {
-    label: 'Filter by value range',
+    labelKey: 'query.exampleRange',
     query: 'SELECT * FROM data WHERE value > 10 AND value < 30 LIMIT 100',
     reads: ['value'],
   },
   {
-    label: 'Recent data only',
+    labelKey: 'query.exampleRecent',
     query: 'SELECT * FROM data ORDER BY timestamp DESC LIMIT 100',
     reads: ['timestamp'],
   },
   {
-    label: 'Group by source stations',
+    labelKey: 'query.exampleStations',
     query: 'SELECT taken_station_ids, parameter, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY taken_station_ids, parameter LIMIT 100',
     reads: ['taken_station_ids', 'parameter', 'value'],
   },
   {
-    label: 'Group by source station',
+    labelKey: 'query.exampleStation',
     query: 'SELECT taken_station_id, parameter, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY taken_station_id, parameter LIMIT 100',
     reads: ['taken_station_id', 'parameter', 'value'],
   },
@@ -134,7 +134,7 @@ async function startDuckDB() {
     database?.terminate().catch(() => {})
     startFailed = true
     // anything can be thrown, `undefined` included, and reading it must not fail the start's promise
-    startError = err?.message || 'Unknown error'
+    startError = err?.message || t('query.unknownError')
   }
 }
 
@@ -302,7 +302,7 @@ async function validateQuerySyntax() {
   }
   catch (err: any) {
     // Extract meaningful error message
-    const message = err.message || 'Syntax error'
+    const message = err.message || t('query.syntaxError')
     answer(message)
   }
   finally {
@@ -412,12 +412,12 @@ async function executeQuery() {
     if (run !== currentRun)
       return
     if (!db || !conn) {
-      fail(`Failed to initialize database: ${startError}`)
+      fail(t('query.initFailed', { error: startError }))
       return
     }
 
     if (rows.length === 0) {
-      fail('No data available to query')
+      fail(t('query.noData'))
       return
     }
 
@@ -427,7 +427,7 @@ async function executeQuery() {
     catch (err: any) {
       if (run === currentRun) {
         console.error('Failed to load data into DuckDB:', err)
-        fail(`Failed to load data: ${err.message || 'Unknown error'}`)
+        fail(t('query.loadFailed', { error: err.message || t('query.unknownError') }))
       }
       return
     }
@@ -461,7 +461,7 @@ async function executeQuery() {
   catch (err: any) {
     if (run === currentRun) {
       console.error('Query execution error:', err)
-      fail(`Query error: ${err.message}`)
+      fail(t('query.queryFailed', { error: err.message }))
     }
   }
   finally {
@@ -539,7 +539,7 @@ onUnmounted(async () => {
   <div class="w-full">
     <div v-if="!isQueryMode" class="mb-4">
       <UButton
-        label="Transform with SQL Query"
+        :label="t('query.enable')"
         icon="i-lucide-database"
         color="neutral"
         variant="soft"
@@ -553,11 +553,11 @@ onUnmounted(async () => {
       <template #header>
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-bold">
-            SQL Query Transform
+            {{ t('query.title') }}
           </h3>
           <div class="flex gap-2">
             <UButton
-              label="Run Query"
+              :label="t('query.run')"
               icon="i-heroicons-play"
               color="primary"
               size="sm"
@@ -566,7 +566,7 @@ onUnmounted(async () => {
               @click="executeQuery"
             />
             <UButton
-              label="Cancel"
+              :label="t('query.cancel')"
               icon="i-heroicons-x-mark"
               color="neutral"
               variant="ghost"
@@ -584,7 +584,7 @@ onUnmounted(async () => {
             <UTextarea
               v-model="query"
               :rows="6"
-              placeholder="Enter your SQL query here..."
+              :placeholder="t('query.placeholder')"
               class="font-mono text-sm w-full"
               :class="syntaxError ? 'border-red-500 dark:border-red-400' : ''"
             />
@@ -599,14 +599,22 @@ onUnmounted(async () => {
             color="error"
             variant="soft"
             icon="i-heroicons-exclamation-triangle"
-            title="Syntax Error"
+            :title="t('query.syntaxError')"
             :description="syntaxError"
           />
 
           <div class="text-xs text-gray-500">
-            Query the <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">data</code> table with standard SQL.
+            <i18n-t keypath="query.hint" tag="span">
+              <template #table>
+                <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">data</code>
+              </template>
+            </i18n-t>
             <div class="text-gray-400">
-              Available columns: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{{ expectedColumns.join(', ') }}</code>
+              <i18n-t keypath="query.availableColumns" tag="span">
+                <template #columns>
+                  <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{{ expectedColumns.join(', ') }}</code>
+                </template>
+              </i18n-t>
             </div>
           </div>
         </div>
@@ -619,13 +627,13 @@ onUnmounted(async () => {
         <!-- Example Queries -->
         <details class="text-sm">
           <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
-            Example Queries
+            {{ t('query.examples') }}
           </summary>
           <div class="mt-2 flex flex-wrap gap-2">
             <UButton
               v-for="example in exampleQueries"
-              :key="example.label"
-              :label="example.label"
+              :key="example.labelKey"
+              :label="t(example.labelKey)"
               size="xs"
               color="neutral"
               variant="soft"
@@ -669,7 +677,7 @@ onUnmounted(async () => {
 
         <!-- Results Info -->
         <div v-if="queryResults" class="text-sm font-medium text-green-600 dark:text-green-400">
-          ✓ Query executed successfully: {{ queryResults.length }} row(s) returned
+          ✓ {{ t('query.success', { count: queryResults.length }) }}
         </div>
       </div>
     </UCard>

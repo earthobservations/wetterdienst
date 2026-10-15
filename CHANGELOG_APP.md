@@ -16,6 +16,25 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` The descriptions of the three modes and "How it works" are in Czech, Danish,
+  Spanish, French, Italian, Dutch and Polish, where they were the English text. Luxembourgish
+  still shows English there until a native speaker writes it (GH-2610)
+- `[QueryPanel]` The SQL panel's buttons, hint, example queries and failure messages follow the
+  language, where they were English in all of them. Luxembourgish still shows English (GH-2610)
+- `[Stripes]` The chart's hover text says "Value" and "Trend" in the active language (GH-2610)
+- `[DataViewer/Meteogram]` The statistics table and the Meteogram's gust, precipitation and day
+  totals write their numbers as the language does: "2,50" and "1.234,50", no longer "2.50" and
+  "1234.50" in German, French or Polish (GH-2610)
+- `[Glossary]` Spanish writes "Periodo de la ola", as its other "periodo" is spelled (GH-2610)
+- `[Layout]` A page title that is one long word, "Stationsgeschiedenis" on a 320 px phone in
+  Dutch, breaks inside the word where it could run past its box (GH-2610)
+- `[Home]` Spanish says "Qué puedes hacer con ellos", as the rest of its text addresses the
+  reader (GH-2610)
+- `[Map]` The German map hints say "Tippen Sie auf ...", as the rest of the German text addresses
+  the reader, where they said "Tippe" (GH-2610)
+
 ## [0.20.0] - 2026-10-15
 
 ### Changed
