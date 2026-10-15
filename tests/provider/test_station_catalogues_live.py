@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import pytest
 
-from tests.conftest import skip_if_upstream_unavailable
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_sound
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
@@ -118,8 +117,7 @@ def _cases() -> list[object]:
 def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str, dataset: str) -> None:
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
-    with skip_if_upstream_unavailable():
-        stations = Wetterdienst(provider, network)(parameters=[(resolution, dataset)]).all().df
+    stations = Wetterdienst(provider, network)(parameters=[(resolution, dataset)]).all().df
     assert_sound(
         stations,
         f"{key} {resolution}/{dataset}",

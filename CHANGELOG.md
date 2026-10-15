@@ -48,6 +48,8 @@ Types of changes:
   based on complete data. Daily readings carry it (not all of them); a reading without one, and
   every 15 minute reading, keeps the quality alone (`Good`). A filter `quality_flags == 'Good'` no
   longer holds for daily readings: use `str.starts_with('Good')` (GH-2762)
+- The Docker images run on Python 3.15 (was 3.14). Packages without a 3.15 wheel are built from
+  source when the image is built, so a local or compose build takes longer (GH-2568)
 
 ### Fixed
 

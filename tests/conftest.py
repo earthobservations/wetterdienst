@@ -5,6 +5,7 @@
 import ipaddress
 import os
 import platform
+import re
 import socket
 import sys
 from collections.abc import Generator
@@ -50,6 +51,10 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     there to catch. Nor is a host that cannot be reached at all, though for want of a choice here:
     `download_file` degrades that to an empty answer instead of raising. Anything else still fails
     the test. Usable as a decorator or around the calls that reach upstream.
+
+    Every test marked `remote` is already run inside it (`pytest_runtest_call` below, GH-2522), so
+    it is for a block that has to be skipped alone: one inside a test that catches what it raises,
+    where the exception never reaches the hook.
     """
     try:
         yield
@@ -59,6 +64,71 @@ def skip_if_upstream_unavailable() -> Generator[None]:
         if isinstance(failure, Exception) and _worth_retrying(failure):
             pytest.skip(f"upstream did not answer: {error!r}")
         raise
+
+
+def _rerun_will_retry(item: pytest.Item, error: BaseException) -> bool:
+    """Say whether pytest-rerunfailures is going to run this test again because of ``error``.
+
+    It reruns a failure while the attempts for it last, and with ``--only-rerun`` only one that
+    names the patterns -- matched, as it does, against the type and message of the error and of
+    whatever it was raised from or while handling. A skip is not a failure, so a test that skipped
+    on a timeout would never be asked a second time.
+
+    Only the global ``reruns`` and ``--only-rerun`` (option or ini) are modelled, which is all this
+    suite sets: not the ``flaky`` marker's own ``only_rerun``, ``rerun_except`` or ``condition``.
+    """
+    if not item.config.pluginmanager.hasplugin("rerunfailures"):
+        return False
+    from pytest_rerunfailures import get_reruns_count  # noqa: PLC0415 -- only there with the plugin
+
+    if getattr(item, "execution_count", 1) > (get_reruns_count(item) or 0):
+        return False
+    patterns = item.config.getoption("only_rerun") or item.config.getini("only_rerun")
+    if not patterns:
+        return True
+    seen: set[int] = set()
+    chained: BaseException | None = error
+    while chained is not None and id(chained) not in seen:
+        seen.add(id(chained))
+        if any(re.search(pattern, f"{type(chained).__name__}: {chained}") for pattern in patterns):
+            return True
+        chained = chained.__cause__ or (None if chained.__suppress_context__ else chained.__context__)
+    return False
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Generator[None]:
+    """Run a `remote` test inside `skip_if_upstream_unavailable`, so an outage skips it (GH-2522).
+
+    A remote test asserts what an upstream publishes, and failing it on a timeout or a 5xx reports
+    that upstream's bad few minutes as a regression here. Done for every `remote` test rather than
+    decorated onto each, because that is what the marker says -- the test needs the internet -- and
+    a decorator left off one is how most of the suite came to fail on outages. The classification
+    is the helper's, so a 404, a 4xx or an assertion still fails the test.
+
+    An error that pytest-rerunfailures is going to retry is left to it, and skipped only once the
+    attempts are used up: this suite reruns a timeout or a 5xx twice, and a test that passes on the
+    second try should still pass rather than skip.
+
+    Not applied to the setup phase: a fixture that downloads and meets an outage still errors.
+    Nor does it reach a test that goes through the CLI or the REST API, which turn a failed request
+    into an exit code or a response before the exception can get here.
+    """
+    if item.get_closest_marker("remote") is None:
+        return (yield)
+    try:
+        return (yield)
+    except Exception as error:
+        if _rerun_will_retry(item, error):
+            raise
+        try:
+            with skip_if_upstream_unavailable():
+                raise
+        except pytest.skip.Exception as skipped:
+            # reported at the test, as a skip from a fixture is, rather than at the line above, which
+            # would merge the skips of every test into one `-rs` line that names none of them
+            skipped._use_item_location = True  # noqa: SLF001
+            raise
 
 
 @pytest.fixture(autouse=True, scope="session")

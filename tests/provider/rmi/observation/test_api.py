@@ -13,7 +13,6 @@ import polars as pl
 import pytest
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
-from tests.conftest import skip_if_upstream_unavailable
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.settings import Settings
@@ -273,7 +272,6 @@ def test_collect_filters_a_zero_length_window_without_a_during_period() -> None:
     assert "DURING" not in filters[0]
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_rmi_observation_values_start_equals_end() -> None:
     """Start == end returns the stamp at that instant for every resolution instead of raising (GH-2823)."""
@@ -288,7 +286,6 @@ def test_rmi_observation_values_start_equals_end() -> None:
         assert values.get_column("timestamp").unique().to_list() == [instant]
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_rmi_observation_stations() -> None:
     """Station discovery returns one row per station with usable metadata."""
@@ -305,7 +302,6 @@ def test_rmi_observation_stations() -> None:
     assert 2 < row["longitude"] < 7
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_rmi_observation_values_hourly_utc() -> None:
     """Hourly values include both range boundaries and are UTC-aligned to the start of the hour."""
@@ -322,7 +318,6 @@ def test_rmi_observation_values_hourly_utc() -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_rmi_observation_values_daily() -> None:
     """Daily values are labelled at UTC midnight and include both range boundaries."""
@@ -339,7 +334,6 @@ def test_rmi_observation_values_daily() -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_rmi_observation_values_10_minutes() -> None:
     """10-minute values are UTC-aligned to the start of each interval."""
@@ -353,7 +347,6 @@ def test_rmi_observation_values_10_minutes() -> None:
     assert not values.drop_nulls(subset="value").is_empty()
 
 
-@skip_if_upstream_unavailable()
 @pytest.mark.remote
 def test_rmi_observation_values_empty_for_unknown_station() -> None:
     """An unknown station id yields an empty, well-formed values frame."""

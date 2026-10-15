@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the helper that skips a remote test whose upstream did not answer."""
 
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -133,3 +134,138 @@ def test_an_rmi_outage_met_by_the_station_reader_skips_the_remote_test(
     else:
         with pytest.raises(DownloadError):
             _remote_test()
+
+
+def _run_remote_tests(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+    body: str,
+) -> pytest.RunResult:
+    """Run generated tests under this suite's own conftest, as their own session in their own process."""
+    existing = os.environ.get("PYTHONPATH", "")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(filter(None, [str(pytestconfig.rootpath), existing])))
+    pytester.makeconftest("pytest_plugins = ['tests.conftest']\n")
+    pytester.makepyfile(body)
+    return pytester.runpytest_subprocess("-p", "no:randomly", "-p", "no:cacheprovider", "-rs")
+
+
+def test_a_remote_test_that_a_rerun_would_pass_is_not_skipped_on_its_first_timeout(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the suite's reruns still get their attempts before an outage skips a test (GH-2522).
+
+    `reruns` and `--only-rerun` are what pyproject.toml configures: a timeout is asked again twice,
+    and a skip would have ended the test on the first.
+    """
+    pytester.makeini("[pytest]\nreruns = 2\naddopts = --only-rerun FSTimeoutError\n")
+    result = _run_remote_tests(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import pytest
+        from aiohttp import ServerDisconnectedError
+        from fsspec.exceptions import FSTimeoutError
+        from wetterdienst.exceptions import DownloadError
+
+        attempts = {"flaky": 0, "down": 0, "dropped": 0, "downloaded": 0}
+
+        @pytest.mark.remote
+        def test_timeout_once():
+            attempts["flaky"] += 1
+            if attempts["flaky"] == 1:
+                raise FSTimeoutError
+
+        @pytest.mark.remote
+        def test_timeout_every_time():
+            attempts["down"] += 1
+            raise FSTimeoutError
+
+        @pytest.mark.remote
+        def test_dropped_connection():
+            # not among the errors that are rerun, so there is no second attempt to wait for
+            attempts["dropped"] += 1
+            raise ServerDisconnectedError
+
+        @pytest.mark.remote
+        def test_download_that_timed_out():
+            # how a failed download arrives: the timeout is only the cause, and is what is rerun
+            attempts["downloaded"] += 1
+            raise DownloadError("https://example.invalid/file", "timed out") from FSTimeoutError()
+
+        def test_zz_attempts():
+            assert attempts == {"flaky": 2, "down": 3, "dropped": 1, "downloaded": 3}
+        """,
+    )
+    result.assert_outcomes(passed=2, skipped=3)
+    # the one that passed on its second try asked once more, and the two that never did twice more
+    assert result.parseoutcomes()["rerun"] == 5
+
+
+def test_a_remote_test_is_skipped_on_an_outage_without_wearing_the_helper(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the `remote` marker alone skips a test whose upstream did not answer (GH-2522)."""
+    result = _run_remote_tests(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import pytest
+        from aiohttp import ClientResponseError
+        from unittest.mock import MagicMock
+        from fsspec.exceptions import FSTimeoutError
+
+        @pytest.mark.remote
+        def test_timeout():
+            raise FSTimeoutError
+
+        @pytest.mark.remote
+        def test_bad_gateway():
+            raise ClientResponseError(request_info=MagicMock(), history=(), status=502)
+        """,
+    )
+    result.assert_outcomes(skipped=2)
+    result.stdout.fnmatch_lines(["*upstream did not answer*"])
+    # named by the test, not by the conftest line every skip is raised from
+    result.stdout.no_fnmatch_line("SKIPPED*conftest.py*")
+
+
+def test_a_remote_test_that_met_a_real_failure_still_fails(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that an assertion, a 4xx or a missing file fails a remote test, and an unmarked test never skips."""
+    result = _run_remote_tests(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import pytest
+        from aiohttp import ClientResponseError
+        from unittest.mock import MagicMock
+        from fsspec.exceptions import FSTimeoutError
+
+        @pytest.mark.remote
+        def test_assertion():
+            assert [] == [1]
+
+        @pytest.mark.remote
+        def test_bad_request():
+            raise ClientResponseError(request_info=MagicMock(), history=(), status=400)
+
+        @pytest.mark.remote
+        def test_not_found():
+            raise FileNotFoundError("https://example.invalid/file")
+
+        def test_unmarked_timeout():
+            raise FSTimeoutError
+        """,
+    )
+    result.assert_outcomes(failed=4, skipped=0)
