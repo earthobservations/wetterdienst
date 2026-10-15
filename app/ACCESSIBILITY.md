@@ -37,9 +37,15 @@ What is left in it, and why it is not fixed in the app's own markup:
   Nuxt UI / Reka UI.
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
-- `color-contrast`, in light mode: the white label of a solid primary button (the "Show" button, the
-  Meteogram's Compact/Normal button) on the brand green is 2.2:1, and 1.9:1 hovered. The colour is the brand's, so
-  it is a design decision rather than a token fix (a darker green fill, or a dark label as in dark mode).
+
+There is no `color-contrast` entry left. The brand green, `#00c950`, stays the fill of a solid primary
+button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
+button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
+label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
+already had it (10.0:1, and 6.1:1 hovered). The scans do not hover a button, so
+`tests/unit/button-contrast.test.ts` computes the hovered ratio, as 75 % of the fill over the page. A
+disabled button is exempt from 1.4.3 and from the scans; its label is at 75 % opacity with its fill
+(4.2:1 in light mode).
 
 ## On request, not by default
 
