@@ -4,17 +4,14 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING, ClassVar
-from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion
-from dateutil.relativedelta import relativedelta
 from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
@@ -23,7 +20,7 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_meta
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.imgw.fileindex import list_files_for_interval
+from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
@@ -783,69 +780,26 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             df_files = df_files.filter(pl.col("file").str.contains(rf"_{station_code}_"))
             return df_files.get_column("url").to_list()
         if interval is not None:
+            parts = pl.col("file").str.split("_")
             if dataset.resolution.value == Resolution.MONTHLY:
-                df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").list.len() == 3)
-                    .then(
-                        pl.col("file")
-                        .str.split("_")
-                        .list.first()
-                        .map_elements(lambda y: [y, y], return_dtype=pl.Array(pl.Int64, shape=2)),
-                    )
-                    .otherwise(pl.col("file").str.split("_").list.slice(0, 2))
-                    .map_elements(
-                        lambda years: [
-                            dt.datetime(int(years[0]), 1, 1, tzinfo=ZoneInfo("UTC")),
-                            dt.datetime(int(years[1]), 1, 1, tzinfo=ZoneInfo("UTC"))
-                            + relativedelta(years=1)
-                            - relativedelta(days=1),
-                        ],
-                        return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
-                    )
-                    .alias("date_range"),
-                )
+                # "1951_m_k.zip" covers one year, "1951_1955_m_k.zip" the years from the first to the second
+                first_year = parts.list.first()
+                last_year = pl.when(parts.list.len() == 3).then(first_year).otherwise(parts.list.get(1))
+                start = pl.datetime(first_year.cast(pl.Int64, strict=False), 1, 1, time_zone="UTC")
+                end = pl.datetime(last_year.cast(pl.Int64, strict=False), 12, 31, time_zone="UTC")
             else:
-                df_files = df_files.with_columns(
-                    pl.when(pl.col("file").str.split("_").list.len() == 2)
-                    .then(
-                        pl.col("file")
-                        .str.split("_")
-                        .list.first()
-                        .str.to_datetime("%Y", time_zone="UTC", strict=False)
-                        .map_elements(
-                            lambda d: [d, d + relativedelta(years=1) - relativedelta(days=1)],
-                            return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
-                        ),
-                    )
-                    .otherwise(
-                        pl.col("file")
-                        .str.split("_")
-                        .list.slice(0, 2)
-                        .list.join("_")
-                        .str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
-                        .map_elements(
-                            lambda d: [d, d + relativedelta(months=1) - relativedelta(days=1)],
-                            return_dtype=pl.Array(pl.Datetime(time_zone="UTC"), shape=2),
-                        ),
-                    )
-                    .alias("date_range"),
+                # "1951_k.zip" covers one year, "2024_01_k.zip" one month
+                year = parts.list.first().str.to_datetime("%Y", time_zone="UTC", strict=False)
+                month = parts.list.slice(0, 2).list.join("_").str.to_datetime("%Y_%m", time_zone="UTC", strict=False)
+                one_year = parts.list.len() == 2
+                start = pl.when(one_year).then(year).otherwise(month)
+                end = (
+                    pl.when(one_year)
+                    .then(year.dt.offset_by("1y"))
+                    .otherwise(month.dt.offset_by("1mo"))
+                    .dt.offset_by("-1d")
                 )
-            df_files = df_files.select(
-                pl.col("url"),
-                pl.col("date_range").arr.first().cast(pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
-                pl.col("date_range").arr.last().cast(pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
-            )
-            df_files = df_files.with_columns(
-                pl.struct(["start_timestamp", "end_timestamp"])
-                .map_elements(
-                    lambda dates: portion.closed(dates["start_timestamp"], dates["end_timestamp"]),
-                    return_dtype=pl.Object,
-                )
-                .alias("interval"),
-            )
-            df_files = df_files.filter(
-                pl.col("interval").map_elements(lambda i: i.overlaps(interval), return_dtype=pl.Boolean),
-            )
+            df_files = keep_files_overlapping(df_files, start, end, interval)
         return df_files.get_column("url").to_list()
 
 
@@ -905,8 +859,8 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             # the list pads some names with a trailing blank (`RADZIECHOWY `),
             # which an exact comparison of the name then misses
             pl.col("name").str.strip_chars(),
-            pl.col("latitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
-            pl.col("longitude").map_batches(convert_dms_string_to_dd, return_dtype=pl.Float64),
+            convert_dms_string_to_dd(pl.col("latitude")),
+            convert_dms_string_to_dd(pl.col("longitude")),
             pl.col("elevation").str.replace(" ", "").cast(pl.Float64, strict=False),
         )
         # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
