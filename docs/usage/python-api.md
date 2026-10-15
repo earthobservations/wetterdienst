@@ -446,9 +446,9 @@ instead of ``String`` to reduce the memory footprint (these columns repeat on ev
 ``Enum`` stores them as small integer codes). ``Enum`` behaves like ``String`` for most grouping,
 sorting and ``==`` comparisons, but it has a few sharp edges: it does not support the ``.str``
 namespace, it compares unequal to a ``String`` column (so joins need matching dtypes), and
-``is_in([...])`` **raises** if any of the given values is not one of the column's categories
+``is_in([...])`` **raises** on polars 1.x if any of the given values is not one of the column's categories
 (e.g. filtering for a parameter that is absent from the result) instead of returning an empty
-selection. If you need plain ``String`` columns again — e.g. for ``.str`` operations,
+selection; polars 2 answers with the rows of the categories it has. If you need plain ``String`` columns again — e.g. for ``.str`` operations,
 ``is_in`` with possibly-absent values, strict dtype checks or when concatenating with a
 ``String`` DataFrame — cast them back:
 
@@ -471,10 +471,11 @@ import polars as pl
 merged = df.with_columns(pl.col("station_id").cast(pl.String)).join(stations, on="station_id")
 ```
 
-It also affects filtering by name with ``is_in``. There is no "soft"/non-raising flag on
+It also affects filtering by name with ``is_in``. On polars 1.x there is no "soft"/non-raising flag on
 ``is_in`` — if any queried value is not a category of the ``Enum`` column it raises instead of
-returning an empty selection. Cast the column to ``String`` for the comparison (an ``==`` check
-against a single value, on the other hand, does handle absent values gracefully):
+returning an empty selection. Cast the column to ``String`` for the comparison, which behaves the same on
+every polars version (an ``==`` check against a single value, on the other hand, does handle absent values
+gracefully):
 
 ```python
 import polars as pl
@@ -697,7 +698,7 @@ print(values.to_csv())
 
 ### SQL
 
-Querying data using SQL is provided by an in-memory DuckDB_ database.
+Querying data using SQL is provided by an in-memory [DuckDB](https://duckdb.org/) database.
 In order to explore what is possible, please have a look at the
 [DuckDB SQL introduction](https://duckdb.org/docs/sql/introduction).
 

@@ -28,10 +28,13 @@ as UTC. A `timestamp` outside the rolling window raises an error. Omit `timestam
 (latest) snapshot.
 
 ```python
+import datetime as dt
+
 from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
 
 # warnings that were active ~6 hours ago
-request = DwdWeatherAlertRequest(granularity="district", timestamp="2026-07-26T10:00:00")
+six_hours_ago = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=6)
+request = DwdWeatherAlertRequest(granularity="district", timestamp=six_hours_ago)
 result = request.query()
 print(result.snapshot)  # UTC production time of the selected snapshot
 ```
@@ -73,8 +76,8 @@ wetterdienst alerts
 # district basis, German, as GeoJSON
 wetterdienst alerts --granularity=district --language=de --format=geojson
 
-# warnings active at a past point in time (within the rolling ~48h window)
-wetterdienst alerts --granularity=district --timestamp=2026-07-26T10:00:00
+# warnings active 6 hours ago (UTC, within the rolling ~48h window; GNU date)
+wetterdienst alerts --granularity=district --timestamp="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%S)"
 
 # write current warnings to a GeoJSON file
 wetterdienst alerts --format=geojson --target=file://alerts.geojson

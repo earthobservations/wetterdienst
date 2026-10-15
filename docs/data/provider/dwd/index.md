@@ -15,7 +15,7 @@ The data as offered by the DWD through ``wetterdienst`` includes:
 - [DMO](dmo/index.md) — raw point forecasts extracted from weather models (no statistical postprocessing)
     - ICON (global) and ICON-EU (regional) models
     - hourly resolution (78 h lead time) and, for ICON, a second run 3-hourly from 78 to 168 h
-    - ICON: 5757 stations worldwide, 23 parameters; ICON-EU: 3688 stations, 19 parameters
+    - ICON: 5894 stations worldwide, 23 parameters; ICON-EU: 3688 stations, 19 parameters
 - [Road](road/index.md) — weather observations from German motorway ("road") stations
     - 15-minute resolution, distributed in BUFR format
 - [POI](poi/index.md) — current weather reports, the observed counterpart to MOSMIX
@@ -44,7 +44,7 @@ For a quick overview of the work of the DWD check the current
 The German Weather Service specified their data as being open though they ask you to
 reference them as copyright owner. Take a look at the 
 [Open Data Strategy at the DWD](https://www.dwd.de/EN/ourservices/opendata/opendata.html)
-and the [Official Copyright](https://www.dwd.de/EN/service/copyright/copyright_artikel.html?nn=495490&lsbId=627548) 
+and the [Official Copyright](https://www.dwd.de/EN/service/legal_notice/legal_notice.html) 
 statements before using the data.
 
 ```{toctree}

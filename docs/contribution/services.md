@@ -66,7 +66,7 @@ The attributes `periods` and `date_required` are actually required for each data
 datasets of a resolution they can be defined on the resolution level instead saving you some lines of code.
 The `grouped` attribute is used to define if data is provided eather as one for the whole dataset or for each
 parameter separately. If `grouped` is `True` the data is provided as one for the whole dataset, if `False` the data
-is provided for each parameter separately. If `grouped` is `True` the `collect_station_parameter_or_dataset` method
+is provided for each parameter separately. If `grouped` is `True` the `_collect_station_parameter_or_dataset` method
 expects `parameter_or_dataset` to be of `DatasetModel` type, if `False` it expects `ParameterModel` type.
 
 A parameter declares only what the service itself knows: the canonical `name`, the service's own
@@ -151,35 +151,16 @@ DwdObservationRequest(
 ## Step 2: Request class
 
 The request class represents a request and carries all the required attributes as well as the values class that is
-responsible for acquiring the data later on. The implementation is based on `TimeseriesRequest` from `wetterdienst.core`.
+responsible for acquiring the data later on. The implementation is based on `TimeseriesRequest` from `wetterdienst.model.request`.
 
 Attributes:
 
 ```python
-@property
-@abstractmethod
-def provider(self) -> Provider:
-    """Optional enumeration for multiple resolutions"""
-    pass
-
-@property
-@abstractmethod
-def kind(self) -> Kind:
-    """Optional enumeration for multiple resolutions"""
-    pass
-
-@property
-@abstractmethod
-def _values(self):
-    """Class to get the values for a request"""
-    pass
-
-
-@property
-@abstractmethod
-def metadata(self):
-    """Metadata for the request"""
-    pass
+@dataclass
+class DwdObservationRequest(TimeseriesRequest):
+    metadata = DwdObservationMetadata  # the metadata model of Step 1
+    _values = DwdObservationValues  # the values class of Step 3, the class itself
+    _history = DwdObservationHistory  # optional: the class that reads the station history
 ```
 
 `TimeseriesRequest` has one abstract method that has to be implemented: the `_all` which manages to get a listing of
@@ -197,8 +178,8 @@ stations for the requested datasets/parameters. The listing includes:
 ## Step 3: Values class
 
 The values class is based on `TimeseriesValues` and manages the acquisition of actual data. The
-class is also part of the `TimeseriesRequest` being accessed via the `_values` property. It has to implement the
-`_collect_station_parameter` method that takes care of getting values of a parameter/dataset for a station id.
+request class refers to it in its `_values` attribute. It has to implement the
+`_collect_station_parameter_or_dataset` method that takes care of getting values of a parameter/dataset for a station id.
 
 The frame it returns has the columns `resolution`, `dataset`, `parameter`, `station_id`, `timestamp` and
 `value`. A source that publishes a quality flag for a reading adds the string column `quality_flags`,

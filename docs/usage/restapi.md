@@ -6,7 +6,7 @@ Wetterdienst has an integrated REST API which can be started by invoking:
 wetterdienst restapi
 ```
 
-There's also a hosted version at [wetterdienst.eobs.org](https://www.wetterdienst.eobs.org).
+There's also a hosted version at [wetterdienst.eobs.org](https://wetterdienst.eobs.org).
 
 ## Web App
 
@@ -29,7 +29,7 @@ The REST API is complemented by a modern web app built with Nuxt.js, providing a
 
 ### Access
 
-Visit [wetterdienst.eobs.org](https://www.wetterdienst.eobs.org) to use the web interface.
+Visit [wetterdienst.eobs.org](https://wetterdienst.eobs.org) to use the web interface.
 
 By default the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints return only
 the requested data. Add `with_metadata=true` to include the provider-metadata block, and (for the
@@ -118,7 +118,7 @@ http localhost:7890/api/stations provider==dwd network==observation parameters==
 http localhost:7890/api/stations provider==dwd network==observation parameters==daily/kl periods==recent sql=="lower(name) LIKE lower('%dresden%');"
 
 # Acquire list of DWD DMO stations.
-http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m periods==recent all==true
+http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m all==true
 ```
 
 ### Issues (available model-run datetimes)
@@ -146,19 +146,19 @@ September. A date carrying a time, `2020-08-01T12`, names that one instant.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411
 
 # Observations for specific date.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 timestamp==2020-08-01
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl station==1048,4411 timestamp==2020-08-01
 
 # Observations for a whole month, since a date covers everything it names.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 timestamp==2020-08
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl station==1048,4411 timestamp==2020-08
 
 # Observations for date range.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 timestamp==2020-08-01/2020-08-05
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl station==1048,4411 timestamp==2020-08-01/2020-08-05
 
 # Observations with SQL, on a server running with WD_RESTAPI_SQL=true.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
 
-# Acquire ICON data.
-http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m station==01001 timestamp==2024-05-27
+# Acquire ICON data (the latest forecast run; a past timestamp has none).
+http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m station==01001
 ```
 
 ### SQL filters

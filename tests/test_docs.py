@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the documentation."""
 
-import doctest
 import re
+import tomllib
 from collections.abc import Iterable, Iterator
 from itertools import takewhile
 from pathlib import Path
@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).parent.parent
 PROVIDER = Path(ROOT / "src" / "wetterdienst" / "provider")
 COVERAGE = Path(ROOT / "docs" / "data" / "provider")
+README = ROOT / "README.md"
+DOCS = ROOT / "docs"
 
 EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 
@@ -39,14 +41,18 @@ EXCLUDE_PROVIDER_NETWORKS = {
 
 @pytest.mark.remote
 def test_readme() -> None:
-    """Test to make sure that the wetterdienst example code in the README works."""
-    readme_file = Path(__file__).parent.parent / "README.md"
-    failures, _ = doctest.testfile(
-        filename=str(readme_file),
-        module_relative=False,
-        optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS,
-    )
-    assert failures == 0
+    """Test to make sure that the wetterdienst example code in the README works.
+
+    The README has no ``>>>`` prompts, so ``doctest.testfile`` found nothing to run in it and passed whatever
+    the example did; the fenced Python blocks are run instead.
+    """
+    blocks = re.findall(r"^```python\n(.*?)^```", README.read_text(encoding="utf8"), flags=re.DOTALL | re.MULTILINE)
+    assert blocks, "the README holds no Python example"
+    namespace: dict = {}
+    for block in blocks:
+        exec(compile(block, str(README), "exec"), namespace)  # noqa: S102
+    # the table the example prints, the flood of August 2002 at Zinnwald-Georgenfeld
+    assert namespace["values"]["value"].to_list() == [67.9, 312.0, 26.3]
 
 
 def test_data_coverage() -> None:
@@ -1431,3 +1437,112 @@ def test_time_reference_links_match_the_issues_it_lists() -> None:
     assert listed == linked, (
         f"listed but not linked: {sorted(listed - linked)}; linked but not listed: {sorted(linked - listed)}"
     )
+
+
+def _prose_files() -> list[Path]:
+    """Give the hand-written pages of the documentation and the README.
+
+    Not the changelog, which records variables and options that no longer exist, nor ``apidocs`` and
+    ``_build``, which Sphinx writes.
+    """
+    return [
+        README,
+        *(
+            path
+            for path in sorted(DOCS.rglob("*.md"))
+            if path != DOCS / "changelog.md" and not {"_build", "apidocs"} & set(path.relative_to(DOCS).parts)
+        ),
+    ]
+
+
+def _environment_variables() -> set[str]:
+    """Give every environment variable that `Settings` and `Options` read."""
+    from wetterdienst.options import Options  # noqa: PLC0415
+    from wetterdienst.settings import Auth, Settings  # noqa: PLC0415
+
+    variables = {f"WD_{name}".upper() for name in Settings.model_fields if name != "auth"}
+    variables |= {f"WD_AUTH__{name}".upper() for name in Auth.model_fields}
+    variables |= {f"WD_TS_{name}".upper() for name in Options.model_fields}
+    return variables
+
+
+# written on purpose by a page that shows a variable `Settings` ignores
+_MISSPELT_ON_PURPOSE = {"WD_CACHE_DIABLE"}
+
+
+def test_docs_name_only_environment_variables_that_exist() -> None:
+    """Test that every ``WD_*`` variable the documentation names is one that `Settings` or `Options` reads.
+
+    A variable that does not exist is not refused when set -- the environment is open -- so a page naming
+    one reads as a working switch and does nothing. A bare prefix (``WD_TS_``, ``WD_AUTH__``) names a
+    family, and ``WD_TS_UNIT_TARGETS__TEMPERATURE`` a key within a variable that exists.
+    """
+    variables = _environment_variables()
+    errors = []
+    for path in _prose_files():
+        for token in set(re.findall(r"WD_[A-Z0-9_]+", path.read_text(encoding="utf8"))):
+            name = token if token.startswith("WD_AUTH__") else token.split("__")[0]
+            if token.endswith("_") or name in variables or token in _MISSPELT_ON_PURPOSE:
+                continue
+            errors.append(f"{path.relative_to(ROOT)}: {token} is not a setting or an option")
+    assert not errors, "\n".join(errors)
+
+
+def _table_names(text: str, heading: str) -> set[str]:
+    """Give the first column of the first table after ``heading`` in a page."""
+    _, _, rest = text.partition(heading)
+    names = set()
+    for line in rest.splitlines():
+        if line.startswith("|"):
+            cell = line.strip().strip("|").split("|")[0].strip()
+            if cell and cell != "name" and not set(cell) <= {"-", ":"}:
+                names.add(cell)
+        elif names:
+            break
+    return names
+
+
+def test_docs_settings_tables_list_every_setting_and_option() -> None:
+    """Test that the tables of `settings.md` hold exactly the fields of `Settings` and `Options`."""
+    from wetterdienst.options import Options  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    text = (DOCS / "usage" / "settings.md").read_text(encoding="utf8")
+    assert _table_names(text, "The following settings are available:") == set(Settings.model_fields)
+    assert _table_names(text, "The following options are available:") == set(Options.model_fields)
+
+
+def test_readme_counts_the_providers() -> None:
+    """Test that the number of national services the README opens with is the number of providers."""
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    match = re.search(r"from (\d+) national services", README.read_text(encoding="utf8"))
+    assert match, "the README no longer states how many services it covers"
+    assert int(match.group(1)) == len(Wetterdienst.discover())
+
+
+def test_docs_name_only_extras_that_exist() -> None:
+    """Test that the extras the documentation names are the ones `pyproject.toml` declares and the image installs."""
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf8"))
+    extras = set(pyproject["project"]["optional-dependencies"])
+
+    readme = README.read_text(encoding="utf8")
+    match = re.search(r"^Extras: (.*?)\.\n", readme, flags=re.DOTALL | re.MULTILINE)
+    assert match, "the README no longer lists the extras"
+    assert set(re.findall(r"`(\w+)`", match.group(1))) == extras
+
+    errors = []
+    for path in _prose_files():
+        for listed in re.findall(r"wetterdienst\[([^\]]+)\]", path.read_text(encoding="utf8")):
+            errors.extend(
+                f"{path.relative_to(ROOT)}: wetterdienst[{name}] is not an extra"
+                for name in listed.split(",")
+                if name.strip() not in extras
+            )
+    assert not errors, "\n".join(errors)
+
+    dockerfile = (ROOT / "docker" / "Dockerfile").read_text(encoding="utf8")
+    installed = {name for line in dockerfile.splitlines() for name in re.findall(r"--extra (\w+)", line)}
+    docker_page = (DOCS / "usage" / "docker.md").read_text(encoding="utf8")
+    listed = set(re.findall(r"^- (\w+)$", docker_page.split("## Acquire image")[0], flags=re.MULTILINE))
+    assert listed == installed

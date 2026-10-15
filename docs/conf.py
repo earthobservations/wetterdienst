@@ -86,3 +86,21 @@ html_theme_options = {
     "max_navbar_depth": 5
 }
 html_title = "Wetterdienst Documentation"
+
+# -- Link check ---------------------------------------------------------------
+# `uv run poe "docs:linkcheck"`. The changelog holds thousands of GitHub compare and issue links, which
+# GitHub rate-limits, and it is a record of the past rather than a page to keep alive.
+linkcheck_exclude_documents = ["changelog"]
+linkcheck_timeout = 60
+linkcheck_retries = 2
+# Reachable in a browser, refused to the checker: each is named so that nothing else is waved through.
+linkcheck_ignore = [
+    # answers 403 to a request that is not a browser ("Please respect our robot policy")
+    r"https://en\.wikipedia\.org/.*",
+    # 400 to a request without the session its form belongs to; howto.html of the site links this very URL
+    r"https://frost\.met\.no/auth/requestCredentials\.html",
+    # the host's certificate does not verify (self-signed) for the checker; the pages load in a browser
+    r"https://data\.hub\.zamg\.ac\.at/.*",
+    # the host no longer resolves; the page it held (the Environment Agency's terms) has no known new address
+    r"https://support\.environment\.data\.gov\.uk/.*",
+]

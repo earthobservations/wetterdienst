@@ -43,18 +43,10 @@ uv sync --all-extras --all-groups
 
 ## Run tests
 
-For running the whole test suite, you will need to have Firefox and
-geckodriver installed on your machine:
+To run the whole test suite, which includes the tests that need the internet:
 
 ```bash
 uv run poe test
-```
-
-If this does not work for some reason and you would like to skip the explorer
-UI tests on your machine, please invoke the test suite with:
-
-```bash
-uv run poe test -m "not explorer"
 ```
 
 In order to run only specific tests, invoke:
@@ -82,15 +74,9 @@ runs serially, two of those tests being marked `cflake`.
 
 ## Build OCI images
 
-Before building OCI images, you will need a recent wheel package. In order to
-build one from the current working tree, run:
-
-```bash
-uv build
-```
-
-To build the OCI images suitable to run on Docker, Podman, Kubernetes, and friends,
-invoke:
+The image is built from the sources in the working tree (`docker/Dockerfile` installs them with
+`uv sync` against `uv.lock`), so no wheel is needed first. To build an OCI image suitable to run on
+Docker, Podman, Kubernetes, and friends, invoke:
 
 ```bash
 export DOCKER_BUILDKIT=1
@@ -99,7 +85,7 @@ export BUILDKIT_PROGRESS=plain
 
 docker build \
   --tag=local/wetterdienst \
-  --file=.github/release/Dockerfile \
+  --file=docker/Dockerfile \
   .
 ```
 
@@ -109,20 +95,12 @@ In order to build images for other platforms than ``linux/amd64``, use the
 ```bash
 docker build \
   --tag=local/wetterdienst \
-  --file=.github/release/Dockerfile \
+  --file=docker/Dockerfile \
   --platform=linux/arm64 \
   .
 ```
 
-For ARM 32-bit:
-
-```bash
-docker build \
-  --tag=local/wetterdienst \
-  --file=.github/release/Dockerfile \
-  --platform=linux/arm/v7 \
-  .
-```
+The published image is built for `linux/amd64` and `linux/arm64` only.
 
 ## Contributing
 

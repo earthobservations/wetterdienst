@@ -6,7 +6,7 @@ visualization popularized by Ed Hawkins that encodes the long-term trend of a cl
 variable as a sequence of coloured bars — one bar per year, coloured from blue (cooler) to red
 (warmer) for temperature, and from brown (drier) to teal (wetter) for precipitation.
 
-Wetterdienst can generate climate stripes from **DWD** daily observations for two kinds:
+Wetterdienst can generate climate stripes from **DWD** annual observations for two kinds:
 
 - `temperature` — based on the annual mean air temperature
 - `precipitation` — based on the annual precipitation sum
@@ -20,7 +20,7 @@ server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it, which a stripes 
 parameter for: the target of the quantity where the values are converted, the source's unit where not.
 
 The feature is exposed via the [command line interface](#command-line-interface) and the
-[REST API](#rest-api). The hosted [web app](https://www.wetterdienst.eobs.org) also
+[REST API](#rest-api). The hosted [web app](https://wetterdienst.eobs.org) also
 offers an interactive Climate Stripes view.
 
 ## Command Line Interface
