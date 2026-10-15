@@ -176,8 +176,8 @@ def test_iter_station_value_pages_raises_on_download_error(monkeypatch: pytest.M
         _iter_pages(object.__new__(dmi_api.DmiObservationValues))
 
 
-def test_iter_station_value_pages_raises_no_internet_for_the_caller(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A NoInternetError is raised as it is, for the caller to end the whole read quietly."""
+def test_iter_station_value_pages_raises_no_internet(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A NoInternetError is raised as it is."""
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
 
     def fake_download_file(*, url: str, **_: object) -> File:
@@ -455,11 +455,14 @@ def test_fetch_station_value_pages_drops_the_pages_of_a_halved_window(monkeypatc
     assert df.unique().height == 24 * 30
 
 
-def test_collect_ends_quietly_at_the_window_without_a_connection(
+def test_collect_raises_at_the_window_without_a_connection(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Without a connection the read keeps the windows got so far, asks for no later one, and logs no warning."""
+    """Without a connection the read raises, asks for no later window, and logs no warning (GH-2640).
+
+    The windows got so far are not returned: a series cut short is not the series that was asked for.
+    """
     first = dt.datetime(2023, 1, 1, tzinfo=UTC)
     server = _FakeStationValueServer(first, hours=24 * 35, max_offset=200)
     requests: list[str] = []
@@ -471,10 +474,9 @@ def test_collect_ends_quietly_at_the_window_without_a_connection(
         return server(url=url, **kwargs)
 
     monkeypatch.setattr(dmi_api, "_WINDOW_SPAN", {Resolution.HOURLY: dt.timedelta(days=10)})
-    with caplog.at_level(logging.WARNING):
-        df = _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=35), download_file)
+    with caplog.at_level(logging.WARNING), pytest.raises(NoInternetError):
+        _collect_hourly(monkeypatch, server, first, first + dt.timedelta(days=35), download_file)
     assert len(requests) == 4
-    assert df.height == 24 * 10 + 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 

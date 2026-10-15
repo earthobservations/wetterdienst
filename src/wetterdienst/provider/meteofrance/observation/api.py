@@ -913,8 +913,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         for resource in matches:
             file = files_by_url[resource["url"]]
             if isinstance(file.content, Exception):
-                if not file.is_no_internet_error:
-                    log.warning(f"Failed to download {file.url}: {file.content}")
+                log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             with gzip.GzipFile(fileobj=file.content) as gz:
                 df = pl.read_csv(cast("IO[bytes]", gz), separator=";", schema=schema, columns=read_columns)

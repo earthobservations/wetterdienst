@@ -195,21 +195,16 @@ def test_iter_value_pages_raises_on_download_error(monkeypatch: pytest.MonkeyPat
         _iter_pages(object.__new__(rmi_api.RmiObservationValues))
 
 
-def test_iter_value_pages_no_internet_is_silent(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A NoInternetError ends pagination silently -- no warning (already logged at debug upstream)."""
+def test_iter_value_pages_no_internet_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A NoInternetError ends pagination by raising, not by answering with the pages read (GH-2640)."""
     monkeypatch.setattr(rmi_api, "_PAGE_LIMIT", 2)
 
     def fake_download_file(*, url: str, **_: object) -> File:
         return File(url=url, content=NoInternetError("offline"), status=503)
 
     monkeypatch.setattr(rmi_api, "download_file", fake_download_file)
-    with caplog.at_level(logging.WARNING, logger=rmi_api.log.name):
-        dfs = _iter_pages(object.__new__(rmi_api.RmiObservationValues))
-    assert dfs == []
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    with pytest.raises(NoInternetError):
+        _iter_pages(object.__new__(rmi_api.RmiObservationValues))
 
 
 def test_collect_reshapes_wide_features_to_long_utc_values() -> None:

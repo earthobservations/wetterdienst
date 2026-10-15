@@ -58,6 +58,52 @@ Types of changes:
 - The parameter columns of a wide values frame are in the order the request names its parameters,
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
+- `eccc/observation` lists a station for `hourly` (`daily`) only if the station list gives it a
+  `HLY_FIRST_DATE` (`DLY_FIRST_DATE`): 1685 of 8435 stations for hourly, 8340 for daily, no longer
+  all of them, as the others have no row there. `stations`, `filter_by_rank` and
+  `filter_by_distance` hold only listed stations, and `interpolate_by_station_id` and
+  `summarize_by_station_id` raise `StationNotFoundError` for an unlisted one: pass its coordinates
+  instead. The hourly rows of 27490 (2008, after its `LAST_DATE`) are no longer returned, not even
+  for a request with dates (GH-2867)
+- **Breaking**: a request made without a network connection raises `NoInternetError`, naming the URL
+  with the connection error as its `__cause__`, for every provider, for station catalogues and
+  file listings as for values. It was an empty frame, or for `dwd/observation` a bare
+  `FileNotFoundError: ... does not have a list of files`, which a scheduled job could not tell
+  from a source with no data; `knmi`, `aemet`, `lhmt` and `dmi` returned the values read before the
+  connection dropped, and now raise. A source that answers badly is still a `DownloadError`. Catch
+  `NoInternetError` where an empty result is wanted offline. The REST API answers 503 (retryable),
+  the command line exits 1 with one line (GH-2640)
+- **Breaking**: a parameter the provider does not have, or one not shaped like a parameter, raises
+  `InvalidParameterError` (a `RequestError`, a 400 over REST) naming each with its close match; it
+  was logged and skipped, so the result held fewer parameters than asked for without saying so.
+  Fix the name, or pass `on_unknown="warn"` to the request for the old behaviour. A request where
+  none resolves raises it as well, no longer `NoParametersFoundError`; catch `RequestError` for
+  both (GH-2636)
+- **Breaking**: bad inputs are refused where they were answered with less or with an unrelated
+  error. `discover()` raises `MetadataNotFoundError` for a resolution or dataset the network does
+  not have (a 404 on `/api/coverage`, a usage error on `about coverage`), not `{}`;
+  `Wetterdienst.get_network_names("foo")` raises `ApiNotFoundError`, not `KeyError`; a date that is
+  neither a `str` nor a `datetime` (`start=2020`) raises `TypeError`, not `AttributeError`. Catch
+  `NotFoundError` or `LookupError` instead of `KeyError`. Also, an `InvalidEnumerationError` lists
+  the valid values, `(Resolution.DAILY, "kl")` works as `("daily", "kl")`, and `end` without `start`
+  stays one instant, as `start` alone is, now documented (GH-2636)
+
+### Removed
+
+- **Breaking**: `dwd/mosmix` `large` no longer declares `h_bsc`, `rr1`, `rr3`, `rr6`, `rrh`, `rrd`,
+  `rads3` and `radl3`, which MOSMIX-L never delivers (none of the 114 elements of its 5648
+  stations); a request that named one got an empty frame and is now logged and dropped, or raises
+  `NoParametersFoundError` when no other parameter is requested. Drop them from the request;
+  MOSMIX-L's precipitation totals are `rr1c`, `rr3c`, `rr6c`, `rrhc` and `rrdc`. The description of
+  `sund3` says it is not a sliding 3 hour total (GH-2851)
+
+### Fixed
+
+- `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is null in a file that holds
+  one value in each of at least 500 readings, which is the pressure of a station without a
+  barometer and no reading (761 of the 1314 files hold one value, e.g. 997.3 for station 14072);
+  the value stays as the last `quality_flags` token, `raw:997.3`. A constant that changed once in
+  a file is not caught. Take the pressure of another source for such a station (GH-2699)
 
 ### Fixed
 

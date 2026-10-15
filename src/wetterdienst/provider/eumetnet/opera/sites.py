@@ -123,7 +123,7 @@ class OperaRadarSitesGenerator:
         )
         payload.raise_if_exception()
         if isinstance(payload.content, Exception):
-            # `raise_if_exception` lets a NoInternetError through silently, for the empty list
+            # narrows the type; `raise_if_exception` has raised for any failed download
             return []
         data = json.loads(payload.content.read())
 

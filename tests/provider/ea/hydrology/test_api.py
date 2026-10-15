@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from tests.provider.station_catalogue_stubs import EA_HYDROLOGY_LISTING
-from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.ea.hydrology.api import (
@@ -153,7 +153,7 @@ def test_ea_stations_are_listed_for_the_kind_of_level_they_measure(
 @pytest.mark.parametrize("parameter", ["groundwater_level_max", "groundwater_level_min"])
 def test_ea_daily_groundwater_level_is_not_offered(parameter: str, default_settings: Settings) -> None:
     """Test that the daily groundwater level is gone: the `level-*-86400` measures are all rivers' (GH-2632)."""
-    with pytest.raises(NoParametersFoundError):
+    with pytest.raises(InvalidParameterError):
         EAHydrologyRequest(parameters=[("daily", "data", parameter)], settings=default_settings)
 
 

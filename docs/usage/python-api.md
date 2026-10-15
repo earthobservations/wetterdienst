@@ -138,6 +138,43 @@ DwdObservationRequest(
 )
 ```
 
+- using the resolution as its ``Resolution`` member in a tuple: the member is read as its value, so
+  ``(Resolution.DAILY, "kl")`` is ``("daily", "kl")`` and ``Resolution.MINUTE_10`` is ``"10_minutes"``
+
+```python
+from wetterdienst import Resolution
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+DwdObservationRequest(parameters=(Resolution.DAILY, "kl"))
+```
+
+A parameter the provider does not have, or one that is not shaped like a parameter, is an error:
+``InvalidParameterError`` names every such entry, with the close match where there is one and the
+names that would have matched, and no request is made. A call used to log a warning and go on with
+the parameters that did resolve, which left no trace in the result of what was dropped. To get that
+back, pass ``on_unknown="warn"``: the unknown ones are logged, and the request is made with the
+rest. If nothing resolves, that is ``NoParametersFoundError``; without ``on_unknown`` the same request
+is the ``InvalidParameterError``. Catch ``RequestError`` to cover both.
+
+```python
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+
+# raises InvalidParameterError: daily/klx not found in DwdObservationMetadata: 'klx'. Did you mean 'kl'? ...
+DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m", "daily/klx"])
+
+# warns about daily/klx and requests temperature_air_mean_2m
+DwdObservationRequest(
+    parameters=["daily/kl/temperature_air_mean_2m", "daily/klx"],
+    on_unknown="warn",
+)
+```
+
+``start`` and ``end`` are an ISO 8601 string or a ``datetime``; anything else, a year as an integer
+such as ``start=2020`` among it, is a ``TypeError``. A bound given alone is the whole window: ``end``
+without ``start`` is the same single instant as ``start`` without ``end``, so ``end="2020-01-05"`` asks
+for that day, not for everything up to it. Pass both for a range. The command line reads ``--end``
+alone the same way.
+
 Every request takes ``periods``, the release the data is read from. Valid periods are
 ``historical``, ``recent``, ``now`` and ``future``, and which of them a dataset is published under
 is part of its metadata. A dataset published under a single period has nothing to choose between,
@@ -163,6 +200,9 @@ Period.HISTORICAL
 "historical" or "HISTORICAL"
 ```
 
+An unknown one is an ``InvalidEnumerationError`` that lists the valid values: ``foo could not be
+parsed from Period. Valid values: historical, recent, now, future``.
+
 The periods argument typically can be used as replacement for the start and end
 arguments. In case both arguments are given they are used as a filter for the data. Left out, the
 periods are derived from ``start``/``end`` where the provider publishes on a release
@@ -175,7 +215,11 @@ Regarding the definition of requested parameters:
 
 In case of the DWD, requests can be defined by either of period or
 ``start`` and ``end``. Use ``DwdObservationRequest.discover()``
-to discover available parameters based on the given filter arguments.
+to discover available parameters based on the given filter arguments. Names match in any case. A resolution or dataset the
+network does not have is a ``MetadataNotFoundError`` listing the ones it has, not an empty answer;
+a dataset is looked for in the resolutions asked for, so ``resolutions="daily", datasets="dew_point"``
+refuses a dataset that exists only at ``hourly``. ``Wetterdienst.get_network_names("foo")`` raises the
+``ApiNotFoundError`` that ``Wetterdienst("foo", "bar")`` raises for a provider that does not exist.
 
 ### Stations
 
@@ -891,8 +935,8 @@ below it say what kind of failure it is:
 
 | Class | Raised when | Also a |
 | --- | --- | --- |
-| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter, period, date, window or point | `ValueError` |
-| `NotFoundError` | what the request names does not exist: a provider, network, station or forecast run | `LookupError` |
+| `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point | `ValueError` |
+| `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError` | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
@@ -916,8 +960,30 @@ a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an
 `IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
 `ConfigurationError` and an `ImportError`. The REST API, the MCP tools and the command line decide by
 the class what to answer: a `RequestError` is a 400 or a usage error (exit 2), a `NotFoundError` a 404,
-a `ConfigurationError` a 501, and anything else, an unclassified `WetterdienstError` included, the
-server's error. See [REST API](restapi.md#errors) for the body.
+a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
+`WetterdienstError` included, the server's error. See [REST API](restapi.md#errors) for the body.
+
+### Offline
+
+A request made without a network connection raises `NoInternetError`: every provider, for its station
+catalogue as for its values, and for a file listing as for a download. The message names the URL (without
+its query or credentials) and the connection error is on `__cause__`. It is not an empty frame, which a
+scheduled job could not tell from a source that has no data. It is told apart from a source that answered
+badly, a 4xx or 5xx, a timeout or a body cut short, which is a `DownloadError`, and from a directory that
+is not there, which lists as empty.
+
+Catch it where an empty result is what the caller wants when offline:
+
+```python
+import polars as pl
+
+from wetterdienst.exceptions import NoInternetError
+
+try:
+    df = request.all().df
+except NoInternetError:
+    df = pl.DataFrame()
+```
 
 ## Caching
 
