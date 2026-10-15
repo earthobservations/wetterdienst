@@ -385,11 +385,12 @@ CHMI_NAME = Accepted(
     where=lambda row: row["station_id"] == "0-203-0-41302035001",
 )
 
-# the stations of the Environment Agency's hydrology listing (`?_limit=20000`, 9537 stations on 2026-10-15) that are not
-# of the common shape, as published (GH-2933). "Beach's Mill" has two spellings of its name, so `label` is an array
-# there, and "Udford" has closed twice, so `dateClosed` is; of the 9537 stations 1 has each, and 821 have a
-# `colocatedStation` array, which the reader does not read. "Banks Road" has no position and no `easting` or
-# `northing`, "Burton Coggles" has a measure with no `period`, and "Beer Football Ground" is a borehole
+# the stations of the Environment Agency's hydrology listing (`?_limit=20000`, 9537 stations on 2026-10-15) that are
+# not of the common shape, trimmed to the fields the reader reads and `colocatedStation` (GH-2933). "Beach's Mill"
+# has two spellings of its name, so `label` is an array there, and "Udford" has closed twice, so `dateClosed` is;
+# of the 9537 stations 1 has each, and 821 have a `colocatedStation` array, which the reader does not read. "Banks
+# Road" has no position and no `easting` or `northing`, "Burton Coggles" has a measure with no `period`, and "Beer
+# Football Ground" is a borehole
 EA_HYDROLOGY_LISTING = [
     {
         "label": ["Beach's Mill", "Beach'S Mill"],

@@ -368,9 +368,11 @@ class EAHydrologyRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        items = json.load(file.content)["items"]
-        if len(items) >= _STATIONS_LIMIT:
-            # the endpoint does not say that it stopped at the limit (GH-2933)
+        listing = json.load(file.content)
+        items = listing["items"]
+        # the endpoint does not say that it stopped at the limit, and `meta.limit` is the one it applied (GH-2933)
+        limit = min(_STATIONS_LIMIT, listing.get("meta", {}).get("limit") or _STATIONS_LIMIT)
+        if len(items) >= limit:
             log.warning("The EA hydrology station listing holds %d stations, the page limit: it may be cut", len(items))
         df = pl.DataFrame(
             [_station_row(item) for item in items],

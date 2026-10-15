@@ -353,6 +353,19 @@ def test_ea_a_listing_as_long_as_the_limit_is_reported_as_cut(
     assert "may be cut" in caplog.text
 
 
+def test_ea_a_listing_as_long_as_the_limit_the_server_applied_is_reported_as_cut(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a server that applies a lower limit than asked for is reported, by the `meta.limit` it answers with."""
+    listing = {"meta": {"limit": 2}, "items": [_station("0001", ["flow-i-900"]), _station("0002", ["flow-i-900"])]}
+    monkeypatch.setattr(ea_api, "download_file", _serve({STATIONS_URL: json.dumps(listing).encode()}))
+    with caplog.at_level("WARNING", logger=ea_api.log.name):
+        EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings).all()
+    assert "may be cut" in caplog.text
+
+
 def test_ea_values_read_the_measure_of_the_requested_parameter(
     default_settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
@@ -501,7 +514,7 @@ def test_ea_stations_are_reachable(parameter: tuple[str, str, str], at_least: in
 
     The stubbed tests above pin the matching; this one pins that the notations the metadata
     declares are still the ones the service publishes, which no fixture can tell us, and that the listing is
-    asked for whole (GH-2933): the page of 100 stations it answers with otherwise holds no borehole.
+    asked for whole (GH-2933): the page of 100 stations it answers with otherwise holds one borehole.
     """
     request = EAHydrologyRequest(parameters=[parameter], settings=default_settings).all()
     assert request.df.height >= at_least
