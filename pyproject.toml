@@ -419,6 +419,7 @@ DEP002 = [
     "pypdf",
     "sqlalchemy-cratedb",
     "tzdata",
+    "uvicorn",
     # self-referential extra: the `mcp` extra pulls in `wetterdienst[restapi]`, which is never imported
     "wetterdienst",
     "wradlib",
