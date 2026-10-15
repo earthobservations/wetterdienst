@@ -59,6 +59,18 @@ Types of changes:
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
 
+### Fixed
+
+- `dwd/observation` `5_minutes/precipitation` `historical`: the row stamped 200001010000 that every
+  December 1999 file holds as its first row is dropped. It is not the missing 23:55 MEZ reading
+  but an incomplete copy of the 00:00 UTC row, which the January file has whole, and it was
+  returned at 23:00 UTC, where no reading is (GH-2827)
+- `dwd/observation` `10_minutes` `historical`: of the stamps 1999-12-31 23:00 to 23:50 MEZ that the
+  file of 1999 lists twice (precipitation, extreme_temperature, extreme_wind), the row kept at
+  22:00 to 22:50 UTC is the one that is not a copy of a row of the 2000 file; the copy of 00:00 to
+  00:50 MEZ of 2000-01-01 was kept in 201 of 226 differing cases. A request that touches 22:00 UTC
+  on that day now also reads the 2000 file (GH-2829)
+
 ## [0.154.0] - 2026-10-15
 
 ### Changed

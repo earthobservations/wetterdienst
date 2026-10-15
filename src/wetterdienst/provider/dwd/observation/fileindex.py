@@ -102,14 +102,17 @@ def create_file_index_for_climate_observations(
         # the files of 1999 and of 2000 meet in an hour that both can hold (GH-2815): the 10 minute files of 2000
         # begin with the six stamps 23:00 to 23:50 UTC of 1999-12-31 (the wind file of 1999 ends with the same
         # instants as MEZ 00:00 to 00:50), and the 1- and 5-minute files of December 1999 hold stamps past their
-        # MEZ midnight (1-minute: up to 00:59 MEZ, 5-minute: 00:00 MEZ), which are 23:00 to 23:59 UTC. The files
-        # of 2000 begin at 00:00 UTC, but those of 10 minutes at 23:00 UTC
+        # MEZ midnight (1-minute: up to 00:59 MEZ; 5-minute: 00:00 MEZ, a row the parser drops, GH-2827), which
+        # are 23:00 to 23:59 UTC. The files of 2000 begin at 00:00 UTC, but those of 10 minutes at 23:00 UTC. The
+        # 10-minute file of 2000 is chosen from 22:00 UTC (every 10-minute dataset), one hour before its first
+        # stamp: the file of 1999 lists the six stamps 23:00 to 23:50 MEZ (22:00 to 22:50 UTC) twice, one row a
+        # copy of a row of the file of 2000, which tells the copy (GH-2829)
         utc_turn_of_the_year = pl.datetime(MEZ_UNTIL_YEAR, 1, 1, time_zone="UTC")
         end = pl.when(last_day.eq(pl.datetime(MEZ_UNTIL_YEAR - 1, 12, 31))).then(utc_turn_of_the_year).otherwise(end)
         if dataset.resolution.value == Resolution.MINUTE_10:
             start = (
                 pl.when(first_day.eq(pl.datetime(MEZ_UNTIL_YEAR, 1, 1)))
-                .then(start - pl.duration(hours=1))
+                .then(start - pl.duration(hours=2))
                 .otherwise(start)
             )
         df_files = df_files.with_columns(
