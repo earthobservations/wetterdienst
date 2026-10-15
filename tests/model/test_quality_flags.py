@@ -8,6 +8,7 @@ import polars as pl
 import pytest
 
 from wetterdienst.model.quality_flags import (
+    OutOfRange,
     Sentinel,
     clear_sentinels,
     join_quality_flags,
@@ -194,3 +195,54 @@ def test_a_column_without_a_rule_has_no_raw_text() -> None:
     """Test that the unpivot gives a null `raw` to a column no rule cleaned."""
     long = unpivot_with_raw(pl.DataFrame({"at": [1], "t": ["1"]}), index=["at"])
     assert long.get_column("raw").to_list() == [None]
+
+
+def test_a_number_outside_its_range_is_nulled_and_written_as_short_as_it_goes() -> None:
+    """Test that 4021 is no 4021.0 in the token, the bounds are readings, and a NaN lies outside every range."""
+    cleaned, raw = _clean(
+        [4021.0, 110.26, 60.0, -90.0, -90.5, None, float("nan"), 0.0], OutOfRange(-90.0, 60.0), text=False
+    )
+    assert cleaned == [None, None, 60.0, -90.0, None, None, None, 0.0]
+    assert raw == ["4021", "110.26", None, None, "-90.5", None, "NaN", None]
+
+
+def test_a_text_outside_its_range_keeps_the_cell_as_written() -> None:
+    """Test that a value read from text is kept as the source wrote it, and a text that is no number is left alone."""
+    cleaned, raw = _clean([" 4021.0", "12", "---", ""], OutOfRange(-90.0, 60.0))
+    assert cleaned == [None, "12", "---", ""]
+    assert raw == ["4021.0", None, None, None]
+
+
+def test_a_range_can_be_limited_to_the_values_an_expression_selects() -> None:
+    """Test that `where` holds each parameter to its own range, and a sentinel before it decides first."""
+    cleaned, raw = null_sentinels(
+        pl.col("v"),
+        Sentinel("-999"),
+        OutOfRange(0.0, 130.0, where=pl.col("parameter") == "humidity"),
+        OutOfRange(300.0, 1_100.0, where=pl.col("parameter") == "pressure"),
+        text=False,
+    )
+    out = pl.DataFrame(
+        {
+            "parameter": ["humidity", "pressure", "pressure", "temperature", "humidity"],
+            "v": [999.0, 1013.2, 5.0, 999.0, -999.0],
+        }
+    ).select(cleaned.alias("cleaned"), raw.alias("raw"))
+    assert out.get_column("cleaned").to_list() == [None, 1013.2, None, 999.0, None]
+    assert out.get_column("raw").to_list() == ["999", None, "5", None, "-999"]
+
+
+def test_a_range_that_holds_no_value_is_refused() -> None:
+    """Test that swapped bounds are a defect of the reader, not a rule that nulls everything."""
+    with pytest.raises(ValueError, match="holds no value"):
+        OutOfRange(60.0, -90.0)
+
+
+def test_a_wide_column_outside_its_range_goes_through_the_unpivot_with_its_text() -> None:
+    """Test that `clear_sentinels` takes a range, and the long frame carries what the value was."""
+    df = clear_sentinels(
+        pl.DataFrame({"at": [1, 2], "t": [4021.0, 17.5], "p": [1013.2, 5.0]}), ["t"], OutOfRange(-90.0, 60.0)
+    )
+    long = unpivot_with_raw(df, index=["at"]).sort("parameter", "at")
+    assert long.get_column("value").to_list() == [1013.2, 5.0, None, 17.5]
+    assert long.get_column("raw").to_list() == [None, None, "4021", None]
