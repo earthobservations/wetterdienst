@@ -9,7 +9,7 @@ from enum import Enum
 import pytest
 
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
-from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.metadata.resolution import Frequency, Resolution
 from wetterdienst.model.metadata import (
     ParameterModel,
     ParameterSearch,
@@ -134,6 +134,8 @@ class _Unnamed(Enum):
         # parts that are not names
         (("daily", 1), TypeError, "expected the parts as strings, got int '1'"),
         (("daily", _Unnamed.ONE), TypeError, "expected the parts as strings, got _Unnamed"),
+        # only Resolution is read as its value: another enumeration's would be searched for and not found
+        ((Frequency.HOURLY, "kl"), TypeError, "expected the parts as strings, got Frequency"),
         (Resolution.DAILY, TypeError, "got Resolution"),
     ],
 )

@@ -71,7 +71,12 @@ class InvalidParameterError(RequestError):
     The message names each one with the close match, where there is one, and the names that would
     have matched. Raised by default; a request built with `on_unknown="warn"` logs it and goes on
     with the parameters that did resolve.
+
+    `resolved` says whether any other parameter of the request did resolve, that is whether
+    `on_unknown="warn"` would have gone on with something.
     """
+
+    resolved: bool = False
 
 
 class NoParametersFoundError(RequestError):

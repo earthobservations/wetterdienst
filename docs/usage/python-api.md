@@ -153,12 +153,13 @@ A parameter the provider does not have, or one that is not shaped like a paramet
 names that would have matched, and no request is made. A call used to log a warning and go on with
 the parameters that did resolve, which left no trace in the result of what was dropped. To get that
 back, pass ``on_unknown="warn"``: the unknown ones are logged, and the request is made with the
-rest. Where nothing resolves it is an error either way (``NoParametersFoundError``).
+rest. If nothing resolves, that is ``NoParametersFoundError``; without ``on_unknown`` the same request
+is the ``InvalidParameterError``. Catch ``RequestError`` to cover both.
 
 ```python
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-# raises InvalidParameterError: 'daily/klx' ... Did you mean 'kl'?
+# raises InvalidParameterError: daily/klx not found in DwdObservationMetadata: 'klx'. Did you mean 'kl'? ...
 DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m", "daily/klx"])
 
 # warns about daily/klx and requests temperature_air_mean_2m
@@ -214,7 +215,7 @@ Regarding the definition of requested parameters:
 
 In case of the DWD, requests can be defined by either of period or
 ``start`` and ``end``. Use ``DwdObservationRequest.discover()``
-to discover available parameters based on the given filter arguments. A resolution or dataset the
+to discover available parameters based on the given filter arguments. Names match in any case. A resolution or dataset the
 network does not have is a ``MetadataNotFoundError`` listing the ones it has, not an empty answer;
 a dataset is looked for in the resolutions asked for, so ``resolutions="daily", datasets="dew_point"``
 refuses a dataset that exists only at ``hourly``. ``Wetterdienst.get_network_names("foo")`` raises the

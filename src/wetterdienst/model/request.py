@@ -158,8 +158,12 @@ class TimeseriesRequest:
             try:
                 self.parameters = parse_parameters(requested, self.metadata, self.on_unknown)  # type: list[ParameterModel]
             except InvalidParameterError as e:
-                msg = f"{e}. Pass on_unknown='warn' to skip the parameters that cannot be resolved and read the others."
-                raise InvalidParameterError(msg) from None
+                if not e.resolved:
+                    raise
+                msg = f"{str(e).rstrip('.')}. Pass on_unknown='warn' to skip these and read the others."
+                error = InvalidParameterError(msg)
+                error.resolved = True
+                raise error from None
         if not self.parameters:
             # with on_unknown="warn" the warnings parse_parameters logged say per parameter what was
             # wrong with it, but they are only visible to whoever configured logging, so name the
@@ -374,12 +378,18 @@ class TimeseriesRequest:
         and answers in mm/h. `UnitConverter.targets`, which the option `unit_targets` overrides, is the other
         side.
 
+        Names are matched by either name of a resolution or dataset, in any case.
+
         Args:
             resolutions: Resolutions to discover metadata for.
             datasets: Datasets to discover metadata for.
 
         Returns:
             dict: Metadata for the given resolutions and datasets.
+
+        Raises:
+            MetadataNotFoundError: a resolution or dataset the network does not have, a dataset being
+                looked for in the resolutions asked for.
 
         """
         if not resolutions:
@@ -392,30 +402,28 @@ class TimeseriesRequest:
                 resolution = resolution.name
             else:
                 resolution = str(resolution)
-            resolution_strings.append(resolution)
+            resolution_strings.append(resolution.strip())
         if not datasets:
             datasets = []
         dataset_strings = []
         for dataset in to_list(datasets):
             dataset = dataset.name if isinstance(dataset, DatasetModel) else str(dataset)
-            dataset_strings.append(dataset)
+            dataset_strings.append(dataset.strip())
+
+        def named(model: ResolutionModel | DatasetModel, names: list[str]) -> bool:
+            return bool({model.name.lower(), model.name_original.lower()} & {name.lower() for name in names})
+
         selected = [
-            resolution
-            for resolution in cls.metadata
-            if not resolution_strings
-            or resolution.name in resolution_strings
-            or resolution.name_original in resolution_strings
+            resolution for resolution in cls.metadata if not resolution_strings or named(resolution, resolution_strings)
         ]
         # an empty answer would read as "nothing published" where the name is only wrong
         for name in resolution_strings:
-            if not any(name in (resolution.name, resolution.name_original) for resolution in selected):
+            if not any(named(resolution, [name]) for resolution in selected):
                 available = ", ".join(resolution.name for resolution in cls.metadata)
                 msg = f"Resolution '{name}' not found in {cls.metadata.name}. Available resolutions: {available}"
                 raise MetadataNotFoundError(msg)
         for name in dataset_strings:
-            if not any(
-                name in (dataset.name, dataset.name_original) for resolution in selected for dataset in resolution
-            ):
+            if not any(named(dataset, [name]) for resolution in selected for dataset in resolution):
                 available = ", ".join(sorted({dataset.name for resolution in selected for dataset in resolution}))
                 where = (
                     f"{cls.metadata.name} for resolutions {', '.join(resolution_strings)}"
@@ -428,11 +436,7 @@ class TimeseriesRequest:
         for resolution in selected:
             described_datasets = {}
             for dataset in resolution:
-                if (
-                    dataset_strings
-                    and dataset.name not in dataset_strings
-                    and dataset.name_original not in dataset_strings
-                ):
+                if dataset_strings and not named(dataset, dataset_strings):
                     continue
                 described_datasets[dataset.name] = {
                     "description": dataset.description,

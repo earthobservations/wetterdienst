@@ -599,6 +599,18 @@ def test_request_refuses_an_unknown_parameter_by_default() -> None:
     assert "on_unknown='warn'" in message
 
 
+def test_request_hint_is_only_given_where_warn_would_go_on_with_something() -> None:
+    """Test the on_unknown hint is left out when nothing resolves, and joins a full stop cleanly (GH-2636)."""
+    with pytest.raises(InvalidParameterError) as raised:
+        DwdObservationRequest(parameters=["daily/klx"])
+    assert "on_unknown" not in str(raised.value)
+    with pytest.raises(InvalidParameterError) as raised:
+        DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m", "daily/kl/quality_wind"])
+    message = str(raised.value)
+    assert "on_unknown='warn'" in message
+    assert ".." not in message
+
+
 def test_request_on_unknown_warn_goes_on_with_the_parameters_that_resolve(caplog: pytest.LogCaptureFixture) -> None:
     """Test that on_unknown="warn" keeps the old behaviour: a warning, and the rest (GH-2636)."""
     request = DwdObservationRequest(
@@ -675,6 +687,13 @@ def test_discover_refuses_a_resolution_or_dataset_the_provider_does_not_have() -
     # one name that is wrong among others that are right
     with pytest.raises(MetadataNotFoundError, match="Resolution 'foo'"):
         DwdObservationRequest.discover(resolutions=["daily", "foo"])
+
+
+def test_discover_matches_names_in_any_case() -> None:
+    """Test names are matched as parameters are, case-insensitively and trimmed (GH-2636)."""
+    assert DwdObservationRequest.discover(resolutions=" DAILY ", datasets="KL") == DwdObservationRequest.discover(
+        resolutions="daily", datasets="climate_summary"
+    )
 
 
 def test_discover_still_narrows_to_what_is_named() -> None:

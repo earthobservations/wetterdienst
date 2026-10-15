@@ -9,7 +9,6 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from enum import Enum
 from typing import TYPE_CHECKING, Literal, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
@@ -21,7 +20,7 @@ from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterErr
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET
-from wetterdienst.metadata.resolution import Resolution  # noqa: TC001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.resolution import Resolution
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -561,15 +560,13 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
 
 
 def _name_of(part: object) -> object:
-    """Give an enumeration member the name it is searched for by, its value, and anything else as it is.
+    """Give a ``Resolution`` member the name it is searched for by, its value, and anything else as it is.
 
     ``Resolution`` is one of the two names the package exports, so ``(Resolution.DAILY, "kl")`` is
-    taken as ``("daily", "kl")``. A member whose value is not a string names nothing in the metadata
-    and is left for the caller to be refused with the other parts that are not names.
+    taken as ``("daily", "kl")``. Any other enumeration names nothing in the metadata and is left for
+    the caller to be refused with the other parts that are not names.
     """
-    if isinstance(part, Enum) and isinstance(part.value, str):
-        return part.value
-    return part
+    return part.value if isinstance(part, Resolution) else part
 
 
 ON_UNKNOWN = ("raise", "warn")
@@ -688,7 +685,9 @@ def parse_parameters(
                 seen.add(key)
                 parameters_found.append(parameter_found)
     if problems and on_unknown == "raise":
-        raise InvalidParameterError("; ".join(problems))
+        error = InvalidParameterError("; ".join(problems))
+        error.resolved = bool(parameters_found)
+        raise error
     # warned about once the whole request is read, so that a request with one bad entry among
     # others names all of them whichever way it goes on
     for problem in problems:
