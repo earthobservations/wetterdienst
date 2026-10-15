@@ -838,8 +838,11 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_max")], settings=default_settings).all()
     assert not request.df.is_empty()
     assert set(request.df.columns).issuperset(DF_STATIONS_MINIMUM_COLUMNS)
+    # the listing gives "Banks Road" no position, the only one of 9537 stations (GH-2933)
+    positioned = request.df.filter(pl.col("station_id") != "32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028")
+    assert request.df.height - positioned.height <= 1
     assert _is_complete_stations_df(
-        request.df, exclude_columns={"start_timestamp", "end_timestamp", "region", "elevation"}
+        positioned, exclude_columns={"start_timestamp", "end_timestamp", "region", "elevation"}
     )
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
