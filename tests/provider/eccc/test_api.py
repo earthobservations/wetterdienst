@@ -12,7 +12,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from wetterdienst import Options
-from wetterdienst.exceptions import NoInternetError
+from wetterdienst.exceptions import NoInternetError, StationNotFoundError
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.eccc.observation import api as eccc_api
@@ -281,14 +281,14 @@ def _degrees(packed: int) -> float:
 def _serve_eccc(
     monkeypatch: pytest.MonkeyPatch,
     collection_properties: list[dict] | dict[str, list[dict]],
-    station: dict | None = None,
+    station: dict | list[dict] | None = None,
 ) -> list[str]:
     """Serve the station list and the rows of the collections from the test instead of api.weather.gc.ca.
 
     The rows are those of every collection, or of each by its name (``climate-hourly``). They are cut the way the API
     cuts them: ``UTC_YEAR=`` keeps the rows of that year of UTC_DATE, ``datetime=a/b`` the rows whose LOCAL_DATE, which
-    is Local Standard Time, lies in the window, and ``sortby=[-]FIELD&limit=n`` the first or last n rows. Returns the
-    URLs asked for.
+    is Local Standard Time, lies in the window, and ``sortby=[-]FIELD&limit=n`` the first or last n rows. The station
+    list is one station or several. Returns the URLs asked for.
     """
     urls: list[str] = []
 
@@ -314,7 +314,7 @@ def _serve_eccc(
                 reverse=query["sortby"].startswith("-"),
             )[: int(query["limit"])]
         if "climate-stations" in url:
-            properties = [station or _TORONTO_STATION]
+            properties = station if isinstance(station, list) else [station or _TORONTO_STATION]
         # the geometry of a station feature is its position in decimal degrees, as the list gives it
         features = [
             {"type": "Feature", "properties": p}
@@ -586,10 +586,10 @@ _STATION_14 = {
 def test_eccc_each_resolution_of_a_station_has_the_dates_of_its_own_collection(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that each resolution has the dates of its own collection, null where the list gives none (GH-2747).
+    """Test that each resolution has the dates of its own collection, and a station is not listed where it has none.
 
-    The overall FIRST_DATE 1984-01-01 stood for the daily start, six months before the first daily row, and for a hourly
-    one the station does not have.
+    The overall FIRST_DATE 1984-01-01 stood for the daily start, six months before the first daily row (GH-2747), and a
+    station without hourly dates was listed for hourly with null dates though it has no hourly row (GH-2867).
     """
     _serve_eccc(monkeypatch, [], _STATION_14)
     request = EcccObservationRequest(
@@ -599,7 +599,6 @@ def test_eccc_each_resolution_of_a_station_has_the_dates_of_its_own_collection(
     utc = ZoneInfo("UTC")
     assert request.df.sort("resolution").select("resolution", "start_timestamp", "end_timestamp").rows() == [
         ("daily", dt.datetime(1984, 7, 1, tzinfo=utc), dt.datetime(1996, 11, 30, tzinfo=utc)),
-        ("hourly", None, None),
         ("monthly", dt.datetime(1984, 1, 1, tzinfo=utc), dt.datetime(1996, 11, 1, tzinfo=utc)),
     ]
 
@@ -689,6 +688,17 @@ _ALL_RESOLUTIONS = [
     ("daily", "data", "temperature_air_mean_2m"),
     ("monthly", "data", "temperature_air_mean_2m"),
 ]
+
+
+def _stations_of(
+    monkeypatch: pytest.MonkeyPatch,
+    options: Options,
+    stations: list[dict],
+    parameters: list[tuple[str, ...]] | None = None,
+) -> EcccObservationRequest:
+    """Serve a station list and give the request for the parameters, all three resolutions by default."""
+    _serve_eccc(monkeypatch, [], stations)
+    return EcccObservationRequest(parameters=parameters or _ALL_RESOLUTIONS, options=options)
 
 
 def _years_requested(
@@ -804,46 +814,114 @@ def test_eccc_hourly_and_monthly_years_end_with_the_last_row_not_with_the_last_d
     assert years["climate-monthly"] == list(range(1929, 1992))
 
 
-def test_eccc_a_collection_without_dates_is_not_asked_for_anything_that_the_request_leaves_open(
+def test_eccc_a_collection_without_dates_is_not_listed_and_not_asked_for_anything(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that an hourly or daily collection without a first date is asked for no years and no first row (GH-2820).
+    """Test that a station without a hourly or daily first date is listed for neither, and asked for nothing (GH-2867).
 
-    In the live list the first date is null for a station that has no non-null values in the years of its FIRST_DATE to
-    LAST_DATE: 0 of 300 hourly and of the 95 daily stations drawn had any, where a request without dates asked for
-    every year of the station, one request each. Two of 1961 hourly ones probed had rows: 4333 with every value null
-    (flag M), 27490 with values after its LAST_DATE, which a request with dates reaches. The monthly dates are null for
-    763 stations that have monthly values (36 of 40 drawn did), so monthly is always asked for.
+    In the live list the first date is null for a station that has no value in either collection (read 2026-10-15; the
+    numbers are in ``_LISTED_BY_FIRST_DATE``), where it was listed with null dates (GH-2747) and a dated request
+    asked for its years. The monthly dates are null for 763 stations that have monthly values (36 of 40 drawn
+    did), so monthly is always listed and asked for.
     """
     station = _WHITE_ROCK_STATION | dict.fromkeys(
         ("HLY_FIRST_DATE", "HLY_LAST_DATE", "DLY_FIRST_DATE", "DLY_LAST_DATE", "MLY_FIRST_DATE", "MLY_LAST_DATE")
     )
+    urls = _serve_eccc(monkeypatch, _WHITE_ROCK_ROWS, station)
+    request = EcccObservationRequest(parameters=_ALL_RESOLUTIONS, options=options_convert_units_false)
+    stations = request.filter_by_station_id("925")
+    assert stations.df.get_column("resolution").to_list() == ["monthly"]
+    stations.values.all()
+    collections = {url.split("/collections/")[1].split("/")[0] for url in urls}
+    assert collections == {"climate-stations", "climate-monthly"}
     years, edges = _years_requested(monkeypatch, options_convert_units_false, station)
     assert years == {"climate-monthly": list(range(1929, 2027))}
     assert sorted(edges) == ["climate-monthly:-LOCAL_DATE", "climate-monthly:LOCAL_DATE"]
 
 
 @pytest.mark.parametrize(
-    ("null_columns", "skipped", "asked"),
+    ("null_columns", "unlisted", "listed", "skipped", "asked"),
     [
-        (("HLY_FIRST_DATE", "HLY_LAST_DATE"), "climate-hourly", "climate-daily"),
-        (("DLY_FIRST_DATE", "DLY_LAST_DATE"), "climate-daily", "climate-hourly"),
+        (("HLY_FIRST_DATE", "HLY_LAST_DATE"), "hourly", "daily", "climate-hourly", "climate-daily"),
+        (("DLY_FIRST_DATE", "DLY_LAST_DATE"), "daily", "hourly", "climate-daily", "climate-hourly"),
     ],
 )
-def test_eccc_only_the_collection_without_a_first_date_is_skipped(
+def test_eccc_only_the_collection_without_a_first_date_is_not_listed(
     monkeypatch: pytest.MonkeyPatch,
     options_convert_units_false: Options,
     null_columns: tuple[str, str],
+    unlisted: str,
+    listed: str,
     skipped: str,
     asked: str,
 ) -> None:
-    """Test that the hourly and the daily collection each follow their own first date (GH-2820)."""
+    """Test that the hourly and the daily collection each follow their own first date (GH-2820, GH-2867)."""
     station = _WHITE_ROCK_STATION | dict.fromkeys(null_columns)
+    stations = _stations_of(monkeypatch, options_convert_units_false, [station]).all()
+    assert sorted(stations.df.get_column("resolution").to_list()) == sorted([listed, "monthly"])
+    assert unlisted not in stations.df.get_column("resolution").to_list()
     years, edges = _years_requested(monkeypatch, options_convert_units_false, station)
     assert skipped not in years
     assert not [edge for edge in edges if edge.startswith(skipped)]
     assert years[asked]
     assert years["climate-monthly"] == list(range(1929, 2027))
+
+
+def _three_stations(null_columns: tuple[str, str]) -> list[dict]:
+    """Three stations on a line of latitude, the nearest to Toronto without the dates of the collection in the list.
+
+    The overall FIRST_DATE and LAST_DATE are the same for all three, so a start taken from them would show.
+    """
+    base = _TORONTO_STATION | {"FIRST_DATE": "1980-01-01 00:00:00", "LAST_DATE": "2026-10-08 00:00:00"}
+    return [
+        base | {"STN_ID": 1, "STATION_NAME": "NEAREST", "LATITUDE": 434036000} | dict.fromkeys(null_columns),
+        base
+        | {"STN_ID": 2, "STATION_NAME": "NEXT", "LATITUDE": 440036000}
+        | {"HLY_FIRST_DATE": "1990-01-01 00:00:00", "DLY_FIRST_DATE": "1991-01-01 00:00:00"},
+        base | {"STN_ID": 3, "STATION_NAME": "FAR", "LATITUDE": 450036000},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "null_columns", "first"),
+    [
+        ("hourly", ("HLY_FIRST_DATE", "HLY_LAST_DATE"), dt.datetime(1990, 1, 1, 5, tzinfo=ZoneInfo("UTC"))),
+        ("daily", ("DLY_FIRST_DATE", "DLY_LAST_DATE"), dt.datetime(1991, 1, 1, tzinfo=ZoneInfo("UTC"))),
+    ],
+)
+def test_eccc_a_station_without_the_dates_of_a_collection_is_not_a_station_of_it(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    resolution: str,
+    null_columns: tuple[str, str],
+    first: dt.datetime,
+) -> None:
+    """Test that the listing, the ranking and the distance filter leave out a station that has no such collection.
+
+    The nearest station of the list has no hourly (daily) dates and no row in that collection (GH-2867). It was listed
+    with null dates, was the nearest station of a ranking and the only one inside a distance. Its dates in the other
+    collections are unchanged, and a station that is not listed for the resolution cannot be named as the point of an
+    interpolation by its id.
+    """
+    request = _stations_of(
+        monkeypatch, options_convert_units_false, _three_stations(null_columns), [(resolution, "data")]
+    )
+    toronto = (_degrees(434036000), _degrees(-793750000))
+    listed = request.all().df
+    assert listed.get_column("station_id").to_list() == ["2", "3"]
+    # the dates of the collection, not those of the station as a whole
+    assert listed.get_column("start_timestamp").to_list()[0] == first
+    assert request.filter_by_rank(toronto, rank=1).df.get_column("station_id").to_list() == ["2", "3"]
+    assert request.filter_by_distance(toronto, distance=1).df.is_empty()
+    assert request.filter_by_distance(toronto, distance=100).df.get_column("station_id").to_list() == ["2"]
+    assert request.filter_by_station_id("1").df.is_empty()
+    with pytest.raises(StationNotFoundError):
+        request.interpolate_by_station_id("1")
+    # the other resolutions are unchanged
+    monthly = _stations_of(
+        monkeypatch, options_convert_units_false, _three_stations(null_columns), [("monthly", "data")]
+    )
+    assert monthly.all().df.get_column("station_id").to_list() == ["1", "2", "3"]
 
 
 def test_eccc_a_collection_without_a_row_is_asked_for_no_years(
@@ -861,15 +939,20 @@ def test_eccc_a_collection_without_a_row_is_asked_for_no_years(
     assert years["climate-daily"]
 
 
-def test_eccc_a_request_with_dates_asks_for_them_whether_or_not_the_collection_has_dates(
+def test_eccc_a_request_with_dates_asks_for_the_years_of_the_collections_the_station_is_listed_for(
     monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
 ) -> None:
-    """Test that a request that names both dates asks for the years of those dates and for no first row (GH-2820)."""
+    """Test that a request that names both dates asks for those years in the listed collections, and no first row.
+
+    A station without a hourly or daily first date is not listed for it (GH-2867), so a dated request is not asked for
+    those either: 27490 (read 2026-10-15) has 7035 hourly rows, all of 2008, after its LAST_DATE 2007-11-30 and with
+    no HLY_ dates, which a request with dates reached before and no longer does.
+    """
     station = _WHITE_ROCK_STATION | {"HLY_FIRST_DATE": None, "DLY_FIRST_DATE": None}
     years, edges = _years_requested(
         monkeypatch, options_convert_units_false, station, start="2000-01-01", end="2001-12-31"
     )
-    assert years == {name: [2000, 2001] for name in ("climate-hourly", "climate-daily", "climate-monthly")}
+    assert years == {"climate-monthly": [2000, 2001]}
     assert edges == []
 
 
@@ -1044,6 +1127,9 @@ def test_eccc_hourly_year_window_follows_utc_date_not_the_civil_zone(
         "ELEVATION": "694.90",
         "FIRST_DATE": "2012-12-03 23:00:00",
         "LAST_DATE": "2026-10-08 12:30:10",
+        # a station is listed for hourly values by its hourly first date (GH-2867)
+        "HLY_FIRST_DATE": "2012-12-03 23:00:00",
+        "HLY_LAST_DATE": "2026-10-08 12:30:10",
     }
     rows = [
         {"LOCAL_DATE": local, "UTC_DATE": utc, "TEMP": value, "TEMP_FLAG": None}
@@ -1257,6 +1343,9 @@ def test_eccc_station_position_is_the_geometry_of_the_feature(monkeypatch: pytes
                     "LONGITUDE": longitude,
                     "TIMEZONE": "PST",
                     "ELEVATION": "4.00",
+                    # a station is listed for daily values by its daily first date (GH-2867)
+                    "DLY_FIRST_DATE": "1990-01-01 00:00:00",
+                    "DLY_LAST_DATE": "2000-01-01 00:00:00",
                 },
                 "geometry": {"type": "Point", "coordinates": coordinates},
             }
