@@ -496,7 +496,10 @@ def index() -> HTMLResponse:
 
     def _create_author_entry(author: Author) -> str:
         # create author string Max Mustermann (Github href, Mailto)
-        return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, <a href='mailto:{author.email}'>mail</a>)"  # noqa:E501
+        mail = f"<a href='mailto:{author.email}'>mail</a>"
+        if not author.github_handle:
+            return f"{author.name} ({mail})"
+        return f"{author.name} (<a href='https://github.com/{author.github_handle}' target='_blank' rel='noopener'>github</a>, {mail})"  # noqa:E501
 
     title = f"{info.slogan} | {info.name}"
     provider_rows = []

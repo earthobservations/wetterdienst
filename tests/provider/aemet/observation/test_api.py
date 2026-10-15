@@ -39,16 +39,9 @@ requires_aemet_credentials = pytest.mark.skipif(
     reason="AEMET credentials not set — provide WD_AUTH__AEMET=<api_key>",
 )
 
-# AEMET's live service has been observed to have sustained outages that outlast the
-# provider's own (deliberately modest) retry budget -- see api.py. Same treatment as ECCC
-# elsewhere in this test suite: xfail rather than skip, so a pass is still recorded when
-# AEMET is up, but a failure here doesn't block CI/merges on AEMET's own availability.
-xfail_if_aemet_unavailable = pytest.mark.xfail(strict=False, reason="AEMET server intermittently unavailable")
-
 
 @pytest.mark.remote
 @requires_aemet_credentials
-@xfail_if_aemet_unavailable
 def test_aemet_observation_stations() -> None:
     """Station metadata for Madrid/Retiro matches the AEMET station inventory."""
     request = AemetObservationRequest(
@@ -96,7 +89,6 @@ def test_aemet_observation_stations() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-@xfail_if_aemet_unavailable
 def test_aemet_observation_values_daily() -> None:
     """Daily climatological values at Madrid/Retiro match the AEMET reference values.
 
@@ -144,7 +136,6 @@ def test_aemet_observation_values_daily() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-@xfail_if_aemet_unavailable
 def test_aemet_observation_values_monthly() -> None:
     """Monthly climatological values at Madrid/Retiro for January 2020 match the AEMET reference values."""
     df = (
@@ -179,7 +170,6 @@ def test_aemet_observation_values_monthly() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-@xfail_if_aemet_unavailable
 def test_aemet_observation_values_annual() -> None:
     """Annual climatological values at Madrid/Retiro for 2020 match the AEMET reference values.
 
@@ -219,7 +209,6 @@ def test_aemet_observation_values_annual() -> None:
 
 @pytest.mark.remote
 @requires_aemet_credentials
-@xfail_if_aemet_unavailable
 def test_aemet_observation_values_hourly_realtime() -> None:
     """Real-time (observación convencional) hourly values at Madrid/Retiro are structurally sane.
 

@@ -21,7 +21,7 @@ from dirty_equals import IsApprox, IsNumber, IsStr
 from pydantic import TypeAdapter, ValidationError
 from starlette.testclient import TestClient
 
-from wetterdienst import Settings, Wetterdienst, __version__
+from wetterdienst import Author, Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.options import Options
@@ -73,6 +73,21 @@ def test_index(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "wetterdienst - open weather data for humans" in response.text
+
+
+def test_index_links_an_author_to_github_only_where_it_knows_the_account(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that an author without a GitHub handle is listed with the mail link alone."""
+    monkeypatch.setattr(
+        restapi.info,
+        "authors",
+        [Author("Jane Doe", "jane@example.org", ""), Author("Max Mustermann", "max@example.org", "maxm")],
+    )
+    text = client.get("/").text
+    assert "Jane Doe (<a href='mailto:jane@example.org'>mail</a>)" in text
+    assert "https://github.com/maxm'" in text
+    assert "github.com/'" not in text
 
 
 def test_index_leaves_out_a_provider_whose_module_fails_to_import(

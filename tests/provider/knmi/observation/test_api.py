@@ -51,9 +51,6 @@ requires_knmi_credentials = pytest.mark.skipif(
     not KnmiObservationRequest.is_configured(),
     reason="KNMI credentials not set — provide WD_AUTH__KNMI=<api_key>",
 )
-# Live third-party API; xfail rather than a hard failure keeps a transient blip (or KNMI's
-# per-key rate limit) from blocking CI/merges, matching the AEMET/SMHI/ECCC precedent.
-xfail_if_knmi_unavailable = pytest.mark.xfail(strict=False, reason="KNMI server intermittently unavailable")
 
 
 def _write_netcdf(path: Path) -> bytes:
@@ -456,7 +453,6 @@ def test_knmi_station_list_without_h5netcdf_names_the_extra(monkeypatch: pytest.
 
 @pytest.mark.remote
 @requires_knmi_credentials
-@xfail_if_knmi_unavailable
 def test_knmi_observation_stations() -> None:
     """Station metadata for De Bilt matches the KNMI station inventory."""
     request = KnmiObservationRequest(
@@ -483,7 +479,6 @@ def test_knmi_observation_stations() -> None:
 
 @pytest.mark.remote
 @requires_knmi_credentials
-@xfail_if_knmi_unavailable
 def test_knmi_observation_values_daily() -> None:
     """Daily values at De Bilt for 2020-01-01 match the KNMI reference values.
 
@@ -516,7 +511,6 @@ def test_knmi_observation_values_daily() -> None:
 
 @pytest.mark.remote
 @requires_knmi_credentials
-@xfail_if_knmi_unavailable
 def test_knmi_observation_values_10_minutes() -> None:
     """10-minute values at De Bilt for the 2020-06-01 12:10 UTC interval match the raw file.
 

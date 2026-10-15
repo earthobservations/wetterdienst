@@ -7,6 +7,9 @@ import csv
 import datetime as dt
 import io
 import re
+import ssl
+import urllib.error
+import urllib.request
 from http import HTTPStatus
 from zoneinfo import ZoneInfo
 
@@ -341,11 +344,8 @@ def test_both_period_dataset_keeps_the_derived_period() -> None:
 # Remote tests -- hit the live DWD opendata server.
 # ---------------------------------------------------------------------------
 
-xfail_if_dwd_unavailable = pytest.mark.xfail(strict=False, reason="DWD opendata intermittently unavailable")
-
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_phenology_stations_annual_reporters() -> None:
     """The Jahresmelder catalogue resolves to a populated set of German stations."""
     df = DwdPhenologyRequest(parameters=[("annual", "annual_common_hazel")], periods="recent").all().df
@@ -360,7 +360,6 @@ def test_phenology_stations_annual_reporters() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_phenology_stations_immediate_reporters_are_a_smaller_network() -> None:
     """The Sofortmelder catalogue is its own, much smaller, station list."""
     annual = DwdPhenologyRequest(parameters=[("annual", "annual_common_hazel")], periods="recent").all().df
@@ -372,7 +371,6 @@ def test_phenology_stations_immediate_reporters_are_a_smaller_network() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_phenology_values_recent() -> None:
     """Hazel flowering at Goosefeld in 2024 fell on day 27, as the source file says."""
     request = DwdPhenologyRequest(
@@ -388,7 +386,6 @@ def test_phenology_values_recent() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_phenology_values_immediate_reporters() -> None:
     """The immediate reporters also carry phase 41, which no phase-definition file lists for hazel."""
     request = DwdPhenologyRequest(parameters=[("annual", "immediate_common_hazel")], periods="recent")
@@ -402,7 +399,6 @@ def test_phenology_values_immediate_reporters() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_phenology_values_historical_reaches_back() -> None:
     """A historical request returns a multi-decade series of plausible days of the year."""
     request = DwdPhenologyRequest(
@@ -417,17 +413,34 @@ def test_phenology_values_historical_reaches_back() -> None:
     assert 60 < df["value"].min() <= df["value"].max() < 200
 
 
+def _read(url: str) -> bytes:
+    """Read a url of DWD's server, skipping the test where the server did not answer.
+
+    Not through `download_file`, so the `remote` hook in `tests/conftest.py` does not see an aiohttp
+    error and would let an outage fail the test: a 5xx or an address that cannot be reached is
+    skipped here, and everything else, a 404 included, raised.
+    """
+    try:
+        return urllib.request.urlopen(url, timeout=60).read()  # noqa: S310
+    except urllib.error.HTTPError as error:
+        if error.code >= HTTPStatus.INTERNAL_SERVER_ERROR:
+            pytest.skip(f"upstream did not answer: {error!r}")
+        raise
+    except urllib.error.URLError as error:
+        # a certificate that does not verify is no outage
+        if isinstance(error.reason, ssl.SSLError):
+            raise
+        pytest.skip(f"upstream did not answer: {error!r}")
+
+
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_phase_table_matches_the_source() -> None:
     """The German phase names in `_PHASES` are DWD's own, from PH_Beschreibung_Phase.txt.
 
     Phase 68 is absent from that file and is named from the immediate reporters' phase
     definitions, which is the only place DWD spells it out, so it is not checked here.
     """
-    import urllib.request  # noqa: PLC0415
-
-    raw = urllib.request.urlopen(f"{_HELP_URL}/PH_Beschreibung_Phase.txt", timeout=60).read()  # noqa: S310
+    raw = _read(f"{_HELP_URL}/PH_Beschreibung_Phase.txt")
     published = {}
     rows = csv.reader(io.StringIO(raw.decode("latin-1")), delimiter=";")
     next(rows)
@@ -443,12 +456,9 @@ def test_phase_table_matches_the_source() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_plant_table_matches_the_source() -> None:
     """The plant names in `_OBJECTS` are DWD's own, from PH_Beschreibung_Pflanze.txt."""
-    import urllib.request  # noqa: PLC0415
-
-    raw = urllib.request.urlopen(f"{_HELP_URL}/PH_Beschreibung_Pflanze.txt", timeout=60).read()  # noqa: S310
+    raw = _read(f"{_HELP_URL}/PH_Beschreibung_Pflanze.txt")
     published = {}
     # records are terminated by `eor;` and wrap across lines, so split on the terminator
     for record in raw.decode("latin-1").split("eor;")[1:]:
@@ -465,12 +475,9 @@ def test_plant_table_matches_the_source() -> None:
 
 def _listing(directory: str, cache: dict[str, set[str]]) -> set[str]:
     """List one phenology directory on the DWD server, memoized across the checks below."""
-    import urllib.error  # noqa: PLC0415
-    import urllib.request  # noqa: PLC0415
-
     if directory not in cache:
         try:
-            html = urllib.request.urlopen(f"{_BASE_URL}/{directory}/", timeout=60).read()  # noqa: S310
+            html = _read(f"{_BASE_URL}/{directory}/")
         except urllib.error.HTTPError as error:
             # a group that publishes only one period has no directory for the other at all
             if error.code != HTTPStatus.NOT_FOUND:
@@ -491,7 +498,6 @@ def _is_published(files: set[str], stem: str, period: str) -> bool:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_every_declared_plant_and_period_is_published() -> None:
     """Every (plant, period) declared is published, and every period published is declared.
 
@@ -512,7 +518,6 @@ def test_every_declared_plant_and_period_is_published() -> None:
 
 
 @pytest.mark.remote
-@xfail_if_dwd_unavailable
 def test_no_published_plant_is_missing_from_the_table() -> None:
     """No data file is published that no dataset claims, i.e. no plant is left unreachable."""
     cache: dict[str, set[str]] = {}

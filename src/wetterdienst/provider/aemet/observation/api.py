@@ -55,9 +55,8 @@ _MAX_REQUEST_DAYS = 179
 # so is a TLS error. Kept deliberately modest (a couple of short-backoff
 # retries): AEMET's outages have been observed to regularly outlast even a much longer retry
 # budget, so paying for one is mostly wasted time -- this is enough to smooth over brief blips
-# without making a single failing call hang for minutes. Tests that hit sustained live outages
-# are handled via xfail rather than a longer retry (see
-# tests/provider/aemet/observation/test_api.py).
+# without making a single failing call hang for minutes. A sustained outage is not waited out
+# with a longer retry either.
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 # the answers, as an HTTP status or an envelope's `estado`, that say AEMET refuses the API key
 _KEY_REJECTED_STATUSES = frozenset({401, 403})
@@ -154,7 +153,7 @@ def _download_with_rate_limit_retry(
     failing call hang for minutes. It does NOT attempt to wait out a sustained outage or
     the full ~60s AEMET's own 429 policy technically calls for -- live AEMET outages have
     been observed to regularly outlast even a much longer retry budget, so that time would
-    mostly be wasted; tests hitting sustained outages are xfail'd instead of retried longer.
+    mostly be wasted.
     """
     last_file: File | None = None
     with contextlib.suppress(_AemetRetryableError):
