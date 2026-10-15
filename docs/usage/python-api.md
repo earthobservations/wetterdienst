@@ -385,7 +385,7 @@ df
 
 The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
 sub-national unit the source names (a state, province, county, canton or département), whatever it is called
-there, and null where the source names none. The provider's page tells which. Behind them, a provider adds the
+there, and null where the source names none. Behind them, a provider adds the
 columns of its own that its station list has, null for a station the source gives none:
 
 | Provider and network | Column | What it holds |

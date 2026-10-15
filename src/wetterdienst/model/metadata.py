@@ -45,7 +45,6 @@ _EXPECTED_PARAMETER = (
 )
 
 
-# any of the three models that carry a canonical and a source name and are looked up by either
 #: what the data of a timeseries network is: measured (`observation`), forecast, or computed from
 #: measurements (`derived`). A timeseries network has stations, values and a metadata model.
 TimeseriesKind = Literal["observation", "forecast", "derived"]
@@ -55,6 +54,7 @@ TimeseriesKind = Literal["observation", "forecast", "derived"]
 #: warnings of `dwd`). Which one decides where a network can be requested: see `Wetterdienst.discover()`.
 NetworkKind = Literal["observation", "forecast", "derived", "radar", "alerts"]
 
+# any of the three models that carry a canonical and a source name and are looked up by either
 _NamedModel = TypeVar("_NamedModel", "ResolutionModel", "DatasetModel", "ParameterModel")
 
 

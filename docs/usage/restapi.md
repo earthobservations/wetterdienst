@@ -68,7 +68,7 @@ The list downloads nothing, so it answers at once. Each network of each provider
 
 `kind` says which endpoints take the network. A **timeseries network** has stations and values, is
 `observation`, `forecast` or `derived`, and is what `stations`, `values`, `history`, `interpolate`,
-`summarize` and `stripes` take, and what `coverage` with a provider and network lists the resolutions,
+and `summarize` take, and what `coverage` with a provider and network lists the resolutions,
 datasets and parameters of. Every network is one but two. The **standalone networks** are
 `dwd/radar` (`radar`) and `dwd/alerts` (`alerts`): they have their own request classes and results in
 Python, no stations or parameters, and every endpoint above answers a request for them with a 404. A

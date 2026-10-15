@@ -229,8 +229,8 @@ class Wetterdienst:
         present; `date_required`.
 
         `kind` is what the network is. A timeseries network has stations and values, and is `observation`,
-        `forecast` or `derived`; those are the networks `stations`, `values`, `history`, `interpolate`,
-        `summarize` and `stripes` take. A standalone network has its own request class and result, is `radar`
+        `forecast` or `derived`; those are the networks `stations`, `values`, `history`, `interpolate` and
+        `summarize` take. A standalone network has its own request class and result, is `radar`
         or `alerts` (`dwd/radar` and `dwd/alerts`), and is refused by all of them with a 404 or a usage
         error. A standalone network has no metadata model, so its name, country and url are its request class's
         `listing`, which names the provider's short name and country and the url of its own products.

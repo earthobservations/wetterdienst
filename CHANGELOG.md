@@ -66,18 +66,17 @@ Types of changes:
   station delivered has no column in a populated frame (GH-2633)
 - `meteofrance/observation` stations have a `region`, the code of their département as the registry
   lists it, with two digits (`09`) or three overseas (`972`); it was null. Corsica's two
-  départements are both `20`, as in the registry. The columns a provider adds to the station frame
-  are listed in the Python API page, and a test holds the list to what the providers declare
-  (GH-2019)
+  départements are both `20`, as in the registry (GH-2019)
 - **Breaking**: the listing of every network (`Wetterdienst.discover()`, `/api/coverage` and
   `wetterdienst about coverage` without arguments, the MCP `coverage` tool) no longer has `valid`.
   It was `true` for a network without credentials, `false` for missing ones and null for present
   ones, never checked. Read `configured`, and ask `/api/auth`, `wetterdienst about auth` or
   `Wetterdienst.is_valid(api)` whether a provider accepts the credentials of one network (GH-2641)
 - **Breaking**: the resolution `6_hour` is `6_hours` (`Resolution.HOUR_6.value`, `metno/frost`), as
-  `10_minutes` is. The old value is not accepted: a request, an option or
-  `geo_station_distance_resolution_factors` that names it is refused with the new one named. Write
-  `6_hours/data` for Frost and `{"6_hours": 1.5}` for the factors (GH-2641, GH-2561)
+  `10_minutes` is. The old value is not accepted: a `6_hour/data` parameter finds no parameters
+  (the log says it was renamed), and `geo_station_distance_resolution_factors={"6_hour": ...}` is
+  refused with the new one named. Write `6_hours/data` for Frost and `{"6_hours": 1.5}` for the
+  factors (GH-2641, GH-2561)
 
 ### Fixed
 
