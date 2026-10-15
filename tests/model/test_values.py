@@ -746,6 +746,32 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     assert result.get_column("value").to_list() == [0.000031069, 0.000932057]
 
 
+def test_convert_units_keeps_the_value_column_whatever_the_conversion_starts_with(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A conversion that opens with a number (`9 / 5 * x`) converts the column and adds none.
+
+    The conversions run on the column as an expression, and an expression is named after its first
+    operand: `9 / 5 * x` came back as a column `literal` beside the unconverted `value`.
+    """
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary", "snow_depth")])
+    values = DwdObservationValues(
+        sr=StationsResult(
+            stations=request,
+            df=pl.DataFrame(),
+            df_all=pl.DataFrame(),
+            stations_filter=StationsFilter.ALL,
+        ),
+    )
+    monkeypatch.setattr(values, "_create_conversions", lambda _dataset: {"shk_tag": (lambda x: 9 / 5 * x, 2)})
+    df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 10.0)])
+
+    result = values._convert_units(df, request.parameters[0].dataset)  # noqa: SLF001
+
+    assert result.columns == df.columns
+    assert result.get_column("value").to_list() == [9.0, 18.0]
+
+
 def test_a_station_is_kept_when_one_dataset_leaves_its_start_timestamp_out(monkeypatch: pytest.MonkeyPatch) -> None:
     """An unpublished ``start_timestamp`` for one dataset is not overruled by another dataset's bound.
 

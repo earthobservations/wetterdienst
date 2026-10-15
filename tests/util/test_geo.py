@@ -24,6 +24,22 @@ def test_convert_dms_string_to_dd() -> None:
     assert_series_equal(given, expected)
 
 
+def test_convert_dm_to_dd_as_an_expression() -> None:
+    """Test that a column goes through the conversion as an expression, with the series' values and a null kept."""
+    df = pl.DataFrame({"latitude": [7.42, 52.08, -7.42, None, 0.0]})
+    given = df.with_columns(convert_dm_to_dd(pl.col("latitude")))
+    assert given.schema == {"latitude": pl.Float64}
+    assert given.get_column("latitude").to_list() == [7.7, 52.13, -7.7, None, 0.0]
+
+
+def test_convert_dms_string_to_dd_as_an_expression() -> None:
+    """Test that a column goes through the conversion as an expression, named as it was, with a null kept."""
+    df = pl.DataFrame({"latitude": ["49 18 21", None, "00 00 00"]})
+    given = df.with_columns(convert_dms_string_to_dd(pl.col("latitude")))
+    assert given.schema == {"latitude": pl.Float64}
+    assert given.get_column("latitude").round(6).to_list() == [49.305833, None, 0.0]
+
+
 def test_derive_nearest_neighbours() -> None:
     """Test derivation of nearest neighbours."""
     metadata = pl.DataFrame(
