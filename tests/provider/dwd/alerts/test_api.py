@@ -203,7 +203,7 @@ def test_result_formats_round_trip() -> None:
     result = DwdWeatherAlertResult(df, DwdWeatherAlertGranularity.COMMUNITY, DwdWeatherAlertLanguage.ENGLISH, snapshot)
 
     data = result.to_dict()
-    assert data["snapshot"] == "2026-07-26T08:00:00+00:00"
+    assert data["snapshot"] == "2026-07-26T08:00:00.000000+00:00"
     assert len(data["alerts"]) == 1
     alert = data["alerts"][0]
     assert alert["event"] == "gale-force gusts"
@@ -217,7 +217,7 @@ def test_result_formats_round_trip() -> None:
 
     fc = json.loads(result.to_geojson())
     assert fc["type"] == "FeatureCollection"
-    assert fc["snapshot"] == "2026-07-26T08:00:00+00:00"
+    assert fc["snapshot"] == "2026-07-26T08:00:00.000000+00:00"
     feature = fc["features"][0]
     assert feature["geometry"]["type"] == "MultiPolygon"
     assert "geometry" not in feature["properties"]
@@ -228,6 +228,8 @@ def test_result_formats_round_trip() -> None:
     assert "warncell_ids" in header
     # list column is comma-joined for CSV
     assert "809272121,809276148" in first
+    # a stamp is written as in the JSON, not in the form `write_csv` gives a datetime
+    assert alert["sent"] in first
 
 
 def test_to_format_invalid_raises() -> None:

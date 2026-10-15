@@ -21,6 +21,7 @@ from wetterdienst.core.interpolate import (
 )
 from wetterdienst.exceptions import NoStationsWithElevationError, StationNotFoundError
 from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.model.schema import INTERPOLATED_SCHEMA
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import (
@@ -160,18 +161,7 @@ def test_occurrence_based_parameters_set_contains_all_precipitation_variants() -
 @pytest.fixture
 def df_interpolated_empty() -> pl.DataFrame:
     """Provide empty DataFrame for interpolated values."""
-    return pl.DataFrame(
-        schema={
-            "station_id": pl.String,
-            "resolution": pl.String,
-            "dataset": pl.String,
-            "parameter": pl.String,
-            "timestamp": pl.Datetime(time_zone="UTC"),
-            "value": pl.Float64,
-            "distance_mean": pl.Float64,
-            "taken_station_ids": pl.List(pl.String),
-        },
-    )
+    return pl.DataFrame(schema=INTERPOLATED_SCHEMA)
 
 
 @pytest.mark.remote

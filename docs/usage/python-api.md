@@ -439,49 +439,43 @@ is that whole day -- all 24 readings of it for hourly data -- ``"2020-08"`` the 
 first span to the end of the second. A date carrying a time, ``"2020-08-01T12"``, names one
 instant and is matched exactly.
 
-The metadata columns ``station_id``, ``resolution``, ``dataset`` and ``parameter`` of the
-DataFrame returned by ``.values.all()`` are stored as polars
-[``Enum``](https://docs.pola.rs/api/python/stable/reference/api/polars.datatypes.Enum.html)
-instead of ``String`` to reduce the memory footprint (these columns repeat on every row and
-``Enum`` stores them as small integer codes). ``Enum`` behaves like ``String`` for most grouping,
-sorting and ``==`` comparisons, but it has a few sharp edges: it does not support the ``.str``
-namespace, it compares unequal to a ``String`` column (so joins need matching dtypes), and
-``is_in([...])`` **raises** on polars 1.x if any of the given values is not one of the column's categories
-(e.g. filtering for a parameter that is absent from the result) instead of returning an empty
-selection; polars 2 answers with the rows of the categories it has. If you need plain ``String`` columns again — e.g. for ``.str`` operations,
-``is_in`` with possibly-absent values, strict dtype checks or when concatenating with a
-``String`` DataFrame — cast them back:
+The frame of every result has one schema, whatever the provider and whether it holds rows or not (a wide frame has the columns of the parameters that were delivered):
+``station_id``, ``resolution``, ``dataset`` and ``parameter`` are ``String``, ``timestamp`` is
+``Datetime("us", "UTC")``, so two results concatenate, and a values frame joins against a stations
+frame, without a cast. The schemas are exported as objects to assert against:
 
 ```python
 import polars as pl
+from wetterdienst.model.schema import LONG_SCHEMA
 
-# cast every Enum column back to String
-df = df.with_columns(pl.col(pl.Enum).cast(pl.String))
+df = stations.values.all().df
+assert df.schema == LONG_SCHEMA
+
+# filter by names that may or may not be present, and join on the station
+subset = df.filter(pl.col("parameter").is_in(["temperature_air_mean_2m", "sunshine_duration"]))
+merged = df.join(stations.df, on="station_id")
 ```
 
-This matters in particular for ``station_id``: polars raises a ``SchemaError`` when a join
-key is ``Enum`` on one side and ``String`` on the other. The stations DataFrame
-(``request.df``) keeps ``station_id`` as ``String``, so joining it — or any other ``String``
-station table — with the values DataFrame requires casting the join key first:
+| Schema | Frame |
+| --- | --- |
+| `STATIONS_SCHEMA` | `request.df` and `StationsResult.df`: the columns every station has, in this order; a provider may add its own, among or after them |
+| `LONG_SCHEMA` | `ValuesResult.df` with `Options(shape="long")` |
+| `WIDE_SCHEMA`, `wide_schema(names)` | `ValuesResult.df` with `Options(shape="wide")`: the columns that do not depend on the request, and with the parameters' columns named |
+| `INTERPOLATED_SCHEMA` | `InterpolatedValuesResult.df` |
+| `SUMMARIZED_SCHEMA` | `SummarizedValuesResult.df` |
 
-```python
-import polars as pl
+A test in the library holds each of them against what a result returns, so a change of a column, its
+dtype or its place is a visible diff in a pull request and a breaking change.
 
-# join values (Enum station_id) with a String station table
-merged = df.with_columns(pl.col("station_id").cast(pl.String)).join(stations, on="station_id")
-```
-
-It also affects filtering by name with ``is_in``. On polars 1.x there is no "soft"/non-raising flag on
-``is_in`` — if any queried value is not a category of the ``Enum`` column it raises instead of
-returning an empty selection. Cast the column to ``String`` for the comparison, which behaves the same on
-every polars version (an ``==`` check against a single value, on the other hand, does handle absent values
-gracefully):
-
-```python
-import polars as pl
-
-# filter by parameters that may or may not be present in the result
-subset = df.filter(pl.col("parameter").cast(pl.String).is_in(["temperature_air_mean_2m", "sunshine_duration"]))
+```{note}
+**Migrating from 0.154.0 or earlier.** `.values.all().df` used to store the four identity columns as polars `Enum`,
+with the categories taken from the data of each result, while an empty result and an interpolated or
+summarized one had `String`. They are `String` now. Code that cast them back, such as
+`df.with_columns(pl.col(pl.Enum).cast(pl.String))`, or cast a join key or the column of an `is_in`,
+can drop the cast, which does no harm where it stays. Code that read the `Enum`'s categories
+(`df.schema["parameter"].categories`) takes them from the data, `df["parameter"].unique()`. A frame
+you keep in memory can have the saving of the `Enum` back by casting it yourself, for instance to
+`pl.Categorical`.
 ```
 
 In case you use `filter_by_rank` you may want to skip empty stations. We can use the Options from

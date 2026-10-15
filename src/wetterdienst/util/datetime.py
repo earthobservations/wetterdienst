@@ -5,12 +5,17 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+import polars as pl
 from dateutil.relativedelta import relativedelta
 
 from wetterdienst.exceptions import InvalidTimeIntervalError
 from wetterdienst.metadata.resolution import Resolution
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def round_minutes(timestamp: dt.datetime, step: int) -> dt.datetime:
@@ -220,3 +225,46 @@ def _parse_datetime_from_formats(string: str, formats: list[str]) -> dt.datetime
             pass
     msg = f"datetime could not be parsed from {string} given the formats {formats}"
     raise ValueError(msg)
+
+
+# One way of writing a timestamp in every body the library hands out as text (JSON, GeoJSON, CSV),
+# whichever result it comes from: ISO 8601, to the microsecond, in UTC with its offset, such as
+# `2026-09-01T00:00:00.000000+00:00`. A JSON consumer then reads the same field the same way from
+# values, stations, history and alerts, REST, CLI and MCP.
+
+
+def format_timestamp(value: dt.datetime) -> str:
+    """Write a timestamp as text in the one format of the library, e.g. `2026-09-01T00:00:00.000000+00:00`.
+
+    A timestamp in another zone is converted to UTC, and one without a zone is read as UTC, as it is
+    everywhere else in the library.
+    """
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=dt.UTC)
+    return value.astimezone(dt.UTC).isoformat(timespec="microseconds")
+
+
+def timestamps_to_string(df: pl.DataFrame, columns: Iterable[str] | None = None) -> pl.DataFrame:
+    """Write the datetime columns of a frame as text in the format of `format_timestamp`, nulls staying null.
+
+    Args:
+        df: the frame
+        columns: the columns to write, which have to be datetimes; every datetime column when not given
+
+    Returns:
+        The frame with those columns as `String`.
+
+    """
+    wanted = None if columns is None else set(columns)
+    expressions = []
+    for name, dtype in df.schema.items():
+        if not isinstance(dtype, pl.Datetime) or (wanted is not None and name not in wanted):
+            continue
+        # a stamp without a zone is read as UTC, as everywhere in the library
+        in_utc = (
+            pl.col(name).dt.replace_time_zone("UTC")
+            if dtype.time_zone is None
+            else pl.col(name).dt.convert_time_zone("UTC")
+        )
+        expressions.append(in_utc.dt.cast_time_unit("us").dt.to_string("iso:strict"))
+    return df.with_columns(expressions)

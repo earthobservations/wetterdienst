@@ -24,6 +24,7 @@ from starlette.testclient import TestClient
 from wetterdienst import Author, Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.options import Options
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
@@ -2149,14 +2150,14 @@ def test_history_dwd_observation(client: TestClient) -> None:
     assert history["name"]["station"][0] == {
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
-        "valid_from": "1927-02-01T00:00:00+00:00",
+        "valid_from": "1927-02-01T00:00:00.000000+00:00",
         "valid_to": None,
     }
     assert history["name"]["operator"][0] == {
         "station_id": "02564",
         "operator_name": "Wetterdienst",
-        "valid_from": "1927-02-01T00:00:00+00:00",
-        "valid_to": "1951-01-16T00:00:00+00:00",
+        "valid_from": "1927-02-01T00:00:00.000000+00:00",
+        "valid_to": "1951-01-16T00:00:00.000000+00:00",
     }
     assert len(history["parameter"]) == 30
     assert history["parameter"][0] == {
@@ -2164,12 +2165,12 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "MEZ) generiert aus analogen Registrierungen. Richtungsangaben "
         "in der 32-teiligen Windrose.",
         "description": "Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3",
-        "valid_to": "1974-12-31T00:00:00+00:00",
+        "valid_to": "1974-12-31T00:00:00.000000+00:00",
         "extra_info": "arithm.Mittel aus mind. 21 Stundenwerten",
         "literature": "",
         "parameter": "FM",
         "special": "",
-        "valid_from": "1974-01-01T00:00:00+00:00",
+        "valid_from": "1974-01-01T00:00:00.000000+00:00",
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
         "unit": "m/sec",
@@ -2178,21 +2179,21 @@ def test_history_dwd_observation(client: TestClient) -> None:
     assert history["device"][0] == {
         "device_height": 31.0,
         "device_type": "Stationsbarometer",
-        "valid_to": "2009-11-17T00:00:00+00:00",
+        "valid_to": "2009-11-17T00:00:00.000000+00:00",
         "latitude": 54.38,
         "longitude": 10.14,
         "method": "Luftdruckmessung, konv.",
-        "valid_from": "1986-06-01T00:00:00+00:00",
+        "valid_from": "1986-06-01T00:00:00.000000+00:00",
         "station_elevation": 27.0,
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
     assert len(history["geography"]) == 8
     assert history["geography"][0] == {
-        "valid_to": "1935-03-31T00:00:00+00:00",
+        "valid_to": "1935-03-31T00:00:00.000000+00:00",
         "latitude": 54.3767,
         "longitude": 10.1601,
-        "valid_from": "1927-02-01T00:00:00+00:00",
+        "valid_from": "1927-02-01T00:00:00.000000+00:00",
         "station_elevation": 4.0,
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
@@ -2204,17 +2205,17 @@ def test_history_dwd_observation(client: TestClient) -> None:
         "valid_to": IsStr,
         "missing_count": IsApprox(147, delta=50),
         "parameter": "TMK",
-        "valid_from": "1974-01-01T00:00:00+00:00",
+        "valid_from": "1974-01-01T00:00:00.000000+00:00",
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
     assert len(history["missing_data"]["periods"]) == IsApprox(398, delta=100)
     assert history["missing_data"]["periods"][0] == {
         "description": "",
-        "valid_to": "2007-03-12T00:00:00+00:00",
+        "valid_to": "2007-03-12T00:00:00.000000+00:00",
         "missing_count": 1,
         "parameter": "TMK",
-        "valid_from": "2007-03-12T00:00:00+00:00",
+        "valid_from": "2007-03-12T00:00:00.000000+00:00",
         "station_id": "02564",
         "station_name": "Kiel-Holtenau",
     }
@@ -3627,9 +3628,10 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
                 ("daily", "precipitation_more", "precipitation_amount"),
             ],
         )
-        values = SimpleNamespace(sr=SimpleNamespace(parameters=request.parameters, settings=request.settings))
+        values = SimpleNamespace(
+            sr=SimpleNamespace(parameters=request.parameters, settings=request.settings, options=request.options)
+        )
         df_values = TimeseriesValues._widen_df(values, df_values)  # noqa: SLF001
-    df_values = TimeseriesValues._cast_metadata_to_enum(df_values)  # noqa: SLF001
     return ValuesResult(stations=stations, values=None, df=df_values)
 
 
@@ -3926,7 +3928,10 @@ class _HistoryFails:
     def history(self) -> SimpleNamespace:
         if self.step == "history":
             self.fail()
-        return SimpleNamespace(query=self.fail)
+        # what of the real class the endpoint calls, which reads its results from the `query` that fails
+        history = SimpleNamespace(sr=None, query=self.fail)
+        history.to_json = lambda **kwargs: TimeseriesHistory.to_json(history, **kwargs)
+        return history
 
 
 @pytest.mark.parametrize(
@@ -4062,6 +4067,30 @@ def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
     _is_a_500_naming_only(response, "IndexError", hides="list index out of range")
+
+
+def test_stripes_values_write_their_timestamps_as_every_other_body_does(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the stripes' JSON stamps are written in the one format, not as `isoformat` makes them (GH-2633)."""
+    df = pl.DataFrame(
+        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None], "value": [9.5, None]},
+        schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
+    )
+    monkeypatch.setattr(
+        restapi, "_get_stripes_data", lambda _request: SimpleNamespace(df=df, metadata=SimpleNamespace(model_dump=dict))
+    )
+
+    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 200
+    assert response.json()["values"] == [
+        {"timestamp": "2019-01-01T00:00:00.000000+00:00", "value": 9.5},
+        {"timestamp": None, "value": None},
+    ]
+    csv = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048", "format": "csv"})
+    assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5"
 
 
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
@@ -4972,7 +5001,7 @@ def test_issues_dwd_swsmos(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
     response = client.get("/api/issues", params={"provider": "dwd", "network": "swsmos", "station": "A006"})
 
     assert response.status_code == 200
-    assert response.json() == {"issues": ["2026-10-04T06:00:00+00:00"]}
+    assert response.json() == {"issues": ["2026-10-04T06:00:00.000000+00:00"]}
 
 
 def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

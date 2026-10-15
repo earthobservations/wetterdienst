@@ -79,9 +79,8 @@ def test_dwd_observation_data_empty(default_settings: Settings) -> None:
     given_df = request.values.all().df
     assert given_df.select(pl.col("station_id")).to_series().unique().to_list() == ["02011"]
     assert (
-        # dataset is Enum in aggregated results; cast to String so is_in tolerates values that are
-        # absent from the (period="now", possibly empty) result instead of raising on the cast
-        given_df.filter(pl.col("dataset").cast(pl.String).is_in(["wind", "temperature_air"]))
+        # is_in over names that may be absent from the (period="now", possibly empty) result
+        given_df.filter(pl.col("dataset").is_in(["wind", "temperature_air"]))
         .select(pl.col("value"))
         .drop_nulls()
         .is_empty()
@@ -322,9 +321,9 @@ def test_dwd_observation_data_result_wide_single_dataset(
             "tgk_quality_flags": ["1,raw:-999"],
         },
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum(["climate_summary"]),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "fx": pl.Float64,
             "fx_quality_flags": pl.String,
@@ -399,9 +398,9 @@ def test_dwd_observation_data_result_wide_single_parameter(
             "rsk_quality_flags": ["1"],
         },
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum(["climate_summary"]),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "rsk": pl.Float64,
             "rsk_quality_flags": pl.String,
@@ -466,9 +465,9 @@ def test_dwd_observation_data_result_wide_convert_units(
             "tgk_quality_flags": ["1,raw:-999"],
         },
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum(["climate_summary"]),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "fx": pl.Float64,
             "fx_quality_flags": pl.String,
@@ -572,9 +571,9 @@ def test_dwd_observation_data_result_wide_two_datasets(
             "precipitation_more_nsh_tag_quality_flags": ["1,raw:-999", "1,raw:-999"],
         },
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum([]),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "climate_summary_fx": pl.Float64,
             "climate_summary_fx_quality_flags": pl.String,
@@ -774,12 +773,10 @@ def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_d
             },
         ],
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum(["climate_summary"]),
-            "parameter": pl.Enum(
-                ["fm", "fx", "nm", "pm", "rsk", "rskf", "sdk", "shk_tag", "tgk", "tmk", "tnk", "txk", "upm", "vpm"]
-            ),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality_flags": pl.String,
@@ -822,11 +819,11 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
         ],
         orient="col",
     ).with_columns(
-        pl.col("station_id").cast(pl.Enum(["00399"])),
+        pl.col("station_id"),
         pl.col("quality_flags").cast(pl.String),
-        pl.col("resolution").cast(pl.Enum(["hourly"])),
-        pl.col("dataset").cast(pl.Enum(["urban_temperature_air"])),
-        pl.col("parameter").cast(pl.Enum(["humidity_relative", "temperature_air_2m"])),
+        pl.col("resolution"),
+        pl.col("dataset"),
+        pl.col("parameter"),
     )
     assert_frame_equal(given_df, expected_df)
 
@@ -1085,11 +1082,11 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
         ],
         orient="row",
     ).with_columns(
-        pl.col("station_id").cast(pl.Enum(["00399"])),
+        pl.col("station_id"),
         pl.col("quality_flags").cast(pl.String),
-        pl.col("resolution").cast(pl.Enum(["10_minutes"])),
-        pl.col("dataset").cast(pl.Enum(["urban_wind"])),
-        pl.col("parameter").cast(pl.Enum(["wind_direction"])),
+        pl.col("resolution"),
+        pl.col("dataset"),
+        pl.col("parameter"),
     )
     assert_frame_equal(given_df.head(1), expected_df)
 
@@ -1189,10 +1186,10 @@ def test_dwd_observation_data_10_minutes_result_tidy(options_humanize_false_conv
             },
         ],
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["10_minutes"]),
-            "dataset": pl.Enum(["temperature_air"]),
-            "parameter": pl.Enum(["pp_10"]),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality_flags": pl.String,
@@ -1324,10 +1321,10 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
             },
         ],
         schema={
-            "station_id": pl.Enum(["00433"]),
-            "resolution": pl.Enum(["monthly"]),
-            "dataset": pl.Enum(["climate_summary"]),
-            "parameter": pl.Enum(["precipitation_amount"]),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality_flags": pl.String,
@@ -1925,27 +1922,10 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
             },
         ],
         schema={
-            "station_id": pl.Enum(["01048"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum(["climate_summary"]),
-            "parameter": pl.Enum(
-                [
-                    "cloud_cover_total",
-                    "humidity_relative",
-                    "precipitation_amount",
-                    "precipitation_form",
-                    "pressure_air_site",
-                    "pressure_vapor",
-                    "snow_depth",
-                    "sunshine_duration",
-                    "temperature_air_max_2m",
-                    "temperature_air_mean_2m",
-                    "temperature_air_min_0_05m",
-                    "temperature_air_min_2m",
-                    "wind_gust_max",
-                    "wind_speed",
-                ]
-            ),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality_flags": pl.String,
