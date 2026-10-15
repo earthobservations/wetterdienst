@@ -1,3 +1,4 @@
+import type { CoverageNetworkInfo } from '../../shared/types/api'
 import { expect, test } from '@playwright/test'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
@@ -21,12 +22,19 @@ test.describe('API Coverage Endpoint', () => {
     expect(Array.isArray(data.dwd)).toBeFalsy()
     const networks = Object.keys(data.dwd)
     expect(networks).toContain('observation')
-    for (const info of Object.values(data.dwd) as { auth: boolean, configured: boolean, valid: boolean | null }[]) {
+    for (const info of Object.values(data.dwd) as CoverageNetworkInfo[]) {
       expect(typeof info.auth).toBe('boolean')
       expect(typeof info.configured).toBe('boolean')
-      // `dwd` needs no credential, so `valid` is always true; it is `null` only for a credential that could not be checked
-      expect(typeof info.valid).toBe('boolean')
+      // whether a provider accepts the credentials is `/api/auth`'s to tell, not the list's (GH-2641)
+      expect(info).not.toHaveProperty('valid')
+      expect(info.name_short).toBe('DWD')
+      expect(info.country).toBe('Germany')
+      expect(info.url).toMatch(/^https:\/\//)
     }
+    // `radar` and `alerts` are standalone networks, every other one has stations and values
+    expect(data.dwd.radar.kind).toBe('radar')
+    expect(data.dwd.alerts.kind).toBe('alerts')
+    expect(data.dwd.observation.kind).toBe('observation')
   })
 
   test('should fetch provider-network coverage', async ({ request }) => {

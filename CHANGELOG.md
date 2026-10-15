@@ -26,6 +26,12 @@ Types of changes:
   `ImportError`), so an existing `except` still catches it. New: `StartDateEndDateError` and
   `ImageTooLargeError` are also `ValueError`s, and `ProviderNotFoundError`, `StationNotFoundError`
   and `ApiNotFoundError` are also `LookupError`s (GH-2634)
+- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` without arguments
+  give every network a `name_short`, `country`, `url` and `kind`. `kind` is `observation`,
+  `forecast` or `derived` for a timeseries network, which has stations and values, and `radar` or
+  `alerts` for `dwd/radar` and `dwd/alerts`, the standalone networks that `stations`, `values` and
+  the other timeseries endpoints refuse. The four are null for a network that cannot be imported
+  (GH-2641)
 
 ### Changed
 
@@ -63,6 +69,23 @@ Types of changes:
   départements are both `20`, as in the registry. The columns a provider adds to the station frame
   are listed in the Python API page, and a test holds the list to what the providers declare
   (GH-2019)
+- **Breaking**: the listing of every network (`Wetterdienst.discover()`, `/api/coverage` and
+  `wetterdienst about coverage` without arguments, the MCP `coverage` tool) no longer has `valid`.
+  It was `true` for a network without credentials, `false` for missing ones and null for present
+  ones, never checked. Read `configured`, and ask `/api/auth`, `wetterdienst about auth` or
+  `Wetterdienst.is_valid(api)` whether a provider accepts the credentials of one network (GH-2641)
+- **Breaking**: the resolution `6_hour` is `6_hours` (`Resolution.HOUR_6.value`, `metno/frost`), as
+  `10_minutes` is. The old value is not accepted: a request, an option or
+  `geo_station_distance_resolution_factors` that names it is refused with the new one named. Write
+  `6_hours/data` for Frost and `{"6_hours": 1.5}` for the factors (GH-2641, GH-2561)
+
+### Fixed
+
+- A failed lookup of a parameter by attribute (`dataset.klx`) listed the dataset's `quality_*`
+  flags under "Available parameters", which iterating the dataset and `coverage` leave out; they
+  are left out of the list too (GH-2641)
+- The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
+  its coverage request with a 404 (GH-2641)
 
 ## [0.154.0] - 2026-10-15
 

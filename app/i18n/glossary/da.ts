@@ -622,7 +622,7 @@ export const resolutions: Record<string, string> = {
   '10_minutes': 'Hvert 10. minut',
   '15_minutes': 'Hvert 15. minut',
   'hourly': 'Hver time',
-  '6_hour': 'Hver 6. time',
+  '6_hours': 'Hver 6. time',
   'subdaily': 'Flere gange dagligt',
   'daily': 'Dagligt',
   'monthly': 'Månedligt',

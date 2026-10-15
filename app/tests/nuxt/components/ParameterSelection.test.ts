@@ -199,21 +199,36 @@ describe('parameterSelection Component', () => {
     expect(vm.restrictedNetworkAvailable).toBe(true)
   })
 
-  it('lists a credentialed network unless its credentials are missing or rejected', async () => {
-    // `valid` is `null` when the backend could not check the credentials (no network, a rate limit,
-    // an outage): unknown, not rejected, so only an explicit `false` hides a network (GH-2550, GH-2562)
-    const network = (configured: boolean, valid: boolean | null) => ({ auth: true, configured, valid, date_required: false })
+  it('lists a credentialed network unless its credentials are missing', async () => {
+    // the list says whether the credentials are configured and nothing of whether they are accepted:
+    // that is a check of its own (GH-2641), which the tests of the credential checks below cover
+    const network = (configured: boolean) => ({ auth: true, configured, date_required: false })
     registerEndpoint('/api/coverage', () => ({
-      aemet: { accepted: network(true, true), unchecked: network(true, null), rejected: network(true, false), missing: network(false, false) },
-      knmi: { missing: network(false, false) },
-      noaa: { rejected: network(true, false) },
+      aemet: { configured: network(true), missing: network(false) },
+      knmi: { missing: network(false) },
     }))
 
     const wrapper = await mountReady({ modelValue: { provider: 'aemet' } })
 
     const vm = wrapper.vm as any
-    expect(vm.networks).toEqual(['accepted', 'unchecked'])
+    expect(vm.networks).toEqual(['configured'])
     expect(vm.providers).toEqual(['aemet'])
+  })
+
+  it('does not offer a standalone network, which has no stations, parameters or coverage', async () => {
+    // `dwd/radar` and `dwd/alerts` answer a 404 to the coverage the selects read next (GH-2641)
+    const network = (kind: string) => ({ auth: false, configured: true, kind, date_required: false })
+    registerEndpoint('/api/coverage', () => ({
+      dwd: { observation: network('observation'), mosmix: network('forecast'), radar: network('radar'), alerts: network('alerts') },
+      standalone: { alerts: network('alerts') },
+    }))
+
+    const wrapper = await mountReady({ modelValue: { provider: 'dwd' } })
+
+    const vm = wrapper.vm as any
+    expect(vm.networks).toEqual(['observation', 'mosmix'])
+    // a provider with nothing but a standalone network is no provider to choose
+    expect(vm.providers).toEqual(['dwd'])
   })
 
   it('does not fall back to the unrestricted provider list when restrictProvider does not exist', async () => {
@@ -302,9 +317,9 @@ describe('parameterSelection Component', () => {
 // Whether the backend accepts a network's credentials is a request to the provider, which the list
 // of every provider no longer waits for: the page lists them, then asks per network (GH-2564)
 describe('parameterSelection credential checks', () => {
-  // `valid` is null where the credentials are configured and not checked
-  const credentialed = (configured = true, valid: boolean | null = null) => ({ auth: true, configured, valid, date_required: false })
-  const open = { auth: false, configured: true, valid: true, date_required: false }
+  // the list says whether the credentials are configured and not whether they are accepted
+  const credentialed = (configured = true) => ({ auth: true, configured, date_required: false })
+  const open = { auth: false, configured: true, date_required: false }
   const mountSelection = (props: Record<string, unknown> = { modelValue: {} }) => mountReady(props)
 
   // A hold on the mocked endpoint, opened where the order of the answers matters
@@ -402,7 +417,7 @@ describe('parameterSelection credential checks', () => {
   it('asks only about networks that have credentials configured', async () => {
     registerEndpoint('/api/coverage', () => ({
       aemet: { observation: credentialed() },
-      knmi: { observation: credentialed(false, false) },
+      knmi: { observation: credentialed(false) },
       noaa: { ghcn: open },
     }))
     const asked: string[] = []

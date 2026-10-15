@@ -622,7 +622,7 @@ export const resolutions: Record<string, string> = {
   '10_minutes': 'All 10 Minutten',
   '15_minutes': 'All 15 Minutten',
   'hourly': 'All Stonn',
-  '6_hour': 'All 6 Stonnen',
+  '6_hours': 'All 6 Stonnen',
   'subdaily': 'Méintmol pro Dag',
   'daily': 'Deeglech',
   'monthly': 'Mount fir Mount',

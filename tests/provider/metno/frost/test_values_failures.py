@@ -399,7 +399,7 @@ def test_metno_frost_values_404_on_a_one_parameter_dataset_is_not_asked_again(mo
             },
         ],
     }
-    values, seen = _values(monkeypatch, observations, [("6_hour", "data", "precipitation_amount")])
+    values, seen = _values(monkeypatch, observations, [("6_hours", "data", "precipitation_amount")])
     df = values.all().df
     requests = _observation_requests(seen)
     assert len(values.sr.parameters[0].dataset.parameters) == 1
@@ -551,7 +551,7 @@ def test_metno_frost_end_of_a_daily_request_in_another_zone_is_the_date_of_its_u
     assert "referencetime=2019-12-31T23:30:00/2020-01-02T00:00:00" in url
 
 
-@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hour", "monthly", "annual"])
+@pytest.mark.parametrize("resolution", ["10_minutes", "hourly", "6_hours", "monthly", "annual"])
 def test_metno_frost_end_of_a_request_is_a_second_later(resolution: str) -> None:
     """Test that the end sent is a second after the end of the window, which Frost leaves out (GH-2746)."""
     end = dt.datetime(2020, 2, 1, tzinfo=dt.UTC)

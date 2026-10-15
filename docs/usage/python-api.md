@@ -31,6 +31,13 @@ coverage = Wetterdienst.discover()
 coverage
 ```
 
+Each network says what it is: `name_short`, `country`, `url` and `kind`, where `observation`, `forecast` and
+`derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
+(`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
+downloaded, so whether a provider accepts the credentials you have is not part of it:
+`Wetterdienst.is_valid(Wetterdienst("aemet", "observation"))` asks for one network. The fields are
+described with the [REST API](restapi.md#coverage), which lists the same.
+
 To load any of the available APIs pass the provider and the network of data to the
 wetterdienst api factory:
 

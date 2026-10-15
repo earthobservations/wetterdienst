@@ -39,6 +39,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
+from wetterdienst.model.metadata import NetworkKind  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -998,13 +999,21 @@ def auth(
 # `typing_extensions.TypedDict`, as pydantic refuses `typing.TypedDict` below Python 3.12 (GH-2090)
 @with_config(ConfigDict(extra="forbid"))
 class CoverageNetwork(TypedDict):
-    """A network in the list of every provider and its networks."""
+    """A network in the list of every provider and its networks.
 
+    Whether the credentials are accepted is not in it: that takes a request to the provider, which a list of
+    every provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641).
+    """
+
+    # null for the four of a network that cannot be imported on this server, of which nothing is known
+    name_short: str | None
+    country: str | None
+    # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
+    # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
+    kind: NetworkKind | None
+    url: str | None
     auth: bool
     configured: bool
-    # null where the credentials are configured: this listing does not check them, `/api/auth` does
-    # (GH-2564); `/api/auth` itself is null as well when its probe could not tell
-    valid: bool | None
     date_required: bool
 
 
@@ -1058,10 +1067,12 @@ def coverage(
     provider="dwd", network="observation") to list its resolutions/datasets/parameters; narrow with
     resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names.
 
-    The list of every provider downloads nothing, so it answers at once. For a network that needs
-    credentials, `configured` says whether they are present, and `valid` is false where they are not
-    and null where they are: this list does not check whether the provider accepts them, `/api/auth`
-    (the MCP `auth` tool) does, for one network.
+    The list of every provider downloads nothing, so it answers at once. Per network it gives
+    `name_short`, `country`, `url` and `kind`. `kind` is `observation`, `forecast` or `derived` for a
+    timeseries network, which has stations and values (every network but two); `radar` and `alerts`
+    are standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network
+    that needs credentials, `configured` says whether they are present; whether the provider accepts
+    them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network.
     """
     set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network

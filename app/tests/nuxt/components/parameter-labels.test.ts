@@ -52,7 +52,7 @@ describe('parameterSelection names ids in the active locale', () => {
   })
 
   async function mountSelection() {
-    const open = { auth: false, configured: true, valid: true, date_required: false }
+    const open = { name_short: 'DWD', country: 'Germany', kind: 'observation', url: 'https://opendata.dwd.de/', auth: false, configured: true, date_required: false }
     registerEndpoint('/api/coverage', (event) => {
       if (!getQuery(event).provider)
         return { dwd: { observation: open } }

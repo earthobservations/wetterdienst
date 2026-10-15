@@ -217,16 +217,26 @@ class Wetterdienst:
 
     @classmethod
     def discover(cls) -> dict[str, Any]:
-        """Discover all available providers and networks with their metadata.
+        """Discover all available providers and networks with what they are.
 
         Nothing is downloaded, so this is as fast on a cold cache as on a warm one (GH-2564). Whether
         a provider accepts the credentials it is configured with takes a request to the provider, which
-        a listing of every provider must not wait for, so `valid` is `None` for a network that is
-        configured and has not been checked. `Wetterdienst.is_valid(api)` checks one.
+        a listing of every provider must not wait for, so it is not told here: `Wetterdienst.is_valid(api)`
+        checks one network, as `/api/auth` and `wetterdienst about auth` do (GH-2641).
 
-        Per network: `auth` whether it needs credentials, `configured` whether they are present,
-        `valid` whether they are accepted (`True` where none are needed, `False` where they are
-        missing, `None` where they are present and unchecked), `date_required`.
+        Per network: `name_short`, the provider's short name; `country`; `url`, where the provider
+        publishes the data; `kind`; `auth` whether it needs credentials, `configured` whether they are
+        present; `date_required`.
+
+        `kind` is what the network is. A timeseries network has stations and values, and is `observation`,
+        `forecast` or `derived`; those are the networks `stations`, `values`, `history`, `interpolate`,
+        `summarize` and `stripes` take. A standalone network has its own request class and result, is `radar`
+        or `alerts` (`dwd/radar` and `dwd/alerts`), and is refused by all of them with a 404 or a usage
+        error. A standalone network has no metadata model, so its name, country and url are its request class's
+        `listing`, which names the provider's short name and country and the url of its own products.
+
+        A network that cannot be imported (a dependency is missing) has a null `name_short`, `country`, `kind`
+        and `url`, as nothing is known of it, and the reason is logged.
         """
         result = {}
         for provider, networks in cls.registry.items():
@@ -238,32 +248,38 @@ class Wetterdienst:
                     # the listing below says nothing of it, so the log does: it was swallowed silently (GH-2801)
                     log.warning("%s/%s cannot be imported: %s", provider, network, e)
                     result[provider][network] = {
+                        "name_short": None,
+                        "country": None,
+                        "kind": None,
+                        "url": None,
                         "auth": False,
                         "configured": True,
-                        "valid": True,
                         "date_required": False,
                     }
                     continue
                 metadata = getattr(api, "metadata", None)
-                auth = metadata.auth if metadata is not None else False
-                configured = cls.is_configured(api) if auth else True
-                if not auth:
-                    valid = True
-                elif not configured:
-                    valid = False
+                if metadata is not None:
+                    listing = {
+                        "name_short": metadata.name_short,
+                        "country": metadata.country,
+                        "kind": metadata.kind,
+                        "url": metadata.url,
+                    }
                 else:
-                    # not probed: that is a request to the provider per network, and a listing of
-                    # all of them waited for each in turn (GH-2564)
-                    valid = None
+                    # the registry holds two classes that are no `TimeseriesRequest`, and each has a `listing`
+                    listing = api.listing  # ty: ignore[unresolved-attribute]
+                auth = metadata.auth if metadata is not None else False
                 date_required = (
                     any(dataset.date_required for resolution in metadata for dataset in resolution.datasets)
                     if metadata is not None
                     else False
                 )
                 result[provider][network] = {
+                    **listing,
                     "auth": auth,
-                    "configured": configured,
-                    "valid": valid,
+                    # not probed whether the credentials are accepted: that is a request to the provider per
+                    # network, and a listing of all of them waited for each in turn (GH-2564)
+                    "configured": cls.is_configured(api) if auth else True,
                     "date_required": date_required,
                 }
         return result

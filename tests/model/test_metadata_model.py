@@ -228,3 +228,27 @@ def test_group_parameters_by_dataset_groups_a_dataset_asked_for_twice() -> None:
         ("climate_summary", ["temperature_air_mean_2m", "precipitation_amount"]),
         ("precipitation_more", ["precipitation_amount"]),
     ]
+
+
+def test_a_dataset_lists_the_same_parameters_wherever_it_lists_them() -> None:
+    """The iterator, `discover()` and the list of a failed lookup leave out the quality flags (GH-2641).
+
+    The flags are in `dataset.parameters`, and a name asked for is found whatever it is, but a list of what the dataset
+    offers had them in the message of a failed lookup, `quality_wind/qn_3` first, and not in the iterator.
+    """
+    dataset = DwdObservationMetadata.daily.climate_summary
+    assert any(parameter.name.startswith("quality") for parameter in dataset.parameters)
+    offered = [parameter.name for parameter in dataset]
+    assert offered
+    assert not any(name.startswith("quality") for name in offered)
+
+    for lookup in (lambda: dataset["klx"], lambda: dataset.klx):
+        with pytest.raises((KeyError, AttributeError)) as raised:
+            lookup()
+        listed = str(raised.value).split("Available parameters: ", 1)[1].rstrip("'\"")
+        assert [name.split("/")[0] for name in listed.split(", ")] == offered
+
+    # a flag asked for by name is still found, and answered as a flag where it is requested
+    assert dataset["quality_wind"] is dataset.quality_wind
+    with pytest.raises(KeyError, match="is a quality flag"):
+        DwdObservationMetadata.search_parameter(ParameterSearch("daily", "climate_summary", "quality_wind"))

@@ -55,11 +55,14 @@ const coveragePending = computed(() => !coverageSettled.value)
 const rejectedNetworks = ref<Record<string, true>>({})
 const networkKey = (providerName: string, networkName: string) => `${providerName}/${networkName}`
 
-// A provider/network is available when it needs no auth, or when auth credentials are present and not
-// rejected. `valid` in the coverage answer is `false` where they are missing and `null` where they
-// are present and unchecked; only an explicit `false` there, or a check that says so, hides a network.
-function isAvailable(providerName: string, networkName: string, n: { auth: boolean, configured: boolean, valid: boolean | null }) {
-  return !n.auth || (n.configured && n.valid !== false && !rejectedNetworks.value[networkKey(providerName, networkName)])
+// A provider/network is available when it is a timeseries network, and needs no auth or has its
+// credentials present and not rejected. A standalone network (`radar`, `alerts`: `dwd/radar`,
+// `dwd/alerts`) has no stations, resolutions or parameters to select, and its coverage is a 404. Only
+// a check that says the credentials are rejected hides a network that has them (GH-2641).
+function isAvailable(providerName: string, networkName: string, n: Pick<CoverageNetworkInfo, 'auth' | 'configured' | 'kind'>) {
+  if (n.kind === 'radar' || n.kind === 'alerts')
+    return false
+  return !n.auth || (n.configured && !rejectedNetworks.value[networkKey(providerName, networkName)])
 }
 
 // EXPECTING
@@ -109,7 +112,7 @@ watch(coverage, (cov) => {
   for (const [providerName, networksOfProvider] of Object.entries(cov ?? {})) {
     for (const [networkName, n] of Object.entries(networksOfProvider ?? {})) {
       const key = networkKey(providerName, networkName)
-      if (!n.auth || !n.configured || n.valid === false || checkedNetworks.has(key))
+      if (!n.auth || !n.configured || checkedNetworks.has(key))
         continue
       checkedNetworks.add(key)
       checkCredentials(providerName, networkName)
