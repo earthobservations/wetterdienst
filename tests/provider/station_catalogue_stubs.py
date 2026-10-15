@@ -8,12 +8,16 @@ decimal separator, and the padding too where a comment does not say it was cut. 
 the provider's own reader (`_all()` and the frame handling of `all()`), so a reader that loses a sign or drops a column
 shows here without the network. What a stub serves in place of the reader's lower layer is said in its comment: the
 sheet of `dwd/road` for the Excel read, the directory listings of `dwd/dmo`, `dwd/poi`, `dwd/observation` and
-`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`. A comment also says
+`dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the NetCDF file of
+`knmi/observation`, which needs a key, written with h5netcdf. A comment also says
 which fields a stub made up (the observations a Hubeau station's resolution is measured from, the file names of
 `dwd/observation` but two) and which it left out.
 
 To hold another provider to the rules, add a stub to `STUBS`: serve the rows through `_serve`, call the request, and
-give the rows a fault the source really has if there is one, so that the rule is seen to find it.
+give the rows a fault the source really has if there is one, so that the rule is seen to find it. A rule finds a value
+that cannot be, not one that is read wrongly: where the reader converts (the degrees and minutes of `dwd/dmo`), splits
+(the names of `dwd/observation`) or picks (the WMO number of `knmi/observation`), name in `Stub.expected` what it must
+give for the rows that show it, and check by mutating the reader that the stub fails.
 """
 
 from __future__ import annotations
@@ -21,8 +25,10 @@ from __future__ import annotations
 import bz2
 import datetime as dt
 import json
+import tempfile
 from dataclasses import dataclass, field
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -68,6 +74,8 @@ from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
+from wetterdienst.provider.knmi.observation import KnmiObservationRequest
+from wetterdienst.provider.knmi.observation import api as knmi_api
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation import api as lhmt_api
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest
@@ -105,6 +113,9 @@ class Stub:
     catalogue: str
     build: Callable[[pytest.MonkeyPatch], pl.DataFrame]
     accepted: tuple[Accepted, ...] = field(default=())
+    # the fields the reader must give a station, by station id: no rule can tell a position read wrongly from one that
+    # is only somewhere else, as in a list published in degrees and minutes, or a name cut short
+    expected: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def bbox(self) -> tuple[float, float, float, float] | None:
@@ -658,11 +669,34 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdPoiRequest, ("hourly", "data"))
 
 
+# the position the reader must give a station of `dwd/dmo`, in decimal degrees: the list writes degrees and minutes
+# (`70.56` is 70 degrees 56 minutes, which is 70.93), and no rule can tell 70.93 from 70.56. A station DWD publishes at
+# the wrong place is expected at the place it is (GH-2646, GH-2897)
+DMO_POSITIONS: dict[str, tuple[float, float]] = {
+    "01001": (70.93, -8.67),  # JAN MAYEN: minutes behind whole degrees, a west longitude
+    "03377": (53.17, -0.52),  # WADDINGTON, published `.31` east for 0.52 west
+    "03772": (51.48, -0.45),  # LONDON: `-.27`, the minus before the missing whole degrees
+    "08286": (39.95, -0.07),  # CASTELLON DE LA PLAN: `. 4` is 4 minutes and not 40, published east for west
+    "08370": (38.78, 0.17),  # JAVEA, published `-.10` west for 0.17 east
+    "43599": (-0.68, 73.15),  # GAN: a south latitude of minutes only
+    "61226": (16.27, -0.05),  # GAO: `.-3`, the minus behind the point, which is 3 minutes west
+    "63705": (0.05, 32.45),  # ENTEBBE: a latitude `. 3`, 3 minutes with a blank for the tens
+    "82106": (-0.13, -67.07),  # SAO GABRIEL CACHOEI: `.-8` south of the equator
+    "F9424": (-22.15, -49.07),  # BAURU, published 22.15 north for south
+    "P0563": (51.87, -0.37),  # LONDON LUTON, published `.22` east for 0.37 west
+}
+DMO_EXPECTED = {
+    station_id: {"latitude": latitude, "longitude": longitude}
+    for station_id, (latitude, longitude) in DMO_POSITIONS.items()
+}
+
+
 def _dwd_dmo(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # `dmo_stationsliste_txt.asc` (2026-10-15), the rows that showed a defect: a position with no whole degrees (`.31`,
-    # `-.27`) or a blank for the tens of minutes (`. 4`), which the sign of a west or south position is lost with
-    # (GH-2897), and the stations DWD publishes at the wrong place (GH-2646). The list is no country's, so the rules
-    # hold these rows to a position that is there and on Earth, not to where it is
+    # `dmo_stationsliste_txt.asc` (2026-10-15, 5811 stations), the rows that showed a defect: a position with no whole
+    # degrees (`.31`, `-.27`), a blank for the tens of minutes (`. 4`, `. 3`) and a minus behind the point (`.-3`,
+    # `.-8`), which the sign of a west or south position is lost with (GH-2897), and the stations DWD publishes at the
+    # wrong place (GH-2646). The list is no country's, so the rules hold these rows to a position that is there and
+    # on Earth, and `DMO_POSITIONS` to where it is
     catalogue = (
         "ID    ICAO NAME                 LAT    LON     ELEV\r\n"
         "----- ---- -------------------- -----  ------- -----\r\n"
@@ -674,15 +708,37 @@ def _dwd_dmo(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "08286 LECN CASTELLON DE LA PLAN  39.57     . 4    36\r\n"
         "08370 ---- JAVEA/YUNTAMIEN       38.47    -.10    15\r\n"
         "10147 EDDH HAMBURG-FU.           53.38   10.00    16\r\n"
+        "43599 VRGN GAN                    -.41   73.09     2\r\n"
+        "61226 GAGO GAO                   16.16     .-3   265\r\n"
+        "63705 HUEN ENTEBBE                 . 3   32.27  1155\r\n"
+        "82106 SBUA SAO GABRIEL CACHOEI     .-8  -67.04    90\r\n"
         "F9424 SBAE BAURU/AREALVA APT.    22.09  -49.04   594\r\n"
         "P0563 EGGW LONDON LUTON          51.52     .22   160\r\n"
     )
     _serve(monkeypatch, dmo_api, {"dmo_stationsliste_txt": catalogue.encode("latin-1")})
     # the product forecasts for the stations that have a directory, here every one the list names
-    ids = ["01001", "01025", "03377", "03768", "03772", "08286", "08370", "10147", "F9424", "P0563"]
+    ids = [line[:5] for line in catalogue.splitlines()[2:]]
     directories = [{"name": f"single_stations/{station_id}/"} for station_id in ids]
     monkeypatch.setattr(dmo_api, "list_remote_directory_fsspec", lambda *_args, **_kwargs: directories)
     return _stations(DwdDmoRequest, ("hourly", "icon"))
+
+
+# what the reader must give of the stations of `dwd/observation`, read from the lines of its stub: the name is every
+# word between the position and the region, and a trailing `Frei` is no part of either
+OBSERVATION_EXPECTED: dict[str, dict[str, Any]] = {
+    "00001": {
+        "name": "Aach",
+        "region": "Baden-Württemberg",
+        "elevation": 478.0,
+        "latitude": 47.8413,
+        "longitude": 8.8493,
+    },
+    "00011": {"name": "Donaueschingen (Landeplatz)", "region": "Baden-Württemberg", "elevation": 680.0},
+    "00197": {"name": "Arolsen-Volkhardinghausen, Bad", "region": "Hessen", "latitude": 51.3219, "longitude": 9.0558},
+    "00314": {"name": "Kubschütz, Kr. Bautzen", "region": "Sachsen", "latitude": 51.1604, "longitude": 14.5042},
+    "01332": {"name": "Falkenberg,Kr.Rottal-Inn", "region": "Bayern", "latitude": 48.4832, "longitude": 12.7241},
+    "03657": {"name": "Nümbrecht auf dem Lindchen", "region": "Nordrhein-Westfalen", "elevation": 341.0},
+}
 
 
 def _dwd_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -1292,6 +1348,55 @@ def _nws(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(NwsObservationRequest, ("hourly", "data"))
 
 
+# the station id of `knmi/observation` is the WMO number at the end of the WSI, the height keeps its sign
+KNMI_EXPECTED: dict[str, dict[str, Any]] = {
+    "06209": {"wigos_id": "0-20000-0-06209", "name": "IJmond", "latitude": 52.465, "longitude": 4.518},
+    "06260": {"wigos_id": "0-20000-0-06260", "name": "De Bilt", "latitude": 52.1, "longitude": 5.18, "elevation": 1.9},
+    "06344": {"name": "Rotterdam Airport", "elevation": -4.3},
+    "06392": {"name": "Horst", "latitude": 51.486836, "longitude": 6.056189},
+}
+
+
+def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # the list is the station axis of the latest NetCDF file of a resolution, which needs the API key, so the file is
+    # written with h5netcdf in the shape the reader reads (stations keyed by WSI, `stationname`, `lat`, `lon`,
+    # `height`) and served in place of the download. The rows are those of the key-less station table that
+    # `daggegevens.knmi.nl` prints above its data (2026-10-15, `stns=ALL`: the first two stations, De Bilt, Rotterdam
+    # Airport at a height of -4.3 m, and Horst with a position of six decimals): the legacy
+    # number 260 of De Bilt is the 06260 of its WSI. The names and positions of the NetCDF files themselves could not
+    # be read without a key
+    import pytest  # noqa: PLC0415
+
+    h5netcdf = pytest.importorskip("h5netcdf", reason="h5netcdf not installed")
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
+    stations = [
+        ("0-20000-0-06209", "IJmond", 52.465, 4.518, 0.0),
+        ("0-20000-0-06210", "VALKENBURG VK", 52.171, 4.430, -0.2),
+        ("0-20000-0-06260", "De Bilt", 52.100, 5.180, 1.9),
+        ("0-20000-0-06344", "Rotterdam Airport", 51.962, 4.447, -4.3),
+        ("0-20000-0-06392", "Horst", 51.486836, 6.056189, 21.88),
+    ]
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "stations.nc"
+        with h5netcdf.File(path, "w") as file:
+            file.dimensions = {"station": len(stations)}
+            string_dtype = h5py.string_dtype()
+            station = file.create_variable("station", ("station",), dtype=string_dtype)
+            station[:] = [wsi for wsi, *_ in stations]
+            stationname = file.create_variable("stationname", ("station",), dtype=string_dtype)
+            stationname[:] = [name for _, name, *_ in stations]
+            for column, index in {"lat": 2, "lon": 3, "height": 4}.items():
+                variable = file.create_variable(column, ("station",), dtype="f8")
+                variable[:] = [row[index] for row in stations]
+        payload = path.read_bytes()
+    monkeypatch.setattr(knmi_api, "_latest_filename", lambda *_args: "latest.nc")
+    monkeypatch.setattr(knmi_api, "_fetch_netcdf", lambda *_args: payload)
+    request = KnmiObservationRequest(
+        parameters=[("daily", "data")], settings=Settings(cache_disable=True, auth={"knmi": "stub"})
+    )
+    return request.all().df
+
+
 def _meteofrance_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # the station registry of data.gouv.fr (2026-10-15), 14,729 stations of which these: many have no start date,
     # a closed one has an end, and the overseas departments have codes of three digits
@@ -1350,12 +1455,13 @@ STUBS = [
     Stub("eccc/observation daily/data", _eccc),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
     Stub("dwd/poi hourly/data", _dwd_poi, (DWD_NAMES,)),
-    Stub("dwd/dmo hourly/icon", _dwd_dmo),
-    Stub("dwd/observation daily/climate_summary", _dwd_observation),
+    Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),
+    Stub("dwd/observation daily/climate_summary", _dwd_observation, expected=OBSERVATION_EXPECTED),
     Stub("dwd/derived hourly/radiation_global", _dwd_derived),
     Stub("dwd/phenology annual/annual_apple", _dwd_phenology),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
+    Stub("knmi/observation daily/data", _knmi, expected=KNMI_EXPECTED),
     Stub("metno/frost hourly/data", _metno_frost),
     Stub("metoffice/observation daily/rain", _metoffice),
     Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
