@@ -23,6 +23,11 @@ Types of changes:
   work for any provider, not DWD alone; stripes read annual, not daily, observations; DMI needs no
   API key; the Docker image has the `export`, `knmi` and `mcp` extras and no `explorer`; the image
   is built from `docker/Dockerfile` without a wheel (GH-2621)
+- `Info().authors`, and so `wetterdienst info` and the REST index, are read from the installed
+  package's `[project] authors` instead of a copy that named another address for the first author
+  (`benjamin@eobs.org`, not `gutzemann@gmail.com`). An author without a known GitHub account has
+  an empty `github_handle` and no GitHub link on the index; a never-installed checkout has no
+  authors (GH-2954)
 
 ## [0.153.0] - 2026-10-15
 

@@ -3,6 +3,9 @@
 """Package for accessing weather data from various APIs."""
 
 from dataclasses import asdict, dataclass
+from email.utils import getaddresses
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import metadata as package_metadata  # `wetterdienst.metadata` is a subpackage
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
@@ -27,6 +30,27 @@ class Author:
     github_handle: str
 
 
+# The metadata of the package names an author and an address, not a GitHub account.
+_GITHUB_HANDLES = {"Benjamin Gutzmann": "gutzbenj", "Andreas Motl": "amotl"}
+
+
+def _read_authors(appname: str) -> list[Author]:
+    """Read the authors from the installed package's metadata, i.e. `[project] authors` of pyproject.toml.
+
+    One source rather than a copy of it here, which named a different address for the first author
+    than the package does (GH-2954). Empty where there is no installed package to ask, a source
+    checkout that was never installed, or none that names an address; an editable install reports
+    what pyproject.toml said when it was last installed.
+    """
+    try:
+        header = package_metadata(appname).get_all("Author-email") or []
+    except PackageNotFoundError:  # pragma: no cover
+        return []
+    return [
+        Author(name or email, email, _GITHUB_HANDLES.get(name, "")) for name, email in getaddresses(header) if email
+    ]
+
+
 class Info:
     """Class for package information."""
 
@@ -35,10 +59,7 @@ class Info:
         self.name = __appname__
         self.slogan = "open weather data for humans"
         self.version = __version__
-        self.authors = [
-            Author("Benjamin Gutzmann", "gutzemann@gmail.com", "gutzbenj"),
-            Author("Andreas Motl", "andreas.motl@panodata.org", "amotl"),
-        ]
+        self.authors = _read_authors(__appname__)
         self.repository = "https://github.com/earthobservations/wetterdienst"
         self.documentation = "https://wetterdienst.readthedocs.io"
 
@@ -59,7 +80,7 @@ class Info:
         {self.name} - open weather data for humans
         ===========================================
         version:                {self.version}
-        authors:                {", ".join([f"{author.name} <{author.email}>" for author in self.authors])}
+        authors:                {", ".join(f"{author.name} <{author.email}>" for author in self.authors) or "unknown"}
         documentation:          {self.documentation}
         repository:             {self.repository}
         cache_dir (default):    {self.cache_dir}
