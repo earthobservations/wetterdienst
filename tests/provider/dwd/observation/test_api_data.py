@@ -12,7 +12,7 @@ from freezegun import freeze_time
 from polars.testing import assert_frame_equal
 
 from tests.conftest import IS_CI, IS_WINDOWS
-from tests.provider.value_stubs import stations_result
+from tests.provider.value_stubs import STUBS, stations_result
 from wetterdienst import Options, Resolution, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel
@@ -1521,6 +1521,23 @@ def test_tidy_up_data(options_humanize_false_drop_nulls_false: Options) -> None:
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)
+
+
+def test_dwd_observation_weather_phenomena_returns_both_code_tables_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the hourly `weather` is DWD's code as written, from the 0-99 table and from the 100-199 one alike.
+
+    DWD publishes the present weather in one column that holds two tables with disjoint numbers (21 and 61 of the
+    WMO `ww` table, 123 and 100 of the second one), and `Wetter_Beschreibung.txt` gives the text of every code of
+    both. Station 01048 reports from both within five hours of 2022-08-01 (read from its historical file on
+    2026-10-15). Neither is translated into the other and `WW_Text`, which is the table's text for the code beside
+    it, is not returned; -1, "Wetter wurde nicht gemeldet", is the only row without a weather (GH-2718, GH-2670).
+    """
+    stub = next(stub for stub in STUBS if stub.provider == "dwd/observation hourly/weather_phenomena")
+    df = stub.build(monkeypatch, drop_nulls=False)
+    assert df.get_column("parameter").unique().to_list() == ["weather"]
+    assert df.sort("timestamp").get_column("value").to_list() == [None, 21.0, 61.0, 123.0, 100.0]
+    # the -1 row keeps the text DWD wrote beside the null it was mapped to
+    assert df.sort("timestamp").get_column("quality_flags").to_list() == ["3,raw:-1", "3", "3", "3", "3"]
 
 
 @pytest.mark.remote

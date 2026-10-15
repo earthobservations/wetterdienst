@@ -85,6 +85,11 @@ Types of changes:
   (`hourly/temperature_soil`) in the REST API, the MCP tools and the docs say that only the
   historical files carry a value (up to 2009 and 2019): `recent` (and `now` at 10 minutes) hold
   `-999` at every station, so those periods never have a value for these two (GH-2852)
+- The description of `dwd/observation` `hourly/weather_phenomena` `weather` in the REST API, the
+  MCP tools and the docs says that its code is one of two tables with disjoint numbers (0-99,
+  WMO table 4677 `ww`; 100-199, WMO table 4680 `wawa` plus 100), that a station's historical file
+  can hold both, and that the code's text is in DWD's `Wetter_Beschreibung.txt`. The code is
+  returned as written, neither table translated into the other (GH-2718)
 - A `dwd/radar` HDF5 request without `h5py` warns once, naming `pip install wetterdienst[radar]`,
   and returns the files unverified, where it logged a traceback for every file (GH-2928)
 
