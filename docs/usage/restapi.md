@@ -40,6 +40,10 @@ query parameters are. `interpolate` and `summarize` also report the settings the
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
+Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts and stripes alike,
+and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
+the microsecond, with its offset, for instance `2026-09-01T00:00:00.000000+00:00`.
+
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
 ## Examples

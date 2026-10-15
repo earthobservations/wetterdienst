@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, cast
 
 import polars as pl
 from tqdm import tqdm
@@ -18,6 +18,13 @@ from typing_extensions import TypeVar
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.result import StationsResult, ValuesResult
+from wetterdienst.model.schema import (
+    LONG_SCHEMA,
+    WIDE_FLAGS_DTYPE,
+    WIDE_FLAGS_SUFFIX,
+    WIDE_SCHEMA,
+    WIDE_VALUE_DTYPE,
+)
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.url import redact_password
@@ -64,35 +71,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Create a new instance of the class from a StationsResult object."""
         return cls(stations)
 
-    # Fields for type coercion, needed for separation from fields with actual data
-    # that have to be parsed differently when having data in tabular form
-    # the long form every provider returns, before `_widen_df` reshapes it. Declared once so that
-    # a frame can be built in it without going through the shape-dependent property below
-    _long_fields: ClassVar = {
-        "station_id": pl.String,
-        "resolution": pl.String,
-        "dataset": pl.String,
-        "parameter": pl.String,
-        "timestamp": pl.Datetime(time_zone="UTC"),
-        "value": pl.Float64,
-        # every flag the source publishes for the reading, as one string: the plain code of a source with
-        # one flag, `kind:code` tokens of a source with several, comma-separated in a fixed order per
-        # provider, and a last `raw:<text>` token for a value mapped from a missing-value sentinel; null where the
-        # source published none (GH-2018, GH-2758, GH-2759)
-        "quality_flags": pl.String,
-    }
-
     @property
-    def _meta_fields(self) -> dict[str, Any]:
-        """Get metadata fields for the DataFrame."""
-        if not self.sr.options.tidy:
-            return {
-                "station_id": pl.String,
-                "resolution": pl.String,
-                "dataset": pl.String,
-                "timestamp": pl.Datetime(time_zone="UTC"),
-            }
-        return dict(self._long_fields)
+    def _meta_fields(self) -> pl.Schema:
+        """Get the schema of the columns that describe a row: all of the long form, or the wide form's own."""
+        return LONG_SCHEMA if self.sr.options.tidy else WIDE_SCHEMA
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -138,7 +120,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Reorder columns in DataFrame to match the expected order of columns."""
-        columns = list(self._meta_fields.keys())
+        columns = list(self._meta_fields)
         columns.extend(set(df.columns).difference(columns))
         # the wide form lists no value columns among the meta fields, so the flags are asked for by name
         if "quality_flags" not in columns:
@@ -152,29 +134,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # providers that publish no flag leave `quality_flags` out, and an untyped null would not
         # concatenate with the String column of those that do
         return df.select(
-            pl.col(col) if col in df.columns else pl.lit(None, dtype=self._long_fields.get(col)).alias(col)
-            for col in columns
-        )
-
-    # low-cardinality metadata columns that are stored as Enum instead of String to save memory
-    _meta_enum_columns: ClassVar = ("station_id", "resolution", "dataset", "parameter")
-
-    @classmethod
-    def _cast_metadata_to_enum(cls, df: pl.DataFrame) -> pl.DataFrame:
-        """Cast the low-cardinality metadata columns to ``Enum`` to reduce the memory footprint.
-
-        The categories are taken from the values actually present in the frame (not from the
-        request metadata), so the cast never fails on provider-specific casing or humanization
-        quirks (e.g. WSV emitting ``w`` while the metadata declares ``W``). These columns repeat
-        every row, so integer-backed ``Enum`` codes roughly halve the size of tidy value frames.
-        """
-        return df.with_columns(
-            # nulls are dropped from the categories rather than carried into them: `Enum` rejects a
-            # null category outright, and a null here is a column that does not describe the row --
-            # a wide frame spanning several datasets has no one dataset name to put in the column
-            pl.col(column).cast(pl.Enum(df.get_column(column).drop_nulls().unique().sort()))
-            for column in cls._meta_enum_columns
-            if column in df.columns
+            pl.col(col) if col in df.columns else pl.lit(None, dtype=LONG_SCHEMA.get(col)).alias(col) for col in columns
         )
 
     def query(self) -> Iterator[ValuesResult]:
@@ -282,11 +242,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         the shape asked for: `_widen_df` reads the `parameter` column that the wide form no longer
         has, and a wide request spanning two datasets raised `ColumnNotFoundError` from inside it.
 
-        The metadata columns stay strings here. `Enum` categories are taken from the values in the
-        frame, and a frame with no rows has none to take, which leaves an `Enum([])` that says
-        less than the string it replaces and reads oddly on a schema anyone may print.
+        Built from `LONG_SCHEMA`, so its columns are the ones a populated frame has, down to the dtypes.
         """
-        df = pl.DataFrame(schema=self._long_fields)
+        df = pl.DataFrame(schema=LONG_SCHEMA)
         if not self.sr.options.tidy:
             df = self._widen_df(df=df)
         return df
@@ -438,13 +396,30 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         )
         df_wide = df.select(pl.col("station_id"), pl.col("resolution"), dataset, pl.col("timestamp")).unique()
 
+        # the columns of the parameters in the order the request names them, as the empty frame has them,
+        # and not in the order the source happened to deliver its rows in
+        requested = []
+        for parameter in self.sr.parameters:
+            name = parameter.name_original if not self.sr.options.humanize else parameter.name
+            requested.append(f"{parameter.dataset.name}_{name}" if len(datasets) > 1 else name)
+        # once: the same parameter of a dataset of one name at two resolutions is one column
+        requested = list(dict.fromkeys(requested))
+
         if not df.is_empty():
-            for (parameter,), df_parameter in df.group_by(["parameter"], maintain_order=True):
+            delivered = {
+                key[0]: df_parameter
+                for key, df_parameter in df.partition_by(["parameter"], as_dict=True, maintain_order=True).items()
+            }
+            # a name the request does not account for, which the humanize mapping did not cover, follows
+            ordered = [name for name in requested if name in delivered]
+            ordered += [name for name in delivered if name not in ordered]
+            for parameter in ordered:
+                df_parameter = delivered[parameter]
                 df_parameter = df_parameter.select(["resolution", "timestamp", "value", "quality_flags"])
                 df_parameter = df_parameter.rename(
                     mapping={
                         "value": parameter,
-                        "quality_flags": f"{parameter}_quality_flags",
+                        "quality_flags": f"{parameter}{WIDE_FLAGS_SUFFIX}",
                     },
                 )
                 # left, not inner: a parameter that has no reading at a timestamp another parameter
@@ -454,16 +429,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # -- three quarters of a 15-minute series joined against an hourly one
                 df_wide = df_wide.join(df_parameter, on=["resolution", "timestamp"], how="left")
         else:
-            for parameter in self.sr.parameters:
-                parameter_name = parameter.name_original if not self.sr.options.humanize else parameter.name
-                # prefixed on the same condition as the populated branch above, so that an empty
-                # frame carries the column names a populated one would have rather than the
-                # unprefixed names it used to, which named no column the request could produce
-                if len(datasets) > 1:
-                    parameter_name = f"{parameter.dataset.name}_{parameter_name}"
+            # named as the populated branch above names them, so that an empty frame carries the column
+            # names a populated one would have rather than the unprefixed names it used to, which named
+            # no column the request could produce
+            for parameter_name in requested:
                 df_wide = df_wide.with_columns(
-                    pl.lit(None, pl.Float64).alias(parameter_name),
-                    pl.lit(None, pl.String).alias(f"{parameter_name}_quality_flags"),
+                    pl.lit(None, WIDE_VALUE_DTYPE).alias(parameter_name),
+                    pl.lit(None, WIDE_FLAGS_DTYPE).alias(f"{parameter_name}{WIDE_FLAGS_SUFFIX}"),
                 )
 
         return df_wide
@@ -487,10 +459,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             return ValuesResult(stations=self.sr, values=self, df=self._empty_values_df())
 
         df = pl.concat(data, how="diagonal")
-
-        # store the low-cardinality metadata columns as Enum to reduce the memory footprint of the
-        # aggregated result; done once here on the full frame, with categories from the actual data
-        df = self._cast_metadata_to_enum(df)
 
         return ValuesResult(stations=self.sr, values=self, df=df)
 

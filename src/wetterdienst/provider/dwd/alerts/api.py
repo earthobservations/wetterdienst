@@ -32,6 +32,7 @@ from wetterdienst.provider.dwd.alerts.metadata import (
 )
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
 from wetterdienst.settings import Settings
+from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
 
 if TYPE_CHECKING:
@@ -112,7 +113,7 @@ class DwdWeatherAlertResult:
                 alert[column] = json.loads(row[column]) if row[column] is not None else None
             for column in ("effective", "onset", "expires", "sent"):
                 value: dt.datetime | None = row[column]
-                alert[column] = value.isoformat() if value is not None else None
+                alert[column] = format_timestamp(value) if value is not None else None
             alerts.append(alert)
         return alerts
 
@@ -123,7 +124,7 @@ class DwdWeatherAlertResult:
         for the latest one, so callers can tell which point-in-time snapshot they received.
         """
         return {
-            "snapshot": self.snapshot.isoformat() if self.snapshot is not None else None,
+            "snapshot": format_timestamp(self.snapshot) if self.snapshot is not None else None,
             "alerts": self._alerts(),
         }
 
@@ -145,7 +146,7 @@ class DwdWeatherAlertResult:
         # "snapshot" is a GeoJSON foreign member carrying the selected snapshot's UTC production time.
         return {
             "type": "FeatureCollection",
-            "snapshot": self.snapshot.isoformat() if self.snapshot is not None else None,
+            "snapshot": format_timestamp(self.snapshot) if self.snapshot is not None else None,
             "features": features,
         }
 
@@ -159,7 +160,7 @@ class DwdWeatherAlertResult:
         List columns are comma-joined and the ``parameters``/``geometry`` structures stay
         JSON-encoded, since CSV cannot represent nested data.
         """
-        df = self.df.with_columns(pl.col(column).list.join(",") for column in _LIST_COLUMNS)
+        df = timestamps_to_string(self.df.with_columns(pl.col(column).list.join(",") for column in _LIST_COLUMNS))
         return df.write_csv()
 
     def to_format(self, fmt: str, *, indent: bool = False) -> str:

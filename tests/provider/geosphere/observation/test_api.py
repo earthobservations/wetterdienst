@@ -664,7 +664,7 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    df = request.filter_by_station_id("4821").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = request.filter_by_station_id("4821").values.all().df
     df = df.sort("parameter", "timestamp")
     rows = {
         parameter: group.select("value", "quality_flags").rows()

@@ -123,7 +123,7 @@ def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPa
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     ).filter_by_station_id("USW00094728")
-    df = request.values.all().df.with_columns(pl.col("parameter").cast(pl.String)).sort("parameter", "timestamp")
+    df = request.values.all().df.sort("parameter", "timestamp")
     assert df.schema["quality_flags"] == pl.String
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns

@@ -635,11 +635,7 @@ def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_v
         end=_utc(2025, 1, 3),
         settings=Settings(cache_disable=True),
     )
-    df = (
-        stations_result(request, "daily", "core", "75114001")
-        .values.all()
-        .df.with_columns(pl.col("parameter").cast(pl.String))
-    )
+    df = stations_result(request, "daily", "core", "75114001").values.all().df
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("precipitation_amount", 0.2, "1"),
         ("precipitation_amount", 0.0, None),

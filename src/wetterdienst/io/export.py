@@ -18,6 +18,7 @@ import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError, MissingDependencyError
 from wetterdienst.metadata.renamed import renamed_column
+from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
 from wetterdienst.util.url import ConnectionString, redact_password
 
@@ -125,7 +126,7 @@ class ExportMixin:
 
     def _iso_datetimes(self) -> pl.DataFrame:
         """Render every timestamp the frame carries as an ISO string."""
-        return self.df.with_columns(cs.datetime().dt.to_string("iso:strict"))
+        return timestamps_to_string(self.df)
 
     def _array_group(self) -> str:
         """Name the group the array formats write into.
@@ -168,8 +169,8 @@ class ExportMixin:
             # no `_FillValue` beside it reads as a measurement of -999, and a station with no
             # elevation would report one 999 m below the sea
             df = df.fill_null(-999)
-        # xarray encoding cannot handle a pandas Categorical (produced from Enum columns), so cast
-        # the Enum metadata columns back to String, and a list column is no more an array than it
+        # xarray encoding cannot handle a pandas Categorical (produced from Enum columns, which a caller
+        # may have made of the frame's own), so cast them to String, and a list column is no more an array than it
         # is a CSV field
         df = _join_list_columns(df).with_columns(pl.col(pl.Enum).cast(pl.String))
         # every timestamp the frame carries, in UTC without the zone: a stations frame has
@@ -857,7 +858,8 @@ class ExportMixin:
 
             # Convert timezone-aware datetime fields to naive ones.
             # FIXME: Omit this as soon as the CrateDB driver is capable of supporting timezone-qualified timestamps.
-            # Cast Enum metadata columns back to String so the pandas/SQLAlchemy write gets plain text.
+            # Cast an Enum column, which a caller may have made of the frame's own, to String so the
+            # pandas/SQLAlchemy write gets plain text.
             df = self.df.with_columns(
                 cs.datetime().dt.replace_time_zone(time_zone=None),
                 pl.col(pl.Enum).cast(pl.String),

@@ -138,21 +138,10 @@ def test_eccc_api_values(options_convert_units_false: Options) -> None:
             },
         ],
         schema={
-            "station_id": pl.Enum(["2"]),
-            "resolution": pl.Enum(["daily"]),
-            "dataset": pl.Enum(["data"]),
-            "parameter": pl.Enum(
-                [
-                    "cooling_degree_day",
-                    "heating_degree_day",
-                    "precipitation_amount",
-                    "precipitation_amount_liquid",
-                    "snow_depth_new",
-                    "temperature_air_max_2m",
-                    "temperature_air_mean_2m",
-                    "temperature_air_min_2m",
-                ]
-            ),
+            "station_id": pl.String,
+            "resolution": pl.String,
+            "dataset": pl.String,
+            "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
             "quality_flags": pl.String,
@@ -1115,7 +1104,7 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
         # nulls kept, or the missing day's row, which holds only its `M`, would be dropped
         options=Options(convert_units=False, drop_nulls=False),
     )
-    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = request.filter_by_station_id("51459").values.all().df
     assert df.schema["quality_flags"] == pl.String
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
@@ -1151,7 +1140,7 @@ def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(m
         end="1975-07-09",
         options=Options(convert_units=False, drop_nulls=False),
     )
-    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = request.filter_by_station_id("51459").values.all().df
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("wind_direction_gust_max", None, "raw:0"),
         ("wind_direction_gust_max", 200.0, None),
@@ -1192,7 +1181,7 @@ def test_eccc_hourly_wind_direction_of_0_is_a_calm_and_null_and_36_is_north(monk
         end=dt.datetime(2019, 1, 9, tzinfo=ZoneInfo("UTC")),
         options=Options(convert_units=False, drop_nulls=False),
     )
-    df = request.filter_by_station_id("51459").values.all().df.with_columns(pl.col("parameter").cast(pl.String))
+    df = request.filter_by_station_id("51459").values.all().df
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("wind_direction", 310.0, None),
         ("wind_direction", 360.0, None),

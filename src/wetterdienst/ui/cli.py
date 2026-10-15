@@ -56,7 +56,6 @@ from wetterdienst.ui.core import (
     join_names,
     limit_stations_to_rank,
     overlay_options,
-    select_history_sections,
     set_logging_level,
 )
 from wetterdienst.util.cli import setup_logging
@@ -1429,21 +1428,16 @@ def history(
 
     history_provider = stations_.history
 
-    data: dict[str, Any] = {}
-    if request.with_metadata:
-        data["metadata"] = stations_.get_metadata()
-    if request.with_stations:
-        data["stations"] = stations_.to_dict(with_metadata=False)["stations"]
-    data["histories"] = []
     try:
-        for history_result in history_provider.query():
-            history_result_data = history_result.history.model_dump(mode="python")
-            data["histories"].append(select_history_sections(history_result_data, request.sections))
+        output = history_provider.to_json(
+            with_metadata=request.with_metadata,
+            with_stations=request.with_stations,
+            sections=request.sections,
+            indent=4 if pretty else None,
+        )
     except Exception:
         log.exception("Failed to collect station history")
         sys.exit(1)
-
-    output = json.dumps(data, indent=4 if pretty else None, default=lambda dt: dt.isoformat())
 
     if path is not None:
         try:

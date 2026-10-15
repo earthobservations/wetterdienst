@@ -4,6 +4,7 @@ import { computed, ref, shallowRef } from 'vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { describeFetchError } from '~/utils/api-error'
+import { formatDate } from '~/utils/format'
 
 const { t } = useI18n()
 
@@ -412,10 +413,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.name.station" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_from || '-' }}
+                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_to || '-' }}
+                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.station_name || '-' }}
@@ -449,10 +450,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.name.operator" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_from || '-' }}
+                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_to || '-' }}
+                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.operator_name || '-' }}
@@ -501,10 +502,10 @@ function clear() {
                             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                               <tr v-for="(entry, i) in history.parameter" :key="i">
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_from || '-' }}
+                                  {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_to || '-' }}
+                                  {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.parameter || '-' }}
@@ -558,10 +559,10 @@ function clear() {
                             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                               <tr v-for="(entry, i) in history.device" :key="i">
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_from || '-' }}
+                                  {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_to || '-' }}
+                                  {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.device_type || '-' }}
@@ -615,10 +616,10 @@ function clear() {
                             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                               <tr v-for="(entry, i) in history.geography" :key="i">
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_from || '-' }}
+                                  {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
-                                  {{ entry.valid_to || '-' }}
+                                  {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                 </td>
                                 <td class="px-4 py-2 text-sm">
                                   {{ entry.latitude ?? '-' }}
@@ -676,10 +677,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.missing_data.summary" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_from || '-' }}
+                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_to || '-' }}
+                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.parameter || '-' }}
@@ -719,10 +720,10 @@ function clear() {
                               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                                 <tr v-for="(entry, i) in history.missing_data.periods" :key="i">
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_from || '-' }}
+                                    {{ entry.valid_from ? formatDate(entry.valid_from) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
-                                    {{ entry.valid_to || '-' }}
+                                    {{ entry.valid_to ? formatDate(entry.valid_to) : '-' }}
                                   </td>
                                   <td class="px-4 py-2 text-sm">
                                     {{ entry.parameter || '-' }}

@@ -755,7 +755,7 @@ def test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position
         settings=default_settings,
     )
     df = request.filter_by_station_id("AUM00011158").values.all().df
-    assert sorted(df.select(pl.col("resolution").cast(pl.String), "timestamp", "value").rows()) == [
+    assert sorted(df.select(pl.col("resolution"), "timestamp", "value").rows()) == [
         ("daily", dt.datetime(1938, 1, 2, tzinfo=ZoneInfo("UTC")), -5.0),
         ("hourly", dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),
     ]

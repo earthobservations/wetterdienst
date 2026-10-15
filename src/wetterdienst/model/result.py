@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import typing
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Generic, Literal, NotRequired, TypeVar, cast
 
@@ -18,11 +19,12 @@ from typing_extensions import TypedDict
 
 from wetterdienst.io.export import ExportMixin, check_image_size, require_kaleido
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
+from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-    from datetime import datetime
+    from collections.abc import Iterable, Mapping
+    from collections.abc import Set as AbstractSet
 
     import plotly.graph_objects as go
 
@@ -246,14 +248,7 @@ class StationsResult(ExportMixin):
             Dictionary with station information.
 
         """
-        df = self.df
-        if not df.is_empty():
-            df = df.with_columns(
-                [
-                    pl.col("start_timestamp").dt.to_string("iso:strict"),
-                    pl.col("end_timestamp").dt.to_string("iso:strict"),
-                ],
-            )
+        df = timestamps_to_string(self.df, ["start_timestamp", "end_timestamp"])
         # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
         stations = cast("list[_Station]", df.to_dicts())
         if with_metadata:
@@ -337,10 +332,7 @@ class StationsResult(ExportMixin):
         """
         extra_columns = self._ogc_extra_columns()
         features = []
-        for station in self.df.with_columns(
-            pl.col("start_timestamp").dt.to_string("iso:strict"),
-            pl.col("end_timestamp").dt.to_string("iso:strict"),
-        ).iter_rows(named=True):
+        for station in timestamps_to_string(self.df, ["start_timestamp", "end_timestamp"]).iter_rows(named=True):
             features.append(self._to_ogc_feature(station, extra_columns))
         collection: _StationsOgcFeatureCollectionData = {"type": "FeatureCollection", "features": features}
         if with_metadata:
@@ -529,12 +521,8 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
         and ``to_ogc_feature_collection()``, however, the latter one splits
         the DataFrame by resolution, dataset and station and calls this method for each part.
         """
-        if not df.is_empty():
-            df = df.with_columns(
-                pl.col("timestamp").dt.to_string("iso:strict"),
-            )
         # polars types its rows as dicts of Any; they carry the columns of the item, checked by the tests
-        return cast("_RowsT", df.to_dicts())
+        return cast("_RowsT", timestamps_to_string(df, ["timestamp"]).to_dicts())
 
     def to_dict(self, *, with_metadata: bool = False, with_stations: bool = False) -> _DictT:
         """Format values as dictionary."""
@@ -593,18 +581,8 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
 
     @staticmethod
     def _unit_symbol_key() -> pl.Expr:
-        """Read the key of `_unit_symbols` off a frame.
-
-        The metadata columns come back as Enum in aggregated results, which concat_str will not
-        take, hence the casts.
-        """
-        return pl.concat_str(
-            pl.col("resolution").cast(pl.String),
-            pl.lit("/"),
-            pl.col("dataset").cast(pl.String),
-            pl.lit("/"),
-            pl.col("parameter").cast(pl.String),
-        )
+        """Read the key of `_unit_symbols` off a frame."""
+        return pl.concat_str(pl.col("resolution"), pl.lit("/"), pl.col("dataset"), pl.lit("/"), pl.col("parameter"))
 
     def filter_by_date(self, date: str) -> pl.DataFrame:
         """Filter values by date or date interval and return a new DataFrame.
@@ -663,9 +641,6 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
         # dataset of one station and carries that dataset's values only, save in a resolution the
         # wide shape merged several datasets into, which is one feature per station (see below).
-        # The values frame stores these columns as Enum (see TimeseriesValues._cast_metadata_to_enum);
-        # its partition keys are plain strings all the same, as the stations frame's are, and the
-        # cast is for the join.
         values_by_series = {
             key: df.drop("station_id")
             for key, df in self.df.partition_by(
@@ -675,7 +650,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         # cut down to the stations that returned values before walking the rows: a ranked request
         # keeps every station with a position in the stations frame (see TimeseriesRequest.filter_by_rank)
         df_stations = self.stations.df.join(
-            self.df.select(pl.col("resolution", "station_id").cast(pl.String)).unique(),
+            self.df.select("resolution", "station_id").unique(),
             on=["resolution", "station_id"],
             how="semi",
         )
@@ -700,10 +675,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             ).unique(subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True)
         extra_columns = self.stations._ogc_extra_columns()  # noqa: SLF001
         features: list[_ValuesOgcFeature] = []
-        for station in df_stations.with_columns(
-            pl.col("start_timestamp").dt.to_string("iso:strict"),
-            pl.col("end_timestamp").dt.to_string("iso:strict"),
-        ).iter_rows(named=True):
+        for station in timestamps_to_string(df_stations, ["start_timestamp", "end_timestamp"]).iter_rows(named=True):
             df_values = values_by_series.get((station["resolution"], station["dataset"], station["station_id"]))
             if df_values is None:
                 continue
@@ -819,7 +791,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         series = []
         for (resolution,), df_resolution in df.group_by("resolution", maintain_order=True):
             for column in columns:
-                dataset = pl.col("dataset").cast(pl.String)
+                dataset = pl.col("dataset")
                 parameter = column
                 if prefixed:
                     matches = [
@@ -835,8 +807,8 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
                     parameter = column.removeprefix(f"{name}_")
                 series.append(
                     df_resolution.filter(pl.col(column).is_not_null()).select(
-                        pl.col("station_id").cast(pl.String),
-                        pl.col("resolution").cast(pl.String),
+                        pl.col("station_id"),
+                        pl.col("resolution"),
                         dataset.alias("dataset"),
                         pl.lit(parameter).alias("parameter"),
                         pl.col("timestamp"),
@@ -846,7 +818,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         if not series:
             return pl.DataFrame()
         # the stations in the order they come in, and stable, so that a series keeps its timestamps' order
-        stations = pl.Enum(df.get_column("station_id").cast(pl.String).unique(maintain_order=True))
+        stations = pl.Enum(df.get_column("station_id").unique(maintain_order=True))
         return pl.concat(series).sort(
             pl.col("station_id").cast(stations), "resolution", "dataset", "parameter", maintain_order=True
         )
@@ -877,12 +849,138 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         return img
 
 
+class _HistoryDict(TypedDict):
+    """Type definition for the dictionary of station histories."""
+
+    metadata: NotRequired[_Metadata]
+    stations: NotRequired[list[_Station]]
+    # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
+    histories: list[dict[str, typing.Any]]
+
+
+# `station_id`, `resolution` and `dataset` say which station and dataset a history belongs to; they are
+# not sections of it and are always kept
+_HISTORY_IDENTIFIERS = frozenset({"station_id", "resolution", "dataset"})
+
+
+def select_history_sections(
+    history: Mapping[str, typing.Any], sections: AbstractSet[str] | None
+) -> dict[str, typing.Any]:
+    """Keep the requested sections of a dumped station history, all of them when none are requested.
+
+    In the history's own field order rather than the order of `sections`, which is a set, so the
+    same request always answers the same document. `station_id`, `resolution` and `dataset` say
+    which station and dataset the history belongs to, are not sections and are always kept.
+    """
+    if not sections:
+        return dict(history)
+    return {key: value for key, value in history.items() if key in _HISTORY_IDENTIFIERS or key in sections}
+
+
+def _written_timestamps(value: typing.Any) -> typing.Any:  # noqa: ANN401
+    """Give a dumped history with its datetimes written in the one format of the library."""
+    if isinstance(value, datetime):
+        return format_timestamp(value)
+    if isinstance(value, dict):
+        return {key: _written_timestamps(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_written_timestamps(item) for item in value]
+    return value
+
+
+def history_to_dict(
+    stations: StationsResult,
+    histories: Iterable[History],
+    *,
+    with_metadata: bool = False,
+    with_stations: bool = False,
+    sections: AbstractSet[str] | None = None,
+) -> _HistoryDict:
+    """Format station histories as one dictionary, which is the body REST and the CLI answer with."""
+    # assembled key by key, as the keys come in this order and two of them are optional
+    data: dict[str, object] = {}
+    if with_metadata:
+        data["metadata"] = stations.get_metadata()
+    if with_stations:
+        data["stations"] = stations.to_dict(with_metadata=False)["stations"]
+    data["histories"] = [
+        select_history_sections(_written_timestamps(history.model_dump(mode="python")), sections)
+        for history in histories
+    ]
+    return cast("_HistoryDict", data)
+
+
+def history_to_json(
+    stations: StationsResult,
+    histories: Iterable[History],
+    *,
+    with_metadata: bool = False,
+    with_stations: bool = False,
+    sections: AbstractSet[str] | None = None,
+    indent: int | bool | None = 4,
+) -> str:
+    """Format station histories as JSON, as `history_to_dict` has them."""
+    if indent is True:
+        indent = 4
+    elif indent is False:
+        indent = None
+    data = history_to_dict(
+        stations, histories, with_metadata=with_metadata, with_stations=with_stations, sections=sections
+    )
+    return json.dumps(data, indent=indent)
+
+
 @dataclass
 class HistoryResult:
-    """Result class for history data."""
+    """Result class for history data: how one station and dataset changed over time."""
 
     stations: StationsResult
     history: History
+
+    def to_dict(
+        self,
+        *,
+        with_metadata: bool = False,
+        with_stations: bool = False,
+        sections: AbstractSet[str] | None = None,
+    ) -> _HistoryDict:
+        """Format the history as dictionary, with the one history under `histories`.
+
+        Args:
+            with_metadata: whether to include metadata about the provider and producer
+            with_stations: whether to include the stations of the request
+            sections: the sections of the history to keep (name, parameter, device, geography,
+                missing_data), all of them when not given
+
+        Returns:
+            Dictionary with the history, its timestamps as text in the format of the other results.
+
+        """
+        return history_to_dict(
+            self.stations,
+            [self.history],
+            with_metadata=with_metadata,
+            with_stations=with_stations,
+            sections=sections,
+        )
+
+    def to_json(
+        self,
+        *,
+        with_metadata: bool = False,
+        with_stations: bool = False,
+        sections: AbstractSet[str] | None = None,
+        indent: int | bool | None = 4,
+    ) -> str:
+        """Format the history as JSON, as `to_dict` has it."""
+        return history_to_json(
+            self.stations,
+            [self.history],
+            with_metadata=with_metadata,
+            with_stations=with_stations,
+            sections=sections,
+            indent=indent,
+        )
 
 
 class _InterpolatedOrSummarizedOgcFeatureProperties(TypedDict):

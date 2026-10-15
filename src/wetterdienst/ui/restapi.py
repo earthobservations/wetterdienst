@@ -84,11 +84,11 @@ from wetterdienst.ui.core import (
     get_values,
     limit_stations_to_rank,
     overlay_options,
-    select_history_sections,
     set_logging_level,
 )
 from wetterdienst.ui.mcp import is_tool_request
 from wetterdienst.util.cli import setup_logging
+from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.ui import read_list
 
@@ -1670,14 +1670,14 @@ def stripes_values(
         raise _failure(e, request, "get stripes data") from e
 
     if request.format == "csv":
-        content = stripes_data.df.write_csv()
+        content = timestamps_to_string(stripes_data.df).write_csv()
         media_type = "text/csv"
     else:
         data = {
             "metadata": stripes_data.metadata.model_dump(),
             "values": [
                 {
-                    "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
+                    "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
                     "value": row["value"],
                 }
                 for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
@@ -1753,27 +1753,17 @@ def history(
         log.exception("Failed to acquire history provider")
         raise _server_error(e) from e
 
-    data: dict[str, Any] = {}
-    if request.with_metadata:
-        data["metadata"] = stations_.get_metadata()
-    if request.with_stations:
-        data["stations"] = stations_.to_dict(with_metadata=False)["stations"]
-    data["histories"] = []
     try:
-        for history_result in history_provider.query():
-            history = history_result.history.model_dump()
-            data["histories"].append(select_history_sections(history, request.sections))
+        content = history_provider.to_json(
+            with_metadata=request.with_metadata,
+            with_stations=request.with_stations,
+            sections=request.sections,
+            indent=4 if request.pretty else None,
+        )
     except Exception as e:
         log.exception("Failed to collect station history")
         raise _server_error(e) from e
-    return Response(
-        content=json.dumps(
-            data,
-            indent=4 if request.pretty else None,
-            default=lambda o: o.isoformat() if hasattr(o, "isoformat") else str(o),
-        ),
-        media_type="application/json",
-    )
+    return Response(content=content, media_type="application/json")
 
 
 @app.get("/api/alerts")

@@ -40,6 +40,24 @@ Types of changes:
   answer a failure gets, here and in the command line, follows from its class (`RequestError` 400,
   `NotFoundError` 404, `ConfigurationError` 501, any other 500), so a `WetterdienstError` of a new
   class is a server error until it is given a kind (GH-2634)
+- `wetterdienst.model.schema` exports the schema of every public frame as an object to assert
+  against: `STATIONS_SCHEMA`, `LONG_SCHEMA`, `WIDE_SCHEMA` (with `wide_schema(names)` for the
+  parameters' columns), `INTERPOLATED_SCHEMA` and `SUMMARIZED_SCHEMA`. `HistoryResult` and
+  `TimeseriesHistory` have `to_dict` and `to_json`, the body that `/api/history` and the `history`
+  command answer with (GH-2633)
+- **Breaking**: `station_id`, `resolution`, `dataset` and `parameter` of `.values.all().df` are
+  `String`, as they already were in an empty, an interpolated and a summarized result, and in
+  `query()`; they were polars `Enum` with the categories of each result, which did not join a
+  stations frame, concatenate across requests or take `is_in` with an absent name. Drop the casts
+  back to `String`; code that read the `Enum`'s categories takes them from the data (GH-2633)
+- **Breaking**: every timestamp in a JSON, GeoJSON or CSV body is written the way values wrote it,
+  ISO 8601 in UTC to the microsecond, `2026-09-01T00:00:00.000000+00:00`. History (`valid_from`,
+  `valid_to`), alerts, issue lists and climate stripes wrote `1926-05-01T00:00:00+00:00`, and the
+  CSV of alerts and stripes `1926-05-01T00:00:00.000000+0000`. Read them with a parser that takes a
+  fraction, as `datetime.fromisoformat` does (GH-2633)
+- The parameter columns of a wide values frame are in the order the request names its parameters,
+  as an empty frame has them, not in the order the source delivered its rows in. A parameter no
+  station delivered has no column in a populated frame (GH-2633)
 
 ## [0.154.0] - 2026-10-15
 
