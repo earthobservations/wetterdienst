@@ -218,6 +218,58 @@ def test_a_name_a_dataset_lacks_is_answered_with_the_name_it_has(
     assert caplog.text.count("Did you mean") == int("Did you mean" in message)
 
 
+@pytest.mark.parametrize(
+    ("metadata", "value"),
+    [
+        # GH-2924: the closest spelling was the air temperature, which is no dew point
+        (DwdObservationMetadata, "daily/kl/temperature_dew_point_mean_2m"),
+        # only `hourly/large` holds the error, `temperature_air_2m` is the temperature
+        (DwdMosmixMetadata, "hourly/small/error_absolute_temperature_air_mean_2m"),
+        # `error_absolute_` is the error of a quantity, not the quantity: the wind speed is no wind gust
+        (DwdMosmixMetadata, "hourly/large/error_absolute_wind_gust_max"),
+    ],
+)
+def test_a_name_of_another_quantity_is_not_guessed_at(
+    metadata: MetadataModel, value: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A dataset without the quantity names none, and the list of what it has is the answer."""
+    assert parse_parameters(value, metadata) == []
+    assert "Did you mean" not in caplog.text
+    assert "Available parameters:" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("value", "guess"),
+    [
+        ("daily/kl/temperature_air_mean_200", "temperature_air_mean_2m"),
+        # a misspelled token in the part that names the quantity is still a typo of it
+        ("daily/kl/temperatur_air_mean_2m", "temperature_air_mean_2m"),
+        ("daily/kl/wind_sped", "wind_speed"),
+        ("daily/kl/humidity_realtive", "humidity_relative"),
+        # the source's own name is a candidate too, and a code has no quantity to compare
+        ("daily/kl/tmkk", "tmk"),
+        ("daily/kl/rsx", "rsk"),
+        # a missing underscore is a typo of the whole name
+        ("daily/kl/windspeed", "wind_speed"),
+        ("daily/kl/wind_gustmax", "wind_gust_max"),
+        ("daily/kl/temperatureair_mean_2m", "temperature_air_mean_2m"),
+    ],
+)
+def test_a_typo_of_a_quantity_the_dataset_has_is_still_guessed_at(
+    value: str, guess: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The guess is kept where it is the same quantity spelled differently."""
+    assert parse_parameters(value, DwdObservationMetadata) == []
+    assert f"Did you mean '{guess}'?" in caplog.text
+
+
+@pytest.mark.parametrize("value", ["hourly/large/eror_absolute_wind_speed", "hourly/large/error_absolut_wind_speed"])
+def test_a_misspelled_error_prefix_is_still_guessed_at(value: str, caplog: pytest.LogCaptureFixture) -> None:
+    """`error_absolute_` is part of the name, so a typo in it is a typo of the quantity, not another one."""
+    assert parse_parameters(value, DwdMosmixMetadata) == []
+    assert "Did you mean 'error_absolute_wind_speed'?" in caplog.text
+
+
 def test_a_rename_in_a_dataset_answers_attribute_and_item_access_too() -> None:
     """`dataset.<old>` and `dataset["<old>"]` name the new parameter, as a request for the old one does."""
     dataset = AemetObservationMetadata["monthly"]["data"]

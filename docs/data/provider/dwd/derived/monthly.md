@@ -92,18 +92,18 @@ To distinguish different base temperatures, there exist three datasets with the 
 | {term}`frozen_ground_layer_thickness_max_month`           | maximum von zfumi    | maximum frozen ground layer thickness in the month            | cm   | >=0         |
 | {term}`thawing_thickness_plant_cover_max_month`           | maximum von ztkmi    | maximum thawing thickness under vegetation in the month       | cm   | >=0         |
 | {term}`thawing_thickness_bare_ground_max_month`           | maximum von ztumi    | maximum thawing thickness under bare soil in the month        | cm   | >=0         |
-| {term}`soil_moisture_grass_loamy_silt_00cm_10cm`          | mittel von bfgl01_ag | mean soil moisture for meadow on loamy silt 0-10cm            | %    | 0-100       |
-| {term}`soil_moisture_grass_loamy_silt_10cm_20cm`          | mittel von bfgl02_ag | mean soil moisture for meadow on loamy silt 10-20cm           | %    | 0-100       |
-| {term}`soil_moisture_grass_loamy_silt_20cm_30cm`          | mittel von bfgl03_ag | mean soil moisture for meadow on loamy silt 20-30cm           | %    | 0-100       |
-| {term}`soil_moisture_grass_loamy_silt_30cm_40cm`          | mittel von bfgl04_ag | mean soil moisture for meadow on loamy silt 30-40cm           | %    | 0-100       |
-| {term}`soil_moisture_grass_loamy_silt_40cm_50cm`          | mittel von bfgl05_ag | mean soil moisture for meadow on loamy silt 40-50cm           | %    | 0-100       |
-| {term}`soil_moisture_grass_loamy_silt_50cm_60cm`          | mittel von bfgl06_ag | mean soil moisture for meadow on loamy silt 50-60cm           | %    | 0-100       |
-| {term}`soil_moisture_grass_sand_00cm_60cm`                | mittel von bfgs_ag   | mean soil moisture for meadow on sand 0-60cm                  | %    | 0-100       |
-| {term}`soil_moisture_grass_loamy_silt_00cm_60cm`          | mittel von bfgl_ag   | mean soil moisture for meadow on loamy silt 0-60cm            | %    | 0-100       |
-| {term}`soil_moisture_winter_wheat_sand_00cm_60cm`         | mittel von bfws_ag   | mean soil moisture for winter wheat on sand 0-60cm            | %    | 0-100       |
-| {term}`soil_moisture_winter_wheat_loamy_silt_00cm_60cm`   | mittel von bfwl_ag   | mean soil moisture for winter wheat on loamy silt 0-60cm      | %    | 0-100       |
-| {term}`soil_moisture_corn_sand_00cm_60cm`                 | mittel von bfms_ag   | mean soil moisture for corn on sand 0-60cm                    | %    | 0-100       |
-| {term}`soil_moisture_corn_loamy_silt_00cm_60cm`           | mittel von bfml_ag   | mean soil moisture for corn on loamy silt 0-60cm              | %    | 0-100       |
+| {term}`soil_moisture_grass_loamy_silt_00cm_10cm`          | mittel von bfgl01_ag | mean soil moisture for meadow on loamy silt 0-10cm            | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_loamy_silt_10cm_20cm`          | mittel von bfgl02_ag | mean soil moisture for meadow on loamy silt 10-20cm           | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_loamy_silt_20cm_30cm`          | mittel von bfgl03_ag | mean soil moisture for meadow on loamy silt 20-30cm           | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_loamy_silt_30cm_40cm`          | mittel von bfgl04_ag | mean soil moisture for meadow on loamy silt 30-40cm           | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_loamy_silt_40cm_50cm`          | mittel von bfgl05_ag | mean soil moisture for meadow on loamy silt 40-50cm           | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_loamy_silt_50cm_60cm`          | mittel von bfgl06_ag | mean soil moisture for meadow on loamy silt 50-60cm           | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_sand_00cm_60cm`                | mittel von bfgs_ag   | mean soil moisture for meadow on sand 0-60cm                  | %    | >=0,<=100   |
+| {term}`soil_moisture_grass_loamy_silt_00cm_60cm`          | mittel von bfgl_ag   | mean soil moisture for meadow on loamy silt 0-60cm            | %    | >=0,<=100   |
+| {term}`soil_moisture_winter_wheat_sand_00cm_60cm`         | mittel von bfws_ag   | mean soil moisture for winter wheat on sand 0-60cm            | %    | >=0,<=100   |
+| {term}`soil_moisture_winter_wheat_loamy_silt_00cm_60cm`   | mittel von bfwl_ag   | mean soil moisture for winter wheat on loamy silt 0-60cm      | %    | >=0,<=100   |
+| {term}`soil_moisture_corn_sand_00cm_60cm`                 | mittel von bfms_ag   | mean soil moisture for corn on sand 0-60cm                    | %    | >=0,<=100   |
+| {term}`soil_moisture_corn_loamy_silt_00cm_60cm`           | mittel von bfml_ag   | mean soil moisture for corn on loamy silt 0-60cm              | %    | >=0,<=100   |
 | {term}`evapotranspiration_potential_grass_fao`            | summe von vpgfao     | sum of potential evapotranspiration for meadow (FAO method)   | mm   | >=0         |
 | {term}`evapotranspiration_potential_grass_haude`          | summe von vpgh       | sum of potential evapotranspiration for meadow (Haude method) | mm   | >=0         |
 | {term}`evaporation_amount_grass_sand`                     | summe von vrgs_ag    | sum of evaporation height for meadow on sand                  | mm   | >=0         |

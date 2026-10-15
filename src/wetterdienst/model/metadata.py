@@ -131,14 +131,62 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
     return ""
 
 
+# the leading tokens of a parameter name that say which quantity it is: `temperature_dew`
+# (`temperature_dew_point_mean_2m`), `wind_gust` (`wind_gust_max`). `error_absolute_` is no quantity
+# but says the name is the error of one, so the tokens after it are the quantity and the prefix must agree
+_QUANTITY_TOKENS = 2
+_ERROR_PREFIX = ("error", "absolute")
+# how close two such tokens have to be to count as one spelled wrongly ("sped", "realtive")
+_TOKEN_CUTOFF = 0.75
+
+
+def _same_token(a: str, b: str) -> bool:
+    """Say whether two name tokens are one, up to a misspelling."""
+    return a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _TOKEN_CUTOFF
+
+
+def _split_error_prefix(name: str) -> tuple[bool, list[str]]:
+    """Return whether `name` is the error of a quantity (even misspelled), and its tokens after the prefix."""
+    tokens = name.split("_")
+    if len(tokens) > len(_ERROR_PREFIX) and all(_same_token(a, b) for a, b in zip(tokens, _ERROR_PREFIX, strict=False)):
+        return True, tokens[len(_ERROR_PREFIX) :]
+    return False, tokens
+
+
+def _keeps_the_quantity(item: str, candidate: str) -> bool:
+    """Say whether `candidate` leads with the same quantity as `item`, up to a misspelled token.
+
+    The difflib guess is made over the whole name, and a long name that differs in its first tokens
+    can still be the closest: `temperature_dew_point_mean_2m` is nearer to `temperature_air_mean_2m`
+    than to anything else a dataset without the dew point holds, and the air temperature is no dew
+    point (GH-2924). So a guess is offered only where the tokens that name the quantity agree. What
+    follows them, the statistic and the level, is not compared: `temperature_air_max_0_05m` may still
+    be answered with the minimum.
+
+    A name of one token (`rsk`, a source's own code, or `pressure`) has no quantity tokens to compare, and a missing
+    underscore (`windspeed`) is a typo of the whole name, not of a token.
+    """
+    if item.replace("_", "") == candidate.replace("_", ""):
+        return True
+    item_error, item_tokens = _split_error_prefix(item)
+    candidate_error, candidate_tokens = _split_error_prefix(candidate)
+    if item_error != candidate_error:
+        return False
+    if len(item_tokens) == 1 or len(candidate_tokens) == 1:
+        return True
+    leading = zip(item_tokens[:_QUANTITY_TOKENS], candidate_tokens[:_QUANTITY_TOKENS], strict=False)
+    return all(_same_token(a, b) for a, b in leading)
+
+
 def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: DatasetModel | None = None) -> str:
     """Build the message for a name that no model matched.
 
     Names a close match where there is one, because the common failure is a typo or a name taken
     from another provider, and the available-names list alone leaves the user to spot the
-    difference themselves. A parameter that is called something else in this dataset is answered
-    with its name there instead of a guess (see `_renamed_hint`); `dataset` is the one a
-    parameter was looked up in.
+    difference themselves. A parameter's close match has to be of the same quantity (see
+    `_keeps_the_quantity`); where it is not, nothing is guessed. A parameter that is called
+    something else in this dataset is answered with its name there instead of a guess (see
+    `_renamed_hint`); `dataset` is the one a parameter was looked up in.
     """
     models = list(models)
     candidates = sorted({name for model in models for name in _names(model)})
@@ -147,6 +195,9 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
         _renamed_hint(item_search, {model.name.lower() for model in models}, dataset) if kind == "parameters" else ""
     )
     if not suggestion:
+        if kind == "parameters":
+            # a near spelling of another quantity is no hint, the list of available names is the answer then
+            candidates = [candidate for candidate in candidates if _keeps_the_quantity(item_search, candidate)]
         close = difflib.get_close_matches(item_search, candidates, n=1, cutoff=_SUGGESTION_CUTOFF)
         suggestion = f" Did you mean '{close[0]}'?" if close else ""
     available = ", ".join(
@@ -428,6 +479,16 @@ class MetadataModel(BaseModel):
         return [parameter]
 
 
+def _canonical_description(name: str) -> str | None:
+    """Return the canonical sentence of a quantity, or None for a name the table does not know.
+
+    An unknown name is left for ``tests/test_api.py::test_metadata_parameter_table`` to report, as
+    it is for ``ParameterModel.unit_type``, rather than failing the import of the provider.
+    """
+    canonical = PARAMETERS.get(name)
+    return canonical.description if canonical else None
+
+
 def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     """Build a MetadataModel from a dictionary.
 
@@ -435,7 +496,9 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     resolutions alike. Those are the curated descriptions the provider docs tables have always
     carried. A description a provider module already declares wins, since that is a transcription of
     the source's own wording and is only kept where it says at least as much as the curated text.
-    ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all.
+    ``DERIVED_DESCRIPTIONS`` fills only what no source supplies at all. A parameter none of these
+    describes reads the canonical sentence of its quantity from ``PARAMETERS``, so a provider whose
+    field means exactly what the quantity means keeps no copy of the sentence to drift from it.
 
     ``name`` becomes ``MetadataModel.name``. A declaration cannot set it itself: it is the one
     top-level key ``extra="forbid"`` does not reject, and it is a plausible one to write next to
@@ -480,7 +543,8 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
                                 "description": parameter.get("description")
                                 or parameters.get(
                                     (resolution["name"], dataset["name"], parameter["name_original"]),
-                                ),
+                                )
+                                or _canonical_description(parameter["name"]),
                             }
                             for parameter in dataset["parameters"]
                         ],

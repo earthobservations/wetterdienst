@@ -35,12 +35,12 @@ UTC = ZoneInfo("UTC")
             dt.datetime(2020, 1, 1, tzinfo=UTC),
         ),
         (
-            # a monthly reading is dated to the first, which is what the range is rounded onto
+            # a monthly reading is dated to the first, so a window opening mid-January starts in February
             Resolution.MONTHLY,
             dt.datetime(2020, 1, 15, tzinfo=UTC),
             dt.datetime(2021, 6, 1, tzinfo=UTC),
             17,
-            dt.datetime(2020, 1, 1, tzinfo=UTC),
+            dt.datetime(2020, 2, 1, tzinfo=UTC),
         ),
         (
             Resolution.ANNUAL,
@@ -69,9 +69,8 @@ def test_build_date_grid_spans_the_window_at_the_resolution(
 def test_build_date_grid_snaps_an_off_phase_window_to_the_wall_clock() -> None:
     """Test that a window opening at half past does not carry its phase through the whole series.
 
-    The range is generated from the window and then rounded to the same interval, so a request
-    from 00:30 answers for whole hours rather than for every half past -- which is what every
-    station's readings are joined onto, by an exact join.
+    A request from 00:30 answers for whole hours rather than for every half past -- which is what
+    every station's readings are joined onto, by an exact join.
     """
     df = build_date_grid(
         Resolution.HOURLY,
@@ -81,6 +80,94 @@ def test_build_date_grid_snaps_an_off_phase_window_to_the_wall_clock() -> None:
 
     assert df.get_column("timestamp").dt.minute().unique().to_list() == [0]
     assert df.get_column("timestamp").min() == dt.datetime(2024, 1, 1, 1, tzinfo=UTC)
+    assert df.get_column("timestamp").max() == dt.datetime(2024, 1, 1, 6, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("resolution", "start_date", "end_date", "expected"),
+    [
+        # the window of GH-2814 for daily: 05-04 is after the end
+        (
+            Resolution.DAILY,
+            dt.datetime(2020, 5, 1, 12, 30, tzinfo=UTC),
+            dt.datetime(2020, 5, 3, 12, 30, tzinfo=UTC),
+            [dt.datetime(2020, 5, 2, tzinfo=UTC), dt.datetime(2020, 5, 3, tzinfo=UTC)],
+        ),
+        # hourly, opening just before half past: 10:00 is before the start
+        (
+            Resolution.HOURLY,
+            dt.datetime(2020, 5, 1, 10, 29, tzinfo=UTC),
+            dt.datetime(2020, 5, 1, 13, 30, tzinfo=UTC),
+            [dt.datetime(2020, 5, 1, hour, tzinfo=UTC) for hour in (11, 12, 13)],
+        ),
+        # hourly, opening on half past: 14:00 is after the end
+        (
+            Resolution.HOURLY,
+            dt.datetime(2020, 5, 1, 10, 30, tzinfo=UTC),
+            dt.datetime(2020, 5, 1, 13, 30, tzinfo=UTC),
+            [dt.datetime(2020, 5, 1, hour, tzinfo=UTC) for hour in (11, 12, 13)],
+        ),
+        # both ends on a slot are kept: the window is closed, as it is for `values`
+        (
+            Resolution.HOURLY,
+            dt.datetime(2020, 5, 1, 11, tzinfo=UTC),
+            dt.datetime(2020, 5, 1, 13, tzinfo=UTC),
+            [dt.datetime(2020, 5, 1, hour, tzinfo=UTC) for hour in (11, 12, 13)],
+        ),
+        (
+            Resolution.MONTHLY,
+            dt.datetime(2020, 1, 15, tzinfo=UTC),
+            dt.datetime(2020, 4, 15, tzinfo=UTC),
+            [dt.datetime(2020, month, 1, tzinfo=UTC) for month in (2, 3, 4)],
+        ),
+        (
+            Resolution.ANNUAL,
+            dt.datetime(2020, 6, 15, tzinfo=UTC),
+            dt.datetime(2023, 6, 15, tzinfo=UTC),
+            [dt.datetime(year, 1, 1, tzinfo=UTC) for year in (2021, 2022, 2023)],
+        ),
+        (
+            Resolution.MINUTE_6,
+            dt.datetime(2020, 1, 1, 0, 1, tzinfo=UTC),
+            dt.datetime(2020, 1, 1, 0, 20, tzinfo=UTC),
+            [dt.datetime(2020, 1, 1, 0, minute, tzinfo=UTC) for minute in (6, 12, 18)],
+        ),
+        # no slot inside the window: nothing to answer for
+        (
+            Resolution.DAILY,
+            dt.datetime(2020, 5, 1, 12, 30, tzinfo=UTC),
+            dt.datetime(2020, 5, 1, 13, 30, tzinfo=UTC),
+            [],
+        ),
+        # an aware bound in another zone is the instant it names, 22:30 UTC .. 01:30 UTC
+        (
+            Resolution.HOURLY,
+            dt.datetime(2020, 5, 1, 0, 30, tzinfo=ZoneInfo("Europe/Berlin")),
+            dt.datetime(2020, 5, 1, 3, 30, tzinfo=ZoneInfo("Europe/Berlin")),
+            [
+                dt.datetime(2020, 4, 30, 23, tzinfo=UTC),
+                dt.datetime(2020, 5, 1, 0, tzinfo=UTC),
+                dt.datetime(2020, 5, 1, 1, tzinfo=UTC),
+            ],
+        ),
+    ],
+)
+def test_build_date_grid_stays_inside_the_window(
+    resolution: Resolution,
+    start_date: dt.datetime,
+    end_date: dt.datetime,
+    expected: list[dt.datetime],
+) -> None:
+    """Test that a window off the resolution's grid is given the slots inside it, no further.
+
+    `interpolate` and `summarize` returned a stamp before the start or after the end of a window
+    whose bounds were not on the grid, where a `values` request over the same window returns only
+    what lies within it (GH-2814).
+    """
+    df = build_date_grid(resolution, start_date, end_date)
+
+    assert df.get_column("timestamp").to_list() == expected
+    assert df.schema["timestamp"] == pl.Datetime("us", "UTC")
 
 
 def test_build_date_grid_treats_subdaily_as_hourly() -> None:
