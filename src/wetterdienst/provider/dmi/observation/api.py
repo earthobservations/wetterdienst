@@ -83,19 +83,22 @@ _CALM_WIND = Sentinel(
 
 # The range of a reading per resolution and parameterId, in the unit DMI writes it in, outside which no sensor can have
 # produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
-# source and no wider than they are (`test_physical_ranges.py` holds them to it). The rain of a span grows with it, so
-# `acc_precip` has a bound per resolution, and those of the days, months and years are DMI's own, from the world
-# records it cannot reach: DMI covers Denmark, the Faroe Islands and Greenland. Read on 2026-10-16 (every station the
-# API lists; 4.1 million days, 136,000 months), the values DMI marks `validity: true` run to 183.5 mm in a day (04390,
-# 1964), 641.8 in a month and 3,291.3 in a year (04390, 1965), and above them lie only values marked `validity:
-# false`: 1978 mm on 14 and 989 mm on 3 days of 2011 at 04339, 1770 mm on 2021-12-04 at 04360; 17,802 mm (04339,
-# 2011-10), 8,661 mm (04360, 2022-01) and 3,229.9 mm (04339, 2012-10) in a month; 9,574 mm (04339, 2014), 7,196 mm
-# (04390, 2016) and 4,178.9 mm (04320, 2014) in a year, none of which a gauge read (GH-2797). Such a value is read as
-# null and keeps its text as `raw:17802`. What lies below a bound stays, and DMI's flag says what it thinks of it: the
-# 3,253.4 mm of 04339 in 2012 is the sum of that 3,229.9 and two months of 8.4 and 15.1, and no range separates it from
-# the 3,291.3 mm that DMI validated for 04390.
+# source, and no wider than they are (`test_physical_ranges.py` holds them to it). The rain of a span grows with it, so
+# `acc_precip` has a bound per resolution; those of a day, a month and a year are narrower than the world's, because
+# DMI covers Denmark, the Faroe Islands and Greenland. Read on 2026-10-16 (every station the API lists, 4.1 million
+# days and 136,000 months), the values DMI marks `validity: true` run to 183.5 mm in a day (04390, 1964), 641.8 in a
+# month and 3,291.3 in a year (04390, 1965), and the values above are marked `validity: false`, among them 1978 mm on
+# 14 and 989 mm on 3 days of 2011 at 04339 and 1770 mm on 2021-12-03 at 04360 (about 20 days of 04360 and 04320 are
+# above 500 mm); 17,802 mm (04339, 2011-10), 8,661 mm (04360, 2022-01) and 3,229.9 mm (04339, 2012-10) in a month
+# (about 35 months are above 1,500 mm); 9,574 mm (04339, 2014), 7,196 mm (04390, 2016) and 4,178.9 mm (04320, 2014) in
+# a year, none of which a gauge read (GH-2797). Such a value is read as null and keeps its text as `raw:17802`. The
+# largest amount of a day in a month (`max_precip_24h`) and the largest of 30 minutes in a day (`max_precip_30m`) are
+# no more than a day, so they are held to the day's 500 mm: the monthly `max_precip_24h` has 1978 mm (04339, 2011-10),
+# 1770 mm (04360) and a 999.0 (04320, 2013-09, the same in the year). What lies below a bound stays, and DMI's flag says
+# what it thinks of it: the 3,253.4 mm of 04339 in 2012 is the sum of that 3,229.9 and two months of 8.4 and 15.1, and
+# no range separates it from the 3,291.3 mm that DMI validated for 04390 (the bound of a year is 4,000).
 _AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
-_PRECIPITATION = (0.0, 6_000.0)  # mm
+_DAY_PRECIPITATION = (0.0, 500.0)  # mm, the most of a day, which the maxima of a part of it cannot pass
 _WIND_SPEED = (0.0, 115.0)  # m/s
 _HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
 _COMMON_RANGES: dict[str, tuple[float, float]] = {
@@ -113,7 +116,7 @@ _HEATING_DEGREE_DAYS = (0.0, 20_000.0)  # degree Celsius days; a year of heating
 _MONTHLY_RANGES: dict[str, tuple[float, float]] = {
     **_COMMON_RANGES,
     "acc_precip": (0.0, 1_500.0),
-    "max_precip_24h": _PRECIPITATION,
+    "max_precip_24h": _DAY_PRECIPITATION,
     "mean_daily_max_temp": _AIR_TEMPERATURE,
     "mean_daily_min_temp": _AIR_TEMPERATURE,
     "max_relative_hum": _HUMIDITY,
@@ -124,8 +127,8 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
     "hourly": {**_COMMON_RANGES, "acc_precip": (0.0, 600.0)},
     "daily": {
         **_COMMON_RANGES,
-        "acc_precip": (0.0, 500.0),
-        "max_precip_30m": _PRECIPITATION,
+        "acc_precip": _DAY_PRECIPITATION,
+        "max_precip_30m": _DAY_PRECIPITATION,
         "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
     },
     "monthly": _MONTHLY_RANGES,

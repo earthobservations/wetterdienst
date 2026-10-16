@@ -196,10 +196,10 @@ Types of changes:
   `rmi/observation` (a daily `temp_max` of 4021 degrees, a `temp_avg` of 110, a humidity of -6999 %,
   a gust over 60 m/s such as the 81.5 of 6414 on 2003-10-09, 13,851 minutes of sunshine in a day)
   and `dmi/observation` (rain over 500 mm in a day, such as 1978 and 989 mm at 04339, over 1,500 mm
-  in a month, over 4,000 mm in a year). The bounds are generous and rain and sunshine have one per
-  resolution, so a merely odd value stays: a year of 3,253.4 mm of DMI is below its bound, as DMI
-  validated 3,291.3 mm elsewhere, and its `validity:false` tells; the long shape drops the null rows
-  unless `drop_nulls=False` (Part of GH-2797)
+  in a month, over 4,000 mm in a year, the largest amounts of a day over 500 mm). The bounds are
+  generous and rain and sunshine have one per resolution, so a merely odd value stays: a year of
+  3,253.4 mm of DMI is below its bound, and its `validity:false` tells; the long shape drops the
+  null rows unless `drop_nulls=False` (Part of GH-2797)
 - `dwd/observation` `5_minutes/precipitation` `historical`: the row stamped 200001010000 that every
   December 1999 file holds as its first row is dropped. It is not the missing 23:55 MEZ reading
   but an incomplete copy of the 00:00 UTC row, which the January file has whole, and it was

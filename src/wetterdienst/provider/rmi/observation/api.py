@@ -64,8 +64,10 @@ _EMPTY_VALUES_SCHEMA = {
 # the hourly layer has gusts of 569.7 (6414) and 445.3 m/s (6494) and 29 sunshines of 63.9 to 2,586 minutes in an hour.
 # Such a value is read as null and keeps its text as `raw:4021` (GH-2797). The gust of 81.5 m/s that 6414 wrote for
 # 2003-10-09 (`validated: false`) is no reading either: the next highest gust of the daily layer, and of the hourly
-# one, is 51.05 m/s (6434, 2002-12-30). The 115 m/s of the physical range is the highest gust anywhere (a typhoon);
-# Belgium's bound is 60. The sunshine of a span is held to the span and a tenth, for what a source rounds.
+# one, is 51.05 m/s (6434, 2002-12-30; one hour, stamped 2002-12-31T00:00Z in the hourly layer). The 115 m/s of the
+# physical range is the highest gust anywhere (a typhoon); Belgium's bound is 60. The sunshine is held to the span
+# itself: RMI writes minutes to two decimals, and on 6459 2013-03-24 the hourly values run 63.86, 170.93, 257.15,
+# 373.08, 1282.45, a running total and no reading of an hour.
 _AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
 _SOIL_TEMPERATURE = (-90.0, 100.0)  # also the surface, which may be hotter than the air
 _GUST = (0.0, 60.0)  # m/s
@@ -87,20 +89,20 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
     "10_minutes": {
         **_COMMON_RANGES,
         "precip_quantity": (0.0, 200.0),
-        "sun_duration": (0.0, 11.0),
+        "sun_duration": (0.0, 10.0),
         "temp_dry_shelter_avg": _AIR_TEMPERATURE,
         "wind_direction": (0.0, 360.0),  # degree, published at 10 minutes only
     },
     "hourly": {
         **_COMMON_RANGES,
         "precip_quantity": (0.0, 600.0),
-        "sun_duration": (0.0, 66.0),
+        "sun_duration": (0.0, 60.0),
         "temp_dry_shelter_avg": _AIR_TEMPERATURE,
     },
     "daily": {
         **_COMMON_RANGES,
         "precip_quantity": (0.0, 2_000.0),
-        "sun_duration": (0.0, 1_584.0),
+        "sun_duration": (0.0, 1_440.0),
         "temp_avg": _AIR_TEMPERATURE,
         "temp_max": _AIR_TEMPERATURE,
         "temp_min": _AIR_TEMPERATURE,

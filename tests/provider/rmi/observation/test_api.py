@@ -269,8 +269,8 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
 
     Rows as the WFS serves them for the daily layer of 6414 (checked 2026-10-16): `temp_avg` 110.26 and `temp_max` 4021
     on 2003-08-06, `wind_gusts_speed` 81.5 on 2003-10-09, `qc_flags` not validated. The highest gust of any of the 14
-    stations in the 36 years of the layer besides is 51.05 m/s (6434, 2002-12-30), which is kept, as is a gust of
-    the 14 days of 2003-10. A source null is dropped as before, and a validated value is left alone.
+    stations in the 36 years of the layer besides is 51.05 m/s (6434, 2002-12-30), which is kept. A source null is
+    dropped as before, and a validated value is left alone.
     """
     qc = {"TEMP_AVG": False, "TEMP_MAX": False, "WIND_GUSTS_SPEED": False, "TEMP_MIN": True}
     rows = [
@@ -298,8 +298,10 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
         ("10_minutes", 30.0, False),
         ("10_minutes", 10.0, True),
         ("hourly", 30.0, True),
-        ("hourly", 63.86, True),  # 6459, 2013-03-24 10:00, in a day with a sunshine of 3,808 minutes
-        ("hourly", 373.08, False),  # the same day, 13:00
+        ("hourly", 60.0, True),
+        # 6459, 2013-03-24: a running total, 63.86 minutes at 10:00 and 373.08 at 13:00
+        ("hourly", 63.86, False),
+        ("hourly", 373.08, False),
         ("daily", 30.0, True),
         ("daily", 1440.0, True),
         # 6459, 2013-05-24, which no day holds

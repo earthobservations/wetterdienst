@@ -703,6 +703,32 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
     ]
 
 
+@pytest.mark.parametrize(
+    ("resolution", "parameter", "reading", "no_reading"),
+    [
+        # the largest amount of a day of a month (04339 2011-10: 1978; 04320 2013-09: 999) and of a year (04320: 999)
+        ("monthly", "max_precip_24h", 183.5, 1978.0),
+        ("monthly", "max_precip_24h", 183.5, 999.0),
+        ("annual", "max_precip_24h", 183.5, 999.0),
+        # the largest of 30 minutes of the day can be no more than the day
+        ("daily", "max_precip_30m", 40.0, 989.0),
+    ],
+)
+def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
+    resolution: str, parameter: str, reading: float, no_reading: float
+) -> None:
+    """A maximum of a day or of half an hour is no more than a day of rain, which 04339 and 04320 have (GH-2797)."""
+    rows = [
+        (parameter, "2012-01-01T06:00:00+00:00", reading, "manual", True),
+        (parameter, "2013-01-01T06:00:00+00:00", no_reading, "manual", False),
+    ]
+    df = _collect_station_values(resolution, rows).sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [
+        (reading, "manual,validity:true"),
+        (None, f"manual,validity:false,raw:{no_reading:.15g}"),
+    ]
+
+
 def test_collect_leaves_a_year_of_rain_that_a_validated_year_equals() -> None:
     """The 3,253.4 mm of 04339 in 2012 (a sum of the month of 3,229.9 mm) stays: 04390 has 3,291.3 mm, validated.
 

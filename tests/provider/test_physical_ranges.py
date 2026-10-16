@@ -303,6 +303,12 @@ _NARROWER = {
     ("rmi", "10_minutes", "wind_gusts_speed"),
     ("rmi", "hourly", "wind_gusts_speed"),
     ("rmi", "daily", "wind_gusts_speed"),
+    ("dmi", "monthly", "max_precip_24h"),
+    ("dmi", "annual", "max_precip_24h"),
+    ("dmi", "daily", "max_precip_30m"),
+    ("rmi", "10_minutes", "sun_duration"),
+    ("rmi", "hourly", "sun_duration"),
+    ("rmi", "daily", "sun_duration"),
 }
 
 
