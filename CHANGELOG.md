@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `dwd/observation` `hourly/precipitation` `precipitation_form` (`wrtr`) 9, DWD's
+  "Missing value, Type of precipitation unascertainable", is no longer returned as the code 9: the
+  value is null and the 9 is the last token of `quality_flags` (`3,raw:9`). 9 was never a form;
+  261 of the 270 rows of a sample beside it had no precipitation height either. Read the null as
+  "no form", and `raw:9` where the number matters. The docs list 0, 1, 2, 3, 4, 6, 7, 8 (GH-2703)
+
 ## [0.155.0] - 2026-10-16
 
 ### Added
