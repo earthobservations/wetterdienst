@@ -19,11 +19,15 @@ when the parameter is validated, `0` when it is not.
 
 A value outside the physical range of its parameter, which no sensor can have produced, is null and
 keeps what the source wrote as the last token of `quality_flags`, `raw:4021` (`0,raw:4021`). The
-bounds are generous, so a record is never outside them: the daily layer has a `temp_max` of 1003 to
-6013 degrees on 48 days (station 6414 on 2003-08-06: 4021), a `temp_avg` of 72 to 342 degrees on 21,
-a relative humidity of -6999 % (6494) and a radiation of -99999 W/m2 (6484). Merely odd values stay:
-the daily gust of 81.5 m/s of station 6414 on 2003-10-09 is below the 115 m/s of the highest gust
-measured. The long shape drops the rows without a value by default, so the token shows with
+bounds are generous, so a record is never outside them, and depend on the resolution where the
+amount grows with the span: rain is held to 200 mm in 10 minutes, 600 mm in an hour and 2,000 mm in a
+day, sunshine to 11, 66 and 1,584 minutes (a tenth over the span), and a gust to 60 m/s. The daily layer has a `temp_max` of
+1003 to 6013 degrees on 48 days (station 6414 on 2003-08-06: 4021), a `temp_avg` of 72 to 342 degrees
+on 21, a relative humidity of -6999 % (6494), a radiation of -99999 W/m2 (6484), a sunshine of
+3,808 to 13,851 minutes in a day (6459, 6477) and a gust of 81.5 m/s (station 6414 on 2003-10-09);
+the hourly layer has gusts of 569.7 and 445.3 m/s, the 81.5 m/s again, and 28 hours of more than 66
+minutes of sunshine (373 and 1,282 minutes among them). The next highest gust of the daily layer is 51.05 m/s (6434, 2002-12-30), which
+stays. The long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
 
 ## License

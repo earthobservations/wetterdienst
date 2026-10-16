@@ -19,8 +19,8 @@ reader cannot do the one and forget the other.
 
 A value no sensor can have produced, a number outside the physical range of its parameter that is no code
 (4021 °C beside a daily mean of 110 °C), is mapped the same way: ``OutOfRange`` is a rule of ``null_sentinels``
-beside ``Sentinel``, and the value is read as ``raw:4021`` (GH-2797). The bounds are the reader's, in the unit of
-the source, and generous: a value that is only odd stays.
+beside ``Sentinel``, and the value is read as ``raw:4021`` (GH-2797). The bounds are the reader's, per resolution where
+the quantity grows with the span, in the unit of the source, and generous: a value that is only odd stays.
 """
 
 from __future__ import annotations

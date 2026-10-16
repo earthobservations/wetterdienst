@@ -1163,8 +1163,8 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # stationValue of 04339, `acc_precip` of `timeResolution=year` (read 2026-10-15): 1343.1 mm for 2013 is a reading,
     # 9574.3 mm for 2014 and 6026.5 mm for 2015 are sums no gauge produced (the other stations' yearly maxima are 818 to
-    # 1150 mm), outside the 6,000 mm bound of a precipitation, far above what any DMI gauge reads (GH-2797). DMI marks
-    # both `validity: false`
+    # 1150 mm), outside the 4,000 mm bound of a year's precipitation, far above what any DMI gauge reads (GH-2797). DMI
+    # marks both `validity: false`
     rows = [
         ("2013-01-01T06:00:00+00:00", "2014-01-01T06:00:00+00:00", 1343.1, "none"),
         ("2014-01-01T06:00:00+00:00", "2015-01-01T06:00:00+00:00", 9574.3, "manual"),

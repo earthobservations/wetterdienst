@@ -81,41 +81,70 @@ _CALM_WIND = Sentinel(
     & pl.col("value").filter(pl.col("parameterId").eq(_MEAN_WIND_SPEED)).first().over("from", "to").eq(0),
 )
 
-# The range of a reading per parameterId, in the unit DMI writes it in, outside which no sensor can have produced it:
-# the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the source
-# (`test_physical_ranges.py` holds them to it). The sums over a month or a year of the Greenland station 04339 are
-# no readings:
-# 17,802 mm of precipitation in the month of 2011-10 and 9,574 mm in the year 2014, where the other stations'
-# yearly sums are 818 to 1150 mm (GH-2797). Such a value is read as null and keeps its text as `raw:17802`. Merely odd
-# values stay: one range holds for every resolution, so a daily 1978 mm (the same station, 14 days of 2011, which DMI
-# marks `validity: false`), under the 6,000 mm bound, is not found. The bound is far above what a gauge in Denmark,
-# the Faroe Islands or Greenland reads.
+# The range of a reading per resolution and parameterId, in the unit DMI writes it in, outside which no sensor can have
+# produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
+# source and no wider than they are (`test_physical_ranges.py` holds them to it). The rain of a span grows with it, so
+# `acc_precip` has a bound per resolution, and those of the days, months and years are DMI's own, from the world
+# records it cannot reach: DMI covers Denmark, the Faroe Islands and Greenland. Read on 2026-10-16 (every station the
+# API lists; 4.1 million days, 136,000 months), the values DMI marks `validity: true` run to 183.5 mm in a day (04390,
+# 1964), 641.8 in a month and 3,291.3 in a year (04390, 1965), and above them lie only values marked `validity:
+# false`: 1978 mm on 14 and 989 mm on 3 days of 2011 at 04339, 1770 mm on 2021-12-04 at 04360; 17,802 mm (04339,
+# 2011-10), 8,661 mm (04360, 2022-01) and 3,229.9 mm (04339, 2012-10) in a month; 9,574 mm (04339, 2014), 7,196 mm
+# (04390, 2016) and 4,178.9 mm (04320, 2014) in a year, none of which a gauge read (GH-2797). Such a value is read as
+# null and keeps its text as `raw:17802`. What lies below a bound stays, and DMI's flag says what it thinks of it: the
+# 3,253.4 mm of 04339 in 2012 is the sum of that 3,229.9 and two months of 8.4 and 15.1, and no range separates it from
+# the 3,291.3 mm that DMI validated for 04390.
 _AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
 _PRECIPITATION = (0.0, 6_000.0)  # mm
 _WIND_SPEED = (0.0, 115.0)  # m/s
 _HUMIDITY = (0.0, 130.0)  # percent; a hygrometer reads past 100 now and then
-_RANGES: dict[str, tuple[float, float]] = {
+_COMMON_RANGES: dict[str, tuple[float, float]] = {
     "mean_temp": _AIR_TEMPERATURE,
     "max_temp_w_date": _AIR_TEMPERATURE,
     "min_temp": _AIR_TEMPERATURE,
-    "mean_daily_max_temp": _AIR_TEMPERATURE,
-    "mean_daily_min_temp": _AIR_TEMPERATURE,
     "mean_relative_hum": _HUMIDITY,
-    "max_relative_hum": _HUMIDITY,
-    "min_relative_hum": _HUMIDITY,
     "mean_pressure": (300.0, 1_100.0),  # hPa
-    "acc_precip": _PRECIPITATION,
-    "max_precip_30m": _PRECIPITATION,
-    "max_precip_24h": _PRECIPITATION,
     "mean_wind_speed": _WIND_SPEED,
     "max_wind_speed_10min": _WIND_SPEED,
     "max_wind_speed_3sec": _WIND_SPEED,
     "mean_wind_dir": (0.0, 360.0),  # degree
-    "acc_heating_degree_days_17": (0.0, 20_000.0),  # degree Celsius days; a year of heating is below 10,000
 }
-_OUT_OF_RANGE = tuple(
-    OutOfRange(low, high, where=pl.col("parameterId").eq(name)) for name, (low, high) in _RANGES.items()
-)
+_HEATING_DEGREE_DAYS = (0.0, 20_000.0)  # degree Celsius days; a year of heating is below 10,000
+_MONTHLY_RANGES: dict[str, tuple[float, float]] = {
+    **_COMMON_RANGES,
+    "acc_precip": (0.0, 1_500.0),
+    "max_precip_24h": _PRECIPITATION,
+    "mean_daily_max_temp": _AIR_TEMPERATURE,
+    "mean_daily_min_temp": _AIR_TEMPERATURE,
+    "max_relative_hum": _HUMIDITY,
+    "min_relative_hum": _HUMIDITY,
+    "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
+}
+_RANGES: dict[str, dict[str, tuple[float, float]]] = {
+    "hourly": {**_COMMON_RANGES, "acc_precip": (0.0, 600.0)},
+    "daily": {
+        **_COMMON_RANGES,
+        "acc_precip": (0.0, 500.0),
+        "max_precip_30m": _PRECIPITATION,
+        "acc_heating_degree_days_17": _HEATING_DEGREE_DAYS,
+    },
+    "monthly": _MONTHLY_RANGES,
+    # the years have no humidity extremes
+    "annual": {
+        **{
+            name: bounds
+            for name, bounds in _MONTHLY_RANGES.items()
+            if name not in {"max_relative_hum", "min_relative_hum"}
+        },
+        "acc_precip": (0.0, 4_000.0),
+    },
+}
+_OUT_OF_RANGE = {
+    resolution: tuple(
+        OutOfRange(low, high, where=pl.col("parameterId").eq(name)) for name, (low, high) in ranges.items()
+    )
+    for resolution, ranges in _RANGES.items()
+}
 
 _STATION_VALUE_SCHEMA = pl.Schema(
     {
@@ -351,7 +380,7 @@ class DmiObservationValues(TimeseriesValues):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # the 0 of a calm wind and a value outside the range of its parameter are mapped before anything is made of the
         # value, and stay as `raw:0` (GH-2794) and `raw:17802` (GH-2797)
-        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, *_OUT_OF_RANGE, text=False)
+        value, raw = null_sentinels(pl.col("value"), _CALM_WIND, *_OUT_OF_RANGE[dataset.resolution.name], text=False)
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
