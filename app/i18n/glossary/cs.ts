@@ -616,7 +616,7 @@ export const parameters: Record<string, string> = {
   wind_speed_last_2min: 'Průměrná rychlost větru (poslední 2 min)',
   wind_speed_min: 'Minimální rychlost větru',
   wind_speed_rolling_mean_max: 'Nejvyšší klouzavý průměr rychlosti větru',
-  wind_speed_rolling_mean_max_yesterday: 'Nejvyšší klouzavý průměr rychlosti větru, předchozí den',
+  wind_speed_rolling_mean_max_last_6h: 'Nejvyšší klouzavý průměr rychlosti větru (posledních 6 h)',
 }
 
 export const resolutions: Record<string, string> = {

@@ -616,7 +616,7 @@ export const parameters: Record<string, string> = {
   wind_speed_last_2min: 'Velocità media del vento (ultimi 2 min)',
   wind_speed_min: 'Velocità minima del vento',
   wind_speed_rolling_mean_max: 'Velocità media mobile massima del vento',
-  wind_speed_rolling_mean_max_yesterday: 'Velocità media mobile massima del vento, giorno precedente',
+  wind_speed_rolling_mean_max_last_6h: 'Velocità media mobile massima del vento (ultime 6 h)',
 }
 
 export const resolutions: Record<string, string> = {

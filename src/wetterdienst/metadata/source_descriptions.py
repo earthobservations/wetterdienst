@@ -170,7 +170,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Height above the station of the base of the lowest cloud."
         ),
         ("hourly", "data", "maximum_of_10_minutes_mean_of_wind_speed_for_previous_day"): (
-            "Highest 10-minute mean wind speed on the previous day."
+            'Highest 10-minute mean wind speed in the 6 hours up to the stamp. DWD names the column "previous day", '
+            "but it is carried at 00, 06, 12 and 18 UTC and is the maximum of the 6 hourly values up to the stamp."
         ),
         ("hourly", "data", "maximum_temperature_last_12_hours_2_meters_above_ground"): (
             "Maximum air temperature at 2 m above ground in the preceding 12 hours."
@@ -897,7 +898,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Solar zenith angle at mid of interval. The solar zenith angle is between 0-180 and is "
             "defined as: ZENIT= 90 - solar_height."
         ),
-        ("hourly", "sun", "sd_so"): "Hourly sunshine duration.",
+        ("hourly", "sun", "sd_so"): (
+            "Hourly sunshine duration. The stamps of the periods that DWD's Metadaten_Parameter calls "
+            '"Stundenwerte in WOZ" (the older periods of 528 of 636 stations, at some of them to 2006) are the hour '
+            "of the station's local true solar time, not UTC: they are returned as written, not shifted, and their "
+            "`quality_flags` carry `zone:woz` (`10,zone:woz`). The other stamps are UTC."
+        ),
         ("hourly", "temperature_air", "rf_tu"): "Relative humidity.",
         ("hourly", "temperature_air", "tt_tu"): "Air temperature 2 m above ground.",
         ("hourly", "temperature_soil", "v_te002"): (
@@ -956,7 +962,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "urban_wind", "windrichtung"): (
             "Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the "
             "average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other "
-            "urban stations have their own sensor heights)."
+            "urban stations have their own sensor heights). The source's 0 comes with a wind speed of 0.1 to 0.8 m/s, "
+            "never 0, and DWD does not say whether it is a calm or north, so it is returned as 0, unlike the calm of "
+            "`10_minutes/urban_wind`."
         ),
         ("hourly", "visibility", "v_vv"): "Visibility range.",
         ("hourly", "visibility", "v_vv_i"): (

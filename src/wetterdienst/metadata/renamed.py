@@ -141,6 +141,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2844: the window of a synoptic past weather is 6 hours at 00, 06, 12 and 18 UTC and 3 hours at the others
     "weather_last_3h": "weather_past",
     "weather_secondary_last_3h": "weather_secondary_past",
+    # GH-2817: DWD POI's "previous day" wind maximum is the maximum of the 6 hours before the report
+    "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h",
 }
 
 _WIND_LAST_10MIN = {

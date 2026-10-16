@@ -616,7 +616,7 @@ export const parameters: Record<string, string> = {
   wind_speed_last_2min: 'Mëttler Wandgeschwindegkeet (lescht 2 min)',
   wind_speed_min: 'Minimal Wandgeschwindegkeet',
   wind_speed_rolling_mean_max: 'Héchst gleidend mëttler Wandgeschwindegkeet',
-  wind_speed_rolling_mean_max_yesterday: 'Héchst gleidend mëttler Wandgeschwindegkeet, Virdag',
+  wind_speed_rolling_mean_max_last_6h: 'Héchst gleidend mëttler Wandgeschwindegkeet (lescht 6 h)',
 }
 
 export const resolutions: Record<string, string> = {

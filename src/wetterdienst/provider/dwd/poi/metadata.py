@@ -244,7 +244,7 @@ DwdPoiMetadata = {
                             **_WIND_SPEED,
                         },
                         {
-                            "name": "wind_speed_rolling_mean_max_yesterday",
+                            "name": "wind_speed_rolling_mean_max_last_6h",
                             "name_original": "maximum_of_10_minutes_mean_of_wind_speed_for_previous_day",
                             **_WIND_SPEED,
                         },

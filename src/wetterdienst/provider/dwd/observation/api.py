@@ -52,7 +52,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
-from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
+from wetterdienst.provider.dwd.observation.parser import WOZ_COLUMN, parse_climate_observations_data
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
@@ -122,7 +122,7 @@ class DwdObservationValues(TimeseriesValues):
             if remote_files.is_empty():
                 log.info(f"No files found for {dataset_identifier}. Station will be skipped.")
                 continue
-            filenames_and_files = download_climate_observations_data(remote_files, settings)
+            filenames_and_files = download_climate_observations_data(remote_files, settings, dataset)
             if not filenames_and_files:
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
@@ -169,8 +169,12 @@ class DwdObservationValues(TimeseriesValues):
         """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
         data = []
         series_quality = pl.Series()
+        # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816)
+        zone = (
+            pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")) if WOZ_COLUMN in df.columns else pl.lit(None, pl.String)
+        ).alias("zone")
         for column in df.columns[2:]:
-            if column.endswith(RAW_SUFFIX):
+            if column.endswith(RAW_SUFFIX) or column == WOZ_COLUMN:
                 continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
@@ -181,6 +185,7 @@ class DwdObservationValues(TimeseriesValues):
                     pl.lit(column, dtype=pl.String).alias("parameter"),
                     pl.col(column).alias("value"),
                     series_quality.alias("quality_flags"),
+                    zone,
                     # the text of the sentinel the parser mapped to null, if it did
                     (pl.col(raw_column(column)) if raw_column(column) in df.columns else pl.lit(None, pl.String)).alias(
                         "raw"
@@ -192,9 +197,9 @@ class DwdObservationValues(TimeseriesValues):
         # text follows it (`3,raw:-999`)
         return df.with_columns(
             pl.when(pl.col("value").is_not_null() | pl.col("raw").is_not_null())
-            .then(join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")))
+            .then(join_quality_flags(pl.col("quality_flags"), zone=pl.col("zone"), raw=pl.col("raw")))
             .alias("quality_flags")
-        ).drop("raw")
+        ).drop("raw", "zone")
 
     def _get_historical_date_ranges(
         self,

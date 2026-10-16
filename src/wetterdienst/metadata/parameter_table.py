@@ -3118,9 +3118,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "wind_speed_rolling_mean_max_yesterday",
+        "wind_speed_rolling_mean_max_last_6h",
         "speed",
-        "Highest rolling mean wind speed on the previous day.",
+        "Highest rolling mean wind speed over the preceding 6 hours.",
         interpolation="homogeneous",
     ),
 )
