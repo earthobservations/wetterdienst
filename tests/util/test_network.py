@@ -46,7 +46,7 @@ from fsspec.implementations.memory import MemoryFileSystem
 from pydantic import SecretStr
 from yarl import URL
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
 from wetterdienst.util import network
@@ -2746,6 +2746,54 @@ def test_as_outage_gives_a_download_that_did_not_answer_as_the_download_error(er
         File(url=url, content=error, status=500).raise_if_exception()
     assert str(outage) == str(raised.value)
     assert "SECRET" not in str(outage)
+
+
+def test_as_outage_gives_a_tls_failure_as_the_download_error_without_asking_again() -> None:
+    """A certificate that does not verify is no answer, and it is not retried either (GH-3022, GH-2618)."""
+    error = ssl.SSLCertVerificationError("certificate verify failed")
+    outage = network.as_outage(error, f"{_FAILED_URL}?api_key=SECRET")
+
+    assert isinstance(outage, DownloadError)
+    assert outage.__cause__ is error
+    assert "SECRET" not in str(outage)
+    assert not network._worth_retrying(error)  # noqa: SLF001
+
+
+def test_credential_rejected_names_the_setting_and_never_the_credential() -> None:
+    """The message tells whoever runs the process which setting to replace, with the status if there was one."""
+    with_status = network.credential_rejected("Frost API", "METNO_FROST", "client ID", 403)
+    without_status = network.credential_rejected("AEMET", "AEMET", "API key")
+
+    assert isinstance(with_status, CredentialRejectedError)
+    assert str(with_status) == (
+        "Frost API rejected the request with HTTP 403. Check that WD_AUTH__METNO_FROST contains a valid client ID."
+    )
+    assert str(without_status) == "AEMET rejected the request. Check that WD_AUTH__AEMET contains a valid API key."
+
+
+@pytest.mark.parametrize(
+    ("content", "status", "raises"),
+    [
+        pytest.param(OSError("401"), 401, True, id="401"),
+        pytest.param(OSError("403"), 403, True, id="403"),
+        pytest.param(OSError("404"), 404, False, id="404"),
+        pytest.param(OSError("429"), 429, False, id="429"),
+        pytest.param(OSError("500"), 500, False, id="500"),
+        pytest.param(BytesIO(b"fine"), 200, False, id="200"),
+    ],
+)
+def test_raise_if_credential_rejected_raises_for_a_401_and_a_403_only(
+    content: Exception | BytesIO,
+    status: int,
+    raises: bool,  # noqa: FBT001
+) -> None:
+    """Only a refusal of the credential is its own error; any other answer is left to `raise_if_exception`."""
+    file = File(url=_FAILED_URL, content=content, status=status)
+    if raises:
+        with pytest.raises(CredentialRejectedError, match=f"HTTP {status}"):
+            network.raise_if_credential_rejected(file, "Frost API", "METNO_FROST", "client ID")
+    else:
+        network.raise_if_credential_rejected(file, "Frost API", "METNO_FROST", "client ID")
 
 
 @pytest.mark.parametrize(

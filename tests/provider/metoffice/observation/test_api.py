@@ -375,6 +375,139 @@ def test_metoffice_station_list_gives_the_historic_county_as_region(monkeypatch:
     assert "station_file_name" not in df.columns
 
 
+@pytest.mark.parametrize("status", [401, 403])
+def test_ceda_token_exchange_that_ceda_refuses_raises_credential_rejected_error(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """A username and password CEDA refuses is raised, naming the setting and not them; no token is cached (GH-3018)."""
+    from wetterdienst.exceptions import CredentialRejectedError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        return File(url=download._TOKEN_URL, content=OSError(f"{status}, message='refused'"), status=status)  # noqa: SLF001
+
+    monkeypatch.setattr(download, "post_file", _fake_post)
+    with pytest.raises(CredentialRejectedError, match=f"HTTP {status}") as raised:
+        download.get_ceda_token(Settings(auth={"ceda": "ceda-user:ceda-secret"}))
+    assert "WD_AUTH__CEDA" in str(raised.value)
+    assert "ceda-user" not in f"{raised.value!s}{raised.value!r}"
+    assert "ceda-secret" not in f"{raised.value!s}{raised.value!r}"
+    assert not download._TOKEN_CACHE  # noqa: SLF001
+
+
+def test_ceda_token_exchange_that_failed_otherwise_still_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only a refusal (401, 403) is the credential's: any other failed exchange keeps its warning and no token."""
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        return File(url=download._TOKEN_URL, content=OSError("400, message='bad request'"), status=400)  # noqa: SLF001
+
+    monkeypatch.setattr(download, "post_file", _fake_post)
+    assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_metoffice_station_list_raises_credential_rejected_error_for_a_refused_token(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """A token CEDA refuses for the station catalogue is raised, not read as a dataset without stations (GH-3018)."""
+    from wetterdienst.exceptions import CredentialRejectedError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "get_ceda_token", lambda _settings: "token")
+    monkeypatch.setattr(api, "latest_release_version", lambda _settings, _token: "202507")
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError(f"{status}, message='refused'"), status=status),
+    )
+    request = MetOfficeObservationRequest(parameters=[("daily", "rain", "precipitation_amount")])
+    with pytest.raises(CredentialRejectedError, match=f"HTTP {status}"):
+        request.all()
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_metoffice_values_raise_credential_rejected_error_for_a_refused_token(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """A token CEDA refuses for a data file is raised, where a year the archive lacks (404) is not (GH-3018)."""
+    from wetterdienst.exceptions import CredentialRejectedError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import api  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError(f"{status}, message='refused'"), status=status),
+    )
+    values = object.__new__(api.MetOfficeObservationValues)
+    with pytest.raises(CredentialRejectedError, match=f"HTTP {status}"):
+        values._download("https://dap.ceda.ac.uk/badc/x.csv", Settings(cache_disable=True), "token")  # noqa: SLF001
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_metoffice_release_listing_that_refuses_the_token_raises_credential_rejected_error(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    """The release listing is sent the token, and comes first: its refusal is the token's."""
+    from wetterdienst.exceptions import CredentialRejectedError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import fileindex  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        fileindex,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError(f"{status}, message='refused'"), status=status),
+    )
+    with pytest.raises(CredentialRejectedError, match=f"HTTP {status}"):
+        fileindex.latest_release_version(Settings(cache_disable=True), "token")
+
+
+def test_metoffice_release_listing_that_fails_otherwise_stays_a_download_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only a refusal is the credential's: a 404 of the listing is a download error as before (GH-2519)."""
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import fileindex  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        fileindex,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError("404"), status=404),
+    )
+    with pytest.raises(DownloadError):
+        fileindex.latest_release_version(Settings(cache_disable=True), "token")
+
+
+def test_a_token_ceda_refuses_is_forgotten() -> None:
+    """A refused token leaves the cache, so a revoked one is minted again and not refused for its three days."""
+    import time  # noqa: PLC0415
+
+    from wetterdienst.exceptions import CredentialRejectedError  # noqa: PLC0415
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    settings = Settings(auth={"ceda": "user:pass"})
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+    download._TOKEN_CACHE[settings.auth.ceda] = ("token", time.time() + 3600)  # noqa: SLF001
+    refused = File(url="https://dap.ceda.ac.uk/x", content=OSError("403, message='refused'"), status=403)
+    with pytest.raises(CredentialRejectedError):
+        download.raise_if_ceda_rejected(refused, settings)
+    assert not download._TOKEN_CACHE  # noqa: SLF001
+
+
 # ---------------------------------------------------------------------------
 # Remote tests -- require a free CEDA account (WD_AUTH__CEDA=<username>:<password>).
 # ---------------------------------------------------------------------------

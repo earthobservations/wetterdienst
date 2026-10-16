@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a download that did not answer is a `DownloadError`, where it was logged and read as
+  no data, in the `metno/frost` values and the AEMET and KNMI station lists: a timeout, a dropped
+  connection, a body cut short and a 5xx. A TLS failure (a certificate that does not verify) is one
+  too, in those and in the AEMET, KNMI and `smhi/observation` values. A 404, a 412 and any other
+  4xx but a refused credential stay the empty result. The REST API answers 502 (504 after a
+  timeout) and the command line exits 1; catch `DownloadError` (or `UpstreamError`) where you
+  relied on the empty frame (GH-3022)
+- **Breaking**: a credential that the provider rejects (HTTP 401 or 403) raises
+  `CredentialRejectedError` in the `metno/frost`, `aemet/observation`, `knmi/observation` and
+  `metoffice/observation` values and in the AEMET, KNMI and Met Office station lists, as it does in
+  the `metno/frost` stations. It was an empty result with a warning, for Met Office also a
+  `DownloadError`. The REST API and the MCP tools answer 501, the command line prints one line.
+  A refused pre-signed link, which takes no credential, stays what it was; catch
+  `CredentialRejectedError` (a `PermissionError`) where you relied on the empty result (GH-3018)
+
 ## [0.156.0] - 2026-10-16
 
 ### Added

@@ -166,16 +166,16 @@ def test_smhi_values_offline_raise_where_a_404_is_a_station_without_the_paramete
 
 def test_frost_offline_raises_before_a_status_that_would_drop_the_file() -> None:
     """The statuses Frost answers `no data` with are no answer for a download that never connected (GH-2640)."""
-    from wetterdienst.provider.metno.frost.api import _raise_if_offline  # noqa: PLC0415
+    from wetterdienst.provider.metno.frost.api import _raise_if_unanswered  # noqa: PLC0415
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     error = NoInternetError("offline")
     with pytest.raises(NoInternetError) as raised:
-        _raise_if_offline(File(url="https://frost.met.no/x", content=error, status=503))
+        _raise_if_unanswered(File(url="https://frost.met.no/x", content=error, status=503))
     assert raised.value is error
 
     # a 412 or a 404 is what Frost answers when there is nothing: left to the caller
-    _raise_if_offline(File(url="https://frost.met.no/x", content=FileNotFoundError("404"), status=404))
+    _raise_if_unanswered(File(url="https://frost.met.no/x", content=FileNotFoundError("404"), status=404))
 
 
 def test_hubeau_elevations_are_not_left_out_for_want_of_a_connection(monkeypatch: pytest.MonkeyPatch) -> None:
