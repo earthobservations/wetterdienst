@@ -631,6 +631,7 @@ _STATUS_OF = {
     "BufrReaderMissingError": 501,
     "ConfigurationError": 501,
     "CredentialMissingError": 501,
+    "CredentialRejectedError": 501,
     "DateRequiredError": 400,
     "DownloadError": 500,
     "ExportRefusedError": 500,
@@ -711,6 +712,7 @@ def test_a_refusal_is_told_by_its_class_and_not_by_the_class_it_also_is() -> Non
     """A `ValueError` of the library's is a refusal by being a `RequestError`; one that is not, is not."""
     from wetterdienst.exceptions import (  # noqa: PLC0415
         CredentialMissingError,
+        CredentialRejectedError,
         InvalidEnumerationError,
         MetaFileFormatError,
     )
@@ -721,3 +723,5 @@ def test_a_refusal_is_told_by_its_class_and_not_by_the_class_it_also_is() -> Non
     assert not core._is_caller_refusal(MetaFileFormatError("x"), request)  # noqa: SLF001
     # a missing credential is the deployment's lack: neither a refusal nor a defect
     assert not core._is_caller_refusal(CredentialMissingError("x"), request)  # noqa: SLF001
+    # and so is a rejected one, though it is a `PermissionError`
+    assert not core._is_caller_refusal(CredentialRejectedError("x"), request)  # noqa: SLF001

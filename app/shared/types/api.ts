@@ -72,11 +72,10 @@ export type NetworkKind = 'observation' | 'forecast' | 'derived' | 'radar' | 'al
  * it (that is a request to the provider): `GET /api/auth` answers it for one network
  */
 export interface CoverageNetworkInfo {
-  /** null for the four of a network that cannot be imported on the server */
-  name_short: string | null
-  country: string | null
-  kind: NetworkKind | null
-  url: string | null
+  name_short: string
+  country: string
+  kind: NetworkKind
+  url: string
   auth: boolean
   configured: boolean
   date_required: boolean

@@ -28,6 +28,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     ConfigurationError,
     CredentialMissingError,
+    CredentialRejectedError,
     DateRequiredError,
     ImageTooLargeError,
     InvalidTimeIntervalError,
@@ -341,6 +342,30 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
             f"This server has no credential{of}, which the provider requires, so it cannot serve the "
             f"request. {app.url_path_for('coverage')} tells whether a provider is "
             "configured; otherwise ask whoever runs this instance."
+        ),
+    )
+
+
+def _credential_rejected_on_the_server(e: CredentialRejectedError, request: BaseModel, what: str) -> HTTPException:
+    """Report a credential the provider refused as the server's lack, not the caller's error or a crash.
+
+    The provider's message names the setting that holds the key, which is for whoever runs this
+    server: it was answered as a 500 with the variable named in the body (GH-2665), the same leak as
+    a missing key. The key is there and the provider does not accept it, so the server cannot serve
+    the network until someone replaces it, which is the 501 of a missing key, with a body of its own
+    that says the key was refused. `/api/auth` tells the same, as `valid: false`. The message moves
+    to the server log as an error: a revoked or mistyped key is something to act on, and it is the
+    provider's answer that is in the message, never the key.
+    """
+    log.error(f"Failed to {what}, the provider rejected the credential of this server: {e}")
+    provider, network = getattr(request, "provider", None), getattr(request, "network", None)
+    of = f" for {provider}/{network}" if provider and network else ""
+    return HTTPException(
+        status_code=501,
+        detail=(
+            f"The provider rejected the credential of this server{of}, so it cannot serve the "
+            f"request. {app.url_path_for('auth')} tells whether the credential is accepted; "
+            "otherwise ask whoever runs this instance."
         ),
     )
 
@@ -880,13 +905,13 @@ class CoverageNetwork(TypedDict):
     every provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641).
     """
 
-    # null for the four of a network that cannot be imported on this server, of which nothing is known
-    name_short: str | None
-    country: str | None
+    # a network that cannot be imported on this server is not listed at all (GH-2801)
+    name_short: str
+    country: str
     # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
     # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
-    kind: NetworkKind | None
-    url: str | None
+    kind: NetworkKind
+    url: str
     auth: bool
     configured: bool
     date_required: bool
@@ -1325,6 +1350,8 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
         return _dependency_missing_on_the_server(e, what)
     if isinstance(e, CredentialMissingError):
         return _credential_missing_on_the_server(e, request, what)
+    if isinstance(e, CredentialRejectedError):
+        return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
     if isinstance(e, NoInternetError):

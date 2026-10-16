@@ -21,6 +21,7 @@ from wetterdienst import Settings, Wetterdienst, __appname__, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     CredentialMissingError,
+    CredentialRejectedError,
     DateRequiredError,
     ExportRefusedError,
     InvalidTimeIntervalError,
@@ -805,13 +806,13 @@ def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     to install -- as the one line it is, exit 1. So is a provider that could not be reached
     (`NoInternetError`), whose message names the URL (GH-2640).
 
-    A provider that needs a credential none is configured for is told in one line, exit 1: the
-    message names the setting to change, which is what the person at the command line can do, and
-    the command line was right, so it is no usage error.
+    A provider that needs a credential none is configured for, or whose credential it rejected, is
+    told in one line, exit 1: the message names the setting to change, which is what the person at
+    the command line can do, and the command line was right, so it is no usage error (GH-2665).
     """
     if isinstance(e, (MissingDependencyError, NoInternetError)):
         raise e
-    if isinstance(e, CredentialMissingError):
+    if isinstance(e, (CredentialMissingError, CredentialRejectedError)):
         raise click.ClickException(str(e)) from e
     if not _is_caller_refusal(e, request):
         return
