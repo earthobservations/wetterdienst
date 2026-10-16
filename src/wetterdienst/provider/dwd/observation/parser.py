@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import re
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -15,7 +16,8 @@ from polars import selectors as cs
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels, raw_column
-from wetterdienst.provider.dwd.observation.fileindex import is_mez_file
+from wetterdienst.provider.dwd.observation.download import ProductFile
+from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
 )
@@ -27,6 +29,10 @@ if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
+
+_COPY = "_copy_of_utc_row"
+#: the files of the last MEZ year end on this day: `..._19991231_hist.zip`
+_LAST_MEZ_FILE_ENDING = f"_{MEZ_UNTIL_YEAR - 1}1231_hist.zip"
 
 
 # Columns that arrive in the files but are not parameters, and so are not declared in the metadata
@@ -171,8 +177,10 @@ WIND_DIRECTION_PARAMETERS = (
 #   stations (read 2026-10-13): 20 zeros in the recent files and 51 in the historical ones (they overlap in 2025),
 #   every one beside a speed of 0.00, and every 10 minutes with a speed of 0.00 has the 0 (15818 on 2025-04-28: 220 at
 #   0.10 m/s at 18:20, 0 at 0.00 at 18:30, 200 at 0.20 at 18:40). The sheet of the dataset answers 404, so it follows
-#   the rule of 10 minute wind. The hourly urban_wind WINDRICHTUNG is not covered: its zeros never come beside a speed
-#   of 0.
+#   the rule of 10 minute wind. The hourly urban_wind WINDRICHTUNG is not covered, and is deliberately left as the
+#   source writes it: its 1,288 zeros in 295,005 hours (read 2026-10-12) never come beside a speed of 0 (the minimum
+#   speed is 0.1 m/s), mostly at 0.2 to 0.4 m/s, 11 hours at 1 m/s or more, and DWD's sheet says nothing of a 0, so
+#   whether it is a calm or north is not known.
 CALM_WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
     (
@@ -324,6 +332,17 @@ COLUMNS_MAPPING = {
 }
 
 
+# The hourly sun stamps of a period that DWD's `Metadaten_Parameter` calls "Stundenwerte in WOZ" are the hour of the
+# station's true solar time ("Wahre Ortszeit"), not UTC, but are returned as the stamps are written, unshifted
+# (GH-2816, GH-2617): the shift is the station's longitude over 15 plus the equation of time, 35 minutes at Aachen,
+# 20 at Hamburg, about 0 at Goerlitz, +-16 minutes over the year, so no whole hour. Instead the rows of those periods
+# are flagged `zone:woz` in `quality_flags`. The periods come from the metadata file of the station's archive
+# (`ProductFile.woz_spans`), as they are not at one date: 140 of the 528 stations with a WOZ period end the last one on
+# 2001-03-31, 172 have one that runs on (249,640 station days, to 2006), and some change back and forth by the month
+# (read 2026-10-15 in all 636 historical archives). A boolean column of the wide frame, dropped in `_tidy_up_df`.
+WOZ_COLUMN = "woz"
+
+
 def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
@@ -346,7 +365,7 @@ def parse_climate_observations_data(
             data.append(_parse_climate_observations_data(file, dataset, period))
         if not data:
             return pl.LazyFrame()
-        return pl.concat(data)
+        return pl.concat(_drop_mez_copies_of_utc_rows(files, data, dataset, period))
 
 
 def _parse_climate_observations_data(  # noqa: C901
@@ -472,7 +491,90 @@ def _parse_climate_observations_data(  # noqa: C901
     df = df.with_columns(
         pl.col("timestamp").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
     )
+    df = _drop_rows_after_last_day(df, file, dataset, period)
+    if dataset == DwdObservationMetadata.hourly.sun:
+        spans = file.woz_spans if isinstance(file, ProductFile) else ()
+        df = df.with_columns(
+            pl.any_horizontal(
+                pl.col("timestamp").dt.date().is_between(first, last, closed="both") for first, last in spans
+            )
+            .fill_null(value=False)
+            .alias(WOZ_COLUMN)
+            if spans
+            else pl.lit(value=False).alias(WOZ_COLUMN)
+        )
     return _mez_to_utc(df, file, dataset, period)
+
+
+def _drop_rows_after_last_day(df: pl.LazyFrame, file: File, dataset: DatasetModel, period: Period) -> pl.LazyFrame:
+    """Drop the row a historical 5-minute MEZ file holds after the last day of its name (GH-2827).
+
+    Every `5minutenwerte_nieder_*_19991201_19991231_hist.zip` begins with a row stamped 200001010000 and has none for
+    199912312355. The row is not the 23:55 MEZ reading: it is the 00:00 UTC row, the 5 minutes 23:56 to 00:00 UTC,
+    of which the file has only 23:56 to 23:59 UTC (its 1-minute twin ends at 00:59 MEZ), so it is incomplete, and the
+    January file of the station carries the whole of it. Read as MEZ it was put at 23:00 UTC, where no reading is.
+    No other 5-minute file holds a stamp outside the days of its name.
+    """
+    if not (
+        period == Period.HISTORICAL
+        and dataset.resolution.value == Resolution.MINUTE_5
+        and is_mez_file(file.filename)
+        and (match := re.search(DATE_RANGE_REGEX, file.filename))
+    ):
+        return df
+    last_day = dt.datetime.strptime(match.group(1)[9:], "%Y%m%d").replace(tzinfo=dt.UTC)
+    return df.filter(pl.col("timestamp") < last_day + dt.timedelta(days=1))
+
+
+def _drop_mez_copies_of_utc_rows(
+    files: list[File], frames: list[pl.LazyFrame], dataset: DatasetModel, period: Period
+) -> list[pl.LazyFrame]:
+    """Settle a stamp a historical 10-minute MEZ file lists twice on the row that is not a copy (GH-2829).
+
+    The file that ends in 1999 lists each of 199912312300 to 199912312350 twice (149 of the 153 precipitation files
+    with a successor, 00348 five of them; extreme_temperature and extreme_wind of the stations checked). One row is
+    the reading at 23:xx MEZ, the other a copy of the reading at 00:xx MEZ of 2000-01-01, which the file of 2000
+    holds as 199912312300 to 199912312350 UTC: of 226 stamps with two different rows exactly one equals the row of
+    the file of 2000, and the rain of 1-minute minutes 00:19, 00:27 and 00:46 MEZ is in the copy of the stamps 00:20,
+    00:30 and 00:50. The copy comes first or second, so it is told by the file of 2000, and is dropped where the
+    other row is not a copy. Without that file, or without a stamp twice, nothing changes.
+    """
+    if not (
+        period == Period.HISTORICAL
+        and dataset.resolution.value == Resolution.MINUTE_10
+        and any(file.filename.endswith(_LAST_MEZ_FILE_ENDING) for file in files)
+    ):
+        return frames
+    utc_frames = [
+        frame
+        for file, frame in zip(files, frames, strict=True)
+        if not is_mez_file(file.filename) and "timestamp" in frame.collect_schema().names()
+    ]
+    if not utc_frames:
+        return frames
+    turn = dt.datetime(MEZ_UNTIL_YEAR, 1, 1, tzinfo=dt.UTC)
+    utc_head = pl.concat(utc_frames, how="diagonal").filter(pl.col("timestamp") < turn)
+    utc_columns = set(utc_head.collect_schema().names())
+    result = []
+    for file, frame in zip(files, frames, strict=True):
+        names = frame.collect_schema().names()
+        if not file.filename.endswith(_LAST_MEZ_FILE_ENDING) or "timestamp" not in names:
+            result.append(frame)
+            continue
+        compared = [name for name in names if name != "timestamp" and not name.endswith(RAW_SUFFIX)]
+        compared = [name for name in compared if name in utc_columns]
+        # the MEZ stamp is already UTC here, an hour before the digits the file of 2000 has for the same reading
+        copies = utc_head.select(
+            (pl.col("timestamp") - pl.duration(hours=1)).alias("timestamp"),
+            *compared,
+            pl.lit(value=True).alias(_COPY),
+        ).unique()
+        frame = frame.join(copies, on=["timestamp", *compared], how="left", nulls_equal=True, maintain_order="left")
+        # only a copy that has a sibling that is none goes; every other repeated stamp is left to the caller as before
+        is_copy = pl.col(_COPY).fill_null(value=False)
+        frame = frame.filter(~(is_copy & (~is_copy).any().over("timestamp")))
+        result.append(frame.drop(_COPY))
+    return result
 
 
 def _mez_to_utc(df: pl.LazyFrame, file: File, dataset: DatasetModel, period: Period) -> pl.LazyFrame:

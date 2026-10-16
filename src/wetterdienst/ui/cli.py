@@ -978,7 +978,14 @@ def coverage(
     datasets: str,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Get coverage information."""
+    """Get coverage information.
+
+    Without --provider and --network, every provider and network with its `name_short`, `country`, `url`
+    and `kind`, and whether it needs credentials and has them. `kind` is `observation`, `forecast` or
+    `derived` for a timeseries network, which has stations and values, and `radar` or `alerts` for a
+    standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With them, the
+    resolutions, datasets and parameters of that network.
+    """
     set_logging_level(debug=debug)
 
     # /api/coverage refuses, with a 400, a request for every provider that is neither: one of
@@ -1048,8 +1055,8 @@ def auth(
     provider): unknown, not rejected. A network that needs none is configured and valid.
 
     This is the one command that probes the provider, for the one network asked about: a single
-    attempt that gives up after a few seconds. `about coverage` does not probe, so it leaves
-    `valid` null for a configured network. The exit code is 0 whatever `valid` is: read the answer.
+    attempt that gives up after a few seconds. `about coverage` does not probe and has no `valid`, only
+    whether the credentials are `configured`. The exit code is 0 whatever `valid` is: read the answer.
     """
     set_logging_level(debug=debug)
 

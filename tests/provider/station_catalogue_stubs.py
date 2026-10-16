@@ -1419,14 +1419,28 @@ def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return request.all().df
 
 
+# the region of `meteofrance/observation` is the département's code as the station id writes it: the registry's `9` of
+# the Ariège is `09`, an overseas one has three digits, and Corsica's two départements, 2A and 2B, are both `20`
+METEOFRANCE_EXPECTED: dict[str, dict[str, Any]] = {
+    "29293001": {"region": "29"},
+    "09224001": {"region": "09"},
+    "20023400": {"region": "20"},
+    "97228006": {"region": "972"},
+    "98719002": {"region": "987"},
+}
+
+
 def _meteofrance_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # the station registry of data.gouv.fr (2026-10-15), 14,729 stations of which these: many have no start date,
-    # a closed one has an end, and the overseas departments have codes of three digits
+    # a closed one has an end, and the overseas departments have codes of three digits. Its `department_id` has no
+    # leading zero (`9`), and the 351 stations of Corsica, 2A and 2B, all have `20`
     catalogue = (
         "id,name,long_name,named_place,station_type,basin,lon,lat,alt,start_date,end_date,is_open,is_public,"
         "department_id,is_daily,is_hourly,is_minutely\n"
         "29293001,TREGUNC,TREGUNC,KERLEOGUY,1,J451,-3.868833,47.841333,25,2003-12-01,,true,true,29,true,true,true\n"
         "09224001,PAILHES-SPC,,,5,,1.443,43.102167,287,,,true,true,9,true,true,false\n"
+        "20023400,ASCO-STAGNU,ASCO (ASCO-STAGNU),Stagnu,4,Y710,8.922667,42.402667,1434,1983-12-12,,true,true,20,"
+        "true,true,false\n"
         "72061001,LA CHAPELLE D A,LA CHAPELLE-D'ALIGNE (LA CHAPELLE D A),LES GRINGUENIERES,4,M153,-0.216667,"
         "47.716667,50,1951-04-01,1993-09-30,true,true,72,true,false,false\n"
         "97228006,STE MARIE PEROU,SAINTE-MARIE (STE MARIE PEROU),PEROU DDST,2,NR,-61.024167,14.761167,200,"
@@ -1472,7 +1486,7 @@ STUBS = [
     Stub("eaufrance/hubeau 5_minutes/data", _hubeau),
     Stub("wsv/pegel 10_minutes+15_minutes/data", _wsv, (WSV_NO_POSITION, WSV_TIEL)),
     Stub("nws/observation hourly/data", _nws),
-    Stub("meteofrance/observation daily/core", _meteofrance_observation),
+    Stub("meteofrance/observation daily/core", _meteofrance_observation, expected=METEOFRANCE_EXPECTED),
     Stub("meteofrance/synop subdaily/data", _meteofrance_synop),
     Stub(
         "eccc/observation hourly/data",

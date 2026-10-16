@@ -221,7 +221,7 @@ multiplied by a factor that depends on the resolution of the request:
 |-------------------------------------------------------|--------|--------|
 | `1_minute`, `5_minutes`, `6_minutes`, `10_minutes`, `15_minutes` | 0.75   | 15 km  |
 | `hourly`                                              | 1.0    | 20 km  |
-| `6_hour`, `subdaily`                                  | 1.5    | 30 km  |
+| `6_hours`, `subdaily`                                  | 1.5    | 30 km  |
 | `daily`                                               | 2.0    | 40 km  |
 | `monthly`, `annual`                                   | 2.0    | 40 km  |
 
@@ -276,7 +276,7 @@ from wetterdienst import Options
 options = Options()
 {
     resolution: options.geo_station_distance_for("precipitation_amount", resolution)
-    for resolution in ("10_minutes", "hourly", "6_hour", "daily", "monthly")
+    for resolution in ("10_minutes", "hourly", "6_hours", "daily", "monthly")
 }
 ```
 

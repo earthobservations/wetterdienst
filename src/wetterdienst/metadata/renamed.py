@@ -136,6 +136,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2659: MOSMIX's error of ttt and td follows them to the spot names
     "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
     "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
+    # GH-2817: DWD POI's "previous day" wind maximum is the maximum of the 6 hours before the report
+    "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h",
 }
 
 _WIND_LAST_10MIN = {
@@ -196,6 +198,13 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
     # Frost's own element `wind_speed` still selects its row, so only the direction is not found
     "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
     "SmhiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
+}
+
+#: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
+#: value is refused with the new one named
+RENAMED_RESOLUTIONS: dict[str, str] = {
+    # GH-2641: the minute resolutions are plural (`10_minutes`), and so is this one
+    "6_hour": "6_hours",
 }
 
 #: request arguments, old name to new

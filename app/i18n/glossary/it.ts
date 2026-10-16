@@ -612,7 +612,7 @@ export const parameters: Record<string, string> = {
   wind_speed_last_10min: 'Velocità media del vento (ultimi 10 min)',
   wind_speed_min: 'Velocità minima del vento',
   wind_speed_rolling_mean_max: 'Velocità media mobile massima del vento',
-  wind_speed_rolling_mean_max_yesterday: 'Velocità media mobile massima del vento, giorno precedente',
+  wind_speed_rolling_mean_max_last_6h: 'Velocità media mobile massima del vento (ultime 6 h)',
 }
 
 export const resolutions: Record<string, string> = {
@@ -622,7 +622,7 @@ export const resolutions: Record<string, string> = {
   '10_minutes': 'Ogni 10 minuti',
   '15_minutes': 'Ogni 15 minuti',
   'hourly': 'Ogni ora',
-  '6_hour': 'Ogni 6 ore',
+  '6_hours': 'Ogni 6 ore',
   'subdaily': 'Più volte al giorno',
   'daily': 'Giornaliero',
   'monthly': 'Mensile',

@@ -12,7 +12,7 @@ import re
 import tarfile
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING, Self, cast
+from typing import TYPE_CHECKING, ClassVar, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -24,6 +24,7 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
     create_fileindex_radolan_cdc,
@@ -164,6 +165,15 @@ class DwdRadarValues:  # noqa: PLW1641
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
     """
+
+    # how `Wetterdienst.discover()` lists the network, which is no timeseries network and has no metadata model: the
+    # name and the country are the provider's, the url is where the radar products are
+    listing: ClassVar = {
+        "name_short": _METADATA["name_short"],
+        "country": _METADATA["country"],
+        "kind": "radar",
+        "url": "https://opendata.dwd.de/weather/radar/",
+    }
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument by naming the new one, as `TimeseriesRequest` does."""

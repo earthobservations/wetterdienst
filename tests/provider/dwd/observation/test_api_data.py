@@ -1036,6 +1036,109 @@ def test_dwd_10_minutes_historical_wind_stamps_of_1999_file_beyond_midnight_are_
     assert df.get_column("value").to_list() == [2.7, 2.4, 2.5, 3.4]
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_dwd_10_minutes_historical_stamps_listed_twice_keep_the_row_that_is_not_a_copy(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, *, reverse: bool
+) -> None:
+    """Test that of a stamp the 1999 file lists twice, the copy of the 2000 file's row is dropped (GH-2829).
+
+    Station 00963, read 2026-10-15: the file of 1999 lists 199912312300 to 199912312350 twice. One row of each is
+    the reading at 23:xx MEZ, the other the one at 00:xx MEZ on 2000-01-01 that the 2000 file holds as 199912312300
+    to 199912312350 UTC. The 1-minute file of December 1999 has rain at 00:19 and 00:46 MEZ of 2000-01-01, which
+    the 10 minute stamps 00:20 and 00:50 carry (0.1 mm) and no row of 23:xx MEZ does. The copy comes first at 23:20
+    and second at 23:50, so neither the first nor the last row can be kept; at 23:40 the two rows are the same.
+    A stamp listed twice elsewhere (22:40 MEZ here, a placeholder first, as in the file of station 03086) is left
+    as it was.
+    """
+    before = (
+        "STATIONS_ID;MESS_DATUM;  QN;RWS_DAU_10;RWS_10;RWS_IND_10\n"
+        "        963;199912312240;    1;-999;   -999;\n"
+        "        963;199912312240;    1;-999;   0.00; 0\n"
+        "        963;199912312250;    1;-999;   0.00; 0\n"
+        "        963;199912312300;    1;-999;   0.00; 3\n"
+        "        963;199912312300;    1;-999;   0.00; 0\n"
+        "        963;199912312310;    1;-999;   0.00; 3\n"
+        "        963;199912312310;    1;-999;   0.00; 0\n"
+        "        963;199912312320;    1;-999;   0.10; 1\n"
+        "        963;199912312320;    1;-999;   0.00; 0\n"
+        "        963;199912312330;    1;-999;   0.00; 3\n"
+        "        963;199912312330;    1;-999;   0.00; 0\n"
+        "        963;199912312340;    1;-999;   0.00; 3\n"
+        "        963;199912312340;    1;-999;   0.00; 3\n"
+        "        963;199912312350;    1;-999;   0.00; 3\n"
+        "        963;199912312350;    1;-999;   0.10; 1\n"
+    )
+    after = (
+        "STATIONS_ID;MESS_DATUM;  QN;RWS_DAU_10;RWS_10;RWS_IND_10;eor\n"
+        "        963;199912312300;    1;-999;   0.00;   3;eor\n"
+        "        963;199912312310;    1;-999;   0.00;   3;eor\n"
+        "        963;199912312320;    1;-999;   0.10;   1;eor\n"
+        "        963;199912312330;    1;-999;   0.00;   3;eor\n"
+        "        963;199912312340;    1;-999;   0.00;   3;eor\n"
+        "        963;199912312350;    1;-999;   0.10;   1;eor\n"
+        "        963;200001010000;    1;-999;   0.00;   1;eor\n"
+    )
+    files = {
+        "10minutenwerte_nieder_00963_19960613_19991231_hist.zip": before,
+        "10minutenwerte_nieder_00963_20000101_20091231_hist.zip": after,
+    }
+    if reverse:
+        files = dict(reversed(files.items()))
+    _serve_historical_files(monkeypatch, files)
+    amount = _seam_values("10_minutes", "precipitation", "precipitation_amount", "00963", default_settings)
+    index = _seam_values("10_minutes", "precipitation", "precipitation_index", "00963", default_settings)
+    # 21:50 UTC is the stamp 22:50 MEZ, 22:00 to 22:50 UTC the readings of 23:00 to 23:50 MEZ, 23:00 to 23:50 UTC
+    # those of the 2000 file (00:00 to 00:50 MEZ)
+    expected_timestamps = [
+        dt.datetime(1999, 12, 31, 21, 40, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(1999, 12, 31, 21, 50, tzinfo=ZoneInfo("UTC")),
+        *[dt.datetime(1999, 12, 31, h, m, tzinfo=ZoneInfo("UTC")) for h in (22, 23) for m in range(0, 60, 10)],
+        dt.datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC")),
+    ]
+    assert amount.get_column("timestamp").to_list() == expected_timestamps
+    assert index.get_column("timestamp").to_list() == expected_timestamps
+    assert amount.get_column("value").to_list() == [None] + [0.0] * 9 + [0.1, 0.0, 0.0, 0.1, 0.0]
+    assert index.get_column("value").to_list() == [None] + [0.0] * 5 + [3.0] * 4 + [1.0, 3.0, 3.0, 1.0, 1.0]
+
+
+def test_dwd_5_minutes_historical_row_after_the_last_day_of_the_december_1999_file_is_dropped(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that the row 200001010000 of the December 1999 file is no reading at 23:00 UTC (GH-2827).
+
+    Station 03811, read 2026-10-15: the file begins with 200001010000 and has no 199912312355; its RS_IND_05 is 0,
+    that of the January file at 200001010000 UTC is 2, and the 1-minute indicator is 2 at 00:00 UTC and 0 at 23:56
+    to 23:59 UTC. So the row is the 00:00 UTC one made of the four minutes the file has, not the missing 23:55 MEZ,
+    and the January file holds it whole.
+    """
+    before = (
+        "STATIONS_ID;MESS_DATUM;QN_5min;RS_IND_05;RS_05;RTH_05;RWH_05;eor\n"
+        "       3811;200001010000;    3;   0;   -999;   0.00;   0.00;eor\n"
+        "       3811;199912312345;    3;   2;   -999;   0.00;   0.00;eor\n"
+        "       3811;199912312350;    3;   2;   -999;   0.00;   0.00;eor\n"
+    )
+    after = (
+        "STATIONS_ID;MESS_DATUM;QN_5min;RS_IND_05;RS_05;RTH_05;RWH_05;eor\n"
+        "       3811;200001010000;    3;   2;   -999;   0.00;   0.00;eor\n"
+        "       3811;200001010005;    3;   2;   -999;   0.00;   0.00;eor\n"
+    )
+    _serve_historical_files(
+        monkeypatch,
+        {
+            "5minutenwerte_nieder_03811_20000101_20000131_hist.zip": after,
+            "5minutenwerte_nieder_03811_19991201_19991231_hist.zip": before,
+        },
+    )
+    df = _seam_values("5_minutes", "precipitation", "precipitation_index", "03811", default_settings)
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime(1999, 12, 31, 22, 45, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(1999, 12, 31, 22, 50, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2000, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2000, 1, 1, 0, 5, tzinfo=ZoneInfo("UTC")),
+    ]
+    assert df.get_column("value").to_list() == [2.0, 2.0, 2.0, 2.0]
+
+
 @pytest.mark.remote
 def test_dwd_observations_urban_10_minutes_now(default_settings: Settings) -> None:
     """The 10 minute urban `now` period reaches today, not yesterday.

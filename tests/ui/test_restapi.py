@@ -26,7 +26,7 @@ from wetterdienst import Author, Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.history import TimeseriesHistory
-from wetterdienst.model.metadata import ParameterSearch
+from wetterdienst.model.metadata import NetworkKind, ParameterSearch
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
@@ -7801,8 +7801,8 @@ def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
 ) -> None:
     """A probe that fails for a reason other than a rejection leaves `valid` null, not false (GH-2550).
 
-    Only `/api/auth` probes. `/api/coverage` leaves `valid` null for a configured network whatever
-    the provider would say, and never asks it (GH-2564).
+    Only `/api/auth` probes. `/api/coverage` has no `valid` for a configured network, whatever the
+    provider would say, and never asks it (GH-2564, GH-2641).
     """
     from wetterdienst.util.network import File  # noqa: PLC0415
 
@@ -7819,12 +7819,13 @@ def test_coverage_and_auth_tell_a_credential_that_could_not_be_checked_as_null(
     params = {"provider": "metno", "network": "frost"}
     assert client.get("/api/auth", params=params).json() == expected
     assert len(asked) == 1
-    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
+    frost = client.get("/api/coverage").json()["metno"]["frost"]
+    assert (frost["auth"], frost["configured"], "valid" in frost) == (True, True, False)
     answer.update(status=401, content=Exception("401, message='Unauthorized'"))
     assert client.get("/api/auth", params=params).json() == expected | {"valid": False}
     assert len(asked) == 2
     # the listing neither asks nor learns: a rejected client ID is told by `/api/auth` only
-    assert client.get("/api/coverage").json()["metno"]["frost"]["valid"] is None
+    assert "valid" not in client.get("/api/coverage").json()["metno"]["frost"]
     assert len(asked) == 2
 
 
@@ -8011,10 +8012,13 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
         assert components[name]["additionalProperties"] is False
         return set(components[name]["properties"]), set(components[name].get("required", []))
 
-    network = {"auth", "configured", "valid", "date_required"}
+    # no `valid`: whether the credentials are accepted is `/api/auth`'s to tell, one network at a time (GH-2641)
+    network = {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
     assert shape("CoverageNetwork") == (network, network)
-    # null: the credentials could not be checked, which is not a rejection (GH-2550, GH-2562)
-    assert components["CoverageNetwork"]["properties"]["valid"]["anyOf"] == [{"type": "boolean"}, {"type": "null"}]
+    properties = components["CoverageNetwork"]["properties"]
+    # null for a network that cannot be imported on the server
+    assert properties["name_short"]["anyOf"] == [{"type": "string"}, {"type": "null"}]
+    assert properties["kind"]["anyOf"] == [{"enum": list(get_args(NetworkKind)), "type": "string"}, {"type": "null"}]
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
     assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
