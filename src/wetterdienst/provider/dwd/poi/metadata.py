@@ -47,7 +47,7 @@ _PRECIPITATION = {"unit": "millimeter"}
 _WIND_SPEED = {"unit": "kilometer_per_hour"}
 _RADIATION = {"unit": "watt_per_square_meter"}
 
-DwdPoiMetadata = {
+_DwdPoiMetadataSpec = {
     "name_short": "DWD",
     "name_english": "German Weather Service",
     "name_local": "Deutscher Wetterdienst",
@@ -269,4 +269,4 @@ DwdPoiMetadata = {
         },
     ],
 }
-DwdPoiMetadata = build_metadata_model(DwdPoiMetadata, "DwdPoiMetadata")
+DwdPoiMetadata = build_metadata_model(_DwdPoiMetadataSpec, "DwdPoiMetadata")

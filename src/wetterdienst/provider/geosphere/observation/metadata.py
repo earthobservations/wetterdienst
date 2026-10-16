@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-GeosphereObservationMetadata = {
+_GeosphereObservationMetadataSpec = {
     "name_short": "Geosphere",
     "name_english": "Geosphere Austria",
     "name_local": "Geosphere Österreich",
@@ -550,4 +550,4 @@ GeosphereObservationMetadata = {
         },
     ],
 }
-GeosphereObservationMetadata = build_metadata_model(GeosphereObservationMetadata, "GeosphereObservationMetadata")
+GeosphereObservationMetadata = build_metadata_model(_GeosphereObservationMetadataSpec, "GeosphereObservationMetadata")

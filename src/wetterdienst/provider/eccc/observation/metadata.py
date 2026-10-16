@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-EcccObservationMetadata = {
+_EcccObservationMetadataSpec = {
     "name_short": "ECCC",
     "name_english": "Environment And Climate Change Canada",
     "name_local": "Environnement Et Changement Climatique Canada",
@@ -293,4 +293,4 @@ EcccObservationMetadata = {
         },
     ],
 }
-EcccObservationMetadata = build_metadata_model(EcccObservationMetadata, "EcccObservationMetadata")
+EcccObservationMetadata = build_metadata_model(_EcccObservationMetadataSpec, "EcccObservationMetadata")

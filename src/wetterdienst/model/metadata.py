@@ -9,25 +9,28 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator, with_config
 from pydantic_extra_types.timezone_name import (
     TimeZoneName,  # noqa: TC002, needs to stay here for pydantic model to work
 )
+
+# not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12 (GH-2090)
+from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needs to stay here for the TypedDicts to work
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from pydantic_core.core_schema import ValidationInfo
 
-    from wetterdienst.metadata.unit_type import UnitType
     from wetterdienst.model.request import _PARAMETER_TYPE
 
 log = logging.getLogger(__name__)
@@ -54,6 +57,59 @@ TimeseriesKind = Literal["observation", "forecast", "derived"]
 #: which has its own request class and result and no stations or values to request (the radar products and the
 #: warnings of `dwd`). Which one decides where a network can be requested: see `Wetterdienst.discover()`.
 NetworkKind = Literal["observation", "forecast", "derived", "radar", "alerts"]
+
+
+# What `Wetterdienst.discover()` and `TimeseriesRequest.discover()` answer, and the REST API's
+# `/api/coverage` describes: the tests check a real answer of every provider against these, and
+# `extra="forbid"` makes a key added there fail.
+@with_config(ConfigDict(extra="forbid"))
+class CoverageNetwork(TypedDict):
+    """A network in the list of every provider and its networks.
+
+    Whether the credentials are accepted is not in it: that takes a request to the provider, which a list of
+    every provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641).
+    """
+
+    # a network that cannot be imported on this server is not listed at all (GH-2801)
+    name_short: str
+    country: str
+    # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
+    # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
+    kind: NetworkKind
+    url: str
+    auth: bool
+    configured: bool
+    date_required: bool
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageParameter(TypedDict):
+    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
+
+    name: str
+    name_original: str
+    unit_type: UnitType
+    unit: str
+    description: str | None
+    # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
+    lead_times: NotRequired[list[Literal["short", "long"]]]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageDataset(TypedDict):
+    """A dataset of a resolution."""
+
+    description: str | None
+    parameters: list[CoverageParameter]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageResolution(TypedDict):
+    """A resolution of a network."""
+
+    description: str | None
+    datasets: dict[str, CoverageDataset]
+
 
 # any of the three models that carry a canonical and a source name and are looked up by either
 _NamedModel = TypeVar("_NamedModel", "ResolutionModel", "DatasetModel", "ParameterModel")
@@ -293,7 +349,7 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
     # the back-reference its resolution sets once it holds this dataset (see `ParameterModel.dataset`)
     resolution: SkipValidation[ResolutionModel] = Field(default=None, exclude=True, repr=False)  # ty: ignore[invalid-assignment]
 
-    def __init__(self, **data: dict) -> None:
+    def __init__(self, **data: Any) -> None:  # noqa: ANN401
         """Initialize the dataset model."""
         super().__init__(**data)
         for parameter in self.parameters:
@@ -388,7 +444,7 @@ class ResolutionModel(BaseModel):
                     dataset["date_required"] = date_required
         return v
 
-    def __init__(self, **data: dict) -> None:
+    def __init__(self, **data: Any) -> None:  # noqa: ANN401
         """Initialize the resolution model."""
         super().__init__(**data)
         for dataset in self.datasets:

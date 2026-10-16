@@ -42,7 +42,7 @@ DATE_REGEX = r"-(\d{10})-"
 TIME_COLUMNS = ("year", "month", "day", "hour", "minute")
 
 
-DwdRoadMetadata = {
+_DwdRoadMetadataSpec = {
     **_METADATA,
     "kind": "observation",
     "timezone": "Europe/Berlin",
@@ -171,7 +171,7 @@ DwdRoadMetadata = {
         },
     ],
 }
-DwdRoadMetadata = build_metadata_model(DwdRoadMetadata, "DwdRoadMetadata")
+DwdRoadMetadata = build_metadata_model(_DwdRoadMetadataSpec, "DwdRoadMetadata")
 
 
 class DwdRoadStationGroup(Enum):

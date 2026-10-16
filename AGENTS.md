@@ -18,6 +18,7 @@ uv run poe coverage          # tests with coverage
 uv run poe format            # ruff format + lint --fix
 uv run poe lint              # check only, no fixes
 uv run poe typecheck         # ty check src/wetterdienst
+uv run poe "typecheck:installed"  # the caller script against the built wheel (needs the network)
 uv run poe unused            # deptry unused-dependency check
 uv run poe sync              # uv sync
 uv run poe docs              # sphinx build into docs/_build/html, as Read the Docs runs it

@@ -44,7 +44,7 @@ _MISSING = (
 )
 
 
-ImgwHydrologyMetadata = {
+_ImgwHydrologyMetadataSpec = {
     **_METADATA,
     "kind": "observation",
     "timezone": "Europe/Warsaw",
@@ -141,7 +141,7 @@ ImgwHydrologyMetadata = {
         },
     ],
 }
-ImgwHydrologyMetadata = build_metadata_model(ImgwHydrologyMetadata, "ImgwHydrologyMetadata")
+ImgwHydrologyMetadata = build_metadata_model(_ImgwHydrologyMetadataSpec, "ImgwHydrologyMetadata")
 
 
 def _hydrology_daily_file_period() -> tuple[pl.Expr, pl.Expr]:

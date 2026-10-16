@@ -91,6 +91,21 @@ Types of changes:
   it cached, alive. Get a reader from `stations.values()`. `df_stations` of a `ValuesResult` now names
   the stations with a row in the frame, so it follows `filtered_by_sql`, and
   `InterpolatedValuesResult` and `SummarizedValuesResult` have it too (GH-2626)
+- The return types of `Wetterdienst.discover()`, `TimeseriesRequest.discover()` and `Info.to_dict()`
+  are typed dicts, no longer `dict[str, Any]`, so a type checker follows
+  `discover()["dwd"]["observation"]["kind"]` and `request.discover()["daily"]["datasets"]`. The
+  `Coverage*` types of the REST API (`CoverageNetwork`, `CoverageResolution`, `CoverageDataset` and
+  `CoverageParameter`) moved to `wetterdienst.model.metadata`; import them from there.
+  `StationsResult.request` is typed `TimeseriesRequest`, no longer a union with the two forecast
+  requests. `Settings.fsspec_client_kwargs` and the `settings` and `options` of a request are
+  `dict[str, Any]`, so the keys of `fsspec_client_kwargs` must be strings (GH-2622)
+
+### Fixed
+
+- mypy read `DwdObservationMetadata` and the other `<Provider>Metadata` of the provider modules as
+  a dict, and `DwdObservationRequest.metadata` with it, so `DwdObservationMetadata.daily.kl` was an
+  error in a type-checked program (pyright and ty were not affected); the dict a provider declares
+  has a private name of its own now, and the public name is the model (GH-2622)
 
 ### Fixed
 

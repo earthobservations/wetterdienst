@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-FmiObservationMetadata = {
+_FmiObservationMetadataSpec = {
     "name_short": "FMI",
     "name_english": "Finnish Meteorological Institute",
     "name_local": "Ilmatieteen laitos",
@@ -134,4 +134,4 @@ FmiObservationMetadata = {
         },
     ],
 }
-FmiObservationMetadata = build_metadata_model(FmiObservationMetadata, "FmiObservationMetadata")
+FmiObservationMetadata = build_metadata_model(_FmiObservationMetadataSpec, "FmiObservationMetadata")

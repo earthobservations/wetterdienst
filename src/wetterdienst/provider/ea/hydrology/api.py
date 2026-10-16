@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 _STATIONS_LIMIT = 20_000
 
 
-EAHydrologyMetadata = {
+_EAHydrologyMetadataSpec = {
     "name_short": "EA",
     "name_english": "Environment Agency",
     "name_local": "Environment Agency",
@@ -117,7 +117,7 @@ EAHydrologyMetadata = {
         },
     ],
 }
-EAHydrologyMetadata = build_metadata_model(EAHydrologyMetadata, "EAHydrologyMetadata")
+EAHydrologyMetadata = build_metadata_model(_EAHydrologyMetadataSpec, "EAHydrologyMetadata")
 
 
 # a measure is notated `{parameter}-{statistic}-{period}`, so `flow-i-900` is the flow measured every 900 seconds and
