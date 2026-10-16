@@ -36,7 +36,7 @@
 | {term}`snow_depth_new`            | shneu_manu    | new snow depth               | cm    | >=0         |
 | {term}`sunshine_duration`         | so_h          | sunshine duration            | h     | >=0         |
 | {term}`temperature_air_max_2m`    | tlmax         | air temperature max at 2m    | °C    | -           |
-| {term}`temperature_air_mean_2m`   | tl_mittel     | air temperature mean at 2m   | °C    | -           |
+| {term}`temperature_air_mean_minmax_2m` | tl_mittel | air temperature mean at 2m, calculated from (tlmax + tlmin)/2 | °C | - |
 | {term}`temperature_air_min_2m`    | tlmin         | air temperature min at 2m    | °C    | -           |
 | {term}`temperature_air_min_0_05m` | tsmin         | air temperature min at 0.05m | °C    | -           |
 | {term}`wind_gust_max`             | ffx           | wind gust max                | m/s   | -           |

@@ -145,7 +145,7 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_mean_minmax_2m",
                             "name_original": "mean_temperature",
                             "unit": "degree_celsius",
                         },
@@ -207,7 +207,7 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_mean_minmax_2m",
                             "name_original": "mean_temperature",
                             "unit": "degree_celsius",
                         },

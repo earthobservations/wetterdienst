@@ -547,6 +547,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_2m_last_24h: 'Luchttemperatuur (2 m, laatste 24 u)',
   temperature_air_mean_2m_yesterday: 'Luchttemperatuur (2 m), vorige dag',
   temperature_air_mean_2m_normal: 'Luchttemperatuur (2 m), klimaatnormaal',
+  temperature_air_mean_minmax_2m: 'Gemiddelde luchttemperatuur uit de dagextremen (2 m)',
   temperature_air_min_0_05m_last_12h: 'Minimumtemperatuur bij de grond (5 cm, laatste 12 u)',
   temperature_air_min_0_05m_yesterday: 'Minimumtemperatuur bij de grond (5 cm), vorige dag',
   temperature_air_min_2m_last_24h: 'Minimumtemperatuur (2 m, laatste 24 u)',
