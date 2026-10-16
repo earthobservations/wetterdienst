@@ -228,10 +228,11 @@ def test_cli_stations_empty(
     coordinates: tuple[float, float, float],  # noqa: ARG001
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test the CLI command `stations` with empty station."""
+    """Test the CLI command `stations` with empty station: an empty list and exit 0, as REST answers it (GH-2635)."""
     result = invoke_wetterdienst_stations_empty(provider=provider, network=network, setting=setting, fmt="json")
-    assert isinstance(result.exception, SystemExit)
-    assert "ERROR" in caplog.text
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {"stations": []}
+    assert "WARNING" in caplog.text
     assert "No stations available for given constraints" in caplog.text
 
 
