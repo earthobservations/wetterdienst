@@ -56,10 +56,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     sr: StationsResult
     stations_counter: int = 0
     stations_collected: list[str] = field(default_factory=list)
-    # set by a provider whose download was answered with `NoInternetError`: every later file, dataset and station would
-    # fail the same way, each after waiting for the connection to fail, so `query` ends the request at the station that
-    # found out and yields what it had (GH-2620)
-    offline: bool = field(default=False, init=False, repr=False)
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
 
     def __post_init__(self) -> None:
@@ -142,13 +138,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # reset station stations_counter
         self.stations_counter = 0
         self.stations_collected = []
-        self.offline = False
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
         if self.sr.options.humanize:
             hpm = self._create_humanized_parameters_mapping()
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
-            if self.stations_counter == self.sr.rank or self.offline:
+            if self.stations_counter == self.sr.rank:
                 break
             station_id = cast("str", station_id)
             if self._begins_after_window(df_station_meta):
@@ -269,8 +264,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         ):
             if dataset not in available_datasets:
                 continue
-            if self.offline:
-                break
             df = self._process_dataset(station_id, dataset, parameters)
             if not df.is_empty():
                 data.append(df)

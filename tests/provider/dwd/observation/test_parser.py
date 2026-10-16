@@ -17,6 +17,7 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Period
 from wetterdienst.model.metadata import DatasetModel
+from wetterdienst.model.quality_flags import raw_column
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.observation.parser import parse_climate_observations_data
 from wetterdienst.util.network import File
@@ -389,6 +390,117 @@ def test_parse_dwd_hourly_moisture_rule_is_per_dataset_and_per_column() -> None:
     ).collect()
     assert df.get_column("absf_std").to_list() == ["-99.9"]
     assert df.get_column("tt_tu").to_list() == ["3.1"]
+
+
+def _moisture_rows(pressures: list[str], station: str = "14072") -> str:
+    """Give hourly moisture rows, one per pressure, as the file writes them."""
+    start = dt.datetime(2025, 1, 1, tzinfo=dt.UTC)
+    return "".join(
+        f"{station};{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;   4.0;   5.0;  -0.5;{pressure:>8};"
+        "  -0.2;  90.0;  -0.9;eor\n"
+        for hour, pressure in enumerate(pressures)
+    )
+
+
+def _moisture_file(rows: str) -> File:
+    return File(url="", content=BytesIO((MOISTURE_HEADER + rows).encode("utf8")), status=200)
+
+
+def _raw_pressure(df: pl.DataFrame) -> list[str | None]:
+    return df.get_column(raw_column("p_std")).to_list()
+
+
+def test_parse_dwd_hourly_moisture_nulls_a_pressure_that_is_one_value_in_the_file() -> None:
+    """Test that a P_STD that is one value in a file of 500 readings is null, the text it was written as kept.
+
+    stundenwerte_TF_14072_akt.zip (12844 rows) and 760 more of the 1314 files of DWD hold a single value, the
+    station's, in every row; DWD's sheet calls the column "Stundenwerte Luftdruck" and says nothing of it (GH-2699).
+    """
+    df = _parse_moisture(_moisture_rows(["997.3"] * 500, "14072"))
+    assert df.height == 500
+    assert df.get_column("p_std").null_count() == 500
+    assert _raw_pressure(df) == ["997.3"] * 500
+    # the columns beside it are readings
+    assert df.get_column("tt_std").null_count() == 0
+    assert df.get_column("rf_std").null_count() == 0
+
+
+def test_parse_dwd_hourly_moisture_pressure_constant_is_a_number_not_a_text() -> None:
+    """Test that 997.3 and 997.30 are one value, and that the text written is the one kept."""
+    df = _parse_moisture(_moisture_rows(["997.3"] * 250 + ["997.30"] * 250))
+    assert df.get_column("p_std").null_count() == 500
+    assert _raw_pressure(df) == ["997.3"] * 250 + ["997.30"] * 250
+
+
+def test_parse_dwd_hourly_moisture_keeps_a_pressure_that_moves_or_is_short() -> None:
+    """Test that a P_STD with two values, or a constant of 499 readings, is left as it is."""
+    # a barometer: a hundred values, none of them held
+    moving = [f"{990 + hour % 100 / 10:.1f}" for hour in range(500)]
+    df = _parse_moisture(_moisture_rows(moving))
+    assert df.get_column("p_std").to_list() == moving
+    assert _raw_pressure(df) == [None] * 500
+    # a station constant that changed once is two values (953.1, then 954.8 at station 00142), not caught
+    stepped = ["953.1"] * 250 + ["954.8"] * 250
+    assert _parse_moisture(_moisture_rows(stepped)).get_column("p_std").to_list() == stepped
+    # one reading short: no evidence yet
+    short = ["997.3"] * 499
+    df = _parse_moisture(_moisture_rows(short))
+    assert df.get_column("p_std").to_list() == short
+    assert _raw_pressure(df) == [None] * 499
+
+
+def test_parse_dwd_hourly_moisture_pressure_constant_counts_readings_not_rows() -> None:
+    """Test that a missing -999 is no reading, no value, and keeps the text the sentinel rule wrote."""
+    rows = _moisture_rows(["997.3"] * 499 + ["-999"] * 10)
+    df = _parse_moisture(rows)
+    # 499 readings
+    assert df.get_column("p_std").to_list() == ["997.3"] * 499 + [None] * 10
+    assert _raw_pressure(df) == [None] * 499 + ["-999"] * 10
+    # 500 readings: the constant goes, the sentinel stays what it was
+    df = _parse_moisture(_moisture_rows(["997.3"] * 500 + ["-999"] * 10))
+    assert df.get_column("p_std").null_count() == 510
+    assert _raw_pressure(df) == ["997.3"] * 500 + ["-999"] * 10
+
+
+def test_parse_dwd_hourly_moisture_pressure_constant_is_judged_per_file() -> None:
+    """Test that the files put together are judged one by one: a constant file does not null a moving one."""
+    constant = _moisture_file(_moisture_rows(["997.3"] * 500))
+    moving = _moisture_file(_moisture_rows([f"{990 + hour % 100 / 10:.1f}" for hour in range(500)]))
+    df = parse_climate_observations_data(
+        files=[constant, moving],
+        dataset=DwdObservationMetadata.hourly.moisture,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("p_std").null_count() == 500
+    assert df.get_column("p_std").head(500).null_count() == 500
+    assert df.get_column("p_std").tail(500).null_count() == 0
+    # and a value a moving file holds once is not made a constant by the other file's value
+    same = _moisture_file(_moisture_rows(["997.3"] * 100 + [f"{990 + hour % 100 / 10:.1f}" for hour in range(400)]))
+    df = parse_climate_observations_data(
+        files=[constant, same],
+        dataset=DwdObservationMetadata.hourly.moisture,
+        period=Period.HISTORICAL,
+    ).collect()
+    assert df.get_column("p_std").tail(500).null_count() == 0
+
+
+def test_parse_dwd_hourly_moisture_pressure_constant_rule_is_per_dataset() -> None:
+    """Test that the pressure of the hourly pressure dataset, one value or not, is left as it is."""
+    start = dt.datetime(2025, 1, 1, tzinfo=dt.UTC)
+    rows = "".join(
+        f"    3;{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;  1013.2;   997.3;eor\n" for hour in range(500)
+    )
+    file = File(
+        url="",
+        content=BytesIO(f"STATIONS_ID;MESS_DATUM;QN_8;P;P0;eor\n{rows}".encode()),
+        status=200,
+    )
+    df = parse_climate_observations_data(
+        files=[file],
+        dataset=DwdObservationMetadata.hourly.pressure,
+        period=Period.RECENT,
+    ).collect()
+    assert df.get_column("p0").to_list() == ["997.3"] * 500
 
 
 @pytest.mark.parametrize(

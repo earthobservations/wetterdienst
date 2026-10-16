@@ -118,10 +118,13 @@ class SmhiObservationValues(TimeseriesValues):
             payload = _fetch(url, settings)
             if isinstance(payload, Exception):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
-                # parameter -- routine, since not every SMHI station measures everything -- and
-                # a NoInternetError is already logged at debug upstream. Anything else is an
+                # parameter -- routine, since not every SMHI station measures everything. A failed
+                # connection is raised (GH-2640): every later request would fail the same way, and
+                # an outage must not read as a station without data. Anything else is an
                 # unexpected failure worth surfacing rather than silently dropping the data.
-                if not isinstance(payload, (FileNotFoundError, NoInternetError)):
+                if isinstance(payload, NoInternetError):
+                    raise payload
+                if not isinstance(payload, FileNotFoundError):
                     log.warning(
                         f"Failed to fetch SMHI parameter {parameter.name_original} for station {station_id}: {payload}",
                     )
@@ -196,16 +199,14 @@ class SmhiObservationRequest(TimeseriesRequest):
         )
         # each parameter's station list is required, so any failure of one -- a 404 included -- is an
         # outage, which swallowed would read as a parameter without stations, and the rest would
-        # answer as a catalogue that is partial (GH-2599). NoInternetError returns silently, so when
-        # it is every list the connection is down and the frame is empty
+        # answer as a catalogue that is partial (GH-2599). A failed connection (NoInternetError) is
+        # raised as well (GH-2640)
         for file in files:
             file.raise_if_exception()
-        if all(file.is_no_internet_error for file in files):
-            return pl.LazyFrame()
         frames_by_group: defaultdict[tuple[str, str], list[pl.DataFrame]] = defaultdict(list)
         for parameter, file in zip(parameters, files, strict=True):
             if isinstance(file.content, Exception):
-                # the connection failed for this list while the others arrived: no catalogue then
+                # narrows the type; `raise_if_exception` has raised for any failed download
                 msg = str(file.content) or type(file.content).__name__
                 raise DownloadError(file.url, msg) from file.content
             stations = json.loads(file.content.read().decode("utf-8-sig")).get("station", [])

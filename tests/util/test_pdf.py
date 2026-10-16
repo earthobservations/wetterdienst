@@ -28,8 +28,8 @@ def test_read_pdf_a_failed_download_names_the_file(monkeypatch: pytest.MonkeyPat
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
-def test_read_pdf_without_internet_returns_no_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that being offline gives empty text rather than an error."""
+def test_read_pdf_without_internet_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that being offline raises `NoInternetError`, not empty text (GH-2640)."""
     pytest.importorskip("pypdf")
     monkeypatch.setattr(
         pdf,
@@ -37,7 +37,8 @@ def test_read_pdf_without_internet_returns_no_text(monkeypatch: pytest.MonkeyPat
         lambda **kwargs: File(url=kwargs["url"], content=NoInternetError("offline"), status=503),
     )
 
-    assert pdf.read_pdf("https://example.org/a.pdf") == ""
+    with pytest.raises(NoInternetError):
+        pdf.read_pdf("https://example.org/a.pdf")
 
 
 def test_read_pdf_without_pypdf_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -11,7 +11,7 @@ from polars.exceptions import NoDataError
 
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata, DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
 from wetterdienst.provider.dwd.poi.api import _read_poi_csv, _station_file_url, _station_id_from_file_name
@@ -219,5 +219,5 @@ def test_dwd_poi_maximum_wind_of_the_previous_day_is_the_maximum_of_the_last_6_h
     assert reported == {12: 3.3333, 18: 3.6111}
 
     # the old name is not accepted and says what to use instead
-    with pytest.raises(NoParametersFoundError):
+    with pytest.raises(InvalidParameterError, match="wind_speed_rolling_mean_max_last_6h"):
         DwdPoiRequest(parameters=[("hourly", "data", "wind_speed_rolling_mean_max_yesterday")])

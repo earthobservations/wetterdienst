@@ -295,6 +295,8 @@ class DwdObservationHistory(TimeseriesHistory):
                         cache_disable=settings.cache_disable,
                         use_certifi=settings.use_certifi,
                     )
+                    # a lost connection (GH-2640) or any failed download is raised, not read as an archive
+                    downloaded_file.raise_if_exception()
                     # Use a single ZipFileSystem for all reads from the same file.
                     # ZipFileSystem.__del__ closes the underlying BytesIO via
                     # self.of.__exit__(), so we must not create a new ZipFileSystem
@@ -345,6 +347,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
+                downloaded_file.raise_if_exception()
                 # Use a single ZipFileSystem for all reads from the same file.
                 # ZipFileSystem.__del__ closes the underlying BytesIO via
                 # self.of.__exit__(), so we must not create a new ZipFileSystem

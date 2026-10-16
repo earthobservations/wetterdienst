@@ -192,7 +192,8 @@ def test_wsv_timeseries_meta_is_not_cached_when_the_listing_is_unreachable(monke
         "download_file",
         lambda **kwargs: File(url=kwargs["url"], content=NoInternetError(), status=-1),
     )
-    assert values._timeseries_meta(settings) == {}  # noqa: SLF001
+    with pytest.raises(NoInternetError):
+        values._timeseries_meta(settings)  # noqa: SLF001
     assert values._timeseries_meta_cache is None, "a failed listing must not be cached"  # noqa: SLF001
 
     listing = b'[{"number": "1", "timeseries": [{"shortname": "W", "unit": "cm", "equidistance": 15}]}]'
@@ -561,19 +562,20 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
-@pytest.mark.parametrize(
-    ("failure", "status"),
-    [(NoInternetError("offline"), 503), (FileNotFoundError("gone"), 404)],
-    ids=["offline", "404"],
-)
-def test_wsv_a_values_download_that_is_offline_or_missing_returns_no_data(
-    monkeypatch: pytest.MonkeyPatch, failure: Exception, status: int
-) -> None:
-    """Test that being offline, or a 404, still gives an empty frame rather than an error."""
-    _stub_values_download(monkeypatch, failure, status)
+def test_wsv_a_values_download_that_is_missing_returns_no_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a 404 still gives an empty frame rather than an error."""
+    _stub_values_download(monkeypatch, FileNotFoundError("gone"), 404)
 
     values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
     assert values.df.is_empty()
+
+
+def test_wsv_a_values_download_that_is_offline_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that being offline raises `NoInternetError`, where a 404 is an empty frame (GH-2640)."""
+    _stub_values_download(monkeypatch, NoInternetError("offline"), 503)
+
+    with pytest.raises(NoInternetError):
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
 
 
 def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:

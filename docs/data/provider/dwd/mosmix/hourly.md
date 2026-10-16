@@ -75,7 +75,7 @@
 |------------------|------------------------------------------------------------------------------------------------------|
 | name             | large                                                                                                |
 | original name    | mosmix_l                                                                                             |
-| description      | Local forecast of 122 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
+| description      | Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours |
 | description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml)                                 |
 | access           | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/)                                |
 
@@ -83,7 +83,6 @@
 
 | name                                                             | original name | description                                                                         | unit  | constraints |
 |------------------------------------------------------------------|---------------|-------------------------------------------------------------------------------------|-------|-------------|
-| {term}`cloud_base_convective`                                    | h_bsc         | Cloud base of convective clouds                                                     | m     | >=0         |
 | {term}`cloud_cover_above_7km`                                    | nh            | High cloud cover (>7 km)                                                            | %     | >=0,<=100   |
 | {term}`cloud_cover_below_500ft`                                  | n05           | Cloud cover below 500 ft.                                                           | %     | >=0,<=100   |
 | {term}`cloud_cover_below_2km`                                    | nl            | Low cloud cover (lower than 2 km)                                                   | %     | >=0,<=100   |
@@ -98,11 +97,6 @@
 | {term}`error_absolute_wind_speed`                                | e_ff          | Absolute error wind speed 10m above surface                                         | m/s   | -           |
 | {term}`evapotranspiration_potential_last_24h`                    | pevap         | Potential evapotranspiration within the last 24 hours                               | kg/m² | >=0         |
 | {term}`precipitation_duration`                                   | drr1          | Duration of precipitation within the last hour                                      | s     | >=0         |
-| {term}`precipitation_amount_last_1h`                             | rr1           | Total precipitation during the last hour                                            | kg/m² | >=0         |
-| {term}`precipitation_amount_last_3h`                             | rr3           | Total precipitation during the last 3 hours                                         | kg/m² | >=0         |
-| {term}`precipitation_amount_last_6h`                             | rr6           | Total precipitation during the last 6 hours                                         | kg/m² | >=0         |
-| {term}`precipitation_amount_last_12h`                            | rrh           | Total precipitation during the last 12 hours                                        | kg/m² | >=0         |
-| {term}`precipitation_amount_last_24h`                            | rrd           | Total precipitation during the last 24 hours                                        | kg/m² | >=0         |
 | {term}`precipitation_amount_liquid_significant_weather_last_1h`  | rrl1c         | Total liquid precipitation during the last hour consistent with significant weather | kg/m² | >=0         |
 | {term}`precipitation_amount_significant_weather_last_1h`         | rr1c          | Total precipitation during the last hour consistent with significant weather        | kg/m² | >=0         |
 | {term}`precipitation_amount_significant_weather_last_3h`         | rr3c          | Total precipitation during the last 3 hours consistent with significant weather     | kg/m² | >=0         |
@@ -176,10 +170,8 @@
 | {term}`probability_wind_gust_ge_55kn_last_6h`                    | fx655         | Probability of wind gusts >= 55kn within the last 6 hours                           | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_55kn_last_12h`                   | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                          | %     | >=0,<=100   |
 | {term}`radiation_global`                                         | rad1h         | Global Irradiance                                                                   | kJ/m² | >=0         |
-| {term}`radiation_global_last_3h`                                 | rads3         | Short wave radiation balance during the last 3 hours                                | kJ/m² | -           |
-| {term}`radiation_sky_long_wave_last_3h`                          | radl3         | Long wave radiation balance during the last 3 hours                                 | kJ/m² | -           |
 | {term}`sunshine_duration`                                        | sund1         | Sunshine duration during the last Hour                                              | s     | >=0         |
-| {term}`sunshine_duration_last_3h`                                | sund3         | Sunshine duration during the last 3 hours                                           | s     | >=0         |
+| {term}`sunshine_duration_last_3h`                                | sund3         | Sunshine duration during the last 3 hours. Not a sliding 3 hour total: it does not agree with the sum of the last three sund1, not even at the 3-hourly steps, and appears to be interpolated from 3-hourly values. | s     | >=0         |
 | {term}`sunshine_duration_relative_last_24h`                      | rsund         | Relative sunshine duration within the last 24 hours                                 | %     | >=0,<=100   |
 | {term}`sunshine_duration_yesterday`                              | sund          | Yesterdays total sunshine duration                                                  | s     | >=0         |
 | {term}`temperature_air_max_2m_last_12h`                                   | tx            | Maximum temperature - within the last 12 hours                                      | K     | -           |

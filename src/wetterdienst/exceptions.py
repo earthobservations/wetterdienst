@@ -65,6 +65,20 @@ class InvalidEnumerationError(RequestError):
     """Raised when an invalid enumeration is provided."""
 
 
+class InvalidParameterError(RequestError):
+    """Raised when a requested parameter is unknown to the provider or not shaped like a parameter.
+
+    The message names each one with the close match, where there is one, and the names that would
+    have matched. Raised by default; a request built with `on_unknown="warn"` logs it and goes on
+    with the parameters that did resolve.
+
+    `resolved` says whether any other parameter of the request did resolve, that is whether
+    `on_unknown="warn"` would have gone on with something.
+    """
+
+    resolved: bool = False
+
+
 class NoParametersFoundError(RequestError):
     """Raised when no parameters are found."""
 
@@ -147,8 +161,29 @@ class ApiNotFoundError(NotFoundError):
     """Raised when an API is not found in the API list."""
 
 
+class MetadataNotFoundError(NotFoundError):
+    """Raised when a resolution or dataset is asked about that the provider does not have."""
+
+
 class NoInternetError(UpstreamError, OSError):
-    """Raised when no internet connection is available."""
+    """Raised when no connection to the provider could be made: no network, a failed name lookup, a refusing host.
+
+    Raised by every download and every listing, for every provider, station catalogues included: an
+    offline library does not answer with an empty frame, which a scheduled job cannot tell from a
+    source that has no data (GH-2640). The message names the URL, without its query or user
+    information, and the connection error underneath is its `__cause__`.
+
+    Told apart from `DownloadError`, which is a source that answered badly -- a 4xx or 5xx, a
+    timeout, a body cut short -- and from an empty listing, which is an answer. A caller that
+    prefers an empty result when offline catches it::
+
+        try:
+            df = request.all().df
+        except NoInternetError:
+            df = pl.DataFrame()
+
+    The REST API answers it with a 503, and the command line prints it as one line, exit 1.
+    """
 
 
 class DownloadError(UpstreamError):

@@ -18,7 +18,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Point forecast
         - 5649 stations worldwide
         - Both MOSMIX-L and MOSMIX-S is supported
-        - `small` (MOSMIX-S): 40 parameters, `large` (MOSMIX-L): 122
+        - `small` (MOSMIX-S): 40 parameters, `large` (MOSMIX-L): 114
     - DMO - timeseries extracted from weather models
         - Point forecast
         - `icon`: 5894 stations worldwide, 23 parameters

@@ -101,9 +101,8 @@ def correct_station_positions(df: pl.DataFrame) -> pl.DataFrame:
 def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_CATALOGUE_URL) -> pl.DataFrame:
     """Read the MOSMIX station catalogue, returning one row per station.
 
-    A fetch failure is raised, save for ``NoInternetError``: ``raise_if_exception`` returns
-    silently on that one, and an empty frame is returned so that a caller offline reports no
-    stations rather than an error.
+    A fetch failure is raised, ``NoInternetError`` included: a catalogue that could not be read is
+    not a network without stations (GH-2640).
     """
     file = download_file(
         url=url,
@@ -115,6 +114,7 @@ def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_
     )
     file.raise_if_exception()
     if isinstance(file.content, Exception):
+        # narrows the type; `raise_if_exception` has raised for any failed download
         return pl.DataFrame()
     # the catalogue is latin-1 encoded (station names carry umlauts)
     lines = StringIO(file.content.read().decode(encoding="latin-1")).readlines()

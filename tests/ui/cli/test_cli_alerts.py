@@ -126,6 +126,30 @@ def test_cli_alerts_unreadable_feed_is_not_a_usage_error(monkeypatch: pytest.Mon
     assert "Error: Invalid isoformat string: 'not-a-timestamp'" in result.output
 
 
+def test_cli_alerts_unreachable_feed_is_one_line_and_exit_1(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test no connection to DWD's feed is the one line of `NoInternetError`, without a traceback (GH-2640)."""
+    import logging  # noqa: PLC0415
+
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    msg = "No internet connection: could not reach https://opendata.dwd.de/weather/alerts/cap/ (Cannot connect)"
+
+    def query(_self: DwdWeatherAlertRequest) -> None:
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", query)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(cli, ["alerts"])
+
+    assert result.exit_code == 1
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
+    assert "Usage:" not in result.output
+
+
 @pytest.mark.parametrize(
     ("date", "message"),
     [

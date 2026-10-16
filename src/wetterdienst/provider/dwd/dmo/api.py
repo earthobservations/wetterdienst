@@ -25,6 +25,7 @@ from wetterdienst.exceptions import (
     InvalidEnumerationError,
     InvalidTimeIntervalError,
     IssueNotFoundError,
+    NoInternetError,
     ParameterNotCarriedError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
@@ -582,7 +583,8 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
             # said here as well as in `available_issues`, and it matters more here: `read_icon` and
             # `read_icon_eu` turn this `None` into an empty frame, which merges into the result as
             # "this station has no forecast" with no warning, no error and no exit code. The same
-            # swallowed walk and the same 404 reach both
+            # 404 reaches both. A listing that failed does not: it raises, a connection that could
+            # not be made as `NoInternetError` (GH-2640)
             # once per product, not once per station. `all_stations` asks this for every station
             # in the request against one URL, and `single_stations` -- the default -- asks against
             # a URL carrying the station id, so keying on the URL itself deduplicated only half of
@@ -594,7 +596,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
             if key not in self._listings_warned_about:
                 self._listings_warned_about.add(key)
                 log.warning(
-                    f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty",
+                    f"No DMO run listed within {url}; a missing directory lists as empty",
                 )
             return None
         df = pl.DataFrame({"url": urls}, orient="col")
@@ -757,12 +759,10 @@ class DwdDmoRequest(TimeseriesRequest):
             # `get_url_for_date` raises where the one above returns `None`, which is its contract
             # rather than a disagreement.
             #
-            # Warned about rather than simply answered, because a listing that *failed* looks the
-            # same from here: `fs.find` walks with `on_error="omit"`, which swallows `OSError`, and
-            # aiohttp's `ClientOSError` is one -- so a connection reset mid-listing arrives as an
-            # empty directory would, and an unremarked `[]` would make that blip a fact about the
-            # station
-            log.warning(f"No DMO run listed within {url}; a listing that failed looks the same as one that is empty")
+            # Warned about rather than simply answered, because a directory that does not exist lists
+            # as empty too, and an unremarked `[]` would make that a fact about the station. A listing
+            # that failed is not that: it raises, offline as `NoInternetError` (GH-2640)
+            log.warning(f"No DMO run listed within {url}; a missing directory lists as empty")
             return []
         df = pl.DataFrame({"url": urls}, orient="col")
         # the same rule `get_url_for_date` reads by, and for the same lead time, so what is
@@ -916,6 +916,8 @@ class DwdDmoRequest(TimeseriesRequest):
             reader = KMLReader(station_ids=[], settings=settings)
             # the reader owns the open archive; parsing finishes before it goes out of scope
             return _placemark_metadata(reader.fetch(newest))
+        except NoInternetError:
+            raise
         except Exception as ex:  # noqa: BLE001
             log.warning(
                 f"Unable to read the stations {dataset_name_original} describes within {url} ({ex!r}); "
@@ -957,6 +959,8 @@ class DwdDmoRequest(TimeseriesRequest):
         url = urljoin("https://opendata.dwd.de", _dmo_station_dir(dataset_name_original))
         try:
             entries = list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
+        except NoInternetError:
+            raise
         except Exception as ex:  # noqa: BLE001
             # degraded audibly rather than silently: falling back to the shared catalogue is the
             # behaviour this method exists to correct, so a caller getting it back has to hear why

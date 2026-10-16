@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from aiohttp import ClientError
 
-from wetterdienst.exceptions import DownloadError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
@@ -495,7 +495,8 @@ class HubeauRequest(TimeseriesRequest):
             Frame of ``code_site`` and ``elevation``, null where the site publishes no altitude or
             one that cannot be the ground's -- see ``_ELEVATION_MIN``. Empty when the referential
             cannot be read: the elevation is all it supplies, and a station list without one is
-            better than none at all.
+            better than none at all. Not when no connection can be made, which raises
+            ``NoInternetError`` as the station list it enriches would.
 
         """
         from typing import cast  # noqa: PLC0415
@@ -504,6 +505,10 @@ class HubeauRequest(TimeseriesRequest):
         error: Exception | None = None
         try:
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
+        except NoInternetError:
+            # not a referential that is unreadable: a library that is offline, which the station
+            # list this enriches would be too (GH-2640)
+            raise
         except (DownloadError, OSError, ClientError, ValueError) as e:
             # `DownloadError` is what `raise_if_exception` raises for a timeout, a missing file, and
             # a refused or broken response (GH-2460); a body that is not JSON is a `ValueError`, and
@@ -511,8 +516,8 @@ class HubeauRequest(TimeseriesRequest):
             # are what the download raised itself before GH-2460, kept for a caller that still
             # sends them
             rows, error = [], e
-        # no rows without an error is a connection that could not be made, which `_paged_rows`
-        # reads as an empty answer -- the referential itself always lists thousands of sites
+        # no rows without an error is a referential that answered with no page -- it always lists
+        # thousands of sites
         if not rows:
             reason = f": {error!r}" if error else ""
             log.warning(f"Hubeau's sites referential could not be read, stations are listed without elevation{reason}")
