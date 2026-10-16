@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the siblings of `eccc/observation` monthly `mean_temperature`, which ECCC builds
+  from the daily (max + min) / 2: `days_with_valid_mean_temp` is
+  `count_days_valid_temperature_air_mean_minmax_2m`, no longer
+  `count_days_valid_temperature_air_mean_2m`, and `normal_mean_temperature` is
+  `temperature_air_mean_minmax_2m_normal`, no longer `temperature_air_mean_2m_normal`. Request the
+  new names; the old ones are not found and say what they are called now (GH-3017)
 - **Breaking**: `dwd/observation` `hourly/precipitation` `precipitation_form` (`wrtr`) 9, DWD's
   "Missing value, Type of precipitation unascertainable", is no longer returned as the code 9: the
   value is null and the 9 is the last token of `quality_flags` (`3,raw:9`). Read the null as an
