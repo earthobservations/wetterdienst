@@ -124,7 +124,7 @@ def test_cli_help_example_parameters_exist(example: str) -> None:
     resolutions; the parameter parsing only logs that and drops it, so the example still ran.
     """
     options = dict(re.findall(r"--(provider|network|parameters)=(\S+)", example))
-    metadata = Wetterdienst(options["provider"], options["network"]).metadata
+    metadata = Wetterdienst.resolve(options["provider"], options["network"]).metadata
     for parameter in options["parameters"].split(","):
         assert parse_parameters(parameter, metadata), parameter
 
