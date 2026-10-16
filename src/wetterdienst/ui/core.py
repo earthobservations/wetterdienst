@@ -108,6 +108,24 @@ _IssueField = Annotated[
     str | None,
     Field(description="Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."),
 ]
+# `stations` takes both and chooses nothing by them: the stations of a DWD forecast network depend on the dataset,
+# not on the run, which is chosen for the values. REST keeps accepting them, as it has
+# since before 0.155.0 and a model forbidding extras would turn a caller's request into a 422; the command line and the
+# MCP tool do not take them (GH-3056)
+_LeadTimeIgnoredField = Annotated[
+    Literal["short", "long"] | None,
+    Field(
+        description="Accepted and ignored: the stations of a network do not depend on the run, which `values` "
+        "takes. A value that does not parse is still refused.",
+    ),
+]
+_IssueIgnoredField = Annotated[
+    str | None,
+    Field(
+        description="Accepted and ignored: the stations of a network do not depend on the run, which `values` "
+        "takes. A value that does not parse is still refused.",
+    ),
+]
 _AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the stations/name/geo filters.")]
 _StationsField = Annotated[
     list[str] | None,
@@ -539,9 +557,9 @@ class StationsRequest(_RefusesRenamedParameters):
                 periods.append(item)
         return periods
 
-    # DWD forecasts: issue for MOSMIX/DMO/SWSMOS, lead_time for DMO
-    lead_time: _LeadTimeField = None
-    issue: _IssueField = None
+    # accepted and ignored, see `_LeadTimeIgnoredField`
+    lead_time: _LeadTimeIgnoredField = None
+    issue: _IssueIgnoredField = None
 
     # station filter parameters
     all: _AllField = False

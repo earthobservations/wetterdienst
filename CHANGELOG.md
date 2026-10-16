@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `wetterdienst stations` no longer takes `--lead-time` and `--issue`, which 0.156.0 added, and
+  the MCP `stations` tool no longer takes `lead_time` and `issue`: they never changed the list, the
+  run being chosen for `values`. Drop the flag or argument, or pass it to `values`; `wetterdienst
+  stations --lead-time=...` now fails with click's `No such option`, and a tool call with either
+  with a tool error. `/api/stations` still accepts them and its OpenAPI document now says it
+  ignores them (GH-3056)
+
 ## [0.156.0] - 2026-10-16
 
 ### Added

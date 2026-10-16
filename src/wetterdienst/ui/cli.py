@@ -1339,8 +1339,6 @@ def fields(
 @end_opt
 @start_date_renamed_opt
 @end_date_renamed_opt
-@lead_time_opt
-@issue_opt
 @all_opt
 @stations_opt
 @name_opt
@@ -1371,8 +1369,6 @@ def stations(
     timestamp: str,
     start: str,
     end: str,
-    lead_time: Literal["short", "long"],
-    issue: str,
     all_: bool,  # noqa: FBT001
     stations: list[str],
     name: str,
@@ -1413,8 +1409,6 @@ def stations(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
-            "issue": issue,
             "timestamp": timestamp_resolved,
             "all": all_,
             "stations": stations,

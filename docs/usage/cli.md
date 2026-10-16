@@ -19,6 +19,10 @@ for underscores (`--name-threshold` is `name_threshold`), and a list is plural a
 (`--stations=01048,04411`). The names the options had before, `--convert_units`, `--station` for a list
 and the like, fail with an error naming the new one. See [one vocabulary](restapi.md#one-vocabulary).
 
+`stations` has no `--lead-time` and `--issue`: the stations of a forecast network do not depend on the run,
+which is chosen for the values, so pass them to `values`. `wetterdienst stations --lead-time=long` fails
+with click's `No such option`.
+
 Every command's help, as `wetterdienst COMMAND --help` prints it: its options and, for most, examples
 to start from. Rendered when the documentation is built, so it names the options the release has.
 
