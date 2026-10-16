@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the siblings of `eccc/observation` monthly `mean_temperature`, which ECCC builds
+  from the daily (max + min) / 2: `days_with_valid_mean_temp` is
+  `count_days_valid_temperature_air_mean_minmax_2m`, no longer
+  `count_days_valid_temperature_air_mean_2m`, and `normal_mean_temperature` is
+  `temperature_air_mean_minmax_2m_normal`, no longer `temperature_air_mean_2m_normal`. Request the
+  new names; the old ones are not found and say what they are called now (GH-3017)
+
 ## [0.155.0] - 2026-10-16
 
 ### Added

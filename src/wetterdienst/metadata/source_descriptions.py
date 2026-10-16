@@ -1177,7 +1177,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "cooling_degree_days"): "cooling degree days",
         ("monthly", "data", "days_with_precip_ge_1mm"): "days with >= 1 mm precipitation",
         ("monthly", "data", "days_with_valid_max_temp"): "days with a valid maximum temperature",
-        ("monthly", "data", "days_with_valid_mean_temp"): "days with a valid mean temperature",
+        ("monthly", "data", "days_with_valid_mean_temp"): (
+            "days with a valid mean temperature, the daily mean being calculated from the daily extremes"
+        ),
         ("monthly", "data", "days_with_valid_min_temp"): "days with a valid minimum temperature",
         ("monthly", "data", "days_with_valid_precip"): "days with a valid precipitation observation",
         ("monthly", "data", "days_with_valid_snowfall"): "days with a valid snowfall observation",
@@ -1186,7 +1188,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "max_temperature"): "2m maximum air temperature",
         ("monthly", "data", "mean_temperature"): "2m mean air temperature, the mean of the daily values",
         ("monthly", "data", "min_temperature"): "2m minimum air temperature",
-        ("monthly", "data", "normal_mean_temperature"): "normal of the mean air temperature",
+        ("monthly", "data", "normal_mean_temperature"): (
+            "normal of the mean air temperature, the daily mean being calculated from the daily extremes"
+        ),
         ("monthly", "data", "normal_precipitation"): "normal of the precipitation height",
         ("monthly", "data", "normal_snowfall"): "normal of the snowfall total",
         ("monthly", "data", "normal_sunshine"): "normal of the sunshine duration",
