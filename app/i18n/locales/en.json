@@ -10,7 +10,10 @@
     "all": "All",
     "settings": "Settings",
     "documentation": "Documentation",
-    "stationSearch": "Search by name or station ID (e.g. München, 10738)"
+    "stationSearch": "Search by name or station ID (e.g. München, 10738)",
+    "requestFailed": "Request failed",
+    "backendError": "Backend error {status}",
+    "backendErrorDetail": "Backend error {status}: {detail}"
   },
   "home": {
     "tagline": "Open weather data for humans",
@@ -532,7 +535,8 @@
     "loadingStations": "Loading stations …",
     "loadError": "Failed to load stations.",
     "noStationsWithPosition": "No station with a position found for the selected parameters.",
-    "coords": "Interpolation coordinates: {coords}"
+    "coords": "Interpolation coordinates: {coords}",
+    "example": "e.g. {value}"
   },
   "dateRange": {
     "label": "Date Range",

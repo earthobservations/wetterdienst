@@ -81,7 +81,7 @@ def _resolution(name: str, parameters: list[dict], *, date_required: bool) -> di
     }
 
 
-ChmiObservationMetadata = {
+_ChmiObservationMetadataSpec = {
     "name_short": "CHMI",
     "name_english": "Czech Hydrometeorological Institute",
     "name_local": "Český hydrometeorologický ústav",
@@ -98,4 +98,4 @@ ChmiObservationMetadata = {
         _resolution("annual", _PERIOD_CLIMATE_PARAMETERS, date_required=False),
     ],
 }
-ChmiObservationMetadata = build_metadata_model(ChmiObservationMetadata, "ChmiObservationMetadata")
+ChmiObservationMetadata = build_metadata_model(_ChmiObservationMetadataSpec, "ChmiObservationMetadata")

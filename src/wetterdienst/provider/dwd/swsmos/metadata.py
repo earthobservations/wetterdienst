@@ -25,7 +25,7 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_mod
 _TEMPERATURE = {"unit": "degree_celsius"}
 _PRECIPITATION = {"unit": "millimeter"}
 
-DwdSwsmosMetadata = {
+_DwdSwsmosMetadataSpec = {
     "name_short": "DWD",
     "name_english": "German Weather Service",
     "name_local": "Deutscher Wetterdienst",
@@ -74,4 +74,4 @@ DwdSwsmosMetadata = {
         },
     ],
 }
-DwdSwsmosMetadata = build_metadata_model(DwdSwsmosMetadata, "DwdSwsmosMetadata")
+DwdSwsmosMetadata = build_metadata_model(_DwdSwsmosMetadataSpec, "DwdSwsmosMetadata")

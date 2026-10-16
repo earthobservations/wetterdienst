@@ -140,7 +140,7 @@ def _default_dataset(parameters: list[dict]) -> dict:
     }
 
 
-DmiObservationMetadata = {
+_DmiObservationMetadataSpec = {
     "name_short": "DMI",
     "name_english": "Danish Meteorological Institute",
     "name_local": "Danmarks Meteorologiske Institut",
@@ -181,4 +181,4 @@ DmiObservationMetadata = {
         },
     ],
 }
-DmiObservationMetadata = build_metadata_model(DmiObservationMetadata, "DmiObservationMetadata")
+DmiObservationMetadata = build_metadata_model(_DmiObservationMetadataSpec, "DmiObservationMetadata")

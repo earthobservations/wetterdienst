@@ -36,6 +36,8 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import (
+    CoverageDataset,
+    CoverageResolution,
     DatasetModel,
     MetadataModel,
     ParameterModel,
@@ -109,7 +111,7 @@ class TimeseriesRequest:
     parameters: _PARAMETER_TYPE
     start: _DATETIME_TYPE = None
     end: _DATETIME_TYPE = None
-    settings: Settings | dict = field(default_factory=Settings)
+    settings: Settings | dict[str, Any] = field(default_factory=Settings)
     # The periods to read. Every provider publishes its datasets under one or more of them, so this
     # is accepted everywhere and resolved in __post_init__ to the set actually served -- see
     # `_resolve_periods`. A dataset published under a single period has nothing to choose between;
@@ -121,7 +123,7 @@ class TimeseriesRequest:
     # __post_init__ to an `Options`, which is read from there on and never again from `settings`.
     # Keyword-only, so that it moves none of the arguments a subclass adds after `periods` (`issue` of
     # the forecasts)
-    options: Options | dict | None = field(default=None, kw_only=True)
+    options: Options | dict[str, Any] | None = field(default=None, kw_only=True)
     # What to do with a parameter the provider does not have or that is not shaped like one:
     # "raise" refuses the request with an `InvalidParameterError` naming each, "warn" logs them
     # and goes on with the parameters that did resolve. On the request rather than in `Options`,
@@ -371,7 +373,7 @@ class TimeseriesRequest:
         cls,
         resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] | None = None,
         datasets: str | DatasetModel | Sequence[str | DatasetModel] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, CoverageResolution]:
         """Discover metadata for the given resolutions and datasets.
 
         Each level carries its own description, so the shape has a place for one::
@@ -440,9 +442,9 @@ class TimeseriesRequest:
                 )
                 msg = f"Dataset '{name}' not found in {where}. Available datasets: {available}"
                 raise MetadataNotFoundError(msg)
-        data = {}
+        data: dict[str, CoverageResolution] = {}
         for resolution in selected:
-            described_datasets = {}
+            described_datasets: dict[str, CoverageDataset] = {}
             for dataset in resolution:
                 if dataset_strings and not named(dataset, dataset_strings):
                     continue

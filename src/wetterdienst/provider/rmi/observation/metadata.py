@@ -143,7 +143,7 @@ def _default_dataset(parameters: list[dict]) -> dict:
     }
 
 
-RmiObservationMetadata = {
+_RmiObservationMetadataSpec = {
     "name_short": "RMI",
     "name_english": "Royal Meteorological Institute of Belgium",
     "name_local": "Koninklijk Meteorologisch Instituut / Institut Royal Météorologique",
@@ -177,4 +177,4 @@ RmiObservationMetadata = {
         },
     ],
 }
-RmiObservationMetadata = build_metadata_model(RmiObservationMetadata, "RmiObservationMetadata")
+RmiObservationMetadata = build_metadata_model(_RmiObservationMetadataSpec, "RmiObservationMetadata")

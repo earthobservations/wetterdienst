@@ -10,7 +10,10 @@
     "all": "Alles",
     "settings": "Astellungen",
     "documentation": "Dokumentatioun",
-    "stationSearch": "No Numm oder Statiouns-ID sichen (z.B. München, 10738)"
+    "stationSearch": "No Numm oder Statiouns-ID sichen (z.B. München, 10738)",
+    "requestFailed": "Ufro huet net geklappt",
+    "backendError": "Backend-Feeler {status}",
+    "backendErrorDetail": "Backend-Feeler {status}: {detail}"
   },
   "home": {
     "tagline": "Oppen Wiederdaten fir d'Mënsche",
@@ -532,7 +535,8 @@
     "loadingStations": "Statioune ginn gelueden …",
     "loadError": "Konnt d'Statioune net lueden.",
     "noStationsWithPosition": "Keng Statioun mat Positioun fonnt fir déi ausgewielte Parameteren.",
-    "coords": "Interpolatiounskoordinaten: {coords}"
+    "coords": "Interpolatiounskoordinaten: {coords}",
+    "example": "z.B. {value}"
   },
   "dateRange": {
     "label": "Datumberäich",

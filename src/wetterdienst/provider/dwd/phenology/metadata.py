@@ -1207,7 +1207,7 @@ def _dataset(
     }
 
 
-DwdPhenologyMetadata = {
+_DwdPhenologyMetadataSpec = {
     **_METADATA,
     "copyright": "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC), phenology",
     "url": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/phenology/",
@@ -1223,7 +1223,7 @@ DwdPhenologyMetadata = {
         },
     ],
 }
-DwdPhenologyMetadata = build_metadata_model(DwdPhenologyMetadata, "DwdPhenologyMetadata")
+DwdPhenologyMetadata = build_metadata_model(_DwdPhenologyMetadataSpec, "DwdPhenologyMetadata")
 
 # ``dataset name -> Objekt_id``, so the values parser can drop any row that is not the plant the
 # file is named for. Every file holds exactly one object today; the filter keeps that assumption

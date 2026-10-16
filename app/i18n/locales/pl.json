@@ -10,7 +10,10 @@
     "all": "Wszystko",
     "settings": "Ustawienia",
     "documentation": "Dokumentacja",
-    "stationSearch": "Szukaj według nazwy lub identyfikatora stacji (np. München, 10738)"
+    "stationSearch": "Szukaj według nazwy lub identyfikatora stacji (np. München, 10738)",
+    "requestFailed": "Żądanie nie powiodło się",
+    "backendError": "Błąd backendu {status}",
+    "backendErrorDetail": "Błąd backendu {status}: {detail}"
   },
   "home": {
     "tagline": "Otwarte dane pogodowe dla ludzi",
@@ -532,7 +535,8 @@
     "loadingStations": "Ładowanie stacji …",
     "loadError": "Nie udało się załadować stacji.",
     "noStationsWithPosition": "Nie znaleziono stacji z położeniem dla wybranych parametrów.",
-    "coords": "Współrzędne interpolacji: {coords}"
+    "coords": "Współrzędne interpolacji: {coords}",
+    "example": "np. {value}"
   },
   "dateRange": {
     "label": "Zakres dat",

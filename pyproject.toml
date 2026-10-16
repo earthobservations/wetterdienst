@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.155.0"
+version = "0.156.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -336,6 +336,9 @@ coverage = [
     "coverage:cflakes",
 ]
 typecheck = "uv run ty check src/wetterdienst"
+# what a caller's checker makes of the wheel: builds it, installs it into clean environments and checks
+# `tests/typed_caller.py` against it, which `typecheck` (the checkout, read as first-party code) cannot say
+"typecheck:installed" = "uv run python tests/check_installed_typing.py"
 sync = "uv sync"
 lock = "uv lock"
 

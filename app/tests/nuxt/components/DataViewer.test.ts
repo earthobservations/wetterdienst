@@ -2734,3 +2734,59 @@ describe('dataViewer names what it shows in the active locale', () => {
     })
   })
 })
+
+// Plotly writes the numbers of the hover texts and of the axes with the layout's separators, and a
+// point where it has none (GH-2971)
+describe('dataViewer chart separators in the active locale', () => {
+  async function setLocale(locale: string) {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as unknown as { setLocale: (locale: string) => Promise<void> }).setLocale(locale)
+    harness.unmount()
+  }
+
+  afterEach(async () => {
+    await setLocale('en')
+  })
+
+  // the layout the chart was last drawn with, single or faceted
+  function separatorsDrawn(faceted: boolean) {
+    const draw = faceted ? plotly.react : plotly.newPlot
+    const [, , layout] = draw.mock.lastCall as unknown as [HTMLElement, unknown, { separators: string }]
+    return layout.separators
+  }
+
+  it.each([
+    ['en', /^\.,$/],
+    ['de', /^,\.$/],
+    // the group is a no-break space, which differs by language, so only its kind is pinned
+    ['fr', /^,\s$/],
+    ['pl', /^,\s$/],
+  ])('draws the single chart and the facets with the separators of %s', async (locale, separators) => {
+    registerEndpoint('/api/values', () => ({ values: twoParameters }))
+    await setLocale(locale)
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    expect(separatorsDrawn(false)).toMatch(separators)
+
+    const vm = viewer.vm as unknown as { facetByParameter: boolean }
+    plotly.react.mockClear()
+    vm.facetByParameter = true
+    await flushPromises()
+    expect(separatorsDrawn(true)).toMatch(separators)
+  })
+
+  it('draws the chart again in the locale it is switched to', async () => {
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await showChart(wrapper, false)
+    expect(separatorsDrawn(false)).toBe('.,')
+
+    await setLocale('de')
+    await vi.waitFor(() => expect(separatorsDrawn(false)).toBe(',.'))
+  })
+})

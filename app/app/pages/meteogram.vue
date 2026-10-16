@@ -132,15 +132,15 @@ async function fetchMeteogram(station: Station) {
       // proxy's error page, is left out
       const detail = describeApiError(await res.json().catch(() => null))
       error.value = detail
-        ? `Backend error ${res.status}: ${detail}`
-        : [`Backend error ${res.status}`, res.statusText].filter(Boolean).join(' ')
+        ? t('common.backendErrorDetail', { status: res.status, detail })
+        : [t('common.backendError', { status: res.status }), res.statusText].filter(Boolean).join(' ')
       return
     }
     const json = await res.json()
     values.value = json.values ?? []
   }
   catch (e: any) {
-    error.value = e?.message ?? 'Request failed'
+    error.value = e?.message ?? t('common.requestFailed')
   }
   finally {
     pending.value = false

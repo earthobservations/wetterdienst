@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-LhmtObservationMetadata = {
+_LhmtObservationMetadataSpec = {
     "name_short": "LHMT",
     "name_english": "Lithuanian Hydrometeorological Service",
     "name_local": "Lietuvos hidrometeorologijos tarnyba",
@@ -90,4 +90,4 @@ LhmtObservationMetadata = {
         },
     ],
 }
-LhmtObservationMetadata = build_metadata_model(LhmtObservationMetadata, "LhmtObservationMetadata")
+LhmtObservationMetadata = build_metadata_model(_LhmtObservationMetadataSpec, "LhmtObservationMetadata")

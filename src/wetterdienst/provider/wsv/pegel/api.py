@@ -246,7 +246,7 @@ _PARAMETERS = [
 ]
 
 
-WsvPegelMetadata = {
+_WsvPegelMetadataSpec = {
     "name_short": "WSV",
     "name_english": "Federal Waterways and Shipping Administration",
     "name_local": "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
@@ -273,7 +273,7 @@ WsvPegelMetadata = {
         for resolution in _EQUIDISTANCE_TO_RESOLUTION.values()
     ],
 }
-WsvPegelMetadata = build_metadata_model(WsvPegelMetadata, "WsvPegelMetadata")
+WsvPegelMetadata = build_metadata_model(_WsvPegelMetadataSpec, "WsvPegelMetadata")
 
 
 class WsvPegelValues(TimeseriesValues[ParameterModel]):

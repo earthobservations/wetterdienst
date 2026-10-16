@@ -90,7 +90,7 @@ _ABSENT_DAY_NO_PHENOMENON: dict[str, frozenset[str]] = {
 # tell the two apart. This one is the library's own, documented on the provider's page.
 _QUALITY_ABSENT_DAY = "11"
 
-ImgwMeteorologyMetadata = {
+_ImgwMeteorologyMetadataSpec = {
     **_METADATA,
     "kind": "observation",
     "timezone": "Europe/Warsaw",
@@ -440,7 +440,7 @@ ImgwMeteorologyMetadata = {
         },
     ],
 }
-ImgwMeteorologyMetadata = build_metadata_model(ImgwMeteorologyMetadata, "ImgwMeteorologyMetadata")
+ImgwMeteorologyMetadata = build_metadata_model(_ImgwMeteorologyMetadataSpec, "ImgwMeteorologyMetadata")
 
 
 class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):

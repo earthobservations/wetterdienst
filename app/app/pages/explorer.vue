@@ -1098,6 +1098,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
             :data="stationSelectionState.selection.stations"
             :columns="stationTableColumns"
           >
+            <!-- a position keeps its point in every language: it is copied into a map or a query (GH-2971) -->
             <template #latitude-cell="{ row }">
               {{ row.original.latitude?.toFixed(4) ?? '-' }}
             </template>

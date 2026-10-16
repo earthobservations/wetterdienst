@@ -127,7 +127,7 @@ def _resolution(name: str, datasets: list[dict]) -> dict:
     }
 
 
-MetOfficeObservationMetadata = {
+_MetOfficeObservationMetadataSpec = {
     "name_short": "MetOffice",
     "name_english": "Met Office",
     "name_local": "Met Office",
@@ -158,4 +158,4 @@ MetOfficeObservationMetadata = {
         ),
     ],
 }
-MetOfficeObservationMetadata = build_metadata_model(MetOfficeObservationMetadata, "MetOfficeObservationMetadata")
+MetOfficeObservationMetadata = build_metadata_model(_MetOfficeObservationMetadataSpec, "MetOfficeObservationMetadata")

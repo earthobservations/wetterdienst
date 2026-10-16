@@ -47,7 +47,7 @@ _REPORT_MARKER = "precipitationlasthour"
 # a report belongs to the full hour it is nearest to, so an hour reaches half an hour to either side of its full hour
 _HALF_HOUR = dt.timedelta(minutes=30)
 
-NwsObservationMetadata = {
+_NwsObservationMetadataSpec = {
     "name_short": "NWS",
     "name_english": "NOAA National Weather Service",
     "name_local": "NOAA National Weather Service",
@@ -149,7 +149,7 @@ NwsObservationMetadata = {
         },
     ],
 }
-NwsObservationMetadata = build_metadata_model(NwsObservationMetadata, "NwsObservationMetadata")
+NwsObservationMetadata = build_metadata_model(_NwsObservationMetadataSpec, "NwsObservationMetadata")
 
 
 def _quantity(dtype: pl.DataType | type[pl.DataType]) -> pl.Struct:
