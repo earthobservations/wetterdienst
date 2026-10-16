@@ -281,7 +281,7 @@ def apply_station_values_per_parameter(
     """
     contributed = False
     options = stations_ranked.options
-    # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
+    # once, not once per parameter per station: `values()` builds a `TimeseriesValues` and with it a
     # `UnitConverter`, whose tables run to a couple of hundred entries
     unit_converter = stations_ranked.values().unit_converter
     for parameter in stations_ranked.request.parameters:

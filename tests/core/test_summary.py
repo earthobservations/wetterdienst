@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD observation summary."""
 
+import dataclasses
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -167,8 +168,9 @@ def test_summary_at_an_elevation_none_of_the_stations_can_answer(
 
     def without_elevations(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
-        stations_ranked.df = stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("elevation"))
-        return stations_ranked
+        return dataclasses.replace(
+            stations_ranked, df=stations_ranked.df.with_columns(pl.lit(None, dtype=pl.Float64).alias("elevation"))
+        )
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_elevations)
     with pytest.raises(

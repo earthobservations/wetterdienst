@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for interpolation."""
 
+import dataclasses
 import datetime as dt
 import logging
 import random
@@ -176,7 +177,7 @@ def test_interpolation_temperature_air_2m_hourly_by_coords(default_settings: Set
     result = request.interpolate(latlon=(50.0, 8.9))
     assert result.df.shape[0] == 18001
     assert result.df.drop_nulls().shape[0] == 17914
-    given_df = result.filter_by_date("2022-01-02 00:00:00+00:00")
+    given_df = result.filtered_by_date("2022-01-02 00:00:00+00:00").df
     expected_df = pl.DataFrame(
         [
             {
@@ -304,7 +305,7 @@ def test_interpolation_precipitation_amount_minute_10(default_settings: Settings
     result = request.interpolate(latlon=(50.0, 8.9))
     assert result.df.shape[0] == 577
     assert result.df.drop_nulls().shape[0] == 577
-    given_df = result.filter_by_date("2021-10-05 00:00:00+00:00")
+    given_df = result.filtered_by_date("2021-10-05 00:00:00+00:00").df
     expected_df = pl.DataFrame(
         [
             {
@@ -762,10 +763,12 @@ def _blank_station_elevations(monkeypatch: pytest.MonkeyPatch, keeps_its_elevati
 
     def without_elevations(self: DwdObservationRequest, *args: object, **kwargs: object) -> object:
         stations_ranked = original(self, *args, **kwargs)
-        stations_ranked.df = stations_ranked.df.with_columns(
-            pl.when(keeps_its_elevation).then(pl.col("elevation")).otherwise(None).alias("elevation"),
+        return dataclasses.replace(
+            stations_ranked,
+            df=stations_ranked.df.with_columns(
+                pl.when(keeps_its_elevation).then(pl.col("elevation")).otherwise(None).alias("elevation"),
+            ),
         )
-        return stations_ranked
 
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", without_elevations)
 

@@ -695,7 +695,7 @@ What a request answers is a result, and the results are what a caller reads:
 - **`values()` and `history()` are methods.** Each builds a new reader on every call, so two walks over
   the stations never share state; keep the reader in a variable where you use it more than once.
 - **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
-  the stations and the frame alive and nothing else. `df_stations` names the stations that have values.
+  the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
   `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; they are documented below.
 

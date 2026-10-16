@@ -174,6 +174,20 @@ class _CalledMethod:
         """Call the method."""
         return self._bound(*args, **kwargs)
 
+    def __repr__(self) -> str:
+        """Show the bound method it stands for."""
+        return repr(self._bound)
+
+    @property
+    def __self__(self) -> object:
+        """Name the result the method is bound to, as a bound method does."""
+        return getattr(self._bound, "__self__", None)
+
+    @property
+    def __func__(self) -> object:
+        """Name the function the method is made of, as a bound method does."""
+        return getattr(self._bound, "__func__", None)
+
     def __getattr__(self, attr: str) -> object:
         """Refuse the attribute of what the method returns, naming the call that gets there."""
         # a dunder is looked up by Python and by tools that inspect a callable, which is no mistake
@@ -602,9 +616,12 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
 
         Only the stations that returned values: a request for the stations nearest a point lists
         every station with a position, and the walk stops at the ones with data. Read off the values,
-        so that a result cut down by `filtered_by_date` or `filtered_by_sql` names the stations that are left.
+        so that a `ValuesResult` cut down by `filtered_by_date` or `filtered_by_sql` names the stations
+        that are left. An interpolated or summarized result names the stations it was made from.
         """
-        return self.stations.df.join(self.df.select("station_id").unique(), on="station_id", how="semi")
+        if "station_id" not in self.df.columns:
+            return self.stations.df.clear()
+        return self.stations.df.filter(pl.col("station_id").is_in(self.df.get_column("station_id").implode()))
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> _RowsT:

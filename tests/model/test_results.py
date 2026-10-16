@@ -301,3 +301,31 @@ def test_the_signatures_the_documentation_shows_are_the_ones_the_results_have() 
             "indent: 'int | bool | None' = 4) -> 'str'"
         ),
     }
+
+
+def test_an_error_inside_a_property_of_a_result_is_the_error_that_is_raised() -> None:
+    """The refusal of renamed names does not swallow what a property of the result raised itself."""
+    request = type("RequestWithoutSettings", (), {})()
+    stations = StationsResult(
+        request=request,  # ty: ignore[invalid-argument-type]
+        df=pl.DataFrame(),
+        df_all=pl.DataFrame(),
+        stations_filter=StationsFilter.ALL,
+    )
+    with pytest.raises(AttributeError, match="RequestWithoutSettings"):
+        _ = stations.settings
+
+
+def test_the_methods_that_were_properties_look_like_bound_methods() -> None:
+    """`repr` and `inspect.ismethod` read them as the methods they are."""
+    stations = _stations()
+    assert repr(stations.values).startswith("<bound method StationsResult.values of")
+    assert stations.values.__self__ is stations
+    assert stations.history.__func__ is StationsResult.__dict__["history"]._func  # noqa: SLF001
+
+
+def test_a_values_result_with_no_station_column_names_no_stations() -> None:
+    """A frame built by hand, with no `station_id`, has no stations behind it."""
+    result = ValuesResult(stations=_stations(), df=pl.DataFrame())
+    assert result.df_stations.is_empty()
+    assert result.df_stations.columns == _stations().df.columns

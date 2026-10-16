@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import re
@@ -89,9 +90,13 @@ class ExportMixin:
 
         def __getattr__(self, name: str) -> object:
             """Refuse a member that a result class was renamed or lost, saying what to write instead."""
-            # only reached for a name the class does not have
+            # only reached for a name the instance does not have; a property of the class that raised an
+            # `AttributeError` of its own lands here too, and is read again so that its error is the one raised
             if (renamed := renamed_result_member(type(self), name)) is not None:
                 raise AttributeError(renamed)
+            attribute = inspect.getattr_static(type(self), name, None)
+            if hasattr(attribute, "__get__"):
+                return attribute.__get__(self, type(self))
             msg = f"'{type(self).__name__}' object has no attribute '{name}'"
             raise AttributeError(msg)
 

@@ -181,7 +181,7 @@ def apply_station_values_per_parameter(
     draws on mean the same thing here as in the interpolation.
     """
     options = stations_ranked.options
-    # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
+    # once, not once per parameter per station: `values()` builds a `TimeseriesValues` and with it a
     # `UnitConverter`, whose tables run to a couple of hundred entries
     unit_converter = stations_ranked.values().unit_converter
     contributed = False

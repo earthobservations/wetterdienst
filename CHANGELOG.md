@@ -35,9 +35,9 @@ Types of changes:
   values.filtered_by_sql(sql)`, and `.df` where you used the returned frame (GH-2626)
 - **Breaking**: `ValuesResult` no longer holds the reader that produced it, so `result.values` and
   the `values=` argument are gone, and a result you keep no longer keeps its reader, with whatever
-  it cached, alive. Get a reader from `stations.values()`. `df_stations` now names the stations
-  with a row in the frame, so it follows `filtered_by_sql`, and `InterpolatedValuesResult` and
-  `SummarizedValuesResult` have it too (GH-2626)
+  it cached, alive. Get a reader from `stations.values()`. `df_stations` of a `ValuesResult` now names
+  the stations with a row in the frame, so it follows `filtered_by_sql`, and
+  `InterpolatedValuesResult` and `SummarizedValuesResult` have it too (GH-2626)
 
 ## [0.155.0] - 2026-10-16
 
