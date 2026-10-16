@@ -1683,7 +1683,7 @@ def test_dmo_a_refused_parameter_reaches_the_caller_as_a_message(
 
     response = TestClient(app).get(
         "/api/values",
-        params={"provider": "dwd", "network": "dmo", "parameters": parameter, "station": "10382"},
+        params={"provider": "dwd", "network": "dmo", "parameters": parameter, "stations": "10382"},
     )
     assert response.status_code == 400
     assert expected in response.json()["detail"]
@@ -1692,7 +1692,7 @@ def test_dmo_a_refused_parameter_reaches_the_caller_as_a_message(
     caplog.clear()
     result = CliRunner().invoke(
         cli,
-        ["values", "--provider=dwd", "--network=dmo", f"--parameters={parameter}", "--station=10382"],
+        ["values", "--provider=dwd", "--network=dmo", f"--parameters={parameter}", "--stations=10382"],
     )
     # a usage error, as the REST API's 400 (GH-2426)
     assert result.exit_code == 2, result.output

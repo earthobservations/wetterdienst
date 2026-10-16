@@ -41,7 +41,7 @@ for them, which no query parameter of theirs changes: `skip_empty`, `skip_thresh
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
 The command line renders through the same function, so the same request gives the same body there:
-`wetterdienst values ... --with_metadata=true` writes the `settings` block too, and `--pretty` the
+`wetterdienst values ... --with-metadata=true` writes the `settings` block too, and `--pretty` the
 indentation `pretty=true` does.
 
 What the endpoints share about which stations a request names:
@@ -49,7 +49,7 @@ What the endpoints share about which stations a request names:
 - **A name** (`name=Dresden`) is matched fuzzily. `stations` lists the best five matches, to choose
   from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
   number, for either.
-- **A list of station ids** (`station=01048,99999`) leaves out an id the network has no station for and
+- **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
   goes on with the others. When none exists the result is empty. The ids left out are named in a
   warning in the server's log; the response carries no warning of its own. The one reference station
   of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404.
@@ -66,6 +66,39 @@ What the endpoints share about which stations a request names:
 Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts and stripes alike,
 and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
 the microsecond, with its offset, for instance `2026-09-01T00:00:00.000000+00:00`.
+
+## One vocabulary
+
+A request is spelled the same on the REST API, the command line and the MCP tools, so that what is
+learnt on one holds on the others:
+
+- **The same name, with a hyphen on the command line.** The query parameters of an endpoint and the
+  arguments of its MCP tool are written with underscores, `name_threshold`, and the options of the
+  command with hyphens, `--name-threshold`. The mapping is that and nothing else, and a test holds
+  every parameter of every request to it: a parameter has an option and an argument of its name and
+  type, or is written down with the reason it has none (`--target` writes to a file, which REST does
+  not; `with_stations` of `stations` is not read). The underscored spellings of the command line,
+  `--convert_units` and the like, are refused with an error naming the hyphenated one.
+- **A parameter that takes a list is plural.** `parameters`, `periods`, `stations` and `sections`,
+  and `resolutions` and `datasets` of `coverage`, take a list; `station`, `parameter`, `period`,
+  `resolution` and `dataset` for them are refused with an error naming the plural
+  (`station was renamed to stations`). A parameter of one value is singular: the one reference
+  `station` of `interpolate` and `summarize`, the `station` of `issues` and `stripes`, the
+  `parameter` text `glossary` looks for.
+- **A list is comma-separated**, `stations=01048,04411` and `--stations=01048,04411`, which is how
+  the OpenAPI document describes it (`explode: false`). The key given more than once,
+  `stations=01048&stations=04411`, is read as the same list, and is not documented. The command line
+  takes the last of an option given twice.
+- **A boolean is `true`, `1`, `yes`, `on`, `t` or `y`, or one of their opposites**, in any case, on
+  every surface; nothing else is one. On the command line a boolean option given without a value is
+  on (`--pretty`, `--all`), and `--pretty=false` says it outright.
+- **The stations are named by exactly one of** `all`, `stations`, `name`, a point (`latitude` and
+  `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
+  `sql`. None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`
+  error that names the alternatives: `Cannot be combined with name, give exactly one of all,
+  stations, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
+  422, as the message of a tool error and, in the options' names, as the usage error of the
+  command.
 
 The following examples use [httpie](https://github.com/httpie/cli) to demonstrate the usage of the REST API.
 
@@ -194,22 +227,22 @@ September. A date carrying a time, `2020-08-01T12`, names that one instant.
 
 ```bash
 # Acquire observations.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent stations==1048,4411
 
 # Observations for specific date.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl station==1048,4411 timestamp==2020-08-01
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020-08-01
 
 # Observations for a whole month, since a date covers everything it names.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl station==1048,4411 timestamp==2020-08
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020-08
 
 # Observations for date range.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl station==1048,4411 timestamp==2020-08-01/2020-08-05
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020-08-01/2020-08-05
 
 # Observations with SQL, on a server running with WD_RESTAPI_SQL=true.
-http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent station==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent stations==1048,4411 shape=="wide" sql_values=="temperature_air_max_2m < 2.0;"
 
 # Acquire ICON data (the latest forecast run; a past timestamp has none).
-http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m station==01001
+http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
 ```
 
 ### SQL filters

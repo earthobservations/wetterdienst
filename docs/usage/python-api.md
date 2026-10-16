@@ -278,7 +278,7 @@ df
 A station id the request has no station for -- one that does not exist, or has no data for the
 requested parameters and periods -- is left out of the result with a warning naming it (log level
 `WARNING`): the stations that do exist are returned, and when none does the result is empty. The command
-line and the REST API do the same for a list of `--station` ids.
+line and the REST API do the same for a list of `--stations` ids.
 
 #### filter by name
 
@@ -953,13 +953,13 @@ whose message is the whole of what there is to know. A package a sink needs that
 that installs it. Anything else out of `to_target` is a defect or an environment problem and keeps
 its own class and traceback.
 
-The CLI takes the same argument as `--if_exists`, which is what a scheduled acquisition needs —
+The CLI takes the same argument as `--if-exists`, which is what a scheduled acquisition needs —
 see [Scheduling](scheduling.md):
 
 ```bash
 wetterdienst values --provider=dwd --network=observation \
-    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 \
-    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if_exists=append
+    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --stations=01048 \
+    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
 ## Errors

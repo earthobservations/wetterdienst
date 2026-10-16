@@ -36,6 +36,7 @@ from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
+    RENAMED_REQUEST_PARAMETERS,
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     HistoryRequest,
     InterpolationRequest,
@@ -133,7 +134,7 @@ periods_opt = click.option(
     ),
 )
 lead_time_opt = click.option(
-    "--lead_time",
+    "--lead-time",
     type=click.Choice(["short", "long"]),
     default="short",
     help="DWD DMO forecast lead time; ignored by other networks. Default: short",
@@ -176,6 +177,18 @@ def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
     )
 
 
+def _bool_opt(name: str, *, default: bool, help: str, dest: str | None = None) -> Callable[[_CommandT], _CommandT]:  # noqa: A002
+    """Make a boolean option, spelled one way on every command: bare it is on, and it takes `=true` or `=false`.
+
+    A value is read as the REST API reads one of its boolean query parameters, which is what
+    `click.BOOL` accepts as well: `1`, `true`, `t`, `yes`, `y`, `on`, and their opposites (GH-2561).
+    A bare option is `true`, so that `--pretty` and `--pretty=true` are one, and `--all`, which was a
+    flag, takes `--all=true` as REST's `all=true`.
+    """
+    names = (name, dest) if dest else (name,)
+    return click.option(*names, type=click.BOOL, is_flag=False, flag_value="true", default=default, help=help)
+
+
 # GH-2438: --date, the old name of --timestamp
 renamed_date_opt = _renamed_opt("--date", "--timestamp")
 start_opt = click.option(
@@ -192,11 +205,11 @@ end_opt = click.option(
 start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
-# station selection for `stations` and `values`: exactly one of --all, --station, --name, a point
+# station selection for `stations` and `values`: exactly one of --all, --stations, --name, a point
 # or a bounding box, --sql. The request models enforce it, so the CLI, REST API and MCP share it
-all_opt = click.option("--all", "all_", is_flag=True, help="Select all stations.")
-station_ids_opt = click.option(
-    "--station",
+all_opt = _bool_opt("--all", dest="all_", default=False, help="Select all stations. Default: false")
+stations_opt = click.option(
+    "--stations",
     type=click.STRING,
     help="Select stations by id, comma-separated. Example: 01048,04411",
 )
@@ -238,27 +251,25 @@ sql_opt = click.option(
 )
 
 sql_values_opt = click.option(
-    "--sql_values",
+    "--sql-values",
     type=click.STRING,
     help="SQL WHERE clause applied to the values. Example: parameter='wind_gust_max' AND value > 20",
 )
-convert_units_opt = click.option(
-    "--convert_units",
-    type=click.BOOL,
+convert_units_opt = _bool_opt(
+    "--convert-units",
     default=True,
     help=(
-        "Convert values to the unit targets: the defaults, overridden per quantity by --unit_targets. "
+        "Convert values to the unit targets: the defaults, overridden per quantity by --unit-targets. "
         "Default: WD_TS_CONVERT_UNITS if set, else true"
     ),
 )
 unit_targets_opt = click.option(
-    "--unit_targets",
+    "--unit-targets",
     type=click.STRING,
     help='Unit targets as a JSON map of quantity to unit. Example: {"temperature":"degree_fahrenheit"}',
 )
-humanize_opt = click.option(
+humanize_opt = _bool_opt(
     "--humanize",
-    type=click.BOOL,
     default=True,
     help="Use canonical parameter names instead of the provider's own codes. Default: WD_TS_HUMANIZE if set, else true",
 )
@@ -270,6 +281,12 @@ format_opt = click.option(
     default="json",
     help="Output format: json, geojson or csv for data, html, png, jpg, webp, svg or pdf for a chart. Default: json",
 )
+# the size of a chart, for --format of html, png, jpg, webp, svg or pdf
+width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
+height_opt = click.option("--height", type=click.IntRange(min=1), help="Height of a rendered chart in pixels.")
+scale_opt = click.option(
+    "--scale", type=click.FloatRange(min=0, min_open=True), help="Scale factor of a rendered chart image."
+)
 target_opt = click.option(
     "--target",
     type=click.STRING,
@@ -279,7 +296,7 @@ target_opt = click.option(
 # it was written, and the docs advertise it, but no command passed it, so every CLI export replaced
 # -- which is only the wrong default for a schedule, where the point is usually to accumulate
 if_exists_opt = click.option(
-    "--if_exists",
+    "--if-exists",
     type=click.Choice(["replace", "append", "fail", "skip"]),
     default="replace",
     help=(
@@ -292,27 +309,22 @@ if_exists_opt = click.option(
 # the one spelling, for every command that writes JSON: `--pretty` alone turns it on, and `--pretty=false`
 # and `--pretty=true` still say it outright, as `stations`, `values` and `history` took it before and
 # `interpolate` and `summarize` did not (GH-2635)
-pretty_opt = click.option(
+pretty_opt = _bool_opt(
     "--pretty",
-    type=click.BOOL,
-    is_flag=False,
-    flag_value="true",
     default=False,
     help="Pretty-print JSON with 4-space indentation, as REST's pretty=true. Default: false",
 )
-with_metadata_opt = click.option(
-    "--with_metadata",
-    type=click.BOOL,
+with_metadata_opt = _bool_opt(
+    "--with-metadata",
     default=False,
     help="Include the provider metadata block in JSON/GeoJSON output. Default: false",
 )
-with_stations_opt = click.option(
-    "--with_stations",
-    type=click.BOOL,
+with_stations_opt = _bool_opt(
+    "--with-stations",
     default=False,
     help="Include the stations in JSON/GeoJSON output. Default: false",
 )
-debug_opt = click.option("--debug", is_flag=True, help="Log at debug level.")
+debug_opt = _bool_opt("--debug", default=False, help="Log at debug level. Default: false")
 
 # the reference point `interpolate` and `summarize` estimate for: exactly one of a station or a point,
 # which their request models enforce
@@ -333,7 +345,7 @@ elevation_opt = click.option(
     ),
 )
 use_nearby_station_distance_opt = click.option(
-    "--use_nearby_station_distance",
+    "--use-nearby-station-distance",
     type=click.FLOAT,
     default=1,
     help=(
@@ -341,9 +353,26 @@ use_nearby_station_distance_opt = click.option(
         "Default: WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1"
     ),
 )
+min_gain_of_value_pairs_opt = click.option(
+    "--min-gain-of-value-pairs",
+    type=click.FloatRange(min=0),
+    default=0.1,
+    help=(
+        "Minimum relative gain in value pairs required to add another station. "
+        "Default: WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1"
+    ),
+)
+num_additional_stations_opt = click.option(
+    "--num-additional-stations",
+    type=click.IntRange(min=0),
+    default=3,
+    help=(
+        "Number of additional nearby stations to consider. Default: WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3"
+    ),
+)
 # accepted by `summarize` still, so that an invocation giving it is warned rather than refused (GH-2333)
 summary_use_nearby_station_distance_opt = click.option(
-    "--use_nearby_station_distance",
+    "--use-nearby-station-distance",
     type=click.FLOAT,
     default=1,
     deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
@@ -354,7 +383,7 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
     """Apply the `--<kind>_station_distance*` options, which each estimating command names after itself."""
     options = [
         click.option(
-            f"--{kind}_station_distance",
+            f"--{kind}-station-distance",
             type=click.STRING,
             help=(
                 "Per-parameter maximum station distance in km as JSON, overriding the radii. "
@@ -362,13 +391,13 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
             ),
         ),
         click.option(
-            f"--{kind}_station_distance_homogeneous",
+            f"--{kind}-station-distance-homogeneous",
             type=click.FLOAT,
             help="Maximum station distance in km for a parameter that varies slowly, such as air temperature. "
             "Default: WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40",
         ),
         click.option(
-            f"--{kind}_station_distance_heterogeneous",
+            f"--{kind}-station-distance-heterogeneous",
             type=click.FLOAT,
             help="The same for one that decorrelates faster, such as precipitation, at hourly resolution. "
             "Default: WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20",
@@ -516,7 +545,10 @@ def _describe_validation_error(error: ValidationError, ctx: click.Context) -> st
     lines = [_describe_problem(problem, params, ctx) for problem in problems if problem["type"] != "mutually_exclusive"]
     if conflicting:
         options = join_names([_option_hint(field, params, ctx) for field in dict.fromkeys(conflicting)])
-        lines.insert(0, f"Options {options} cannot be used together.")
+        # the alternatives are named, as the model names them to the REST API and MCP
+        one_of = next(problem["ctx"]["one_of"] for problem in problems if problem["type"] == "mutually_exclusive")
+        alternatives = describe_fields(one_of, lambda field: _option_hint(field, params, ctx))
+        lines.insert(0, f"Options {options} cannot be used together, give exactly one of {alternatives}.")
     return "\n".join(lines)
 
 
@@ -567,7 +599,10 @@ def _require_one_of(**given: bool) -> None:
         msg = f"Missing option: one of {join_names([hints[name] for name in given], last='or')}."
         raise click.UsageError(msg, ctx)
     if len(made) > 1:
-        msg = f"Options {join_names(made)} cannot be used together."
+        msg = (
+            f"Options {join_names(made)} cannot be used together, "
+            f"give exactly one of {join_names([hints[name] for name in given], last='or')}."
+        )
         raise click.UsageError(msg, ctx)
 
 
@@ -598,7 +633,7 @@ A typical session finds a provider's network, then a station, then reads its dat
 \b
     wetterdienst about coverage
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden-Klotzsche
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --station=01048 --timestamp=2020-05
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2020-05
 
 Run `wetterdienst COMMAND --help` for a command's options and examples.
 """
@@ -623,7 +658,7 @@ STATIONS_EXAMPLES = r"""
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all --format=geojson
 
     # stations by id, or by fuzzy name
-    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --station=1048,4411
+    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden
 
     # the five stations closest to a point, or those within 25 km of it
@@ -650,55 +685,58 @@ STATIONS_EXAMPLES = r"""
 """
 
 HISTORY_EXAMPLES = r"""
-    wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --station=1048
+    wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --stations=1048
 
     # only the name and geography sections
-    wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --station=1048 \
+    wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --stations=1048 \
         --sections=name,geography
 """
 
 VALUES_EXAMPLES = r"""
     # recent daily climate summaries for two stations, or for one found by name
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
-        --station=1048,4411
+        --stations=1048,4411
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
         --name=Dresden-Hosterwitz
 
     # a date covers everything it names: a day, a month, a year
-    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --timestamp=2020-05-01 --station=1048
-    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl --timestamp=2020-05 --station=1048
-    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl --timestamp=2019 --station=1048,4411
+    wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+        --timestamp=2020-05-01 --stations=1048
+    wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl \
+        --timestamp=2020-05 --stations=1048
+    wetterdienst values --provider=dwd --network=observation --parameters=annual/kl \
+        --timestamp=2019 --stations=1048,4411
 
     # a range, as an ISO 8601 interval or as --start/--end; historical and recent data are joined
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
-        --timestamp=1969-01-01/2020-06-11 --station=1048
+        --timestamp=1969-01-01/2020-06-11 --stations=1048
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
-        --start=2020-05-01 --end=2020-05-05 --station=1048
+        --start=2020-05-01 --end=2020-05-05 --stations=1048
 
     # two parameters from different datasets, hourly, one column each
     wetterdienst values --provider=dwd --network=observation \
         --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_2m \
-        --timestamp=2020-06-15T12/2020-06-16T12 --station=1048,4411 --shape=wide
+        --timestamp=2020-06-15T12/2020-06-16T12 --stations=1048,4411 --shape=wide
 
     # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
-        --station=1048,4411 --sql_values="parameter='wind_gust_max' AND value > 20.0"
+        --stations=1048,4411 --sql-values="parameter='wind_gust_max' AND value > 20.0"
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
-        --station=1048,4411 --shape=wide --sql_values="wind_gust_max > 20.0"
+        --stations=1048,4411 --shape=wide --sql-values="wind_gust_max > 20.0"
 
     # the five stations closest to a point that have data for the date
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-06-30
 
     # MOSMIX and DMO forecasts
-    wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --station=65510
-    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --station=65510 --lead_time=long
+    wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510
+    wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --stations=65510 --lead-time=long
 
     # export to a file or a database
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
-        --station=1048,4411 --target=file://observations.parquet
+        --stations=1048,4411 --target=file://observations.parquet
     wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
-        --station=1048,4411 --target="duckdb:///observations.duckdb?table=weather"
+        --stations=1048,4411 --target="duckdb:///observations.duckdb?table=weather"
 """
 
 INTERPOLATE_EXAMPLES = r"""
@@ -752,9 +790,9 @@ RESTAPI_EXAMPLES = r"""
 RADAR_EXAMPLES = r"""
     wetterdienst radar --all
     wetterdienst radar --dwd
-    wetterdienst radar --country_name=france
+    wetterdienst radar --country-name=france
     wetterdienst radar --odim-code=deasb
-    wetterdienst radar --wmo_code=10103
+    wetterdienst radar --wmo-code=10103
 """
 
 ALERTS_EXAMPLES = r"""
@@ -775,10 +813,10 @@ ALERTS_EXAMPLES = r"""
 STRIPES_EXAMPLES = r"""
     # warming stripes for a station, by id or by name
     wetterdienst stripes values --kind=temperature --station=1048 > warming_stripes.png
-    wetterdienst stripes values --kind=temperature --name=Dresden-Klotzsche --name_threshold=0.7 > warming_stripes.png
+    wetterdienst stripes values --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
 
     # for the years 2000 to 2020
-    wetterdienst stripes values --kind=temperature --station=1048 --start_year=2000 --end_year=2020 \
+    wetterdienst stripes values --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
         > warming_stripes.png
 
     # precipitation stripes, to a file
@@ -885,7 +923,7 @@ def _finish(
 
     An empty result is exit 0: the sentence goes to stderr, and stdout gets what the REST API answers
     with (the result's empty JSON, or the header of its CSV) -- the command line renders through the
-    one function the REST API does, so `--with_metadata` gives the `settings` block here as there
+    one function the REST API does, so `--with-metadata` gives the `settings` block here as there
     (GH-2635). A target is left as it is, since nothing is there to write: replacing a table with an
     empty one is not what a schedule that found no reading yet is after.
     """
@@ -939,7 +977,51 @@ def _refuse_non_file_target(target: str | None, command: str) -> None:
         raise click.BadParameter(msg)
 
 
-class _Cli(click.Group):
+def _renamed_to(command: click.Command, option: str) -> str | None:
+    """Tell the option a renamed one is now spelled, where the rename is mechanical, else None.
+
+    An option was renamed for 1.0 if the command has it with its underscores as hyphens
+    (`--convert_units`, now `--convert-units`) or in the plural (`--station`, now `--stations`): the
+    spellings a command line is free to mistake for the new one, and the only ones it can have kept.
+    """
+    # a hidden option is itself a refusal, such as `--start-date`, and no name to send the caller to
+    taken = {
+        opt
+        for param in command.params
+        if not getattr(param, "hidden", False)
+        for opt in (*param.opts, *param.secondary_opts)
+    }
+    # the plural is the rename of the singular a list had, not of any word a typo is one letter short of
+    plural = f"{option}s" if option.removeprefix("--") in RENAMED_REQUEST_PARAMETERS else None
+    candidates = (option.replace("_", "-"), plural)
+    return next((candidate for candidate in candidates if candidate != option and candidate in taken), None)
+
+
+class _Command(click.Command):
+    """A command refusing an option it no longer has by naming the one that replaces it (GH-2561).
+
+    Click would say only that the command has no such option, and guess a similar one by its
+    spelling. The old spelling is refused, not read: a rename for 1.0 is a hard one.
+    """
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        try:
+            return super().parse_args(ctx, args)
+        except click.NoSuchOption as e:
+            renamed = _renamed_to(self, e.option_name)
+            if renamed is None:
+                raise
+            msg = f"{e.option_name} was renamed to {renamed}."
+            raise click.UsageError(msg, ctx) from e
+
+
+class _Group(click.Group):
+    """A group of commands that refuse a renamed option by its new name."""
+
+    command_class = _Command
+
+
+class _Cli(_Group):
     """The command group, telling a malformed `WD_*` setting by its variable (GH-2335).
 
     A command builds its settings where it needs them, and each used to end in pydantic's traceback
@@ -1004,7 +1086,9 @@ def info() -> None:
 
 @cli.command("restapi", epilog=_examples(RESTAPI_EXAMPLES))
 @click.option("--listen", type=click.STRING, default=None, help="Listen address as host:port. Default: 127.0.0.1:7890")
-@click.option("--reload", is_flag=True, help="Reload the service when a source file changes, for development.")
+@_bool_opt(
+    "--reload", default=False, help="Reload the service when a source file changes, for development. Default: false"
+)
 @debug_opt
 def restapi(
     listen: str,
@@ -1023,7 +1107,7 @@ def restapi(
     restapi_module.start_service(listen, reload=reload)
 
 
-@cli.group()
+@cli.group(cls=_Group)
 def about() -> None:
     """Get information about the data."""
 
@@ -1255,8 +1339,10 @@ def fields(
 @end_opt
 @start_date_renamed_opt
 @end_date_renamed_opt
+@lead_time_opt
+@issue_opt
 @all_opt
-@station_ids_opt
+@stations_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -1269,6 +1355,9 @@ def fields(
 @top_opt
 @sql_opt
 @format_opt
+@width_opt
+@height_opt
+@scale_opt
 @target_opt
 @if_exists_opt
 @pretty_opt
@@ -1282,8 +1371,10 @@ def stations(
     timestamp: str,
     start: str,
     end: str,
+    lead_time: Literal["short", "long"],
+    issue: str,
     all_: bool,  # noqa: FBT001
-    station: list[str],
+    stations: list[str],
     name: str,
     name_threshold: float,
     latitude: float,
@@ -1296,6 +1387,9 @@ def stations(
     top: float,
     sql: str,
     fmt: str,
+    width: int | None,
+    height: int | None,
+    scale: float | None,
     target: str,
     if_exists: Literal["replace", "append", "fail", "skip"],
     pretty: bool,  # noqa: FBT001
@@ -1304,12 +1398,12 @@ def stations(
 ) -> None:
     """Acquire stations.
 
-    Select them with exactly one of --all, --station, --name, --latitude/--longitude with --rank or
+    Select them with exactly one of --all, --stations, --name, --latitude/--longitude with --rank or
     --distance, --left/--bottom/--right/--top, or --sql. Given a window, with --timestamp or --start /
     --end, only the stations whose record overlaps it are listed.
 
     A selection that finds no station is no failure: the list is empty, the command says so on stderr
-    and exits 0. A --station id the network has no station for is named in a warning and left out.
+    and exits 0. A station id of --stations the network has no station for is named in a warning and left out.
     """
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
@@ -1319,9 +1413,11 @@ def stations(
             "network": network,
             "parameters": parameters,
             "periods": periods,
+            "lead_time": lead_time,
+            "issue": issue,
             "timestamp": timestamp_resolved,
             "all": all_,
-            "station": station,
+            "stations": stations,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
@@ -1334,6 +1430,9 @@ def stations(
             "top": top,
             "sql": sql,
             "format": fmt,
+            "width": width,
+            "height": height,
+            "scale": scale,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "debug": debug,
@@ -1386,7 +1485,7 @@ def stations(
     help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon",
 )
 @click.option(
-    "--lead_time",
+    "--lead-time",
     type=click.Choice(["short", "long"]),
     default=None,
     help="DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS. Default: short",
@@ -1404,7 +1503,7 @@ def issues_cmd(
 
     Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
-    A DMO run exists for a product, so --dataset and --lead_time decide which runs are listed. They
+    A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
     default to what a `values` request defaults to, which is what makes the answer one that request
     accepts.
     """
@@ -1443,7 +1542,7 @@ def issues_cmd(
 @network_opt
 @parameters_opt
 @all_opt
-@station_ids_opt
+@stations_opt
 @click.option(
     "--sections",
     type=click.STRING,
@@ -1471,7 +1570,7 @@ def history(
     network: str,
     parameters: list[str],
     all_: bool,  # noqa: FBT001
-    station: str,
+    stations: str,
     sections: str | None,
     fmt: str,  # noqa: ARG001
     target: str,
@@ -1483,7 +1582,7 @@ def history(
 ) -> None:
     """Acquire station history.
 
-    Select the stations with exactly one of --all or --station.
+    Select the stations with exactly one of --all or --stations.
     """
     _refuse_non_file_target(target, "history")
     # a local path, or a `file://` URI read as `alerts` reads it; the `.json` check reads the path it names
@@ -1499,7 +1598,7 @@ def history(
             "network": network,
             "parameters": parameters,
             "all": all_,
-            "station": station,
+            "stations": stations,
             "sections": sections,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -1567,7 +1666,7 @@ def history(
 @lead_time_opt
 @issue_opt
 @all_opt
-@station_ids_opt
+@stations_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -1592,14 +1691,13 @@ def history(
 @convert_units_opt
 @unit_targets_opt
 @humanize_opt
-@click.option(
-    "--skip_empty",
-    type=click.BOOL,
+@_bool_opt(
+    "--skip-empty",
     default=False,
-    help="Skip stations whose coverage falls below --skip_threshold. Default: WD_TS_SKIP_EMPTY if set, else false",
+    help="Skip stations whose coverage falls below --skip-threshold. Default: WD_TS_SKIP_EMPTY if set, else false",
 )
 @click.option(
-    "--skip_criteria",
+    "--skip-criteria",
     type=click.Choice(["min", "mean", "max"]),
     default="min",
     help=(
@@ -1608,18 +1706,20 @@ def history(
     ),
 )
 @click.option(
-    "--skip_threshold",
+    "--skip-threshold",
     type=click.FloatRange(min=0, min_open=True, max=1),
     default=0.95,
-    help="Coverage fraction below which --skip_empty skips a station. Default: WD_TS_SKIP_THRESHOLD if set, else 0.95",
+    help="Coverage fraction below which --skip-empty skips a station. Default: WD_TS_SKIP_THRESHOLD if set, else 0.95",
 )
-@click.option(
-    "--drop_nulls",
-    type=click.BOOL,
+@_bool_opt(
+    "--drop-nulls",
     default=True,
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
 @format_opt
+@width_opt
+@height_opt
+@scale_opt
 @target_opt
 @if_exists_opt
 @pretty_opt
@@ -1637,7 +1737,7 @@ def values(
     end: str,
     issue: str,
     all_: bool,  # noqa: FBT001
-    station: list[str],
+    stations: list[str],
     name: str,
     name_threshold: float,
     latitude: float,
@@ -1651,6 +1751,9 @@ def values(
     sql: str,
     sql_values: str,
     fmt: str,
+    width: int | None,
+    height: int | None,
+    scale: float | None,
     target: str,
     if_exists: Literal["replace", "append", "fail", "skip"],
     shape: Literal["long", "wide"],
@@ -1668,7 +1771,7 @@ def values(
 ) -> None:
     """Acquire data.
 
-    Select the stations with exactly one of --all, --station, --name, --latitude/--longitude with
+    Select the stations with exactly one of --all, --stations, --name, --latitude/--longitude with
     --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
     timestamp_resolved = _resolve_timestamp(timestamp, start, end)
@@ -1683,7 +1786,7 @@ def values(
             "timestamp": timestamp_resolved,
             "issue": issue,
             "all": all_,
-            "station": station,
+            "stations": stations,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
@@ -1697,6 +1800,9 @@ def values(
             "sql": sql,
             "sql_values": sql_values,
             "format": fmt,
+            "width": width,
+            "height": height,
+            "scale": scale,
             "shape": shape,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
@@ -1756,12 +1862,17 @@ def values(
 @longitude_opt
 @elevation_opt
 @station_distance_opts("interpolation")
+@min_gain_of_value_pairs_opt
+@num_additional_stations_opt
 @use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
 @humanize_opt
 @format_opt
+@width_opt
+@height_opt
+@scale_opt
 @target_opt
 @if_exists_opt
 @pretty_opt
@@ -1777,6 +1888,8 @@ def interpolate(
     interpolation_station_distance: str,
     interpolation_station_distance_homogeneous: float | None,
     interpolation_station_distance_heterogeneous: float | None,
+    min_gain_of_value_pairs: float,
+    num_additional_stations: int,
     use_nearby_station_distance: float,
     timestamp: str,
     start: str,
@@ -1788,6 +1901,9 @@ def interpolate(
     elevation: float | None,
     sql_values: str,
     fmt: str,
+    width: int | None,
+    height: int | None,
+    scale: float | None,
     target: str,
     if_exists: Literal["replace", "append", "fail", "skip"],
     convert_units: bool,  # noqa: FBT001
@@ -1817,6 +1933,8 @@ def interpolate(
             "interpolation_station_distance": interpolation_station_distance,
             "interpolation_station_distance_homogeneous": interpolation_station_distance_homogeneous,
             "interpolation_station_distance_heterogeneous": interpolation_station_distance_heterogeneous,
+            "min_gain_of_value_pairs": min_gain_of_value_pairs,
+            "num_additional_stations": num_additional_stations,
             "use_nearby_station_distance": use_nearby_station_distance,
             "timestamp": timestamp_resolved,
             "issue": issue,
@@ -1826,6 +1944,9 @@ def interpolate(
             "elevation": elevation,
             "sql_values": sql_values,
             "format": fmt,
+            "width": width,
+            "height": height,
+            "scale": scale,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
             "humanize": humanize,
@@ -1858,6 +1979,8 @@ def interpolate(
                 "geo_station_distance_heterogeneous",
                 request.interpolation_station_distance_heterogeneous,
             ),
+            "min_gain_of_value_pairs": ("geo_min_gain_of_value_pairs", request.min_gain_of_value_pairs),
+            "num_additional_stations": ("geo_num_additional_stations", request.num_additional_stations),
             "use_nearby_station_distance": ("geo_use_nearby_station_distance", request.use_nearby_station_distance),
         }
     )
@@ -1887,12 +2010,17 @@ def interpolate(
 @longitude_opt
 @elevation_opt
 @station_distance_opts("summary")
+@min_gain_of_value_pairs_opt
+@num_additional_stations_opt
 @summary_use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
 @humanize_opt
 @format_opt
+@width_opt
+@height_opt
+@scale_opt
 @target_opt
 @if_exists_opt
 @pretty_opt
@@ -1908,6 +2036,8 @@ def summarize(
     summary_station_distance: str,
     summary_station_distance_homogeneous: float | None,
     summary_station_distance_heterogeneous: float | None,
+    min_gain_of_value_pairs: float,
+    num_additional_stations: int,
     use_nearby_station_distance: float,
     timestamp: str,
     start: str,
@@ -1919,6 +2049,9 @@ def summarize(
     elevation: float | None,
     sql_values: str,
     fmt: str,
+    width: int | None,
+    height: int | None,
+    scale: float | None,
     target: str,
     if_exists: Literal["replace", "append", "fail", "skip"],
     convert_units: bool,  # noqa: FBT001
@@ -1948,6 +2081,8 @@ def summarize(
             "summary_station_distance": summary_station_distance,
             "summary_station_distance_homogeneous": summary_station_distance_homogeneous,
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
+            "min_gain_of_value_pairs": min_gain_of_value_pairs,
+            "num_additional_stations": num_additional_stations,
             "use_nearby_station_distance": use_nearby_station_distance,
             "timestamp": timestamp_resolved,
             "issue": issue,
@@ -1957,6 +2092,9 @@ def summarize(
             "elevation": elevation,
             "sql_values": sql_values,
             "format": fmt,
+            "width": width,
+            "height": height,
+            "scale": scale,
             "convert_units": convert_units,
             "unit_targets": unit_targets,
             "humanize": humanize,
@@ -1988,6 +2126,8 @@ def summarize(
                 "geo_station_distance_heterogeneous",
                 request.summary_station_distance_heterogeneous,
             ),
+            "min_gain_of_value_pairs": ("geo_min_gain_of_value_pairs", request.min_gain_of_value_pairs),
+            "num_additional_stations": ("geo_num_additional_stations", request.num_additional_stations),
         }
     )
 
@@ -2025,11 +2165,11 @@ def _radar_sites(
 
 
 @cli.command("radar", epilog=_examples(RADAR_EXAMPLES))
-@click.option("--dwd", is_flag=True, help="Select the radar sites DWD operates.")
-@click.option("--all", "all_", is_flag=True, help="Select all OPERA radar sites.")
+@_bool_opt("--dwd", default=False, help="Select the radar sites DWD operates. Default: false")
+@_bool_opt("--all", dest="all_", default=False, help="Select all OPERA radar sites. Default: false")
 @click.option("--odim-code", type=click.STRING, help="Select the site with this ODIM code. Example: deasb")
-@click.option("--wmo_code", type=click.INT, help="Select the site with this WMO code. Example: 10103")
-@click.option("--country_name", type=click.STRING, help="Select the sites in this country. Example: france")
+@click.option("--wmo-code", type=click.INT, help="Select the site with this WMO code. Example: 10103")
+@click.option("--country-name", type=click.STRING, help="Select the sites in this country. Example: france")
 @click.option("--indent", type=click.INT, default=4, help="JSON indentation. Default: 4")
 def radar(
     dwd: bool,  # noqa: FBT001
@@ -2041,7 +2181,7 @@ def radar(
 ) -> None:
     """List radar stations.
 
-    Select the sites with exactly one of --dwd, --all, --odim-code, --wmo_code or --country_name.
+    Select the sites with exactly one of --dwd, --all, --odim-code, --wmo-code or --country-name.
     """
     # an empty code or country, e.g. from an unset shell variable, selects nothing rather than a lookup
     _require_one_of(
@@ -2167,14 +2307,14 @@ def alerts(
     print(output)  # noqa: T201
 
 
-@cli.group("stripes")
+@cli.group("stripes", cls=_Group)
 def stripes() -> None:
     """Climate stripes."""
 
 
 @stripes.command("stations")
 @click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
-@click.option("--active", type=click.BOOL, default=True, help="Only stations still reporting. Default: true")
+@_bool_opt("--active", default=True, help="Only stations still reporting. Default: true")
 @click.option(
     "--format",
     "fmt",
@@ -2183,13 +2323,16 @@ def stripes() -> None:
     help="Output format. Default: json",
 )
 @pretty_opt
+@debug_opt
 def stripes_stations(
     kind: str,
     active: bool,  # noqa: FBT001
     fmt: str,
     pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
 ) -> None:
     """List stations for climate stripes."""
+    set_logging_level(debug=debug)
     if kind not in ["temperature", "precipitation"]:
         msg = f"Invalid kind '{kind}'"
         raise click.ClickException(msg)
@@ -2205,17 +2348,12 @@ def stripes_stations(
 @click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
 @click.option("--station", type=click.STRING, help="Station id, instead of --name.")
 @click.option("--name", type=click.STRING, help="Station name, matched fuzzily, instead of --station.")
-@click.option("--name_threshold", type=click.FLOAT, default=0.80, help="Minimum fuzzy-match score. Default: 0.8")
-@click.option("--start_year", type=click.INT, help="First year. Default: the station's first")
-@click.option("--end_year", type=click.INT, help="Last year. Default: the station's last")
-@click.option("--show_title", type=click.BOOL, default=True, help="Show the station name. Default: true")
-@click.option("--show_years", type=click.BOOL, default=True, help="Show the first and last year. Default: true")
-@click.option(
-    "--show_data_availability",
-    type=click.BOOL,
-    default=True,
-    help="Mark the years without data. Default: true",
-)
+@click.option("--name-threshold", type=click.FLOAT, default=0.80, help="Minimum fuzzy-match score. Default: 0.8")
+@click.option("--start-year", type=click.INT, help="First year. Default: the station's first")
+@click.option("--end-year", type=click.INT, help="Last year. Default: the station's last")
+@_bool_opt("--show-title", default=True, help="Show the station name. Default: true")
+@_bool_opt("--show-years", default=True, help="Show the first and last year. Default: true")
+@_bool_opt("--show-data-availability", default=True, help="Mark the years without data. Default: true")
 @click.option(
     "--format",
     "fmt",

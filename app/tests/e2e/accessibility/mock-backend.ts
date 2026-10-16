@@ -154,7 +154,7 @@ function observationValues(url: URL): Value[] {
   const requested = (url.searchParams.get('parameters') ?? '').split(',').filter(Boolean)
   const names = requested.map(entry => entry.split('/')[2]).filter((name): name is string => Boolean(name))
   const parameters = names.length ? names : ['temperature_air_mean_2m']
-  const stations = (url.searchParams.getAll('station').join(',') || '00011').split(',')
+  const stations = (url.searchParams.getAll('stations').join(',') || '00011').split(',')
   const values: Value[] = []
   for (const station_id of stations) {
     for (const name of parameters) {
@@ -178,7 +178,7 @@ function observationValues(url: URL): Value[] {
 
 /** Three days of hourly MOSMIX values from this hour on, for each series the meteogram draws */
 function forecastValues(url: URL): Value[] {
-  const station_id = url.searchParams.get('station') ?? MOSMIX_STATION.station_id
+  const station_id = url.searchParams.get('stations') ?? MOSMIX_STATION.station_id
   const start = new Date()
   start.setUTCMinutes(0, 0, 0)
   const series: Record<string, (hour: number) => number> = {
@@ -262,7 +262,8 @@ export function defaultHandlers(): Handlers {
     'stations': (url) => {
       const mosmix = url.searchParams.get('network') === 'mosmix'
       const all = mosmix ? MOSMIX_STATIONS : STATIONS
-      const wanted = url.searchParams.getAll('station')
+      // a list is comma-separated, and the key given more than once is read as the same list
+      const wanted = url.searchParams.getAll('stations').flatMap(ids => ids.split(','))
       return { stations: wanted.length ? all.filter(station => wanted.includes(station.station_id)) : all }
     },
     'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url) : observationValues(url) }),

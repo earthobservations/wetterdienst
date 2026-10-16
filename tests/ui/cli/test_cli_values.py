@@ -64,7 +64,7 @@ SETTINGS_VALUES = (
         "dmo",
         [
             "--parameters=hourly/icon",
-            "--lead_time=long",
+            "--lead-time=long",
             f"--timestamp={dt.datetime.strftime(dt.datetime.now(ZoneInfo('UTC')) + dt.timedelta(days=5), '%Y-%m-%d')}",
         ],
         "10488",
@@ -89,7 +89,7 @@ def invoke_wetterdienst_values_static(
             "values",
             f"--provider={provider}",
             f"--network={network}",
-            f"--station={station}",
+            f"--stations={station}",
             f"--format={fmt}",
             "--shape=long",
         ]
@@ -114,7 +114,7 @@ def invoke_wetterdienst_values_static_wide(
             "values",
             f"--provider={provider}",
             f"--network={network}",
-            f"--station={station}",
+            f"--stations={station}",
             "--shape=wide",
             f"--format={fmt}",
         ]
@@ -138,7 +138,7 @@ def invoke_wetterdienst_values_export_wide(
             "values",
             f"--provider={provider}",
             f"--network={network}",
-            f"--station={station}",
+            f"--stations={station}",
             "--shape=wide",
             f"--target={target}",
             *setting,
@@ -284,8 +284,8 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
         station="01047,01048",
         fmt="json",
         additional=[
-            "--with_metadata=true",
-            "--with_stations=true",
+            "--with-metadata=true",
+            "--with-stations=true",
         ],
     )
     response = json.loads(result.output)
@@ -372,7 +372,7 @@ def test_cli_values_geojson(metadata: dict) -> None:
         station="01048",
         fmt="geojson",
         # with_metadata now defaults to false; request it explicitly to test the metadata block
-        additional=["--with_metadata=true"],
+        additional=["--with-metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"metadata", "settings", "data"}
@@ -411,7 +411,7 @@ def test_cli_values_geojson_no_metadata() -> None:
         station="01048",
         fmt="geojson",
         additional=[
-            "--with_metadata=false",
+            "--with-metadata=false",
         ],
     )
     response = json.loads(result.output)
@@ -567,7 +567,7 @@ def test_cli_values_custom_units() -> None:
         ],
         station="01048",
         fmt="json",
-        additional=['--unit_targets={"temperature":"degree_fahrenheit"}'],
+        additional=['--unit-targets={"temperature":"degree_fahrenheit"}'],
     )
     data = json.loads(result.output)
     first = data["values"][0]
@@ -729,7 +729,7 @@ def test_cli_values_date_and_start_date_conflict() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/kl",
-            "--station=01048",
+            "--stations=01048",
             "--timestamp=2020-06-30",
             "--start=2020-06-30",
         ],
@@ -748,7 +748,7 @@ def test_cli_values_date_and_end_date_conflict() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/kl",
-            "--station=01048",
+            "--stations=01048",
             "--timestamp=2020-06-30",
             "--end=2020-06-30",
         ],
@@ -790,7 +790,7 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
                 "--provider=dwd",
                 "--network=road",
                 "--parameters=15_minutes/data/temperature_air_2m",
-                "--station=A006",
+                "--stations=A006",
                 "--start=2024-01-01",
                 "--end=2024-01-02",
             ],
@@ -807,8 +807,8 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
     ("given", "expected"),
     [
         pytest.param([], "replace", id="default"),
-        pytest.param(["--if_exists=append"], "append", id="append"),
-        pytest.param(["--if_exists=skip"], "skip", id="skip"),
+        pytest.param(["--if-exists=append"], "append", id="append"),
+        pytest.param(["--if-exists=skip"], "skip", id="skip"),
     ],
 )
 @mock.patch("wetterdienst.io.export.ExportMixin.to_target")
@@ -833,7 +833,7 @@ def test_cli_values_target_passes_if_exists_to_the_sink(
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--periods=recent",
-            "--station=01048",
+            "--stations=01048",
             "--target=duckdb:///obs.duckdb?table=weather",
             *given,
         ],
@@ -864,9 +864,9 @@ def test_cli_values_target_reports_a_pairing_the_sink_refuses(
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--periods=recent",
-            "--station=01048",
+            "--stations=01048",
             f"--target=file://{tmp_path / 'kl.csv'}",
-            "--if_exists=append",
+            "--if-exists=append",
         ],
     )
 
@@ -896,7 +896,7 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
         "--provider=dwd",
         "--network=observation",
         "--periods=recent",
-        "--station=01048",
+        "--stations=01048",
         "--shape=wide",
         f"--target={target}",
     ]
@@ -906,7 +906,7 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
 
     second = runner.invoke(
         cli,
-        [*common, "--parameters=daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount", "--if_exists=append"],
+        [*common, "--parameters=daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount", "--if-exists=append"],
     )
 
     assert second.exit_code == 1
@@ -914,16 +914,16 @@ def test_cli_values_target_reports_a_sink_failure_that_is_not_about_if_exists(
 
 
 @pytest.mark.remote
-@pytest.mark.parametrize("given", [[], ["--if_exists=fail"], ["--if_exists=skip"]])
+@pytest.mark.parametrize("given", [[], ["--if-exists=fail"], ["--if-exists=skip"]])
 def test_cli_values_target_reports_an_unwritable_format_the_same_way_in_every_mode(
     given: list[str],
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """An extension nothing writes is a refusal, and `--if_exists` has no bearing on it.
+    """An extension nothing writes is a refusal, and `--if-exists` has no bearing on it.
 
     It used to depend on the mode, because the CLI inferred a refusal from the exception class and
-    `KeyError` was on the list: with `--if_exists=fail` this printed one line, and without it the
+    `KeyError` was on the list: with `--if-exists=fail` this printed one line, and without it the
     same command printed a traceback. `ExportRefusedError` says which it is, so the mode cannot
     change the answer.
     """
@@ -938,7 +938,7 @@ def test_cli_values_target_reports_an_unwritable_format_the_same_way_in_every_mo
             "--network=observation",
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--periods=recent",
-            "--station=01048",
+            "--stations=01048",
             f"--target={target}",
             *given,
         ],
@@ -980,7 +980,7 @@ def test_cli_values_a_value_error_from_the_values_exits_1(
                 "--provider=dwd",
                 "--network=observation",
                 "--parameters=daily/kl",
-                "--station=01048",
+                "--stations=01048",
                 "--timestamp=2020-06-30",
                 *given,
             ],
@@ -1079,7 +1079,7 @@ def test_cli_values_tells_a_refusal_in_one_line(
     monkeypatch.setattr("wetterdienst.ui.cli.get_values", refuse)
     with caplog.at_level(logging.ERROR):
         result = CliRunner().invoke(
-            cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+            cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--stations=01048"]
         )
 
     assert result.exit_code == 2, result.output
@@ -1092,7 +1092,7 @@ def test_cli_values_unknown_parameter_is_a_usage_error() -> None:
     """Test a parameter the network does not have is a one-line usage error, not a traceback (GH-2426)."""
     result = CliRunner().invoke(
         cli,
-        ["values", "--provider=dwd", "--network=observation", "--parameters=daily/nonexistent", "--station=01048"],
+        ["values", "--provider=dwd", "--network=observation", "--parameters=daily/nonexistent", "--stations=01048"],
     )
 
     assert result.exit_code == 2, result.output
@@ -1113,7 +1113,7 @@ def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_values", fail)
     result = CliRunner().invoke(
-        cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+        cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--stations=01048"]
     )
 
     assert result.exit_code == 1
@@ -1124,7 +1124,7 @@ def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest
 @pytest.mark.parametrize(
     ("command", "entry_point"),
     [
-        pytest.param(["values", "--station=01048"], "get_values", id="values"),
+        pytest.param(["values", "--stations=01048"], "get_values", id="values"),
         pytest.param(["stations", "--all"], "get_stations", id="stations"),
         pytest.param(["interpolate", "--station=01048", "--start=2020-01-01"], "get_interpolate", id="interpolate"),
         pytest.param(["summarize", "--station=01048", "--start=2020-01-01"], "get_summarize", id="summarize"),
@@ -1194,7 +1194,7 @@ def test_cli_values_leaves_a_wetterdienst_error_that_is_no_refusal_its_traceback
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_values", fail)
     result = CliRunner().invoke(
-        cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+        cli, ["values", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--stations=01048"]
     )
 
     assert result.exit_code == 1
@@ -1204,7 +1204,7 @@ def test_cli_values_leaves_a_wetterdienst_error_that_is_no_refusal_its_traceback
 
 @pytest.mark.parametrize("given", ["{old}=2020", "{old} 2020", "{old}"])
 @pytest.mark.parametrize(("old", "new"), [("--start-date", "--start"), ("--end-date", "--end")])
-@pytest.mark.parametrize("command", ["values", "interpolate", "summarize"])
+@pytest.mark.parametrize("command", ["stations", "values", "interpolate", "summarize"])
 def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: str, new: str, given: str) -> None:
     """Test the old window options name the new one rather than click's bare no-such-option (GH-2437).
 
@@ -1217,7 +1217,7 @@ def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: 
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/kl",
-            "--station=01048",
+            "--stations=01048" if command in {"stations", "values"} else "--station=01048",
             # last, so that alone it has nothing to take for a value
             *given.format(old=old).split(),
         ],
@@ -1237,7 +1237,7 @@ def test_cli_refuses_a_renamed_window_option_by_its_new_name(command: str, old: 
 @pytest.mark.parametrize(
     "command",
     [
-        ["values", "--station=01048"],
+        ["values", "--stations=01048"],
         ["interpolate", "--latitude=49.9195", "--longitude=8.9671"],
         ["summarize", "--latitude=49.9195", "--longitude=8.9671"],
     ],
@@ -1273,7 +1273,7 @@ def test_cli_refuses_a_dataset_queried_by_a_window_given_none_naming_its_options
     with caplog.at_level(logging.ERROR):
         result = CliRunner().invoke(
             cli,
-            ["values", "--station=x", "--provider=eccc", "--network=observation", "--parameters=hourly/data"],
+            ["values", "--stations=x", "--provider=eccc", "--network=observation", "--parameters=hourly/data"],
         )
 
     assert result.exit_code == 2, result.output
@@ -1310,7 +1310,7 @@ def test_cli_values_without_an_optional_package_says_what_to_install(
                 "--provider=dwd",
                 "--network=observation",
                 "--parameters=daily/kl",
-                "--station=00011",
+                "--stations=00011",
                 "--periods=recent",
             ],
         )
@@ -1405,7 +1405,7 @@ def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
                 "--provider=dwd",
                 "--network=observation",
                 "--parameters=daily/kl",
-                "--station=00011",
+                "--stations=00011",
                 "--periods=recent",
                 "--format=png",
             ],
@@ -1428,7 +1428,7 @@ def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
     ("command", "options"),
     [
         ("stations", ["--all"]),
-        ("values", ["--station=1", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("values", ["--stations=1", "--start=2020-01-01", "--end=2020-01-02"]),
         ("interpolate", ["--station=1", "--start=2020-01-01", "--end=2020-01-02"]),
         ("summarize", ["--station=1", "--start=2020-01-01", "--end=2020-01-02"]),
     ],
@@ -1466,7 +1466,7 @@ def test_cli_without_a_credential_says_which_setting_to_change(
     ("command", "options"),
     [
         ("stations", ["--all"]),
-        ("values", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("values", ["--stations=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
         ("interpolate", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
         ("summarize", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
     ],

@@ -47,7 +47,7 @@ async function loadStation(id: string) {
         provider: MOSMIX.provider,
         network: MOSMIX.network,
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
-        station: id,
+        stations: id,
       },
       ...RETRY_TRANSIENT,
     })
@@ -74,7 +74,7 @@ async function fetchValues(s: Station) {
     provider: MOSMIX.provider,
     network: MOSMIX.network,
     parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
-    station: s.station_id,
+    stations: s.station_id,
     ...METEOGRAM_VALUES_SETTINGS,
   })
   try {

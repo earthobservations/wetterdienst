@@ -137,7 +137,7 @@ function historyQuery() {
     provider: provider.value,
     network: network.value,
     parameters: parametersString.value,
-    station: stationIds.value || undefined,
+    stations: stationIds.value || undefined,
     sections: selectedSections.value.length ? [...selectedSections.value].sort() : undefined,
   }
 }
