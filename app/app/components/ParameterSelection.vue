@@ -58,10 +58,10 @@ const networkKey = (providerName: string, networkName: string) => `${providerNam
 // A provider/network is available when it is a timeseries network, and needs no auth or has its
 // credentials present and not rejected. A standalone network (`radar`, `alerts`: `dwd/radar`,
 // `dwd/alerts`, and any later one) has no stations, resolutions or parameters to select, and its
-// coverage is a 404; neither has a network that cannot be imported (`kind` null). Only a check that
-// says the credentials are rejected hides a network that has them (GH-2641).
-const TIMESERIES_KINDS: ReadonlyArray<NetworkKind | null | undefined> = ['observation', 'forecast', 'derived']
-function isAvailable(providerName: string, networkName: string, n: Pick<CoverageNetworkInfo, 'auth' | 'configured'> & { kind?: NetworkKind | null }) {
+// coverage is a 404. Only a check that says the credentials are rejected hides a network that has
+// them (GH-2641).
+const TIMESERIES_KINDS: ReadonlyArray<NetworkKind | undefined> = ['observation', 'forecast', 'derived']
+function isAvailable(providerName: string, networkName: string, n: Pick<CoverageNetworkInfo, 'auth' | 'configured'> & { kind?: NetworkKind }) {
   // a missing `kind` is an answer that does not carry it, as the mocks of the tests do
   if (n.kind !== undefined && !TIMESERIES_KINDS.includes(n.kind))
     return false

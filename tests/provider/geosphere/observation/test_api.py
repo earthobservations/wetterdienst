@@ -454,11 +454,15 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
 
 
 @pytest.mark.synthetic_values  # the archive's readings count timestamps and parameters, they are no temperatures
-@pytest.mark.parametrize("resolution", ["daily", "monthly"])
+@pytest.mark.parametrize(
+    ("resolution", "parameter"),
+    [("daily", "temperature_air_mean_minmax_2m"), ("monthly", "temperature_air_mean_2m")],
+)
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
 def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_request(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
+    parameter: str,
 ) -> None:
     """Test that one parameter at a resolution that never needs windows still asks for the whole record (GH-2517).
 
@@ -467,7 +471,7 @@ def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_
     """
     start = datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC"))
     requests = _serve_archive_of_parameters(monkeypatch, timedelta(days=30), start, start + timedelta(days=90))
-    request = GeosphereObservationRequest(parameters=[(resolution, "data", "temperature_air_mean_2m")])
+    request = GeosphereObservationRequest(parameters=[(resolution, "data", parameter)])
     df = request.filter_by_station_id("4821").values.all().df
     assert len(requests) == 1
     assert df.height == 4
@@ -484,7 +488,7 @@ def test_geosphere_observation_stations_that_still_report_have_no_end(monkeypatc
     ).encode()
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
 
-    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_minmax_2m")]).all().df
 
     assert dict(zip(df["station_id"], df["end_timestamp"], strict=True)) == {
         "1": None,
@@ -517,7 +521,7 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
     ).encode()
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
 
-    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_minmax_2m")]).all().df
 
     assert df.schema["wmo_id"] == pl.String
     assert df.select("station_id", "wmo_id").rows() == [

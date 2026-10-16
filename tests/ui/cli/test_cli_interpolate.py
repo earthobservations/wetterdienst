@@ -82,7 +82,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"metadata", "stations", "values"}
+    assert response.keys() == {"metadata", "settings", "stations", "values"}
     assert response["metadata"] == metadata
     assert response["stations"] == [
         {
@@ -168,7 +168,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"metadata", "data"}
+    assert response.keys() == {"metadata", "settings", "data"}
     assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",

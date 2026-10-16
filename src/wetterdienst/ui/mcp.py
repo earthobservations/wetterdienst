@@ -144,6 +144,12 @@ by querying a single "resolution/dataset/parameter" and -- if you only need one 
 today). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
 "2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
 reading.
+- An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
+matches, or `station` ids the network has no station for (they are left out of the list and the rest is \
+answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
+station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
+in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
+matches and `values` the one best match; `rank` asks for another number.
 - The default JSON is already machine-readable — do NOT re-request the same data in a different \
 format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
 

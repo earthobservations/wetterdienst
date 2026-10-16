@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import sys
@@ -33,8 +34,10 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
 )
 from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
+from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LISTING
 from wetterdienst.options import Options, SkipThreshold, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
@@ -133,7 +136,9 @@ _RankField = Annotated[
     int | None,
     Field(
         ge=1,
-        description="With latitude/longitude, the N closest stations; with name, at most N matches (default 5).",
+        description="With latitude/longitude, the N closest stations; with name, at most N matches (default "
+        f"{DEFAULT_NAME_RANK_LISTING} for `stations`, which lists candidates, and {DEFAULT_NAME_RANK} for "
+        "`values`, the best match, as the library's `filter_by_name`).",
     ),
 ]
 _DistanceField = Annotated[
@@ -184,6 +189,16 @@ _TIMESTAMP_DESCRIPTION = (
 )
 _TimestampField = Annotated[str, Field(description=_TIMESTAMP_DESCRIPTION)]
 _TimestampOptField = Annotated[str | None, Field(description=_TIMESTAMP_DESCRIPTION)]
+_StationsTimestampField = Annotated[
+    str | None,
+    Field(
+        description=_TIMESTAMP_DESCRIPTION
+        + " Given, only the stations whose record overlaps it are listed, as for `values`: a station is "
+        "left out when it started after the window, or ended before it by more than two readings of its "
+        "resolution (two days up to daily), as the end a source publishes lags a station that is still "
+        "reporting. A station whose start or end is not published is kept."
+    ),
+]
 _ShapeField = Annotated[
     Literal["long", "wide"],
     Field(
@@ -461,7 +476,7 @@ def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[I
     return errors
 
 
-class StationsRequest(BaseModel):
+class StationsRequest(_RefusesRenamedParameters):
     """Stations request with validated parameters."""
 
     model_config = {"extra": "forbid"}
@@ -532,6 +547,9 @@ class StationsRequest(BaseModel):
     top: _TopField = None
     # sql
     sql: _SqlField = None
+
+    # the window the stations listed are to have a record in, as for `values` (GH-2635)
+    timestamp: _StationsTimestampField = None
 
     with_metadata: _WithMetadataField = False
     with_stations: _WithStationsField = False
@@ -1402,11 +1420,14 @@ def get_stations(
 
     name: str | None = getattr(request, "name", None)
     if name:
-        # filter_by_name defaults to a single best match; for a listing default to several
-        # candidates so a place query offers options, honoring an explicit rank when given
-        # (e.g. the REST/MCP `rank` param).
-        name_rank: int = getattr(request, "rank", None) or 5
-        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
+        # the rank asked for, else the default of what is asked: the best few of a listing, the best
+        # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
+        default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
+        name_rank: int = getattr(request, "rank", None) or default_rank
+        # a listing for a window matches the name among the stations that have a record in it, so that
+        # the best few are not ones that closed long ago while a current station matches as well
+        df_all = limit_stations_to_window(r.all()).df if isinstance(request, StationsRequest) and timestamp else None
+        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8), df_all=df_all)
 
     latitude: float | None = getattr(request, "latitude", None)
     longitude: float | None = getattr(request, "longitude", None)
@@ -1433,6 +1454,41 @@ def get_stations(
     # not reached: the request models refuse a request that selects no stations, and say why
     msg = f"{type(request).__name__} selects no stations"
     raise AssertionError(msg)
+
+
+# how long before a window a station's published end may fall and the station still be listed for
+# it, by resolution: two readings, as the end a source publishes lags a station that is still
+# reporting (DWD's daily index ends yesterday, its annual one the year before last). Two days for
+# every resolution up to daily, and, as a month and a year are no fixed span, 62 and 732 days
+_END_LAG_DEFAULT = dt.timedelta(days=2)
+_END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
+
+
+def limit_stations_to_window(stations: StationsResult) -> StationsResult:
+    """Keep the rows of a stations *listing* whose record overlaps the window the request names.
+
+    `stations` takes a `timestamp` as `values` does, and a window is of no use to a listing unless it
+    leaves out the stations that cannot have a reading in it -- a nearest-three listing for a day this
+    year included stations that closed a century ago. A row is left out when its `start_timestamp` is
+    after the window, which is a historical fact, or its `end_timestamp` is before the window by more
+    than the lag of its resolution (`_END_LAG`), which is the one thing the index cannot state exactly
+    for a station that is still reporting (see `TimeseriesValues._begins_after_window`). A bound the
+    provider does not publish states nothing either way, so the row is kept. Without a window the
+    listing is returned as it is.
+
+    Applied to a listing only, and before `limit_stations_to_rank`, so that the N closest are the N
+    closest of those that overlap. `values` does not use it: it walks the stations and reads what each
+    holds inside the window, which is the better judge than an index.
+    """
+    start, end = stations.start, stations.end
+    df = stations.df
+    if start is None or end is None or df.is_empty():
+        return stations
+    lag = pl.col("resolution").replace_strict(_END_LAG, default=_END_LAG_DEFAULT, return_dtype=pl.Duration("us"))
+    ends_in_time = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") + lag >= start)
+    begins_in_time = pl.col("start_timestamp").is_null() | (pl.col("start_timestamp") <= end)
+    stations.df = df.filter(ends_in_time & begins_in_time)
+    return stations
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
@@ -1477,7 +1533,7 @@ def get_values(
 
     if values_.df.is_empty():
         # nothing to filter, and nothing more to say about it. An empty window is the caller's
-        # news to report: the CLI says so once and exits, the REST API hands the empty result
+        # news to report: the CLI says so once on stderr and exits 0, the REST API hands the empty result
         # back, and `.all()` has already logged it on the way here. Saying it again here made the
         # CLI print the same sentence twice
         return values_

@@ -114,7 +114,7 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
     [
         ("core", "temperature_air_2m"),
         ("core", "precipitation_amount"),
-        ("core", "wind_direction_gust_max"),
+        ("core", "wind_direction_last_10min"),
         ("others", "cloud_cover_total"),
         ("others", "visibility"),
     ],

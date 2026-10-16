@@ -40,6 +40,29 @@ query parameters are. `interpolate` and `summarize` also report the settings the
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
+The command line renders through the same function, so the same request gives the same body there:
+`wetterdienst values ... --with_metadata=true` writes the `settings` block too, and `--pretty` the
+indentation `pretty=true` does.
+
+What the endpoints share about which stations a request names:
+
+- **A name** (`name=Dresden`) is matched fuzzily. `stations` lists the best five matches, to choose
+  from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
+  number, for either.
+- **A list of station ids** (`station=01048,99999`) leaves out an id the network has no station for and
+  goes on with the others. When none exists the result is empty. The ids left out are named in a
+  warning in the server's log; the response carries no warning of its own. The one reference station
+  of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404.
+- **An empty result** -- a window without readings, a name nothing is called -- is a 200 with an empty
+  `values` or `stations`, on the command line exit 0 with the sentence on stderr. A 4xx or a non-zero
+  exit means the request failed.
+- **A window** (`timestamp`, a date or an interval as for `values`) also narrows `stations`: it lists
+  only the stations whose record overlaps it. A station is left out when it started after the window,
+  or ended before it by more than two readings of its resolution (two days up to daily, 62 days for
+  monthly and 732 for annual), because the end a source publishes lags a station that is still
+  reporting. A station whose start or end is not published is kept. With a point and `rank`, the
+  window leaves out stations before the nearest are taken.
+
 Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts and stripes alike,
 and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
 the microsecond, with its offset, for instance `2026-09-01T00:00:00.000000+00:00`.
@@ -73,6 +96,11 @@ datasets and parameters of. Every network is one but two. The **standalone netwo
 `dwd/radar` (`radar`) and `dwd/alerts` (`alerts`): they have their own request classes and results in
 Python, no stations or parameters, and every endpoint above answers a request for them with a 404. A
 new standalone network gets a `kind` of its own.
+
+A network that cannot be imported on the server, such as one whose package is broken, is not in the
+list, nor is a provider none of whose networks can be; the server logs why. Asking for that network
+by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
+optional package is missing, never a 404 as for a network that does not exist.
 
 The list leaves out whether the provider accepts the credentials of a network that has them, because
 that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
@@ -244,7 +272,7 @@ entry for each invalid parameter, where `loc` names it:
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
-| 501 | the server cannot serve it: a credential or an optional package it lacks, which the body does not name |
+| 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 503 | the server could not reach the data provider (no network connection); the request was valid and can be retried, the body says so and does not name the provider's address |
 | 500 | the server's own error, or the provider's: the body names the exception's type and nothing else, the cause is in the server log |
 

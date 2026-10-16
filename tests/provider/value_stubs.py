@@ -453,6 +453,19 @@ def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
     )
 
 
+def _dwd_hourly_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # station 01048, stundenwerte_RR_01048_19950901_20251231_hist.zip (read 2026-10-16): the 9 of `WRTR` is DWD's
+    # "Missing value, Type of precipitation unascertainable" (the English sheet), written 2021-07-09 17:00 beside a
+    # height of 0.0 and, in the files read, mostly beside R1 = -999 (261 of 270 rows). A 6 is a liquid precipitation
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;  R1;RS_IND;WRTR;eor\n"
+        "       1048;2021070915;    3;   0.4;   1;   6;eor\n"
+        "       1048;2021070916;    3;   0.0;   0;   0;eor\n"
+        "       1048;2021070917;    3;   0.0;   1;   9;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "precipitation", product, "01048", year=2021, drop_nulls=drop_nulls)
+
+
 def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the -1 where the sky could not be seen, as the hourly cloud_type file of station 00003 writes it (43 times in
     # 2005, read 2026-10-12); the cloudiness file is worded after it
@@ -1368,6 +1381,13 @@ STUBS = [
         reading=("weather", 61.0),
         sentinels=(("weather", -1.0),),
         tokens=(("weather", "-1", None),),
+    ),
+    ValueStub(
+        "dwd/observation hourly/precipitation",
+        _dwd_hourly_precipitation,
+        reading=("precipitation_amount", 0.4),
+        sentinels=(("precipitation_form", 9.0),),
+        tokens=(("precipitation_form", "9", None),),
     ),
     ValueStub(
         "dwd/observation hourly/cloudiness",

@@ -412,15 +412,18 @@ def test_cli_glossary_unit_type() -> None:
     assert [entry["name"] for entry in entries] == ["turbidity"]
 
 
-def test_cli_glossary_no_match() -> None:
-    """Test that a filter matching nothing exits non-zero, as grep does.
+def test_cli_glossary_no_match(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a filter matching nothing is an empty list and exit 0, as the REST endpoint's 200 is (GH-2635).
 
-    The REST endpoint answers the same query with 200 and an empty list, because an empty result is
-    not an HTTP error. The exit code is what makes the difference visible to a shell script.
+    An empty result is an answer, not a failure: the sentence goes to stderr and stdout holds what
+    `/api/glossary` sends, so a script reads one thing from either.
     """
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
-    assert result.exit_code == 1
+    with caplog.at_level(logging.WARNING):
+        result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert "No canonical parameter matches the given filters." in caplog.text
 
 
 def test_cli_glossary_unknown_unit_type() -> None:
@@ -1457,3 +1460,57 @@ def test_cli_about_fields_without_pypdf_is_one_logged_line(
     assert result.exit_code == 1
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
     assert all(record.exc_info is None for record in caplog.records)
+
+
+def _fail_to_import(monkeypatch: pytest.MonkeyPatch, *, provider: str, network: str) -> None:
+    """Make one network fail to import, as a broken install of a package it needs does."""
+    resolve = Wetterdienst.resolve
+
+    def failing(requested_provider: str, requested_network: str) -> object:
+        if (requested_provider, requested_network) == (provider, network):
+            msg = f"Module wetterdienst.provider.{provider}.{network} failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(requested_provider, requested_network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", failing)
+
+
+def test_about_coverage_leaves_out_a_network_that_fails_to_import(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The listing of every network does not list one it cannot import, as one that needs no credentials (GH-2801)."""
+    _fail_to_import(monkeypatch, provider="dwd", network="dmo")
+    with caplog.at_level(logging.WARNING):
+        result = CliRunner().invoke(cli, ["about", "coverage"])
+
+    assert result.exit_code == 0, result.output
+    listed = json.loads(result.stdout)
+    assert "dmo" not in listed["dwd"]
+    assert "observation" in listed["dwd"]
+    assert "Left dwd/dmo out of the listing" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["about", "coverage"], id="coverage"),
+        pytest.param(["about", "auth"], id="auth"),
+        pytest.param(["stations", "--parameters=hourly/icon", "--all"], id="stations"),
+    ],
+)
+def test_a_network_that_fails_to_import_is_the_import_error_not_an_unknown_network(
+    monkeypatch: pytest.MonkeyPatch, args: list[str]
+) -> None:
+    """A listed network whose module fails to import is a failure with its own message, not a usage error (GH-2800).
+
+    A usage error, exit 2, pointing at the listing of networks is what an unknown network is told as, and
+    the network is in that listing. The import error keeps its traceback, as it does for the REST API's 500.
+    """
+    _fail_to_import(monkeypatch, provider="dwd", network="dmo")
+    result = CliRunner().invoke(cli, [*args, "--provider=dwd", "--network=dmo"])
+
+    assert result.exit_code == 1, result.output
+    assert type(result.exception) is ImportError
+    assert "lxml.etree not found" in str(result.exception)
+    assert "Usage:" not in result.output
+    assert "lists the available ones" not in result.output

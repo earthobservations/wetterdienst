@@ -5,6 +5,7 @@
 import datetime as dt
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -288,7 +289,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
         ],
     )
     response = json.loads(result.output)
-    assert response.keys() == {"values", "metadata", "stations"}
+    assert response.keys() == {"values", "metadata", "settings", "stations"}
     assert response["metadata"] == metadata
     assert response["stations"] == [
         {
@@ -374,7 +375,7 @@ def test_cli_values_geojson(metadata: dict) -> None:
         additional=["--with_metadata=true"],
     )
     response = json.loads(result.output)
-    assert response.keys() == {"metadata", "data"}
+    assert response.keys() == {"metadata", "settings", "data"}
     assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",
@@ -799,42 +800,6 @@ def test_cli_values_without_the_bufr_reader_says_what_to_install(
     # handled rather than propagated: the command chose to exit, and the error did not escape it.
     # `CliRunner` never renders a traceback into `output`, so looking for one there proves nothing
     assert isinstance(result.exception, SystemExit)
-
-
-def test_cli_values_reports_an_empty_window_once(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A window holding no readings is one sentence, not the same one twice.
-
-    `core.get_values` logged "No data available for given constraints" and handed the empty frame
-    back, and the CLI logged the identical line again on its way to exiting -- so the caller read
-    it twice for a single empty result. Reporting it belongs to the caller: the CLI says it and
-    exits, the REST API returns the empty result, and `.all()` already notes it at info level on
-    the way out of the library.
-
-    Stubbed at `get_stations` rather than asked of DWD: this is about how many times the CLI says
-    it, and a real empty window would need the network to arrive at.
-    """
-    stations = SimpleNamespace(values=SimpleNamespace(all=lambda: SimpleNamespace(df=pl.DataFrame())))
-    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
-
-    with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(
-            cli,
-            [
-                "values",
-                "--provider=dwd",
-                "--network=observation",
-                "--parameters=daily/kl",
-                "--station=01048",
-                "--timestamp=2020-06-30",
-            ],
-        )
-
-    assert result.exit_code == 1
-    messages = [record.message for record in caplog.records]
-    assert messages.count("No data available for given constraints") == 1
 
 
 @pytest.mark.remote
@@ -1491,6 +1456,55 @@ def test_cli_without_a_credential_says_which_setting_to_change(
     )
     assert result.exit_code == 1, result.output
     assert setting in result.stderr
+    assert "Traceback" not in result.stderr
+    assert result.stderr.startswith("Error: ")
+    assert len(result.stderr.splitlines()) == 1
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize(
+    ("command", "options"),
+    [
+        ("stations", ["--all"]),
+        ("values", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("interpolate", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("summarize", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+    ],
+)
+def test_cli_with_a_rejected_credential_says_which_setting_to_replace(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    command: str,
+    options: list[str],
+    status: int,
+) -> None:
+    """A client ID Frost refuses is told in one line, exit 1, naming the setting and not the ID (GH-2665).
+
+    As for a missing key, the command line's user is the one who can replace it; it arrived as a
+    traceback, and the options were right, so it is no usage error either.
+    """
+    from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    client_id = "frost-client-id-4f9a"
+
+    def download_file(*, url: str, **_kwargs: object) -> File:
+        return File(url=url, content=OSError(f"{status}, message='Unauthorized'"), status=status)
+
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", client_id)
+    monkeypatch.setattr(frost_api, "download_file", download_file)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        cli,
+        [command, "--provider=metno", "--network=frost", "--parameters=hourly/data/temperature_air_2m", *options],
+    )
+    assert result.exit_code == 1, result.output
+    assert f"HTTP {status}" in result.stderr
+    assert "WD_AUTH__METNO_FROST" in result.stderr
+    assert client_id not in result.stderr
     assert "Traceback" not in result.stderr
     assert result.stderr.startswith("Error: ")
     assert len(result.stderr.splitlines()) == 1

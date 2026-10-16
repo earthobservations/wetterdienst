@@ -548,6 +548,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_2m_last_24h: 'Lufttemperatur (2 m, lest 24 h)',
   temperature_air_mean_2m_yesterday: 'Lufttemperatur (2 m), Vördag',
   temperature_air_mean_2m_normal: 'Lufttemperatur (2 m), Klimanormaalwert',
+  temperature_air_mean_minmax_2m: 'Middlere Lufttemperatur ut de Dagsextremen (2 m)',
   temperature_air_min_0_05m_last_12h: 'Sietsttemperatur an\'n Grund (5 cm, lest 12 h)',
   temperature_air_min_0_05m_yesterday: 'Sietsttemperatur an\'n Grund (5 cm), Vördag',
   temperature_air_min_2m_last_24h: 'Sietsttemperatur (2 m, lest 24 h)',

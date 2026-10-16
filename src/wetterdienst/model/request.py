@@ -64,6 +64,14 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 
+# How many stations a name selects when no rank is given, which every surface takes from here so that the
+# same name gives the same stations (GH-2635). A name is fuzzy -- "Kiel" is several stations, and "Berlin-
+# Tempelhof" also matches "Hof" -- so what is fetched for it is the one best match: `filter_by_name`, and
+# the `values` request of the command line, the REST API and MCP. A listing (`stations`) offers the best
+# few to choose from instead. Pass `rank` for another number.
+DEFAULT_NAME_RANK = 1
+DEFAULT_NAME_RANK_LISTING = 5
+
 # types
 # either of
 # str: "daily/kl" or "daily/kl/temperature_air_mean_2m"  # noqa: ERA001
@@ -525,6 +533,15 @@ class TimeseriesRequest:
 
         df_station_id = df.join(other=station_id_series.to_frame(), on="station_id", how="inner")
 
+        # an id the request has no station for leaves it out of the result, which would otherwise be
+        # an empty or a shorter one with no word on why (GH-2635)
+        found = set(df_station_id.get_column("station_id"))
+        if unknown := [station for station in dict.fromkeys(station_id_series) if station not in found]:
+            log.warning(
+                f"No station with station_id {', '.join(map(str, unknown))} for the requested parameters and "
+                f"periods of {type(self).__name__}.",
+            )
+
         return StationsResult(
             stations=self,
             df=df_station_id,
@@ -532,13 +549,25 @@ class TimeseriesRequest:
             stations_filter=StationsFilter.BY_STATION_ID,
         )
 
-    def filter_by_name(self, name: str, rank: int = 1, threshold: float = 0.8) -> StationsResult:
+    def filter_by_name(
+        self,
+        name: str,
+        rank: int = DEFAULT_NAME_RANK,
+        threshold: float = 0.8,
+        *,
+        df_all: pl.DataFrame | None = None,
+    ) -> StationsResult:
         """Filter stations by name.
 
         Args:
             name: Name of the station.
-            rank: Maximum number of matches to return, best score first (default 1).
+            rank: Maximum number of matches to return (default `DEFAULT_NAME_RANK`, the best match).
+                The `stations` listing of the command line and the REST API takes the best
+                `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same.
             threshold: Threshold for the fuzzy search.
+            df_all: The stations to match the name against, where not every station of the request: a
+                listing that has left out those without a record in its window, so that the best
+                matches are taken among the stations that remain (GH-2635). Default: all of them.
 
         Returns:
             StationsResult: Filtered stations.
@@ -560,7 +589,8 @@ class TimeseriesRequest:
             msg = "threshold must be between 0.0 and 1.0"
             raise ValueError(msg)
 
-        df_all = self.all().df
+        if df_all is None:
+            df_all = self.all().df
 
         # WRatio (rapidfuzz's weighted composite of ratio/partial/token-sort/token-set with
         # length-ratio guards) so a short place query matches longer station names: "Kiel" ->

@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import polars as pl
 from aiohttp import encode_basic_auth
 
-from wetterdienst.exceptions import CredentialMissingError
+from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
@@ -923,12 +923,12 @@ class MetnoFrostRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if isinstance(file.content, Exception) and file.status in {401, 403}:
+        if isinstance(file.content, Exception) and file.status in _FROST_REJECTED_STATUSES:
             msg = (
                 f"Frost API rejected the request with HTTP {file.status}. "
                 "Check that WD_AUTH__METNO_FROST contains a valid client ID."
             )
-            raise PermissionError(msg)
+            raise CredentialRejectedError(msg)
         # the catalogue is one required file, so any other failure of it -- a 404 included -- is an
         # outage, which swallowed would read as a network without stations (GH-2599). A failed
         # connection (NoInternetError) is raised as well (GH-2640)

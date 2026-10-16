@@ -167,6 +167,8 @@ _EXTREMES_MEAN_OF_DAILY = {
     "temperature_air_max_2m": "temperature_air_max_2m_mean",
     "temperature_air_min_2m": "temperature_air_min_2m_mean",
 }
+# GH-2839: a mean computed from the daily extremes, (max + min) / 2, is no mean of the day's readings
+_MIDRANGE_MEAN = {"temperature_air_mean_2m": "temperature_air_mean_minmax_2m"}
 
 #: canonical parameter names renamed inside one dataset, for a name that another dataset of the
 #: provider still has, so that `RENAMED_PARAMETERS` cannot hold it. Keyed by the name of the
@@ -188,6 +190,8 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         ("monthly", "data"): _EXTREMES_MEAN_OF_DAILY,
         ("annual", "data"): _EXTREMES_MEAN_OF_DAILY,
     },
+    "EcccObservationMetadata": {("daily", "data"): _MIDRANGE_MEAN, ("monthly", "data"): _MIDRANGE_MEAN},
+    "GeosphereObservationMetadata": {("daily", "data"): _MIDRANGE_MEAN},
     "DwdMosmixMetadata": {
         ("hourly", "small"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
         ("hourly", "large"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},

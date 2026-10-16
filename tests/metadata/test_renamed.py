@@ -20,6 +20,7 @@ from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.poi.metadata import DwdPoiMetadata
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
+from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
@@ -266,6 +267,22 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
             DwdDerivedMetadata,
             "daily/soil/evapotranspiration_potential_grass_haude_last_24h",
             "It was renamed to 'evapotranspiration_potential_grass_haude' in this dataset.",
+        ),
+        # GH-2839: the mean of the daily extremes, (max + min) / 2, is no mean of the day's readings
+        (
+            EcccObservationMetadata,
+            "daily/data/temperature_air_mean_2m",
+            "It was renamed to 'temperature_air_mean_minmax_2m' in this dataset.",
+        ),
+        (
+            EcccObservationMetadata,
+            "monthly/data/temperature_air_mean_2m",
+            "It was renamed to 'temperature_air_mean_minmax_2m' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "daily/data/temperature_air_mean_2m",
+            "It was renamed to 'temperature_air_mean_minmax_2m' in this dataset.",
         ),
         # GH-2841: the METAR's precipitation group, a running total, no amount of the hour; `precipitation_amount`
         # stays valid in the daily dataset of GHCN and everywhere else

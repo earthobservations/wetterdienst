@@ -548,6 +548,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_2m_last_24h: 'Teplota vzduchu (2 m, posledních 24 h)',
   temperature_air_mean_2m_yesterday: 'Teplota vzduchu (2 m), předchozí den',
   temperature_air_mean_2m_normal: 'Teplota vzduchu (2 m), klimatický normál',
+  temperature_air_mean_minmax_2m: 'Průměrná teplota vzduchu z denních extrémů (2 m)',
   temperature_air_min_0_05m_last_12h: 'Minimální teplota při zemi (5 cm, posledních 12 h)',
   temperature_air_min_0_05m_yesterday: 'Minimální teplota při zemi (5 cm), předchozí den',
   temperature_air_min_2m_last_24h: 'Minimální teplota (2 m, posledních 24 h)',

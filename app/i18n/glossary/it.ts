@@ -548,6 +548,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_2m_last_24h: 'Temperatura dell\'aria (2 m, ultime 24 h)',
   temperature_air_mean_2m_yesterday: 'Temperatura dell\'aria (2 m), giorno precedente',
   temperature_air_mean_2m_normal: 'Temperatura dell\'aria (2 m), normale climatica',
+  temperature_air_mean_minmax_2m: 'Temperatura media dell\'aria dagli estremi giornalieri (2 m)',
   temperature_air_min_0_05m_last_12h: 'Temperatura minima al suolo (5 cm, ultime 12 h)',
   temperature_air_min_0_05m_yesterday: 'Temperatura minima al suolo (5 cm), giorno precedente',
   temperature_air_min_2m_last_24h: 'Temperatura minima (2 m, ultime 24 h)',

@@ -1780,6 +1780,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
+        "temperature_air_mean_minmax_2m",
+        "temperature",
+        "Mean air temperature at 2 m above ground computed as the average of the maximum and the minimum of the "
+        "day, (max + min) / 2, not a mean of readings through the day like `temperature_air_mean_2m`; of a "
+        "month, the mean of those daily values.",
+        interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+    ),
+    CanonicalParameter(
         "temperature_air_min_0_05m",
         "temperature",
         "Minimum air temperature at 0.05 m above ground.",

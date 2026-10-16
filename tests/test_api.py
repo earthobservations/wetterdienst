@@ -10,6 +10,7 @@ import re
 import zoneinfo
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import get_args
 
 import polars as pl
@@ -19,6 +20,7 @@ from pydantic import BaseModel, ValidationError
 from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
+from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -1311,36 +1313,78 @@ def _malformed_ceda_credential(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     monkeypatch.setattr("wetterdienst.api._REPORTED_SETTINGS_PROBLEMS", set())
 
 
-def test_discover_logs_a_network_that_cannot_be_imported(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A network that fails to import is not swallowed without a word (GH-2801).
-
-    Which shape the listing gives it is a decision of its own; until then it is at least logged.
-    """
+def _failing_import(monkeypatch: pytest.MonkeyPatch, *providers: str) -> None:
+    """Make every network of the providers fail to import, as a broken install of a package they need does."""
     resolve = Wetterdienst.resolve
 
-    def failing_fmi(provider: str, network: str) -> object:
-        if provider == "fmi":
-            msg = "Module wetterdienst.provider.fmi.observation failed to import: lxml.etree not found."
+    def failing(provider: str, network: str) -> object:
+        if provider in providers:
+            msg = f"Module wetterdienst.provider.{provider}.{network} failed to import: lxml.etree not found."
             raise ImportError(msg)
         return resolve(provider, network)
 
-    monkeypatch.setattr(Wetterdienst, "resolve", failing_fmi)
+    monkeypatch.setattr(Wetterdienst, "resolve", failing)
+
+
+def test_discover_leaves_out_a_network_that_cannot_be_imported(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A network that fails to import is not listed, and not listed as one that needs no credentials (GH-2801).
+
+    Nothing is known of it, so listing it as `auth` false and `configured` true would be a guess, wrong
+    for a network that needs a credential. The reason is logged, and asking for the network itself raises
+    it. One of two networks failing leaves the other, and the provider, in the listing.
+    """
+    resolve = Wetterdienst.resolve
+
+    def failing_dmo(provider: str, network: str) -> object:
+        if (provider, network) == ("dwd", "dmo"):
+            msg = "Module wetterdienst.provider.dwd.dmo failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(provider, network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", failing_dmo)
     with caplog.at_level(logging.WARNING, logger="wetterdienst.api"):
         discovered = Wetterdienst.discover()
 
-    # nothing is known of it but what the listing needs the credentials for, and it says so with nulls (GH-2641)
-    assert discovered["fmi"]["observation"] == {
-        "name_short": None,
-        "country": None,
-        "kind": None,
-        "url": None,
-        "auth": False,
-        "configured": True,
-        "date_required": False,
-    }
-    assert "fmi/observation cannot be imported: Module wetterdienst.provider.fmi.observation" in caplog.text
+    assert "dmo" not in discovered["dwd"]
+    assert "observation" in discovered["dwd"]
+    assert "Left dwd/dmo out of the listing, it cannot be imported: Module wetterdienst.provider.dwd.dmo" in caplog.text
+    with pytest.raises(ImportError, match=r"lxml\.etree not found"):
+        Wetterdienst("dwd", "dmo")
+
+
+def test_discover_leaves_out_a_provider_none_of_whose_networks_can_be_imported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A provider without a listed network is not listed, rather than as an empty one (GH-2801)."""
+    _failing_import(monkeypatch, "metno", "fmi")
+    discovered = Wetterdienst.discover()
+    assert "metno" not in discovered
+    assert "fmi" not in discovered
+    assert "dwd" in discovered
+    assert all(networks for networks in discovered.values())
+
+
+def test_a_dotted_module_that_is_not_found_is_a_plain_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A submodule of an installed package (`lxml.etree`) is a broken install, not an uninstalled extra (GH-2800).
+
+    So it is neither a `MissingDependencyError`, which the REST API answers with a 501 and an instruction
+    to install, nor an `ApiNotFoundError`, which it answers with a 404 for a network that does not exist.
+    """
+
+    def _raise(_module_path: str) -> None:
+        msg = "No module named 'lxml.etree'"
+        raise ModuleNotFoundError(msg, name="lxml.etree")
+
+    # only the resolver's import, not every lazy import of the process
+    monkeypatch.setattr("wetterdienst.api.importlib", SimpleNamespace(import_module=_raise))
+
+    with pytest.raises(ImportError, match=r"failed to import: lxml\.etree not found\.") as excinfo:
+        Wetterdienst.resolve("dwd", "dmo")
+
+    assert type(excinfo.value) is ImportError
+    assert not isinstance(excinfo.value, (MissingDependencyError, ApiNotFoundError))
 
 
 @pytest.mark.usefixtures("_malformed_ceda_credential")
