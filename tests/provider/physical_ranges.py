@@ -11,9 +11,10 @@ with changes and a known leak would turn the CI matrix red until it is fixed; `W
 check to the remote tests as well, which is how a leak the offline fixtures do not hold is found.
 
 The ranges are in the unit a value is returned in (`UnitConverter.targets`, the default of `Settings`; a unit type
-converted to another unit is not checked) and are generous on purpose. They describe one reading, so they are widened
-for a sum over a month or a year where a provider sums (`snow_depth`, `snow_depth_new`; every provider's `snow_depth`
-of those resolutions, though only DWD sums it). They catch -999, not a cold night and not a hot
+converted to another unit is not checked) and are generous on purpose. They describe one reading, so a parameter whose
+span grows with the resolution has a range per resolution (`RESOLUTION_RANGES`: the rain of a minute and of a day, the
+sunshine of an hour and of a month, the sums of the daily snow depths over a month or a year, which every provider's
+`snow_depth` of those resolutions is held to, though only DWD sums it). They catch -999, not a cold night and not a hot
 road: a value outside is a sentinel, a unit that was not converted or a column read from the wrong place, never a
 record. What they cannot catch is a sentinel that looks like data, such as 99.9 % relative humidity, a -1 for "no snow"
 in a depth that may be read from a gauge, or 0 for "not measured"; that part of #2615 is read off the source's own
@@ -21,11 +22,17 @@ documentation, not off the numbers. Nor do they catch -999 where the range has t
 river runs backwards by thousands of cubic metres a second), and a value that is converted on its way, such as
 -999 kJ/m² of radiation (-99.9 J/cm²) or -9999 mm of a depth (-999.9 cm).
 
-A range is looked up by canonical parameter name: first the parameters that need their own, then a prefix, then the
-unit type. A parameter or unit type held to no range at all is named with `None`, never left out, so that a new unit
-type fails `test_every_unit_type_has_a_range_or_says_it_has_none` instead of going unchecked.
+A range is looked up by canonical parameter name: first the one the parameter has at its resolution, then the
+parameters that need their own, then a prefix, then the unit type. A parameter or unit type held to no range at all is
+named with `None`, never left out, so that a new unit type fails
+`test_every_unit_type_has_a_range_or_says_it_has_none` instead of going unchecked.
 
-To hold a quantity to a different range, add it to `PARAMETER_RANGES` (one name) or `PREFIX_RANGES` (a family).
+To hold a quantity to a different range, add it to `PARAMETER_RANGES` (one name) or `PREFIX_RANGES` (a family), or to
+`RESOLUTION_RANGES` where the range depends on the resolution.
+
+A reader that nulls the values outside a range (`OutOfRange`, GH-2797) keeps one per resolution as well, in the unit of
+its source. It may be narrower than the range here, never wider (a source whose own validated records stay far below
+the world's record, or whose precision needs no slack, can say so), and `test_physical_ranges.py` holds it to that.
 """
 
 from __future__ import annotations
@@ -143,25 +150,56 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
     ("thawing_thickness_", Bounds(0.0, 1_000.0)),  # cm
 )
 
-# what a sum over a month or a year of daily readings may reach, for the parameters that some provider sums that way
-# (DWD's monthly and annual `snow_depth` are the sum of the daily depths, `snow_depth_new` the sum of the new snow of
-# the days; an Alpine station adds up to thousands of cm). By exact name: a maximum or a reading of the day, such as
-# `snow_depth_max`, is no sum, and stays held to the range of one reading
-LONG_PERIOD_RESOLUTIONS = frozenset({"monthly", "annual"})
-LONG_PERIOD_RANGES: dict[str, Bounds] = {
-    "snow_depth": Bounds(-50.0, 200_000.0),
-    "snow_depth_new": Bounds(0.0, 200_000.0),
+# the range of a parameter at one resolution, which beats its range at any (`PARAMETER_RANGES`, the prefix, the unit
+# type). A sum or a duration over the span of a reading has a range that grows with the span: 150 mm in 10 minutes is
+# no reading, in a day it is, so 99.9 mm is a sentinel at the one and a reading at the other. Keyed by the resolution a
+# dataset is declared with, then by exact canonical name: a maximum or a reading of the day, such as `snow_depth_max`,
+# is no sum, and stays held to the range of one reading. A resolution that is no fixed span (`subdaily`, `6_hours`: a
+# bucket of several sources' readings) has no entry, and a resolution without an entry for a name is held to the range
+# of the name at any.
+#
+# Rain: the most that fell in 1 minute is 31 mm (Unionville, 1956), in 15 minutes 198 (Plumb Point, 1916), in an hour
+# 401 (Shangdi, 1975), in a day 1,825 (Foc-Foc, 1966); a month and a year keep the 6,000 mm of the unit type. Sunshine
+# cannot last longer than the span it is measured over, give or take a tenth for what a source rounds (DWD's urban
+# 10-minute sunshine is written in hours with two decimals, 0.17 h for a full interval, which is 612 s). Snow: DWD's
+# monthly and annual `snow_depth` are the sum of the daily depths, `snow_depth_new` the sum of the new snow of the
+# days; an Alpine station adds up to thousands of cm.
+_DAY = 86_400.0
+
+
+def _sunshine(seconds: float) -> Bounds:
+    """Give the range of the sunshine of a span, which cannot be longer than the span, with a tenth to spare."""
+    return Bounds(0.0, round(seconds * 1.1, 1))
+
+
+RESOLUTION_RANGES: dict[str, dict[str, Bounds]] = {
+    "1_minute": {"precipitation_amount": Bounds(0.0, 60.0), "sunshine_duration": _sunshine(60.0)},
+    "5_minutes": {"precipitation_amount": Bounds(0.0, 150.0), "sunshine_duration": _sunshine(300.0)},
+    "10_minutes": {"precipitation_amount": Bounds(0.0, 200.0), "sunshine_duration": _sunshine(600.0)},
+    "15_minutes": {"precipitation_amount": Bounds(0.0, 300.0), "sunshine_duration": _sunshine(900.0)},
+    "hourly": {"precipitation_amount": Bounds(0.0, 600.0), "sunshine_duration": _sunshine(3_600.0)},
+    "daily": {"precipitation_amount": Bounds(0.0, 2_000.0), "sunshine_duration": _sunshine(_DAY)},
+    "monthly": {
+        "snow_depth": Bounds(-50.0, 200_000.0),
+        "snow_depth_new": Bounds(0.0, 200_000.0),
+        "sunshine_duration": _sunshine(31 * _DAY),
+    },
+    "annual": {
+        "snow_depth": Bounds(-50.0, 200_000.0),
+        "snow_depth_new": Bounds(0.0, 200_000.0),
+    },
 }
 
 
 def bounds_for(name: str, resolution: str | None = None) -> Bounds | None:
-    """Give the range a canonical parameter is held to, or `None` where it is held to none.
+    """Give the range a canonical parameter is held to at a resolution, or `None` where it is held to none.
 
-    Raises a `KeyError` for a name that is not a canonical parameter, as that is a defect of the provider and not
-    of the check.
+    Without a `resolution`, or for one that has none of its own for `name`, the range is that of the parameter at any
+    resolution. Raises a `KeyError` for a name that is not a canonical parameter, as that is a defect of the provider
+    and not of the check.
     """
-    if resolution in LONG_PERIOD_RESOLUTIONS and name in LONG_PERIOD_RANGES:
-        return LONG_PERIOD_RANGES[name]
+    if resolution is not None and name in RESOLUTION_RANGES.get(resolution, {}):
+        return RESOLUTION_RANGES[resolution][name]
     if name in PARAMETER_RANGES:
         return PARAMETER_RANGES[name]
     unit_type = PARAMETERS[name].unit_type
