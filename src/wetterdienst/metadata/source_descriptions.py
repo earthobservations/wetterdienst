@@ -904,8 +904,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "of the station's local true solar time, not UTC: they are returned as written, not shifted, and their "
             "`quality_flags` carry `zone:woz` (`10,zone:woz`). The other stamps are UTC."
         ),
-        ("hourly", "temperature_air", "rf_tu"): "Relative humidity.",
-        ("hourly", "temperature_air", "tt_tu"): "Air temperature 2 m above ground.",
+        ("hourly", "temperature_air", "rf_tu"): (
+            "Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "
+            '"Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: '
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "The other stamps are UTC."
+        ),
+        ("hourly", "temperature_air", "tt_tu"): (
+            "Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "
+            '"Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: '
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "The other stamps are UTC."
+        ),
         ("hourly", "temperature_soil", "v_te002"): (
             "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none."
         ),

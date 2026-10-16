@@ -275,6 +275,11 @@ df = stations.df
 df
 ```
 
+A station id the request has no station for -- one that does not exist, or has no data for the
+requested parameters and periods -- is left out of the result with a warning naming it (log level
+`WARNING`): the stations that do exist are returned, and when none does the result is empty. The command
+line and the REST API do the same for a list of `--station` ids.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -302,7 +307,8 @@ df
 
 The `threshold` parameter (0–1, default **0.8**) controls how strictly the name must
 match.  Lower values accept more typos; higher values require a closer match.  The
-`rank` parameter limits how many stations are returned (default 1).
+`rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
+of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two
@@ -617,7 +623,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 
 | Provider | codes in `quality_flags` |
 | --- | --- |
-| DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
+| DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
 | DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
 | DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
 | DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](../data/provider/dwd/road/15_minutes.md)) |

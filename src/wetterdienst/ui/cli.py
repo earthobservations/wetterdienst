@@ -57,8 +57,16 @@ from wetterdienst.ui.core import (
     get_values,
     join_names,
     limit_stations_to_rank,
+    limit_stations_to_window,
     overlay_options,
     set_logging_level,
+)
+from wetterdienst.ui.render import (
+    InterpolationSettings,
+    SummarySettings,
+    ValuesSettings,
+    render,
+    render_stations,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import import_optional
@@ -135,6 +143,22 @@ issue_opt = click.option(
     help="DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with: wetterdienst issues. Default: the latest",
 )
 timestamp_opt = click.option("--timestamp", type=click.STRING, help=_TIMESTAMP_HELP)
+# `stations` takes the same window `values` does, and lists the stations whose record overlaps it
+stations_timestamp_opt = click.option(
+    "--timestamp",
+    type=click.STRING,
+    help=(
+        f"{_TIMESTAMP_HELP}. Given, only the stations whose record overlaps it are listed: one that started "
+        "after the window is left out, and so is one that ended before it by more than two readings of its "
+        "resolution (two days up to daily), the end a source publishes lagging a station still reporting"
+    ),
+)
+
+# What an empty result says on stderr, where it is exit 0 and what REST answers with a 200 is written to
+# stdout: no station or reading is no failure of the command (GH-2635)
+NO_STATIONS = "No stations available for given constraints"
+NO_DATA = "No data available for given constraints"
+NOTHING_WRITTEN = "Nothing was written to --target."
 
 
 def _renamed_opt(old: str, new: str) -> Callable[[_CommandT], _CommandT]:
@@ -178,7 +202,10 @@ station_ids_opt = click.option(
 name_opt = click.option(
     "--name",
     type=click.STRING,
-    help="Select stations by fuzzy name match, the best five unless --rank says. Example: Dresden-Klotzsche",
+    help=(
+        "Select stations by fuzzy name match: the best five for `stations`, which lists candidates, "
+        "the best one for `values`, unless --rank says. Example: Dresden-Klotzsche"
+    ),
 )
 name_threshold_opt = click.option(
     "--name-threshold",
@@ -261,11 +288,16 @@ if_exists_opt = click.option(
         "others, nothing there clearing a measurement. Default: replace"
     ),
 )
+# the one spelling, for every command that writes JSON: `--pretty` alone turns it on, and `--pretty=false`
+# and `--pretty=true` still say it outright, as `stations`, `values` and `history` took it before and
+# `interpolate` and `summarize` did not (GH-2635)
 pretty_opt = click.option(
     "--pretty",
     type=click.BOOL,
+    is_flag=False,
+    flag_value="true",
     default=False,
-    help="Pretty-print JSON with 4-space indentation. Default: false",
+    help="Pretty-print JSON with 4-space indentation, as REST's pretty=true. Default: false",
 )
 with_metadata_opt = click.option(
     "--with_metadata",
@@ -315,8 +347,6 @@ summary_use_nearby_station_distance_opt = click.option(
     default=1,
     deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
 )
-# a flag here, where stations/values/history take a value: changing either breaks invocations
-pretty_flag_opt = click.option("--pretty", is_flag=True, help="Pretty-print JSON with 4-space indentation.")
 
 
 def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
@@ -601,6 +631,10 @@ STATIONS_EXAMPLES = r"""
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
         --latitude=49.9195 --longitude=8.9671 --distance=25
 
+    # only the stations with a record in a window, so the closest are not ones that closed long ago
+    wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
+        --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-05
+
     # stations by region, or by a pattern in their name
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --sql="region='Sachsen'"
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
@@ -801,15 +835,18 @@ def _collect_or_exit(
 ) -> Any:  # noqa: ANN401
     """Run one of the values getters, reporting the failures a caller can do something about.
 
-    Three kinds can be acted on rather than debugged: an optional reader that is not installed, a
-    request the caller can rephrase, and a window that holds no readings. Each is a sentence the
-    caller needs and a traceback buries, so each is printed and nothing else. A request to rephrase
-    -- one this provider cannot serve as phrased, a point an estimate cannot be made at (beyond the
-    latitudes UTM covers, or a station without a position), or any refusal the REST API answers
-    with a 4xx -- is the command line's mistake, so it is a usage error, exit 2 (GH-2426).
+    Two kinds can be acted on rather than debugged: an optional reader that is not installed, and a
+    request the caller can rephrase. Each is a sentence the caller needs and a traceback buries, so
+    each is printed and nothing else. A request to rephrase -- one this provider cannot serve as
+    phrased, a point an estimate cannot be made at (beyond the latitudes UTM covers, or a station
+    without a position), or any refusal the REST API answers with a 4xx -- is the command line's
+    mistake, so it is a usage error, exit 2 (GH-2426).
+
+    A window that holds no readings is not one of them: it is an answer, as REST's 200 is. It comes back
+    empty, and `_finish` says so and writes what REST would send.
     """
     try:
-        values_ = get(api=api, request=request, settings=settings, options=options)
+        return get(api=api, request=request, settings=settings, options=options)
     except MissingDependencyError as e:
         # the message names what to install: the whole of what is to be done about it. Narrow on
         # purpose -- a bare `ImportError` would swallow a cycle or a typo inside a provider module,
@@ -824,10 +861,43 @@ def _collect_or_exit(
             raise
         log.exception(f"Error during {what}")
         sys.exit(1)
-    if values_.df.is_empty():
-        log.error("No data available for given constraints")
-        sys.exit(1)
-    return values_
+
+
+def _echo(output: str | bytes) -> None:
+    """Write a rendered result to stdout: text as a line, a chart's image as the bytes it is.
+
+    `print` wrote the image as its `repr`, `b'<svg ...'`, where the REST API sends the bytes.
+    """
+    click.echo(output, nl=isinstance(output, str))
+
+
+def _finish(
+    values_: Any,  # noqa: ANN401
+    request: Any,  # noqa: ANN401
+    applied: Any,  # noqa: ANN401
+    options: Options,
+    *,
+    target: str | None,
+    if_exists: str,
+) -> None:
+    """Write a values result to its target or to stdout, as REST sends it, and say so where it is empty.
+
+    An empty result is exit 0: the sentence goes to stderr, and stdout gets what the REST API answers
+    with (the result's empty JSON, or the header of its CSV) -- the command line renders through the
+    one function the REST API does, so `--with_metadata` gives the `settings` block here as there
+    (GH-2635). A target is left as it is, since nothing is there to write: replacing a table with an
+    empty one is not what a schedule that found no reading yet is after.
+    """
+    empty = values_.df.is_empty()
+    if empty:
+        log.warning(NO_DATA)
+    if target:
+        if empty:
+            log.warning(NOTHING_WRITTEN)
+            return
+        _export_or_exit(values_, target, if_exists)
+        return
+    _echo(render(values_, request, applied, options))
 
 
 def _export_or_exit(result: Any, target: str, if_exists: str) -> None:  # noqa: ANN401
@@ -889,7 +959,7 @@ class _Cli(click.Group):
         except NoInternetError as e:
             # whatever the command was fetching: no connection to the provider could be made, which
             # is told in the one line it is, naming the URL, and not as a traceback. An empty result
-            # would be exit 1 as well, but would not say why (GH-2640)
+            # would be exit 0, and would not say why (GH-2640)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except (ValidationError, SettingsError) as e:
@@ -1103,8 +1173,8 @@ def glossary(
     entries = get_glossary(parameter=parameter, unit_type=unit_type, limit=limit)
 
     if not entries:
-        log.error("No canonical parameter matches the given filters.")
-        sys.exit(1)
+        # an empty list is an answer, as `/api/glossary`'s 200 is, and no failure (GH-2635)
+        log.warning("No canonical parameter matches the given filters.")
 
     # ensure_ascii=False so unit symbols print as °C and J/cm² rather than escapes; this command
     # exists to show them
@@ -1178,6 +1248,12 @@ def fields(
 @network_opt
 @parameters_opt
 @periods_opt
+@stations_timestamp_opt
+@renamed_date_opt
+@start_opt
+@end_opt
+@start_date_renamed_opt
+@end_date_renamed_opt
 @all_opt
 @station_ids_opt
 @name_opt
@@ -1202,6 +1278,9 @@ def stations(
     network: str,
     parameters: list[str],
     periods: list[str],
+    timestamp: str,
+    start: str,
+    end: str,
     all_: bool,  # noqa: FBT001
     station: list[str],
     name: str,
@@ -1225,8 +1304,13 @@ def stations(
     """Acquire stations.
 
     Select them with exactly one of --all, --station, --name, --latitude/--longitude with --rank or
-    --distance, --left/--bottom/--right/--top, or --sql.
+    --distance, --left/--bottom/--right/--top, or --sql. Given a window, with --timestamp or --start /
+    --end, only the stations whose record overlaps it are listed.
+
+    A selection that finds no station is no failure: the list is empty, the command says so on stderr
+    and exits 0. A --station id the network has no station for is named in a warning and left out.
     """
+    timestamp_resolved = _resolve_timestamp(timestamp, start, end)
     request = _validate_request(
         StationsRequest,
         {
@@ -1234,6 +1318,7 @@ def stations(
             "network": network,
             "parameters": parameters,
             "periods": periods,
+            "timestamp": timestamp_resolved,
             "all": all_,
             "station": station,
             "name": name,
@@ -1260,7 +1345,7 @@ def stations(
     # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
     settings = Settings()
     try:
-        stations_ = get_stations(api=api, request=request, timestamp=None, settings=settings)
+        stations_ = get_stations(api=api, request=request, timestamp=request.timestamp, settings=settings)
     except Exception as e:
         # a parameter, bounding box or --sql the caller can rephrase is told in one line, as
         # `/api/stations` answers it with a 400; an upstream failure keeps its traceback
@@ -1268,35 +1353,25 @@ def stations(
         log.exception("Failed to get stations.")
         sys.exit(1)
 
-    if stations_.df.is_empty():
-        log.error("No stations available for given constraints")
-        sys.exit(1)
+    # a window leaves out the stations that cannot have a reading in it, before a rank keeps the N
+    # closest of those that can; a rank filter keeps all stations in the frame, as it is applied
+    # lazily during value collection, and a plain listing returns just the N closest asked for
+    stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    # A rank filter keeps all stations in the frame (rank is applied lazily during value collection);
-    # for a plain listing return just the N closest the caller asked for instead of every station.
-    stations_ = limit_stations_to_rank(stations_)
+    # an empty list is an answer, as REST's 200 is, and no failure: it is said on stderr, and what
+    # REST would send is written to stdout (GH-2635)
+    empty = stations_.df.is_empty()
+    if empty:
+        log.warning(NO_STATIONS)
 
     if target:
+        if empty:
+            log.warning(NOTHING_WRITTEN)
+            return
         _export_or_exit(stations_, target, if_exists)
         return
 
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-
-    output = stations_.to_format(**kwargs)
-
-    print(output)  # noqa: T201
-
-    return
+    _echo(render_stations(stations_, request))
 
 
 @cli.command("issues")
@@ -1659,28 +1734,7 @@ def values(
         get_values, api=api, request=request, settings=settings, options=options, what="data acquisition"
     )
 
-    if target:
-        _export_or_exit(values_, target, if_exists)
-        return
-
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-
-    output = values_.to_format(**kwargs)
-
-    print(output)  # noqa: T201
-
-    return
+    _finish(values_, request, ValuesSettings, options, target=target, if_exists=if_exists)
 
 
 @cli.command("interpolate", epilog=_examples(INTERPOLATE_EXAMPLES))
@@ -1709,7 +1763,7 @@ def values(
 @format_opt
 @target_opt
 @if_exists_opt
-@pretty_flag_opt
+@pretty_opt
 @with_metadata_opt
 @with_stations_opt
 @debug_opt
@@ -1811,27 +1865,7 @@ def interpolate(
         get_interpolate, api=api, request=request, settings=settings, options=options, what="interpolation"
     )
 
-    if target:
-        _export_or_exit(values_, target, if_exists)
-        return
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-
-    output = values_.to_format(**kwargs)
-
-    print(output)  # noqa: T201
-
-    return
+    _finish(values_, request, InterpolationSettings, options, target=target, if_exists=if_exists)
 
 
 @cli.command("summarize", epilog=_examples(SUMMARIZE_EXAMPLES))
@@ -1860,7 +1894,7 @@ def interpolate(
 @format_opt
 @target_opt
 @if_exists_opt
-@pretty_flag_opt
+@pretty_opt
 @with_metadata_opt
 @with_stations_opt
 @debug_opt
@@ -1960,28 +1994,7 @@ def summarize(
         get_summarize, api=api, request=request, settings=settings, options=options, what="summarize"
     )
 
-    if target:
-        _export_or_exit(values_, target, if_exists)
-        return
-
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-
-    output = values_.to_format(**kwargs)
-
-    print(output)  # noqa: T201
-
-    return
+    _finish(values_, request, SummarySettings, options, target=target, if_exists=if_exists)
 
 
 def _radar_sites(
@@ -2091,12 +2104,7 @@ def radar(
     type=click.STRING,
     help="Write output to this file instead of stdout. Example: file://alerts.geojson",
 )
-@click.option(
-    "--pretty",
-    type=click.BOOL,
-    default=False,
-    help="Pretty-print JSON/GeoJSON with 4-space indentation. Default: false",
-)
+@pretty_opt
 @debug_opt
 def alerts(
     granularity: str,
@@ -2173,7 +2181,7 @@ def stripes() -> None:
     default="json",
     help="Output format. Default: json",
 )
-@click.option("--pretty", type=click.BOOL, default=False, help="Pretty-print JSON. Default: false")
+@pretty_opt
 def stripes_stations(
     kind: str,
     active: bool,  # noqa: FBT001
