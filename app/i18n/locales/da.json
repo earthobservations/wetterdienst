@@ -10,7 +10,10 @@
     "all": "Alle",
     "settings": "Indstillinger",
     "documentation": "Dokumentation",
-    "stationSearch": "Søg efter navn eller stations-id (f.eks. München, 10738)"
+    "stationSearch": "Søg efter navn eller stations-id (f.eks. München, 10738)",
+    "requestFailed": "Forespørgslen mislykkedes",
+    "backendError": "Backend-fejl {status}",
+    "backendErrorDetail": "Backend-fejl {status}: {detail}"
   },
   "home": {
     "tagline": "Åbne vejrdata for mennesker",
@@ -532,7 +535,8 @@
     "loadingStations": "Indlæser stationer …",
     "loadError": "Kunne ikke indlæse stationer.",
     "noStationsWithPosition": "Ingen station med position fundet for de valgte parametre.",
-    "coords": "Interpolationskoordinater: {coords}"
+    "coords": "Interpolationskoordinater: {coords}",
+    "example": "f.eks. {value}"
   },
   "dateRange": {
     "label": "Datointerval",

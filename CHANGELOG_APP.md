@@ -25,6 +25,10 @@ Types of changes:
   Luxembourgish, where they were English, and says `Datesaz` where it said "Dataset" (GH-2970).
   The Polish, Czech, Luxembourgish and Low German text is not natively reviewed; a native
   speaker's review is welcome (`app/i18n/TERMS.md`)
+- `[Meteogram/Widget/Interpolation]` The English fallbacks "Request failed" and "Backend error 502"
+  and the placeholders "e.g. 52.5200", "e.g. 13.4050" and "e.g. 34" are translated in all 11
+  languages (GH-2971). The Polish, Czech, Luxembourgish and Low German text is not natively
+  reviewed; a native speaker's review is welcome (`app/i18n/TERMS.md`)
 
 ### Fixed
 
@@ -32,6 +36,14 @@ Types of changes:
   "1 of 1 parameter", where they read "1 values" and the like, in all 11 languages. Polish and Czech
   write three forms ("1 wartość", "2 wartości", "5 wartości") and French counts 0 as singular
   (GH-2968)
+- `[Meteogram/DataViewer/Stripes]` The charts write the language's decimal separator in their hover
+  texts and axes ("9,5" in German, French and Polish), where Plotly wrote a point in every
+  language, and draw again when the language is switched. The stripes' bar hover shows the value to
+  two places, as its line and trend do, where it showed the number as it came (GH-2971)
+- `[Meteogram]` The day labels of the chart and of the compact view's cards write the date as the
+  language does ("15.10." in German, "15/10" in English and French, "15-10" in Dutch), where every
+  language read "15.10". Luxembourgish, which Chrome has no data for, is written as German is
+  (GH-2971)
 
 ## [0.21.0] - 2026-10-16
 

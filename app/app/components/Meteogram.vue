@@ -4,7 +4,7 @@ import type { Value } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { formatNumber } from '~/utils/format'
+import { formatDayMonth, formatNumber, plotlySeparators } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 
 const props = defineProps<{
@@ -14,7 +14,10 @@ const props = defineProps<{
   widget?: boolean
 }>()
 
-const { t, locale } = useI18n()
+const { t, locale, localeProperties } = useI18n()
+
+// The language's own tag (`en-GB`, `de-DE`), which the date formats read, where `locale` is the app's code (`en`)
+const language = computed(() => localeProperties.value.language ?? locale.value)
 
 // Short, locale-aware weekday name (e.g. "Mo"/"Mon") for the given Luxon DateTime.
 function weekdayShort(dt: DateTime): string {
@@ -191,7 +194,7 @@ const compactLabel = computed(() => compact.value ? t('meteogram.chart.viewNorma
 const toolbarTzLabel = ref<string>('UTC')
 
 const compactDays = computed(() => {
-  const out: { date: any, emoji: string, label: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean }[] = []
+  const out: { date: any, emoji: string, weekday: string, dayMonth: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean }[] = []
   const series = seriesCache.value
   const available = new Set(series.keys())
   const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
@@ -352,11 +355,10 @@ const compactDays = computed(() => {
         emoji = '☀'
     }
 
-    const label = `${weekdayShort(dt)} ${dt.toFormat('dd.MM')}`
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
     const precipLabel = dayPrecip >= 0.1 ? `${formatNumber(dayPrecip, locale.value, 1)} mm` : null
     const isToday = dt.hasSame(localNow, 'day')
-    out.push({ date: dt, emoji, label, tempLabel, precipLabel, isToday })
+    out.push({ date: dt, emoji, weekday: weekdayShort(dt), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday })
     dt = dt.plus({ days: 1 })
   }
   // Limit number of days shown in compact mode for readability
@@ -1180,14 +1182,16 @@ async function renderChartActual() {
     const tenAm = localDt.plus({ hours: 10 }).toJSDate()
     if (tenAm.getTime() < minTime || tenAm.getTime() > displayMaxTime)
       continue
-    const dd = String(localDt.day).padStart(2, '0')
-    const mm = String(localDt.month).padStart(2, '0')
+    const dayMonth = formatDayMonth(localDt, language.value)
     const isWeekend = localDt.weekday >= 6 // 6=Sat, 7=Sun in Luxon
     // On narrow screens drop the date suffix to prevent overlap; shrink font below 50 px/day.
     const annotFontSize = dayWidthPx < 50 ? 8 : 10
-    const annotText = dayWidthPx < 44
-      ? `<b>${weekdayShort(localDt)}</b>`
-      : `<b>${weekdayShort(localDt)}</b> ${dd}.${mm}`
+    // The date is 5.5 px per character wide or more: 44 px for the eight characters of "Mo 05.10", which
+    // a language that writes the date longer ("Čt 15. 10.") needs more of
+    const weekday = weekdayShort(localDt)
+    const annotText = dayWidthPx < 5.5 * `${weekday} ${dayMonth}`.length
+      ? `<b>${weekday}</b>`
+      : `<b>${weekday}</b> ${dayMonth}`
     annotations.push({
       x: tenAm.toISOString(),
       y: 1.06,
@@ -1735,6 +1739,8 @@ async function renderChartActual() {
   // Layout
   const layout: any = {
     autosize: true,
+    // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
+    separators: plotlySeparators(locale.value),
     margin: { l: 48, r: 8 + extraRight, t: (compact.value ? 44 : 72) + extraTop, b: compact.value ? 4 : 8 },
     paper_bgcolor: isDark.value ? '#111827' : '#ffffff',
     plot_bgcolor: isDark.value ? '#111827' : '#ffffff',
@@ -1901,6 +1907,12 @@ watch(
 )
 watch(
   isDark,
+  () => {
+    void renderChart()
+  },
+)
+watch(
+  locale,
   () => {
     void renderChart()
   },
@@ -2125,13 +2137,13 @@ watch(
               ]"
             >
               <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                {{ d.isToday ? t('meteogram.chart.today') : d.label.split(' ')[0] }}
+                {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
               </div>
               <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow">
                 {{ d.emoji }}
               </div>
               <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
-                {{ d.date.toFormat('dd.MM') }}
+                {{ d.dayMonth }}
               </div>
               <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
                 {{ d.tempLabel }}

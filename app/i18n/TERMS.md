@@ -74,22 +74,35 @@ called `count`: `t('dataViewer.valuesCount', { count })`, and `glossary.count` i
 locale to the number of forms and to `{count}` in each of them. A count that needs no form
 ("Estimated values: {count}") is not written in forms.
 
+## Numbers, dates and coordinates
+
+A number the app shows is written in the language of the page: `formatNumber` for text, and the
+`separators` of every Plotly layout (`plotlySeparators`) for hover texts and axes. The day and month
+of the Meteogram's day cards come from the language's tag (`en-GB`, `de-DE`, as `nuxt.config.ts` has
+them), as the bare `en` is American. Coordinates and elevations are the exception and keep a point in
+every language (`toFixed`): a position is copied into a map or a query, and the number input that
+takes one reads a point. Chrome has no data for Luxembourgish, so `withData` writes `lb` as German
+(`de-LU`) is written, which is the same.
+
 ## Review status: not natively reviewed
 
 The text of four locales was written without a native speaker, and none has read it since. It is
 meant to be understood, not to be the last word, and **a review by a native speaker is welcome**
 (an issue or a pull request against the catalog is all it takes):
 
-- `pl` and `cs`: the whole catalogs and, since GH-2968, the three plural forms of the counts.
+- `pl` and `cs`: the whole catalogs and, since GH-2968, the three plural forms of the counts; since
+  GH-2971 the fallbacks `common.requestFailed` and `common.backendError*`.
 - `lb` (Luxembourgish): the whole catalog; the explorer mode descriptions, the SQL panel (`query.*`)
-  and `history.colMethod` were English until GH-2970 and are the newest text. The dataset is a
+  and `history.colMethod` were English until GH-2970, and the fallbacks `common.requestFailed` and
+  `common.backendError*` until GH-2971; they are the newest text. The dataset is a
   `Datesaz` (plural `Datesätz`) and a method a `Methode`: the two words that looked borrowed, chosen
   rather than confirmed.
 - `de-hh` (Plattdüütsch): the UI text, written for GH-2969 in the language the glossary is in and with
   its vocabulary (`Nedderslag`, `Daag`, `Stünn`, `Weer`/`Wedder`, `lest`, `vun`, `för`, `ünner`). The
   glossary has several spellings of the same word (`Sünnschien`, `Sünnenschien`; `Snééhööchd`,
   `Snehööch`), so there is no one orthography to follow; the UI text leans on the Sass spelling and
-  is itself not uniform. The quality term is `Gööd` and its sixteen flag entries `Göödkennen`.
+  is itself not uniform. The fallbacks of GH-2971 (`Afraag is scheefgahn`, `Backend-Fehler`) are
+  new text in it. The quality term is `Gööd` and its sixteen flag entries `Göödkennen`.
   `Datensatz` is kept as Low German shares the word; `Anbeder`, `Nettwark`, `Oplösung` and `Tietruum`
   are the words chosen for provider, network, resolution and date range.
 

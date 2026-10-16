@@ -145,7 +145,8 @@ function setSource(source: InterpolationSource) {
     : { ...modelValue.value, source, elevation: undefined }
 }
 
-// Display coordinates
+// Display coordinates, with a point in every language: a position is an identifier, copied into a map
+// or a query, not prose (GH-2971)
 const displayCoords = computed(() => {
   if (modelValue.value.latitude !== undefined && modelValue.value.longitude !== undefined) {
     return `${modelValue.value.latitude.toFixed(4)}, ${modelValue.value.longitude.toFixed(4)}`
@@ -178,7 +179,7 @@ const displayCoords = computed(() => {
           v-model="latitudeInput"
           type="number"
           step="0.0001"
-          placeholder="e.g. 52.5200"
+          :placeholder="t('interpolation.example', { value: '52.5200' })"
           class="w-full"
           :class="{ 'needs-input': modelValue.latitude === undefined }"
         />
@@ -188,7 +189,7 @@ const displayCoords = computed(() => {
           v-model="longitudeInput"
           type="number"
           step="0.0001"
-          placeholder="e.g. 13.4050"
+          :placeholder="t('interpolation.example', { value: '13.4050' })"
           class="w-full"
           :class="{ 'needs-input': modelValue.longitude === undefined }"
         />
@@ -235,7 +236,7 @@ const displayCoords = computed(() => {
         v-model="elevationInput"
         type="number"
         step="1"
-        placeholder="e.g. 34"
+        :placeholder="t('interpolation.example', { value: '34' })"
         class="w-full"
       />
     </UFormField>

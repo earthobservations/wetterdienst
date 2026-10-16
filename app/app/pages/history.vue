@@ -334,6 +334,7 @@ function clear() {
                     <td class="px-4 py-2 text-sm">
                       {{ station.name || '-' }}
                     </td>
+                    <!-- a position keeps its point in every language: it is copied into a map or a query (GH-2971) -->
                     <td class="px-4 py-2 text-sm">
                       {{ station.latitude != null ? station.latitude.toFixed(4) : '-' }}
                     </td>

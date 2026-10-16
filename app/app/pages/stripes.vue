@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { describeFetchError } from '~/utils/api-error'
+import { plotlySeparators } from '~/utils/format'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const toast = useToast()
 
 // Plotly instance (loaded client-side only)
@@ -333,7 +334,7 @@ async function drawStripes(data: StripesValuesResponse) {
       line: { width: 0 },
     },
     width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata}<extra></extra>`,
+    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}: %{customdata:.2f}<extra></extra>`,
     customdata: values,
     showlegend: false,
   }
@@ -406,6 +407,8 @@ async function drawStripes(data: StripesValuesResponse) {
   const containerWidth = plotContainer.value.clientWidth
 
   const layout: Partial<Plotly.Layout> = {
+    // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
+    separators: plotlySeparators(locale.value),
     font: {
       family: 'Arial, sans-serif',
       size: 14,
@@ -588,6 +591,13 @@ watch(stations, () => {
     const only = stations.value[0]
     if (only)
       selectedStationId.value = only.station_id
+  }
+})
+
+// Re-plot where the language changes: the hover texts and their separators are drawn in it
+watch(locale, async () => {
+  if (lastFetchedData.value && hasPlot.value) {
+    await plotStripes(lastFetchedData.value)
   }
 })
 
