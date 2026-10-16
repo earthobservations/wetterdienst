@@ -16,6 +16,62 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst stations` takes `--lead-time` and `--issue`, as `values` does and `/api/stations`
+  already did; `interpolate` and `summarize` take `--min-gain-of-value-pairs` and
+  `--num-additional-stations`, which their endpoints took as `min_gain_of_value_pairs` and
+  `num_additional_stations`; `stations`, `values`, `interpolate` and `summarize` take `--width`,
+  `--height` and `--scale` for a chart, and `stripes stations` takes `--debug`. A request has the
+  same parameters on the command line, over REST and in the MCP tools (GH-2561)
+
+### Changed
+
+- **Breaking**: the siblings of `eccc/observation` monthly `mean_temperature`, which ECCC builds
+  from the daily (max + min) / 2: `days_with_valid_mean_temp` is
+  `count_days_valid_temperature_air_mean_minmax_2m`, no longer
+  `count_days_valid_temperature_air_mean_2m`, and `normal_mean_temperature` is
+  `temperature_air_mean_minmax_2m_normal`, no longer `temperature_air_mean_2m_normal`. Request the
+  new names; the old ones are not found and say what they are called now (GH-3017)
+- **Breaking**: `dwd/observation` `hourly/precipitation` `precipitation_form` (`wrtr`) 9, DWD's
+  "Missing value, Type of precipitation unascertainable", is no longer returned as the code 9: the
+  value is null and the 9 is the last token of `quality_flags` (`3,raw:9`). Read the null as an
+  unknown form, and `raw:9` where the code matters; the form codes left are 0, 1, 2, 3, 4, 6, 7
+  and 8 (GH-2703)
+- **Breaking**: a parameter that takes a list is plural on the REST API, the MCP tools and the
+  command line. `station` of `stations`, `values` and `history` is `stations` (`--stations`); the
+  other lists (`parameters`, `periods`, `resolutions`, `datasets`) were plural already, and their
+  singulars are now refused with an error naming the plural, as `station` is (`station was renamed
+  to stations`). Rename `station` in your requests; the one reference `station` of `interpolate`
+  and `summarize`, and that of `issues` and `stripes`, stay (GH-2561)
+- **Breaking**: the options of the command line are spelled with hyphens, as the parameters of the
+  REST API and the MCP tools are spelled with underscores: `--convert-units`, `--unit-targets`,
+  `--sql-values`, `--skip-empty`, `--skip-criteria`, `--skip-threshold`, `--drop-nulls`,
+  `--if-exists`, `--with-metadata`, `--with-stations`, `--lead-time`, `--start-year`, `--end-year`,
+  `--name-threshold`, `--show-title`, `--show-years`, `--show-data-availability`, `--wmo-code`,
+  `--country-name`, `--use-nearby-station-distance` and `--interpolation-station-distance*` and
+  `--summary-station-distance*`. The underscored name is refused with an error naming the
+  hyphenated one; replace the underscores in your scripts (GH-2561)
+- Every boolean option of the command line is one option: bare it is on, and it takes `=true` or
+  `=false` in the spellings REST accepts (`true`, `1`, `yes`, `on`, `t`, `y` and their opposites).
+  `--all`, `--debug`, `--dwd` and `--reload` were flags that took no value, and now take one, and
+  `--with-metadata` and the other options that wanted a value can be given bare (GH-2561)
+- A station selection made twice, or not at all, names the alternatives in the refusal on every
+  surface: `Cannot be combined with name, give exactly one of all, stations, name, (latitude and
+  longitude), (left, bottom, right and top) or sql` in the 422 and the tool error, and the same in
+  the options' names in the usage error of the command line (GH-2561)
+- The OpenAPI document describes a list query parameter as one comma-separated value
+  (`?stations=01048,04411`, `explode: false`), which is how the endpoints and the tools take it.
+  The key given more than once is still read, and no longer documented (GH-2561)
+- **Breaking**: the precipitation group of a METAR, `noaa/ghcn` hourly `precipitation` and
+  `nws/observation` `precipitationLastHour`, is `precipitation_amount_since_last_routine_report`
+  (new), no longer `precipitation_amount`: a running total since the last routine report, which a
+  routine report holds for the whole hour and a SPECI for the part that had fallen. Request the new
+  name; the old one raises `InvalidParameterError` in those datasets, which says what it is called
+  now. `noaa/ghcn` hourly returns this precipitation for one report of each UTC hour, the one at
+  the station's routine minute (`:53` at LAX), else the last that is no SPECI, no longer for every
+  report; its other elements keep every report (GH-2841)
+
 ## [0.155.0] - 2026-10-16
 
 ### Added
@@ -32,8 +88,16 @@ Types of changes:
   give every network a `name_short`, `country`, `url` and `kind`. `kind` is `observation`,
   `forecast` or `derived` for a timeseries network, which has stations and values, and `radar` or
   `alerts` for `dwd/radar` and `dwd/alerts`, the standalone networks that `stations`, `values` and
+  the other timeseries endpoints refuse (GH-2641)
   the other timeseries endpoints refuse. The four are null for a network that cannot be imported
   (GH-2641)
+- `stations` (`/api/stations`, the MCP tool and `wetterdienst stations`) takes the window `values`
+  takes, as `timestamp` or, on the command line, `--start`/`--end`, and lists only the stations
+  whose record overlaps it, so the nearest three are no longer ones that closed a century ago. A
+  station is left out when it started after the window or ended before it by more than two readings
+  of its resolution (two days up to daily, as the end an index states lags a station still
+  reporting); one whose start or end is not published is kept. Without a window nothing changes
+  (GH-2635)
 
 ### Changed
 
@@ -143,6 +207,36 @@ Types of changes:
   (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
+- **Breaking**: `aemet/observation`, `knmi/observation` and `smhi/observation` values raise a
+  `DownloadError` for a download that timed out, was dropped, was cut short or came back as a 5xx
+  (for AEMET also an `estado` of 500 or more), as every other provider does, where they logged a
+  warning and answered an empty frame that read as a station without data. A 404 stays the empty
+  result, as does a 429 or another 4xx. The REST API answers 500 and the command line exits 1.
+  Catch `DownloadError` (or `WetterdienstError`) where the empty frame was relied on (GH-2965)
+- **Breaking**: the mean that a source computes as (maximum + minimum) / 2 is
+  `temperature_air_mean_minmax_2m` (new), no longer `temperature_air_mean_2m`:
+  `eccc/observation` daily and monthly `mean_temperature` and `geosphere/observation` daily
+  `tl_mittel`. Request the new name; the old one raises `InvalidParameterError` in those datasets,
+  which says what it is called now. Geosphere monthly `tl_mittel` keeps `temperature_air_mean_2m`
+  (GH-2839)
+- **Breaking**: an empty result is exit 0 on the command line, as it is a 200 on the REST API: a
+  window without readings, a selection that finds no station, a glossary filter that matches
+  nothing. The sentence goes to stderr and stdout holds what the REST API answers (`{"values": []}`,
+  the CSV header); a `--target` is left as it is. It exited 1, as a failure does. A script that told
+  "no data" by exit 1 tests the output, or the sentence on stderr; exit 1 now only means failure
+  (GH-2635)
+- **Breaking**: a `name` selects its one best match in `values` on the command line, the REST API
+  and MCP, as `filter_by_name` does; it selected the best five, and read the values of all five.
+  `stations` still lists the best five. Pass `--rank` or `rank` for another number, `rank=5` to
+  `filter_by_name` for the listing's (GH-2635)
+- A list of station ids (`filter_by_station_id`, `--station`, `station=`) leaves out an id the
+  network has no station for as before, and now names it in a warning; where none exists the result
+  is empty on every surface. The one reference station of `interpolate` and `summarize` keeps its
+  404 and exit 2 (GH-2635)
+- The command line renders a result through the function the REST API does: with
+  `--with_metadata=true` its JSON and GeoJSON carry the `settings` block next to `metadata`, as the
+  REST API's did. `--pretty` is one option on every command, bare or as `--pretty=true`;
+  `interpolate` and `summarize` took it only bare, the others only with a value (GH-2635)
 
 ### Removed
 
@@ -214,6 +308,28 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
+- A client ID that Frost rejects (HTTP 401 or 403) raises `CredentialRejectedError`, a
+  `ConfigurationError` that is still a `PermissionError`. The REST API and the MCP tools answer 501
+  "The provider rejected the credential of this server for metno/frost" and log the setting, no
+  longer a 500 that names `WD_AUTH__METNO_FROST`; the command line prints one line and exits 1,
+  without a traceback (GH-2665)
+- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` leave out a network
+  that cannot be imported (a broken install) and a provider with no network left,
+  and log why; they listed it as needing no credentials. Asking for that network by name still
+  tells the import error (GH-2800, GH-2801)
+- The description of `noaa/ghcn` daily `tavg` said it was (max + min) / 2. It is GHCN's own
+  average daily temperature, an average of hourly readings (UTC day) from source 'S', and that is
+  what the description now says; `temperature_air_mean_2m` stays (GH-2839)
+- **Breaking**: `dwd/observation` `hourly/temperature_air` `historical`: the stamps of periods that
+  DWD's `Metadaten_Parameter` calls "Stundenwerte in MEZ (MD)", up to 1991 at 80 East German
+  stations, are MEZ, not UTC, and are returned one hour earlier than before, per parameter
+  (`temperature_air_2m`, `humidity_relative`), with `zone:mez` in `quality_flags` (`3,zone:mez`).
+  Plain MEZ and UTC periods are unchanged. A change inside a shared day (36 stations on 1991-11-01)
+  is taken to be after its stamp 00. Add an hour to flagged stamps to get the old ones; 30 rows
+  that the shift puts on a stamp that is there are dropped (GH-2709)
+- `wetterdienst stations|values|interpolate|summarize --format=png|jpg|webp|svg|pdf` wrote the
+  `repr` of the image (`b'\x89PNG...'`) to stdout; it writes the image as the REST API sends it
+  (GH-2635)
 
 ## [0.154.0] - 2026-10-15
 

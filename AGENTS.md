@@ -54,7 +54,7 @@ docker compose --profile app up        # app only, port 4000
 ```bash
 wetterdienst restapi --listen 0.0.0.0:3000
 wetterdienst stations --provider dwd --network observation --parameters daily/kl --periods recent --all
-wetterdienst values --provider dwd --network observation --parameters daily/kl --periods recent --station 00011
+wetterdienst values --provider dwd --network observation --parameters daily/kl --periods recent --stations 00011
 ```
 
 CLI commands (`ui/cli.py`): `stations`, `values`, `history`, `interpolate`, `summarize`, `stripes`, `radar`, `coverage`, `restapi`, `about`.

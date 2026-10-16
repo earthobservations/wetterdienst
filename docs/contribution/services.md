@@ -99,7 +99,11 @@ moment against the mean over the interval: a temperature the service calls an in
 value takes the spot name (`temperature_air_2m`, `temperature_dew_point_2m`,
 `temperature_soil_0_05m`), and one it calls a mean or an average takes the `_mean_` name. Where the
 service says neither, a temperature below daily resolution takes the spot name and one at daily or
-coarser resolution keeps the `_mean_` name (GH-2651, GH-2657).
+coarser resolution keeps the `_mean_` name (GH-2651, GH-2657). A mean the service computes from
+the day's two extremes, `(max + min) / 2`, as ECCC and Geosphere's daily mean do, is neither: it
+takes `temperature_air_mean_minmax_2m` and not `temperature_air_mean_2m`, which is a mean of
+readings through the day and can differ from the midrange of the extremes by a degree or more
+(GH-2839).
 
 `unit` stays mandatory even where a service already publishes canonical units, since silently
 defaulting it is how values end up wrong by a factor of ten with nothing to catch it. Note that it is

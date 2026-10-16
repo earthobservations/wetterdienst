@@ -9,14 +9,14 @@ import logging
 import math
 from http import HTTPStatus
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, WithJsonSchema, with_config
+from pydantic import BaseModel, ConfigDict, ValidationError, with_config
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
@@ -28,6 +28,7 @@ from wetterdienst.exceptions import (
     BufrReaderMissingError,
     ConfigurationError,
     CredentialMissingError,
+    CredentialRejectedError,
     DateRequiredError,
     ImageTooLargeError,
     InvalidTimeIntervalError,
@@ -51,8 +52,7 @@ from wetterdienst.model.result import (
     _ValuesDict,
     _ValuesOgcFeatureCollection,
 )
-from wetterdienst.model.unit import UnitConverter
-from wetterdienst.options import Options, SkipThreshold
+from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
@@ -85,14 +85,23 @@ from wetterdienst.ui.core import (
     get_summarize,
     get_values,
     limit_stations_to_rank,
+    limit_stations_to_window,
     overlay_options,
     set_logging_level,
 )
 from wetterdienst.ui.mcp import is_tool_request
+from wetterdienst.ui.render import (
+    InterpolationSettings,
+    SummarySettings,
+    ValuesSettings,
+    _applied_settings,
+    _AppliedSettings,
+    render,
+    render_stations,
+)
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping
@@ -158,8 +167,8 @@ log = logging.getLogger(__name__)
 
 REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stations": "api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true",  # noqa:E501
-    "dwd_observation_daily_climate_values": "api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011",  # noqa:E501
-    "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011",  # noqa:E501
+    "dwd_observation_daily_climate_values": "api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&stations=00011",  # noqa:E501
+    "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&stations=00011",  # noqa:E501
     "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
@@ -336,6 +345,30 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     )
 
 
+def _credential_rejected_on_the_server(e: CredentialRejectedError, request: BaseModel, what: str) -> HTTPException:
+    """Report a credential the provider refused as the server's lack, not the caller's error or a crash.
+
+    The provider's message names the setting that holds the key, which is for whoever runs this
+    server: it was answered as a 500 with the variable named in the body (GH-2665), the same leak as
+    a missing key. The key is there and the provider does not accept it, so the server cannot serve
+    the network until someone replaces it, which is the 501 of a missing key, with a body of its own
+    that says the key was refused. `/api/auth` tells the same, as `valid: false`. The message moves
+    to the server log as an error: a revoked or mistyped key is something to act on, and it is the
+    provider's answer that is in the message, never the key.
+    """
+    log.error(f"Failed to {what}, the provider rejected the credential of this server: {e}")
+    provider, network = getattr(request, "provider", None), getattr(request, "network", None)
+    of = f" for {provider}/{network}" if provider and network else ""
+    return HTTPException(
+        status_code=501,
+        detail=(
+            f"The provider rejected the credential of this server{of}, so it cannot serve the "
+            f"request. {app.url_path_for('auth')} tells whether the credential is accepted; "
+            "otherwise ask whoever runs this instance."
+        ),
+    )
+
+
 def _refuse_sql_unless_enabled(
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
 ) -> None:
@@ -422,110 +455,6 @@ _MEDIA_TYPES = {
 }
 
 
-#: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
-_Unbounded = Annotated[
-    float,
-    WithJsonSchema(
-        {"anyOf": [{"type": "number"}, {"type": "string", "enum": ["Infinity", "NaN"]}]}, mode="serialization"
-    ),
-]
-
-
-# The settings a request to `/api/values`, `/api/interpolate` and `/api/summarize` is answered with,
-# by the request field that sets each, and with the option of `Options` it sets as its validation alias. The REST
-# API's one list of them: an endpoint takes these from its request (GH-2325), reports the ones it
-# used with its metadata, and `/api/settings` reports the server's defaults for them (GH-2359), or
-# what the query parameters it is given resolve to over those (GH-2383).
-# Listed one by one rather than dumped from `Options`: the REST API names them its own way, and reports
-# the unit targets and the resolution factors whole.
-class _AppliedSettings(BaseModel):
-    """The settings every one of the three endpoints is answered with."""
-
-    # by name too, so that a report, which is written by name, reads back. A radius, factor or gain
-    # the settings take as infinite is written as the string "Infinity", which JSON has no number for
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, ser_json_inf_nan="strings")
-
-    humanize: bool = Field(validation_alias="humanize")
-    convert_units: bool = Field(validation_alias="convert_units")
-    unit_targets: dict[str, str] = Field(
-        validation_alias="unit_targets",
-        description="The unit values of each quantity are converted to, for every quantity, where `convert_units` "
-        "is on; off, they come in the unit the source publishes.",
-    )
-    skip_empty: bool = Field(validation_alias="skip_empty")
-    skip_threshold: SkipThreshold = Field(validation_alias="skip_threshold")
-    skip_criteria: Literal["min", "mean", "max"] = Field(validation_alias="skip_criteria")
-    drop_nulls: bool = Field(
-        validation_alias="drop_nulls",
-        description="Whether rows without a value are dropped. The wide shape, the server's or the request's, "
-        "turns it off.",
-    )
-
-
-class ValuesSettings(_AppliedSettings):
-    """The settings of `/api/values`."""
-
-    shape: Literal["long", "wide"] = Field(validation_alias="shape")
-
-
-_STATION_DISTANCE_DESCRIPTION = (
-    "The radius (km) set for a parameter by name, which applies at every resolution. A parameter it "
-    "leaves out takes the homogeneous or the heterogeneous radius."
-)
-_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION = (
-    "The radius (km) of a parameter that decorrelates fast, at hourly resolution: at another "
-    "resolution it is multiplied by that resolution's factor."
-)
-
-
-class _GeoSettings(_AppliedSettings):
-    """The settings `/api/interpolate` and `/api/summarize` share."""
-
-    min_gain_of_value_pairs: _Unbounded = Field(validation_alias="geo_min_gain_of_value_pairs")
-    num_additional_stations: int = Field(validation_alias="geo_num_additional_stations")
-    # set by the server alone, as are the skipping of sparse stations and the dropping of nulls
-    # here: neither request has a field for them, and the stations' values are read with them
-    station_distance_resolution_factors: dict[str, _Unbounded] = Field(
-        validation_alias="geo_station_distance_resolution_factors",
-        description="The factor the heterogeneous radius is multiplied by, for every resolution. Set by the "
-        "server alone.",
-    )
-
-
-class InterpolationSettings(_GeoSettings):
-    """The settings of `/api/interpolate`."""
-
-    # not read for a summary, which has nothing for it to decide: its field is only accepted there,
-    # and deprecated (GH-2333), so a summary neither passes nor reports it
-    use_nearby_station_distance: _Unbounded | None = Field(validation_alias="geo_use_nearby_station_distance")
-    interpolation_station_distance: dict[str, _Unbounded] = Field(
-        validation_alias="geo_station_distance",
-        description=_STATION_DISTANCE_DESCRIPTION,
-    )
-    interpolation_station_distance_homogeneous: _Unbounded = Field(validation_alias="geo_station_distance_homogeneous")
-    interpolation_station_distance_heterogeneous: _Unbounded = Field(
-        validation_alias="geo_station_distance_heterogeneous",
-        description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
-    )
-
-
-class SummarySettings(_GeoSettings):
-    """The settings of `/api/summarize`."""
-
-    summary_station_distance: dict[str, _Unbounded] = Field(
-        validation_alias="geo_station_distance",
-        description=_STATION_DISTANCE_DESCRIPTION,
-    )
-    summary_station_distance_homogeneous: _Unbounded = Field(validation_alias="geo_station_distance_homogeneous")
-    summary_station_distance_heterogeneous: _Unbounded = Field(
-        validation_alias="geo_station_distance_heterogeneous",
-        description=_STATION_DISTANCE_HETEROGENEOUS_DESCRIPTION,
-    )
-
-
-_M = TypeVar("_M", bound=_AppliedSettings)
-
-
 class ServerSettings(BaseModel):
     """What each endpoint takes for a setting a request leaves out."""
 
@@ -534,38 +463,6 @@ class ServerSettings(BaseModel):
     values: ValuesSettings
     interpolate: InterpolationSettings
     summarize: SummarySettings
-
-
-def _applied_settings(model: type[_M], options: Options) -> _M:
-    """Report `options` by the fields of `model`.
-
-    The unit targets and the resolution factors hold only the entries that depart from
-    wetterdienst's, and are reported whole: the unit of every quantity and the factor of every
-    resolution. The per-parameter radii are reported as given, as `Options` dumps them, since a
-    parameter they leave out takes one of the two radii reported next to them. `drop_nulls` is
-    reported as in effect, which the wide shape turns off.
-    """
-
-    def unit_targets() -> dict[str, str]:
-        converter = UnitConverter()
-        converter.update_targets(options.unit_targets)
-        return {quantity: unit.name for quantity, unit in converter.targets.items()}
-
-    reported: dict[str, Callable[[], object]] = {
-        "unit_targets": unit_targets,
-        "drop_nulls": lambda: options.drop_nulls_effective,
-        "geo_station_distance": lambda: options.model_dump(include={"geo_station_distance"})["geo_station_distance"],
-        "geo_station_distance_resolution_factors": lambda: {
-            resolution.value: options.geo_station_distance_resolution_factor(resolution.value)
-            for resolution in Resolution
-        },
-    }
-    return model.model_validate(
-        {
-            option: reported[option]() if option in reported else getattr(options, option)
-            for option in (str(field.validation_alias) for field in model.model_fields.values())
-        },
-    )
 
 
 # what the JSON formats of the three endpoints answer with: their results' own, and, with
@@ -856,6 +753,24 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
                 response["content"] = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
 
 
+def _declare_list_parameters(schema: dict[str, Any]) -> None:
+    """Describe a list in a query as one comma-separated value, which is how this API takes one (GH-2561).
+
+    FastAPI documents a list as a repeated key (`?parameters=a&parameters=b`, OpenAPI's `explode`
+    default for a query). The contract is the comma-separated list, `?parameters=a,b`, which the
+    parameters' descriptions already give and a client generated from the document now sends too:
+    `explode: false`. The repeated key is still read, and left out of the document, so that a client
+    that sends it keeps working and none is told to.
+    """
+    for path in schema.get("paths", {}).values():
+        for operation in path.values():
+            for parameter in operation.get("parameters", []):
+                options = parameter.get("schema", {}).get("anyOf", [parameter.get("schema", {})])
+                if parameter.get("in") == "query" and any(option.get("type") == "array" for option in options):
+                    parameter["style"] = "form"
+                    parameter["explode"] = False
+
+
 def _openapi() -> dict[str, Any]:
     """Build the OpenAPI schema, giving each settings query parameter the server's value as its default (GH-2393).
 
@@ -889,6 +804,7 @@ def _openapi() -> dict[str, Any]:
     if schema is kept:
         return schema
     _declare_problem_schema(schema)
+    _declare_list_parameters(schema)
     try:
         server = Options()
     except Exception:  # noqa: BLE001
@@ -1007,13 +923,13 @@ class CoverageNetwork(TypedDict):
     every provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641).
     """
 
-    # null for the four of a network that cannot be imported on this server, of which nothing is known
-    name_short: str | None
-    country: str | None
+    # a network that cannot be imported on this server is not listed at all (GH-2801)
+    name_short: str
+    country: str
     # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
     # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
-    kind: NetworkKind | None
-    url: str | None
+    kind: NetworkKind
+    url: str
     auth: bool
     configured: bool
     date_required: bool
@@ -1108,12 +1024,9 @@ def coverage(
             detail=f"Coverage is not available for provider '{provider}' and network '{network}'.",
         )
 
-    resolutions_list: list[str] | None = read_list(request.resolutions) if request.resolutions else None
-    datasets_list: list[str] | None = read_list(request.datasets) if request.datasets else None
-
     cov = api.discover(
-        resolutions=resolutions_list,
-        datasets=datasets_list,
+        resolutions=request.resolutions,
+        datasets=request.datasets,
     )
 
     return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
@@ -1176,10 +1089,15 @@ def stations(
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
-    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `station` id(s),
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `stations` ids,
     lat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or
-    all=true for the full list. Returns station metadata including `station_id`, which you pass to
-    `values`.
+    all=true for the full list. `name` gives the best five matches unless `rank` says otherwise.
+    Returns station metadata including `station_id`, which you pass to `values`.
+
+    A `timestamp`, a date or an interval as for `values`, lists only the stations whose record
+    overlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`
+    the network has no station for is left out of the list, which is then empty or shorter, and
+    named in a warning in the server's log; an empty list is a 200, not an error.
     """
     set_logging_level(debug=request.debug)
     _refuse_sql_unless_enabled(request)
@@ -1194,7 +1112,7 @@ def stations(
         stations_ = get_stations(
             api=api,
             request=request,
-            timestamp=None,
+            timestamp=request.timestamp,
             settings=settings,
         )
     except AssertionError:
@@ -1204,24 +1122,12 @@ def stations(
     except Exception as e:
         raise _failure(e, request, "get stations") from e
 
-    # A rank filter keeps all stations in the frame (rank is applied lazily during value collection);
-    # for a plain listing return just the N closest the caller asked for instead of every station.
-    stations_ = limit_stations_to_rank(stations_)
+    # a window leaves out the stations that cannot have a reading in it, before a rank keeps the N
+    # closest of those that can; a rank filter keeps all stations in the frame, as it is applied
+    # lazily during value collection, and a plain listing returns just the N closest asked for
+    stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-        kwargs["max_side"] = _MAX_IMAGE_SIDE
-
-    content = stations_.to_format(**kwargs)
+    content = render_stations(stations_, request, max_side=_MAX_IMAGE_SIDE)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1271,10 +1177,12 @@ def values(
 ) -> Response:
     """Get measured values for station(s) (step 2 of the station -> values workflow).
 
-    Requires provider, network, parameters and exactly one station selection, as for `stations`.
+    Requires provider, network, parameters and exactly one station selection, as for `stations`,
+    except that a `name` selects its one best match, where `stations` lists the best five; `rank`
+    asks for more. A window without readings is a 200 with an empty `values`, not an error.
     Use parameters as "resolution/dataset/parameter" (e.g.
-    "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
-    an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
+    "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `stations` with
+    an id from `stations` (e.g. stations="01975"). `periods` is optional and provider-specific --
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
     other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
     otherwise, the `values` items are grouped by station, then by
@@ -1302,21 +1210,7 @@ def values(
 
     values_ = _values(api=api, request=request, settings=settings, options=options)
 
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-        kwargs["max_side"] = _MAX_IMAGE_SIDE
-
-    content = _render(values_, request, kwargs, ValuesSettings, options)
+    content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1361,29 +1255,6 @@ def _request_options(request: BaseModel, given: Collection[str], applied: type[_
             message = problem["msg"].removeprefix("Value error, ")
             lines.append(f"Invalid value for '{field}': {within}{message} (got {json.dumps(input_, default=str)})")
         raise HTTPException(status_code=400, detail="\n".join(lines)) from e
-
-
-def _render(
-    result: ValuesResult | InterpolatedValuesResult | SummarizedValuesResult,
-    request: ValuesRequest | InterpolationRequest | SummaryRequest,
-    kwargs: dict[str, Any],
-    applied: type[_AppliedSettings],
-    options: Options,
-) -> str | bytes:
-    """Render a result in the format `kwargs` names, the JSON formats with the settings `applied`.
-
-    The settings go next to the metadata, with `with_metadata` alone, and the rest is written as
-    `to_json` and `to_geojson` write it.
-    """
-    if not request.with_metadata or request.format not in ("json", "geojson"):
-        return result.to_format(**kwargs)
-    if request.format == "json":
-        data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
-    else:
-        data = dict(result.to_ogc_feature_collection(with_metadata=True))
-    report = json.loads(_applied_settings(applied, options).model_dump_json())
-    data = {"metadata": data.pop("metadata"), "settings": report, **data}
-    return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
 
 
 def _geo_options(
@@ -1494,6 +1365,8 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
         return _dependency_missing_on_the_server(e, what)
     if isinstance(e, CredentialMissingError):
         return _credential_missing_on_the_server(e, request, what)
+    if isinstance(e, CredentialRejectedError):
+        return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
     if isinstance(e, NoInternetError):
@@ -1594,21 +1467,7 @@ def interpolate(
 
     values_ = _geo_values(get_interpolate, api, request, settings, options, "interpolate")
 
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-        kwargs["max_side"] = _MAX_IMAGE_SIDE
-
-    content = _render(values_, request, kwargs, InterpolationSettings, options)
+    content = render(values_, request, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1653,21 +1512,7 @@ def summarize(
 
     values_ = _geo_values(get_summarize, api, request, settings, options, "summarize")
 
-    # build kwargs dynamically
-    kwargs: dict[str, Any] = {
-        "fmt": request.format,
-        "with_metadata": request.with_metadata,
-        "with_stations": request.with_stations,
-    }
-    if request.format in ("json", "geojson"):
-        kwargs["indent"] = request.pretty
-    if request.format in ("png", "jpg", "webp", "svg", "pdf"):
-        kwargs["width"] = request.width
-        kwargs["height"] = request.height
-        kwargs["scale"] = request.scale
-        kwargs["max_side"] = _MAX_IMAGE_SIDE
-
-    content = _render(values_, request, kwargs, SummarySettings, options)
+    content = render(values_, request, SummarySettings, options, max_side=_MAX_IMAGE_SIDE)
 
     media_type = _MEDIA_TYPES.get(request.format, "application/json")
 
@@ -1772,7 +1617,7 @@ def history(
     Provides the record of a station's name, position, sensors/devices and data-gap sections across
     its lifetime, for auditing station changes. This is NOT weather or measurement history: for past
     measurements use the stations -> values workflow with a `timestamp` or interval. Requires provider,
-    network, parameters and either `station` id(s) or all=true.
+    network, parameters and either `stations` ids or all=true.
     """
     set_logging_level(debug=request.debug)
 

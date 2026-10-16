@@ -66,14 +66,14 @@ describe('meteogram Page', () => {
     // answered as FastAPI answers a request that fails validation: the entries under `detail`, which tell it
     // in place of the status text
     vi.mocked(globalThis.fetch).mockImplementation(async () =>
-      new Response(JSON.stringify({ detail: [{ loc: ['query', 'station'], msg: 'Unknown station' }] }), { status: 422, statusText: 'Unprocessable Entity' }),
+      new Response(JSON.stringify({ detail: [{ loc: ['query', 'stations'], msg: 'Unknown station' }] }), { status: 422, statusText: 'Unprocessable Entity' }),
     )
 
     const wrapper = await mountSuspended(MeteogramPage)
     const vm = wrapper.vm as any
 
     vm.selectedStation = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
-    await vi.waitFor(() => expect(vm.error).toBe('Backend error 422: station: Unknown station'))
+    await vi.waitFor(() => expect(vm.error).toBe('Backend error 422: stations: Unknown station'))
   })
 
   it('clears state and URL query when the station is deselected', async () => {
@@ -240,7 +240,7 @@ describe('the meteogram page\'s requests answered with a 500', () => {
 
   it('asks /api/stations once for the station a shared link names', async () => {
     // the station search's list is asked for all stations, the link's station by its id
-    const { asked, handler } = failing(query => query.station === '01001')
+    const { asked, handler } = failing(query => query.stations === '01001')
     endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
     const vm = wrapper.vm as any
@@ -313,7 +313,7 @@ describe('the meteogram page\'s requests answered with a 503 once', () => {
 
   it('asks /api/stations once more for the station a shared link names, and selects it', async () => {
     // the station search's list is asked for all stations, the link's station by its id
-    const { asked, handler } = flaky({ stations: [janMayen] }, query => query.station === '01001')
+    const { asked, handler } = flaky({ stations: [janMayen] }, query => query.stations === '01001')
     endpoints.push(registerEndpoint('/api/stations', handler))
     wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=01001' })
     const vm = wrapper.vm as any
@@ -335,7 +335,7 @@ describe('meteogram Page values request', () => {
 
     const asked = vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input)).find(input => input.includes('/api/values?'))!
     const query = new URL(asked, 'http://localhost').searchParams
-    expect(query.get('station')).toBe('01001')
+    expect(query.get('stations')).toBe('01001')
     expect(query.get('shape')).toBe('long')
     expect(query.get('humanize')).toBe('true')
     expect(query.get('convert_units')).toBe('true')

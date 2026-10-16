@@ -149,7 +149,7 @@ The same thing from the command line:
 
 ```bash
 wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all
-wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --station=1048,4411
+wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
 ```
 
 More in [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and in the

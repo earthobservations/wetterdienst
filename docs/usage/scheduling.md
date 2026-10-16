@@ -15,7 +15,7 @@ the terminal. Use `--target` to write to a file or a database instead of stdout:
 wetterdienst values \
     --provider=dwd --network=observation \
     --parameters=daily/kl/temperature_air_mean_2m \
-    --periods=recent --station=01048 \
+    --periods=recent --stations=01048 \
     --target=file:///var/lib/wetterdienst/kl.csv
 ```
 
@@ -29,18 +29,21 @@ writes through psycopg 3, which the `postgresql` extra installs; `postgresql+psy
 
 Three properties of the CLI matter for a scheduler:
 
-- **The exit code is meaningful.** A run that finds nothing exits `1` with
-  `No data available for given constraints`. That is the same exit code as a real failure, so a
-  schedule over a station that is merely quiet will look like a broken job. Either pick a query
-  that always returns something, or let the wrapper decide what an empty result means.
+- **The exit code is meaningful.** A run that finds nothing is no failure: it exits `0` with
+  `No data available for given constraints` on stderr and, where the REST API would answer an empty
+  list, the same on stdout -- a schedule that asks for today's value before it is published does not
+  fail. A `--target` is then left as it is: nothing is written, so the table or file keeps what the
+  last run wrote instead of being replaced with an empty one. Exit `1` is for a failure, and `2` for
+  a request that cannot be served as phrased. A wrapper that wants an empty result to count as one
+  tests the output, or the sentence on stderr.
 - **A run without a network connection fails, it does not write an empty result.** When the
   provider cannot be reached the command exits `1` with `No internet connection: could not reach
   <url> (...)`, and the target keeps what the last run wrote, so a dropped connection is not a
   nightly export of an empty file.
-- **A run replaces what the last one wrote, unless you say otherwise.** `--if_exists` defaults to
+- **A run replaces what the last one wrote, unless you say otherwise.** `--if-exists` defaults to
   `replace`, which for a schedule means the target holds the newest run rather than a history: a
   `file://` target is rewritten in full, and a `duckdb://`, `sqlite://` or `crate://` table is
-  dropped and recreated. Pass `--if_exists=append` to accumulate instead. Not
+  dropped and recreated. Pass `--if-exists=append` to accumulate instead. Not
   every sink takes every value — a file refuses `append`, and InfluxDB refuses `fail` and `skip`,
   since both would have to ask whether the measurement already exists — and a sink that refuses
   the pairing says so and exits 1 rather than writing something else. For InfluxDB, `replace` and
@@ -79,7 +82,7 @@ Type=oneshot
 ExecStart=/usr/local/bin/wetterdienst values \
     --provider=dwd --network=observation \
     --parameters=daily/kl/temperature_air_mean_2m \
-    --periods=recent --station=01048 \
+    --periods=recent --stations=01048 \
     --target=file://%S/wetterdienst/kl.csv
 
 # Give the service its own unprivileged identity and its own writable directories.
@@ -174,7 +177,7 @@ OnFailure=wetterdienst-failure@%n.service
         <string>--network=observation</string>
         <string>--parameters=daily/kl/temperature_air_mean_2m</string>
         <string>--periods=recent</string>
-        <string>--station=01048</string>
+        <string>--stations=01048</string>
         <string>--target=file:///Users/me/weather/kl.csv</string>
     </array>
 
@@ -213,7 +216,7 @@ launchd:
 
 ```text
 # m h dom mon dow  command
-17 3 * * *  /usr/local/bin/wetterdienst values --provider=dwd --network=observation --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 --target=file://$HOME/weather/kl.csv >> $HOME/weather/wetterdienst.log 2>&1
+17 3 * * *  /usr/local/bin/wetterdienst values --provider=dwd --network=observation --parameters=daily/kl/temperature_air_mean_2m --periods=recent --stations=01048 --target=file://$HOME/weather/kl.csv >> $HOME/weather/wetterdienst.log 2>&1
 ```
 
 Note the `17`: an off-the-hour minute is deliberate, for the same reason as `RandomizedDelaySec`
@@ -243,7 +246,7 @@ docker run --rm \
     ghcr.io/earthobservations/wetterdienst \
     wetterdienst values --provider=dwd --network=observation \
         --parameters=daily/kl/temperature_air_mean_2m \
-        --periods=recent --station=01048 --target=file:///data/kl.csv
+        --periods=recent --stations=01048 --target=file:///data/kl.csv
 ```
 
 ## Choosing an interval

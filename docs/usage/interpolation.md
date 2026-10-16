@@ -448,9 +448,9 @@ wetterdienst interpolate \
   --start 2022-01-01 --end 2022-01-05
 ```
 
-Both commands take the search radius as options, `--interpolation_station_distance_homogeneous`
-and `--interpolation_station_distance_heterogeneous` (`--summary_…` for `summarize`), with
-`--interpolation_station_distance` overriding single parameters as a JSON object:
+Both commands take the search radius as options, `--interpolation-station-distance-homogeneous`
+and `--interpolation-station-distance-heterogeneous` (`--summary-…` for `summarize`), with
+`--interpolation-station-distance` overriding single parameters as a JSON object:
 
 ```bash
 wetterdienst interpolate \
@@ -458,11 +458,11 @@ wetterdienst interpolate \
   --parameters hourly/precipitation/precipitation_amount \
   --latitude 52.8 --longitude 12.9 \
   --start 2022-01-01 --end 2022-01-20 \
-  --interpolation_station_distance_heterogeneous 30 \
-  --interpolation_station_distance '{"precipitation_amount": 25}'
+  --interpolation-station-distance-heterogeneous 30 \
+  --interpolation-station-distance '{"precipitation_amount": 25}'
 ```
 
-`summarize` takes the same three under `--summary_…`:
+`summarize` takes the same three under `--summary-…`:
 
 ```bash
 wetterdienst summarize \
@@ -470,10 +470,10 @@ wetterdienst summarize \
   --parameters daily/climate_summary/precipitation_amount \
   --station 02480 \
   --start 2022-01-01 --end 2022-01-20 \
-  --summary_station_distance_heterogeneous 15
+  --summary-station-distance-heterogeneous 15
 ```
 
-Its `--use_nearby_station_distance`, and the `use_nearby_station_distance` of `/api/summarize` and
+Its `--use-nearby-station-distance`, and the `use_nearby_station_distance` of `/api/summarize` and
 the MCP `summarize` tool, are deprecated and will be removed in a future release. They have no
 effect: a summary takes the nearest station with data anyway, so there is nothing for them to
 decide.

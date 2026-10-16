@@ -29,8 +29,8 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -75,14 +75,14 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            "--with_metadata=true",
-            "--with_stations=true",
+            "--with-metadata=true",
+            "--with-stations=true",
         ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"metadata", "stations", "values"}
+    assert response.keys() == {"metadata", "settings", "stations", "values"}
     assert response["metadata"] == metadata
     assert response["stations"] == [
         {
@@ -162,13 +162,13 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=geojson",
-            "--with_metadata=true",
+            "--with-metadata=true",
         ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"metadata", "data"}
+    assert response.keys() == {"metadata", "settings", "data"}
     assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",
@@ -280,9 +280,9 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            '--interpolation_station_distance={"temperature_air_mean_2m": 10}',
-            "--with_metadata=false",
-            "--with_stations=false",
+            '--interpolation-station-distance={"temperature_air_mean_2m": 10}',
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -327,9 +327,9 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            "--use_nearby_station_distance=0",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--use-nearby-station-distance=0",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -374,9 +374,9 @@ def test_cli_interpolate_custom_units() -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            """--unit_targets={"temperature": "degree_fahrenheit"}""",
-            "--with_metadata=false",
-            "--with_stations=false",
+            """--unit-targets={"temperature": "degree_fahrenheit"}""",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -490,8 +490,8 @@ def test_cli_interpolate_start_date_end_date() -> None:
             "--start=1986-10-31",
             "--end=1986-11-01",
             "--format=json",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -516,8 +516,8 @@ def test_cli_interpolate_end_date_only() -> None:
             "--station=00071",
             "--end=1986-11-01",
             "--format=json",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -538,7 +538,7 @@ def test_cli_interpolate_negative_radius() -> None:
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
             "--timestamp=1986-10-31",
-            "--interpolation_station_distance_homogeneous=-1",
+            "--interpolation-station-distance-homogeneous=-1",
         ],
     )
     assert result.exit_code != 0
@@ -560,7 +560,7 @@ def test_cli_interpolate_unknown_station_distance_parameter() -> None:
             "--parameters=daily/kl/temperature_air_mean_2m",
             "--station=00071",
             "--timestamp=1986-10-31",
-            '--interpolation_station_distance={"temperature_air_mean": 10}',
+            '--interpolation-station-distance={"temperature_air_mean": 10}',
         ],
     )
     assert result.exit_code != 0

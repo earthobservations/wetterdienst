@@ -38,12 +38,14 @@ from wetterdienst.provider.dwd.road import DwdRoadMetadata
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
+from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
 from wetterdienst.provider.metoffice.observation import MetOfficeObservationMetadata
+from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata
 from wetterdienst.provider.nws.observation import NwsObservationMetadata
 from wetterdienst.provider.rmi.observation import RmiObservationMetadata
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
@@ -60,6 +62,10 @@ _MEAN_OF_EXTREMES = re.compile(
     r"\b(?:mean|average) of (?:the )?(?:daily )?(?:\w+ )?(?:maxima|minima|maximum|minimum|max|min)\b"
     r"|\b(?:mean|average) (?:daily )?(?:maximum|minimum)\b",
     re.IGNORECASE,
+)
+# "(maximum + minimum) / 2", "(tlmax + tlmin)/2": the mean a source computes from the day's two extremes
+_HALF_SUM_OF_EXTREMES = re.compile(
+    r"\(\s*(?:\w*max\w*\s*\+\s*\w*min\w*|\w*min\w*\s*\+\s*\w*max\w*)\s*\)\s*/\s*2", re.IGNORECASE
 )
 _MULTIDAY = re.compile(r"multi-?day|several days", re.IGNORECASE)
 _PREVIOUS_DAY = re.compile(r"previous day|yesterday|day before", re.IGNORECASE)
@@ -174,6 +180,87 @@ def test_a_mean_of_daily_extremes_is_named_a_mean() -> None:
         if named_mean_of_extremes and not re.search(r"\b(?:mean|average)\b", description, re.IGNORECASE):
             wrong.append(f"{site}: named a mean of extremes, described {description!r}")
     assert not wrong, "\n".join(wrong)
+
+
+def test_a_mean_computed_from_the_daily_extremes_is_named_for_it() -> None:
+    """A source that says the mean is (max + min) / 2 has `temperature_air_mean_minmax_2m`, not `_mean_2m` (GH-2839).
+
+    ECCC's glossary: "Mean temperature is the average of the two" (the day's maximum and minimum), which
+    Toronto City 2019 matches on 362 of 362 days, and which differs from the mean of the hourly values on
+    330 of them (0.45 degrees C on average); Geosphere's `klima-v2-1d` says "Mittelwert berechnet aus
+    (tlmax + tlmin)/2". A mean of readings through the day is `temperature_air_mean_2m`. The rule matches
+    the formula where a source writes it (Geosphere); ECCC's own wording ("the average of the two") is
+    pinned by `test_the_mean_of_the_daily_extremes_is_declared_where_the_source_computes_it`.
+    """
+    wrong = []
+    for site, _, parameter, evidence in _sourced_parameters():
+        if _HALF_SUM_OF_EXTREMES.search(evidence) and parameter.name != "temperature_air_mean_minmax_2m":
+            wrong.append(f"{site}: the source says {evidence!r}, so the name is `temperature_air_mean_minmax_2m`")
+    assert not wrong, "\n".join(wrong)
+    for description in (
+        "Daily mean 2m air temperature, (maximum + minimum) / 2.",
+        "mean from (tlmax + tlmin)/2",
+        "mean from (min + max)/2",
+    ):
+        assert _HALF_SUM_OF_EXTREMES.search(description), description
+    # the mean of the daily maxima is another statistic, with its own names
+    assert not _HALF_SUM_OF_EXTREMES.search("Monthly mean of daily temperature maxima at 2 m above ground.")
+
+
+def test_the_mean_of_the_daily_extremes_is_declared_where_the_source_computes_it() -> None:
+    """ECCC daily and monthly, and Geosphere daily; Geosphere monthly is a mean of other values and stays (GH-2839)."""
+    eccc = {
+        (r.name, d.name): {p.name_original: p.name for p in d.parameters} for r in EcccObservationMetadata for d in r
+    }
+    for resolution in ("daily", "monthly"):
+        assert eccc[resolution, "data"]["mean_temperature"] == "temperature_air_mean_minmax_2m"
+    geosphere = {
+        (r.name, d.name): {p.name_original: p.name for p in d.parameters}
+        for r in GeosphereObservationMetadata
+        for d in r
+    }
+    assert geosphere["daily", "data"]["tl_mittel"] == "temperature_air_mean_minmax_2m"
+    # the monthly value is close to the mean of all the hours (Wien Hohe Warte, June 2024: 21.1 against 21.05 hourly
+    # and 21.32 for the mean of the daily (max + min) / 2)
+    assert geosphere["monthly", "data"]["tl_mittel"] == "temperature_air_mean_2m"
+
+
+def test_the_count_and_the_normal_of_the_mean_of_the_daily_extremes_are_named_for_it() -> None:
+    """ECCC monthly's valid-days count and normal of `mean_temperature` count and normalise that mean (GH-3017).
+
+    On Toronto City 2019 the monthly `mean_temperature` is the mean of the 365 daily `MEAN_TEMPERATURE` values
+    (12 of 12 months to the digit), which are (max + min) / 2, and `days_with_valid_mean_temp` is the number
+    of days with one (12 of 12). `normal_mean_temperature` is the 1981-2010 "Mean daily temperature" of ECCC's
+    `climate-normals` (65 of 65 rows equal), which is within 0.2 degrees C of the mean of the daily maxima plus
+    the mean of the daily minima, halved, on 467 station-months (a mean of the hours differs from (max + min) / 2
+    by 0.45 on average on Toronto City's days). None of the three is a statistic of all readings, so none is
+    named `temperature_air_mean_2m`.
+    """
+    monthly = {
+        p.name_original: p.name
+        for r in EcccObservationMetadata
+        for d in r
+        for p in d.parameters
+        if (r.name, d.name) == ("monthly", "data")
+    }
+    assert monthly["mean_temperature"] == "temperature_air_mean_minmax_2m"
+    assert monthly["days_with_valid_mean_temp"] == "count_days_valid_temperature_air_mean_minmax_2m"
+    assert monthly["normal_mean_temperature"] == "temperature_air_mean_minmax_2m_normal"
+    new, mean = PARAMETERS["temperature_air_mean_minmax_2m_normal"], PARAMETERS["temperature_air_mean_2m"]
+    for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
+        assert getattr(new, field) == getattr(mean, field), field
+    count, beside = (
+        PARAMETERS["count_days_valid_temperature_air_mean_minmax_2m"],
+        PARAMETERS["count_days_valid_temperature_air_max_2m"],
+    )
+    assert count.unit_type == beside.unit_type
+
+
+def test_the_mean_of_the_daily_extremes_behaves_as_the_mean_beside_it() -> None:
+    """It is the same field spatially: the unit type, interpolation and lapse rate of `temperature_air_mean_2m`."""
+    new, mean = PARAMETERS["temperature_air_mean_minmax_2m"], PARAMETERS["temperature_air_mean_2m"]
+    for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
+        assert getattr(new, field) == getattr(mean, field), field
 
 
 def test_the_special_statistics_in_a_name_are_the_ones_the_source_states() -> None:
@@ -704,6 +791,25 @@ def test_the_renamed_names_of_the_audit_are_each_a_row() -> None:
     monthly = {p.name_original: p.name for p in DwdDerivedMetadata["monthly"]["soil"]}
     assert monthly["summe von vpgfao"] == "evapotranspiration_potential_grass_fao"
     assert monthly["summe von vpgh"] == "evapotranspiration_potential_grass_haude"
+
+
+def test_the_metar_precipitation_group_is_named_for_the_report_it_is() -> None:
+    """GHCNh `precipitation` and NWS `precipitationLastHour` are the amount since the last routine report (GH-2841).
+
+    The group of a METAR is a running total: a routine report holds the whole hour, a SPECI the part that had fallen
+    when it was filed. Neither is named `precipitation_amount`, which every other hourly dataset reads as the amount
+    of its own interval, and `precipitation_amount` stays the name in GHCN daily.
+    """
+    name = "precipitation_amount_since_last_routine_report"
+    ghcn = {p.name_original: p for p in NoaaGhcnMetadata["hourly"]["data"]}
+    nws = {p.name_original: p for p in NwsObservationMetadata["hourly"]["data"]}
+    assert ghcn["precipitation"].name == name
+    assert nws["precipitationlasthour"].name == name
+    assert name in PARAMETERS
+    for parameter in (ghcn["precipitation"], nws["precipitationlasthour"]):
+        assert "running total" in parameter.description
+    assert nws["precipitationlast3hours"].name == "precipitation_amount_last_3h"
+    assert {p.name_original: p.name for p in NoaaGhcnMetadata["daily"]["data"]}["prcp"] == "precipitation_amount"
 
 
 def test_dwd_poi_and_aemet_hourly_and_dwd_synoptic_wind_name_their_ten_minutes() -> None:

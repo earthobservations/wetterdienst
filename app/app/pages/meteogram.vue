@@ -118,7 +118,7 @@ async function fetchMeteogram(station: Station) {
     provider: MOSMIX.provider,
     network: MOSMIX.network,
     parameters: MOSMIX.parameters.map(p => `${MOSMIX.resolution}/${MOSMIX.dataset}/${p}`).join(','),
-    station: station.station_id,
+    stations: station.station_id,
     ...METEOGRAM_VALUES_SETTINGS,
   }
   if (selectedIssue.value)
@@ -201,7 +201,7 @@ onMounted(async () => {
         provider: MOSMIX.provider,
         network: MOSMIX.network,
         parameters: `${MOSMIX.resolution}/${MOSMIX.dataset}`,
-        station: stationId,
+        stations: stationId,
       },
       ...RETRY_TRANSIENT,
     })
