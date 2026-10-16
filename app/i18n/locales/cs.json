@@ -10,7 +10,10 @@
     "all": "Vše",
     "settings": "Nastavení",
     "documentation": "Dokumentace",
-    "stationSearch": "Hledat podle názvu nebo ID stanice (např. München, 10738)"
+    "stationSearch": "Hledat podle názvu nebo ID stanice (např. München, 10738)",
+    "requestFailed": "Požadavek selhal",
+    "backendError": "Chyba backendu {status}",
+    "backendErrorDetail": "Chyba backendu {status}: {detail}"
   },
   "home": {
     "tagline": "Otevřená meteorologická data pro lidi",
@@ -532,7 +535,8 @@
     "loadingStations": "Načítání stanic …",
     "loadError": "Načtení stanic se nezdařilo.",
     "noStationsWithPosition": "Pro vybrané parametry nebyla nalezena žádná stanice s polohou.",
-    "coords": "Souřadnice interpolace: {coords}"
+    "coords": "Souřadnice interpolace: {coords}",
+    "example": "např. {value}"
   },
   "dateRange": {
     "label": "Rozsah dat",

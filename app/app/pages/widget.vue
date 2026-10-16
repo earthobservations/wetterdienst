@@ -36,8 +36,8 @@ const error = ref<string | null>(null)
 function describeBackendError(status: number, statusText: string, body: unknown): string {
   const detail = describeApiError(body)
   return detail
-    ? `Backend error ${status}: ${detail}`
-    : [`Backend error ${status}`, statusText].filter(Boolean).join(' ')
+    ? t('common.backendErrorDetail', { status, detail })
+    : [t('common.backendError', { status }), statusText].filter(Boolean).join(' ')
 }
 
 async function loadStation(id: string) {
@@ -87,7 +87,7 @@ async function fetchValues(s: Station) {
     values.value = json.values ?? []
   }
   catch (e: any) {
-    error.value = e?.message ?? 'Request failed'
+    error.value = e?.message ?? t('common.requestFailed')
   }
   finally {
     pending.value = false

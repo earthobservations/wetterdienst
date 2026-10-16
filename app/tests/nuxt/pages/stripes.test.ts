@@ -263,10 +263,86 @@ describe('stripes Page years', () => {
 
       const [, traces] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ hovertemplate?: string }>]
       const hovers = traces.map(trace => trace.hovertemplate).filter(Boolean)
-      expect(hovers).toContain('<b>%{x}</b><br>Wert: %{customdata}<extra></extra>')
+      // the bar's too is formatted, as Plotly writes an unformatted number with a point in every language
       expect(hovers).toContain('<b>%{x}</b><br>Wert: %{customdata:.2f}<extra></extra>')
       expect(hovers).toContain('<b>%{x}</b><br>Trend: %{customdata:.2f}<extra></extra>')
       expect(hovers.join()).not.toContain('Value')
+    }
+    finally {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    }
+  })
+
+  // Plotly writes the numbers of its hover texts with the layout's separators, and a point where
+  // there are none (GH-2971)
+  it.each([
+    ['en', 'Show', /^\.,$/],
+    ['de', 'Anzeigen', /^,\.$/],
+    // the group is a no-break space, which differs by language, so only its kind is pinned
+    ['fr', 'Afficher', /^,\s$/],
+    ['pl', 'Pokaż', /^,\s$/],
+  ])('draws the chart with the separators of %s', async (language, show, separators) => {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as any).setLocale(language)
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    try {
+      wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=temperature' })
+      const vm = wrapper.vm as any
+      await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+      vm.selectedStation = station
+      await nextTick()
+      plotly.newPlot.mockClear()
+
+      await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === show)!.trigger('click')
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+
+      const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { separators: string }]
+      expect(layout.separators).toMatch(separators)
+    }
+    finally {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    }
+  })
+
+  it('draws the chart again in the language it is switched to', async () => {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: { station },
+      values: [
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+      ],
+    }))
+    try {
+      wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=temperature' })
+      const vm = wrapper.vm as any
+      await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+      vm.selectedStation = station
+      await nextTick()
+      plotly.newPlot.mockClear()
+      await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+      expect((plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { separators: string }])[2].separators).toBe('.,')
+
+      await (harness.vm as any).setLocale('de')
+      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+      expect((plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { separators: string }])[2].separators).toBe(',.')
     }
     finally {
       await (harness.vm as any).setLocale('en')

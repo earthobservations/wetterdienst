@@ -10,7 +10,10 @@
     "all": "Alle",
     "settings": "Einstellungen",
     "documentation": "Dokumentation",
-    "stationSearch": "Nach Name oder Stations-ID suchen (z. B. München, 10738)"
+    "stationSearch": "Nach Name oder Stations-ID suchen (z. B. München, 10738)",
+    "requestFailed": "Anfrage fehlgeschlagen",
+    "backendError": "Backend-Fehler {status}",
+    "backendErrorDetail": "Backend-Fehler {status}: {detail}"
   },
   "home": {
     "tagline": "Offene Wetterdaten für Menschen",
@@ -532,7 +535,8 @@
     "loadingStations": "Stationen werden geladen …",
     "loadError": "Stationen konnten nicht geladen werden.",
     "noStationsWithPosition": "Keine Station mit Position für die gewählten Parameter gefunden.",
-    "coords": "Interpolationskoordinaten: {coords}"
+    "coords": "Interpolationskoordinaten: {coords}",
+    "example": "z. B. {value}"
   },
   "dateRange": {
     "label": "Zeitraum",

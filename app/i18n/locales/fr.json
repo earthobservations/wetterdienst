@@ -10,7 +10,10 @@
     "all": "Tout",
     "settings": "Paramètres",
     "documentation": "Documentation",
-    "stationSearch": "Rechercher par nom ou identifiant de station (p. ex. München, 10738)"
+    "stationSearch": "Rechercher par nom ou identifiant de station (p. ex. München, 10738)",
+    "requestFailed": "La requête a échoué",
+    "backendError": "Erreur du backend {status}",
+    "backendErrorDetail": "Erreur du backend {status} : {detail}"
   },
   "home": {
     "tagline": "Données météo ouvertes pour les humains",
@@ -532,7 +535,8 @@
     "loadingStations": "Chargement des stations …",
     "loadError": "Impossible de charger les stations.",
     "noStationsWithPosition": "Aucune station avec une position trouvée pour les paramètres sélectionnés.",
-    "coords": "Coordonnées d'interpolation : {coords}"
+    "coords": "Coordonnées d'interpolation : {coords}",
+    "example": "p. ex. {value}"
   },
   "dateRange": {
     "label": "Plage de dates",

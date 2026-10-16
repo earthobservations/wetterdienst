@@ -1,6 +1,7 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 import WidgetPage from '~/pages/widget.vue'
 
 // the page's $fetch, passed through to the real one unless a test makes it fail where nothing answered,
@@ -256,5 +257,64 @@ describe('widget Page values request', () => {
       speed: 'meter_per_second',
       temperature: 'degree_celsius',
     })
+  })
+})
+
+describe('widget Page failures in the active language', () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn()
+    registerEndpoint('/api/stations', () => ({
+      stations: [{ station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }],
+    }))
+  })
+
+  // the language switched to for the test, and back (GH-2971)
+  async function inLanguage(language: string) {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as any).setLocale(language)
+    onTestFinished(async () => {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    })
+  }
+
+  it.each([
+    ['en', 'Request failed'],
+    ['de', 'Anfrage fehlgeschlagen'],
+    ['fr', 'La requête a échoué'],
+    ['pl', 'Żądanie nie powiodło się'],
+  ])('says in %s that a request threw with no message', async (language, expected) => {
+    await inLanguage(language)
+    // a rejection that carries no message, as a request aborted by the browser can
+    vi.mocked(globalThis.fetch).mockRejectedValue({})
+
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect((wrapper.vm as any).error).toBe(expected))
+  })
+
+  it.each([
+    ['en', 'Backend error 404: No forecast', 'Backend error 502 Bad Gateway'],
+    ['de', 'Backend-Fehler 404: No forecast', 'Backend-Fehler 502 Bad Gateway'],
+    ['fr', 'Erreur du backend 404 : No forecast', 'Erreur du backend 502 Bad Gateway'],
+    ['pl', 'Błąd backendu 404: No forecast', 'Błąd backendu 502 Bad Gateway'],
+  ])('names the backend\'s error in %s', async (language, withDetail, withStatus) => {
+    await inLanguage(language)
+    vi.mocked(globalThis.fetch).mockImplementationOnce(async () =>
+      new Response(JSON.stringify({ detail: 'No forecast' }), { status: 404, statusText: 'Not Found' }),
+    )
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect((wrapper.vm as any).error).toBe(withDetail))
+
+    vi.mocked(globalThis.fetch).mockImplementationOnce(async () =>
+      new Response('<html>proxy page</html>', { status: 502, statusText: 'Bad Gateway' }),
+    )
+    const refused = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    onTestFinished(() => refused.unmount())
+    await vi.waitFor(() => expect((refused.vm as any).error).toBe(withStatus))
   })
 })

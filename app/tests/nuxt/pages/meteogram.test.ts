@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
 
@@ -349,5 +350,77 @@ describe('meteogram Page values request', () => {
       speed: 'meter_per_second',
       temperature: 'degree_celsius',
     })
+  })
+})
+
+// Real Leaflet draws nothing in happy-dom, and LMap imports its marker images, which Node can't: the
+// station map the page loads is not what these tests are about
+vi.mock('@vue-leaflet/vue-leaflet', async () => {
+  const { defineComponent, h } = await import('vue')
+  return {
+    LMap: defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.()) }),
+    LTileLayer: defineComponent({ setup: () => () => null }),
+  }
+})
+
+describe('meteogram Page failures in the active language', () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn()
+    registerEndpoint('/api/stations', () => ({ stations: [] }))
+  })
+
+  // the language switched to for the test, and back (GH-2971)
+  async function inLanguage(language: string) {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as any).setLocale(language)
+    onTestFinished(async () => {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    })
+  }
+
+  const station = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+
+  it.each([
+    ['en', 'Request failed'],
+    ['de', 'Anfrage fehlgeschlagen'],
+    ['fr', 'La requête a échoué'],
+    ['pl', 'Żądanie nie powiodło się'],
+  ])('says in %s that a request threw with no message', async (language, expected) => {
+    await inLanguage(language)
+    // a rejection that carries no message, as a request aborted by the browser can
+    vi.mocked(globalThis.fetch).mockRejectedValue({})
+
+    const wrapper = await mountSuspended(MeteogramPage)
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    vm.selectedStation = station
+    await vi.waitFor(() => expect(vm.error).toBe(expected))
+  })
+
+  it.each([
+    ['en', 'Backend error 422: stations: Unknown station', 'Backend error 500 Internal Server Error'],
+    ['de', 'Backend-Fehler 422: stations: Unknown station', 'Backend-Fehler 500 Internal Server Error'],
+    ['fr', 'Erreur du backend 422 : stations: Unknown station', 'Erreur du backend 500 Internal Server Error'],
+    ['pl', 'Błąd backendu 422: stations: Unknown station', 'Błąd backendu 500 Internal Server Error'],
+  ])('names the backend\'s error in %s', async (language, withDetail, withStatus) => {
+    await inLanguage(language)
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ detail: [{ loc: ['query', 'stations'], msg: 'Unknown station' }] }), { status: 422, statusText: 'Unprocessable Entity' }),
+    )
+    const wrapper = await mountSuspended(MeteogramPage)
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    vm.selectedStation = station
+    await vi.waitFor(() => expect(vm.error).toBe(withDetail))
+
+    vi.mocked(globalThis.fetch).mockImplementation(async () =>
+      new Response('<html>proxy page</html>', { status: 500, statusText: 'Internal Server Error' }),
+    )
+    vm.selectedStation = { ...station, station_id: '00002' }
+    await vi.waitFor(() => expect(vm.error).toBe(withStatus))
   })
 })

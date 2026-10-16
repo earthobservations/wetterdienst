@@ -1,5 +1,6 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 
 // Plotly draws nothing in the test's document: its calls are recorded
@@ -335,5 +336,108 @@ describe('meteogram chart name', { timeout: 15_000 }, () => {
 
   it('names the chart without a station where it is given none', async () => {
     expect(await drawnInto(null)).toEqual(['figure', 'Forecast chart'])
+  })
+})
+
+describe('meteogram numbers and day labels in the active language', { timeout: 15_000 }, () => {
+  // a day of hourly temperatures and rain, the 15th of October: a day of the month no month number
+  // can be taken for, so the order of the two shows
+  const day = Array.from({ length: 24 }, (_, hour) => ({
+    station_id: '10384',
+    resolution: 'hourly',
+    dataset: 'small',
+    parameter: 'temperature_air_2m',
+    timestamp: `2026-10-15T${String(hour).padStart(2, '0')}:00:00+00:00`,
+    value: 10 + hour / 4,
+    quality_flags: null,
+  }))
+  const rain = day.map(value => ({ ...value, parameter: 'precipitation_amount_last_1h', value: 0.25 }))
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let harness: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    await (harness?.vm as any)?.setLocale('en')
+    harness?.unmount()
+    harness = undefined
+    document.body.innerHTML = ''
+  })
+
+  async function inLanguage(language: string) {
+    harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as any).setLocale(language)
+  }
+
+  async function showMeteogram() {
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...rain] })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+  }
+
+  // the mock takes no arguments in its type, so its call is read as Plotly's (element, traces, layout)
+  const layoutDrawn = () => (plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { separators: string }])[2]
+
+  // Plotly writes the numbers of the hover texts (%{y:.1f}) with the layout's separators, and a point
+  // where there are none (GH-2971)
+  it.each([
+    ['en', /^\.,$/],
+    ['de', /^,\.$/],
+    ['fr', /^,\s$/],
+    ['pl', /^,\s$/],
+  ])('draws the chart with the separators of %s', async (language, separators) => {
+    await inLanguage(language)
+    await showMeteogram()
+    expect(layoutDrawn().separators).toMatch(separators)
+  })
+
+  // the chart's own day labels, above the panels
+  it.each([
+    ['en', '15/10'],
+    ['de', '15.10.'],
+    ['fr', '15/10'],
+    ['cs', '15. 10.'],
+  ])('writes the day labels of the chart in %s as %s', async (language, expected) => {
+    await inLanguage(language)
+    await showMeteogram()
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }]
+    expect(layout.annotations.some(annotation => annotation.text.replace(/<\/?b>/g, '').endsWith(` ${expected}`))).toBe(true)
+  })
+
+  it('draws the chart again in the language it is switched to', async () => {
+    await showMeteogram()
+    expect(layoutDrawn().separators).toBe('.,')
+
+    await inLanguage('de')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
+    expect(layoutDrawn().separators).toBe(',.')
+  })
+
+  // the compact view's day cards, which write the date by hand
+  it.each([
+    ['en', '15/10'],
+    ['de', '15.10.'],
+    ['fr', '15/10'],
+    ['nl', '15-10'],
+    ['pl', '15.10'],
+    ['cs', '15. 10.'],
+  ])('writes the day of the compact view in %s as %s', async (language, expected) => {
+    await inLanguage(language)
+    await showMeteogram()
+    ;(wrapper!.vm as any).compact = true
+    await wrapper!.vm.$nextTick()
+
+    // the card's date is a text of its own, a line below the weekday
+    const dates = [...document.body.querySelectorAll('div')].filter(div => div.childElementCount === 0).map(div => div.textContent?.trim())
+    expect(dates).toContain(expected)
+    // not the fixed `dd.MM` it was written in, whatever the language
+    if (['en', 'fr', 'nl', 'cs'].includes(language))
+      expect(wrapper!.text()).not.toContain('15.10')
+    // the rain, 24 times 0.25 mm, with the language's decimal separator
+    expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
   })
 })

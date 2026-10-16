@@ -7,7 +7,7 @@ import type { StationMode, StationSelectionState } from '~/types/station-selecti
 import { h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
-import { formatDate, formatNumber } from '~/utils/format'
+import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
 import { timestampDate } from '~/utils/timestamp'
 import { pinnedUnitTargets } from '~/utils/unit-targets'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
@@ -1091,6 +1091,8 @@ async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), ch
 const chartLayout = computed((): Partial<PlotlyLayout> => {
   return {
     autosize: true,
+    // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
+    separators: plotlySeparators(locale.value),
     margin: { l: 60, r: 20, t: 40, b: 60 },
     xaxis: {
       title: t('dataViewer.axisDate'),

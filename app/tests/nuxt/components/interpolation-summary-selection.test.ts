@@ -1,7 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 
@@ -476,5 +476,57 @@ describe('the interpolation\'s station picker after a Retry', () => {
     await flushPromises()
     expect(retry()).toBe(button)
     expect(document.activeElement).toBe(button)
+  })
+})
+
+// The placeholders say "e.g." in the language of the page; the coordinates in them keep their point
+// in every language, as the number input takes one and the value is no prose (GH-2971)
+describe('the interpolation\'s placeholders in the active language', () => {
+  async function setLocale(locale: string) {
+    const harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await (harness.vm as unknown as { setLocale: (locale: string) => Promise<void> }).setLocale(locale)
+    harness.unmount()
+  }
+
+  afterEach(async () => {
+    await setLocale('en')
+  })
+
+  it.each([
+    ['en', 'e.g.'],
+    ['de', 'z. B.'],
+    ['de-hh', 't. B.'],
+    ['lb', 'z.B.'],
+    ['fr', 'p. ex.'],
+    ['es', 'p. ej.'],
+    ['it', 'es.'],
+    ['nl', 'bijv.'],
+    ['da', 'f.eks.'],
+    ['pl', 'np.'],
+    ['cs', 'např.'],
+  ])('writes the examples of the coordinates and the elevation in %s with "%s"', async (locale, abbreviation) => {
+    await setLocale(locale)
+    const { wrapper } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+
+    expect(wrapper.findAll('input').map(input => input.attributes('placeholder'))).toEqual([
+      `${abbreviation} 52.5200`,
+      `${abbreviation} 13.4050`,
+      `${abbreviation} 34`,
+    ])
+  })
+
+  it.each(['en', 'de', 'fr', 'pl'])('keeps the point in the coordinates it names in %s', async (locale) => {
+    await setLocale(locale)
+    const { wrapper, vm } = await selection('station')
+    onTestFinished(() => wrapper.unmount())
+    vm.selectedStation = feldberg
+    await settle()
+
+    // a position is copied into a map or a query: no decimal comma in any language
+    expect(wrapper.text()).toContain('47.9000, 8.0000')
   })
 })

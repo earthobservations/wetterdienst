@@ -10,7 +10,10 @@
     "all": "Alles",
     "settings": "Instellingen",
     "documentation": "Documentatie",
-    "stationSearch": "Zoek op naam of station-id (bijv. München, 10738)"
+    "stationSearch": "Zoek op naam of station-id (bijv. München, 10738)",
+    "requestFailed": "Aanvraag mislukt",
+    "backendError": "Backendfout {status}",
+    "backendErrorDetail": "Backendfout {status}: {detail}"
   },
   "home": {
     "tagline": "Open weerdata voor mensen",
@@ -532,7 +535,8 @@
     "loadingStations": "Stations laden …",
     "loadError": "Stations laden mislukt.",
     "noStationsWithPosition": "Geen station met een positie gevonden voor de geselecteerde parameters.",
-    "coords": "Interpolatiecoördinaten: {coords}"
+    "coords": "Interpolatiecoördinaten: {coords}",
+    "example": "bijv. {value}"
   },
   "dateRange": {
     "label": "Datumbereik",

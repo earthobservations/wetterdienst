@@ -10,7 +10,10 @@
     "all": "All",
     "settings": "Instellungen",
     "documentation": "Dokumentatschoon",
-    "stationSearch": "Na Naam oder Stations-ID söken (t. B. München, 10738)"
+    "stationSearch": "Na Naam oder Stations-ID söken (t. B. München, 10738)",
+    "requestFailed": "Afraag is scheefgahn",
+    "backendError": "Backend-Fehler {status}",
+    "backendErrorDetail": "Backend-Fehler {status}: {detail}"
   },
   "home": {
     "tagline": "Apen Wedderdaten för de Lüüd",
@@ -532,7 +535,8 @@
     "loadingStations": "Stationen warrt laadt …",
     "loadError": "De Stationen leten sik nich laden.",
     "noStationsWithPosition": "Keen Station mit Positschoon för de utsöchten Parameter funnen.",
-    "coords": "Interpolatschoonskoordinaten: {coords}"
+    "coords": "Interpolatschoonskoordinaten: {coords}",
+    "example": "t. B. {value}"
   },
   "dateRange": {
     "label": "Tietruum",
