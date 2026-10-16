@@ -217,10 +217,9 @@ Types of changes:
   longer a 500 that names `WD_AUTH__METNO_FROST`; the command line prints one line and exits 1,
   without a traceback (GH-2665)
 - `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` leave out a network
-  that cannot be imported (a broken install, a missing extra) and a provider with no network left,
-  and log why; they listed it as needing no credentials. `/api/coverage` and `/api/auth` for that
-  network are still a 500 (a 501 for a missing extra), no longer a 404 as for an unknown network
-  (GH-2800, GH-2801)
+  that cannot be imported (a broken install) and a provider with no network left,
+  and log why; they listed it as needing no credentials. Asking for that network by name still
+  tells the import error (GH-2800, GH-2801)
 
 ## [0.154.0] - 2026-10-15
 

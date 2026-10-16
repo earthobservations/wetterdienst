@@ -923,7 +923,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if isinstance(file.content, Exception) and file.status in {401, 403}:
+        if isinstance(file.content, Exception) and file.status in _FROST_REJECTED_STATUSES:
             msg = (
                 f"Frost API rejected the request with HTTP {file.status}. "
                 "Check that WD_AUTH__METNO_FROST contains a valid client ID."

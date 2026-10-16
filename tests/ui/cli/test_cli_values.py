@@ -5,6 +5,7 @@
 import datetime as dt
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -1526,6 +1527,9 @@ def test_cli_with_a_rejected_credential_says_which_setting_to_replace(
     def download_file(*, url: str, **_kwargs: object) -> File:
         return File(url=url, content=OSError(f"{status}, message='Unauthorized'"), status=status)
 
+    for name in list(os.environ):
+        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
     monkeypatch.setenv("WD_AUTH__METNO_FROST", client_id)
     monkeypatch.setattr(frost_api, "download_file", download_file)
     monkeypatch.chdir(tmp_path)

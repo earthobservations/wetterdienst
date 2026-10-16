@@ -10,6 +10,7 @@ import re
 import zoneinfo
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import get_args
 
 import polars as pl
@@ -1376,7 +1377,8 @@ def test_a_dotted_module_that_is_not_found_is_a_plain_import_error(monkeypatch: 
         msg = "No module named 'lxml.etree'"
         raise ModuleNotFoundError(msg, name="lxml.etree")
 
-    monkeypatch.setattr(importlib, "import_module", _raise)
+    # only the resolver's import, not every lazy import of the process
+    monkeypatch.setattr("wetterdienst.api.importlib", SimpleNamespace(import_module=_raise))
 
     with pytest.raises(ImportError, match=r"failed to import: lxml\.etree not found\.") as excinfo:
         Wetterdienst.resolve("dwd", "dmo")

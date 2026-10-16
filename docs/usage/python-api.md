@@ -990,8 +990,8 @@ a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an
 `IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
 `ConfigurationError` and an `ImportError`, `CredentialRejectedError` (a provider answered 401 or 403 to the
 credential you configured) a `ConfigurationError` and a `PermissionError`. The REST API, the MCP tools
-and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error (exit 2), a `NotFoundError` a 404,
-a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
+and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
+(exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
 `WetterdienstError` included, the server's error. See [REST API](restapi.md#errors) for the body.
 
 ### Offline
