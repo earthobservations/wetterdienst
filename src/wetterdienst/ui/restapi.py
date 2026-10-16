@@ -1103,7 +1103,7 @@ def stations(
     A `timestamp`, a date or an interval as for `values`, lists only the stations whose record
     overlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`
     the network has no station for is left out of the list, which is then empty or shorter, and
-    named in a warning in the server's log; an empty list is a 200, not an error.
+    named in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.
     """
     set_logging_level(debug=request.debug)
     begin_response()

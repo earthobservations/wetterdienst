@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
+from typing import Any
 
 from typing_extensions import TypedDict
 
@@ -28,12 +29,41 @@ class ResponseWarning(TypedDict):
     message: str
 
 
+#: the code of the warning that counts the readings the source wrote a marker for, and its message
+MISSING_VALUE_MARKER = "missing-value-marker"
+MISSING_VALUE_MARKER_MESSAGE = (
+    "{count} readings of the source were a marker for a missing value, or a number no sensor can have produced, "
+    "and are null; with drop_nulls they are not in the answer, without it the text the source wrote is the `raw:` "
+    "token of their quality_flags."
+)
+
 _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_response_warnings", default=None)
+#: the warnings that count something across the whole request, by code: the count and the message, where `{count}` is
+#: the number
+_COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
 
 
 def begin_response() -> None:
-    """Start recording the warnings of the request being served, forgetting those of an earlier one."""
+    """Start recording the warnings of the request being served, forgetting those of an earlier one.
+
+    Whatever served the request before is forgotten too: the lists belong to the context the request runs
+    in, which is a thread of the server for each request and the process for the command line.
+    """
     _RECORDED.set([])
+    _COUNTED.set({})
+
+
+def count_response_warning(code: str, count: int, message: str) -> None:
+    """Add `count` to the warning `code` of the request being served, whose `message` has `{count}` for the total.
+
+    For what happens many times in a request, once for each station: the answer tells it once, with the sum.
+    Nothing is recorded outside a request.
+    """
+    counted = _COUNTED.get()
+    if counted is None or count <= 0:
+        return
+    entry = counted.setdefault(code, [0, message])
+    entry[0] += count
 
 
 def warn_response(log: logging.Logger, code: str, message: str, *, level: int = logging.WARNING) -> None:
@@ -49,5 +79,9 @@ def warn_response(log: logging.Logger, code: str, message: str, *, level: int = 
 
 
 def recorded_warnings() -> list[ResponseWarning]:
-    """Give the warnings recorded since `begin_response`, in the order they were raised."""
-    return list(_RECORDED.get() or [])
+    """Give the warnings recorded since `begin_response`, in the order they were raised, the counted ones last."""
+    counted = [
+        ResponseWarning(code=code, message=message.format(count=count))
+        for code, (count, message) in (_COUNTED.get() or {}).items()
+    ]
+    return [*(_RECORDED.get() or []), *counted]

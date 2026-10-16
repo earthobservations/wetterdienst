@@ -525,7 +525,7 @@ class MetadataModel(BaseModel):
     #: by writing `"license": None`, so that a new provider cannot leave the question out)
     license: LicenseModel | None
     #: the credit line a user of the data has to give: the provider's own wording where it states one, else
-    #: its name as the rights holder; null where the provider asks for none
+    #: its name as the rights holder; null where the provider states none or asks for none
     attribution: str | None
     url: str
     kind: TimeseriesKind

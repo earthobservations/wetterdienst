@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 QUALITY_FLAGS = "quality_flags"
 # the kind of the token that records the sentinel a value was mapped from, always the last one
 RAW = "raw"
+# a regular expression for the token, in a `quality_flags` string
+RAW_TOKEN = rf"(^|,){RAW}:"
 # the suffix of the column that carries `raw` beside a value column of a wide frame, until the frame is made long
 RAW_SUFFIX = "__raw"
 

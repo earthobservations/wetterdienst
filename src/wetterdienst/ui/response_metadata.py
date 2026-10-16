@@ -21,12 +21,10 @@ import datetime as dt
 from typing import TYPE_CHECKING, Any, Literal, cast
 from urllib.parse import quote
 
-import polars as pl
 from pydantic import BaseModel, ConfigDict, Field
 
 from wetterdienst.model.metadata import is_quality_flag
-from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW
-from wetterdienst.model.result import StationsResult, _License, _Producer, _Provider
+from wetterdienst.model.result import StationsFilter, StationsResult, _License, _Producer, _Provider
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.response_warnings import ResponseWarning, recorded_warnings
@@ -65,9 +63,7 @@ class StationsSelected(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    filter: Literal["all", "by_station_id", "by_name", "by_rank", "by_distance", "by_bbox", "by_sql"] = Field(
-        description="How the stations were selected from the network's.",
-    )
+    filter: StationsFilter = Field(description="How the stations were selected from the network's.")
     ids: list[str] = Field(description="The `station_id` of every station in the answer, in its order.")
 
 
@@ -192,29 +188,6 @@ def _unique(values: Any) -> list[str]:  # noqa: ANN401
     return list(dict.fromkeys(str(value) for value in values))
 
 
-def _sentinel_warning(result: StationsResult | _ValuesResult[Any, Any]) -> list[ResponseWarning]:
-    """Say how many values are null for being a missing-value marker, which the `raw:` token of the flags keeps."""
-    if isinstance(result, StationsResult):
-        return []
-    flags = [column for column in result.df.columns if column.endswith(QUALITY_FLAGS)]
-    if not flags:
-        return []
-    count = int(
-        result.df.select(pl.sum_horizontal([pl.col(column).str.contains(f"(^|,){RAW}:").sum() for column in flags]))
-        .to_series()
-        .item()
-    )
-    if not count:
-        return []
-    return [
-        {
-            "code": "missing-value-marker",
-            "message": f"{count} readings were a marker for a missing value, or a number no sensor can have "
-            f"produced, and are null; the text the source wrote is the `{RAW}:` token of their quality_flags.",
-        }
-    ]
-
-
 def response_metadata(
     result: StationsResult | _ValuesResult[Any, Any],
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
@@ -238,8 +211,8 @@ def response_metadata(
         retrieved_at=format_timestamp(dt.datetime.now(dt.UTC)),
         **stations.get_metadata(),
         request=ResolvedRequest(
-            provider=request.provider,
-            network=request.network,
+            provider=request.provider.lower(),
+            network=request.network.lower(),
             parameters=_unique(f"{p.dataset.resolution.name}/{p.dataset.name}/{p.name}" for p in parameters),
             periods=[period.value for period in sorted(cast("Iterable[Period]", stations.request.periods or ()))],
             start=format_timestamp(stations.start) if stations.start else None,
@@ -248,7 +221,7 @@ def response_metadata(
         ),
         counts=Counts(stations=len(ids), rows=result.df.height if rows is None else rows),
         crs=Crs(),
-        warnings=[*recorded_warnings(), *_sentinel_warning(result)],
+        warnings=recorded_warnings(),
     )
     if request.with_metadata if heavy is None else heavy:
         converter = UnitConverter()

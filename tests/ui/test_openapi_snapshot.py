@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from tests.ui.openapi_snapshot import GENERATED_WITH, SNAPSHOT, build_document, installed_versions
+from tests.ui.openapi_snapshot import GENERATED_WITH, SNAPSHOT, build_document, installed_versions, locked_versions
 
 _REGENERATE = (
     "The OpenAPI document served by the REST API is not tests/ui/openapi.snapshot.json. If the change is "
@@ -34,18 +34,25 @@ def _changes(served: object, committed: object, where: str = "#") -> list[str]:
         for key in served.keys() & committed.keys():
             found += _changes(served[key], committed[key], f"{where}/{key}")
         return sorted(found)
+    if isinstance(served, list) and isinstance(committed, list):
+        if len(served) != len(committed):
+            return [f"{where} has {len(served)} items, not {len(committed)}"]
+        return [
+            change
+            for i, (a, b) in enumerate(zip(served, committed, strict=True))
+            for change in _changes(a, b, f"{where}[{i}]")
+        ]
     return [] if served == committed else [f"{where} changed"]
 
 
 def test_the_served_openapi_document_is_the_committed_snapshot() -> None:
     """A change to the contract is a change to the snapshot in the same pull request."""
     committed = _snapshot()
-    written_with = committed.pop(GENERATED_WITH)
-    if written_with != installed_versions():
-        pytest.skip(
-            f"the snapshot was written with {written_with}, and the document differs in detail between "
-            f"versions of those packages ({installed_versions()} installed)"
-        )
+    committed.pop(GENERATED_WITH)
+    # the document differs in detail between versions of FastAPI and pydantic, so it is held to the snapshot where
+    # they are the locked ones: after an update of the lock, the failure says to regenerate
+    if installed_versions() != locked_versions():
+        pytest.skip(f"the snapshot is written with {locked_versions()}, and {installed_versions()} is installed")
 
     changes = _changes(build_document(), committed)
 

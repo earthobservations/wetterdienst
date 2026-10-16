@@ -55,7 +55,6 @@ _STATIONS = [
 ]
 _DRESDEN = {f"0000{number}" for number in range(1, 7)}
 _POINT = (51.05, 13.74)
-_EMPTY_VALUES = {"values": []}
 
 
 @pytest.fixture(autouse=True)
@@ -964,7 +963,8 @@ def test_a_bare_boolean_is_on_and_a_boolean_with_a_value_is_that_value(command: 
     assert bare.exit_code == valued.exit_code == off.exit_code == 0, (bare.output, off.output)
     assert _untimed(bare.stdout) == _untimed(valued.stdout)
     assert _untimed(bare.stdout) != _untimed(off.stdout)
-    assert "metadata" in bare.stdout
+    assert "parameters" in json.loads(bare.stdout)["metadata"]
+    assert "parameters" not in json.loads(off.stdout)["metadata"]
 
 
 # exclusive selections are one rule: the same error type, and the alternatives named
@@ -1113,3 +1113,45 @@ def test_a_failure_is_classified_alike_over_rest_and_through_the_mcp_tool(
     assert detail in message
     for secret in ("/srv/secret/path", "opendata.example.org", "WD_AUTH__X"):
         assert secret not in message or secret in detail, secret
+
+
+# the metadata block says what the request resolved to
+
+
+def test_the_stations_selected_by_id_are_told_as_such() -> None:
+    """A selection by `station_id` is told as that, with the ids that are in the answer and not those that are not."""
+    metadata = _rest("/api/stations", stations="00001,99999").json()["metadata"]
+
+    assert metadata["request"]["stations"] == {"filter": "by_station_id", "ids": ["00001"]}
+    assert metadata["request"]["provider"] == "dwd"
+    assert [warning["code"] for warning in metadata["warnings"]] == ["unknown-station"]
+
+
+def test_readings_dropped_for_being_a_missing_value_marker_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The readings that are a marker for a missing value leave with the nulls, and the answer says how many."""
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def marked(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        df = original(self, station_id, parameter_or_dataset)
+        return df.with_columns(
+            pl.when(pl.col("timestamp") == dt.datetime(2020, 5, 1, tzinfo=UTC))
+            .then(None)
+            .otherwise(pl.col("value"))
+            .alias("value"),
+            pl.when(pl.col("timestamp") == dt.datetime(2020, 5, 1, tzinfo=UTC))
+            .then(pl.lit("raw:-999"))
+            .otherwise(pl.col("quality_flags"))
+            .alias("quality_flags"),
+        )
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", marked)
+
+    dropped = _rest("/api/values", stations="00001,00002", timestamp="2020-05").json()
+    kept = _rest("/api/values", stations="00001,00002", timestamp="2020-05", drop_nulls="false").json()
+
+    assert [warning["code"] for warning in dropped["metadata"]["warnings"]] == ["missing-value-marker"]
+    assert dropped["metadata"]["warnings"][0]["message"].startswith("2 readings")
+    assert "2020-05-01" not in {row["timestamp"][:10] for row in dropped["values"]}
+    # kept as null, the readings carry the marker in their flags, and are counted all the same
+    assert {row["quality_flags"] for row in kept["values"] if row["value"] is None} == {"raw:-999"}
+    assert kept["metadata"]["warnings"][0]["message"].startswith("2 readings")

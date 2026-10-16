@@ -128,7 +128,7 @@ what the answer is missing:
       "periods": ["historical", "recent"],
       "start": "2026-01-01T00:00:00.000000+00:00",
       "end": "2026-01-01T23:59:59.999999+00:00",
-      "stations": {"filter": "by_station_id", "ids": ["01048", "99999"]}
+      "stations": {"filter": "by_station_id", "ids": ["01048"]}
     },
     "counts": {"stations": 1, "rows": 1},
     "crs": {
@@ -157,7 +157,7 @@ what the answer is missing:
   states no terms that could be read, as for CHMI, IMGW, IPMA and NOAA GHCN: it is then for the user to ask
   the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
   states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
-  provider asks for none. `copyright` stays the free text it was.
+  provider states none or asks for none. `copyright` stays the free text it was.
 - **`request`** is the request as resolved, not as typed: `daily/kl` is the list of parameters it means,
   `periods` the periods read, `start` and `end` the window applied in UTC (`null` without one), and
   `stations` how they were selected (`filter`: `all`, `by_station_id`, `by_name`, `by_rank`,
@@ -174,8 +174,8 @@ what the answer is missing:
   few readings, by `skip_empty` and `skip_threshold`), `period-not-published` and `period-not-narrowing`
   (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
-  `null` because the source wrote a marker for a missing value, which the `raw:` token of their
-  `quality_flags` keeps) and `deprecated-parameter`. Codes are added as more are told; a client reads the
+  `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker) and `deprecated-parameter`. Codes are added as more are told; a client reads the
   ones it knows.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
@@ -202,7 +202,8 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
 
-A text with more than ASCII in it (a credit line such as "© Météo-France") is percent-encoded UTF-8;
+A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
+carry, is percent-encoded UTF-8;
 `urllib.parse.unquote` reads it back. The CSV and image formats are otherwise the data alone, as they were.
 The command line prints the block in its JSON and GeoJSON, as REST does, and nothing of it in CSV; the MCP
 tools return the REST answer, and so the block.

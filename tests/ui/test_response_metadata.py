@@ -16,7 +16,6 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
-import polars as pl
 import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
@@ -52,8 +51,9 @@ ENDPOINTS = ["/api/values", "/api/interpolate", "/api/summarize"]
 @pytest.fixture(autouse=True)
 def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    begin_response()
     for name in list(os.environ):
-        if name.startswith("WD_") and name != "WD_CACHE_DIR":
+        if name.upper().startswith("WD_") and name.upper() != "WD_CACHE_DIR":
             monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
 
@@ -181,24 +181,6 @@ def test_a_history_answer_has_the_block(client: TestClient, monkeypatch: pytest.
     assert list(body) == ["metadata", "histories"]
     assert body["metadata"]["counts"] == {"stations": 1, "rows": 0}
     assert body["metadata"]["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
-
-
-def test_a_missing_value_marker_is_a_warning(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Readings returned as null for being a marker say so, and where the text the source wrote is kept."""
-    _stub_result(monkeypatch, "/api/values")
-    result = restapi.get_values(options=Options())  # the stub: hands back the result it was given
-    marked = result.df.with_columns(
-        pl.when(pl.col("parameter") == "precipitation_amount")
-        .then(pl.lit("raw:-999"))
-        .otherwise(None)
-        .alias("quality_flags")
-    )
-    monkeypatch.setattr(restapi, "get_values", lambda **_kwargs: replace(result, df=marked))
-
-    metadata = client.get("/api/values", params=_params("/api/values")).json()["metadata"]
-
-    assert [warning["code"] for warning in metadata["warnings"]] == ["missing-value-marker"]
-    assert "1 readings" in metadata["warnings"][0]["message"]
 
 
 # --- the warnings -----------------------------------------------------------------------------

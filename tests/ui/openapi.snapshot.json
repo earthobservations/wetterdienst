@@ -713,7 +713,7 @@
     "/api/v1/stations": {
       "get": {
         "summary": "Stations",
-        "description": "Find weather stations and their `station_id` (step 1 of the station -> values workflow).\n\nRequires provider, network and parameters (e.g. provider=\"dwd\", network=\"observation\",\nparameters=\"daily/kl\"), and exactly one way of selecting stations: `name` for a place (e.g.\nname=\"Hamburg Fuhlsbüttel\", optionally with `rank` for how many matches), `stations` ids,\nlat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or\nall=true for the full list. `name` gives the best five matches unless `rank` says otherwise.\nReturns station metadata including `station_id`, which you pass to `values`.\n\nA `timestamp`, a date or an interval as for `values`, lists only the stations whose record\noverlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`\nthe network has no station for is left out of the list, which is then empty or shorter, and\nnamed in a warning in the server's log; an empty list is a 200, not an error.",
+        "description": "Find weather stations and their `station_id` (step 1 of the station -> values workflow).\n\nRequires provider, network and parameters (e.g. provider=\"dwd\", network=\"observation\",\nparameters=\"daily/kl\"), and exactly one way of selecting stations: `name` for a place (e.g.\nname=\"Hamburg Fuhlsbüttel\", optionally with `rank` for how many matches), `stations` ids,\nlat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or\nall=true for the full list. `name` gives the best five matches unless `rank` says otherwise.\nReturns station metadata including `station_id`, which you pass to `values`.\n\nA `timestamp`, a date or an interval as for `values`, lists only the stations whose record\noverlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`\nthe network has no station for is left out of the list, which is then empty or shorter, and\nnamed in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.",
         "operationId": "stations_api_stations_get",
         "parameters": [
           {
@@ -4682,20 +4682,24 @@
         "title": "SourceQualityFlag",
         "description": "A quality flag the source publishes beside the values of a dataset."
       },
+      "StationsFilter": {
+        "type": "string",
+        "enum": [
+          "all",
+          "by_station_id",
+          "by_name",
+          "by_rank",
+          "by_distance",
+          "by_bbox",
+          "by_sql"
+        ],
+        "title": "StationsFilter",
+        "description": "Enumeration for stations filter.\n\nThis should help determine why only a subset of stations was returned."
+      },
       "StationsSelected": {
         "properties": {
           "filter": {
-            "type": "string",
-            "enum": [
-              "all",
-              "by_station_id",
-              "by_name",
-              "by_rank",
-              "by_distance",
-              "by_bbox",
-              "by_sql"
-            ],
-            "title": "Filter",
+            "$ref": "#/components/schemas/StationsFilter",
             "description": "How the stations were selected from the network's."
           },
           "ids": {
