@@ -45,6 +45,7 @@ from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
 from wetterdienst.provider.metoffice.observation import MetOfficeObservationMetadata
+from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata
 from wetterdienst.provider.nws.observation import NwsObservationMetadata
 from wetterdienst.provider.rmi.observation import RmiObservationMetadata
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
@@ -790,6 +791,25 @@ def test_the_renamed_names_of_the_audit_are_each_a_row() -> None:
     monthly = {p.name_original: p.name for p in DwdDerivedMetadata["monthly"]["soil"]}
     assert monthly["summe von vpgfao"] == "evapotranspiration_potential_grass_fao"
     assert monthly["summe von vpgh"] == "evapotranspiration_potential_grass_haude"
+
+
+def test_the_metar_precipitation_group_is_named_for_the_report_it_is() -> None:
+    """GHCNh `precipitation` and NWS `precipitationLastHour` are the amount since the last routine report (GH-2841).
+
+    The group of a METAR is a running total: a routine report holds the whole hour, a SPECI the part that had fallen
+    when it was filed. Neither is named `precipitation_amount`, which every other hourly dataset reads as the amount
+    of its own interval, and `precipitation_amount` stays the name in GHCN daily.
+    """
+    name = "precipitation_amount_since_last_routine_report"
+    ghcn = {p.name_original: p for p in NoaaGhcnMetadata["hourly"]["data"]}
+    nws = {p.name_original: p for p in NwsObservationMetadata["hourly"]["data"]}
+    assert ghcn["precipitation"].name == name
+    assert nws["precipitationlasthour"].name == name
+    assert name in PARAMETERS
+    for parameter in (ghcn["precipitation"], nws["precipitationlasthour"]):
+        assert "running total" in parameter.description
+    assert nws["precipitationlast3hours"].name == "precipitation_amount_last_3h"
+    assert {p.name_original: p.name for p in NoaaGhcnMetadata["daily"]["data"]}["prcp"] == "precipitation_amount"
 
 
 def test_dwd_poi_and_aemet_hourly_and_dwd_synoptic_wind_name_their_ten_minutes() -> None:

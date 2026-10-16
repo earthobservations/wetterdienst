@@ -160,6 +160,9 @@ _EXTREMES_LAST_12H = {
 }
 # GH-2842: PPPP, "Surface pressure, reduced", is reduced to sea level
 _PPPP_SEA_LEVEL = {"pressure_air_site_reduced": "pressure_air_sea_level"}
+# GH-2841: the precipitation group of a METAR is the amount since the last routine report, which an hourly dataset of
+# reports returned as the hour's precipitation
+_PRECIPITATION_SINCE_LAST_ROUTINE_REPORT = {"precipitation_amount": "precipitation_amount_since_last_routine_report"}
 _EXTREMES_OF_THE_PERIOD = {
     "temperature_air_max_2m_multiday": "temperature_air_max_2m",
     "temperature_air_min_2m_multiday": "temperature_air_min_2m",
@@ -215,8 +218,9 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
     # Frost's own element `wind_speed` still selects its row, so only the direction is not found
     "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
     "SmhiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
-    # GH-2836, GH-2837, GH-2840: NWS's wind is the ASOS's 2-minute average, its gust the peak of the past 10 minutes
-    # and its barometricPressure the altimeter setting, the pressure at sea level of the standard atmosphere. ECCC's
+    # GH-2836, GH-2837, GH-2840, GH-2841: NWS's wind is the ASOS's 2-minute average, its gust the peak of the past 10
+    # minutes, its barometricPressure the altimeter setting, the pressure at sea level of the standard atmosphere, and
+    # its precipitationLastHour the METAR's amount since the last routine report. ECCC's
     # hourly direction, now `wind_direction_last_2min`, is not listed: `wind_direction` is also the source's own field
     # name there, so a request for it still selects the row
     "MetOfficeObservationMetadata": {("hourly", "weather"): _GUST_LAST_10MIN},
@@ -226,8 +230,11 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
             "wind_direction": "wind_direction_last_2min",
             **_GUST_LAST_10MIN,
             "pressure_air_site": "pressure_air_site_reduced",
+            **_PRECIPITATION_SINCE_LAST_ROUTINE_REPORT,
         },
     },
+    # GH-2841: the METAR precipitation group is a running total since the last routine report, no hourly amount
+    "NoaaGhcnMetadata": {("hourly", "data"): _PRECIPITATION_SINCE_LAST_ROUTINE_REPORT},
     # GH-2845: RR6 is DWD's liquid precipitation of the last 6 hours
     "DwdSwsmosMetadata": {("hourly", "data"): {"precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h"}},
     # GH-2846: RMI's PT100 probe measures the temperature on the grass, a surface temperature

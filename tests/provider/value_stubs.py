@@ -1416,11 +1416,15 @@ STUBS = [
         "noaa/ghcn hourly/data",
         _ghcn_hourly,
         reading=("wind_direction", 90.0),
-        sentinels=(("wind_direction", 999.0), ("wind_direction", 0.0), ("precipitation_amount", -9999.0)),
+        sentinels=(
+            ("wind_direction", 999.0),
+            ("wind_direction", 0.0),
+            ("precipitation_amount_since_last_routine_report", -9999.0),
+        ),
         tokens=(
             ("wind_direction", "999", None),
             ("wind_direction", "0", None),
-            ("precipitation_amount", "-9999", None),
+            ("precipitation_amount_since_last_routine_report", "-9999", None),
             ("temperature_air_2m", "-None", None),
         ),
     ),

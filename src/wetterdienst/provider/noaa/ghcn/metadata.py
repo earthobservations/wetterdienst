@@ -33,10 +33,12 @@ NoaaGhcnMetadata = {
                             "name_original": "relative_humidity",
                             "unit": "percent",
                         },
-                        # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement
-                        # code column indicates a trace amount of precipitation (millimeters)
+                        # total liquid precipitation (rain or melted snow); totals are nominally for the hour, but a
+                        # METAR's amount is the running total since the last routine report, so the report that
+                        # closes the hour is the hour's (GH-2841); a “T” in the measurement code column indicates a
+                        # trace amount of precipitation (millimeters)
                         {
-                            "name": "precipitation_amount",
+                            "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitation",
                             "unit": "millimeter",
                         },

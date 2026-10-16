@@ -512,6 +512,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Neerslag uit significant weer (laatste 24 u)',
   precipitation_amount_significant_weather_last_3h: 'Neerslag uit significant weer (laatste 3 u)',
   precipitation_amount_significant_weather_last_6h: 'Neerslag uit significant weer (laatste 6 u)',
+  precipitation_amount_since_last_routine_report: 'Neerslag sinds de laatste routinemelding',
   precipitation_intensity: 'Neerslagintensiteit',
   pressure_air_site_delta_last_3h: 'Luchtdruktendens (laatste 3 u)',
   pressure_air_site_max: 'Maximale luchtdruk op stationshoogte',

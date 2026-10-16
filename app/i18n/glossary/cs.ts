@@ -512,6 +512,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Srážky z významného počasí (posledních 24 h)',
   precipitation_amount_significant_weather_last_3h: 'Srážky z významného počasí (posledních 3 h)',
   precipitation_amount_significant_weather_last_6h: 'Srážky z významného počasí (posledních 6 h)',
+  precipitation_amount_since_last_routine_report: 'Srážky od poslední pravidelné zprávy',
   precipitation_intensity: 'Intenzita srážek',
   pressure_air_site_delta_last_3h: 'Tendence tlaku (posledních 3 h)',
   pressure_air_site_max: 'Maximální tlak vzduchu ve výšce stanice',

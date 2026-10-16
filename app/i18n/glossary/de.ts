@@ -530,6 +530,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Niederschlagshöhe aus signifikantem Wetter (letzte 24 h)',
   precipitation_amount_significant_weather_last_3h: 'Niederschlagshöhe aus signifikantem Wetter (letzte 3 h)',
   precipitation_amount_significant_weather_last_6h: 'Niederschlagshöhe aus signifikantem Wetter (letzte 6 h)',
+  precipitation_amount_since_last_routine_report: 'Niederschlagshöhe seit dem letzten Routinebericht',
   precipitation_intensity: 'Niederschlagsintensität',
   pressure_air_site_delta_last_3h: 'Luftdrucktendenz (letzte 3 h)',
   pressure_air_site_max: 'Höchster Luftdruck in Stationshöhe',

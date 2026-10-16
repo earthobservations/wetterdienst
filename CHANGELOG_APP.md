@@ -36,6 +36,9 @@ Types of changes:
   shows (GH-2836, GH-2837, GH-2840, GH-2843, GH-2844, GH-2845)
 - `[Glossary]` The new parameter `temperature_air_mean_minmax_2m`, the mean computed from the
   day's maximum and minimum (ECCC, Geosphere daily), has a label in all 11 languages (GH-2839)
+- `[Glossary]` The new parameter `precipitation_amount_since_last_routine_report`, the METAR
+  precipitation of `noaa/ghcn` hourly and `nws/observation`, has a label in all 11 languages;
+  against an older backend those two datasets still show `precipitation_amount` (GH-2841)
 - **Breaking** `[Glossary]` The labels of `count_days_valid_temperature_air_mean_2m` and
   `temperature_air_mean_2m_normal` are now keyed by `count_days_valid_temperature_air_mean_minmax_2m`
   and `temperature_air_mean_minmax_2m_normal`, the names the backend gives ECCC's monthly counts and
