@@ -412,15 +412,18 @@ def test_cli_glossary_unit_type() -> None:
     assert [entry["name"] for entry in entries] == ["turbidity"]
 
 
-def test_cli_glossary_no_match() -> None:
-    """Test that a filter matching nothing exits non-zero, as grep does.
+def test_cli_glossary_no_match(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a filter matching nothing is an empty list and exit 0, as the REST endpoint's 200 is (GH-2635).
 
-    The REST endpoint answers the same query with 200 and an empty list, because an empty result is
-    not an HTTP error. The exit code is what makes the difference visible to a shell script.
+    An empty result is an answer, not a failure: the sentence goes to stderr and stdout holds what
+    `/api/glossary` sends, so a script reads one thing from either.
     """
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
-    assert result.exit_code == 1
+    with caplog.at_level(logging.WARNING):
+        result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert "No canonical parameter matches the given filters." in caplog.text
 
 
 def test_cli_glossary_unknown_unit_type() -> None:

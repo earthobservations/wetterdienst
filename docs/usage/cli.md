@@ -6,6 +6,14 @@ kernelspec:
 
 # Command Line Interface
 
+Exit codes: `0` for an answer, empty or not -- a window without readings or a name nothing is called
+exits 0 with the sentence on stderr, as the REST API answers such a request with a 200 and an empty
+`values` or `stations` --, `1` for a failure, and `2` for a request that cannot be served as phrased. A list of
+`--station` ids leaves out an id the network has no station for and says so in a warning. `--pretty`
+is the same option everywhere: bare, or as `--pretty=true` and `--pretty=false`. The command line
+and the [REST API](restapi.md) render a result through the same function, so the same request gives the
+same output, a `settings` block with `--with_metadata` included.
+
 Every command's help, as `wetterdienst COMMAND --help` prints it: its options and, for most, examples
 to start from. Rendered when the documentation is built, so it names the options the release has.
 
