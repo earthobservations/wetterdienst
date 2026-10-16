@@ -40,6 +40,7 @@ from wetterdienst.exceptions import (
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution
+from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -86,6 +87,7 @@ from wetterdienst.ui.core import (
     limit_stations_to_rank,
     limit_stations_to_window,
     overlay_options,
+    resolve_network,
     set_logging_level,
 )
 from wetterdienst.ui.mcp import is_tool_request
@@ -108,7 +110,7 @@ if TYPE_CHECKING:
     from fastapi.routing import APIRoute
     from starlette.types import ASGIApp, Receive, Scope, Send
 
-    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.api import StandaloneRequest
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
 
 info = Info()
@@ -534,7 +536,7 @@ def index() -> HTMLResponse:
         # take the first network api
         first_network = next(iter(Wetterdienst.registry[provider].keys()))
         try:
-            api = Wetterdienst(provider, first_network)
+            api = Wetterdienst.resolve(provider, first_network)
         except ImportError:
             # one provider whose module does not import is not a reason for the page to be a 5xx (GH-2801)
             log.warning(
@@ -891,7 +893,7 @@ def oauth_metadata_not_found() -> None:
     raise HTTPException(status_code=404, detail="Not Found")
 
 
-def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest]:
+def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
     """Resolve the network `/api/auth` and `/api/coverage` are asked about, telling why one does not resolve.
 
     A provider or network that is not listed is a 404 pointing at the listing. A network whose
@@ -902,7 +904,7 @@ def _resolve_listed_network(provider: str, network: str, what: str) -> type[Time
     routes answer, logged with its traceback, rather than told as a network that does not exist (GH-2800).
     """
     try:
-        return Wetterdienst(provider, network)
+        return resolve_network(provider, network)
     except MissingDependencyError as e:
         raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
     except ApiNotFoundError as e:
@@ -996,7 +998,7 @@ def coverage(
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
     # discover(); report that cleanly instead of raising an uncaught AttributeError (HTTP 500).
-    if not hasattr(api, "discover"):
+    if not issubclass(api, TimeseriesRequest):
         raise HTTPException(
             status_code=404,
             detail=f"Coverage is not available for provider '{provider}' and network '{network}'.",
@@ -1040,8 +1042,7 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
     history has nothing to answer these with, as a provider or network that does not exist.
     """
     try:
-        api = Wetterdienst(provider, network)
-        check_timeseries_api(api, provider, network, history=history)
+        return check_timeseries_api(resolve_network(provider, network), provider, network, history=history)
     except ApiNotFoundError as e:
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
@@ -1049,7 +1050,6 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
     except NotImplementedError as e:
         log.info(f"Refused a request for station history: {e}")
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return api
 
 
 # response models for the different formats are
@@ -1123,7 +1123,7 @@ def issues(
     set_logging_level(debug=request.debug)
 
     try:
-        api = Wetterdienst(request.provider, request.network)
+        api = resolve_network(request.provider, request.network)
     except ApiNotFoundError as e:
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")

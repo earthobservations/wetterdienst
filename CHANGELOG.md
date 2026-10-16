@@ -103,6 +103,29 @@ Types of changes:
   `StationsResult.request` is typed `TimeseriesRequest`, no longer a union with the two forecast
   requests. `Settings.fsspec_client_kwargs` and the `settings` and `options` of a request are
   `dict[str, Any]`, so the keys of `fsspec_client_kwargs` must be strings (GH-2622)
+- **Breaking**: `to_geojson`, `to_ogc_feature_collection` and `to_plot` of the results take the
+  arguments they declare and no others. They accepted any keyword and dropped it, so
+  `to_geojson(with_metdata=True)` wrote a document without metadata; it is a `TypeError` now, and a
+  type checker reports it. `to_image` takes `fmt`, `width`, `height`, `scale` and `max_side` and no
+  others. Fix the name or drop the argument. `to_format(fmt, **kwargs)` still takes one set of
+  arguments for any format and gives each format those it takes, so the command line, REST and MCP
+  are unchanged; `to_csv` still passes its keywords to polars (GH-3043)
+- **Breaking**: the results (`StationsResult`, `ValuesResult`, `InterpolatedValuesResult`,
+  `SummarizedValuesResult` and `HistoryResult`) are built by keyword only.
+  `ValuesResult(df, stations)` is a `TypeError`: write
+  `ValuesResult(stations=..., df=...)`. The library builds them, so only code that constructs one
+  by hand is affected (GH-3044)
+- **Breaking**: `Wetterdienst.resolve` is for the timeseries networks and is typed so. `dwd/radar`
+  and `dwd/alerts`, whose classes are no `TimeseriesRequest`, are refused with an `ApiNotFoundError`
+  that names their own entry point, `Wetterdienst.resolve_standalone("dwd", "radar")`, which is
+  typed to the exact class for literal names; or import the class. `Wetterdienst.standalone` lists
+  them and `Wetterdienst.is_standalone(provider, network)` tells (GH-3045)
+
+### Deprecated
+
+- `Wetterdienst(provider, network)` warns with a `DeprecationWarning` and still returns the class
+  of either kind of network. Use `Wetterdienst.resolve(provider, network)`, or `resolve_standalone`
+  for `dwd/radar` and `dwd/alerts` (GH-3045)
 
 ### Fixed
 

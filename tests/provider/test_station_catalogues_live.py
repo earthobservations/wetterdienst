@@ -32,6 +32,7 @@ from tests.provider.station_catalogue_stubs import (
     WSV_TIEL,
 )
 from wetterdienst import Wetterdienst
+from wetterdienst.ui.core import resolve_network
 
 # the networks whose station list is not the same for every dataset of a resolution
 _EVERY_DATASET = {"dwd/derived", "dwd/dmo", "dwd/mosmix"}
@@ -78,7 +79,7 @@ def _cases() -> list[object]:
             if key in _NOT_HELD:
                 continue
             try:
-                api = Wetterdienst(provider, network)
+                api = resolve_network(provider, network)
             except ImportError as error:
                 cases.append(
                     pytest.param(
@@ -117,7 +118,7 @@ def _cases() -> list[object]:
 def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str, dataset: str) -> None:
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
-    stations = Wetterdienst(provider, network)(parameters=[(resolution, dataset)]).all().df
+    stations = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)]).all().df
     assert_sound(
         stations,
         f"{key} {resolution}/{dataset}",

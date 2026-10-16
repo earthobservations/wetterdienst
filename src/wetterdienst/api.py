@@ -2,18 +2,28 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """API request factory."""
 
+from __future__ import annotations
+
 import importlib
 import logging
-from typing import ClassVar
+import warnings
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias, overload
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
 
 from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
-from wetterdienst.model.metadata import CoverageNetwork
-from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
+
+if TYPE_CHECKING:
+    from wetterdienst.model.metadata import CoverageNetwork
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
+    from wetterdienst.provider.dwd.radar import DwdRadarValues
+
+    #: the request class of a standalone network, which is no `TimeseriesRequest`
+    StandaloneRequest: TypeAlias = type[DwdRadarValues | DwdWeatherAlertRequest]
 
 log = logging.getLogger(__name__)
 
@@ -107,27 +117,42 @@ class Wetterdienst:
         },
     }
 
+    #: the networks of the registry that are no timeseries networks: they have their own request class and
+    #: result, no stations or values and no metadata model. `resolve_standalone` resolves them, and `resolve`
+    #: refuses them
+    standalone: ClassVar[frozenset[tuple[str, str]]] = frozenset({("dwd", "radar"), ("dwd", "alerts")})
+
+    @staticmethod
+    def _normalize(provider: str, network: str) -> tuple[str, str]:
+        return provider.strip().lower(), network.strip().lower()
+
     @classmethod
-    def resolve(cls, provider: str, network: str) -> type[TimeseriesRequest]:
-        """Resolve provider and network to API request class.
+    def is_standalone(cls, provider: str, network: str) -> bool:
+        """Tell whether a network is a standalone one (`dwd/radar`, `dwd/alerts`) and not a timeseries network.
 
         Args:
             provider: Provider name
             network: Network name
 
         Returns:
-            API request class
+            Whether `resolve_standalone` and not `resolve` resolves it
 
         """
-        provider = provider.strip().lower()
-        network = network.strip().lower()
+        return cls._normalize(provider, network) in cls.standalone
 
+    @classmethod
+    def _path(cls, provider: str, network: str) -> str:
+        """Tell the dotted path of the request class the registry names for a provider and network."""
         try:
-            module_path, class_name = cls.registry[provider][network].rsplit(".", 1)
+            return cls.registry[provider][network]
         except KeyError as e:
             msg = f"No API available for provider {provider} and network {network}."
             raise ApiNotFoundError(msg) from e
 
+    @classmethod
+    def _import(cls, provider: str, network: str) -> type[Any]:
+        """Import the request class the registry names for a provider and network."""
+        module_path, class_name = cls._path(provider, network).rsplit(".", 1)
         try:
             module = importlib.import_module(module_path)
             return getattr(module, class_name)
@@ -148,8 +173,89 @@ class Wetterdienst:
             msg = f"Class {class_name} not found in module {module_path}."
             raise AttributeError(msg) from e
 
-    def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest]:
+    @classmethod
+    def resolve(cls, provider: str, network: str) -> type[TimeseriesRequest]:
+        """Resolve provider and network to the request class of a timeseries network.
+
+        A timeseries network has stations and values. The two networks that have not, `dwd/radar` and
+        `dwd/alerts` (`Wetterdienst.standalone`), are resolved by `resolve_standalone`, and refused here
+        because their classes are no `TimeseriesRequest` and take other arguments (GH-3045).
+
+        Args:
+            provider: Provider name
+            network: Network name
+
+        Returns:
+            API request class
+
+        Raises:
+            ApiNotFoundError: the provider or network is not in the registry, or the network is a
+                standalone one.
+
+        """
+        provider, network = cls._normalize(provider, network)
+        if (provider, network) in cls.standalone:
+            msg = (
+                f"Provider '{provider}' and network '{network}' have no stations or values to request: it is a "
+                f"standalone network, resolve it with Wetterdienst.resolve_standalone('{provider}', '{network}')."
+            )
+            raise ApiNotFoundError(msg)
+        return cls._import(provider, network)
+
+    @overload
+    @classmethod
+    def resolve_standalone(cls, provider: Literal["dwd"], network: Literal["radar"]) -> type[DwdRadarValues]: ...
+
+    @overload
+    @classmethod
+    def resolve_standalone(
+        cls, provider: Literal["dwd"], network: Literal["alerts"]
+    ) -> type[DwdWeatherAlertRequest]: ...
+
+    @overload
+    @classmethod
+    def resolve_standalone(cls, provider: str, network: str) -> StandaloneRequest: ...
+
+    @classmethod
+    def resolve_standalone(cls, provider: str, network: str) -> StandaloneRequest:
+        """Resolve provider and network to the request class of a standalone network.
+
+        A standalone network (`dwd/radar`, `dwd/alerts`) has its own request class, which takes its own
+        arguments, and its own result. Neither has stations, values or a metadata model, so none of
+        `stations`, `values`, `history`, `interpolate` and `summarize` takes one. The class is the one
+        to import from `wetterdienst.provider.dwd.radar` or `wetterdienst.provider.dwd.alerts`, as the
+        examples do; this resolves it by name, as `resolve` does a timeseries network.
+
+        Args:
+            provider: Provider name
+            network: Network name
+
+        Returns:
+            API request class
+
+        Raises:
+            ApiNotFoundError: the provider or network is not in the registry, or the network is a
+                timeseries network, which `resolve` resolves.
+
+        """
+        provider, network = cls._normalize(provider, network)
+        # a network that is not in the registry is told first, as `resolve` tells it
+        cls._path(provider, network)
+        if (provider, network) not in cls.standalone:
+            msg = (
+                f"{provider}/{network} is a timeseries network, not a standalone one: "
+                f"resolve it with Wetterdienst.resolve('{provider}', '{network}')."
+            )
+            raise ApiNotFoundError(msg)
+        return cls._import(provider, network)
+
+    def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
         """Resolve provider and network to API request class.
+
+        Deprecated: a class constructed is no instance of it, and the return type cannot say which kind of
+        class comes back. Use `Wetterdienst.resolve(provider, network)` for a timeseries network and
+        `Wetterdienst.resolve_standalone(provider, network)` for `dwd/radar` and `dwd/alerts` (GH-3045).
+        It still returns the class of either kind.
 
         Args:
             provider: Provider name
@@ -159,7 +265,15 @@ class Wetterdienst:
             API request class
 
         """
+        warnings.warn(
+            "Wetterdienst(provider, network) is deprecated: use Wetterdienst.resolve(provider, network), or "
+            "Wetterdienst.resolve_standalone(provider, network) for dwd/radar and dwd/alerts",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Both provider and network should be fine (if not an exception is raised)
+        if cls.is_standalone(provider, network):
+            return cls.resolve_standalone(provider, network)
         return cls.resolve(provider, network)
 
     @staticmethod
@@ -246,34 +360,32 @@ class Wetterdienst:
             listed: dict[str, CoverageNetwork] = {}
             for network in networks:
                 try:
-                    api = cls(provider, network)
+                    if cls.is_standalone(provider, network):
+                        standalone = cls.resolve_standalone(provider, network)
+                        # no metadata model, so what the network is comes from its request class; and no credentials
+                        listed[network] = {
+                            **standalone.listing,
+                            "auth": False,
+                            "configured": True,
+                            "date_required": False,
+                        }
+                        continue
+                    api = cls.resolve(provider, network)
                 except ImportError as e:
                     # left out of the listing, so the log is where it is told (GH-2801)
                     log.warning("Left %s/%s out of the listing, it cannot be imported: %s", provider, network, e)
                     continue
-                metadata = getattr(api, "metadata", None)
-                if metadata is not None:
-                    listing = {
-                        "name_short": metadata.name_short,
-                        "country": metadata.country,
-                        "kind": metadata.kind,
-                        "url": metadata.url,
-                    }
-                else:
-                    # the registry holds two classes that are no `TimeseriesRequest`, and each has a `listing`
-                    listing = api.listing  # ty: ignore[unresolved-attribute]
-                auth = metadata.auth if metadata is not None else False
-                date_required = (
-                    any(dataset.date_required for resolution in metadata for dataset in resolution.datasets)
-                    if metadata is not None
-                    else False
-                )
+                metadata = api.metadata
+                date_required = any(dataset.date_required for resolution in metadata for dataset in resolution.datasets)
                 listed[network] = {
-                    **listing,
-                    "auth": auth,
+                    "name_short": metadata.name_short,
+                    "country": metadata.country,
+                    "kind": metadata.kind,
+                    "url": metadata.url,
+                    "auth": metadata.auth,
                     # not probed whether the credentials are accepted: that is a request to the provider per
                     # network, and a listing of all of them waited for each in turn (GH-2564)
-                    "configured": cls.is_configured(api) if auth else True,
+                    "configured": cls.is_configured(api) if metadata.auth else True,
                     "date_required": date_required,
                 }
             if listed:
@@ -290,7 +402,7 @@ class Wetterdienst:
         """Get all networks for a provider.
 
         Raises:
-            ApiNotFoundError: the provider is not in the registry, as `Wetterdienst(provider, network)` raises it.
+            ApiNotFoundError: the provider is not in the registry, as `resolve` raises it.
 
         """
         provider = provider.strip().lower()

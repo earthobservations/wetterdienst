@@ -60,6 +60,7 @@ from wetterdienst.provider.rmi.observation import RmiObservationMetadata, RmiObs
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata, SmhiObservationRequest
 from wetterdienst.provider.wsv.pegel import WsvPegelMetadata, WsvPegelRequest
 from wetterdienst.settings import Auth
+from wetterdienst.ui.core import resolve_network
 
 # every provider/network that exposes a metadata model (dwd/radar and dwd/alerts have none)
 ALL_METADATA = [
@@ -146,8 +147,70 @@ def unit_converter_unit_type_units(unit_converter: UnitConverter) -> dict:
 )
 def test_wetterdienst_api(provider: str, network: str) -> None:
     """Test wetterdienst API."""
-    request = Wetterdienst.resolve(provider, network)
+    request = resolve_network(provider, network)
     assert request
+
+
+@pytest.mark.parametrize("network", ["radar", "alerts"])
+def test_resolve_refuses_a_standalone_network_and_names_the_entry_point(network: str) -> None:
+    """`resolve` is for timeseries networks: dwd/radar and dwd/alerts are refused, naming the entry point (GH-3045)."""
+    with pytest.raises(ApiNotFoundError, match=rf"resolve_standalone\('dwd', '{network}'\)"):
+        Wetterdienst.resolve("dwd", network)
+
+
+@pytest.mark.parametrize(
+    ("provider", "network", "expected"),
+    [
+        ("dwd", "radar", "DwdRadarValues"),
+        (" DWD ", "Alerts", "DwdWeatherAlertRequest"),
+    ],
+)
+def test_resolve_standalone_returns_the_request_class_of_the_network(
+    provider: str, network: str, expected: str
+) -> None:
+    """`resolve_standalone` gives the class of dwd/radar and dwd/alerts, reading names as `resolve` does (GH-3045)."""
+    api = Wetterdienst.resolve_standalone(provider, network)
+    assert api.__name__ == expected
+    assert not issubclass(api, TimeseriesRequest)
+
+
+def test_resolve_standalone_refuses_a_timeseries_network_and_names_the_entry_point() -> None:
+    """A timeseries network is told to be resolved by `resolve`, not answered with a class (GH-3045)."""
+    with pytest.raises(ApiNotFoundError, match=r"resolve it with Wetterdienst\.resolve\('dwd', 'observation'\)"):
+        Wetterdienst.resolve_standalone("dwd", "observation")
+
+
+def test_resolve_standalone_refuses_a_network_that_does_not_exist() -> None:
+    """An unknown provider and network is the error `resolve` raises for it (GH-3045)."""
+    with pytest.raises(ApiNotFoundError, match=r"No API available for provider foo and network bar\."):
+        Wetterdienst.resolve_standalone("foo", "bar")
+
+
+def test_the_standalone_networks_are_exactly_the_ones_that_are_no_timeseries_request() -> None:
+    """`Wetterdienst.standalone` lists the networks of the registry that are no `TimeseriesRequest` (GH-3045)."""
+    standalone = set()
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            if not issubclass(resolve_network(provider, network), TimeseriesRequest):
+                standalone.add((provider, network))
+            assert Wetterdienst.is_standalone(provider, network) == ((provider, network) in standalone)
+    assert standalone == Wetterdienst.standalone
+    kinds = {Wetterdienst.discover()[provider][network]["kind"] for provider, network in standalone}
+    assert kinds == {"radar", "alerts"}
+
+
+@pytest.mark.parametrize(
+    ("provider", "network", "expected"),
+    [("dwd", "observation", DwdObservationRequest), ("dwd", "radar", None), ("dwd", "alerts", None)],
+)
+def test_the_constructor_form_is_deprecated_and_still_returns_the_class(
+    provider: str, network: str, expected: type | None
+) -> None:
+    """`Wetterdienst(provider, network)` warns of `resolve` at the caller and returns the class (GH-3045)."""
+    with pytest.warns(DeprecationWarning, match=r"Wetterdienst\(provider, network\) is deprecated") as warned:
+        api = Wetterdienst(provider, network)
+    assert api is (expected or resolve_network(provider, network))
+    assert warned[0].filename == __file__
 
 
 def test_resolve_names_the_package_a_provider_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1150,7 +1213,7 @@ def test_source_descriptions_reach_the_metadata() -> None:
     unknown = []
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
-            api = Wetterdienst.resolve(provider, network)
+            api = resolve_network(provider, network)
             metadata = getattr(api, "metadata", None)
             if metadata is None:
                 continue
@@ -1194,7 +1257,7 @@ def test_source_descriptions_reach_the_parameter_they_name() -> None:
     wrong = []
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
-            api = Wetterdienst.resolve(provider, network)
+            api = resolve_network(provider, network)
             metadata = getattr(api, "metadata", None)
             if metadata is None:
                 continue
@@ -1351,7 +1414,7 @@ def test_discover_leaves_out_a_network_that_cannot_be_imported(
     assert "observation" in discovered["dwd"]
     assert "Left dwd/dmo out of the listing, it cannot be imported: Module wetterdienst.provider.dwd.dmo" in caplog.text
     with pytest.raises(ImportError, match=r"lxml\.etree not found"):
-        Wetterdienst("dwd", "dmo")
+        Wetterdienst.resolve("dwd", "dmo")
 
 
 def test_discover_leaves_out_a_provider_none_of_whose_networks_can_be_imported(
@@ -1509,7 +1572,7 @@ def test_discover_says_what_every_network_is() -> None:
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
             entry = discovered[provider][network]
-            api = Wetterdienst.resolve(provider, network)
+            api = resolve_network(provider, network)
             assert set(entry) == {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
             assert entry["name_short"], f"{provider}/{network}"
             assert entry["country"], f"{provider}/{network}"
@@ -1531,10 +1594,10 @@ def test_discover_says_what_every_network_is() -> None:
         assert discovered["dwd"][network]["country"] == discovered["dwd"]["observation"]["country"]
 
 
-def _registered_requests() -> list[tuple[str, str, type[TimeseriesRequest]]]:
+def _registered_requests() -> list[tuple[str, str, type]]:
     """Every provider and network of the registry with its request class."""
     return [
-        (provider, network, Wetterdienst.resolve(provider, network))
+        (provider, network, resolve_network(provider, network))
         for provider, networks in Wetterdienst.registry.items()
         for network in networks
     ]
