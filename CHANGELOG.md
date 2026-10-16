@@ -66,6 +66,19 @@ Types of changes:
   running total since the last routine METAR and the winds are 2-minute means; a SPECI nearer the
   full hour than a synoptic METAR takes its 3- and 6-hour amounts with it, see the provider page
   (GH-2857)
+- `dwd/observation` `hourly/sun` `quality_flags` carry `zone:woz` (`10,zone:woz`) for a stamp of a
+  period that DWD's `Metadaten_Parameter` calls "Stundenwerte in WOZ": the station's local true
+  solar time, not UTC, at 528 of 636 stations, at 172 of them past 2001-03-31 (to 2006). Stamps
+  and values are unchanged, as the offset is no whole hour; filter the flagged rows out, or shift
+  them by the longitude and the equation of time yourself (GH-2816, GH-2617)
+- **Breaking**: `dwd/poi` `wind_speed_rolling_mean_max_yesterday` is named
+  `wind_speed_rolling_mean_max_last_6h`: DWD's "previous day" column is carried at 00, 06, 12 and
+  18 UTC and is the maximum of the 6 hourly values up to the stamp, not a value of the previous
+  day. Request the new name; the old one raises `InvalidParameterError`, which says what it is
+  called now (GH-2817)
+- `dwd/observation` `hourly/urban_wind` `wind_direction`: the description says that its 0, which
+  comes with 0.1 to 0.8 m/s and never with 0, is returned as 0 because DWD does not state whether
+  it is a calm or north, unlike the calm of `10_minutes/urban_wind` that is null (GH-2809)
 
 ### Removed
 

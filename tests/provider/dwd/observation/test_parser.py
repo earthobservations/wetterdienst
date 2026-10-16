@@ -650,6 +650,21 @@ _CALM_WIND_FILES = {
         "dd_st_10",
         [("220", None), (None, "0"), ("360", None), ("0", None), ("0", None)],
     ),
+    # the urban hourly file (13667, stundenwerte_wind_13667_akt.zip, read 2026-10-15): a 0 comes beside 0.1 to 0.8 m/s
+    # and never beside 0, and DWD's sheet says nothing of it, so it is left as the source writes it (GH-2809). Not
+    # a calm rule: the 0 stays 0 with no raw text, and a speed of 0 (made up, no file has one) does not change that
+    "hourly/urban_wind": (
+        DwdObservationMetadata.hourly.urban_wind,
+        "STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; WINDGESCHWINDIGKEIT; WINDRICHTUNG; eor",
+        [
+            "     13667;   2018061722;    2;0;  0.50;  0;eor",
+            "     13667;   2018062421;    2;0;  0.20;  0;eor",
+            "     13667;   2018092301;    2;0;  0.40;360;eor",
+            "     13667;   2018092302;    2;0;  0.00;  0;eor",
+        ],
+        "windrichtung",
+        [("0", None), ("0", None), ("360", None), ("0", None)],
+    ),
 }
 
 
