@@ -98,6 +98,8 @@ Types of changes:
 - `dwd/observation` `hourly/urban_wind` `wind_direction`: the description says that its 0, which
   comes with 0.1 to 0.8 m/s and never with 0, is returned as 0 because DWD does not state whether
   it is a calm or north, unlike the calm of `10_minutes/urban_wind` that is null (GH-2809)
+- The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
+  takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
 
 ### Removed
 
