@@ -75,16 +75,21 @@ _COLLECTION_DATE_COLUMNS = {
 }
 _COLLECTION_DATE_COLUMN_NAMES = tuple(column for columns in _COLLECTION_DATE_COLUMNS.values() for column in columns)
 
-#: The collections whose null first date is taken for no rows to ask for, when a request names no dates. A station
-#: without a hourly or daily first date has no non-null values in the years of its FIRST_DATE to LAST_DATE: none of 300
-#: of the 6750 stations with a null HLY_FIRST_DATE had any in a draw, and none of the 95 with a null DLY_FIRST_DATE; of
-#: 1961 probed hourly ones 2 had rows (read 2026-10-13): 4333 has 6865 rows of 1995-1997 with every value null and
-#: flag M, 27490 has precipitation in 2008, after its LAST_DATE 2007-11-30, which a request with dates reaches.
-#: Neither date bounds the rows of a station that has them: the dates follow the temperature and not every series. 6813
-#: has HLY_FIRST_DATE 1995-02-16 and 7088 hours of wind from 1994, 27174 has 2013-12-10 and hourly precipitation from
-#: 2007, and 5006 has DLY_LAST_DATE 1957-10-31 and daily minimum temperatures in 1961, so the years come from the rows
-#: (``_edge_year``), not from these dates (GH-2820, GH-2864).
-_FIRST_DATE_SAYS_ROWS = (Resolution.HOURLY, Resolution.DAILY)
+#: The collections whose first date in the station list decides whether a station is listed for the resolution at
+#: all. A station without a hourly or daily first date has no row in that collection that holds a value (read
+#: 2026-10-15): none of the 95 without a DLY_FIRST_DATE has a daily row, and of the 6750 without a HLY_FIRST_DATE 1049
+#: drawn at random have none (hits of ``STN_ID=``), where 2 of the 1961 that GH-2820 probed have: 4333 has 6865 rows of
+#: 1995-1997 with no value in any column, and 27490 has 7035 of 2008, after its LAST_DATE 2007-11-30, with
+#: PRECIP_AMOUNT (HAS_HOURLY_DATA is N for both). The loss of the second is taken: the station list says it has no
+#: hourly collection, and an allow-list of ids would be a table of ECCC's mistakes in the library (GH-2867). Such a
+#: station is not listed for the resolution, where it was listed with null dates (GH-2747) and a dated request
+#: asked for its years.
+#: Monthly is not here: MLY_FIRST_DATE is null for 763 stations that have monthly rows.
+#: The dates do not bound the rows of a station that has them: they follow the temperature and not every series.
+#: 6813 has HLY_FIRST_DATE 1995-02-16 and 7088 hours of wind from 1994, 27174 has 2013-12-10 and hourly precipitation
+#: from 2007, and 5006 has DLY_LAST_DATE 1957-10-31 and daily minimum temperatures in 1961, so the years come from the
+#: rows (``_edge_year``), not from these dates (GH-2820, GH-2864).
+_LISTED_BY_FIRST_DATE = (Resolution.HOURLY, Resolution.DAILY)
 
 
 def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
@@ -216,7 +221,7 @@ class EcccObservationValues(TimeseriesValues):
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
-            # no connection: nothing to ask for, as for a year
+            # narrows the type; `raise_if_exception` has raised for any failed download
             return None
         features = json.load(file.content).get("features") or []
         date = features[0]["properties"].get(date_field) if features else None
@@ -233,11 +238,8 @@ class EcccObservationValues(TimeseriesValues):
         answers a descending sort with the rows without a value that it carries up to today for many closed stations
         (390, 962, 2898, read 2026-10-13), so it ends with the station's LAST_DATE.
 
-        A station without a hourly or daily first date has no non-null values in the years of its FIRST_DATE to
-        LAST_DATE (see ``_FIRST_DATE_SAYS_ROWS`` for what was probed and the two counterexamples), and a request for
-        all those years came back empty one year at a time: 6750 of the 8435 stations for hourly (GH-2820). It is
-        asked for no year, and no row. A request that names its dates asks for them, and a result of stations that was
-        built without the station list has the benefit of the doubt.
+        A hourly or daily station without a first date in the station list is not listed for the resolution, so it is
+        never asked for here (``_LISTED_BY_FIRST_DATE``, GH-2867).
         """
         if self.sr.start and self.sr.end:
             return range(self.sr.start.year, self.sr.end.year + 1)
@@ -250,8 +252,6 @@ class EcccObservationValues(TimeseriesValues):
                 & (pl.col("dataset") == dataset.name)
             ).to_dicts()
             row = rows[0] if rows else None
-        if row is not None and not row["has_rows"]:
-            return range(0)
         first = self._edge_year(station_id, dataset, date_field=date_field)
         if first is None:
             return range(0)
@@ -418,10 +418,10 @@ class EcccObservationRequest(TimeseriesRequest):
     metadata = EcccObservationMetadata
     _values = EcccObservationValues
 
-    # What the values read of the station list and the stations do not carry: for each station and dataset whether the
-    # station list gives its collection a first date, and the station's FIRST_DATE and LAST_DATE stamped like the dates
-    # of the resolution (GH-2820, GH-2864); the hourly LAST_DATE is null, as the last hourly row is asked for. They are
-    # no column of the stations, whose dates are those of the collection (GH-2747).
+    # What the values read of the station list and the stations do not carry: for each station and dataset the station's
+    # FIRST_DATE and LAST_DATE stamped like the dates of the resolution (GH-2864); the hourly LAST_DATE is null, as the
+    # last hourly row is asked for. They are no column of the stations, whose dates are those of the collection
+    # (GH-2747).
     _collection_bounds: pl.DataFrame | None = field(default=None, init=False, repr=False, compare=False)
 
     def _all(self) -> pl.LazyFrame:
@@ -518,13 +518,17 @@ class EcccObservationRequest(TimeseriesRequest):
         # for each combination of resolution and dataset create a new DataFrame with the columns
         for resolution, dataset in resolutions_and_datasets:
             first, last = (column.lower() for column in _COLLECTION_DATE_COLUMNS[Resolution(resolution)])
-            has_rows = pl.col(first).is_not_null() if Resolution(resolution) in _FIRST_DATE_SAYS_ROWS else pl.lit(True)  # noqa: FBT003
+            # a station is listed for a resolution whose first date the list gives it (GH-2867)
+            listed = (
+                df_raw.filter(pl.col(first).is_not_null())
+                if Resolution(resolution) in _LISTED_BY_FIRST_DATE
+                else df_raw
+            )
             data.append(
                 self._stamp_bounds(
-                    df_raw.with_columns(
+                    listed.with_columns(
                         pl.col(first).alias("start_timestamp"),
                         pl.col(last).alias("end_timestamp"),
-                        has_rows.alias("has_rows"),
                     ).select(pl.all().exclude(collection_columns)),
                     resolution=Resolution(resolution),
                 ).with_columns(
@@ -533,10 +537,8 @@ class EcccObservationRequest(TimeseriesRequest):
                 ),
             )
         df = pl.concat(data).collect()
-        self._collection_bounds = df.select(
-            "station_id", "resolution", "dataset", "has_rows", "first_date", "last_date"
-        )
-        return df.drop("has_rows", "first_date", "last_date").lazy()
+        self._collection_bounds = df.select("station_id", "resolution", "dataset", "first_date", "last_date")
+        return df.drop("first_date", "last_date").lazy()
 
     @staticmethod
     def _stamp_bounds(df: pl.LazyFrame, *, resolution: Resolution) -> pl.LazyFrame:

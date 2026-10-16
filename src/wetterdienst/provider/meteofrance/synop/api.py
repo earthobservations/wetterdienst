@@ -169,8 +169,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             if file.status != 404 or year != current_year:
                 file.raise_if_exception()
             if isinstance(file.content, Exception):
-                if not file.is_no_internet_error:
-                    log.warning(f"Failed to download {file.url}: {file.content}")
+                log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
             with gzip.GzipFile(fileobj=file.content) as gz:
                 df = pl.read_csv(cast("IO[bytes]", gz), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)

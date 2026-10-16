@@ -10,7 +10,7 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - every minute to yearly resolution
     - time series of over 1000 stations in Germany
 - [Mosmix](mosmix/index.md) — statistically optimized point forecasts derived from weather models
-    - MOSMIX-S (40 parameters, updated hourly) and MOSMIX-L (122 parameters, updated every 6 hours)
+    - MOSMIX-S (40 parameters, updated hourly) and MOSMIX-L (114 parameters, updated every 6 hours)
     - 5649 stations worldwide, forecast horizon up to 240 hours
 - [DMO](dmo/index.md) — raw point forecasts extracted from weather models (no statistical postprocessing)
     - ICON (global) and ICON-EU (regional) models

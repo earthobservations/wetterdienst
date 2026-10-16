@@ -1677,19 +1677,25 @@ def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypat
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_dwd_road_weather_does_not_raise_for_no_internet(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """No connection stays an empty answer, as `File.raise_if_exception` has it everywhere else."""
+def test_dwd_road_weather_raises_for_no_internet(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No connection at all is raised, as `File.raise_if_exception` has it everywhere (GH-2640)."""
     from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
 
     _stub_downloads(monkeypatch, [NoInternetError("x"), NoInternetError("x")])
-    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
-        df = _stub_stations().values.all().df
+    with pytest.raises(NoInternetError):
+        _stub_stations().values.all()
 
-    assert df.is_empty()
-    assert "2 of 2 files of DD could not be downloaded" in caplog.text
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_raises_for_no_internet_among_files_that_arrived(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A connection lost for one file is no gap in the window: the readings of the others are not returned (GH-2640)."""
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    reading = _flat({"#1#shortStationName": "A006", "#1#airTemperature": 285.0})
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    _stub_downloads(monkeypatch, [BytesIO(b"x" * 500), NoInternetError("x")])
+    with pytest.raises(NoInternetError):
+        _stub_stations().values.all()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")

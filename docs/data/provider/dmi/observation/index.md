@@ -24,7 +24,14 @@ climatologists) or `none` (not controlled), followed by `validity:true` or `vali
 documents `validity` as whether the climatologists consider the value valid: "Invalid data is
 generally not correct". It is `false` mostly for Greenland (station 04339 Ittoqqortoormiit has daily
 precipitation totals of 1978 mm and annual ones of 9574 mm marked so) and rarely for Denmark. The
-library returns those values as they are; filter on the flag to leave them out.
+library returns those values as they are and leaves it to the caller to filter on the flag, with one
+exception: a value outside the generous physical range of its parameter (60 degrees of air temperature,
+6,000 mm of precipitation: far above what a gauge in Denmark, the Faroe Islands or Greenland reads) is
+null and keeps what DMI wrote as the last token of `quality_flags`,
+`manual,validity:false,raw:17802`. The bounds are the same at every resolution, so the monthly 17,802 mm
+of 04339 for 2011-10 and its yearly 9,574.3 mm (2014) and 6,026.5 mm (2015) are nulled, and its daily
+1978 mm and monthly 3,229.9 mm, which are below the bound, are not. The long shape drops the rows without a value by default, so the token shows with
+`drop_nulls=False`.
 
 ## License
 

@@ -21,8 +21,8 @@
    badges, alerts): shade 500 is 2.2:1 on white for primary, and 3.8:1 on white and 3.3:1 on its
    tint for error. In dark mode the colours are already light enough. Primary takes shade 700 and a
    fifth of the way to 800, which is what a hovered soft button's 15 % tint needs to stay at 4.5:1
-   (4.7:1; shade 700 alone is 4.3:1 there). The solid buttons, white on --ui-primary, are not
-   touched: that is the colour of the brand. In the utilities layer and with no extra specificity, so
+   (4.7:1; shade 700 alone is 4.3:1 there). The fill of the solid buttons, --ui-primary, is not
+   touched: that is the colour of the brand (their label: see below). In the utilities layer and with no extra specificity, so
    that the hover and active colours of a link button still win. */
 @layer utilities {
   :where(:root:not(.dark)) .text-primary {
@@ -31,6 +31,15 @@
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
+}
+
+/* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
+   and 1.9:1 hovered, when the fill is 75 % of it over the page. #0f172b (slate-900) on it is 8.0:1,
+   and 9.5:1 hovered. In dark mode the fill is the lighter #05df72 and Nuxt UI's own label is this
+   same colour, so nothing changes there: 10.0:1, and 6.1:1 hovered over the page. The fill, the
+   brand's, is not touched. */
+:root {
+  --app-text-on-primary: #0f172b;
 }
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.

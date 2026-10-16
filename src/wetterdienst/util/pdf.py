@@ -26,7 +26,7 @@ def read_pdf(url: str) -> str:
     )
     file.raise_if_exception()
     if isinstance(file.content, Exception):
-        # `raise_if_exception` lets a NoInternetError through silently, for the empty text
+        # narrows the type; `raise_if_exception` has raised for any failed download
         return ""
     pdf = pypdf.PdfReader(file.content)
     for page_number in range(len(pdf.pages)):

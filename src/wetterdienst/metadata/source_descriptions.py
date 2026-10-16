@@ -378,7 +378,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "fxh25"): "Probability of wind gusts >= 25kn within the last 12 hours",
         ("hourly", "large", "fxh40"): "Probability of wind gusts >= 40kn within the last 12 hours",
         ("hourly", "large", "fxh55"): "Probability of wind gusts >= 55kn within the last 12 hours",
-        ("hourly", "large", "h_bsc"): "Cloud base of convective clouds",
         ("hourly", "large", "n"): "Total cloud cover",
         ("hourly", "large", "n05"): "Cloud cover below 500 ft.",
         ("hourly", "large", "neff"): "Effective cloud cover",
@@ -404,8 +403,6 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "r610"): "Probability of precipitation > 1.0mm during the last 6 hours",
         ("hourly", "large", "r650"): "Probability of precipitation > 5.0mm during the last 6 hours",
         ("hourly", "large", "rad1h"): "Global Irradiance",
-        ("hourly", "large", "radl3"): "Long wave radiation balance during the last 3 hours",
-        ("hourly", "large", "rads3"): "Short wave radiation balance during the last 3 hours",
         ("hourly", "large", "rd00"): "Probability of precipitation > 0.0mm during the last 24 hours",
         ("hourly", "large", "rd02"): "Probability of precipitation > 0.2mm during the last 24 hours",
         ("hourly", "large", "rd10"): "Probability of precipitation > 1.0mm during the last 24 hours",
@@ -414,19 +411,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "large", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "large", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "large", "rr1"): "Total precipitation during the last hour",
         ("hourly", "large", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
         ("hourly", "large", "rr1o1"): "Probability of precipitation > 10.0 mm during the last hour",
         ("hourly", "large", "rr1u1"): "Probability of precipitation > 25.0 mm during the last hour",
         ("hourly", "large", "rr1w1"): "Probability of precipitation > 15.0 mm during the last hour",
-        ("hourly", "large", "rr3"): "Total precipitation during the last 3 hours",
         ("hourly", "large", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
-        ("hourly", "large", "rr6"): "Total precipitation during the last 6 hours",
         ("hourly", "large", "rr6c"): "Total precipitation during the last 6 hours consistent with significant weather",
         ("hourly", "large", "rrad1"): "Global irradiance within the last hour",
-        ("hourly", "large", "rrd"): "Total precipitation during the last 24 hours",
         ("hourly", "large", "rrdc"): "Total precipitation during the last 24 hours consistent with significant weather",
-        ("hourly", "large", "rrh"): "Total precipitation during the last 12 hours",
         ("hourly", "large", "rrhc"): "Total precipitation during the last 12 hours consistent with significant weather",
         ("hourly", "large", "rrl1c"): (
             "Total liquid precipitation during the last hour consistent with significant weather"
@@ -436,7 +428,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rsund"): "Relative sunshine duration within the last 24 hours",
         ("hourly", "large", "sund"): "Yesterdays total sunshine duration",
         ("hourly", "large", "sund1"): "Sunshine duration during the last Hour",
-        ("hourly", "large", "sund3"): "Sunshine duration during the last 3 hours",
+        ("hourly", "large", "sund3"): (
+            "Sunshine duration during the last 3 hours. Not a sliding 3 hour total: it does not agree with the sum "
+            "of the last three sund1, not even at the 3-hourly steps, and appears to be interpolated from "
+            "3-hourly values."
+        ),
         ("hourly", "large", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "large", "td"): "Dewpoint 2m above surface",
         ("hourly", "large", "tg"): "Minimum surface temperature at 5cm within the last 12 hours",
@@ -863,7 +859,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "dew_point", "td"): "Dew point temperature.",
         ("hourly", "dew_point", "tt"): "Air temperature.",
         ("hourly", "moisture", "absf_std"): "Computed hourly value of absolute humidity.",
-        ("hourly", "moisture", "p_std"): "Hourly value of barometric pressure.",
+        ("hourly", "moisture", "p_std"): (
+            "Hourly value of barometric pressure. A station without a barometer carries one station constant in every "
+            "row of a file, which is no reading: where a file of at least 500 readings holds a single value it is "
+            "null (a constant that changed within a file is not caught), and the value stays in quality_flags as the "
+            "last token, e.g. raw:997.3."
+        ),
         ("hourly", "moisture", "rf_std"): "Relative humidity.",
         ("hourly", "moisture", "td_std"): "Dew point temperature in 2m above ground.",
         ("hourly", "moisture", "tf_std"): "Computed hourly value of wet bulb temperature.",
@@ -2459,7 +2460,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "Local forecast of 40 parameters for worldwide stations, 24 times a day with a lead-time of 240 hours."
         ),
         ("hourly", "large"): (
-            "Local forecast of 122 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
+            "Local forecast of 114 parameters for worldwide stations, 4 times a day with a lead-time of 240 hours."
         ),
     },
     "DwdRoadMetadata": {
@@ -2507,7 +2508,8 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "NwsObservationMetadata": {
         ("hourly", "data"): (
-            "Historical hourly station observations (temperature, pressure, precipitation, etc.) for the US."
+            "Station observations (temperature, pressure, precipitation, etc.) for the US, one report for each "
+            "hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row."
         ),
     },
     "WsvPegelMetadata": {

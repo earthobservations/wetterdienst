@@ -3,16 +3,15 @@
 """A failed download of the SMHI and Frost station catalogues is raised, not read as no stations (GH-2599).
 
 The same rule as for the other catalogues (GH-2519): each is a required file, so a timeout, a 5xx or a 404 raises a
-`DownloadError`, and `NoInternetError` stays quiet. Frost keeps its `PermissionError` for a 401 or 403, and SMHI
-raises for the failure of any one parameter's station list rather than answering with the stations of the others.
+`DownloadError`, and `NoInternetError` raises as well (GH-2640). Frost keeps its `PermissionError` for a 401 or 403,
+and SMHI raises for the failure of any one parameter's station list rather than answering with the stations of the
+others.
 """
 
 import json
-import logging
 from io import BytesIO
 from typing import Any
 
-import polars as pl
 import pytest
 
 from wetterdienst.exceptions import DownloadError, NoInternetError
@@ -95,15 +94,15 @@ def test_frost_rejected_credentials_keep_the_permission_error(monkeypatch: pytes
         _frost()
 
 
-def test_frost_no_connection_at_all_stays_quiet(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A `NoInternetError` gives no stations and no warning, so working offline still returns empty."""
-    _serve_frost(monkeypatch, NoInternetError("offline"), 503)
-    caplog.set_level(logging.WARNING)
+def test_frost_no_connection_at_all_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `NoInternetError` raises, where it used to give no stations: offline is not a network without any (GH-2640)."""
+    error = NoInternetError("offline")
+    _serve_frost(monkeypatch, error, 503)
 
-    assert _frost().collect().is_empty()
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    with pytest.raises(NoInternetError) as excinfo:
+        _frost()
+
+    assert excinfo.value is error
 
 
 @pytest.mark.parametrize(("error", "status"), FAILURES)
@@ -127,27 +126,15 @@ def test_smhi_station_lists_that_all_arrive_are_read(monkeypatch: pytest.MonkeyP
     assert _smhi().collect()["station_id"].to_list() == ["1"]
 
 
-def test_smhi_no_connection_at_all_stays_quiet(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize("failing", [[0, 1], [0], [1]])
+def test_smhi_no_connection_is_raised_whether_one_list_or_every_list_failed(
+    monkeypatch: pytest.MonkeyPatch, failing: list[int]
 ) -> None:
-    """A `NoInternetError` on every list gives no stations and no warning, the connection being down."""
-    _serve_smhi(monkeypatch, {i: (NoInternetError("offline"), 503) for i in (0, 1)})
-    caplog.set_level(logging.WARNING)
+    """A connection that fails raises, not an empty or partial catalogue (GH-2640)."""
+    error = NoInternetError("offline")
+    _serve_smhi(monkeypatch, dict.fromkeys(failing, (error, 503)))
 
-    result = _smhi()
-
-    assert isinstance(result, pl.LazyFrame)
-    assert result.collect().is_empty()
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
-
-
-@pytest.mark.parametrize("failing", [0, 1])
-def test_smhi_connection_lost_for_one_list_is_raised(monkeypatch: pytest.MonkeyPatch, failing: int) -> None:
-    """A connection that fails for one list while the others arrive raises, not an empty or partial catalogue."""
-    error = NoInternetError("connection reset")
-    _serve_smhi(monkeypatch, {failing: (error, 503)})
-
-    with pytest.raises(DownloadError) as excinfo:
+    with pytest.raises(NoInternetError) as excinfo:
         _smhi()
 
-    assert excinfo.value.__cause__ is error
+    assert excinfo.value is error

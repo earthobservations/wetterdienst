@@ -17,6 +17,15 @@ therefore need no timezone adjustment.
 Each value carries a code in `quality_flags` derived from the source `qc_flags` validation map: `1`
 when the parameter is validated, `0` when it is not.
 
+A value outside the physical range of its parameter, which no sensor can have produced, is null and
+keeps what the source wrote as the last token of `quality_flags`, `raw:4021` (`0,raw:4021`). The
+bounds are generous, so a record is never outside them: the daily layer has a `temp_max` of 1003 to
+6013 degrees on 48 days (station 6414 on 2003-08-06: 4021), a `temp_avg` of 72 to 342 degrees on 21,
+a relative humidity of -6999 % (6494) and a radiation of -99999 W/m2 (6484). Merely odd values stay:
+the daily gust of 81.5 m/s of station 6414 on 2003-10-09 is below the 115 m/s of the highest gust
+measured. The long shape drops the rows without a value by default, so the token shows with
+`drop_nulls=False`.
+
 ## License
 
 Data is © RMI (Royal Meteorological Institute of Belgium) and licensed under

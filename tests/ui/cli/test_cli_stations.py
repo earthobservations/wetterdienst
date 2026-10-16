@@ -479,7 +479,7 @@ def test_cli_stations_image_pdf() -> None:
     [
         pytest.param(
             ["--parameters=daily/nonexistent", "--all"],
-            "No valid parameters could be parsed from ['daily/nonexistent'] for DwdObservationRequest",
+            "daily/nonexistent not found in DwdObservationMetadata: 'nonexistent'. Available datasets: ",
             id="parameter",
         ),
         pytest.param(
@@ -497,7 +497,10 @@ def test_cli_stations_refusal_is_a_usage_error(
         result = CliRunner().invoke(cli, ["stations", "--provider=dwd", "--network=observation", *arguments])
 
     assert result.exit_code == 2, result.output
-    assert result.stderr.endswith(f"\n\nError: {message}\n")
+    # the message may go on to list what would have matched, so it is the start of the line
+    error = result.stderr.split("\n\nError: ")[-1]
+    assert error.startswith(message)
+    assert error.count("\n") == 1
     assert not caplog.records
 
 

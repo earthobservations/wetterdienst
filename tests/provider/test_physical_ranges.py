@@ -20,7 +20,12 @@ from tests.provider.physical_ranges import (
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.unit import UnitConverter
+from wetterdienst.provider.dmi.observation import DmiObservationRequest
+from wetterdienst.provider.dmi.observation import api as dmi_api
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
+from wetterdienst.provider.rmi.observation import RmiObservationRequest
+from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.util.network import File
 
 
@@ -251,3 +256,37 @@ def test_a_frame_that_is_not_converted_is_left_alone(
 
     assert sorted(df.get_column("value").to_list()) == [-999.0, 1007.4]
     assert physical_range_findings == []
+
+
+@pytest.mark.parametrize(
+    ("request_class", "ranges"),
+    [
+        (RmiObservationRequest, rmi_api._RANGES),  # noqa: SLF001
+        (DmiObservationRequest, dmi_api._RANGES),  # noqa: SLF001
+    ],
+    ids=["rmi/observation", "dmi/observation"],
+)
+def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_parameter(
+    request_class: type, ranges: dict[str, tuple[float, float]]
+) -> None:
+    """The bounds of a reader are these ranges in the unit of its source, so the two cannot drift apart (GH-2797).
+
+    A reader nulls a value before the unit conversion, so its bounds are in the source's unit, and converted to the
+    returned unit they have to be the range of the parameter. A parameter the range holds to something has its entry,
+    and an entry belongs to a parameter of the provider.
+    """
+    converter = UnitConverter()
+    held: dict[str, list] = {}
+    for resolution in request_class.metadata:
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                bounds = bounds_for(parameter.name, resolution.name)
+                if bounds is not None:
+                    held.setdefault(parameter.name_original, []).append((parameter, bounds))
+    assert set(ranges) == set(held), "a parameter of the provider has no range, or a range no parameter"
+    for name, (low, high) in ranges.items():
+        # one range for every resolution: a resolution with a range of its own needs the reader to know it
+        assert len({tuple(bounds) for _, bounds in held[name]}) == 1, name
+        parameter, bounds = held[name][0]
+        to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
+        assert (to_target(low), to_target(high)) == pytest.approx(tuple(bounds)), name

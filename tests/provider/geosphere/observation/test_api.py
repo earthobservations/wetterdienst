@@ -256,8 +256,8 @@ def test_geosphere_observation_time_windows_leave_no_gap_and_no_overlap() -> Non
     assert list(_time_windows(end, start, timedelta(days=730))) == []
 
 
-def test_geosphere_observation_values_lost_midway_are_empty_not_partial(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that losing the connection on a later window leaves no series with years missing."""
+def test_geosphere_observation_values_lost_midway_raise_not_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that losing the connection on a later window raises, and leaves no series with years missing (GH-2640)."""
     start = datetime(2000, 1, 1, tzinfo=ZoneInfo("UTC"))
     end = datetime(2005, 1, 1, tzinfo=ZoneInfo("UTC"))
     windows = _serve_archive(monkeypatch, timedelta(minutes=10), start, end)
@@ -274,7 +274,8 @@ def test_geosphere_observation_values_lost_midway_are_empty_not_partial(monkeypa
         start=start,
         end=end,
     )
-    assert request.filter_by_station_id("4821").values.all().df.is_empty()
+    with pytest.raises(NoInternetError):
+        request.filter_by_station_id("4821").values.all()
 
 
 def test_geosphere_observation_windows_of_a_local_time_request_leave_no_gap(monkeypatch: pytest.MonkeyPatch) -> None:
