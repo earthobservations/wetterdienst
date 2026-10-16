@@ -41,6 +41,14 @@ Types of changes:
   backend from before the change refuses the plural as an input it does not know: use an app and a
   backend from the same release. The pages' own links, `/meteogram?station=` and
   `/widget?station=`, are unchanged (GH-2561)
+- `[Glossary]` The new parameter `precipitation_amount_since_last_routine_report`, the METAR
+  precipitation of `noaa/ghcn` hourly and `nws/observation`, has a label in all 11 languages;
+  against an older backend those two datasets still show `precipitation_amount` (GH-2841)
+- **Breaking** `[Glossary]` The labels of `count_days_valid_temperature_air_mean_2m` and
+  `temperature_air_mean_2m_normal` are now keyed by `count_days_valid_temperature_air_mean_minmax_2m`
+  and `temperature_air_mean_minmax_2m_normal`, the names the backend gives ECCC's monthly counts and
+  normals of the mean of the daily maximum and minimum: against an older backend the prettified id
+  shows (GH-3017)
 
 ### Fixed
 

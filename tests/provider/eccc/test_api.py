@@ -469,6 +469,45 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
     ]
 
 
+def test_eccc_monthly_count_and_normal_of_the_mean_carry_the_name_of_the_mean(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """The valid-days count and the normal of `mean_temperature` are named as the mean is, not as a mean of readings.
+
+    A row of the collection for Gilbert Plains (STN_ID 3793) as it answers it, served for the test station: the
+    January 2001 mean is the mean of 31 daily values, each (max + min) / 2, and `NORMAL_MEAN_TEMPERATURE` is ECCC's
+    1981-2010 "Mean daily temperature" of January, -16.59 in its `climate-normals` collection (GH-3017).
+    """
+    _serve_eccc(
+        monkeypatch,
+        [
+            {
+                "LOCAL_DATE": "2001-01",
+                "MEAN_TEMPERATURE": -10.541935483870967,
+                "DAYS_WITH_VALID_MEAN_TEMP": 31,
+                "NORMAL_MEAN_TEMPERATURE": -16.59,
+            },
+        ],
+        _TORONTO_STATION | {"FIRST_DATE": "1990-01-01 00:00:00", "MLY_FIRST_DATE": "1990-01-01 00:00:00"},
+    )
+    request = EcccObservationRequest(
+        parameters=[
+            ("monthly", "data", "temperature_air_mean_minmax_2m"),
+            ("monthly", "data", "count_days_valid_temperature_air_mean_minmax_2m"),
+            ("monthly", "data", "temperature_air_mean_minmax_2m_normal"),
+        ],
+        start="2001-01-01",
+        end="2001-01-01",
+        options=options_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert dict(df.select("parameter", "value").iter_rows()) == {
+        "temperature_air_mean_minmax_2m": -10.541935483870967,
+        "count_days_valid_temperature_air_mean_minmax_2m": 31,
+        "temperature_air_mean_minmax_2m_normal": -16.59,
+    }
+
+
 # The first and last day of TORONTO INTL A, given by the station list with a time of day, "2013-06-11 09:00:00" and
 # "2026-10-08 12:30:10" in Local Standard Time (as FIRST_DATE and LAST_DATE are written; the dates of the daily
 # collection in the list read are at 00:00), which the offset (EST, -5 h all year) would move to 14:00 UTC and 17:30 UTC
