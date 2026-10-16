@@ -1148,7 +1148,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "EcccObservationMetadata": {
         ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
-        ("daily", "data", "mean_temperature"): "Daily mean 2m air temperature.",
+        ("daily", "data", "mean_temperature"): "Daily mean 2m air temperature, (maximum + minimum) / 2.",
         ("daily", "data", "min_temperature"): "Daily minimum 2m air temperature.",
         ("daily", "data", "snow_on_ground"): "Total snow depth.",
         ("daily", "data", "speed_max_gust"): "Maximum wind gust.",
@@ -1184,7 +1184,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "days_with_valid_sunshine"): "days with a valid sunshine observation",
         ("monthly", "data", "heating_degree_days"): "heating degree days",
         ("monthly", "data", "max_temperature"): "2m maximum air temperature",
-        ("monthly", "data", "mean_temperature"): "2m mean air temperature",
+        ("monthly", "data", "mean_temperature"): "2m mean air temperature, the mean of the daily values",
         ("monthly", "data", "min_temperature"): "2m minimum air temperature",
         ("monthly", "data", "normal_mean_temperature"): "normal of the mean air temperature",
         ("monthly", "data", "normal_precipitation"): "normal of the precipitation height",
@@ -1229,7 +1229,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sh_manu"): "manually measured snow depth",
         ("daily", "data", "shneu_manu"): "new snow depth",
         ("daily", "data", "so_h"): "sunshine duration",
-        ("daily", "data", "tl_mittel"): "air temperature mean at 2m",
+        ("daily", "data", "tl_mittel"): "air temperature mean at 2m, calculated from (tlmax + tlmin)/2",
         ("daily", "data", "tlmax"): "air temperature max at 2m",
         ("daily", "data", "tlmin"): "air temperature min at 2m",
         ("daily", "data", "tsmin"): "air temperature min at 0.05m",
@@ -1359,7 +1359,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "NoaaGhcnMetadata": {
         ("daily", "data", "tavg"): (
-            "Mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2."
+            "Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 "
+            "UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day."
         ),
         ("daily", "data", "wdfm"): "Fastest mile wind direction (degrees).",
         ("daily", "data", "acmc"): "Average cloudiness midnight to midnight from 30-second ceilometer data (percent)",

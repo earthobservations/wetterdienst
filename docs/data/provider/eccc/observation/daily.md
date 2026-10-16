@@ -34,7 +34,7 @@
 | {term}`snow_depth` | snow_on_ground | Total snow depth. | cm | >=0 |
 | {term}`snow_depth_new` | total_snow | New snow depth. | cm | >=0 |
 | {term}`temperature_air_max_2m` | max_temperature | Daily maximum 2m air temperature. | °C | - |
-| {term}`temperature_air_mean_2m` | mean_temperature | Daily mean 2m air temperature. | °C | - |
+| {term}`temperature_air_mean_minmax_2m` | mean_temperature | Daily mean 2m air temperature, (maximum + minimum) / 2. | °C | - |
 | {term}`temperature_air_min_2m` | min_temperature | Daily minimum 2m air temperature. | °C | - |
 | {term}`wind_direction_gust_max`     | direction_max_gust        | wind direction of maximum wind gust | °    | >=0,<=360   |
 | {term}`wind_gust_max` | speed_max_gust | Maximum wind gust. | km/h | >=0 |

@@ -547,6 +547,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_2m_last_24h: 'Lofttemperatur (2 m, lescht 24 h)',
   temperature_air_mean_2m_yesterday: 'Lofttemperatur (2 m), Virdag',
   temperature_air_mean_2m_normal: 'Lofttemperatur (2 m), Klimanormalwäert',
+  temperature_air_mean_minmax_2m: 'Mëttler Lofttemperatur aus den Dagesextremer (2 m)',
   temperature_air_min_0_05m_last_12h: 'Minimaltemperatur um Buedem (5 cm, lescht 12 h)',
   temperature_air_min_0_05m_yesterday: 'Minimaltemperatur um Buedem (5 cm), Virdag',
   temperature_air_min_2m_last_24h: 'Minimaltemperatur (2 m, lescht 24 h)',
