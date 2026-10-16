@@ -136,6 +136,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2659: MOSMIX's error of ttt and td follows them to the spot names
     "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
     "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
+    # GH-2817: DWD POI's "previous day" wind maximum is the maximum of the 6 hours before the report
+    "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h",
 }
 
 _WIND_LAST_10MIN = {

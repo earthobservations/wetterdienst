@@ -160,7 +160,7 @@ def _values(cache_dir: Path, stations: tuple[str, ...], shape: str) -> pl.DataFr
         dwd_observation_api.download_climate_observations_data,
     )
 
-    def download(remote_files: pl.Series, _settings: Settings) -> list[File]:
+    def download(remote_files: pl.Series, _settings: Settings, *_args: Any) -> list[File]:  # noqa: ANN401
         return [
             _unpack_climate_observations_data(
                 File(url=url, content=BytesIO(paths[Path(url).name].read_bytes()), status=200),
