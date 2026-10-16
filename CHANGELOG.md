@@ -92,6 +92,18 @@ Types of changes:
   the stations with a row in the frame, so it follows `filtered_by_sql`, and
   `InterpolatedValuesResult` and `SummarizedValuesResult` have it too (GH-2626)
 
+### Fixed
+
+- A client ID that Frost rejects (HTTP 401 or 403) raises `CredentialRejectedError`, a
+  `ConfigurationError` that is still a `PermissionError`. The REST API and the MCP tools answer 501
+  "The provider rejected the credential of this server for metno/frost" and log the setting, no
+  longer a 500 that names `WD_AUTH__METNO_FROST`; the command line prints one line and exits 1,
+  without a traceback (GH-2665)
+- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` leave out a network
+  that cannot be imported (a broken install) and a provider with no network left,
+  and log why; they listed it as needing no credentials. Asking for that network by name still
+  tells the import error (GH-2800, GH-2801)
+
 ## [0.155.0] - 2026-10-16
 
 ### Added
@@ -330,15 +342,6 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
-- A client ID that Frost rejects (HTTP 401 or 403) raises `CredentialRejectedError`, a
-  `ConfigurationError` that is still a `PermissionError`. The REST API and the MCP tools answer 501
-  "The provider rejected the credential of this server for metno/frost" and log the setting, no
-  longer a 500 that names `WD_AUTH__METNO_FROST`; the command line prints one line and exits 1,
-  without a traceback (GH-2665)
-- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` leave out a network
-  that cannot be imported (a broken install) and a provider with no network left,
-  and log why; they listed it as needing no credentials. Asking for that network by name still
-  tells the import error (GH-2800, GH-2801)
 - The description of `noaa/ghcn` daily `tavg` said it was (max + min) / 2. It is GHCN's own
   average daily temperature, an average of hourly readings (UTC day) from source 'S', and that is
   what the description now says; `temperature_air_mean_2m` stays (GH-2839)
