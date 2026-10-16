@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.156.0] - 2026-10-16
+
 ### Added
 
 - `wetterdienst stations` takes `--lead-time` and `--issue`, as `values` does and `/api/stations`
@@ -5458,7 +5460,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.155.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.156.0...HEAD
+[0.156.0]: https://github.com/earthobservations/wetterdienst/compare/v0.155.0...v0.156.0
 [0.155.0]: https://github.com/earthobservations/wetterdienst/compare/v0.154.0...v0.155.0
 [0.154.0]: https://github.com/earthobservations/wetterdienst/compare/v0.153.0...v0.154.0
 [0.153.0]: https://github.com/earthobservations/wetterdienst/compare/v0.152.0...v0.153.0
