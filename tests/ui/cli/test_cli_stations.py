@@ -93,7 +93,14 @@ def invoke_wetterdienst_stations_empty(provider: str, network: str, setting: lis
     runner = CliRunner()
     return runner.invoke(
         cli,
-        ["stations", f"--provider={provider}", f"--network={network}", "--station=123456", f"--format={fmt}", *setting],
+        [
+            "stations",
+            f"--provider={provider}",
+            f"--network={network}",
+            "--stations=123456",
+            f"--format={fmt}",
+            *setting,
+        ],
     )
 
 
@@ -113,9 +120,9 @@ def invoke_wetterdienst_stations_static(
             "stations",
             f"--provider={provider}",
             f"--network={network}",
-            f"--station={station}",
+            f"--stations={station}",
             f"--format={fmt}",
-            "--with_metadata=false",
+            "--with-metadata=false",
         ]
         + setting
         + (additional or []),
@@ -137,7 +144,7 @@ def invoke_wetterdienst_stations_export(
             "stations",
             f"--provider={provider}",
             f"--network={network}",
-            f"--station={station}",
+            f"--stations={station}",
             f"--target={target}",
             *setting,
         ],
@@ -207,7 +214,7 @@ def test_cli_stations_json_with_metadata(metadata: dict) -> None:
         setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="json",
-        additional=["--with_metadata=true"],
+        additional=["--with-metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"stations", "metadata"}
@@ -277,7 +284,7 @@ def test_cli_stations_geojson_with_metadata(metadata: dict) -> None:
         setting=["--parameters=daily/kl", "--periods=recent"],
         station="01048",
         fmt="geojson",
-        additional=["--with_metadata=true"],
+        additional=["--with-metadata=true"],
     )
     response = json.loads(result.output)
     assert response.keys() == {"data", "metadata"}

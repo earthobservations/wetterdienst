@@ -101,7 +101,6 @@ from wetterdienst.ui.render import (
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping
@@ -167,8 +166,8 @@ log = logging.getLogger(__name__)
 
 REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_stations": "api/stations?provider=dwd&network=observation&parameters=daily/kl&periods=recent&all=true",  # noqa:E501
-    "dwd_observation_daily_climate_values": "api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&station=00011",  # noqa:E501
-    "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&station=00011",  # noqa:E501
+    "dwd_observation_daily_climate_values": "api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&stations=00011",  # noqa:E501
+    "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&stations=00011",  # noqa:E501
     "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
@@ -729,6 +728,24 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
                 response["content"] = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
 
 
+def _declare_list_parameters(schema: dict[str, Any]) -> None:
+    """Describe a list in a query as one comma-separated value, which is how this API takes one (GH-2561).
+
+    FastAPI documents a list as a repeated key (`?parameters=a&parameters=b`, OpenAPI's `explode`
+    default for a query). The contract is the comma-separated list, `?parameters=a,b`, which the
+    parameters' descriptions already give and a client generated from the document now sends too:
+    `explode: false`. The repeated key is still read, and left out of the document, so that a client
+    that sends it keeps working and none is told to.
+    """
+    for path in schema.get("paths", {}).values():
+        for operation in path.values():
+            for parameter in operation.get("parameters", []):
+                options = parameter.get("schema", {}).get("anyOf", [parameter.get("schema", {})])
+                if parameter.get("in") == "query" and any(option.get("type") == "array" for option in options):
+                    parameter["style"] = "form"
+                    parameter["explode"] = False
+
+
 def _openapi() -> dict[str, Any]:
     """Build the OpenAPI schema, giving each settings query parameter the server's value as its default (GH-2393).
 
@@ -762,6 +779,7 @@ def _openapi() -> dict[str, Any]:
     if schema is kept:
         return schema
     _declare_problem_schema(schema)
+    _declare_list_parameters(schema)
     try:
         server = Options()
     except Exception:  # noqa: BLE001
@@ -981,12 +999,9 @@ def coverage(
             detail=f"Coverage is not available for provider '{provider}' and network '{network}'.",
         )
 
-    resolutions_list: list[str] | None = read_list(request.resolutions) if request.resolutions else None
-    datasets_list: list[str] | None = read_list(request.datasets) if request.datasets else None
-
     cov = api.discover(
-        resolutions=resolutions_list,
-        datasets=datasets_list,
+        resolutions=request.resolutions,
+        datasets=request.datasets,
     )
 
     return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
@@ -1049,14 +1064,14 @@ def stations(
 
     Requires provider, network and parameters (e.g. provider="dwd", network="observation",
     parameters="daily/kl"), and exactly one way of selecting stations: `name` for a place (e.g.
-    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `station` id(s),
+    name="Hamburg Fuhlsbüttel", optionally with `rank` for how many matches), `stations` ids,
     lat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or
     all=true for the full list. `name` gives the best five matches unless `rank` says otherwise.
     Returns station metadata including `station_id`, which you pass to `values`.
 
     A `timestamp`, a date or an interval as for `values`, lists only the stations whose record
-    overlaps it, so the nearest stations are not ones that closed decades ago. A `station` id the
-    network has no station for is left out of the list, which is then empty or shorter, and
+    overlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`
+    the network has no station for is left out of the list, which is then empty or shorter, and
     named in a warning in the server's log; an empty list is a 200, not an error.
     """
     set_logging_level(debug=request.debug)
@@ -1141,8 +1156,8 @@ def values(
     except that a `name` selects its one best match, where `stations` lists the best five; `rank`
     asks for more. A window without readings is a 200 with an empty `values`, not an error.
     Use parameters as "resolution/dataset/parameter" (e.g.
-    "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `station` with
-    an id from `stations` (e.g. station="01975"). `periods` is optional and provider-specific --
+    "daily/climate_summary/temperature_air_mean_2m") to keep the response small, and `stations` with
+    an id from `stations` (e.g. stations="01975"). `periods` is optional and provider-specific --
     "recent" for dwd/observation, while a provider that publishes under a single period rejects any
     other one. In the JSON of shape="long", the default unless the server's WD_TS_SHAPE says
     otherwise, the `values` items are grouped by station, then by
@@ -1575,7 +1590,7 @@ def history(
     Provides the record of a station's name, position, sensors/devices and data-gap sections across
     its lifetime, for auditing station changes. This is NOT weather or measurement history: for past
     measurements use the stations -> values workflow with a `timestamp` or interval. Requires provider,
-    network, parameters and either `station` id(s) or all=true.
+    network, parameters and either `stations` ids or all=true.
     """
     set_logging_level(debug=request.debug)
 

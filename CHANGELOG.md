@@ -16,6 +16,43 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst stations` takes `--lead-time` and `--issue`, as `values` does and `/api/stations`
+  already did; `interpolate` and `summarize` take `--min-gain-of-value-pairs` and
+  `--num-additional-stations`, which their endpoints took as `min_gain_of_value_pairs` and
+  `num_additional_stations`; `stations`, `values`, `interpolate` and `summarize` take `--width`,
+  `--height` and `--scale` for a chart, and `stripes stations` takes `--debug`. A request has the
+  same parameters on the command line, over REST and in the MCP tools (GH-2561)
+
+### Changed
+
+- **Breaking**: a parameter that takes a list is plural on the REST API, the MCP tools and the
+  command line. `station` of `stations`, `values` and `history` is `stations` (`--stations`); the
+  other lists (`parameters`, `periods`, `resolutions`, `datasets`) were plural already, and their
+  singulars are now refused with an error naming the plural, as `station` is (`station was renamed
+  to stations`). Rename `station` in your requests; the one reference `station` of `interpolate`
+  and `summarize`, and that of `issues` and `stripes`, stay (GH-2561)
+- **Breaking**: the options of the command line are spelled with hyphens, as the parameters of the
+  REST API and the MCP tools are spelled with underscores: `--convert-units`, `--unit-targets`,
+  `--sql-values`, `--skip-empty`, `--skip-criteria`, `--skip-threshold`, `--drop-nulls`,
+  `--if-exists`, `--with-metadata`, `--with-stations`, `--lead-time`, `--start-year`, `--end-year`,
+  `--name-threshold`, `--show-title`, `--show-years`, `--show-data-availability`, `--wmo-code`,
+  `--country-name`, `--use-nearby-station-distance` and `--interpolation-station-distance*` and
+  `--summary-station-distance*`. The underscored name is refused with an error naming the
+  hyphenated one; replace the underscores in your scripts (GH-2561)
+- Every boolean option of the command line is one option: bare it is on, and it takes `=true` or
+  `=false` in the spellings REST accepts (`true`, `1`, `yes`, `on`, `t`, `y` and their opposites).
+  `--all`, `--debug`, `--dwd` and `--reload` were flags that took no value, and now take one, and
+  `--with-metadata` and the other options that wanted a value can be given bare (GH-2561)
+- A station selection made twice, or not at all, names the alternatives in the refusal on every
+  surface: `Cannot be combined with name, give exactly one of all, stations, name, (latitude and
+  longitude), (left, bottom, right and top) or sql` in the 422 and the tool error, and the same in
+  the options' names in the usage error of the command line (GH-2561)
+- The OpenAPI document describes a list query parameter as one comma-separated value
+  (`?stations=01048,04411`, `explode: false`), which is how the endpoints and the tools take it.
+  The key given more than once is still read, and no longer documented (GH-2561)
+
 ## [0.155.0] - 2026-10-16
 
 ### Added

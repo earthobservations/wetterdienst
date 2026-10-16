@@ -34,7 +34,7 @@ _BBOX = {"left": 13.0, "bottom": 51.0, "right": 14.0, "top": 52.0}
     "selection",
     [
         {"all": True},
-        {"station": "01048"},
+        {"stations": "01048"},
         {"name": "Dresden"},
         # rank caps the fuzzy matches, which the REST API and MCP rely on
         {"name": "Dresden", "rank": 3},
@@ -58,17 +58,17 @@ def test_blank_station_selects_nothing(
 ) -> None:
     """Test a blank station id is no selection, so `all` beside it stands on its own.
 
-    FastAPI reads an empty `station=` as `[""]`, which counted as a station selection and refused
+    FastAPI reads an empty `stations=` as `[""]`, which counted as a station selection and refused
     `all=true&station=` as two.
     """
-    request = model.model_validate({**_BASE, "all": True, "station": blank})
-    assert request.station is None
+    request = model.model_validate({**_BASE, "all": True, "stations": blank})
+    assert request.stations is None
 
 
 def test_station_ids_read_from_every_item() -> None:
     """Test station ids are read from a comma-separated string and from each item of a list."""
-    request = StationsRequest.model_validate({**_BASE, "station": ["01048, ", "04411,00011"]})
-    assert request.station == ["01048", "04411", "00011"]
+    request = StationsRequest.model_validate({**_BASE, "stations": ["01048, ", "04411,00011"]})
+    assert request.stations == ["01048", "04411", "00011"]
 
 
 def _errors(model: type[Any], values: dict[str, Any]) -> list[tuple[str, tuple, dict | None]]:
@@ -78,8 +78,9 @@ def _errors(model: type[Any], values: dict[str, Any]) -> list[tuple[str, tuple, 
     return [(error["type"], error["loc"], error.get("ctx")) for error in info.value.errors()]
 
 
+_ONE_OF_RANK_OR_DISTANCE = {"one_of": [["rank"], ["distance"]]}
 _ONE_OF_SELECTIONS = {
-    "one_of": [["all"], ["station"], ["name"], ["latitude", "longitude"], ["left", "bottom", "right", "top"], ["sql"]]
+    "one_of": [["all"], ["stations"], ["name"], ["latitude", "longitude"], ["left", "bottom", "right", "top"], ["sql"]]
 }
 
 
@@ -90,19 +91,19 @@ _ONE_OF_SELECTIONS = {
         ({}, [("missing_one_of", (), _ONE_OF_SELECTIONS)]),
         # the REST API answered this for the station and dropped the name without a word
         (
-            {"station": "01048", "name": "Hamburg"},
+            {"stations": "01048", "name": "Hamburg"},
             [
-                ("mutually_exclusive", ("station",), {"conflicts_with": ["name"]}),
-                ("mutually_exclusive", ("name",), {"conflicts_with": ["station"]}),
+                ("mutually_exclusive", ("stations",), {"conflicts_with": ["name"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("name",), {"conflicts_with": ["stations"], **_ONE_OF_SELECTIONS}),
             ],
         ),
         # a bounding box conflicts by the first side it gives
         (
             {"all": True, **_BBOX, "sql": "region='Sachsen'"},
             [
-                ("mutually_exclusive", ("all",), {"conflicts_with": ["left", "sql"]}),
-                ("mutually_exclusive", ("left",), {"conflicts_with": ["all", "sql"]}),
-                ("mutually_exclusive", ("sql",), {"conflicts_with": ["all", "left"]}),
+                ("mutually_exclusive", ("all",), {"conflicts_with": ["left", "sql"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("left",), {"conflicts_with": ["all", "sql"], **_ONE_OF_SELECTIONS}),
+                ("mutually_exclusive", ("sql",), {"conflicts_with": ["all", "left"], **_ONE_OF_SELECTIONS}),
             ],
         ),
         ({"latitude": 51.0, "rank": 5}, [("missing_with", ("longitude",), {"required_with": ["latitude"]})]),
@@ -113,8 +114,8 @@ _ONE_OF_SELECTIONS = {
         (
             {"latitude": 51.0, "longitude": 13.7, "rank": 5, "distance": 25},
             [
-                ("mutually_exclusive", ("rank",), {"conflicts_with": ["distance"]}),
-                ("mutually_exclusive", ("distance",), {"conflicts_with": ["rank"]}),
+                ("mutually_exclusive", ("rank",), {"conflicts_with": ["distance"], **_ONE_OF_RANK_OR_DISTANCE}),
+                ("mutually_exclusive", ("distance",), {"conflicts_with": ["rank"], **_ONE_OF_RANK_OR_DISTANCE}),
             ],
         ),
         (
@@ -122,7 +123,7 @@ _ONE_OF_SELECTIONS = {
             [("missing_with", ("top",), {"required_with": ["left", "bottom", "right"]})],
         ),
         (
-            {"station": "01048", "rank": 5},
+            {"stations": "01048", "rank": 5},
             [("requires", ("rank",), {"requires": [["latitude", "longitude"], ["name"]]})],
         ),
         ({"name": "Dresden", "distance": 25}, [("requires", ("distance",), {"requires": [["latitude", "longitude"]]})]),
@@ -147,17 +148,23 @@ def test_station_selection_refused(
         (
             {},
             (
-                "Exactly one of all, station, name, (latitude and longitude), (left, bottom, right and top) or sql "
+                "Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql "
                 "is required"
             ),
         ),
-        ({"station": "01048", "name": "Hamburg"}, "Cannot be combined with name"),
+        (
+            {"stations": "01048", "name": "Hamburg"},
+            (
+                "Cannot be combined with name, give exactly one of all, stations, name, (latitude and longitude), "
+                "(left, bottom, right and top) or sql"
+            ),
+        ),
         ({"latitude": 51.0, "rank": 5}, "Field required with latitude"),
         (
             {"latitude": 51.0, "longitude": 13.7},
             "Exactly one of rank or distance is required with latitude and longitude",
         ),
-        ({"station": "01048", "rank": 5}, "Requires (latitude and longitude) or name"),
+        ({"stations": "01048", "rank": 5}, "Requires (latitude and longitude) or name"),
     ],
 )
 def test_station_selection_message(selection: dict[str, Any], message: str) -> None:
@@ -171,13 +178,13 @@ def test_station_selection_message(selection: dict[str, Any], message: str) -> N
     ("selection", "errors"),
     [
         ({"all": True}, None),
-        ({"station": "01048"}, None),
-        ({}, [("missing_one_of", (), {"one_of": [["all"], ["station"]]})]),
+        ({"stations": "01048"}, None),
+        ({}, [("missing_one_of", (), {"one_of": [["all"], ["stations"]]})]),
         (
-            {"all": True, "station": "01048"},
+            {"all": True, "stations": "01048"},
             [
-                ("mutually_exclusive", ("all",), {"conflicts_with": ["station"]}),
-                ("mutually_exclusive", ("station",), {"conflicts_with": ["all"]}),
+                ("mutually_exclusive", ("all",), {"conflicts_with": ["stations"], "one_of": [["all"], ["stations"]]}),
+                ("mutually_exclusive", ("stations",), {"conflicts_with": ["all"], "one_of": [["all"], ["stations"]]}),
             ],
         ),
     ],
@@ -201,8 +208,16 @@ def test_history_station_selection(selection: dict[str, Any], errors: list | Non
         (
             {"station": "01048", "latitude": 51.0, "longitude": 13.7},
             [
-                ("mutually_exclusive", ("station",), {"conflicts_with": ["latitude"]}),
-                ("mutually_exclusive", ("latitude",), {"conflicts_with": ["station"]}),
+                (
+                    "mutually_exclusive",
+                    ("station",),
+                    {"conflicts_with": ["latitude"], "one_of": [["station"], ["latitude", "longitude"]]},
+                ),
+                (
+                    "mutually_exclusive",
+                    ("latitude",),
+                    {"conflicts_with": ["station"], "one_of": [["station"], ["latitude", "longitude"]]},
+                ),
             ],
         ),
         ({"latitude": 51.0}, [("missing_with", ("longitude",), {"required_with": ["latitude"]})]),
@@ -232,8 +247,8 @@ def test_reference_point(
         (
             {"station": "01048", "name": "Dresden"},
             [
-                ("mutually_exclusive", ("station",), {"conflicts_with": ["name"]}),
-                ("mutually_exclusive", ("name",), {"conflicts_with": ["station"]}),
+                ("mutually_exclusive", ("station",), {"conflicts_with": ["name"], "one_of": [["station"], ["name"]]}),
+                ("mutually_exclusive", ("name",), {"conflicts_with": ["station"], "one_of": [["station"], ["name"]]}),
             ],
         ),
         # a range ending where it starts holds one year, and stripes need two
@@ -413,7 +428,7 @@ def test_swsmos_issue_is_forwarded(model: type[StationsRequest | ValuesRequest])
             "provider": "dwd",
             "network": "swsmos",
             "parameters": "hourly/data",
-            "station": "A006",
+            "stations": "A006",
             "issue": "2026-10-01T11:00",
         },
     )
@@ -433,7 +448,7 @@ def test_swsmos_without_issue_reads_the_latest_run() -> None:
     from wetterdienst.settings import Settings  # noqa: PLC0415
 
     request = ValuesRequest.model_validate(
-        {"provider": "dwd", "network": "swsmos", "parameters": "hourly/data", "station": "A006"},
+        {"provider": "dwd", "network": "swsmos", "parameters": "hourly/data", "stations": "A006"},
     )
     stations_request = core._get_stations_request(  # noqa: SLF001
         api=DwdSwsmosRequest,
@@ -611,8 +626,9 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
 @pytest.mark.parametrize("model", [ValuesRequest, InterpolationRequest, SummaryRequest])
 def test_date_is_refused_naming_timestamp(model: type[ValuesRequest | InterpolationRequest | SummaryRequest]) -> None:
     """Test `date`, renamed to `timestamp`, is refused by naming it, not as an extra input (GH-2438)."""
+    station = "stations" if model is ValuesRequest else "station"
     with pytest.raises(ValidationError) as error:
-        model.model_validate({**_BASE, "station": "01048", "date": "2020-06-30"})
+        model.model_validate({**_BASE, station: "01048", "date": "2020-06-30"})
     assert error.value.errors(include_url=False) == [
         {
             "type": "renamed",
@@ -621,6 +637,55 @@ def test_date_is_refused_naming_timestamp(model: type[ValuesRequest | Interpolat
             "input": "2020-06-30",
             "ctx": {"renamed_to": "timestamp"},
         }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("model", "old", "new"),
+    [
+        (model, old, new)
+        for model in (StationsRequest, ValuesRequest, HistoryRequest)
+        for old, new in (("station", "stations"), ("parameter", "parameters"), ("period", "periods"))
+        # a history request takes no periods, so there the singular is an input it does not know
+        if new in model.model_fields
+    ],
+)
+def test_a_list_by_its_singular_name_is_refused_naming_the_plural(
+    model: type[StationsRequest | ValuesRequest | HistoryRequest], old: str, new: str
+) -> None:
+    """Test a parameter that takes a list is plural, and the singular is refused naming it (GH-2561)."""
+    given = {key: value for key, value in {**_BASE, "all": True}.items() if key != new}
+    with pytest.raises(ValidationError) as error:
+        model.model_validate({**given, old: "x"})
+    assert [(e["type"], e["loc"], e["msg"]) for e in error.value.errors(include_url=False)] == [
+        ("renamed", (old,), f"{old} was renamed to {new}")
+    ]
+
+
+@pytest.mark.parametrize("model", [InterpolationRequest, SummaryRequest, core.IssuesRequest, StripesValuesRequest])
+def test_the_one_station_a_request_takes_is_not_a_renamed_list(model: type) -> None:
+    """Test `station` is the name of a single station, which the requests that take one go on to accept (GH-2561)."""
+    given = {"kind": "temperature"} if model is StripesValuesRequest else {**_BASE, "timestamp": "2020-06-30"}
+    if model is core.IssuesRequest:
+        given = {"provider": "dwd", "network": "mosmix"}
+    assert model.model_validate({**given, "station": "01048"}).station == "01048"
+    with pytest.raises(ValidationError) as error:
+        model.model_validate({**given, "stations": "01048"})
+    types = [e["type"] for e in error.value.errors(include_url=False)]
+    assert "extra_forbidden" in types
+    assert "renamed" not in types
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [("resolution", "resolutions"), ("dataset", "datasets")],
+)
+def test_coverage_refuses_the_singular_of_its_lists_naming_the_plural(old: str, new: str) -> None:
+    """Test the resolutions and datasets of a coverage are plural, and the singular is refused naming them (GH-2561)."""
+    with pytest.raises(ValidationError) as error:
+        core.CoverageRequest.model_validate({"provider": "dwd", "network": "observation", old: "x"})
+    assert [(e["type"], e["loc"], e["msg"]) for e in error.value.errors(include_url=False)] == [
+        ("renamed", (old,), f"{old} was renamed to {new}")
     ]
 
 

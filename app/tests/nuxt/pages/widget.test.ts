@@ -194,7 +194,7 @@ describe('widget Page station lookup', () => {
 
   it('tells a lookup nothing answered by the error, not as a station not found', async () => {
     // what ofetch throws where no answer came: no response on it, its request in front of the message
-    const unanswered = new TypeError('[GET] "/api/stations?station=01001": <no response> Failed to fetch')
+    const unanswered = new TypeError('[GET] "/api/stations?stations=01001": <no response> Failed to fetch')
     lookup.fetch.mockRejectedValueOnce(unanswered)
     // back to the real $fetch should the failure not be asked for, so it cannot reach a later test
     onTestFinished(() => {
@@ -242,7 +242,7 @@ describe('widget Page values request', () => {
 
     const asked = vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input)).find(input => input.includes('/api/values?'))!
     const query = new URL(asked, 'http://localhost').searchParams
-    expect(query.get('station')).toBe('01001')
+    expect(query.get('stations')).toBe('01001')
     expect(query.get('shape')).toBe('long')
     expect(query.get('humanize')).toBe('true')
     expect(query.get('convert_units')).toBe('true')

@@ -666,7 +666,7 @@ def test_values_dwd_success(client: TestClient) -> None:
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "01359",
+            "stations": "01359",
             "parameters": "daily/kl/wind_gust_max",
             "periods": "historical",
             "timestamp": "1982-01-01",
@@ -702,14 +702,14 @@ def test_values_dwd_no_station(client: TestClient) -> None:
             "type": "missing_one_of",
             "loc": ["query"],
             "msg": (
-                "Exactly one of all, station, name, (latitude and longitude), (left, bottom, right and top) or sql "
+                "Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql "
                 "is required"
             ),
             "input": None,
             "ctx": {
                 "one_of": [
                     ["all"],
-                    ["station"],
+                    ["stations"],
                     ["name"],
                     ["latitude", "longitude"],
                     ["left", "bottom", "right", "top"],
@@ -731,9 +731,9 @@ def test_history_no_station_selection(client: TestClient) -> None:
         {
             "type": "missing_one_of",
             "loc": ["query"],
-            "msg": "Exactly one of all or station is required",
+            "msg": "Exactly one of all or stations is required",
             "input": None,
-            "ctx": {"one_of": [["all"], ["station"]]},
+            "ctx": {"one_of": [["all"], ["stations"]]},
         }
     ]
 
@@ -751,7 +751,7 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/kl",
-            "station": "01048",
+            "stations": "01048",
             "name": "Hamburg-Fuhlsbüttel",
         },
     )
@@ -760,17 +760,17 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
     assert response.json()["errors"] == [
         {
             "type": "mutually_exclusive",
-            "loc": ["query", "station"],
-            "msg": "Cannot be combined with name",
+            "loc": ["query", "stations"],
+            "msg": f"Cannot be combined with name, {_GIVE_ONE_STATION_SELECTION}",
             "input": ["01048"],
-            "ctx": {"conflicts_with": ["name"]},
+            "ctx": {"conflicts_with": ["name"], "one_of": _STATION_SELECTIONS},
         },
         {
             "type": "mutually_exclusive",
             "loc": ["query", "name"],
-            "msg": "Cannot be combined with station",
+            "msg": f"Cannot be combined with stations, {_GIVE_ONE_STATION_SELECTION}",
             "input": "Hamburg-Fuhlsbüttel",
-            "ctx": {"conflicts_with": ["station"]},
+            "ctx": {"conflicts_with": ["stations"], "one_of": _STATION_SELECTIONS},
         },
     ]
 
@@ -779,10 +779,10 @@ def test_two_station_selections_refused(client: TestClient, endpoint: str) -> No
     ("endpoint", "lookup", "query"),
     [
         ("/api/stations", "get_stations", {"all": "true"}),
-        ("/api/values", "get_values", {"station": "01048"}),
+        ("/api/values", "get_values", {"stations": "01048"}),
         ("/api/interpolate", "get_interpolate", {"station": "01048", "timestamp": "2020-06-30"}),
         ("/api/summarize", "get_summarize", {"station": "01048", "timestamp": "2020-06-30"}),
-        ("/api/history", "get_stations", {"station": "01048"}),
+        ("/api/history", "get_stations", {"stations": "01048"}),
     ],
 )
 def test_unreachable_selection_is_a_server_error(
@@ -815,7 +815,7 @@ def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/abc",
-            "station": "00011",
+            "stations": "00011",
         },
     )
     assert response.status_code == 400
@@ -833,7 +833,7 @@ def test_values_dwd_sql_tabular(client: TestClient, monkeypatch: pytest.MonkeyPa
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "parameters": "daily/kl",
             "periods": "historical",
             "timestamp": "2020/2021",
@@ -891,7 +891,7 @@ def test_values_dwd_sql_long(client: TestClient, monkeypatch: pytest.MonkeyPatch
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "01048,4411",
+            "stations": "01048,4411",
             "parameters": "daily/kl",
             "timestamp": "2019-12-01/2019-12-31",
             "sql_values": "parameter='temperature_air_max_2m' AND value < 1.5",
@@ -1351,7 +1351,7 @@ def test_values_missing_null(client: TestClient) -> None:
         params={
             "provider": "dwd",
             "network": "mosmix",
-            "station": "F660",
+            "stations": "F660",
             "parameters": "hourly/small/ttt",
         },
     )
@@ -1367,7 +1367,7 @@ def test_values_missing_empty(client: TestClient) -> None:
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "00011",
+            "stations": "00011",
             "parameters": "1_minute/precipitation/precipitation_amount",
             "periods": "recent",
         },
@@ -1426,7 +1426,7 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
         provider="dwd",
         network="mosmix",
         parameters=["hourly/large/ttt"],
-        station=["10147"],
+        stations=["10147"],
         issue="2026-06-27T09:00:00",
     )
     stations_request = _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
@@ -1451,7 +1451,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
         provider="dwd",
         network="mosmix",
         parameters=["hourly/large/ttt"],
-        station=["10147"],
+        stations=["10147"],
     )
     stations_request = _get_stations_request(api=api, request=request, timestamp=None, settings=settings)
 
@@ -1501,7 +1501,7 @@ def test_get_stations_request_date_covers_the_span_it_names() -> None:
             provider="dwd",
             network="observation",
             parameters=["daily/kl"],
-            station="00011",
+            stations="00011",
         )
         stations_request = _get_stations_request(api=api, request=request, timestamp=timestamp, settings=settings)
         return stations_request.start, stations_request.end
@@ -1612,7 +1612,7 @@ def test_values_dwd_mosmix(client: TestClient) -> None:
             "provider": "dwd",
             "network": "mosmix",
             "parameters": "hourly/small/ttt",
-            "station": "01025",
+            "stations": "01025",
         },
     )
     assert response.status_code == 200
@@ -1637,7 +1637,7 @@ def test_values_dwd_dmo_lead_time_long(client: TestClient) -> None:
             "provider": "dwd",
             "network": "dmo",
             "parameters": "hourly/icon/ttt",
-            "station": "01025",
+            "stations": "01025",
             "lead_time": "long",
         },
     )
@@ -1665,7 +1665,7 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "1048",
+            "stations": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "timestamp": "2022-01-01",
             "unit_targets": json.dumps(unit_targets),
@@ -1701,7 +1701,7 @@ def test_values_dwd_observation_climate_summary_image(client: TestClient, fmt: s
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "1048",
+            "stations": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "timestamp": "2022-01-01",
             "format": fmt,
@@ -1720,7 +1720,7 @@ def test_values_dwd_observation_climate_summary_image_html(client: TestClient) -
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "1048",
+            "stations": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "timestamp": "2022-01-01",
             "format": "html",
@@ -1739,7 +1739,7 @@ def test_values_dwd_observation_climate_summary_image_pdf(client: TestClient) ->
         params={
             "provider": "dwd",
             "network": "observation",
-            "station": "1048",
+            "stations": "1048",
             "parameters": "daily/kl/temperature_air_mean_2m",
             "timestamp": "2022-01-01",
             "format": "pdf",
@@ -1930,16 +1930,16 @@ def test_stripes_image_without_kaleido_is_a_501(
                 {
                     "type": "mutually_exclusive",
                     "loc": ["query", "station"],
-                    "msg": "Cannot be combined with name",
+                    "msg": "Cannot be combined with name, give exactly one of station or name",
                     "input": "01048",
-                    "ctx": {"conflicts_with": ["name"]},
+                    "ctx": {"conflicts_with": ["name"], "one_of": [["station"], ["name"]]},
                 },
                 {
                     "type": "mutually_exclusive",
                     "loc": ["query", "name"],
-                    "msg": "Cannot be combined with station",
+                    "msg": "Cannot be combined with station, give exactly one of station or name",
                     "input": "Dresden-Klotzsche",
-                    "ctx": {"conflicts_with": ["station"]},
+                    "ctx": {"conflicts_with": ["station"], "one_of": [["station"], ["name"]]},
                 },
             ],
         ),
@@ -2125,7 +2125,7 @@ def test_history_sections(client: TestClient) -> None:
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/climate_summary",
-            "station": "02564",
+            "stations": "02564",
             "sections": "geography,name",
         },
     )
@@ -2144,7 +2144,7 @@ def test_history_dwd_observation(client: TestClient) -> None:
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/climate_summary",
-            "station": "02564",
+            "stations": "02564",
             # with_metadata/with_stations now default to false; request them explicitly here
             "with_metadata": True,
             "with_stations": True,
@@ -2572,7 +2572,7 @@ def test_mcp_values_tool_returns_data() -> None:
                     "provider": "dwd",
                     "network": "observation",
                     "parameters": "daily/climate_summary/temperature_air_mean_2m",
-                    "station": "01975",
+                    "stations": "01975",
                     "periods": "recent",
                 },
             )
@@ -2671,7 +2671,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
                 "provider": "dwd",
                 "network": "road",
                 "parameters": "15_minutes/data/temperature_air_2m",
-                "station": "A006",
+                "stations": "A006",
                 "timestamp": "2024-01-01/2024-01-02",
             },
         ),
@@ -2759,7 +2759,7 @@ def test_a_reader_missing_on_the_server_is_a_501(
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": "daily/kl/temperature_air_mean_2m",
-                "station": "00071",
+                "stations": "00071",
                 "timestamp": "1986-10-31/1986-11-01",
             },
         ),
@@ -2938,7 +2938,7 @@ def test_values_a_value_error_from_the_values_is_a_500(
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/kl",
-            "station": "01048",
+            "stations": "01048",
             "timestamp": "2020-06-30",
         },
     )
@@ -2977,9 +2977,9 @@ def test_a_500_does_not_name_the_servers_paths_but_the_log_does(
     monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", fail)
     params = {
         "/api/stations": {**_OBSERVATION, "all": "true"},
-        "/api/values": {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"},
+        "/api/values": {**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"},
         "/api/stripes/stations": {"kind": "temperature"},
-        "/api/history": {**_OBSERVATION, "station": "01048"},
+        "/api/history": {**_OBSERVATION, "stations": "01048"},
     }[endpoint]
 
     with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
@@ -3037,7 +3037,7 @@ def test_mcp_stations_tool_wsv_null_elevation() -> None:
                     "provider": "wsv",
                     "network": "pegel",
                     "parameters": "15_minutes/data/stage",
-                    "station": "48900237",
+                    "stations": "48900237",
                 },
             )
             return result.structured_content
@@ -3117,7 +3117,7 @@ def test_stations_sql_cannot_read_files(client: TestClient, monkeypatch: pytest.
 _SQL_GATED = [
     ("stations", "sql", {}),
     ("values", "sql", {}),
-    ("values", "sql_values", {"station": "01048"}),
+    ("values", "sql_values", {"stations": "01048"}),
     ("interpolate", "sql_values", {"station": "01048", "timestamp": "2020-06-30"}),
     ("summarize", "sql_values", {"station": "01048", "timestamp": "2020-06-30"}),
 ]
@@ -3263,6 +3263,25 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
 _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
 
 
+# the alternatives a station selection names, in the error of one that is made twice
+_STATION_SELECTIONS = [
+    ["all"],
+    ["stations"],
+    ["name"],
+    ["latitude", "longitude"],
+    ["left", "bottom", "right", "top"],
+    ["sql"],
+]
+_GIVE_ONE_STATION_SELECTION = (
+    "give exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql"
+)
+
+
+def _station_of(endpoint: str) -> str:
+    """Name the parameter an endpoint takes its station by: a list of `stations`, or the one reference `station`."""
+    return "stations" if endpoint.removeprefix("/api/") in {"values", "stations", "history"} else "station"
+
+
 def _unknown_parameter_detail() -> str:
     """Say what the library says of `daily/abc`, which the REST API answers word for word (GH-2636)."""
     try:
@@ -3293,7 +3312,7 @@ def _year_10000_message() -> str:
     [
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "foo"},
             400,
             "date_string foo could not be parsed",
             id="values-unparseable-date",
@@ -3314,14 +3333,14 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "timestamp": "2020/2021/2022"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "2020/2021/2022"},
             400,
             "Invalid ISO 8601 time interval",
             id="values-three-part-interval",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            {**_OBSERVATION, "parameters": "daily/abc", "stations": "01048"},
             400,
             _UNKNOWN_PARAMETER,
             id="values-unknown-parameter",
@@ -3335,14 +3354,14 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "periods": "foo"},
+            {**_OBSERVATION, "stations": "01048", "periods": "foo"},
             400,
             _UNKNOWN_PERIOD,
             id="values-unknown-period",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "periods": "now"},
+            {**_OBSERVATION, "stations": "01048", "periods": "now"},
             400,
             "None of the periods now is published for the datasets requested from DwdObservationRequest. "
             "Available periods: historical, recent",
@@ -3357,7 +3376,7 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/values",
-            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "station": "10382", "issue": "foo"},
+            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "stations": "10382", "issue": "foo"},
             400,
             "Invalid isoformat string: 'foo'",
             id="values-mosmix-unparseable-issue",
@@ -3392,7 +3411,7 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "timestamp": "9999"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "9999"},
             400,
             _year_10000_message(),
             id="values-date-past-the-last-year",
@@ -3413,14 +3432,14 @@ def _year_10000_message() -> str:
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "timestamp": "9999-12-31T23:00-05:00"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "9999-12-31T23:00-05:00"},
             400,
             "date value out of range",
             id="values-instant-past-the-last-day-in-utc",
         ),
         pytest.param(
             "/api/values",
-            {**_OBSERVATION, "station": "01048", "timestamp": "9999-12-31T23:00Z"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "9999-12-31T23:00Z"},
             400,
             "date value out of range",
             id="values-instant-past-the-last-day-in-the-providers-zone",
@@ -3431,7 +3450,7 @@ def _year_10000_message() -> str:
                 "provider": "dwd",
                 "network": "dmo",
                 "parameters": "hourly/icon/temperature_air_2m",
-                "station": "10382",
+                "stations": "10382",
                 "issue": "0001-01-01T00:00+01:00",
             },
             400,
@@ -3549,7 +3568,7 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     else:
         monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
 
-    response = client.get(endpoint, params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
+    response = client.get(endpoint, params={**_OBSERVATION, _station_of(endpoint): "01048", "timestamp": "2020-06-30"})
 
     assert response.status_code == status
     assert detail in response.json()["detail"]
@@ -3588,7 +3607,7 @@ def test_values_an_issue_the_source_does_not_list_is_a_404(
             "provider": "dwd",
             "network": "dmo",
             "parameters": "hourly/icon/temperature_air_2m",
-            "station": "10382",
+            "stations": "10382",
             "issue": "2020-01-01T00:00",
         },
     )
@@ -3633,7 +3652,7 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
     stations = SimpleNamespace(values=SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
-    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
+    response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"})
 
     _is_a_500_naming_only(response, "OutOfMemoryException", hides=msg)
 
@@ -3683,7 +3702,7 @@ def test_values_a_refused_sql_values_clause_is_a_400(
 
     response = client.get(
         "/api/values",
-        params={**_OBSERVATION, "station": "01048", "sql_values": clause.format(secret=secret.as_posix())},
+        params={**_OBSERVATION, "stations": "01048", "sql_values": clause.format(secret=secret.as_posix())},
     )
 
     assert response.status_code == 400
@@ -3709,7 +3728,7 @@ def test_values_a_duckdb_failure_inside_duckdb_is_a_500_with_a_clause_too(
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = TestClient(restapi.app, raise_server_exceptions=False).get(
-        "/api/values", params={**_OBSERVATION, "station": "01048", "sql_values": "value > 0"}
+        "/api/values", params={**_OBSERVATION, "stations": "01048", "sql_values": "value > 0"}
     )
 
     _is_a_500_naming_only(response, name, hides=msg)
@@ -3737,7 +3756,7 @@ def test_values_the_bare_duckdb_error_is_the_callers_only_with_a_clause(
 
     stations = SimpleNamespace(values=SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
-    params = {**_OBSERVATION, "station": "01048"}
+    params = {**_OBSERVATION, "stations": "01048"}
     if sql_values:
         params["sql_values"] = sql_values
 
@@ -3897,7 +3916,7 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
                     # the two datasets the stubbed result holds
                     "parameters": "daily/climate_summary/temperature_air_mean_2m,"
                     "daily/precipitation_more/precipitation_amount",
-                    "station": "01048",
+                    "stations": "01048",
                     "format": fmt,
                     "shape": shape,
                 },
@@ -4000,7 +4019,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         ),
         pytest.param(
             "/api/stations",
-            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "station": "10382", "issue": "foo"},
+            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "stations": "10382", "issue": "foo"},
             "Invalid isoformat string: 'foo'",
             id="stations-mosmix-unparseable-issue",
         ),
@@ -4010,7 +4029,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
                 "provider": "dwd",
                 "network": "dmo",
                 "parameters": "hourly/icon",
-                "station": "10382",
+                "stations": "10382",
                 "issue": "0001-01-01T00:00+01:00",
             },
             "date value out of range",
@@ -4018,7 +4037,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         ),
         pytest.param(
             "/api/history",
-            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            {**_OBSERVATION, "parameters": "daily/abc", "stations": "01048"},
             _UNKNOWN_PARAMETER,
             id="history-unknown-parameter",
         ),
@@ -4146,19 +4165,19 @@ class _HistoryFails:
     ("endpoint", "entry_point", "stub", "params"),
     [
         pytest.param("/api/stations", "get_stations", _fail, {**_OBSERVATION, "all": "true"}, id="stations"),
-        pytest.param("/api/history", "get_stations", _fail, {**_OBSERVATION, "station": "01048"}, id="history-lookup"),
+        pytest.param("/api/history", "get_stations", _fail, {**_OBSERVATION, "stations": "01048"}, id="history-lookup"),
         pytest.param(
             "/api/history",
             "get_stations",
             lambda **_kwargs: _HistoryFails("history"),
-            {**_OBSERVATION, "station": "01048"},
+            {**_OBSERVATION, "stations": "01048"},
             id="history-provider",
         ),
         pytest.param(
             "/api/history",
             "get_stations",
             lambda **_kwargs: _HistoryFails("query"),
-            {**_OBSERVATION, "station": "01048"},
+            {**_OBSERVATION, "stations": "01048"},
             id="history-query",
         ),
         pytest.param(
@@ -4226,14 +4245,14 @@ def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
             "/api/history",
             "get_stations",
             lambda **_kwargs: _HistoryFails("history", _fail_as_a_refusal),
-            {**_OBSERVATION, "station": "01048"},
+            {**_OBSERVATION, "stations": "01048"},
             id="history-provider",
         ),
         pytest.param(
             "/api/history",
             "get_stations",
             lambda **_kwargs: _HistoryFails("query", _fail_as_a_refusal),
-            {**_OBSERVATION, "station": "01048"},
+            {**_OBSERVATION, "stations": "01048"},
             id="history-query",
         ),
     ],
@@ -4309,7 +4328,7 @@ def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClien
     """
     response = client.get(
         "/api/values",
-        params={**_OBSERVATION, "station": "01048", "unit_targets": json.dumps({"foo": "bar"})},
+        params={**_OBSERVATION, "stations": "01048", "unit_targets": json.dumps({"foo": "bar"})},
     )
 
     assert response.status_code == 400
@@ -4334,7 +4353,7 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     monkeypatch.chdir(tmp_path)
     client = TestClient(app, raise_server_exceptions=False)
 
-    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+    response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048"})
 
     # the app's answer to an exception nothing handled, so the settings are what failed: a
     # request that got past them would fail on the network and answer with a detail of its own
@@ -4345,8 +4364,8 @@ def test_values_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     ("endpoint", "params"),
     [
         pytest.param("/api/alerts", {}, id="alerts"),
-        pytest.param("/api/stations", {**_OBSERVATION, "station": "01048"}, id="stations"),
-        pytest.param("/api/history", {**_OBSERVATION, "station": "01048"}, id="history"),
+        pytest.param("/api/stations", {**_OBSERVATION, "stations": "01048"}, id="stations"),
+        pytest.param("/api/history", {**_OBSERVATION, "stations": "01048"}, id="history"),
         pytest.param("/api/issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
         pytest.param(
             "/api/interpolate", {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}, id="interpolate"
@@ -4594,7 +4613,7 @@ def stubbed_values(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> Calla
                 "network": "observation",
                 "parameters": "daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount,"
                 "daily/more_precip/snow_depth",
-                "station": "00002,00001",
+                "stations": "00002,00001",
                 **params,
             },
         )
@@ -4691,7 +4710,13 @@ def test_swsmos_issue_reaches_the_request(client: TestClient, endpoint: str) -> 
     """
     response = client.get(
         endpoint,
-        params={"provider": "dwd", "network": "swsmos", "parameters": "hourly/data", "station": "A006", "issue": "foo"},
+        params={
+            "provider": "dwd",
+            "network": "swsmos",
+            "parameters": "hourly/data",
+            "stations": "A006",
+            "issue": "foo",
+        },
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid isoformat string: 'foo'"
@@ -4700,7 +4725,7 @@ def test_swsmos_issue_reaches_the_request(client: TestClient, endpoint: str) -> 
 @pytest.mark.parametrize(
     ("endpoint", "params"),
     [
-        pytest.param("/api/values", {**_OBSERVATION, "station": "01048"}, id="values"),
+        pytest.param("/api/values", {**_OBSERVATION, "stations": "01048"}, id="values"),
         pytest.param(
             "/api/interpolate", {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}, id="interpolate"
         ),
@@ -4751,7 +4776,7 @@ def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_caller
     (tmp_path / ".env").write_text('WD_TS_UNIT_TARGETS={"foo": "bar"}\n')
     monkeypatch.chdir(tmp_path)
     client = TestClient(app, raise_server_exceptions=False)
-    params = {**_OBSERVATION, "station": "01048"}
+    params = {**_OBSERVATION, "stations": "01048"}
     if unit_targets is not None:
         params["unit_targets"] = json.dumps(unit_targets)
 
@@ -4901,7 +4926,7 @@ def test_values_leaves_a_setting_the_request_does_not_give_to_the_server(monkeyp
     }
     for name, value in env.items():
         monkeypatch.setenv(name, value)
-    params = {**_OBSERVATION, "station": "01048"}
+    params = {**_OBSERVATION, "stations": "01048"}
 
     options = _settings_of(monkeypatch, "/api/values", params)
     assert options.shape == "wide"
@@ -4999,7 +5024,7 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
     [
         pytest.param(
             "/api/values",
-            {"station": "01048", "unit_targets": '{"foo": "bar"}'},
+            {"stations": "01048", "unit_targets": '{"foo": "bar"}'},
             "Invalid value for 'unit_targets': Invalid unit targets: quantities not supported: foo. ",
             id="values-unit-targets",
         ),
@@ -5170,7 +5195,7 @@ def test_values_refuses_a_skip_threshold_outside_zero_to_one(client: TestClient,
             "network": "observation",
             "parameters": "daily/kl",
             "periods": "recent",
-            "station": "01048",
+            "stations": "01048",
             "skip_empty": "true",
             "skip_threshold": threshold,
         },
@@ -5237,7 +5262,7 @@ def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, mon
             "provider": "dwd",
             "network": "swsmos",
             "parameters": "hourly/data",
-            "station": "A006",
+            "stations": "A006",
             "issue": "2020-01-01T00:00",
         },
     )
@@ -5414,7 +5439,13 @@ def test_data_endpoints_report_the_settings_they_used(
     monkeypatch.setenv("WD_TS_CONVERT_UNITS", "false")
     defaults = client.get("/api/settings").json()[_SETTINGS_OF_ENDPOINT[endpoint]]
     taken = _stub_result(monkeypatch, endpoint)
-    params = {**_OBSERVATION, "station": "01048", "format": fmt, "with_metadata": "true", "humanize": "false"}
+    params = {
+        **_OBSERVATION,
+        _station_of(endpoint): "01048",
+        "format": fmt,
+        "with_metadata": "true",
+        "humanize": "false",
+    }
     if endpoint != "/api/values":
         params["timestamp"] = "2026-01-01"
 
@@ -5449,7 +5480,7 @@ def test_data_endpoints_report_no_settings_without_metadata(
 ) -> None:
     """The settings applied are reported with `with_metadata` alone, as the metadata is (GH-2359)."""
     _stub_result(monkeypatch, endpoint)
-    params = {**_OBSERVATION, "station": "01048"}
+    params = {**_OBSERVATION, "stations": "01048"}
     if endpoint != "/api/values":
         params["timestamp"] = "2026-01-01"
 
@@ -5481,7 +5512,7 @@ def test_no_credential_or_cache_setting_is_reported(
     params: dict[str, str] = {}
     if endpoint != "/api/settings":
         _stub_result(monkeypatch, endpoint)
-        params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
+        params = {**_OBSERVATION, _station_of(endpoint): "01048", "with_metadata": "true"}
         if endpoint != "/api/values":
             params["timestamp"] = "2026-01-01"
 
@@ -5541,7 +5572,7 @@ def test_mcp_values_tool_reports_the_settings_it_used(monkeypatch: pytest.Monkey
                     "provider": "dwd",
                     "network": "observation",
                     "parameters": "daily/climate_summary/temperature_air_mean_2m",
-                    "station": "01048",
+                    "stations": "01048",
                     "with_metadata": True,
                 },
             )
@@ -5606,7 +5637,7 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
     result = getattr(restapi, _FETCH_OF_ENDPOINT[endpoint])(settings=Settings(), options=Options())
     params = {
         **_OBSERVATION,
-        "station": "01048",
+        _station_of(endpoint): "01048",
         "format": fmt,
         "with_metadata": "true",
         "with_stations": "true",
@@ -5637,7 +5668,7 @@ def test_settings_and_a_values_request_leaving_the_shape_out_agree_under_a_wide_
     reported = client.get("/api/settings").json()["values"]
 
     taken = _stub_result(monkeypatch, "/api/values")
-    params = {**_OBSERVATION, "station": "01048", "with_metadata": "true"}
+    params = {**_OBSERVATION, "stations": "01048", "with_metadata": "true"}
     applied = client.get("/api/values", params=params).json()["settings"]
 
     (options,) = taken
@@ -5860,7 +5891,7 @@ _ENDPOINT_OF_SETTINGS = {"values": "/api/values", "interpolate": "/api/interpola
 
 def _data_request(endpoint: str, **params: str) -> dict[str, str]:
     """Give the query of a data request to `endpoint` that is valid but for `params`."""
-    query = {**_OBSERVATION, "station": "01048", **params}
+    query = {**_OBSERVATION, _station_of(endpoint): "01048", **params}
     if endpoint != "/api/values":
         query["timestamp"] = "2026-01-01"
     return query
@@ -6839,7 +6870,7 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
                 "network": "observation",
                 "parameters": "annual/climate_summary",
                 "periods": "historical",
-                "station": "01048",
+                "stations": "01048",
             },
         )
 
@@ -6921,7 +6952,7 @@ def test_values_a_window_the_wrong_way_round_is_logged_as_info(
     detail = "the interval in timestamp ends before it starts"
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get(
-            "/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30/2020-06-01"}
+            "/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30/2020-06-01"}
         )
     assert response.status_code == 400
     assert response.json()["detail"] == detail
@@ -6987,7 +7018,7 @@ def test_geo_an_issue_the_source_does_not_list_is_a_404(
 
 # each endpoint taking `timestamp`, and its MCP tool, with a request it would otherwise serve (GH-2438)
 _TIMESTAMP_ENDPOINTS = [
-    pytest.param("values", {**_OBSERVATION, "station": "01048"}, id="values"),
+    pytest.param("values", {**_OBSERVATION, "stations": "01048"}, id="values"),
     pytest.param("interpolate", {**_OBSERVATION, "station": "01048"}, id="interpolate"),
     pytest.param("summarize", {**_OBSERVATION, "latitude": 50.0, "longitude": 10.0}, id="summarize"),
     pytest.param("alerts", {}, id="alerts"),
@@ -7079,7 +7110,7 @@ def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.Monkey
 
     async def _call() -> None:
         async with Client(mcp) as client:
-            await client.call_tool("history", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+            await client.call_tool("history", {**_OBSERVATION, "stations": "01048", "date": "2020-06-30"})
 
     with pytest.raises(ToolError, match=r"^date is not an argument of history, which takes all, ") as error:
         asyncio.run(_call())
@@ -7148,7 +7179,7 @@ def test_values_a_timed_out_download_is_logged_with_the_file(
                 "network": "observation",
                 "parameters": "annual/climate_summary",
                 "periods": "historical",
-                "station": "01048",
+                "stations": "01048",
             },
         )
 
@@ -7239,7 +7270,7 @@ def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest
     async def _call() -> None:
         async with Client(mcp) as client:
             await client.call_tool(
-                "values", {**_OBSERVATION, "station": "01048", "date": "2020-06-30", "bogus": "x", "limt": 1}
+                "values", {**_OBSERVATION, "stations": "01048", "date": "2020-06-30", "bogus": "x", "limt": 1}
             )
 
     with pytest.raises(
@@ -7314,7 +7345,7 @@ def test_every_endpoint_refuses_an_unknown_parameter(client: TestClient, endpoin
         ),
         pytest.param(
             "values",
-            {"station": "01048", "timestamp": "2020-06-30/2020-06-01"},
+            {"stations": "01048", "timestamp": "2020-06-30/2020-06-01"},
             "the interval in timestamp ends before it starts",
             id="values-window-the-wrong-way-round",
         ),
@@ -7347,22 +7378,22 @@ def test_mcp_a_refused_window_is_worded_in_terms_of_timestamp(
     ("params", "detail"),
     [
         pytest.param(
-            {**_OBSERVATION, "station": "01048", "timestamp": "foo"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "foo"},
             "date_string foo could not be parsed",
             id="unparseable-date",
         ),
         pytest.param(
-            {**_OBSERVATION, "station": "01048", "timestamp": "2020/2021/2022"},
+            {**_OBSERVATION, "stations": "01048", "timestamp": "2020/2021/2022"},
             "Invalid ISO 8601 time interval",
             id="three-part-interval",
         ),
         pytest.param(
-            {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
+            {**_OBSERVATION, "parameters": "daily/abc", "stations": "01048"},
             _UNKNOWN_PARAMETER,
             id="unknown-parameter",
         ),
         pytest.param(
-            {**_OBSERVATION, "station": "01048", "periods": "foo"},
+            {**_OBSERVATION, "stations": "01048", "periods": "foo"},
             _UNKNOWN_PERIOD,
             id="unknown-period",
         ),
@@ -7404,7 +7435,7 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     stations = SimpleNamespace(values=SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
-        response = client.get("/api/values", params={**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"})
+        response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"})
     _is_a_500_naming_only(response, "ValueError", hides=msg)
     records = [record for record in caplog.records if record.name == "wetterdienst.ui.restapi"]
     assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, "Failed to get values.")]
@@ -7511,7 +7542,7 @@ _WINDOWED_DATASET = {"provider": "eccc", "network": "observation", "parameters":
 @pytest.mark.parametrize(
     ("endpoint", "params"),
     [
-        pytest.param("/api/values", {"station": "x"}, id="values"),
+        pytest.param("/api/values", {"stations": "x"}, id="values"),
         pytest.param("/api/interpolate", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="interpolate"),
         pytest.param("/api/summarize", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="summarize"),
     ],
@@ -7533,7 +7564,7 @@ def test_a_dataset_queried_by_a_window_without_a_timestamp_names_timestamp(
 @pytest.mark.parametrize(
     ("tool", "arguments"),
     [
-        pytest.param("values", {"station": "x"}, id="values"),
+        pytest.param("values", {"stations": "x"}, id="values"),
         pytest.param("interpolate", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="interpolate"),
         pytest.param("summarize", {"latitude": 50.0, "longitude": 10.0, "timestamp": ""}, id="summarize"),
     ],
@@ -7591,7 +7622,7 @@ _LOOKUPS = [
     pytest.param(
         "/api/history",
         "get_stations",
-        {**_OBSERVATION, "station": "01048"},
+        {**_OBSERVATION, "stations": "01048"},
         "get stations for history",
         id="history",
     ),
@@ -7669,7 +7700,7 @@ def test_stations_an_unknown_period_is_logged_as_info(client: TestClient, caplog
     ("endpoint", "selection"),
     [
         ("stations", {"all": "true"}),
-        ("values", {"station": "1"}),
+        ("values", {"stations": "1"}),
         ("history", {"all": "true"}),
         ("interpolate", {"station": "1", "timestamp": "2020-01-01"}),
         ("summarize", {"station": "1", "timestamp": "2020-01-01"}),
@@ -7712,7 +7743,7 @@ _POINT_ON_A_DAY = {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30
 
 _NO_API_ENDPOINTS = {
     "stations": {"parameters": "daily/kl", "all": "true"},
-    "values": {"parameters": "daily/kl", "station": "1"},
+    "values": {"parameters": "daily/kl", "stations": "1"},
     "interpolate": {**_POINT_ON_A_DAY, "parameters": "daily/kl"},
     "summarize": {**_POINT_ON_A_DAY, "parameters": "daily/kl"},
     "history": {"parameters": "daily/kl", "all": "true"},
@@ -8185,7 +8216,7 @@ def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
                 "provider": "dwd",
                 "network": "observation",
                 "parameters": "daily/kl",
-                "station": "00011",
+                "stations": "00011",
                 "periods": "recent",
             },
         ),
@@ -8272,7 +8303,7 @@ def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_t
     ("endpoint", "extra", "known_stations"),
     [
         pytest.param("/api/stations", {"all": "true"}, False, id="stations"),
-        pytest.param("/api/values", {"station": "06260", "timestamp": "2020-01-01/2020-01-02"}, True, id="values"),
+        pytest.param("/api/values", {"stations": "06260", "timestamp": "2020-01-01/2020-01-02"}, True, id="values"),
     ],
 )
 def test_a_provider_import_of_a_missing_extra_is_a_501(
@@ -8345,7 +8376,7 @@ _CREDENTIAL_PROVIDERS = [
     ("endpoint", "extra"),
     [
         ("/api/stations", {"all": "true"}),
-        ("/api/values", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/values", {"stations": "1", "timestamp": "2020-01-01/2020-01-02"}),
         ("/api/interpolate", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
         ("/api/summarize", {"station": "1", "timestamp": "2020-01-01/2020-01-02"}),
     ],
@@ -8417,7 +8448,7 @@ def test_mcp_tool_without_a_credential_is_refused_without_naming_the_setting() -
 # each REST endpoint rendering a chart to an image, with the rest of a request it would serve
 _IMAGE_ROUTES = [
     ("stations", {"all": "true"}),
-    ("values", {"station": "01048"}),
+    ("values", {"stations": "01048"}),
     ("interpolate", {"station": "01048", "timestamp": "2020-06-30"}),
     ("summarize", {"station": "01048", "timestamp": "2020-06-30"}),
 ]
@@ -8570,7 +8601,7 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m,daily/kl/precipitation_amount,daily/more_precip/snow_depth",
-            "station": "00002,00001",
+            "stations": "00002,00001",
             "format": "png",
             "scale": 10,
         },
@@ -8626,7 +8657,7 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
             "provider": "dwd",
             "network": "observation",
             "parameters": "daily/kl/temperature_air_mean_2m",
-            "station": "01048",
+            _station_of(endpoint): "01048",
             "timestamp": "2020-06-30",
             "format": "png",
             "scale": 10,
@@ -8678,12 +8709,15 @@ def test_an_unknown_path_and_a_method_not_allowed_are_problems_too(client: TestC
 
 def test_a_request_that_fails_validation_is_a_422_problem_with_its_fields(client: TestClient) -> None:
     """`detail` is the text, one line for each invalid parameter; the entries are under `errors` (GH-2634)."""
-    response = client.get("/api/stations", params={**_OBSERVATION, "station": "01048", "name": "Hamburg"})
+    response = client.get("/api/stations", params={**_OBSERVATION, "stations": "01048", "name": "Hamburg"})
 
     body = _is_a_problem(response, 422)
-    assert body["detail"] == "station: Cannot be combined with name\nname: Cannot be combined with station"
+    assert body["detail"] == (
+        f"stations: Cannot be combined with name, {_GIVE_ONE_STATION_SELECTION}\n"
+        f"name: Cannot be combined with stations, {_GIVE_ONE_STATION_SELECTION}"
+    )
     assert [(error["type"], error["loc"]) for error in body["errors"]] == [
-        ("mutually_exclusive", ["query", "station"]),
+        ("mutually_exclusive", ["query", "stations"]),
         ("mutually_exclusive", ["query", "name"]),
     ]
 
@@ -8694,7 +8728,7 @@ def test_a_rule_about_no_parameter_in_particular_is_told_by_its_message(client: 
         "/api/history", params={"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
     )
 
-    body = _is_a_problem(response, 422, "Exactly one of all or station is required")
+    body = _is_a_problem(response, 422, "Exactly one of all or stations is required")
     assert body["errors"][0]["loc"] == ["query"]
 
 
@@ -8741,7 +8775,7 @@ def test_the_status_of_a_failure_is_its_place_in_the_hierarchy(
 
     monkeypatch.setattr("wetterdienst.ui.restapi.get_values", raises)
 
-    response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+    response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048"})
 
     body = _is_a_problem(response, status)
     if status == 500:
@@ -8769,7 +8803,7 @@ def test_an_unclassified_wetterdienst_error_is_a_logged_500(
 
     monkeypatch.setattr("wetterdienst.ui.restapi.get_values", raises)
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
-        response = client.get("/api/values", params={**_OBSERVATION, "station": "01048"})
+        response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048"})
 
     _is_an_unhandled_500(response, "UnplacedError")
     assert "secret detail" not in response.text
