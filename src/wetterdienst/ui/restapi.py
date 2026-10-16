@@ -7,11 +7,12 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 from http import HTTPStatus
 from textwrap import dedent
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -30,12 +31,13 @@ from wetterdienst.exceptions import (
     CredentialMissingError,
     CredentialRejectedError,
     DateRequiredError,
+    DownloadError,
     ImageTooLargeError,
-    InvalidTimeIntervalError,
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
     ReversedTimeIntervalError,
+    UpstreamError,
     WetterdienstError,
 )
 from wetterdienst.io.export import require_kaleido
@@ -77,6 +79,7 @@ from wetterdienst.ui.core import (
     _get_stripes_stations,
     _plot_stripes,
     check_timeseries_api,
+    failure_status,
     get_auth,
     get_glossary,
     get_interpolate,
@@ -106,6 +109,7 @@ from wetterdienst.util.extras import import_optional
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping
 
+    from fastapi.routing import APIRoute
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from wetterdienst.model.request import TimeseriesRequest
@@ -120,6 +124,31 @@ info = Info()
 # export, set up the provider, e.g. with `opentelemetry-instrument` (GH-2407). An MCP tool's
 # in-process request to this app is left out, see `is_tool_request` (GH-2432)
 app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_tool_request})
+
+#: the version of the REST API contract, reported by `/api/version` as `api_version`
+API_VERSION = "1"
+#: where the current version is served; OpenAPI documents this prefix (GH-2561)
+API_PREFIX = f"/api/v{API_VERSION}"
+#: the same routes without the version, an alias of the current version: not deprecated, and not in OpenAPI
+API_ALIAS_PREFIX = "/api"
+
+
+def _operation_id(route: APIRoute) -> str:
+    """Give an operation the id it had before the routes were served under a version (`values_api_values_get`).
+
+    FastAPI builds the id from the route's name and its full path, so the prefix of the version
+    would rename every operation, and with it every MCP tool, which `ui.mcp._TOOL_NAMES` finds by
+    that id, and every client generated from the document. The version stays out of the id; the
+    path in the document carries it.
+    """
+    path = route.path_format.removeprefix(API_PREFIX).removeprefix(API_ALIAS_PREFIX)
+    method = min(route.methods or {"GET"}).lower()
+    return re.sub(r"\W", "_", f"{route.name}{API_ALIAS_PREFIX}{path}") + f"_{method}"
+
+
+#: every route under `/api`, included twice at the bottom of this module: under `API_PREFIX`, and as
+#: its alias under `API_ALIAS_PREFIX`. The same handlers, so a version is one definition
+router = APIRouter(generate_unique_id_function=_operation_id)
 
 
 class _RefuseInvalidSettings:
@@ -657,9 +686,12 @@ def health() -> JSONResponse:
     return JSONResponse(content={"status": "OK"})
 
 
-@app.get("/api/version")
+@router.get("/version")
 def version() -> JSONResponse:
     """Get version information, and whether this instance serves an MCP endpoint.
+
+    `api_version` is the version of the REST API contract the routes are served under
+    (`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.
 
     `mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at
     the bottom of this module, after the routes are declared. It is reported here because the
@@ -667,7 +699,7 @@ def version() -> JSONResponse:
     and a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP
     transport means opening a session rather than asking a question.
     """
-    return JSONResponse(content={"version": __version__, "mcp_enabled": mcp_enabled})
+    return JSONResponse(content={"version": __version__, "api_version": API_VERSION, "mcp_enabled": mcp_enabled})
 
 
 # each endpoint's settings, by the request it takes them from
@@ -678,7 +710,7 @@ _ENDPOINT_SETTINGS: tuple[tuple[str, type[BaseModel], type[_AppliedSettings]], .
 )
 
 
-@app.get("/api/settings", response_model=ServerSettings)
+@router.get("/settings", response_model=ServerSettings)
 def server_settings(request: Annotated[SettingsRequest, Query()], http_request: Request) -> Response:
     """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take, for the query parameters given.
 
@@ -815,16 +847,16 @@ def _openapi() -> dict[str, Any]:
         app.openapi_schema = None
         return schema
     defaults = {
-        f"/api/{endpoint}": {
+        f"{API_PREFIX}/{endpoint}": {
             field: value
             for field, value in _applied_settings(applied, server).model_dump().items()
             if field in taking.model_fields and taking.model_fields[field].default is not None
         }
         for endpoint, taking, applied in _ENDPOINT_SETTINGS
     }
-    defaults["/api/values"]["drop_nulls"] = server.drop_nulls
+    defaults[f"{API_PREFIX}/values"]["drop_nulls"] = server.drop_nulls
     # a parameter several endpoints take sets one setting, which each reports alike
-    defaults["/api/settings"] = {
+    defaults[f"{API_PREFIX}/settings"] = {
         field: value
         for values in defaults.values()
         for field, value in values.items()
@@ -884,7 +916,7 @@ def _resolve_listed_network(provider: str, network: str, what: str) -> type[Time
         ) from e
 
 
-@app.get("/api/auth", response_model=AuthAnswer)
+@router.get("/auth", response_model=AuthAnswer)
 def auth(
     request: Annotated[AuthRequest, Query()],
 ) -> AuthAnswer:
@@ -975,7 +1007,7 @@ CoverageResolutions = dict[Resolution, CoverageResolution]
 CoverageAnswer = dict[str, dict[str, CoverageNetwork] | CoverageResolution]
 
 
-@app.get("/api/coverage", response_model=CoverageAnswer)
+@router.get("/coverage", response_model=CoverageAnswer)
 def coverage(
     request: Annotated[CoverageRequest, Query()],
 ) -> Response:
@@ -1032,7 +1064,7 @@ def coverage(
     return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
 
-@app.get("/api/glossary", response_model=list[GlossaryEntry])
+@router.get("/glossary", response_model=list[GlossaryEntry])
 def glossary(
     request: Annotated[GlossaryRequest, Query()],
 ) -> list[GlossaryEntry]:
@@ -1078,8 +1110,8 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
 # - _StationsDict for json
 # - _StationsOgcFeatureCollection for geojson
 # - str for csv
-@app.get(
-    "/api/stations",
+@router.get(
+    "/stations",
     response_model=_StationsDict | _StationsOgcFeatureCollection | str,
 )
 def stations(
@@ -1134,7 +1166,7 @@ def stations(
     return Response(content=content, media_type=media_type)
 
 
-@app.get("/api/issues")
+@router.get("/issues")
 def issues(
     request: Annotated[IssuesRequest, Query()],
 ) -> JSONResponse:
@@ -1167,8 +1199,8 @@ def issues(
 # - _ValuesWithSettingsDict for json
 # - _ValuesWithSettingsOgcFeatureCollection for geojson
 # - str for csv
-@app.get(
-    "/api/values",
+@router.get(
+    "/values",
     response_model=_ValuesWithSettingsDict | _ValuesWithSettingsOgcFeatureCollection | str,
 )
 def values(
@@ -1290,18 +1322,31 @@ def _refusal_detail(e: Exception, what: str) -> str:
 _UPSTREAM_UNREACHABLE = (
     "The server could not reach the data provider (no network connection). The request was valid; try again later."
 )
+_UPSTREAM_TIMED_OUT = "The data provider did not answer in time. The request was valid; try again later."
+_UPSTREAM_FAILED = (
+    "The data provider failed, or sent an answer this server cannot read. The request was valid; try again later."
+)
 
 
-def _upstream_unreachable(e: NoInternetError, what: str) -> HTTPException:
-    """Answer a provider the server could not connect to with a 503, as an outage and not as a crash (GH-2640).
+def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
+    """Answer a provider that failed with the status of `failure_status`: 503, 504 or 502, an outage and not a crash.
 
-    Neither the caller's mistake nor a defect: the request was well formed and the same one can
-    succeed once the connection is back, which is what a 503 says and a client may retry on. The
-    message names the provider's URL, which is for whoever runs the server, so it goes to the log as
-    a warning, with no traceback to read, and the body carries a fixed sentence.
+    Neither the caller's mistake nor a defect of ours: the request was well formed and the same one
+    can succeed once the provider is back, which is what these statuses say and a client may retry
+    on. A 503 is no connection to the provider (GH-2640), a 504 a provider that did not answer in
+    time, a 502 one that failed or sent what the parser does not expect. The message names the
+    provider's URL, which is for whoever runs the server, so it goes to the log, and the body
+    carries a fixed sentence. An outage is a warning without a traceback to read; a layout the
+    parser does not expect (any `UpstreamError` that is no failed download) might be our parser's
+    defect, so it is an error with one.
     """
-    log.warning(f"Failed to {what}: {e}")
-    return HTTPException(status_code=503, detail=_UPSTREAM_UNREACHABLE)
+    status = failure_status(e)
+    if isinstance(e, (NoInternetError, DownloadError)):
+        log.warning(f"Failed to {what}: {e}")
+    else:
+        log.error(f"Failed to {what}.", exc_info=e)
+    detail = {503: _UPSTREAM_UNREACHABLE, 504: _UPSTREAM_TIMED_OUT}.get(status, _UPSTREAM_FAILED)
+    return HTTPException(status_code=status, detail=detail)
 
 
 def _server_error(e: Exception) -> HTTPException:
@@ -1313,11 +1358,9 @@ def _server_error(e: Exception) -> HTTPException:
     body carries a fixed sentence and the exception's class, and the text stays where the traceback
     is, in the server log. The body is the problem of `_problem_response`, with that text as its `detail`.
 
-    A provider the server could not connect to is not that: it is a 503 (`_upstream_unreachable`),
-    for the catch-alls that answer every failure of the collection with this.
+    Only a defect is this. A provider that failed is a 502, 503 or 504 (`_upstream_failure`), a lack
+    of this deployment a 501.
     """
-    if isinstance(e, NoInternetError):
-        return _upstream_unreachable(e, "reach the data provider")
     return HTTPException(
         status_code=500,
         detail=f"Internal server error ({type(e).__name__}). The cause is in the server log.",
@@ -1325,15 +1368,13 @@ def _server_error(e: Exception) -> HTTPException:
 
 
 def _logged_server_error(e: Exception, what: str) -> HTTPException:
-    """Log a failure that is the server's or the provider's, and answer it with `_server_error`.
+    """Log a failure that is not the request's and answer it with the status it deserves: a 501, 502, 503, 504 or 500.
 
-    A provider the server could not connect to is an outage, not a defect (GH-2640): a 503 and a
-    warning without a traceback (`_upstream_unreachable`), where anything else is an error with one.
+    For the catch-alls past the point where the request has nothing left to refuse: what fails from
+    there is the deployment's, the provider's or ours, by the exception's place in the hierarchy
+    (`_server_side_failure`), a defect with its traceback in the log and a 500.
     """
-    if isinstance(e, NoInternetError):
-        return _upstream_unreachable(e, what)
-    log.error(f"Failed to {what}.", exc_info=e)
-    return _server_error(e)
+    return _server_side_failure(e, _NoRequestModel(), what)
 
 
 def _configuration_missing_on_the_server(e: ConfigurationError, what: str) -> HTTPException:
@@ -1350,16 +1391,12 @@ def _configuration_missing_on_the_server(e: ConfigurationError, what: str) -> HT
     )
 
 
-def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
-    """Log a failure at the level it deserves and answer it with the status it deserves.
+def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
+    """Answer a failure that is not the request's own by its place in the hierarchy (`failure_status`).
 
-    One decision for every catch-all that tells a caller's refusal from a failure of ours, made from
-    the exception's place in the `WetterdienstError` hierarchy (`failure_status`): a request the
-    caller phrased wrong is theirs to fix, so an info line without a traceback and a 400, and a
-    provider, network, station or issue that does not exist a 404; a credential or an optional
-    dependency the server lacks is a 501; a provider the server could not connect to is a 503;
-    anything else is a logged traceback and a 500 that does
-    not repeat the exception's text (`_server_error`).
+    A credential or an optional dependency the server lacks is a 501 (the more specific answers say
+    which); a provider that failed is a 502, 503 or 504; anything else is a logged traceback and a
+    500 that does not repeat the exception's text (`_server_error`).
     """
     if isinstance(e, MissingDependencyError):
         return _dependency_missing_on_the_server(e, what)
@@ -1369,15 +1406,26 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
         return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
-    if isinstance(e, NoInternetError):
-        return _upstream_unreachable(e, what)
+    if isinstance(e, UpstreamError):
+        return _upstream_failure(e, what)
+    log.error(f"Failed to {what}.", exc_info=e)
+    return _server_error(e)
+
+
+def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
+    """Log a failure at the level it deserves and answer it with the status it deserves.
+
+    One decision for every catch-all, made from the exception's place in the `WetterdienstError`
+    hierarchy (`failure_status`), which the MCP tools share through this API: a request the caller
+    phrased wrong is theirs to fix, so an info line without a traceback and a 400, and a provider,
+    network, station or issue that does not exist a 404; the rest is `_server_side_failure`.
+    """
     status = _caller_refusal_status(e, request)
-    if status is None:
-        log.error(f"Failed to {what}.", exc_info=e)
-        return _server_error(e)
-    detail = _refusal_detail(e, what)
-    log.info(f"Failed to {what}: {detail}")
-    return HTTPException(status_code=status, detail=detail)
+    if status is not None:
+        detail = _refusal_detail(e, what)
+        log.info(f"Failed to {what}: {detail}")
+        return HTTPException(status_code=status, detail=detail)
+    return _server_side_failure(e, request, what)
 
 
 def _values(
@@ -1436,8 +1484,8 @@ def _geo_values(
 # - _InterpolatedValuesWithSettingsDict for json
 # - _InterpolatedValuesWithSettingsOgcFeatureCollection for geojson
 # - str for csv
-@app.get(
-    "/api/interpolate",
+@router.get(
+    "/interpolate",
     response_model=_InterpolatedValuesWithSettingsDict | _InterpolatedValuesWithSettingsOgcFeatureCollection | str,
 )
 def interpolate(
@@ -1478,8 +1526,8 @@ def interpolate(
 # - _SummarizedValuesWithSettingsDict for json
 # - _SummarizedValuesWithSettingsOgcFeatureCollection for geojson
 # - str for csv
-@app.get(
-    "/api/summarize",
+@router.get(
+    "/summarize",
     response_model=_SummarizedValuesWithSettingsDict | _SummarizedValuesWithSettingsOgcFeatureCollection | str,
 )
 def summarize(
@@ -1519,7 +1567,7 @@ def summarize(
     return Response(content=content, media_type=media_type)
 
 
-@app.get("/api/stripes/stations")
+@router.get("/stripes/stations")
 def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
 ) -> Response:
@@ -1541,7 +1589,7 @@ def stripes_stations(
     return Response(content=content, media_type=media_type)
 
 
-@app.get("/api/stripes/values")
+@router.get("/stripes/values")
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
@@ -1583,7 +1631,7 @@ def stripes_values(
     return Response(content=content, media_type=media_type)
 
 
-@app.get("/api/stripes/image")
+@router.get("/stripes/image")
 def stripes_image(
     request: Annotated[StripesImageRequest, Query()],
 ) -> Response:
@@ -1608,7 +1656,7 @@ def stripes_image(
     )
 
 
-@app.get("/api/history")
+@router.get("/history")
 def history(
     request: Annotated[HistoryRequest, Query()],
 ) -> Response:
@@ -1658,7 +1706,7 @@ def history(
     return Response(content=content, media_type="application/json")
 
 
-@app.get("/api/alerts")
+@router.get("/alerts")
 def alerts(
     request: Annotated[AlertsRequest, Query()],
 ) -> Response:
@@ -1673,25 +1721,18 @@ def alerts(
 
     set_logging_level(debug=request.debug)
 
-    # outside the handlers below, as for `/api/stations`: a `ValidationError` is a `ValueError`
+    # outside the handlers below, as for `/api/stations`
     settings = Settings()
     try:
         alerts_request = DwdWeatherAlertRequest(
             granularity=request.granularity, language=request.language, timestamp=request.timestamp, settings=settings
         )
-    except (ValueError, OverflowError) as e:
-        # a date that does not parse, or one an offset carries out of what a datetime holds
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
-    try:
         result = alerts_request.query()
-    except InvalidTimeIntervalError as e:
-        # a date before DWD's rolling window, the one refusal of the request's own `query` raises
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        # a feed that does not list, download or read, and an alert in it the parser does not
-        # expect: the date was converted already, so not even an `OverflowError` is the caller's
-        raise _logged_server_error(e, "get weather alerts") from e
+        # a date that does not parse, one an offset carries out of what a datetime holds, or one
+        # before DWD's rolling window is the request's; a feed that does not list, download or read,
+        # and an alert in it the parser does not expect, is the provider's (GH-2985)
+        raise _failure(e, request, "get weather alerts") from e
 
     content = result.to_format(request.format, indent=request.pretty)
     media_type = "text/csv" if request.format == "csv" else "application/json"
@@ -1739,6 +1780,12 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     log.info("MCP endpoint mounted at /mcp")
     return True
 
+
+# the alias first, so that a route's name resolves to `/api/...` (`url_path_for`), the path the messages
+# of the errors send a caller to and the one the app and the docs use. Which comes first does not
+# matter to OpenAPI, which lists the versioned routes alone
+app.include_router(router, prefix=API_ALIAS_PREFIX, include_in_schema=False)
+app.include_router(router, prefix=API_PREFIX)
 
 mcp_enabled = _mount_mcp(app)
 

@@ -24,6 +24,10 @@ Types of changes:
   `num_additional_stations`; `stations`, `values`, `interpolate` and `summarize` take `--width`,
   `--height` and `--scale` for a chart, and `stripes stations` takes `--debug`. A request has the
   same parameters on the command line, over REST and in the MCP tools (GH-2561)
+- The REST API is served under `/api/v1/...`, and the OpenAPI document describes that prefix.
+  `/api/...` stays, an alias of the current version with the same handlers and not deprecated, so a
+  client of `/api` changes nothing. `/api/version` reports `api_version` (`"1"`). The operation ids
+  and the MCP tool names do not change (GH-2561)
 
 ### Changed
 
@@ -91,6 +95,23 @@ Types of changes:
   it cached, alive. Get a reader from `stations.values()`. `df_stations` of a `ValuesResult` now names
   the stations with a row in the frame, so it follows `filtered_by_sql`, and
   `InterpolatedValuesResult` and `SummarizedValuesResult` have it too (GH-2626)
+- **Breaking**: a data provider that failed is no longer a 500. An `UpstreamError` is a 502 (a
+  download that was refused or cut short, a file the parser does not expect) or, after a timeout, a
+  504; `NoInternetError` stays a 503. The body is a fixed sentence that says the request was
+  valid. Retry a 502, 503 or 504, and read a 500 as a defect of the server. `/api/alerts`
+  decides as every endpoint does, by the exception's class, so a `NotFoundError` or a
+  `ConfigurationError` raised there is a 404 or a 501, and a plain `ValueError` out of the provider
+  is no longer taken for the caller's mistake (GH-2561, GH-2985)
+- **Breaking**: `DwdWeatherAlertRequest` raises `DownloadError` for a snapshot that did not download
+  or is no zip archive, where it raised `OSError`: catch `DownloadError` (or `UpstreamError`). A
+  granularity, language or timestamp it cannot read is a `RequestError`, still a `ValueError`
+  (GH-2985)
+- An exception that no endpoint handled reaches an MCP tool as the 500 the REST API answers, the
+  fixed sentence naming its type, and no longer as the tool error carrying the exception's own
+  text, which could name a path of the server (GH-2984)
+- **Breaking**: `/api/stations` and the MCP `stations` tool no longer take `with_stations`, which
+  they accepted and ignored: a listing of stations is the stations. A request that still sends it
+  is a 422; drop it. `history` and the value endpoints keep it (GH-3034)
 
 ### Fixed
 

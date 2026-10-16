@@ -56,8 +56,10 @@ class ConfigurationError(WetterdienstError):
 class UpstreamError(WetterdienstError):
     """Raised when the provider's side failed: it did not answer, or sent what the parser does not expect.
 
-    Not the caller's mistake, and not ours either, so the REST API answers it as a server error and
-    the command line keeps its traceback.
+    Not the caller's mistake, and not ours either: the REST API answers it with a 502, a 503 for a
+    provider it could not connect to (`NoInternetError`) and a 504 for one that did not answer in
+    time (a timeout on the `__cause__` of a `DownloadError`), and the command line keeps its
+    traceback.
     """
 
 

@@ -171,17 +171,17 @@ def _applied_settings(model: type[_M], options: Options) -> _M:
 def render_kwargs(
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
     *,
-    with_stations: bool,
     max_side: int | None = None,
 ) -> dict[str, Any]:
     """Give the arguments of a result's `to_format` for what the request asks to have written.
+
+    Not `with_stations`, which a listing of stations has no request field for: a request for values
+    adds it (`render`).
 
     `max_side` is the largest side of a rendered chart that is let through, which the REST API sets
     and the command line, whose caller is at the keyboard, does not.
     """
     kwargs: dict[str, Any] = {"fmt": request.format, "with_metadata": request.with_metadata}
-    if with_stations:
-        kwargs["with_stations"] = request.with_stations
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
     if request.format in ("png", "jpg", "webp", "svg", "pdf"):
@@ -200,7 +200,7 @@ def render_stations(
     max_side: int | None = None,
 ) -> str | bytes:
     """Write a stations listing in the format the request names."""
-    return result.to_format(**render_kwargs(request, with_stations=False, max_side=max_side))
+    return result.to_format(**render_kwargs(request, max_side=max_side))
 
 
 def render(
@@ -216,7 +216,7 @@ def render(
     The settings go next to the metadata, with `with_metadata` alone, and the rest is written as
     `to_json` and `to_geojson` write it.
     """
-    kwargs = render_kwargs(request, with_stations=True, max_side=max_side)
+    kwargs: dict[str, Any] = {**render_kwargs(request, max_side=max_side), "with_stations": request.with_stations}
     if not request.with_metadata or request.format not in ("json", "geojson"):
         return result.to_format(**kwargs)
     if request.format == "json":
