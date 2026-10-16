@@ -289,7 +289,7 @@
     "unitTypeLabel": "Gréisst",
     "loading": "Gëtt gelueden…",
     "noResults": "Keen Parameter passt zu der Sich.",
-    "count": "{count} vu(n) {total} Parameter | {count} vu(n) {total} Parameteren"
+    "count": "{shown} vu(n) {count} Parameter | {shown} vu(n) {count} Parameteren"
   },
   "meteogram": {
     "title": "Wiederprognos",
@@ -473,9 +473,9 @@
     "leadTimeHint": "Den DWD publizéiert d'ICON-DMO-Previsioun als zwee Leef. De kuerzen huet déi stëndlech Nidderschlags-, Stralungs- a Schnéiparameter, de laangen amplaz déi vun all 3 Stonnen; all déi aner sinn an deenen zwee. Ugebuede ginn d'Parameteren, déi de gewielte Laf huet.",
     "modeStationDesc": "Rufft Observatiounen direkt vun enger oder méi Wiederstatiounen of.",
     "modeInterpolationDesc": "Schätzt de Wiederwäert u jidderengem Uert mathematesch, och wann do keng Statioun ass.",
-    "modeSummaryDesc": "Gëtt fir all Moment de tatsächlech gemoossene Wäert vun der nächster Statioun mat Daten zréck.",
+    "modeSummaryDesc": "Gëtt fir all Moment den tatsächlech gemoossene Wäert vun der nächster Statioun mat Daten zréck.",
     "modeStationHow": "D'Rohwäerter ginn onverännert zréckginn, optional mat Eenheetsëmrechnung a verständleche Parameternimm. Wielt ënnen eng oder méi Statiounen aus.",
-    "modeInterpolationHow": "Sammelt Wäerter vu Statiounen, déi de Zilpunkt ëmschléissen, a berechent doraus eng Triangulatioun (Delaunay + linear Interpolatioun am UTM-Raum). All Zäitschrëtt entsteet e synthetesche Wäert op Ären exakte Koordinaten — méi genee wéi déi nächst Statioun, besonnesch bei enger gudder Statiounsdicht. Et brauch op d'mannst 3 ëmschléissend Statiounen an e Datumberäich. Bei Nidderschlagsparameteren gëtt en zousätzleche Optrëttscheck ugewannt, fir falsch, bal null Wäerter ze vermeiden.",
+    "modeInterpolationHow": "Sammelt Wäerter vu Statiounen, déi den Zilpunkt ëmschléissen, a berechent doraus eng Triangulatioun (Delaunay + linear Interpolatioun am UTM-Raum). All Zäitschrëtt entsteet e synthetesche Wäert op Ären exakte Koordinaten — méi genee wéi déi nächst Statioun, besonnesch bei enger gudder Statiounsdicht. Et brauch op d'mannst 3 ëmschléissend Statiounen an e Datumberäich. Bei Nidderschlagsparameteren gëtt en zousätzleche Optrëttscheck ugewannt, fir falsch, bal null Wäerter ze vermeiden.",
     "modeSummaryHow": "Fir all Parameter an all Zäitschrëtt gëtt vun Ärem Zilpunkt aus no baussen gesicht an de Wäert vun der éischter Statioun mat engem gëltege Moosswäert geholl — keng Schätzung, just déi nächst richteg Moossung. D'Ausgab enthält d'ID vun der benotzter Statioun an hir Distanz, sou datt Dir ëmmer genee wësst, wou d'Daten hierkommen. E Datumberäich ass néideg.",
     "modeHowItWorks": "Wéi et funktionéiert",
     "removeParameterDistance": "Distanz fir {parameter} läschen"

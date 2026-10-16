@@ -289,7 +289,7 @@
     "unitTypeLabel": "Grootheid",
     "loading": "Laden…",
     "noResults": "Geen parameter komt overeen met je zoekopdracht.",
-    "count": "{count} van {total} parameter | {count} van {total} parameters"
+    "count": "{shown} van {count} parameter | {shown} van {count} parameters"
   },
   "meteogram": {
     "title": "Weersverwachting",

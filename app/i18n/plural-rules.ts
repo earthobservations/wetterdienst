@@ -6,8 +6,8 @@
 // categories of its language.
 //
 // A message is written as `one | other` for the languages with two forms, and as `one | few | other`
-// for pl and cs. A rule never answers a form the message does not have: a Polish text that falls
-// back to the English one (two forms) shows its plural for 2 to 4 as well.
+// for pl and cs. A rule never answers a form the message does not have, whatever the message it is
+// asked about. vue-i18n takes the count from the named `{count}`, not from the argument that follows.
 
 type PluralRule = (choice: number, choicesLength: number) => number
 

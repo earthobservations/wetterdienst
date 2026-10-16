@@ -289,7 +289,7 @@
     "unitTypeLabel": "Magnitud",
     "loading": "Cargando…",
     "noResults": "Ningún parámetro coincide con la búsqueda.",
-    "count": "{count} de {total} parámetro | {count} de {total} parámetros"
+    "count": "{shown} de {count} parámetro | {shown} de {count} parámetros"
   },
   "meteogram": {
     "title": "Pronóstico del tiempo",

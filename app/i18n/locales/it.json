@@ -289,7 +289,7 @@
     "unitTypeLabel": "Grandezza",
     "loading": "Caricamento…",
     "noResults": "Nessun parametro corrisponde alla ricerca.",
-    "count": "{count} di {total} parametro | {count} di {total} parametri"
+    "count": "{shown} di {count} parametro | {shown} di {count} parametri"
   },
   "meteogram": {
     "title": "Previsioni meteo",

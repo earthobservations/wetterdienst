@@ -28,7 +28,7 @@
     "featureAnalysisTitle": "Interpolatschoon & Tosamenfaat",
     "featureAnalysisDesc": "Weerten för een Punkt twüschen de Stationen schätten – oder to jeden Tietpunkt de neegste Station nehmen, de Daten hett.",
     "devTitle": "Ok för Entwicklers",
-    "devText": "Dat sülve Daten as Python-Bibliotheek, as REST-API un as MCP-Endpunkt för KI-Assistenten.",
+    "devText": "De sülven Daten as Python-Bibliotheek, as REST-API un as MCP-Endpunkt för KI-Assistenten.",
     "devMcpHint": "Endpunkt för MCP-Clients, keen Siet to'n Ankieken.",
     "supportedByTitle": "Ünnerstütt vun",
     "supportedByJetbrains": "een PyCharm-Lizenz över ehr Open-Source-Förderprogramm",
@@ -289,7 +289,7 @@
     "unitTypeLabel": "Grött",
     "loading": "Dat laadt …",
     "noResults": "Keen Parameter passt to de Söök.",
-    "count": "{count} vun {total} Parameter | {count} vun {total} Parameters"
+    "count": "{shown} vun {count} Parameter | {shown} vun {count} Parameters"
   },
   "meteogram": {
     "title": "Wedderutsicht",
@@ -362,7 +362,7 @@
     "orChooseMap": "oder",
     "chooseOnMap": "Station op de Kaart utsöken",
     "mapHint": "Tipp op een Punkt op de Kaart, denn nimmst du de Station.",
-    "runLabel": "Modellupp",
+    "runLabel": "Modelloop",
     "runLatest": "Aktuellste (auto)"
   },
   "widget": {
@@ -467,15 +467,15 @@
     "dataSource": "Datenquell",
     "stationsDetails": "Stationsdetails",
     "valuesDetails": "Weertendetails",
-    "leadTime": "Utsichtupp",
+    "leadTime": "Utsichtloop",
     "leadTimeShort": "Kott: bet 78 h, stünnlich",
     "leadTimeLong": "Lang: 78 bet 168 h, 3-stünnlich",
-    "leadTimeHint": "De DWD verööffentlicht de ICON-DMO-Utsicht as twee Uppen. De kotte hett de 1-stünnlichen Nedderslag-, Strahlen- un Sneeparameter, de lange an ehr Stäe de 3-stünnlichen; all annern sünd in beide. Anboden warrt de Parameter, de de utsöchte Upp hett.",
+    "leadTimeHint": "De DWD verööffentlicht de ICON-DMO-Utsicht as twee Lööp. De kotte hett de 1-stünnlichen Nedderslag-, Strahlen- un Sneeparameter, de lange an ehr Stäe de 3-stünnlichen; all annern sünd in beide. Anboden warrt de Parameter, de de utsöchte Loop hett.",
     "modeStationDesc": "Beobachtensdaten direkt vun een oder mehr Wedderstationen afropen.",
     "modeInterpolationDesc": "Schätt den Wedderweert an een beleevigen Oort mathematisch, ok ahn Meetstation dor.",
-    "modeSummaryDesc": "Giff för jeden Tietpunkt den würklich meetten Weert vun de neegsten Station mit Daten trüch.",
+    "modeSummaryDesc": "Gifft för jeden Tietpunkt den würklich meetten Weert vun de neegsten Station mit Daten trüch.",
     "modeStationHow": "De Roh-Daten warrt ahn Ännern trüchgeven, optschonal mit Eenheitenümreken un lesbore Parameternaams. Stationen ünnen utsöken.",
-    "modeInterpolationHow": "Sammelt Weerten vun Stationen, de den Teelpunkt rümlich ümslaat, un maakt dorut een Triangulatschoon (Delaunay + lineare Interpolatschoon in'n UTM-Ruum). Je Tietschritt kummt een synthetischen Weert an de genaue Teelkoordinaten rut – genauer as de neegste Station, besünners bi goode Stationsdichtheit. Mindestens 3 inslutende Stationen un een Datumbereek sünd nödig. Bi Nedderslagparameter warrt een tosätzliche Optreeden-Swell anwendt, um fehlerhafte Lüttstweerten to vermieden.",
+    "modeInterpolationHow": "Sammelt Weerten vun Stationen, de den Teelpunkt rümlich ümsluten, un maakt dorut een Triangulatschoon (Delaunay + lineare Interpolatschoon in'n UTM-Ruum). Je Tietschritt kummt een synthetischen Weert an de genaue Teelkoordinaten rut – genauer as de neegste Station, besünners bi goode Stationsdichtheit. Mindestens 3 inslutende Stationen un een Datumbereek sünd nödig. Bi Nedderslagparameter warrt een tosätzliche Optreeden-Swell anwendt, um fehlerhafte Lüttstweerten to vermieden.",
     "modeSummaryHow": "För jeden Parameter un jeden Tietschritt warrt vun'n Teeloort ut na buten söcht un de Weert vun de eerste Station mit gülligen Meetweert nahmen – keen Schätten, bloots de neegste würkliche Meten. De Utgaav hett de bruukte Stations-ID un ehr Afstand, so dat de Datenherkunft jümmer nahvullteihbor is. Een Datumbereek is nödig.",
     "modeHowItWorks": "So warkt dat",
     "removeParameterDistance": "Entfernen för {parameter} wegmaken"
@@ -548,9 +548,9 @@
     "errExceedsLimit": "Schätte {count} Weerten överschrieden dat Limit vun {max}. Grenz den Tietruum bitte in."
   },
   "map": {
-    "centerAll": "Op all Stationen tentreren",
-    "centerSelected": "Op utsöchte Station tentreren",
-    "centerSelectedPlural": "Op utsöchte Stationen tentreren",
+    "centerAll": "Op all Stationen zentreren",
+    "centerSelected": "Op utsöchte Station zentreren",
+    "centerSelectedPlural": "Op utsöchte Stationen zentreren",
     "markersNotShown": "De Stationen leten sik nich op de Kaart wiesen. Laad de Siet noch eenmal nee."
   },
   "dataViewer": {

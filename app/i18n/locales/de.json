@@ -289,7 +289,7 @@
     "unitTypeLabel": "Größe",
     "loading": "Wird geladen…",
     "noResults": "Kein Parameter passt zur Suche.",
-    "count": "{count} von {total} Parameter | {count} von {total} Parametern"
+    "count": "{shown} von {count} Parameter | {shown} von {count} Parametern"
   },
   "meteogram": {
     "title": "Wettervorhersage",

@@ -289,7 +289,7 @@
     "unitTypeLabel": "Wielkość",
     "loading": "Ładowanie…",
     "noResults": "Żaden parametr nie pasuje do wyszukiwania.",
-    "count": "{count} z {total} parametru | {count} z {total} parametrów | {count} z {total} parametrów"
+    "count": "{shown} z {count} parametru | {shown} z {count} parametrów | {shown} z {count} parametrów"
   },
   "meteogram": {
     "title": "Prognoza pogody",

@@ -289,7 +289,7 @@
     "unitTypeLabel": "Størrelse",
     "loading": "Indlæser…",
     "noResults": "Ingen parameter matcher din søgning.",
-    "count": "{count} af {total} parameter | {count} af {total} parametre"
+    "count": "{shown} af {count} parameter | {shown} af {count} parametre"
   },
   "meteogram": {
     "title": "Vejrudsigt",

@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 // The counts the app writes, in the plural form of each language (GH-2968): "1 value", "2 values", and
 // in Polish and Czech "1 wartość", "2 wartości", "5 wartości" with a third form for 5. Rendered through
-// the app's own i18n, so the rules in i18n/plural-rules.ts, the `|` forms in the catalogs and the way the
-// components pass the count are all in it. The rules themselves are held to CLDR in
-// tests/unit/plural-rules.test.ts.
+// the app's own i18n, so the rules in i18n/plural-rules.ts and the `|` forms in the catalogs are in it
+// (the components are held to their call sites by the DataViewer and glossary page tests). vue-i18n
+// takes the form from the named `{count}`, so a message whose noun follows another number puts that
+// number in `{count}`: `glossary.count` is "{shown} of {count} parameters". The rules themselves are
+// held to CLDR in tests/unit/plural-rules.test.ts.
 //
 // The Polish, Czech, Luxembourgish and Low German forms are not natively reviewed (see i18n/TERMS.md).
 
@@ -86,10 +88,9 @@ describe('plural forms of the counts', () => {
     await $i18n.setLocale(locale)
     for (const key of KEYS) {
       COUNTS.forEach((count, at) => {
-        // `glossary.count` takes the form of its total, the number the noun follows; the others of their count
-        const named = { count, total: key === 'glossary.count' ? count : 7 }
-        const plural = key === 'glossary.count' ? named.total : count
-        expect($i18n.t(key, named, plural), `${locale} ${key} for ${count}`).toBe(filled(message(locale, key), FORM[locale]![at]!, named))
+        // the second number differs from `count`, so a form taken from it would show
+        const named = { count, total: 7, shown: 3 }
+        expect($i18n.t(key, named), `${locale} ${key} for ${count}`).toBe(filled(message(locale, key), FORM[locale]![at]!, named))
       })
     }
   })

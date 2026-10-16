@@ -64,15 +64,15 @@ How each locale speaks to the reader, as the catalogs have it now. A new string 
 
 ## Counts
 
-A message that says how many of something is written in plural forms separated by `|`: two
-(`{count} value | {count} values`) in every locale but `pl` and `cs`, which have three (one, few,
-other: `{count} wartość | {count} wartości | {count} wartości`). `i18n/plural-rules.ts` says which
-form a count takes, from the CLDR rules of the language (French takes the first for 0 and 1, the
-others for 1 only), and the component passes the number as the plural argument:
-`t('dataViewer.valuesCount', { count }, count)`. `glossary.count` takes its form from `{total}`, the
-number its noun follows. `tests/unit/i18n-quality.test.ts` holds every locale to the number of forms
-and to `{count}` in each of them. A count that needs no form ("Estimated values: {count}") is not
-written in forms.
+A message that says how many of something is written in plural forms separated by `|`: two (`{count}
+value | {count} values`) in every locale but `pl` and `cs`, which have three (one, few, other:
+`{count} wartość | {count} wartości | {count} wartości`). `i18n/plural-rules.ts` says which form a
+count takes, from the CLDR rules of the language (French takes the first for 0 and 1, the others for
+1 only). vue-i18n takes the form from the named `{count}`, so the number the noun follows is the one
+called `count`: `t('dataViewer.valuesCount', { count })`, and `glossary.count` is "{shown} of
+{count} parameters", the total being the `count`. `tests/unit/i18n-quality.test.ts` holds every
+locale to the number of forms and to `{count}` in each of them. A count that needs no form
+("Estimated values: {count}") is not written in forms.
 
 ## Review status: not natively reviewed
 

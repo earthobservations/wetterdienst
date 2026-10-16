@@ -289,7 +289,7 @@
     "unitTypeLabel": "Veličina",
     "loading": "Načítání…",
     "noResults": "Hledání neodpovídá žádný parametr.",
-    "count": "{count} z {total} parametru | {count} z {total} parametrů | {count} z {total} parametrů"
+    "count": "{shown} z {count} parametru | {shown} z {count} parametrů | {shown} z {count} parametrů"
   },
   "meteogram": {
     "title": "Předpověď počasí",

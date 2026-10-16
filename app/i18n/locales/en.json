@@ -289,7 +289,7 @@
     "unitTypeLabel": "Quantity",
     "loading": "Loading…",
     "noResults": "No parameter matches your search.",
-    "count": "{count} of {total} parameter | {count} of {total} parameters"
+    "count": "{shown} of {count} parameter | {shown} of {count} parameters"
   },
   "meteogram": {
     "title": "Weather forecast",

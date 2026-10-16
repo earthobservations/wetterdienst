@@ -289,7 +289,7 @@
     "unitTypeLabel": "Grandeur",
     "loading": "Chargement…",
     "noResults": "Aucun paramètre ne correspond à la recherche.",
-    "count": "{count} sur {total} paramètre | {count} sur {total} paramètres"
+    "count": "{shown} sur {count} paramètre | {shown} sur {count} paramètres"
   },
   "meteogram": {
     "title": "Prévisions météo",

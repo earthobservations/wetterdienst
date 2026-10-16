@@ -6,8 +6,9 @@ import { pluralForms, pluralRules } from '../../i18n/plural-rules'
 // What the catalogs say for each form is pinned in tests/nuxt/utils/i18n-plurals.test.ts, through the
 // app's own i18n, and that every plural message has the forms its language needs in i18n-quality.test.ts.
 
-// the language whose CLDR rules a locale follows: `de-hh` is Low German, which Intl knows as `nds`
-const cldr = (locale: string) => locale === 'de-hh' ? 'nds' : locale
+// the language whose CLDR rules a locale follows: Intl has no Low German (`nds` resolves to English),
+// and for whole counts its plural categories are those of German and English
+const cldr = (locale: string) => locale === 'de-hh' ? 'de' : locale
 const locales = Object.keys(pluralRules)
 
 /** The form a CLDR category is written in: one is the first, few the second where there are three. */
