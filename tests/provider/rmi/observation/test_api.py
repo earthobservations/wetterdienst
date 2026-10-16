@@ -299,7 +299,7 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
         ("10_minutes", 10.0, True),
         ("hourly", 30.0, True),
         ("hourly", 60.0, True),
-        # 6459, 2013-03-24: a running total, 63.86 minutes at 10:00 and 373.08 at 13:00
+        # 6459, 2013-03-24: a day whose hours add up to 3,807.66 minutes, 63.86 minutes at 10:00 and 373.08 at 13:00
         ("hourly", 63.86, False),
         ("hourly", 373.08, False),
         ("daily", 30.0, True),

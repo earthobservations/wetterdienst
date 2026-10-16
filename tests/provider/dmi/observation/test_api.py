@@ -717,7 +717,7 @@ def test_collect_holds_the_rain_to_the_span_of_the_resolution(
 def test_collect_holds_the_largest_amount_of_a_part_of_a_day_to_the_day(
     resolution: str, parameter: str, reading: float, no_reading: float
 ) -> None:
-    """A maximum of a day or of half an hour is no more than a day of rain, which 04339 and 04320 have (GH-2797)."""
+    """A maximum of a day or of half an hour is no more than a day of rain; some `max_precip_24h` has more (GH-2797)."""
     rows = [
         (parameter, "2012-01-01T06:00:00+00:00", reading, "manual", True),
         (parameter, "2013-01-01T06:00:00+00:00", no_reading, "manual", False),

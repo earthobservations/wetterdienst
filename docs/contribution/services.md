@@ -202,7 +202,7 @@ every text that is no number for one. A value no sensor can have produced (4021 
 sentinel to name: `OutOfRange(low, high)` takes it the same way, with bounds in the unit of the source
 taken from `tests/provider/physical_ranges.py` and kept per resolution (the rain and the sunshine of a day
 are not those of a minute; generous, so that a real reading of the provider is never outside). A reader may
-be narrower than that range where its source's own records say so, never wider, and names it in
-`test_physical_ranges.py`, and the `raw` text is the number as it is written. A wide frame keeps the text beside each
+be narrower than that range where its source's own records or precision allow it, never wider; the
+narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A wide frame keeps the text beside each
 column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.

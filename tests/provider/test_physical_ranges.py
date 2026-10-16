@@ -294,8 +294,8 @@ def test_a_frame_that_is_not_converted_is_left_alone(
 
 
 # where a reader holds a parameter to a range narrower than the one of the world, because its source's own validated
-# records stay far below the world's (the argument is in the comment of the reader's table): the provider, the
-# resolution and the attribute
+# records stay far below the world's, or its precision needs no slack (the argument is in the comment of the reader's
+# table): the provider, the resolution and the attribute
 _NARROWER = {
     ("dmi", "daily", "acc_precip"),
     ("dmi", "monthly", "acc_precip"),
