@@ -877,7 +877,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             " of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid "
             "precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and"
             " solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable,"
-            " automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define."
+            " automatic ascertainment; returned as null, the 9 stays as the last token of quality_flags, raw:9. The "
+            "files also hold 2 and 3, which the current sheet does not define."
         ),
         ("hourly", "pressure", "p"): "Barometric pressure at sea level NN.",
         ("hourly", "pressure", "p0"): "Barometric pressure at station height.",

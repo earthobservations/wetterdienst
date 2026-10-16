@@ -221,7 +221,8 @@ def test_coverage(client: TestClient) -> None:
     for network_info in dwd.values():
         assert network_info["auth"] is False
         assert network_info["configured"] is True
-        assert network_info["valid"] is True
+        # whether the credentials are accepted is `/api/auth`'s to tell: `/api/coverage` has no `valid` (GH-2641)
+        assert "valid" not in network_info
     # `road` requires a date range for value queries, other DWD networks don't
     assert dwd["observation"]["date_required"] is False
     assert dwd["road"]["date_required"] is True
@@ -7452,6 +7453,69 @@ def test_a_listed_network_whose_module_fails_to_import_is_a_500_on_auth_and_cove
     assert "Choose provider and network" not in response.text
 
 
+def test_the_list_of_every_provider_leaves_out_a_network_that_fails_to_import(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The unfiltered coverage does not list a network it cannot import, as one that needs no credentials (GH-2801).
+
+    The list answers 200 for the others and says why in the log, and the network itself is still the
+    500 of the test above, not a 404 for a network that does not exist (GH-2800).
+    """
+    resolve = restapi.Wetterdienst.resolve
+
+    def failing_dmo(provider: str, network: str) -> object:
+        if (provider, network) == ("dwd", "dmo"):
+            msg = "Module wetterdienst.provider.dwd.dmo failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(provider, network)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", failing_dmo)
+    with caplog.at_level(logging.WARNING):
+        response = client.get("/api/coverage")
+
+    assert response.status_code == 200, response.text
+    listed = response.json()
+    assert "dmo" not in listed["dwd"]
+    assert "observation" in listed["dwd"]
+    assert "Left dwd/dmo out of the listing" in caplog.text
+
+    asked = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/coverage", params={"provider": "dwd", "network": "dmo"}
+    )
+    assert asked.status_code == 500, asked.text
+    assert "Choose provider and network" not in asked.text
+
+
+@pytest.mark.parametrize("route", ["auth", "coverage"])
+def test_mcp_tool_for_a_network_whose_module_fails_to_import_raises_the_import_error(
+    monkeypatch: pytest.MonkeyPatch, route: str
+) -> None:
+    """The MCP `auth` and `coverage` tools raise the import error, not the 404 of an unknown network (GH-2800)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    def fail(*_args: object) -> None:
+        msg = "Module wetterdienst.provider.dwd.dmo failed to import: lxml.etree not found."
+        raise ImportError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.resolve", fail)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as mcp_client:
+            await mcp_client.call_tool(route, {"provider": "dwd", "network": "dmo"})
+
+    with pytest.raises(ToolError, match=r"failed to import: lxml\.etree not found") as error:
+        asyncio.run(_call())
+    assert "Choose provider and network" not in str(error.value)
+    assert "HTTP error 404" not in str(error.value)
+
+
 def test_coverage_all_providers_honours_pretty(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The list of every provider is compact unless pretty is set, like the per-network listing (GH-2496)."""
     monkeypatch.setattr("wetterdienst.ui.restapi.Wetterdienst.discover", lambda: {"dwd": {"observation": {}}})
@@ -8016,9 +8080,9 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
     network = {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
     assert shape("CoverageNetwork") == (network, network)
     properties = components["CoverageNetwork"]["properties"]
-    # null for a network that cannot be imported on the server
-    assert properties["name_short"]["anyOf"] == [{"type": "string"}, {"type": "null"}]
-    assert properties["kind"]["anyOf"] == [{"enum": list(get_args(NetworkKind)), "type": "string"}, {"type": "null"}]
+    # never null: a network that cannot be imported on the server is not listed (GH-2801)
+    assert properties["name_short"] == {"type": "string", "title": "Name Short"}
+    assert properties["kind"]["enum"] == list(get_args(NetworkKind))
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
     assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere
@@ -8412,6 +8476,106 @@ def test_mcp_tool_without_a_credential_is_refused_without_naming_the_setting() -
     message = asyncio.run(_call())
     assert "no credential for knmi/observation" in message
     assert "WD_AUTH" not in message
+
+
+_FROST_CLIENT_ID = "frost-client-id-4f9a"
+
+
+def _frost_rejects_the_client_id(monkeypatch: pytest.MonkeyPatch, status: int = 401) -> None:
+    """Give the server a Frost client ID, and make Frost refuse it as it does a revoked or mistyped one."""
+    from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    def download_file(*, url: str, **_kwargs: object) -> File:
+        return File(url=url, content=OSError(f"{status}, message='Unauthorized'"), status=status)
+
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", _FROST_CLIENT_ID)
+    monkeypatch.setattr(frost_api, "download_file", download_file)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize(
+    ("endpoint", "extra"),
+    [
+        ("/api/stations", {"all": "true"}),
+        ("/api/values", {"station": "SN18700", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/interpolate", {"station": "SN18700", "timestamp": "2020-01-01/2020-01-02"}),
+        ("/api/summarize", {"station": "SN18700", "timestamp": "2020-01-01/2020-01-02"}),
+    ],
+)
+def test_a_rejected_credential_is_a_501_that_names_neither_the_setting_nor_the_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    extra: dict[str, str],
+    status: int,
+) -> None:
+    """A client ID Frost refuses is the server's lack, a 501, no longer a 500 naming `WD_AUTH__METNO_FROST` (GH-2665).
+
+    The provider's message tells whoever runs the process which setting to replace, which is no
+    instruction for a caller of this API. It reaches the server log, where the key does not.
+    """
+    _frost_rejects_the_client_id(monkeypatch, status)
+    with caplog.at_level(logging.WARNING):
+        response = client.get(
+            endpoint,
+            params={
+                "provider": "metno",
+                "network": "frost",
+                "parameters": "hourly/data/temperature_air_2m",
+                **extra,
+            },
+        )
+
+    assert response.status_code == 501, response.text
+    detail = response.json()["detail"]
+    assert "rejected the credential" in detail
+    assert "for metno/frost" in detail
+    assert "/api/auth" in detail
+    assert "WD_AUTH" not in response.text
+    assert _FROST_CLIENT_ID not in response.text
+    assert f"HTTP {status}" in caplog.text
+    assert "WD_AUTH__METNO_FROST" in caplog.text
+    assert _FROST_CLIENT_ID not in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_tool_with_a_rejected_credential_is_refused_without_naming_the_setting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The MCP tools are the API's routes, so a key the provider refuses is told as the route tells it (GH-2665)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _frost_rejects_the_client_id(monkeypatch)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> str:
+        async with Client(mcp) as mcp_client:
+            with pytest.raises(ToolError) as excinfo:
+                await mcp_client.call_tool(
+                    "stations",
+                    {
+                        "provider": "metno",
+                        "network": "frost",
+                        "parameters": "hourly/data/temperature_air_2m",
+                        "all": True,
+                    },
+                )
+            return str(excinfo.value)
+
+    message = asyncio.run(_call())
+    assert "HTTP error 501" in message
+    assert "rejected the credential of this server for metno/frost" in message
+    assert "WD_AUTH" not in message
+    assert _FROST_CLIENT_ID not in message
 
 
 # each REST endpoint rendering a chart to an image, with the rest of a request it would serve

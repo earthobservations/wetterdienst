@@ -136,6 +136,20 @@ WEATHER_NOT_REPORTED_PARAMETERS = {
 }
 
 
+# The hourly precipitation form `WRTR` writes 9 where the form is not known, which DWD's sheet words "Missing value,
+# Type of precipitation unascertainable" (the English one; the German "Fehlkennung; fehlender Wert oder
+# Niederschlagsform nicht feststellbar", WMO code 15). It is the missing value of the column, not a form: read
+# 2026-10-16 in 120 of the 2,887 zips of recent/ and historical/ (every sixth, the first 60 of each, 11.3 million rows),
+# 270 rows hold it, and in 261 of them `R1` beside it is -999 too, in 9 it is 0.0 (station 01048, 2021-07-09 17:00 in
+# stundenwerte_RR_01048_19950901_20251231_hist.zip: `1048;2021070917;    3;   0.0;   1;   9;eor`). Only this column
+# (GH-2703): the daily `RSKF` and `RSF` document the same code, but no file holds it (all stations, 2026-10-14), and
+# the precipitation indicators of the minute datasets are 0 to 3.
+PRECIPITATION_FORM_MISSING = 9
+PRECIPITATION_FORM_PARAMETERS = {
+    DwdObservationMetadata.hourly.precipitation.precipitation_form.name_original,
+}
+
+
 # The wind files write 990 in the direction column where there is no direction (hourly: station 00003,
 # 1975-10-16 08:00, `3;1975101608;    5;   1.3; 990;eor`, a speed of 1.3 m/s beside it; 10 minute:
 # station 00198, 1994-05-02 13:50, `198;199405021350;    1;   1.1; 990;eor`). The descriptions
@@ -223,6 +237,7 @@ _MISSING_VALUE = Sentinel("-999")
 _SKY_OBSCURED = Sentinel(SKY_OBSCURED)
 _MOISTURE_MISSING = Sentinel(str(MOISTURE_MISSING))
 _WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
+_PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
 _WIND_DIRECTION_VARIABLE = Sentinel(str(WIND_DIRECTION_VARIABLE))
 _NO_WIND_DIRECTION = Sentinel("0")
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
@@ -436,6 +451,8 @@ def _parse_climate_observations_data(  # noqa: C901
             df = _null_station_constant(df, parameter)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
         df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
+    if dataset == DwdObservationMetadata.hourly.precipitation:
+        df = clear_sentinels(df, sorted(PRECIPITATION_FORM_PARAMETERS & columns), _PRECIPITATION_FORM_MISSING)
     for wind_dataset, parameter in WIND_DIRECTION_PARAMETERS:
         if dataset == wind_dataset and parameter in columns:
             df = clear_sentinels(df, [parameter], _WIND_DIRECTION_VARIABLE)

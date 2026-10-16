@@ -47,7 +47,7 @@ class NotFoundError(WetterdienstError, LookupError):
 class ConfigurationError(WetterdienstError):
     """Raised when this installation is not set up to serve what was asked, and the caller cannot change that.
 
-    A missing credential or optional dependency: the request was well formed, whoever runs the
+    A missing or rejected credential, or a missing optional dependency: the request was well formed, whoever runs the
     process has to act. The REST API answers it with a 501 and does not repeat the message, which
     names a setting or a package of the server.
     """
@@ -237,6 +237,18 @@ class CredentialMissingError(ConfigurationError, ValueError):
     change, which is an instruction for whoever runs the process: the Python caller and the command
     line user are that person and get it as it is, while the REST API and the MCP tools, whose
     callers administer nothing of the server, answer with a fixed sentence and log the message.
+    """
+
+
+class CredentialRejectedError(ConfigurationError, PermissionError):
+    """Raised when a provider refuses the credential this installation holds for it (HTTP 401 or 403).
+
+    The sibling of `CredentialMissingError`: there the key is not set, here it is set and the
+    provider does not accept it, so whoever runs the process has to replace it. A `PermissionError`,
+    which is what the provider raised before this had a type of its own, so that a caller catching
+    that still catches it. Its message names the setting to change and never the credential itself;
+    the Python caller and the command line user, who run the process, get it as it is, while the REST
+    API and the MCP tools answer with a fixed sentence (a 501, as for a missing credential) and log it.
     """
 
 

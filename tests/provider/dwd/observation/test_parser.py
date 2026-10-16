@@ -731,12 +731,12 @@ def _documented_codes(page: str, column: str) -> set[int]:
 
 
 def test_parse_dwd_hourly_precipitation_form_keeps_every_code_the_files_hold() -> None:
-    """Test that the codes of `WRTR` in the files come back as written, and the docs list them.
+    """Test that the codes of `WRTR` in the files come back as written, 9 and -999 as null, and the docs list them.
 
     Rows of station 01048 (stundenwerte_RR_01048_19950901_20251231_hist.zip). The sheet defines 0, 1, 4, 6, 7, 8
-    and 9, the file also holds 2 and 3 (2001-05-09 02:00 and 2002-01-14 04:00), and 9 is written 2021-07-09 17:00
-    in the sheet's words "missing value, form of precipitation unascertainable": it is not read as a missing
-    value. -999 is the one sentinel and maps to null.
+    and 9, the file also holds 2 and 3 (2001-05-09 02:00 and 2002-01-14 04:00). 9, written 2021-07-09 17:00, is in the
+    sheet's words "Missing value, Type of precipitation unascertainable" (GH-2703): null, with the 9 as its `raw`
+    text, as -999 is.
     """
     rows = "".join(
         f"1048;20010412{hour:02d};    1;   0.0;   1;{code:>4};eor\n"
@@ -751,8 +751,27 @@ def test_parse_dwd_hourly_precipitation_form_keeps_every_code_the_files_hold() -
         files=[file], dataset=DwdObservationMetadata.hourly.precipitation, period=Period.HISTORICAL
     ).collect()
     codes = df.get_column("wrtr").to_list()
-    assert codes == ["0", "1", "2", "3", "4", "6", "7", "8", "9", None]
+    assert codes == ["0", "1", "2", "3", "4", "6", "7", "8", None, None]
+    assert df.get_column("wrtr__raw").to_list() == [None] * 8 + ["9", "-999"]
     assert {int(code) for code in codes if code is not None} == _documented_codes("hourly.md", "wrtr")
+    # only the precipitation form: a 9 in the height or the indicator beside it is a value
+    assert df.get_column("r1").to_list() == ["0.0"] * 10
+    assert df.get_column("rs_ind").to_list() == ["1"] * 10
+
+
+def test_parse_dwd_hourly_precipitation_leaves_a_9_of_another_column_alone() -> None:
+    """Test that the 9 of `WRTR` is no sentinel of the columns beside it: 9.0 mm of rain is a reading."""
+    file = File(
+        url="",
+        content=BytesIO(
+            b"STATIONS_ID;MESS_DATUM;QN_8;  R1;RS_IND;WRTR;eor\n1048;2001041200;    1;   9.0;   9;   6;eor\n"
+        ),
+        status=200,
+    )
+    df = parse_climate_observations_data(
+        files=[file], dataset=DwdObservationMetadata.hourly.precipitation, period=Period.HISTORICAL
+    ).collect()
+    assert df.select("r1", "rs_ind", "wrtr", "wrtr__raw").row(0) == ("9.0", "9", "6", None)
 
 
 @pytest.mark.parametrize(
