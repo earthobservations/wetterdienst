@@ -155,7 +155,7 @@ def _request(options: Options | None = None) -> DwdObservationRequest:
 
 def _stations(request: DwdObservationRequest, *station_ids: str) -> StationsResult:
     df = _stations_frame(*station_ids)
-    return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
 @pytest.fixture
@@ -189,14 +189,14 @@ def test_a_long_result_has_the_long_schema_and_is_a_string_throughout() -> None:
     concatenate with an empty one, nor with another request's, and did not join a stations frame.
     """
     request = _request()
-    populated = _stations(request, "01048", "04411").values.all().df
-    empty = _stations(request).values.all().df
+    populated = _stations(request, "01048", "04411").values().all().df
+    empty = _stations(request).values().all().df
     assert populated.schema == LONG_SCHEMA
     assert empty.schema == LONG_SCHEMA
     assert populated.height == 6
     assert empty.is_empty()
     assert pl.concat([populated, empty]).height == 6
-    other = _stations(request, "00003").values.all().df
+    other = _stations(request, "00003").values().all().df
     assert pl.concat([populated, other]).get_column("station_id").unique().sort().to_list() == [
         "00003",
         "01048",
@@ -213,8 +213,8 @@ def test_a_long_result_has_the_long_schema_and_is_a_string_throughout() -> None:
 def test_a_wide_result_has_the_wide_schema_and_is_a_string_throughout() -> None:
     """Test that the wide frame is `wide_schema` of the parameters asked for, populated or empty."""
     request = _request(Options(shape="wide"))
-    populated = _stations(request, "01048", "04411").values.all().df
-    empty = _stations(request).values.all().df
+    populated = _stations(request, "01048", "04411").values().all().df
+    empty = _stations(request).values().all().df
     expected = wide_schema(["temperature_air_mean_2m"])
     assert populated.schema == expected
     assert empty.schema == expected
@@ -259,8 +259,8 @@ def test_the_wide_columns_follow_the_request_whatever_order_the_source_delivers(
         settings=Settings(cache_disable=True),
         options=Options(shape="wide"),
     )
-    populated = _stations(request, "01048").values.all().df
-    empty = _stations(request).values.all().df
+    populated = _stations(request, "01048").values().all().df
+    empty = _stations(request).values().all().df
     assert populated.schema == empty.schema == wide_schema(["temperature_air_mean_2m", "temperature_air_max_2m"])
     assert pl.concat([populated, empty]).height == 1
 
@@ -269,7 +269,7 @@ def test_the_wide_columns_follow_the_request_whatever_order_the_source_delivers(
 def test_the_series_of_a_query_have_the_schema_the_aggregated_result_has() -> None:
     """Test that the frame of one station, from `query()`, is the one `all()` puts together."""
     request = _request()
-    (first,) = list(_stations(request, "01048").values.query())
+    (first,) = list(_stations(request, "01048").values().query())
     assert first.df.schema == LONG_SCHEMA
 
 
@@ -289,7 +289,7 @@ def test_a_result_built_from_the_schema_has_nothing_to_cast_to_join() -> None:
         schema=LONG_SCHEMA,
     )
     assert_frame_equal(pl.concat([populated, empty]), populated)
-    assert ValuesResult(stations=None, values=None, df=empty).df.schema == LONG_SCHEMA  # ty: ignore[invalid-argument-type]
+    assert ValuesResult(stations=None, df=empty).df.schema == LONG_SCHEMA  # ty: ignore[invalid-argument-type]
 
 
 def test_the_stations_of_a_request_have_the_stations_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -413,7 +413,7 @@ def test_values_and_stations_write_their_timestamps_the_one_way() -> None:
     """Test that every JSON body of values and stations, as dict, JSON and GeoJSON, has one format."""
     request = _request()
     stations = _stations(request, "01048")
-    values = stations.values.all()
+    values = stations.values().all()
     documents = [
         values.to_dict(with_stations=True),
         json.loads(values.to_json(with_stations=True)),

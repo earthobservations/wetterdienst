@@ -208,7 +208,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         midas_dataset = dataset.name_original
         config = _DATASET_CONFIG[midas_dataset]
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         token = self._token(settings)
         version = latest_release_version(settings, token)
         if version is None:

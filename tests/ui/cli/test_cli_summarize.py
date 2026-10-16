@@ -25,8 +25,8 @@ def test_cli_summarize_no_metadata_no_stations() -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -72,13 +72,13 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
             "--timestamp=1986-10-31/1986-11-01",
             "--format=geojson",
             # with_metadata now defaults to false; request it explicitly to test the metadata block
-            "--with_metadata=true",
+            "--with-metadata=true",
         ],
     )
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"metadata", "data"}
+    assert response.keys() == {"metadata", "settings", "data"}
     assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",
@@ -154,9 +154,9 @@ def test_cli_summarize_custom_units() -> None:
             "--station=00071",
             "--timestamp=1986-10-31/1986-11-01",
             "--format=json",
-            '--unit_targets={"temperature": "degree_fahrenheit"}',
-            "--with_metadata=false",
-            "--with_stations=false",
+            '--unit-targets={"temperature": "degree_fahrenheit"}',
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -269,8 +269,8 @@ def test_cli_summarize_start_date_end_date() -> None:
             "--start=1986-10-31",
             "--end=1986-11-01",
             "--format=json",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:
@@ -295,8 +295,8 @@ def test_cli_summarize_end_date_only() -> None:
             "--station=00071",
             "--end=1986-11-01",
             "--format=json",
-            "--with_metadata=false",
-            "--with_stations=false",
+            "--with-metadata=false",
+            "--with-stations=false",
         ],
     )
     if result.exit_code != 0:

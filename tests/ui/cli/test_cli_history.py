@@ -29,11 +29,11 @@ def test_history_dwd_observation() -> None:
             "observation",
             "--parameters",
             "daily/climate_summary",
-            "--station",
+            "--stations",
             "02564",
             # with_metadata/with_stations now default to false; request them explicitly here
-            "--with_metadata=true",
-            "--with_stations=true",
+            "--with-metadata=true",
+            "--with-stations=true",
         ],
     )
     assert result.exit_code == 0
@@ -140,7 +140,7 @@ def test_history_sections(sections: str) -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary",
-            "--station=02564",
+            "--stations=02564",
             f"--sections={sections}",
         ],
     )
@@ -161,7 +161,7 @@ def test_history_sections_unknown() -> None:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary",
-            "--station=02564",
+            "--stations=02564",
             "--sections=geo",
         ],
     )
@@ -170,14 +170,14 @@ def test_history_sections_unknown() -> None:
 
 
 def test_history_no_station_selection() -> None:
-    """Test a history request with neither --all nor --station is a usage error, not a traceback."""
+    """Test a history request with neither --all nor --stations is a usage error, not a traceback."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
         ["history", "--provider=dwd", "--network=observation", "--parameters=daily/climate_summary"],
     )
     assert result.exit_code == 2
-    assert "Error: Missing option: one of '--all' or '--station'." in result.output
+    assert "Error: Missing option: one of '--all' or '--stations'." in result.output
 
 
 def _unwritable_history_target(monkeypatch: pytest.MonkeyPatch, target: Path) -> Result:
@@ -191,7 +191,8 @@ def _unwritable_history_target(monkeypatch: pytest.MonkeyPatch, target: Path) ->
             return []
 
     class _Stations:
-        history = _History()
+        def history(self) -> _History:
+            return _History()
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
     runner = CliRunner()
@@ -202,7 +203,7 @@ def _unwritable_history_target(monkeypatch: pytest.MonkeyPatch, target: Path) ->
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary",
-            "--station=02564",
+            "--stations=02564",
             f"--target={target}",
         ],
     )
@@ -247,7 +248,8 @@ def _history_to_target(monkeypatch: pytest.MonkeyPatch, target: str) -> Result:
             return []
 
     class _Stations:
-        history = _History()
+        def history(self) -> _History:
+            return _History()
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
     return CliRunner().invoke(
@@ -257,7 +259,7 @@ def _history_to_target(monkeypatch: pytest.MonkeyPatch, target: str) -> Result:
             "--provider=dwd",
             "--network=observation",
             "--parameters=daily/climate_summary",
-            "--station=02564",
+            "--stations=02564",
             f"--target={target}",
         ],
     )
@@ -309,7 +311,7 @@ def test_history_unknown_parameter_is_a_usage_error() -> None:
     """Test a parameter the network does not have is a one-line usage error, not a traceback (GH-2426)."""
     result = CliRunner().invoke(
         cli,
-        ["history", "--provider=dwd", "--network=observation", "--parameters=daily/nonexistent", "--station=01048"],
+        ["history", "--provider=dwd", "--network=observation", "--parameters=daily/nonexistent", "--stations=01048"],
     )
 
     assert result.exit_code == 2, result.output
@@ -333,7 +335,7 @@ def test_history_keeps_the_traceback_for_an_upstream_failure(
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
     with caplog.at_level(logging.ERROR):
         result = CliRunner().invoke(
-            cli, ["history", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--station=01048"]
+            cli, ["history", "--provider=dwd", "--network=observation", "--parameters=daily/kl", "--stations=01048"]
         )
 
     assert result.exit_code == 1, result.output
@@ -378,13 +380,13 @@ def test_history_network_without_history_is_a_usage_error(
         # the station lookup succeeds; MOSMIX has no history to collect for it
         request = DwdMosmixRequest(parameters=[("hourly", "large")])
         return StationsResult(
-            stations=request, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.BY_STATION_ID
+            request=request, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.BY_STATION_ID
         )
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)
     with caplog.at_level(logging.ERROR):
         result = CliRunner().invoke(
-            cli, ["history", "--provider=dwd", "--network=mosmix", "--parameters=hourly/large", "--station=01001"]
+            cli, ["history", "--provider=dwd", "--network=mosmix", "--parameters=hourly/large", "--stations=01001"]
         )
 
     assert result.exit_code == 2, result.output

@@ -119,7 +119,7 @@ NwsObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_amount",
+                            "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitationlasthour",
                             "unit": "millimeter",
                         },
@@ -232,7 +232,7 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         station_id: str,
         parameter_or_dataset: DatasetModel,
     ) -> pl.DataFrame:
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         url = self._build_url(station_id)
         log.info(f"acquiring data from {url}")
         file = download_file(

@@ -132,7 +132,7 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
         # its parameters, so a request for one parameter stays a request for one parameter
         parameters = [
             parameter.name_original
-            for parameter in cast("Iterable[ParameterModel]", self.sr.stations.parameters)
+            for parameter in cast("Iterable[ParameterModel]", self.sr.request.parameters)
             if parameter.dataset.resolution.name == dataset.resolution.name and parameter.dataset.name == dataset.name
         ]
         start_date = self.sr.start or self._default_start_dates[resolution]
@@ -169,7 +169,7 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
             start_date=start_date.strftime("%Y-%m-%dT%H:%M"),
             end_date=end_date.strftime("%Y-%m-%dT%H:%M"),
         )
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,

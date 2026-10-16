@@ -182,7 +182,7 @@ def stations_result(request: Any, resolution: str, dataset: str, station_id: str
             "name": pl.String,
         },
     )
-    return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
 def _settings(**kwargs: Any) -> Settings:  # noqa: ANN401
@@ -235,7 +235,7 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return request.filter_by_station_id("1200579").values.all().df
+    return request.filter_by_station_id("1200579").values().all().df
 
 
 def _dwd_observation(
@@ -269,7 +269,7 @@ def _dwd_observation(
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, resolution, dataset, station_id).values.all().df
+    return stations_result(request, resolution, dataset, station_id).values().all().df
 
 
 def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -453,6 +453,19 @@ def _dwd_hourly_weather_phenomena(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
     )
 
 
+def _dwd_hourly_precipitation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # station 01048, stundenwerte_RR_01048_19950901_20251231_hist.zip (read 2026-10-16): the 9 of `WRTR` is DWD's
+    # "Missing value, Type of precipitation unascertainable" (the English sheet), written 2021-07-09 17:00 beside a
+    # height of 0.0 and, in the files read, mostly beside R1 = -999 (261 of 270 rows). A 6 is a liquid precipitation
+    product = (
+        "STATIONS_ID;MESS_DATUM;QN_8;  R1;RS_IND;WRTR;eor\n"
+        "       1048;2021070915;    3;   0.4;   1;   6;eor\n"
+        "       1048;2021070916;    3;   0.0;   0;   0;eor\n"
+        "       1048;2021070917;    3;   0.0;   1;   9;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "precipitation", product, "01048", year=2021, drop_nulls=drop_nulls)
+
+
 def _dwd_hourly_cloudiness(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the -1 where the sky could not be seen, as the hourly cloud_type file of station 00003 writes it (43 times in
     # 2005, read 2026-10-12); the cloudiness file is worded after it
@@ -495,7 +508,7 @@ def _geosphere_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return request.filter_by_station_id("1").values.all().df
+    return request.filter_by_station_id("1").values().all().df
 
 
 def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -519,7 +532,7 @@ def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return request.filter_by_station_id("1").values.all().df
+    return request.filter_by_station_id("1").values().all().df
 
 
 def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -569,7 +582,7 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return request.filter_by_station_id("ACM00078861").values.all().df
+    return request.filter_by_station_id("ACM00078861").values().all().df
 
 
 def _serve_meteofrance(
@@ -615,7 +628,7 @@ def _meteofrance_observation_hourly(
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", dataset, "07005001").values.all().df
+    return stations_result(request, "hourly", dataset, "07005001").values().all().df
 
 
 def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -637,7 +650,7 @@ def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "core", "07005001").values.all().df
+    return stations_result(request, "daily", "core", "07005001").values().all().df
 
 
 def _meteofrance_observation_hourly_core(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -699,7 +712,7 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "subdaily", "data", "07005").values.all().df
+    return stations_result(request, "subdaily", "data", "07005").values().all().df
 
 
 def _dwd_derived_radiation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -732,7 +745,7 @@ def _dwd_derived_radiation(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "radiation_global", "18001").values.all().df
+    return stations_result(request, "hourly", "radiation_global", "18001").values().all().df
 
 
 _KML = "http://www.opengis.net/kml/2.2"
@@ -775,7 +788,7 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "small", "01001").values.all().df
+    return stations_result(request, "hourly", "small", "01001").values().all().df
 
 
 def dwd_dmo_values(
@@ -799,7 +812,7 @@ def dwd_dmo_values(
         settings=_settings(),
         options=options or _options(drop_nulls=True),
     )
-    return stations_result(request, "hourly", "icon", "01001").values.all().df
+    return stations_result(request, "hourly", "icon", "01001").values().all().df
 
 
 def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -830,7 +843,7 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     ).encode("latin-1")
     serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
     request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
-    return stations_result(request, "hourly", "data", "10147").values.all().df
+    return stations_result(request, "hourly", "data", "10147").values().all().df
 
 
 def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -846,7 +859,7 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     run = dwd_swsmos_api._read_run_csv(bz2.compress(raw))  # noqa: SLF001
     monkeypatch.setattr(dwd_swsmos_api.DwdSwsmosValues, "_run_frame", lambda _self, _settings: run)
     request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
-    return stations_result(request, "hourly", "data", "A006").values.all().df
+    return stations_result(request, "hourly", "data", "A006").values().all().df
 
 
 def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -868,7 +881,7 @@ def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "1731").values.all().df
+    return stations_result(request, "daily", "data", "1731").values().all().df
 
 
 def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -888,7 +901,7 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "51459").values.all().df
+    return stations_result(request, "hourly", "data", "51459").values().all().df
 
 
 def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -908,7 +921,7 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         settings=_settings(auth={"aemet": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "3195").values.all().df
+    return stations_result(request, "daily", "data", "3195").values().all().df
 
 
 def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -942,7 +955,7 @@ def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tr
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "rain", "00001").values.all().df
+    return stations_result(request, "daily", "rain", "00001").values().all().df
 
 
 def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -969,7 +982,7 @@ def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True
         settings=_settings(auth={"metno_frost": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "SN18700").values.all().df
+    return stations_result(request, "hourly", "data", "SN18700").values().all().df
 
 
 def _knmi_netcdf(values: dict[str, float]) -> bytes:
@@ -1017,7 +1030,7 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(auth={"knmi": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "06260").values.all().df
+    return stations_result(request, "daily", "data", "06260").values().all().df
 
 
 def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1039,7 +1052,7 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         settings=_settings(auth={"knmi": "stub"}),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "06260").values.all().df
+    return stations_result(request, "hourly", "data", "06260").values().all().df
 
 
 def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1072,7 +1085,7 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "100971").values.all().df
+    return stations_result(request, "hourly", "data", "100971").values().all().df
 
 
 def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1105,7 +1118,7 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "KBOS").values.all().df
+    return stations_result(request, "hourly", "data", "KBOS").values().all().df
 
 
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1125,7 +1138,7 @@ def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "188790").values.all().df
+    return stations_result(request, "hourly", "data", "188790").values().all().df
 
 
 def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1157,14 +1170,14 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "hourly", "data", "06070").values.all().df
+    return stations_result(request, "hourly", "data", "06070").values().all().df
 
 
 def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # stationValue of 04339, `acc_precip` of `timeResolution=year` (read 2026-10-15): 1343.1 mm for 2013 is a reading,
-    # 9574.3 mm for 2014 and 6026.5 mm for 2015 are sums no gauge produced (the other stations' yearly maxima are 818 to
-    # 1150 mm), outside the 6,000 mm bound of a precipitation, far above what any DMI gauge reads (GH-2797). DMI marks
-    # both `validity: false`
+    # 9574.3 mm for 2014 and 6026.5 mm for 2015 are sums no gauge produced (DMI validated 3,291.3 mm at most in a
+    # year of any station), above the 4,000 mm bound of a year's precipitation (GH-2797). DMI marks both
+    # `validity: false`
     rows = [
         ("2013-01-01T06:00:00+00:00", "2014-01-01T06:00:00+00:00", 1343.1, "none"),
         ("2014-01-01T06:00:00+00:00", "2015-01-01T06:00:00+00:00", 9574.3, "manual"),
@@ -1191,7 +1204,7 @@ def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "annual", "data", "04339").values.all().df
+    return stations_result(request, "annual", "data", "04339").values().all().df
 
 
 def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1226,7 +1239,7 @@ def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "6414").values.all().df
+    return stations_result(request, "daily", "data", "6414").values().all().df
 
 
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1263,7 +1276,7 @@ def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) ->
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "hydrology", "149180020").values.all().df
+    return stations_result(request, "daily", "hydrology", "149180020").values().all().df
 
 
 STUBS = [
@@ -1370,6 +1383,13 @@ STUBS = [
         tokens=(("weather", "-1", None),),
     ),
     ValueStub(
+        "dwd/observation hourly/precipitation",
+        _dwd_hourly_precipitation,
+        reading=("precipitation_amount", 0.4),
+        sentinels=(("precipitation_form", 9.0),),
+        tokens=(("precipitation_form", "9", None),),
+    ),
+    ValueStub(
         "dwd/observation hourly/cloudiness",
         _dwd_hourly_cloudiness,
         reading=("cloud_cover_total", 0.5),
@@ -1396,11 +1416,15 @@ STUBS = [
         "noaa/ghcn hourly/data",
         _ghcn_hourly,
         reading=("wind_direction", 90.0),
-        sentinels=(("wind_direction", 999.0), ("wind_direction", 0.0), ("precipitation_amount", -9999.0)),
+        sentinels=(
+            ("wind_direction", 999.0),
+            ("wind_direction", 0.0),
+            ("precipitation_amount_since_last_routine_report", -9999.0),
+        ),
         tokens=(
             ("wind_direction", "999", None),
             ("wind_direction", "0", None),
-            ("precipitation_amount", "-9999", None),
+            ("precipitation_amount_since_last_routine_report", "-9999", None),
             ("temperature_air_2m", "-None", None),
         ),
     ),

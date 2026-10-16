@@ -238,7 +238,7 @@ class DwdPhenologyValues(TimeseriesValues):
         key = (dataset.name, period)
         if key in self._files:
             return self._files[key]
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         url = _file_url(dataset, period, settings)
         df = pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if url:
@@ -274,7 +274,7 @@ class DwdPhenologyValues(TimeseriesValues):
             if isinstance(parameter_or_dataset, DatasetModel)
             else parameter_or_dataset.dataset  # every phenology dataset is grouped
         )
-        stations = cast("DwdPhenologyRequest", self.sr.stations)
+        stations = cast("DwdPhenologyRequest", self.sr.request)
         periods = _periods_for(cast("set[Period] | None", stations.periods), dataset)
         # oldest period first: where the periods overlap -- and recent reaches back into the years
         # the last historical release already covers -- `_process_dataset` keeps the first row for a

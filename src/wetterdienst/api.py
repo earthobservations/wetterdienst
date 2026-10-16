@@ -235,27 +235,20 @@ class Wetterdienst:
         error. A standalone network has no metadata model, so its name, country and url are its request class's
         `listing`, which names the provider's short name and country and the url of its own products.
 
-        A network that cannot be imported (a dependency is missing) has a null `name_short`, `country`, `kind`
-        and `url`, as nothing is known of it, and the reason is logged.
+        A network that cannot be imported (a dependency is missing, or the install is broken) is left out,
+        and so is a provider none of whose networks can: nothing is known of it, and a listing of what
+        it needs credentials for or what it is would be a guess. The reason is logged as a warning. Asking
+        for the network itself still tells why, as `resolve` raises the import error (GH-2801).
         """
-        result = {}
+        result: dict[str, Any] = {}
         for provider, networks in cls.registry.items():
-            result[provider] = {}
+            listed = {}
             for network in networks:
                 try:
                     api = cls(provider, network)
                 except ImportError as e:
-                    # the listing below says nothing of it, so the log does: it was swallowed silently (GH-2801)
-                    log.warning("%s/%s cannot be imported: %s", provider, network, e)
-                    result[provider][network] = {
-                        "name_short": None,
-                        "country": None,
-                        "kind": None,
-                        "url": None,
-                        "auth": False,
-                        "configured": True,
-                        "date_required": False,
-                    }
+                    # left out of the listing, so the log is where it is told (GH-2801)
+                    log.warning("Left %s/%s out of the listing, it cannot be imported: %s", provider, network, e)
                     continue
                 metadata = getattr(api, "metadata", None)
                 if metadata is not None:
@@ -274,7 +267,7 @@ class Wetterdienst:
                     if metadata is not None
                     else False
                 )
-                result[provider][network] = {
+                listed[network] = {
                     **listing,
                     "auth": auth,
                     # not probed whether the credentials are accepted: that is a request to the provider per
@@ -282,6 +275,8 @@ class Wetterdienst:
                     "configured": cls.is_configured(api) if auth else True,
                     "date_required": date_required,
                 }
+            if listed:
+                result[provider] = listed
         return result
 
     @classmethod

@@ -10,15 +10,16 @@ import polars as pl
 import pytest
 
 from tests.provider.physical_ranges import (
-    LONG_PERIOD_RANGES,
     PARAMETER_RANGES,
     PREFIX_RANGES,
+    RESOLUTION_RANGES,
     UNIT_TYPE_RANGES,
     bounds_for,
     out_of_range,
 )
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.parameter_table import PARAMETERS
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.dmi.observation import DmiObservationRequest
@@ -143,7 +144,8 @@ def test_every_special_range_is_used() -> None:
     assert set(PARAMETER_RANGES) <= set(PARAMETERS)
     for prefix, _ in PREFIX_RANGES:
         assert any(name.startswith(prefix) for name in PARAMETERS), prefix
-    assert set(LONG_PERIOD_RANGES) <= set(PARAMETERS)
+    assert {name for ranges in RESOLUTION_RANGES.values() for name in ranges} <= set(PARAMETERS)
+    assert set(RESOLUTION_RANGES) <= {resolution.value for resolution in Resolution}
 
 
 def test_a_prefix_holds_one_unit_type_unless_a_name_is_taken_out() -> None:
@@ -178,6 +180,39 @@ def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> N
     assert not out_of_range(_frame("snow_depth", -999.0), resolution="annual").is_empty()
 
 
+@pytest.mark.parametrize(
+    ("parameter", "resolution", "reading", "no_reading"),
+    [
+        # the most rain in a minute, 15 minutes, an hour and a day on record, and the sentinel of the next span up
+        ("precipitation_amount", "1_minute", 31.2, 99.9),
+        ("precipitation_amount", "10_minutes", 70.0, 999.0),
+        ("precipitation_amount", "hourly", 401.0, 999.0),
+        ("precipitation_amount", "daily", 1825.0, 2500.0),
+        ("precipitation_amount", "monthly", 3000.0, 9999.0),
+        # a span of sunshine in seconds
+        ("sunshine_duration", "10_minutes", 600.0, 3600.0),
+        ("sunshine_duration", "hourly", 3600.0, 86400.0),
+        ("sunshine_duration", "daily", 86400.0, 13_850.0 * 60 + 86400.0),
+    ],
+)
+def test_a_reading_of_one_span_is_no_reading_of_a_shorter_one(
+    parameter: str, resolution: str, reading: float, no_reading: float
+) -> None:
+    """A range depends on the span: 99.9 mm is a sentinel in a minute and a reading in a day (GH-2797)."""
+    assert out_of_range(_frame(parameter, reading), resolution=resolution).is_empty()
+    assert not out_of_range(_frame(parameter, no_reading), resolution=resolution).is_empty()
+
+
+def test_the_rain_and_the_sunshine_of_a_span_grow_with_it() -> None:
+    """The range of a longer span is never narrower than the one of a shorter span."""
+    spans = ["1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly", "daily", "monthly", "annual"]
+    for name in ("precipitation_amount", "sunshine_duration"):
+        bounds = [bounds_for(name, resolution) for resolution in spans]
+        highs = [bound.high for bound in bounds if bound is not None]
+        assert len(highs) == len(spans), name
+        assert highs == sorted(highs), name
+
+
 def _lhmt_values(
     monkeypatch: pytest.MonkeyPatch, temperature: float, options: Options, pressure: float = 1007.4
 ) -> pl.DataFrame:
@@ -204,7 +239,7 @@ def _lhmt_values(
         settings=Settings(cache_disable=True),
         options=options,
     )
-    return request.filter_by_station_id("vilniaus-ams").values.all().df
+    return request.filter_by_station_id("vilniaus-ams").values().all().df
 
 
 def test_the_check_sees_a_frame_a_provider_hands_back(
@@ -258,35 +293,64 @@ def test_a_frame_that_is_not_converted_is_left_alone(
     assert physical_range_findings == []
 
 
+# where a reader holds a parameter to a range narrower than the one of the world, because its source's own validated
+# records stay far below the world's, or its precision needs no slack (the argument is in the comment of the reader's
+# table): the provider, the resolution and the attribute
+_NARROWER = {
+    ("dmi", "daily", "acc_precip"),
+    ("dmi", "monthly", "acc_precip"),
+    ("dmi", "annual", "acc_precip"),
+    ("rmi", "10_minutes", "wind_gusts_speed"),
+    ("rmi", "hourly", "wind_gusts_speed"),
+    ("rmi", "daily", "wind_gusts_speed"),
+    ("dmi", "monthly", "max_precip_24h"),
+    ("dmi", "annual", "max_precip_24h"),
+    ("dmi", "daily", "max_precip_30m"),
+    ("rmi", "10_minutes", "sun_duration"),
+    ("rmi", "hourly", "sun_duration"),
+    ("rmi", "daily", "sun_duration"),
+}
+
+
 @pytest.mark.parametrize(
-    ("request_class", "ranges"),
+    ("provider", "request_class", "ranges"),
     [
-        (RmiObservationRequest, rmi_api._RANGES),  # noqa: SLF001
-        (DmiObservationRequest, dmi_api._RANGES),  # noqa: SLF001
+        ("rmi", RmiObservationRequest, rmi_api._RANGES),  # noqa: SLF001
+        ("dmi", DmiObservationRequest, dmi_api._RANGES),  # noqa: SLF001
     ],
     ids=["rmi/observation", "dmi/observation"],
 )
 def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_parameter(
-    request_class: type, ranges: dict[str, tuple[float, float]]
+    provider: str, request_class: type, ranges: dict[str, dict[str, tuple[float, float]]]
 ) -> None:
     """The bounds of a reader are these ranges in the unit of its source, so the two cannot drift apart (GH-2797).
 
     A reader nulls a value before the unit conversion, so its bounds are in the source's unit, and converted to the
-    returned unit they have to be the range of the parameter. A parameter the range holds to something has its entry,
-    and an entry belongs to a parameter of the provider.
+    returned unit they have to be the range of the parameter at the resolution, or inside it where the reader knows
+    its source better (`_NARROWER`), never outside. A parameter the range holds to something has its entry at each
+    resolution it is published at, and an entry belongs to a parameter of the provider at that resolution.
     """
     converter = UnitConverter()
-    held: dict[str, list] = {}
+    assert set(ranges) == {resolution.name for resolution in request_class.metadata}
     for resolution in request_class.metadata:
+        held: dict[str, tuple] = {}
         for dataset in resolution:
             for parameter in dataset.parameters:
                 bounds = bounds_for(parameter.name, resolution.name)
                 if bounds is not None:
-                    held.setdefault(parameter.name_original, []).append((parameter, bounds))
-    assert set(ranges) == set(held), "a parameter of the provider has no range, or a range no parameter"
-    for name, (low, high) in ranges.items():
-        # one range for every resolution: a resolution with a range of its own needs the reader to know it
-        assert len({tuple(bounds) for _, bounds in held[name]}) == 1, name
-        parameter, bounds = held[name][0]
-        to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
-        assert (to_target(low), to_target(high)) == pytest.approx(tuple(bounds)), name
+                    held[parameter.name_original] = (parameter, bounds)
+        reader = ranges[resolution.name]
+        assert set(reader) == set(held), (
+            f"{resolution.name}: a parameter of the provider has no range, or a range no parameter"
+        )
+        for name, (low, high) in reader.items():
+            parameter, bounds = held[name]
+            to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
+            got = (to_target(low), to_target(high))
+            if (provider, resolution.name, name) in _NARROWER:
+                assert bounds.low <= got[0] < got[1] < bounds.high, f"{resolution.name} {name}: not narrower"
+            else:
+                assert got == pytest.approx(tuple(bounds)), f"{resolution.name} {name}"
+    # a narrower range names a parameter of the provider
+    narrower = {name for who, _, name in _NARROWER if who == provider}
+    assert narrower <= {name for per_resolution in ranges.values() for name in per_resolution}

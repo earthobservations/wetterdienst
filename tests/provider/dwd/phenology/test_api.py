@@ -377,7 +377,7 @@ def test_phenology_values_recent() -> None:
         parameters=[("annual", "annual_common_hazel", "phenology_flowering_beginning")],
         periods="recent",
     )
-    df = next(request.filter_by_station_id("07521").values.query()).df
+    df = next(request.filter_by_station_id("07521").values().query()).df
     assert df["parameter"].unique().to_list() == ["phenology_flowering_beginning"]
     assert df["dataset"].unique().to_list() == ["annual_common_hazel"]
     row = df.filter(pl.col("timestamp") == dt.datetime(2024, 1, 1, tzinfo=UTC)).to_dicts()[0]
@@ -389,7 +389,7 @@ def test_phenology_values_recent() -> None:
 def test_phenology_values_immediate_reporters() -> None:
     """The immediate reporters also carry phase 41, which no phase-definition file lists for hazel."""
     request = DwdPhenologyRequest(parameters=[("annual", "immediate_common_hazel")], periods="recent")
-    df = next(request.filter_by_station_id("07532").values.query()).df
+    df = next(request.filter_by_station_id("07532").values().query()).df
     assert set(df["parameter"]) == {"phenology_flowering_beginning", "phenology_flowering_end_observation_area"}
     row = df.filter(
         (pl.col("timestamp") == dt.datetime(2024, 1, 1, tzinfo=UTC))
@@ -406,7 +406,7 @@ def test_phenology_values_historical_reaches_back() -> None:
         start="1960-01-01",
         end="2000-12-31",
     )
-    df = next(request.filter_by_station_id("07521").values.query()).df
+    df = next(request.filter_by_station_id("07521").values().query()).df
     assert df.height > 10
     assert df["timestamp"].min() < dt.datetime(1995, 1, 1, tzinfo=UTC)
     # beech leaf unfolding is an April/May event, so somewhere around day 90-150

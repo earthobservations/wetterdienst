@@ -82,7 +82,7 @@ def test_wsv_wave_height_comes_back_in_centimetres() -> None:
     moves a median across either.
     """
     request = WsvPegelRequest(parameters=[("1_minute", "data", "wave_height_significant")])
-    df = request.all().values.all().df.drop_nulls("value")
+    df = request.all().values().all().df.drop_nulls("value")
     assert not df.is_empty(), "no wave height data at any station"
     # every station offering the parameter, so a station added or dropped upstream is covered
     # without naming ids here; one that stops publishing drops out rather than failing this
@@ -100,7 +100,7 @@ def test_wsv_wave_period_is_seconds() -> None:
     It was declared with a `wave_period` unit whose symbol was `1/s`, a frequency, and the source
     publishes seconds at one station and hundredths of a second at another.
     """
-    df = WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")]).all().values.all().df.drop_nulls("value")
+    df = WsvPegelRequest(parameters=[("1_minute", "data", "wave_period")]).all().values().all().df.drop_nulls("value")
     assert not df.is_empty(), "no wave period data at any station"
     # asked of every station offering the parameter rather than of two named ones, so that a station
     # upstream stops publishing -- MELLUMPLATE's wave height has been stale for days -- without
@@ -119,7 +119,7 @@ def test_wsv_flow_direction_is_a_bearing() -> None:
     Pegelonline gives `R` the unit `MGN`, degrees relative to magnetic north, which had been read
     as a magnetic quantity and declared as magnetic field strength in A/m.
     """
-    df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")]).all().values.all().df
+    df = WsvPegelRequest(parameters=[("5_minutes", "data", "flow_direction")]).all().values().all().df
     series = df.get_column("value").drop_nulls()
     assert not series.is_empty()
     assert series.min() >= 0
@@ -135,7 +135,7 @@ def test_wsv_stage_is_scaled_for_metre_gauges() -> None:
     The datum still differs between the two groups; `gauge_zero` in the station metadata says which.
     """
     stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")]).filter_by_station_id("27800090")
-    series = stations.values.all().df.get_column("value").drop_nulls()
+    series = stations.values().all().df.get_column("value").drop_nulls()
     assert not series.is_empty()
     # metres above sea level for this canal gauge, so thousands of centimetres rather than tens
     assert series.mean() > 1000
@@ -152,7 +152,7 @@ def test_wsv_multiple_parameters_with_missing_data() -> None:
     request = WsvPegelRequest(
         parameters=[("1_minute", "data", p) for p in ("wave_period", "flow_direction", "wave_height_significant")],
     )
-    df = request.filter_by_station_id("9460041").values.all().df
+    df = request.filter_by_station_id("9460041").values().all().df
     # flow_direction has no data at this station while the other two do, which is the whole point:
     # the empty one must not take the populated ones down with it
     assert not df.is_empty()
@@ -179,7 +179,7 @@ def test_wsv_timeseries_meta_is_not_cached_when_the_listing_is_unreachable(monke
     request = WsvPegelRequest(parameters=[("1_minute", "data", "stage")])
     values = WsvPegelValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -263,7 +263,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
     ]
     request = WsvPegelRequest(parameters=parameters).filter_by_station_id("10091008")
     assert set(request.df.get_column("resolution")) == {"15_minutes", "hourly"}
-    df = request.values.all().df
+    df = request.values().all().df
     served = {
         (row["resolution"], row["parameter"]) for row in df.select("resolution", "parameter").unique().rows(named=True)
     }
@@ -328,7 +328,7 @@ def test_wsv_unmapped_equidistance_is_not_served_under_a_neighbouring_resolution
     request = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")])
     values = WsvPegelValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -445,7 +445,7 @@ def test_wsv_a_timeseries_between_measurements_returns_no_data(monkeypatch: pyte
 
     monkeypatch.setattr(api, "download_file", _download)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
     assert values.df.is_empty()
 
 
@@ -558,7 +558,7 @@ def test_wsv_a_failed_values_download_names_the_file(monkeypatch: pytest.MonkeyP
     _stub_values_download(monkeypatch, FSTimeoutError(), 408)
 
     with pytest.raises(DownloadError, match=r"Failed to download .*measurements\.json: FSTimeoutError") as caught:
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
     assert isinstance(caught.value.__cause__, FSTimeoutError)
 
 
@@ -566,7 +566,7 @@ def test_wsv_a_values_download_that_is_missing_returns_no_data(monkeypatch: pyte
     """Test that a 404 still gives an empty frame rather than an error."""
     _stub_values_download(monkeypatch, FileNotFoundError("gone"), 404)
 
-    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
     assert values.df.is_empty()
 
 
@@ -575,7 +575,7 @@ def test_wsv_a_values_download_that_is_offline_raises(monkeypatch: pytest.Monkey
     _stub_values_download(monkeypatch, NoInternetError("offline"), 503)
 
     with pytest.raises(NoInternetError):
-        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values.all()
+        WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
 
 
 def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:

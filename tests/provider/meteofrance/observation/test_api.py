@@ -83,7 +83,7 @@ def test_meteofrance_observation_api_daily(dataset: str, parameter: str) -> None
         start=datetime(2023, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2023, 1, 31, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert df.get_column("value").is_not_null().sum() > 0
 
 
@@ -104,7 +104,7 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
         start=datetime(2023, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2023, 6, 1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert df.get_column("value").is_not_null().sum() > 0
 
 
@@ -114,7 +114,7 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
     [
         ("core", "temperature_air_2m"),
         ("core", "precipitation_amount"),
-        ("core", "wind_direction_gust_max"),
+        ("core", "wind_direction_last_10min"),
         ("others", "cloud_cover_total"),
         ("others", "visibility"),
     ],
@@ -130,7 +130,7 @@ def test_meteofrance_observation_api_hourly(dataset: str, parameter: str) -> Non
         start=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2025, 6, 7, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert df.get_column("value").is_not_null().sum() > 0
 
 
@@ -145,7 +145,7 @@ def test_meteofrance_observation_api_6_minutes() -> None:
         start=datetime(2025, 6, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2025, 6, 2, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("31069001")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert not df.is_empty()
     # 6-minute intervals within a day: exercise that the date column parses to real, distinct
     # timestamps rather than e.g. all collapsing to midnight
@@ -203,7 +203,7 @@ def _values(
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
-    return stations_result(request, resolution, dataset, station_id).values.all().df.sort("timestamp")
+    return stations_result(request, resolution, dataset, station_id).values().all().df.sort("timestamp")
 
 
 def _utc(*args: int) -> datetime:
@@ -635,7 +635,7 @@ def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_v
         end=_utc(2025, 1, 3),
         settings=Settings(cache_disable=True),
     )
-    df = stations_result(request, "daily", "core", "75114001").values.all().df
+    df = stations_result(request, "daily", "core", "75114001").values().all().df
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("precipitation_amount", 0.2, "1"),
         ("precipitation_amount", 0.0, None),

@@ -59,7 +59,7 @@ wetterdienst stripes values --kind temperature --station 1048 --target dresden.p
 
 # Precipitation stripes selected by name, restricted to a year range, as SVG to stdout.
 wetterdienst stripes values --kind precipitation --name Hohenpeissenberg \
-  --start_year 1900 --end_year 2020 --format svg
+  --start-year 1900 --end-year 2020 --format svg
 ```
 
 Options:
@@ -69,12 +69,12 @@ Options:
 | `--kind`                   | `temperature` or `precipitation` (required)                    | —       |
 | `--station`                | station id to plot                                             | —       |
 | `--name`                   | station name to plot (fuzzy match)                             | —       |
-| `--start_year`             | first year to include                                         | —       |
-| `--end_year`               | last year to include                                          | —       |
-| `--name_threshold`         | similarity threshold (0–1) for `--name` matching             | `0.80`  |
-| `--show_title`             | draw the station name as a title                             | `true`  |
-| `--show_years`             | draw the first and last year as axis labels                  | `true`  |
-| `--show_data_availability` | draw a marker for the data availability                      | `true`  |
+| `--start-year`             | first year to include                                         | —       |
+| `--end-year`               | last year to include                                          | —       |
+| `--name-threshold`         | similarity threshold (0–1) for `--name` matching             | `0.80`  |
+| `--show-title`             | draw the station name as a title                             | `true`  |
+| `--show-years`             | draw the first and last year as axis labels                  | `true`  |
+| `--show-data-availability` | draw a marker for the data availability                      | `true`  |
 | `--format`                 | image format, one of `png`, `jpg`, `svg`, `pdf`              | `png`   |
 | `--dpi`                    | image resolution in dots per inch                            | `300`   |
 | `--target`                 | write the image to this file instead of stdout               | —       |
@@ -96,4 +96,5 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 ```
 
 The `image` endpoint accepts the same rendering options as the CLI (`start_year`,
-`end_year`, `show_title`, `show_years`, `show_data_availability`, `format`, `dpi`).
+`end_year`, `show_title`, `show_years`, `show_data_availability`, `format`, `dpi`): the command line
+spells a name with hyphens (`--start-year`), REST and MCP with underscores (`start_year`).

@@ -61,7 +61,7 @@ def _values_of(request: DwdDerivedRequest, station_id: str = "00044") -> DwdDeri
         orient="row",
     )
     sr = StationsResult(
-        stations=request,
+        request=request,
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -102,7 +102,7 @@ def test_dwd_derived_data_empty_out_of_range_dates(
         end=end_date,
     ).filter_by_station_id(station_id="00044")
 
-    fetched_df = request.values.all().df
+    fetched_df = request.values().all().df
     assert fetched_df.is_empty()
 
 
@@ -118,7 +118,7 @@ def test_dwd_derived_data_empty_nonexisting_station(
         settings=default_settings,
     ).filter_by_station_id(station_id="-1")
 
-    fetched_df = request.values.all().df
+    fetched_df = request.values().all().df
     assert fetched_df.is_empty()
 
 
@@ -184,7 +184,7 @@ def test_dwd_recent_data_result_long_single_parameter(
             "historical",
         ],
     ).filter_by_station_id(station_id="00044")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -249,7 +249,7 @@ def test_dwd_recent_data_result_wide_single_parameter(
             "historical",
         ],
     ).filter_by_station_id(station_id="00044")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -308,7 +308,7 @@ def test_dwd_recent_data_result_long_single_parameter_missing_month_heating_degr
         start=datetime.datetime(year=2023, month=3, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2023, month=5, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -367,7 +367,7 @@ def test_dwd_historical_data_result_long_single_parameter_missing_month_cooling_
         start=datetime.datetime(year=2014, month=6, day=1, tzinfo=ZoneInfo("UTC")),
         end=datetime.datetime(year=2014, month=8, day=1, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id="00044")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -431,7 +431,7 @@ def test_dwd_historical_data_result_long_multiple_reference_temperatures(
             "historical",
         ],
     ).filter_by_station_id(station_id="00071")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -501,7 +501,7 @@ def test_dwd_recent_data_result_long_single_dataset(
             "historical",
         ],
     ).filter_by_station_id(station_id="00044")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -599,7 +599,7 @@ def test_dwd_recent_data_result_long_climate_correction_factor(
         ],
     ).filter_by_station_id(station_id="01067")
 
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -691,7 +691,7 @@ def test_dwd_monthly_soil_ztumi_long(default_settings: Settings) -> None:
         },
     ]
 
-    assert request.values.all().df.to_dicts() == expected_dict
+    assert request.values().all().df.to_dicts() == expected_dict
 
 
 @pytest.mark.remote
@@ -763,7 +763,7 @@ def test_dwd_hourly_radiation_radiation_global_long(default_settings: Settings) 
         },
     ]
 
-    assert request.values.all().df.to_dicts() == expected_dict
+    assert request.values().all().df.to_dicts() == expected_dict
 
 
 @pytest.mark.parametrize(
@@ -1200,7 +1200,7 @@ def test_dwd_derived_hourly_sunshine_duration_uncertainty_is_returned(default_se
         periods="recent",
         settings=default_settings,
     ).filter_by_station_id("18000")
-    df = request.values.all().df
+    df = request.values().all().df
     assert set(df.get_column("parameter").unique().to_list()) == {
         "sunshine_duration",
         "sunshine_duration_uncertainty",

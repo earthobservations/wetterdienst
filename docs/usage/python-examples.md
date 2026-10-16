@@ -59,7 +59,7 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-first_values = next(request.all().values.query())
+first_values = next(request.all().values().query())
 df = first_values.df
 df
 ```
@@ -78,7 +78,7 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-first_values = next(request.all().values.query())
+first_values = next(request.all().values().query())
 df = first_values.df
 df
 ```
@@ -97,7 +97,7 @@ request = DwdObservationRequest(
     periods="historical",
 )
 
-first_values = next(request.all().values.query())
+first_values = next(request.all().values().query())
 df = first_values.df
 df
 ```

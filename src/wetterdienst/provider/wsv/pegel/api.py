@@ -340,7 +340,7 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
         """
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         name_original = parameter_or_dataset.name_original
         meta = self._timeseries_meta(settings).get((station_id, name_original))
         requested_resolution = parameter_or_dataset.dataset.resolution.name

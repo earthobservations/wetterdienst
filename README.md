@@ -132,7 +132,7 @@ stations.head()
 # │ daily      ┆ climate_summary ┆ 05779      ┆ 1971-01-01 00:00:00 UTC ┆ … ┆ 13.7516   ┆ 877.0     ┆ Zinnwald-Georgenfeld ┆ Sachsen │
 # └────────────┴─────────────────┴────────────┴─────────────────────────┴───┴───────────┴───────────┴──────────────────────┴─────────┘
 
-values = request.values.all().df
+values = request.values().all().df
 values.head()
 # ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬───────────────┐
 # │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ timestamp               ┆ value ┆ quality_flags │
@@ -149,7 +149,7 @@ The same thing from the command line:
 
 ```bash
 wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all
-wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --station=1048,4411
+wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
 ```
 
 More in [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and in the

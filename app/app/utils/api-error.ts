@@ -1,7 +1,7 @@
 /**
  * One entry of a validation error (422): where the problem is, and what it is.
  * The backend's rules over several parameters report the same way, located at each
- * parameter involved, e.g. `{ loc: ['query', 'station'], msg: 'Cannot be combined with name' }`.
+ * parameter involved, e.g. `{ loc: ['query', 'stations'], msg: 'Cannot be combined with name' }`.
  */
 interface ValidationErrorEntry {
   loc?: (string | number)[]
@@ -30,8 +30,8 @@ function describeValidationErrors(entries: ValidationErrorEntry[]): string | nul
  * @param body - Parsed error response body, or anything else
  * @returns The description, or null when the body carries no `detail`
  * @example
- * describeApiError({ detail: 'station: Cannot be combined with name', errors: [{ loc: ['query', 'station'], msg: 'Cannot be combined with name' }] })
- * // 'station: Cannot be combined with name'
+ * describeApiError({ detail: 'stations: Cannot be combined with name', errors: [{ loc: ['query', 'stations'], msg: 'Cannot be combined with name' }] })
+ * // 'stations: Cannot be combined with name'
  */
 export function describeApiError(body: unknown): string | null {
   const problem = body as { detail?: unknown, errors?: unknown } | null | undefined

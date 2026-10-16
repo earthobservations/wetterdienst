@@ -880,7 +880,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
     ) -> pl.DataFrame:
         dataset = cast("DatasetModel", parameter_or_dataset)
         resolution_name = dataset.resolution.name
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         department = _department_from_station_id(station_id)
         resources = _get_climate_resources(resolution_name, settings)
         prefix = _CLIMATE_RESOURCE_PREFIXES[resolution_name].format(department=department)

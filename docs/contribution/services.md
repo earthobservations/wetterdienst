@@ -99,7 +99,11 @@ moment against the mean over the interval: a temperature the service calls an in
 value takes the spot name (`temperature_air_2m`, `temperature_dew_point_2m`,
 `temperature_soil_0_05m`), and one it calls a mean or an average takes the `_mean_` name. Where the
 service says neither, a temperature below daily resolution takes the spot name and one at daily or
-coarser resolution keeps the `_mean_` name (GH-2651, GH-2657).
+coarser resolution keeps the `_mean_` name (GH-2651, GH-2657). A mean the service computes from
+the day's two extremes, `(max + min) / 2`, as ECCC and Geosphere's daily mean do, is neither: it
+takes `temperature_air_mean_minmax_2m` and not `temperature_air_mean_2m`, which is a mean of
+readings through the day and can differ from the midrange of the extremes by a degree or more
+(GH-2839).
 
 `unit` stays mandatory even where a service already publishes canonical units, since silently
 defaulting it is how values end up wrong by a factor of ten with nothing to catch it. Note that it is
@@ -200,7 +204,9 @@ pass the text as the last kind of the flags, `join_quality_flags(plain_flag, raw
 parameter, `to=0.0` makes it a value the source documents (no precipitation), and `non_numeric=True` takes
 every text that is no number for one. A value no sensor can have produced (4021 degrees) has no
 sentinel to name: `OutOfRange(low, high)` takes it the same way, with bounds in the unit of the source
-taken from `tests/provider/physical_ranges.py` (generous, so that a real reading of the provider is never
-outside), and the `raw` text is the number as it is written. A wide frame keeps the text beside each
+taken from `tests/provider/physical_ranges.py` and kept per resolution (the rain and the sunshine of a day
+are not those of a minute; generous, so that a real reading of the provider is never outside). A reader may
+be narrower than that range where its source's own records or precision allow it, never wider; the
+narrower entries are named in `test_physical_ranges.py`, and the `raw` text is the number as it is written. A wide frame keeps the text beside each
 column with `clear_sentinels` and `unpivot_with_raw`. Add a stub of the source with the sentinel written as the source writes it to
 `tests/provider/value_stubs.py` and name each `raw:` token it must carry in `tokens`.

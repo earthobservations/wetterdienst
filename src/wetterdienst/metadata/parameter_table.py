@@ -365,9 +365,10 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Number of days in the period carrying a valid maximum air temperature observation.",
     ),
     CanonicalParameter(
-        "count_days_valid_temperature_air_mean_2m",
+        "count_days_valid_temperature_air_mean_minmax_2m",
         "dimensionless",
-        "Number of days in the period carrying a valid mean air temperature observation.",
+        "Number of days in the period carrying a valid `temperature_air_mean_minmax_2m`, the mean of the day's "
+        "maximum and minimum air temperature.",
     ),
     CanonicalParameter(
         "count_days_valid_temperature_air_min_2m",
@@ -885,6 +886,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "precipitation_amount_rocker",
         "precipitation",
         "Depth of precipitation measured by the tipping-bucket sensor of the gauge.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+    ),
+    CanonicalParameter(
+        "precipitation_amount_since_last_routine_report",
+        "precipitation",
+        "Depth of precipitation since the last routine METAR, as the precipitation group of the report kept for "
+        "the hour gives it: a running total, which a routine report holds for the whole hour and a special report "
+        "(SPECI) for the part that had fallen when it was filed, not the amount of a fixed clock hour.",
         interpolation="heterogeneous",
         zero_inflated=True,
     ),
@@ -1757,16 +1767,26 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
-        "temperature_air_mean_2m_normal",
+        "temperature_air_mean_2m_yesterday",
         "temperature",
-        "Climatological normal of the mean air temperature at 2 m above ground.",
+        "Mean air temperature at 2 m above ground on the previous day.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
     CanonicalParameter(
-        "temperature_air_mean_2m_yesterday",
+        "temperature_air_mean_minmax_2m",
         "temperature",
-        "Mean air temperature at 2 m above ground on the previous day.",
+        "Mean air temperature at 2 m above ground computed as the average of the maximum and the minimum of the "
+        "day, (max + min) / 2, not a mean of readings through the day like `temperature_air_mean_2m`; of a "
+        "month, the mean of those daily values.",
+        interpolation="homogeneous",
+        lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
+    ),
+    CanonicalParameter(
+        "temperature_air_mean_minmax_2m_normal",
+        "temperature",
+        "Climatological normal of the mean air temperature at 2 m above ground, built from the mean of the daily "
+        "values of `temperature_air_mean_minmax_2m`, (max + min) / 2.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),

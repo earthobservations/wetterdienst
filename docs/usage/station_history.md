@@ -26,7 +26,7 @@ request = DwdObservationRequest(
     parameters=[("daily", "kl")],
     settings=settings
 ).filter_by_station_id(1048)
-history = next(request.history.query())
+history = next(request.history().query())
 # the same as JSON, as `/api/history` and `wetterdienst history` return it
 print(history.to_json(sections={"name"}))
 # access history for climate summary daily station 1048 (Dresden Klotzsche)
@@ -53,16 +53,16 @@ print(history.history.missing_data)
 ## Command line
 
 The same history is available through the `history` command. Select stations the same way
-as for `stations`/`values` (via `--station` or `--all`) and optionally narrow the result to
+as for `stations`/`values` (via `--stations` or `--all`) and optionally narrow the result to
 specific `--sections`:
 
 ```bash
 # Full history for station 1048 (Dresden-Klotzsche).
-wetterdienst history --provider dwd --network observation --parameters daily/kl --station 1048
+wetterdienst history --provider dwd --network observation --parameters daily/kl --stations 1048
 
 # Only the naming and geography sections.
 wetterdienst history --provider dwd --network observation --parameters daily/kl \
-  --station 1048 --sections name,geography
+  --stations 1048 --sections name,geography
 ```
 
 Available `--sections` are `name`, `parameter`, `device`, `geography` and `missing_data`.
@@ -80,7 +80,7 @@ The result is returned as JSON; use `--target file://history.json` to write it t
 
 When the REST API is enabled, station history can be queried via:
 
-GET /api/history?provider={provider}&network={network}&station={station_id}&parameters={parameters}&sections={sections}
+GET /api/history?provider={provider}&network={network}&stations={station_ids}&parameters={parameters}&sections={sections}
 
 where sections can be a set of "name", "device", "geography", "parameter", "missing_data".
 As on the command line, each history gives its station's `station_id` and the `resolution` and

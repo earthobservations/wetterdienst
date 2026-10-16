@@ -39,7 +39,7 @@ def test_api_skip_empty_stations(
         end="2021-12-31",
         options=options,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=2)
-    values = request.values.all()
+    values = request.values().all()
     assert (
         values.df.get_column("station_id").gather(0).to_list()
         != request.df.get_column("station_id").gather(0).to_list()
@@ -63,7 +63,8 @@ def test_api_skip_empty_stations_equal_on_any_skip_criteria_with_one_parameter(
                 options=options,
             )
             .filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=1)
-            .values.all()
+            .values()
+            .all()
         )
 
     expected_station = ["05426"]
@@ -93,7 +94,7 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
         end="2021-12-31",
         settings=default_settings,
     ).filter_by_rank(latlon=(49.19780976647141, 8.135207205143768), rank=20)
-    values = next(request.values.query())
+    values = next(request.values().query())
     assert values.df.shape[0] == IsApprox(52193, delta=5000)
 
 

@@ -208,7 +208,7 @@ class ChmiObservationValues(TimeseriesValues):
         else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         config = _RESOLUTION_CONFIG[dataset.resolution.value]
         # the sub-daily files are partitioned by month, so a date range is required to address them
         if config["layout"] == "subdaily" and (not self.sr.start or not self.sr.end):

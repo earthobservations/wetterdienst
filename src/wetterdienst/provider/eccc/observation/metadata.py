@@ -145,7 +145,7 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_mean_minmax_2m",
                             "name_original": "mean_temperature",
                             "unit": "degree_celsius",
                         },
@@ -207,7 +207,7 @@ EcccObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_mean_2m",
+                            "name": "temperature_air_mean_minmax_2m",
                             "name_original": "mean_temperature",
                             "unit": "degree_celsius",
                         },
@@ -242,7 +242,7 @@ EcccObservationMetadata = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "count_days_valid_temperature_air_mean_2m",
+                            "name": "count_days_valid_temperature_air_mean_minmax_2m",
                             "name_original": "days_with_valid_mean_temp",
                             "unit": "dimensionless",
                         },
@@ -268,7 +268,7 @@ EcccObservationMetadata = {
                         },
                         # climatological normals, in the same units as the quantities above
                         {
-                            "name": "temperature_air_mean_2m_normal",
+                            "name": "temperature_air_mean_minmax_2m_normal",
                             "name_original": "normal_mean_temperature",
                             "unit": "degree_celsius",
                         },

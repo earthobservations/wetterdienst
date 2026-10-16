@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import CredentialMissingError, NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -35,7 +35,7 @@ from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetad
 from wetterdienst.provider.knmi.observation.parser import decode_str, parse_knmi_netcdf, public_station_id
 from wetterdienst.settings import reveal
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import as_outage, download_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -180,6 +180,11 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     The resolve step needs the API key (in the Authorization header); the resulting
     temporary S3 URL is pre-signed and needs no auth of its own.
 
+    A failure is returned, not raised. One that is no answer -- a timeout, a dropped connection, a
+    body cut short, a 5xx -- is returned as the `DownloadError` naming the file (`as_outage`, GH-2965),
+    a failed connection as the `NoInternetError`; the caller raises those. A 404 (a timestamp that is
+    not published) and any other 4xx, a 429 among them, are returned as they came.
+
     Each KNMI file covers the whole network for one timestamp, but the framework collects
     values per station, so the same file would otherwise be downloaded once per station.
     Both the resolve response and the (potentially large) file bytes are cached for the same
@@ -195,7 +200,7 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     }
     resolve_file = _download_with_retry(resolve_url, settings, CacheExpiry.FIVE_MINUTES, client_kwargs=client_kwargs)
     if isinstance(resolve_file.content, Exception):
-        return resolve_file.content
+        return as_outage(resolve_file.content, resolve_file.url)
     # a 200 with an unexpected body (throttling notice, API change) must not KeyError out of
     # the per-moment loop and abort the whole query -- surface it as a skippable failure.
     download_url = json.load(resolve_file.content).get("temporaryDownloadUrl")
@@ -203,7 +208,7 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
         return Exception(f"KNMI resolve response for {filename} did not contain a temporaryDownloadUrl")
     content_file = _download_with_retry(download_url, settings, CacheExpiry.FIVE_MINUTES)
     if isinstance(content_file.content, Exception):
-        return content_file.content
+        return as_outage(content_file.content, content_file.url)
     return content_file.content.read()
 
 
@@ -224,7 +229,7 @@ class KnmiObservationValues(TimeseriesValues):
         else:
             return self._empty_df()
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date or not settings.auth.knmi:
@@ -237,14 +242,17 @@ class KnmiObservationValues(TimeseriesValues):
         for moment in _moments(start_date, end_date, resolution):
             filename = _filename_for(resolution, moment)
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
-            if isinstance(payload, NoInternetError):
+            if isinstance(payload, (NoInternetError, DownloadError)):
                 # offline, every remaining moment would fail the same way (and an hourly month
                 # is 720 of them), nor would the next station's: the request ends here, with the
-                # error, rather than with the moments read (GH-2620, GH-2640)
+                # error, rather than with the moments read (GH-2620, GH-2640). The same for a
+                # KNMI that does not answer -- a timeout, a dropped connection, a body cut short
+                # or a 5xx that the retries above did not clear: a range read in part is not an
+                # answer, and an empty one would read as a station without data (GH-2965)
                 raise payload
             if isinstance(payload, Exception):
-                # a single missing/failed timestamp shouldn't sink the whole range --
-                # rate-limit/transient retries (if applicable) are already exhausted here.
+                # a single missing timestamp (a 404) or one that KNMI refused (a 429, an answer)
+                # shouldn't sink the whole range
                 log.warning(f"Failed to acquire KNMI data for station {station_id}, file {filename}: {payload}")
                 continue
             df = parse_knmi_netcdf(payload, station_id, parameter_names, moment)

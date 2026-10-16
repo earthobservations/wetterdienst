@@ -21,7 +21,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
 from wetterdienst.provider.smhi.observation.parser import parse_smhi_csv
-from wetterdienst.util.network import download_file, download_files
+from wetterdienst.util.network import as_outage, download_file, download_files
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -100,7 +100,7 @@ class SmhiObservationValues(TimeseriesValues):
         else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         data = []
         for parameter in parameters:
             df = self._collect_parameter(station_id, parameter, settings)
@@ -120,10 +120,13 @@ class SmhiObservationValues(TimeseriesValues):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
                 # parameter -- routine, since not every SMHI station measures everything. A failed
                 # connection is raised (GH-2640): every later request would fail the same way, and
-                # an outage must not read as a station without data. Anything else is an
-                # unexpected failure worth surfacing rather than silently dropping the data.
-                if isinstance(payload, NoInternetError):
-                    raise payload
+                # an outage must not read as a station without data. Nor must a timeout, a dropped
+                # connection, a body cut short or a 5xx, which are raised as the `DownloadError`
+                # they are (GH-2965). Any other failure is an unexpected answer worth surfacing
+                # rather than silently dropping the data.
+                failure = as_outage(payload, url)
+                if isinstance(failure, (NoInternetError, DownloadError)):
+                    raise failure
                 if not isinstance(payload, FileNotFoundError):
                     log.warning(
                         f"Failed to fetch SMHI parameter {parameter.name_original} for station {station_id}: {payload}",

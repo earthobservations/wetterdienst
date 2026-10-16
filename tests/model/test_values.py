@@ -22,7 +22,7 @@ def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
     request = WsvPegelRequest(parameters=parameters)
     return WsvPegelValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -138,7 +138,7 @@ def _dwd_values(parameters: list[tuple[str, str]]) -> TimeseriesValues:
     request = DwdObservationRequest(parameters=parameters)
     return DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -204,7 +204,7 @@ def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> Timeseries
     )
     return DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -234,7 +234,7 @@ def _hourly_long(dates: list[dt.datetime]) -> pl.DataFrame:
 
 def _percentage(values: TimeseriesValues, df: pl.DataFrame, criteria: str = "min") -> float:
     """Read the coverage of a frame the way `query` does, under the given skip criteria."""
-    values.sr.stations.options = values.sr.stations.options.replace(skip_criteria=criteria)
+    values.sr.request.options = values.sr.request.options.replace(skip_criteria=criteria)
     return values._get_actual_percentage(df=df)  # noqa: SLF001
 
 
@@ -328,7 +328,7 @@ def test_actual_percentage_is_zero_for_a_parameter_that_came_back_with_nothing()
     )
     values = DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -358,7 +358,7 @@ def test_actual_percentage_falls_back_to_the_span_of_the_series() -> None:
     request = DwdObservationRequest(parameters=[("hourly", "temperature_air", "temperature_air_2m")])
     values = DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -401,7 +401,7 @@ def test_actual_percentage_reads_the_fallback_window_off_the_dataset_it_measures
     )
     values = DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -452,7 +452,7 @@ def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing()
     )
     values = WsvPegelValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -549,7 +549,7 @@ def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch
         end="1930-12-31",
     )
 
-    values = request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values
+    values = request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values()
     df = values.all().df
 
     assert values.stations_collected == ["00003"]
@@ -570,7 +570,7 @@ def test_a_request_that_collects_nothing_keeps_its_schema(monkeypatch: pytest.Mo
         end="1930-12-31",
     )
 
-    df = request.filter_by_station_id("00001").values.all().df
+    df = request.filter_by_station_id("00001").values().all().df
 
     assert df.is_empty()
     assert df.columns == [
@@ -606,13 +606,15 @@ def test_wide_empty_result_matches_the_shape_of_a_populated_one(monkeypatch: pyt
     empty = (
         DwdObservationRequest(parameters=parameters, start="1930-01-01", end="1930-12-31", options=options)
         .filter_by_station_id("00001")
-        .values.all()
+        .values()
+        .all()
         .df
     )
     populated = (
         DwdObservationRequest(parameters=parameters, start="1990-01-01", end="1990-12-31", options=options)
         .filter_by_station_id("00001")
-        .values.all()
+        .values()
+        .all()
         .df
     )
 
@@ -648,7 +650,7 @@ def test_a_station_that_started_after_the_window_is_not_downloaded(monkeypatch: 
         end="1930-12-31",
     )
 
-    request.filter_by_rank(latlon=(50.0, 8.0), rank=5).values.all()
+    request.filter_by_rank(latlon=(50.0, 8.0), rank=5).values().all()
 
     # the stub's stations all start in 1990, so the index alone rules the 1930 window out
     assert collected == []
@@ -673,7 +675,7 @@ def test_a_station_still_reporting_is_not_ruled_out_by_a_lagging_end_timestamp(m
         end="2020-12-31",
     )
 
-    df = request.filter_by_station_id("00001").values.all().df
+    df = request.filter_by_station_id("00001").values().all().df
 
     assert df.height == 3
 
@@ -691,7 +693,7 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
     )
     values = DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -715,7 +717,7 @@ def test_convert_units_keeps_the_value_column_whatever_the_conversion_starts_wit
     request = DwdObservationRequest(parameters=[("daily", "climate_summary", "snow_depth")])
     values = DwdObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -760,7 +762,7 @@ def test_a_station_is_kept_when_one_dataset_leaves_its_start_timestamp_out(monke
         end="1930-12-31",
     )
 
-    df = request.filter_by_station_id("00001").values.all().df
+    df = request.filter_by_station_id("00001").values().all().df
 
     # the stub hands out 1930 readings for either dataset; the one asked about is the dataset whose
     # start is unknown, which was dropped with the station
@@ -789,7 +791,7 @@ def test_a_station_whose_datasets_all_start_after_the_window_is_not_downloaded(
         end="1930-12-31",
     )
 
-    request.filter_by_station_id("00001").values.all()
+    request.filter_by_station_id("00001").values().all()
 
     assert collected == []
 
@@ -823,7 +825,7 @@ def _values_with_a_null(
         settings=settings or Settings(),
         options=options,
     )
-    return request.filter_by_station_id("00001").values.all().df
+    return request.filter_by_station_id("00001").values().all().df
 
 
 def test_values_drop_nulls_again_for_options_once_wide_and_now_long(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -857,7 +859,7 @@ def test_a_window_in_a_named_zone_cuts_the_utc_values_at_its_instants(monkeypatc
         end=dt.datetime(1990, 1, 3, 2, tzinfo=vilnius),
     )
 
-    df = request.filter_by_station_id("00001").values.all().df
+    df = request.filter_by_station_id("00001").values().all().df
 
     assert df.get_column("timestamp").unique().sort().to_list() == [
         dt.datetime(1990, 1, 2, tzinfo=ZoneInfo("UTC")),
@@ -882,7 +884,7 @@ def test_filter_by_window_keeps_both_ends_of_a_window_across_a_clock_change(monk
             end=dt.datetime(2025, 3, 30, 23, tzinfo=vilnius),
         )
         .filter_by_station_id("00001")
-        .values
+        .values()
     )
     hours = pl.datetime_range(
         dt.datetime(2025, 3, 29, tzinfo=utc),

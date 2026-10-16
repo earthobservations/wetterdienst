@@ -18,6 +18,25 @@ Types of changes:
 
 ### Changed
 
+- `[Languages]` Hamburgisch (`de-hh`) is Low German (Plattdüütsch) throughout, where its menus and
+  texts were German and only the glossary was Low German; the glossary's quality flags say
+  `Göödkennen`, as its `quality` says `Gööd`, where they said `Gütenkennen` (GH-2969)
+- `[Languages]` Luxembourgish shows the explorer mode descriptions, the SQL panel and "Methode" in
+  Luxembourgish, where they were English, and says `Datesaz` where it said "Dataset" (GH-2970).
+  The Polish, Czech, Luxembourgish and Low German text is not natively reviewed; a native
+  speaker's review is welcome (`app/i18n/TERMS.md`)
+
+### Fixed
+
+- `[DataViewer/Glossary]` Counts take their plural form: "1 value", "1 row copied to clipboard" and
+  "1 of 1 parameter", where they read "1 values" and the like, in all 11 languages. Polish and Czech
+  write three forms ("1 wartość", "2 wartości", "5 wartości") and French counts 0 as singular
+  (GH-2968)
+
+## [0.21.0] - 2026-10-16
+
+### Changed
+
 - `[API errors]` The app reads the backend's errors as RFC 9457 problems: a refused request shows
   `errors`, one line for each invalid parameter, and else `detail`, which is text. The proxy answers
   a backend it cannot reach as a problem too (`type`, `title`, `status`, `detail`). It still reads
@@ -34,20 +53,29 @@ Types of changes:
   labels of `probability_radiation_global_last_1h`, `weather_last_3h` and
   `weather_secondary_last_3h` are gone with those names: against an older backend the prettified id
   shows (GH-2836, GH-2837, GH-2840, GH-2843, GH-2844, GH-2845)
-- `[Languages]` Hamburgisch (`de-hh`) is Low German (Plattdüütsch) throughout, where its menus and
-  texts were German and only the glossary was Low German; the glossary's quality flags say
-  `Göödkennen`, as its `quality` says `Gööd`, where they said `Gütenkennen` (GH-2969)
-- `[Languages]` Luxembourgish shows the explorer mode descriptions, the SQL panel and "Methode" in
-  Luxembourgish, where they were English, and says `Datesaz` where it said "Dataset" (GH-2970).
-  The Polish, Czech, Luxembourgish and Low German text is not natively reviewed; a native
-  speaker's review is welcome (`app/i18n/TERMS.md`)
+- `[Glossary]` The new parameter `temperature_air_mean_minmax_2m`, the mean computed from the
+  day's maximum and minimum (ECCC, Geosphere daily), has a label in all 11 languages (GH-2839)
+- **Breaking** `[API requests]` The app asks `stations`, `values` and `history` for `stations`, the
+  plural the backend takes a list by, where it sent `station`, and the API page lists it so. A
+  backend from before the change refuses the plural as an input it does not know: use an app and a
+  backend from the same release. The pages' own links, `/meteogram?station=` and
+  `/widget?station=`, are unchanged (GH-2561)
+- `[Glossary]` The new parameter `precipitation_amount_since_last_routine_report`, the METAR
+  precipitation of `noaa/ghcn` hourly and `nws/observation`, has a label in all 11 languages;
+  against an older backend those two datasets still show `precipitation_amount` (GH-2841)
+- **Breaking** `[Glossary]` The labels of `count_days_valid_temperature_air_mean_2m` and
+  `temperature_air_mean_2m_normal` are now keyed by `count_days_valid_temperature_air_mean_minmax_2m`
+  and `temperature_air_mean_minmax_2m_normal`, the names the backend gives ECCC's monthly counts and
+  normals of the mean of the daily maximum and minimum: against an older backend the prettified id
+  shows (GH-3017)
 
 ### Fixed
 
 - `[Explorer]` The descriptions of the three modes and "How it works" are in Czech, Danish,
-  Spanish, French, Italian, Dutch and Polish, where they were the English text (GH-2610)
+  Spanish, French, Italian, Dutch and Polish, where they were the English text. Luxembourgish
+  still shows English there until a native speaker writes it (GH-2610)
 - `[QueryPanel]` The SQL panel's buttons, hint, example queries and failure messages follow the
-  language, where they were English in all of them (GH-2610)
+  language, where they were English in all of them. Luxembourgish still shows English (GH-2610)
 - `[Stripes]` The chart's hover text says "Value" and "Trend" in the active language (GH-2610)
 - `[DataViewer/Meteogram]` The statistics table and the Meteogram's gust, precipitation and day
   totals write their numbers as the language does: "2,50" and "1.234,50", no longer "2.50" and
@@ -75,10 +103,6 @@ Types of changes:
   page, the Meteogram's Compact) is dark (`#0f172b`) in light mode too, 8.0:1 on the brand green
   where white was 2.2:1; dark mode had it already and the green itself is unchanged. Outline, soft
   and ghost buttons keep their colours (GH-2974)
-- `[DataViewer/Glossary]` Counts take their plural form: "1 value", "1 row copied to clipboard" and
-  "1 of 1 parameter", where they read "1 values" and the like, in all 11 languages. Polish and Czech
-  write three forms ("1 wartość", "2 wartości", "5 wartości") and French counts 0 as singular
-  (GH-2968)
 
 ## [0.20.0] - 2026-10-15
 
@@ -1188,7 +1212,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...HEAD
+[0.21.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...app-v0.21.0
 [0.20.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...app-v0.20.0
 [0.19.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...app-v0.19.0
 [0.18.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...app-v0.18.1

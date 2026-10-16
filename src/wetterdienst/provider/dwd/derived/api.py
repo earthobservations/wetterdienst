@@ -508,7 +508,7 @@ class DwdDerivedValues(TimeseriesValues):
             parameter,
         )
 
-        station_periods = cast("set[Period]", cast("DwdDerivedRequest", self.sr.stations).periods) or set()
+        station_periods = cast("set[Period]", cast("DwdDerivedRequest", self.sr.request).periods) or set()
         for period in station_periods:
             if period not in parameter.dataset.periods:
                 log.info(f"Skipping period {period} for {parameter.name}.")
@@ -526,7 +526,7 @@ class DwdDerivedValues(TimeseriesValues):
                 )
                 downloaded_file = download_file(
                     url=url,
-                    cache_dir=cast("Settings", self.sr.stations.settings).cache_dir,
+                    cache_dir=cast("Settings", self.sr.request.settings).cache_dir,
                     ttl=CacheExpiry.FIVE_MINUTES,
                     client_kwargs=self.sr.settings.fsspec_client_kwargs,
                     cache_disable=self.sr.settings.cache_disable,
@@ -589,7 +589,7 @@ class DwdDerivedValues(TimeseriesValues):
             return self._collect_station_param_technical_dataset(station_id, parameter_or_dataset)
 
         dataset = cast("DatasetModel", parameter_or_dataset)
-        stations = cast("DwdDerivedRequest", self.sr.stations)
+        stations = cast("DwdDerivedRequest", self.sr.request)
         parameter_data = []
         station_periods = cast("set[Period]", stations.periods) or set()
         # oldest period first, so that the rank taken from this order below is the precedence the overlaps are

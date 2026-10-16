@@ -275,7 +275,7 @@
       "provider": "Dostawca danych (np. dwd, noaa)",
       "network": "Sieć danych (np. observation, forecast)",
       "parameters": "Ścieżka parametru (np. daily/kl/temperature_air_mean_2m)",
-      "station": "Identyfikator(y) stacji, oddzielone przecinkami",
+      "stations": "Identyfikator(y) stacji, oddzielone przecinkami",
       "timestamp": "Data lub zakres dat (np. 2020-01-01/2020-12-31)",
       "format": "Format wyjściowy (json, csv, geojson, html)"
     }

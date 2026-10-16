@@ -53,7 +53,7 @@ associated values result:
 mystnb:
   number_source_lines: true
 ---
-values = stations.values.all()
+values = stations.values().all()
 values.df
 ```
 
@@ -67,11 +67,11 @@ Everything the Python API can do is also available via the CLI:
 ```bash
 # List the station's metadata.
 wetterdienst stations --provider dwd --network observation \
-  --parameters daily/climate_summary --periods recent --station 1048
+  --parameters daily/climate_summary --periods recent --stations 1048
 
 # Fetch the values.
 wetterdienst values --provider dwd --network observation \
-  --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --station 1048
+  --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 1048
 ```
 
 ## Where to go next

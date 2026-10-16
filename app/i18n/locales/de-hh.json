@@ -275,7 +275,7 @@
       "provider": "Datenanbeder (t. B. dwd, noaa)",
       "network": "Datennettwark (t. B. observation, forecast)",
       "parameters": "Parameterpadd (t. B. daily/kl/temperature_air_mean_2m)",
-      "station": "Stations-ID(s), mit Komma trennt",
+      "stations": "Stations-ID(s), mit Komma trennt",
       "timestamp": "Datum oder Tietruum (t. B. 2020-01-01/2020-12-31)",
       "format": "Utgaavformat (json, csv, geojson, html)"
     }

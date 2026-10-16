@@ -95,7 +95,7 @@ def test_smhi_daily_values_are_stamped_at_00_utc_of_their_day_snow_depth_too(
     request = SmhiObservationRequest(
         parameters=[("daily", "data")], start=day, end=day, settings=Settings(cache_disable=True)
     ).filter_by_station_id("98230")
-    df = request.values.all().df
+    df = request.values().all().df
     midnight = dt.datetime.fromisoformat(day).replace(tzinfo=UTC)
     assert df.get_column("timestamp").unique().to_list() == [midnight]
     assert sorted(df.get_column("parameter").cast(str).to_list()) == [

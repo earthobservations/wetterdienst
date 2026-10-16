@@ -89,7 +89,7 @@ def _examples(text: str) -> Iterator[str]:
 def test_cli_help_names_only_declared_options() -> None:
     """Test every option a command's help names is one that command declares.
 
-    The top-level help named `--si_units` and `--tidy` long after both were gone (GH-2021); it is
+    The top-level help named `--si-units` and `--tidy` long after both were gone (GH-2021); it is
     checked against every command, since it speaks of all of them.
     """
     everything = set().union(*(_declared(command) for _, command in _commands(cli))) | {"--version"}
@@ -314,7 +314,7 @@ def test_cli_radar_stations_opera() -> None:
 def test_cli_radar_stations_opera_wmo_code() -> None:
     """Test cli radar stations looked up by WMO code, which the sites hold as an integer."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["radar", "--wmo_code=11038"])
+    result = runner.invoke(cli, ["radar", "--wmo-code=11038"])
     assert result.exit_code == 0
     response = json.loads(result.output)
     assert response["odimcode"] == "atrau"
@@ -324,7 +324,7 @@ def test_cli_radar_stations_opera_wmo_code() -> None:
 def test_cli_radar_stations_opera_not_found() -> None:
     """Test cli radar stations reports a code no site carries as an error, not a traceback."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["radar", "--wmo_code=99999"])
+    result = runner.invoke(cli, ["radar", "--wmo-code=99999"])
     assert result.exit_code == 1
     assert "Error: Radar site not found" in result.output
     assert not isinstance(result.exception, KeyError)
@@ -412,15 +412,18 @@ def test_cli_glossary_unit_type() -> None:
     assert [entry["name"] for entry in entries] == ["turbidity"]
 
 
-def test_cli_glossary_no_match() -> None:
-    """Test that a filter matching nothing exits non-zero, as grep does.
+def test_cli_glossary_no_match(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that a filter matching nothing is an empty list and exit 0, as the REST endpoint's 200 is (GH-2635).
 
-    The REST endpoint answers the same query with 200 and an empty list, because an empty result is
-    not an HTTP error. The exit code is what makes the difference visible to a shell script.
+    An empty result is an answer, not a failure: the sentence goes to stderr and stdout holds what
+    `/api/glossary` sends, so a script reads one thing from either.
     """
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
-    assert result.exit_code == 1
+    with caplog.at_level(logging.WARNING):
+        result = runner.invoke(cli, ["about", "glossary", "--parameter=not_a_parameter"])
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert "No canonical parameter matches the given filters." in caplog.text
 
 
 def test_cli_glossary_unknown_unit_type() -> None:
@@ -463,7 +466,7 @@ def test_issues_dmo_passes_the_product_and_lead_time_through(monkeypatch: pytest
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["issues", "--provider=dwd", "--network=dmo", "--station=01001", "--dataset=icon_eu", "--lead_time=long"],
+        ["issues", "--provider=dwd", "--network=dmo", "--station=01001", "--dataset=icon_eu", "--lead-time=long"],
     )
 
     assert result.exit_code == 0
@@ -475,7 +478,7 @@ def test_issues_mosmix_says_the_dmo_options_do_not_apply() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["issues", "--provider=dwd", "--network=mosmix", "--station=10147", "--lead_time=long"],
+        ["issues", "--provider=dwd", "--network=mosmix", "--station=10147", "--lead-time=long"],
     )
 
     assert result.exit_code == 2
@@ -483,7 +486,7 @@ def test_issues_mosmix_says_the_dmo_options_do_not_apply() -> None:
 
 
 def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> None:
-    """A command that writes to a target offers `--if_exists`, or its schedule can only replace.
+    """A command that writes to a target offers `--if-exists`, or its schedule can only replace.
 
     `to_target` has taken `if_exists` since it was written and the export docs advertise it, but no
     command passed it, so every CLI export replaced -- a nightly timer pointed at a database held
@@ -510,7 +513,7 @@ def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> No
         if "target" in options and name not in writes_directly and "if_exists" not in options:
             missing.append(name)
 
-    assert not missing, f"commands exporting through to_target without --if_exists: {missing}"
+    assert not missing, f"commands exporting through to_target without --if-exists: {missing}"
 
 
 @pytest.mark.parametrize("command", ["stations", "values", "interpolate", "summarize"])
@@ -528,7 +531,7 @@ def test_if_exists_defaults_to_replace(command: str) -> None:
 _DWD_KL = ["--provider=dwd", "--network=observation", "--parameters=daily/kl"]
 
 
-_RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_code' or '--country_name'."
+_RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-code' or '--country-name'."
 
 
 @pytest.mark.parametrize(
@@ -537,13 +540,17 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_
         (
             ["stations", *_DWD_KL],
             (
-                "Error: Missing option: one of '--all', '--station', '--name', ('--latitude' and '--longitude'), "
+                "Error: Missing option: one of '--all', '--stations', '--name', ('--latitude' and '--longitude'), "
                 "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
             ),
         ),
         (
-            ["stations", *_DWD_KL, "--station=01048", "--name=Hamburg"],
-            "Error: Options '--station' and '--name' cannot be used together.\n",
+            ["stations", *_DWD_KL, "--stations=01048", "--name=Hamburg"],
+            (
+                "Error: Options '--stations' and '--name' cannot be used together, give exactly one of '--all', "
+                "'--stations', '--name', ('--latitude' and '--longitude'), "
+                "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
+            ),
         ),
         (
             ["values", *_DWD_KL, "--latitude=51.0", "--rank=5"],
@@ -555,7 +562,10 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_
         ),
         (
             ["values", *_DWD_KL, "--latitude=51.0", "--longitude=13.7", "--rank=5", "--distance=25"],
-            "Error: Options '--rank' and '--distance' cannot be used together.\n",
+            (
+                "Error: Options '--rank' and '--distance' cannot be used together, "
+                "give exactly one of '--rank' or '--distance'.\n"
+            ),
         ),
         (
             ["stations", *_DWD_KL, "--left=13", "--top=52"],
@@ -565,54 +575,66 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo_
             ),
         ),
         (
-            ["stations", *_DWD_KL, "--station=01048", "--rank=5"],
+            ["stations", *_DWD_KL, "--stations=01048", "--rank=5"],
             "Error: Option '--rank' requires ('--latitude' and '--longitude') or '--name'.\n",
         ),
         (
             ["stations", *_DWD_KL, "--name=Dresden", "--distance=25"],
             "Error: Option '--distance' requires '--latitude' and '--longitude'.\n",
         ),
-        (["history", *_DWD_KL], "Error: Missing option: one of '--all' or '--station'.\n"),
+        (["history", *_DWD_KL], "Error: Missing option: one of '--all' or '--stations'.\n"),
         (
             ["interpolate", *_DWD_KL, "--timestamp=2020-06-30", "--station=01048", "--latitude=51", "--longitude=13.7"],
-            "Error: Options '--station' and '--latitude' cannot be used together.\n",
+            (
+                "Error: Options '--station' and '--latitude' cannot be used together, "
+                "give exactly one of '--station' or ('--latitude' and '--longitude').\n"
+            ),
         ),
         (
             ["summarize", *_DWD_KL, "--timestamp=2020-06-30"],
             "Error: Missing option: one of '--station' or ('--latitude' and '--longitude').\n",
         ),
         (["radar"], f"Error: {_RADAR_ONE_OF}\n"),
-        (["radar", "--dwd", "--all"], "Error: Options '--dwd' and '--all' cannot be used together.\n"),
+        (
+            ["radar", "--dwd", "--all"],
+            (
+                "Error: Options '--dwd' and '--all' cannot be used together, give exactly one of '--dwd', '--all', "
+                "'--odim-code', '--wmo-code' or '--country-name'.\n"
+            ),
+        ),
         # an empty value, e.g. from an unset shell variable, selects nothing
         (["radar", "--odim-code="], f"Error: {_RADAR_ONE_OF}\n"),
-        (["radar", "--country_name="], f"Error: {_RADAR_ONE_OF}\n"),
+        (["radar", "--country-name="], f"Error: {_RADAR_ONE_OF}\n"),
         (["stripes", "values", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
         (
             ["stripes", "values", "--kind=temperature", "--station=1048", "--name=Dresden"],
-            "Error: Options '--station' and '--name' cannot be used together.\n",
+            (
+                "Error: Options '--station' and '--name' cannot be used together, "
+                "give exactly one of '--station' or '--name'.\n"
+            ),
         ),
         # a single value's error is told as click tells an invalid value, with the value refused;
         # --sections is a set, so the position pydantic gives within it points nowhere and is left out
         (
-            ["values", *_DWD_KL, "--station=01048", "--distance=-1"],
+            ["values", *_DWD_KL, "--stations=01048", "--distance=-1"],
             "Error: Invalid value for '--distance': Input should be greater than or equal to 0 (got -1.0).\n",
         ),
         (
-            ["history", *_DWD_KL, "--station=01048", "--sections=name,foo"],
+            ["history", *_DWD_KL, "--stations=01048", "--sections=name,foo"],
             (
                 "Error: Invalid value for '--sections': Input should be 'name', 'parameter', 'device', 'geography' "
                 "or 'missing_data' (got 'foo').\n"
             ),
         ),
         (
-            ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": 5}'],
-            "Error: Invalid value for '--unit_targets': temperature: Input should be a valid string (got 5).\n",
+            ["values", *_DWD_KL, "--stations=01048", '--unit-targets={"temperature": 5}'],
+            "Error: Invalid value for '--unit-targets': temperature: Input should be a valid string (got 5).\n",
         ),
         # a field validator's ValueError, told without pydantic's "Value error, " in front of it
         (
-            ["values", *_DWD_KL, "--station=01048", "--unit_targets={bad"],
+            ["values", *_DWD_KL, "--stations=01048", "--unit-targets={bad"],
             (
-                "Error: Invalid value for '--unit_targets': Expecting property name enclosed in double quotes: "
+                "Error: Invalid value for '--unit-targets': Expecting property name enclosed in double quotes: "
                 "line 1 column 2 (char 1) (got '{bad').\n"
             ),
         ),
@@ -635,10 +657,10 @@ def test_cli_refuses_selection(args: list[str], message: str) -> None:
 def test_cli_values_refuses_unknown_unit_targets_quantity() -> None:
     """Test a unit target for a quantity the converter does not know is a usage error, not a traceback."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"foo": "bar"}'])
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--stations=01048", '--unit-targets={"foo": "bar"}'])
     assert result.exit_code == 2, result.output
     assert (
-        "Error: Invalid value for '--unit_targets': Invalid unit targets: quantities not supported: foo."
+        "Error: Invalid value for '--unit-targets': Invalid unit targets: quantities not supported: foo."
         in result.output
     )
     # one line, without pydantic's echo of the input
@@ -646,25 +668,25 @@ def test_cli_values_refuses_unknown_unit_targets_quantity() -> None:
 
 
 def test_cli_values_does_not_blame_the_command_line_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a WD_* environment variable Settings refuses is not told as a bad --unit_targets."""
+    """Test a WD_* environment variable Settings refuses is not told as a bad --unit-targets."""
     monkeypatch.setenv("WD_CACHE_DISABLE", "notabool")
     runner = CliRunner()
     result = runner.invoke(
-        cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
+        cli, ["values", *_DWD_KL, "--stations=01048", '--unit-targets={"temperature": "degree_fahrenheit"}']
     )
     assert result.exit_code == 1, result.output
     assert "Error: WD_CACHE_DISABLE is invalid: " in result.output
-    assert "--unit_targets" not in result.output
+    assert "--unit-targets" not in result.output
 
 
 def test_cli_values_does_not_blame_an_absent_unit_targets_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit_targets nobody gave."""
+    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit-targets nobody gave."""
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
     runner = CliRunner()
-    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048"])
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--stations=01048"])
     assert result.exit_code == 1, result.output
     assert "Error: WD_TS_UNIT_TARGETS is invalid: " in result.output
-    assert "--unit_targets" not in result.output
+    assert "--unit-targets" not in result.output
 
 
 _POINT_ARGS = [
@@ -719,7 +741,7 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
         "WD_TS_SKIP_THRESHOLD": "0.5",
         "WD_TS_DROP_NULLS": "false",
     }
-    options = _settings_of(monkeypatch, ["values", *_DWD_KL, "--station=01048"], env)
+    options = _settings_of(monkeypatch, ["values", *_DWD_KL, "--stations=01048"], env)
     assert options.shape == "wide"
     assert options.humanize is False
     assert options.convert_units is False
@@ -734,14 +756,14 @@ def test_cli_values_leaves_a_setting_no_option_was_given_for_to_the_environment(
         [
             "values",
             *_DWD_KL,
-            "--station=01048",
+            "--stations=01048",
             "--shape=long",
             "--humanize=true",
-            "--convert_units=true",
-            "--skip_empty=false",
-            "--skip_criteria=min",
-            "--skip_threshold=0.95",
-            "--drop_nulls=true",
+            "--convert-units=true",
+            "--skip-empty=false",
+            "--skip-criteria=min",
+            "--skip-threshold=0.95",
+            "--drop-nulls=true",
         ],
         env,
     )
@@ -785,10 +807,10 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
             command,
             *_POINT_ARGS,
             "--humanize=true",
-            "--convert_units=true",
-            f"--{kind}_station_distance_homogeneous=40",
-            f"--{kind}_station_distance_heterogeneous=20",
-            "--use_nearby_station_distance=0.5",
+            "--convert-units=true",
+            f"--{kind}-station-distance-homogeneous=40",
+            f"--{kind}-station-distance-heterogeneous=20",
+            "--use-nearby-station-distance=0.5",
         ],
         env,
     )
@@ -805,23 +827,23 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
     ("args", "message"),
     [
         (
-            ["interpolate", *_POINT_ARGS, '--interpolation_station_distance={"temperature_air_mean": 10}'],
+            ["interpolate", *_POINT_ARGS, '--interpolation-station-distance={"temperature_air_mean": 10}'],
             (
-                "Error: Invalid value for '--interpolation_station_distance': Invalid parameters in "
+                "Error: Invalid value for '--interpolation-station-distance': Invalid parameters in "
                 "geo_station_distance: ['temperature_air_mean'] not in the canonical parameters "
                 "(got {'temperature_air_mean': 10.0}).\n"
             ),
         ),
         (
-            ["summarize", *_POINT_ARGS, '--summary_station_distance={"temperature_air_mean_2m": -1}'],
+            ["summarize", *_POINT_ARGS, '--summary-station-distance={"temperature_air_mean_2m": -1}'],
             (
-                "Error: Invalid value for '--summary_station_distance': temperature_air_mean_2m: "
+                "Error: Invalid value for '--summary-station-distance': temperature_air_mean_2m: "
                 "Input should be greater than or equal to 0 (got -1).\n"
             ),
         ),
         (
-            ["summarize", *_POINT_ARGS, '--unit_targets={"foo": "bar"}'],
-            "Error: Invalid value for '--unit_targets': Invalid unit targets: ",
+            ["summarize", *_POINT_ARGS, '--unit-targets={"foo": "bar"}'],
+            "Error: Invalid value for '--unit-targets': Invalid unit targets: ",
         ),
     ],
 )
@@ -838,10 +860,10 @@ def test_cli_estimate_refuses_a_setting_by_its_option(args: list[str], message: 
 @pytest.mark.parametrize(
     ("env", "option"),
     [
-        ({"WD_CACHE_DISABLE": "notabool"}, '--unit_targets={"temperature": "degree_fahrenheit"}'),
+        ({"WD_CACHE_DISABLE": "notabool"}, '--unit-targets={"temperature": "degree_fahrenheit"}'),
         # merged into the dict the option gives, so where pydantic locates the error does not tell
-        ({"WD_TS_GEO_STATION_DISTANCE": '{"foo": 5}'}, '--KIND_station_distance={"precipitation_amount": 5}'),
-        ({"WD_TS_UNIT_TARGETS": '{"foo": "bar"}'}, '--unit_targets={"temperature": "degree_fahrenheit"}'),
+        ({"WD_TS_GEO_STATION_DISTANCE": '{"foo": 5}'}, '--KIND-station-distance={"precipitation_amount": 5}'),
+        ({"WD_TS_UNIT_TARGETS": '{"foo": "bar"}'}, '--unit-targets={"temperature": "degree_fahrenheit"}'),
     ],
 )
 @pytest.mark.parametrize(("command", "kind"), [("interpolate", "interpolation"), ("summarize", "summary")])
@@ -861,20 +883,20 @@ def test_cli_estimate_does_not_blame_the_command_line_for_the_environment(
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_values_does_not_blame_a_given_unit_targets_for_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit_targets given beside it."""
+    """Test a WD_TS_UNIT_TARGETS that Settings refuses is not told as a bad --unit-targets given beside it."""
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"foo": "bar"}')
     result = CliRunner().invoke(
-        cli, ["values", *_DWD_KL, "--station=01048", '--unit_targets={"temperature": "degree_fahrenheit"}']
+        cli, ["values", *_DWD_KL, "--stations=01048", '--unit-targets={"temperature": "degree_fahrenheit"}']
     )
     assert result.exit_code == 1, result.output
     assert "Error: WD_TS_UNIT_TARGETS is invalid: " in result.output
-    assert "--unit_targets" not in result.output
+    assert "--unit-targets" not in result.output
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 @pytest.mark.parametrize(
     "args",
-    [["values", *_DWD_KL, "--station=01048"], ["interpolate", *_POINT_ARGS], ["summarize", *_POINT_ARGS]],
+    [["values", *_DWD_KL, "--stations=01048"], ["interpolate", *_POINT_ARGS], ["summarize", *_POINT_ARGS]],
 )
 def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
     """Test a command left its options out passes Settings nothing, which the environment then sets.
@@ -897,7 +919,7 @@ def test_cli_passes_settings_no_option_was_given_for(monkeypatch: pytest.MonkeyP
 def test_cli_values_option_outranks_a_malformed_variable_for_its_option(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an option given on the command line replaces a WD_TS_* variable Options would refuse."""
     options = _settings_of(
-        monkeypatch, ["values", *_DWD_KL, "--station=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
+        monkeypatch, ["values", *_DWD_KL, "--stations=01048", "--shape=long"], {"WD_TS_SHAPE": "bogus"}
     )
     assert options.shape == "long"
 
@@ -906,10 +928,10 @@ def test_cli_values_option_outranks_a_malformed_variable_for_its_option(monkeypa
 def test_cli_estimate_refuses_an_option_with_the_value_it_gave(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test a refused dict is shown as the option gave it, not merged with the environment's."""
     monkeypatch.setenv("WD_TS_GEO_STATION_DISTANCE", '{"precipitation_amount": 5}')
-    result = CliRunner().invoke(cli, ["summarize", *_POINT_ARGS, '--summary_station_distance={"foo": 1}'])
+    result = CliRunner().invoke(cli, ["summarize", *_POINT_ARGS, '--summary-station-distance={"foo": 1}'])
     assert result.exit_code == 2, result.output
     assert (
-        "Error: Invalid value for '--summary_station_distance': Invalid parameters in geo_station_distance: "
+        "Error: Invalid value for '--summary-station-distance': Invalid parameters in geo_station_distance: "
         "['foo'] not in the canonical parameters (got {'foo': 1.0}).\n"
     ) in result.output
 
@@ -919,17 +941,17 @@ def test_cli_values_refuses_an_option_beside_a_malformed_variable_another_option
     """Test a malformed WD_TS_* variable an option replaces does not stand in for another option's error."""
     result = CliRunner().invoke(
         cli,
-        ["values", *_DWD_KL, "--station=01048", "--shape=long", '--unit_targets={"foo": "bar"}'],
+        ["values", *_DWD_KL, "--stations=01048", "--shape=long", '--unit-targets={"foo": "bar"}'],
         env={"WD_TS_SHAPE": "bogus"},
     )
     assert result.exit_code == 2, result.output
-    assert "Error: Invalid value for '--unit_targets': Invalid unit targets: " in result.output
+    assert "Error: Invalid value for '--unit-targets': Invalid unit targets: " in result.output
 
 
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["values", *_DWD_KL, "--stations=01048"], id="values"),
         pytest.param(["interpolate", *_DWD_KL, "--station=01048", "--timestamp=2020-06-30"], id="interpolate"),
         pytest.param(["summarize", *_DWD_KL, "--station=01048", "--timestamp=2020-06-30"], id="summarize"),
     ],
@@ -941,14 +963,14 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
     """
     monkeypatch.delenv("WD_TS_UNIT_TARGETS", raising=False)
     runner = CliRunner()
-    result = runner.invoke(cli, [*args, '--unit_targets={"temperature": "furlong"}'])
+    result = runner.invoke(cli, [*args, '--unit-targets={"temperature": "furlong"}'])
     assert result.exit_code == 2, result.output
     assert "Invalid unit targets: Unit furlong not supported for type temperature." in result.output
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`summarize --use_nearby_station_distance` is accepted, said to have no effect, and has none.
+    """`summarize --use-nearby-station-distance` is accepted, said to have no effect, and has none.
 
     It used to set a setting no summary reads, so any value left the summary as it was (GH-2333).
     Left out, the command says nothing about it, and `interpolate`, which does read it, neither.
@@ -965,9 +987,9 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
         assert result.exception.args[0].geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
         return result.stderr
 
-    assert warning in run(["summarize", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])
+    assert warning in run(["summarize", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
     assert "use_nearby_station_distance" not in run(["summarize", *_POINT_ARGS])
-    assert "use_nearby_station_distance" not in run(["interpolate", *_POINT_ARGS, "--use_nearby_station_distance=0.5"])
+    assert "use_nearby_station_distance" not in run(["interpolate", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -981,8 +1003,8 @@ def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monk
         pytest.param(["radar", "--dwd"], id="radar"),
         pytest.param(["about", "auth", "--provider=aemet", "--network=observation"], id="about-auth"),
         pytest.param(["stations", *_DWD_KL, "--all"], id="stations"),
-        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
-        pytest.param(["history", *_DWD_KL, "--station=01048"], id="history"),
+        pytest.param(["values", *_DWD_KL, "--stations=01048"], id="values"),
+        pytest.param(["history", *_DWD_KL, "--stations=01048"], id="history"),
         pytest.param(["issues", "--provider=dwd", "--network=mosmix", "--station=10147"], id="issues"),
         pytest.param(["interpolate", *_POINT_ARGS], id="interpolate"),
         pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
@@ -1059,7 +1081,7 @@ def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_t
 ) -> None:
     """Test a WD_TS_SKIP_THRESHOLD above 1 is refused by its setting, not run into "No data" (GH-2334).
 
-    `values` reads it when --skip_threshold is not given; one above 1 used to skip every station.
+    `values` reads it when --skip-threshold is not given; one above 1 used to skip every station.
     It is told by its variable with status 1 (GH-2335): a usage error blaming the option nobody gave
     would be status 2 instead.
     """
@@ -1071,7 +1093,7 @@ def test_cli_values_refuses_a_skip_threshold_from_the_environment_outside_zero_t
     monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
     monkeypatch.setenv("WD_TS_SKIP_THRESHOLD", "5")
     runner = CliRunner()
-    result = runner.invoke(cli, ["values", *_DWD_KL, "--station=01048", "--skip_empty=true"])
+    result = runner.invoke(cli, ["values", *_DWD_KL, "--stations=01048", "--skip-empty=true"])
     assert result.exit_code == 1, result.output
     assert "Error: WD_TS_SKIP_THRESHOLD is invalid: Input should be less than or equal to 1" in result.output
 
@@ -1093,9 +1115,9 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.parametrize("option", ["dataset", "lead_time"])
 def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
-    """Test `issues` describes --dataset and --lead_time as refused for MOSMIX and SWSMOS (GH-2347).
+    """Test `issues` describes --dataset and --lead-time as refused for MOSMIX and SWSMOS (GH-2347).
 
-    The help said "ignored by other networks", which `values` says of its own --lead_time and is true
+    The help said "ignored by other networks", which `values` says of its own --lead-time and is true
     there, but `issues` refuses either option for MOSMIX and SWSMOS. The default it names is the one
     `available_issues` lists when the option is left out.
     """
@@ -1115,9 +1137,16 @@ def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
 def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
     option: str, value: str, network: str, station: str
 ) -> None:
-    """Test `issues` refuses --dataset and --lead_time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
+    """Test `issues` refuses --dataset and --lead-time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
     result = CliRunner().invoke(
-        cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--{option}={value}"]
+        cli,
+        [
+            "issues",
+            "--provider=dwd",
+            f"--network={network}",
+            f"--station={station}",
+            f"--{option.replace('_', '-')}={value}",
+        ],
     )
     assert result.exit_code == 2, result.output
     assert f"{option} applies to DWD DMO only" in result.stderr
@@ -1187,7 +1216,8 @@ def test_cli_tells_a_numeric_auth_setting_by_its_variable(monkeypatch: pytest.Mo
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param(["values", *_DWD_KL, "--station=01048"], id="values"),
+        pytest.param(["stations", *_DWD_KL, "--stations=01048"], id="stations"),
+        pytest.param(["values", *_DWD_KL, "--stations=01048"], id="values"),
         pytest.param(["interpolate", *_DWD_KL, "--station=01048"], id="interpolate"),
         pytest.param(["summarize", *_DWD_KL, "--station=01048"], id="summarize"),
         pytest.param(["alerts"], id="alerts"),
@@ -1210,7 +1240,7 @@ def test_cli_date_is_refused_naming_timestamp(args: list[str]) -> None:
     "args",
     [
         pytest.param(["stations", "--all"], id="stations"),
-        pytest.param(["values", "--station=1"], id="values"),
+        pytest.param(["values", "--stations=1"], id="values"),
         pytest.param(["history", "--all"], id="history"),
         pytest.param(["interpolate", "--station=1", "--timestamp=2020-01-01"], id="interpolate"),
         pytest.param(["summarize", "--station=1", "--timestamp=2020-01-01"], id="summarize"),
@@ -1457,3 +1487,57 @@ def test_cli_about_fields_without_pypdf_is_one_logged_line(
     assert result.exit_code == 1
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
     assert all(record.exc_info is None for record in caplog.records)
+
+
+def _fail_to_import(monkeypatch: pytest.MonkeyPatch, *, provider: str, network: str) -> None:
+    """Make one network fail to import, as a broken install of a package it needs does."""
+    resolve = Wetterdienst.resolve
+
+    def failing(requested_provider: str, requested_network: str) -> object:
+        if (requested_provider, requested_network) == (provider, network):
+            msg = f"Module wetterdienst.provider.{provider}.{network} failed to import: lxml.etree not found."
+            raise ImportError(msg)
+        return resolve(requested_provider, requested_network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", failing)
+
+
+def test_about_coverage_leaves_out_a_network_that_fails_to_import(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The listing of every network does not list one it cannot import, as one that needs no credentials (GH-2801)."""
+    _fail_to_import(monkeypatch, provider="dwd", network="dmo")
+    with caplog.at_level(logging.WARNING):
+        result = CliRunner().invoke(cli, ["about", "coverage"])
+
+    assert result.exit_code == 0, result.output
+    listed = json.loads(result.stdout)
+    assert "dmo" not in listed["dwd"]
+    assert "observation" in listed["dwd"]
+    assert "Left dwd/dmo out of the listing" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["about", "coverage"], id="coverage"),
+        pytest.param(["about", "auth"], id="auth"),
+        pytest.param(["stations", "--parameters=hourly/icon", "--all"], id="stations"),
+    ],
+)
+def test_a_network_that_fails_to_import_is_the_import_error_not_an_unknown_network(
+    monkeypatch: pytest.MonkeyPatch, args: list[str]
+) -> None:
+    """A listed network whose module fails to import is a failure with its own message, not a usage error (GH-2800).
+
+    A usage error, exit 2, pointing at the listing of networks is what an unknown network is told as, and
+    the network is in that listing. The import error keeps its traceback, as it does for the REST API's 500.
+    """
+    _fail_to_import(monkeypatch, provider="dwd", network="dmo")
+    result = CliRunner().invoke(cli, [*args, "--provider=dwd", "--network=dmo"])
+
+    assert result.exit_code == 1, result.output
+    assert type(result.exception) is ImportError
+    assert "lxml.etree not found" in str(result.exception)
+    assert "Usage:" not in result.output
+    assert "lists the available ones" not in result.output

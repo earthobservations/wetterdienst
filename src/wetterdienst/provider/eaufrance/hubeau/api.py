@@ -356,7 +356,7 @@ class HubeauValues(TimeseriesValues[ParameterModel]):
         """Collect the last 30 days of one parameter of one station."""
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         data = []
         for start_date, end_date in self._get_hubeau_dates(parameter=parameter_or_dataset):
             url = self._endpoint.format(

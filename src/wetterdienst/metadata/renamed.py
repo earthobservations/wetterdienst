@@ -143,6 +143,10 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "weather_secondary_last_3h": "weather_secondary_past",
     # GH-2817: DWD POI's "previous day" wind maximum is the maximum of the 6 hours before the report
     "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h",
+    # GH-3017: the count of the days behind `temperature_air_mean_minmax_2m` and the normal of it, which ECCC builds
+    # from the daily (max + min) / 2 too; no other provider had them, so the old names are no table entries any more
+    "count_days_valid_temperature_air_mean_2m": "count_days_valid_temperature_air_mean_minmax_2m",
+    "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
 }
 
 _WIND_LAST_10MIN = {
@@ -156,6 +160,9 @@ _EXTREMES_LAST_12H = {
 }
 # GH-2842: PPPP, "Surface pressure, reduced", is reduced to sea level
 _PPPP_SEA_LEVEL = {"pressure_air_site_reduced": "pressure_air_sea_level"}
+# GH-2841: the precipitation group of a METAR is the amount since the last routine report, which an hourly dataset of
+# reports returned as the hour's precipitation
+_PRECIPITATION_SINCE_LAST_ROUTINE_REPORT = {"precipitation_amount": "precipitation_amount_since_last_routine_report"}
 _EXTREMES_OF_THE_PERIOD = {
     "temperature_air_max_2m_multiday": "temperature_air_max_2m",
     "temperature_air_min_2m_multiday": "temperature_air_min_2m",
@@ -164,6 +171,8 @@ _EXTREMES_MEAN_OF_DAILY = {
     "temperature_air_max_2m": "temperature_air_max_2m_mean",
     "temperature_air_min_2m": "temperature_air_min_2m_mean",
 }
+# GH-2839: a mean computed from the daily extremes, (max + min) / 2, is no mean of the day's readings
+_MIDRANGE_MEAN = {"temperature_air_mean_2m": "temperature_air_mean_minmax_2m"}
 
 #: canonical parameter names renamed inside one dataset, for a name that another dataset of the
 #: provider still has, so that `RENAMED_PARAMETERS` cannot hold it. Keyed by the name of the
@@ -185,6 +194,8 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         ("monthly", "data"): _EXTREMES_MEAN_OF_DAILY,
         ("annual", "data"): _EXTREMES_MEAN_OF_DAILY,
     },
+    "EcccObservationMetadata": {("daily", "data"): _MIDRANGE_MEAN, ("monthly", "data"): _MIDRANGE_MEAN},
+    "GeosphereObservationMetadata": {("daily", "data"): _MIDRANGE_MEAN},
     "DwdMosmixMetadata": {
         ("hourly", "small"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
         ("hourly", "large"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
@@ -207,8 +218,9 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
     # Frost's own element `wind_speed` still selects its row, so only the direction is not found
     "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
     "SmhiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
-    # GH-2836, GH-2837, GH-2840: NWS's wind is the ASOS's 2-minute average, its gust the peak of the past 10 minutes
-    # and its barometricPressure the altimeter setting, the pressure at sea level of the standard atmosphere. ECCC's
+    # GH-2836, GH-2837, GH-2840, GH-2841: NWS's wind is the ASOS's 2-minute average, its gust the peak of the past 10
+    # minutes, its barometricPressure the altimeter setting, the pressure at sea level of the standard atmosphere, and
+    # its precipitationLastHour the METAR's amount since the last routine report. ECCC's
     # hourly direction, now `wind_direction_last_2min`, is not listed: `wind_direction` is also the source's own field
     # name there, so a request for it still selects the row
     "MetOfficeObservationMetadata": {("hourly", "weather"): _GUST_LAST_10MIN},
@@ -218,8 +230,11 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
             "wind_direction": "wind_direction_last_2min",
             **_GUST_LAST_10MIN,
             "pressure_air_site": "pressure_air_site_reduced",
+            **_PRECIPITATION_SINCE_LAST_ROUTINE_REPORT,
         },
     },
+    # GH-2841: the METAR precipitation group is a running total since the last routine report, no hourly amount
+    "NoaaGhcnMetadata": {("hourly", "data"): _PRECIPITATION_SINCE_LAST_ROUTINE_REPORT},
     # GH-2845: RR6 is DWD's liquid precipitation of the last 6 hours
     "DwdSwsmosMetadata": {("hourly", "data"): {"precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h"}},
     # GH-2846: RMI's PT100 probe measures the temperature on the grass, a surface temperature
@@ -254,6 +269,39 @@ RENAMED_ARGUMENTS: dict[str, str] = {
     "start_date": "start",
     "end_date": "end",
 }
+
+#: members of the result classes, by the class that had them, old name to what became of it. A result
+#: asked for one of these, or built with it as an argument, fails with this text rather than with the
+#: bare "no attribute" or "unexpected keyword argument" a name that never existed gets. `ExportMixin`
+#: is what every result but the history one derives from.
+RENAMED_RESULT_MEMBERS: dict[str, dict[str, str]] = {
+    "ExportMixin": {
+        # GH-2626: a result does not change under its holder any more, so a filter hands back a new one
+        "filter_by_sql": "was renamed to 'filtered_by_sql', which returns a new result and leaves this one as it is",
+    },
+    "_ValuesResult": {
+        "filter_by_date": "was renamed to 'filtered_by_date', which returns a new result and leaves this one as it is",
+    },
+    "StationsResult": {
+        # GH-2626: what the attribute held is the request, and the stations are in `df`
+        "stations": "was renamed to 'request': it is the request that made the stations, which are in 'df'",
+    },
+    "ValuesResult": {
+        # GH-2626: the downloader that produced a result is not part of it
+        "values": "is gone, as a result no longer holds the downloader that produced it; use 'stations.values()'",
+    },
+}
+
+
+def renamed_result_member(owner: type, name: str) -> str | None:
+    """Say what became of a member of a result class that was renamed or removed, if it was.
+
+    Looked up on the class and its bases, so that a rename on `ExportMixin` holds for every result.
+    """
+    for cls in owner.__mro__:
+        if (what := RENAMED_RESULT_MEMBERS.get(cls.__name__, {}).get(name)) is not None:
+            return f"{owner.__name__}.{name} {what}"
+    return None
 
 
 def refuse_renamed_arguments(owner: str, kwargs: Mapping[str, object]) -> None:

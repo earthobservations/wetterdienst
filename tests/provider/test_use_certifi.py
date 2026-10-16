@@ -71,7 +71,7 @@ def _geosphere(monkeypatch: pytest.MonkeyPatch) -> Seen:
         start=START,
         end=END,
     )
-    request.filter_by_station_id("4821").values.all()
+    request.filter_by_station_id("4821").values().all()
     return seen
 
 
@@ -107,7 +107,7 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
         return _ok(url, json.dumps(responses.get(url, readings)).encode())
 
     seen = _record(monkeypatch, ea_api, answer)
-    EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")]).all().values.all()
+    EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")]).all().values().all()
     return seen
 
 
@@ -156,7 +156,7 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
 
     seen = _record(monkeypatch, frost_api, answer)
     request = MetnoFrostRequest(parameters=[("hourly", "data", "temperature_air_2m")], start=START, end=END)
-    request.filter_by_station_id("SN18700").values.all()
+    request.filter_by_station_id("SN18700").values().all()
     MetnoFrostRequest.is_valid()
     return seen
 
@@ -175,7 +175,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> Seen:
         return []
 
     monkeypatch.setattr(api, "download_files", _download_files)
-    _stub_stations().values.all()
+    _stub_stations().values().all()
     return seen
 
 

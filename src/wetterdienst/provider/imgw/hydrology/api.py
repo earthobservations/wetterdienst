@@ -239,7 +239,7 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         """Collect hydrological data for a single station and dataset."""
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         urls = self._get_urls(parameter_or_dataset)
         files = download_files(
             urls=urls,

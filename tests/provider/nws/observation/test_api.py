@@ -35,7 +35,7 @@ def _values(request: NwsObservationRequest) -> NwsObservationValues:
     """Bind a values object to a request without going near the network."""
     return NwsObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -215,7 +215,7 @@ def test_nws_values_returns_the_requested_window_only() -> None:
         end=end_date,
     )
 
-    df = request.filter_by_station_id([DENVER]).values.all().df
+    df = request.filter_by_station_id([DENVER]).values().all().df
 
     assert not df.is_empty()
     assert df.get_column("station_id").unique().to_list() == [DENVER]
@@ -350,7 +350,7 @@ def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeyp
     assert values["visibility"] == pytest.approx(16093.44)
     assert values["temperature_air_max_2m_last_24h"] == pytest.approx(21.7)
     assert values["temperature_air_min_2m_last_24h"] == pytest.approx(12.2)
-    assert values["precipitation_amount"] == pytest.approx(0.8)
+    assert values["precipitation_amount_since_last_routine_report"] == pytest.approx(0.8)
     assert values["precipitation_amount_last_3h"] == pytest.approx(1.3)
     assert values["precipitation_amount_last_6h"] == pytest.approx(28.4)
 
@@ -527,7 +527,7 @@ def test_nws_hourly_keeps_one_report_an_hour(monkeypatch: pytest.MonkeyPatch) ->
     _serve_observations(monkeypatch, observations)
 
     df = _hourly(
-        ["temperature_air_2m", "pressure_air_sea_level", "precipitation_amount"],
+        ["temperature_air_2m", "pressure_air_sea_level", "precipitation_amount_since_last_routine_report"],
         _stamp("10-14 12:00"),
         _stamp("10-15 12:00"),
         Options(drop_nulls=False),
@@ -544,8 +544,37 @@ def test_nws_hourly_keeps_one_report_an_hour(monkeypatch: pytest.MonkeyPatch) ->
     assert pressure[_stamp("10-14 15:00")] == pytest.approx(1017.7)
     assert pressure[_stamp("10-15 06:00")] is None
     assert pressure[_stamp("10-15 00:00")] is None
-    precipitation = dict(df.filter(pl.col("parameter") == "precipitation_amount").select("timestamp", "value").rows())
+    precipitation = dict(
+        df.filter(pl.col("parameter") == "precipitation_amount_since_last_routine_report")
+        .select("timestamp", "value")
+        .rows()
+    )
     assert precipitation[_stamp("10-14 15:00")] == pytest.approx(0.3)
+
+
+def test_nws_hourly_precipitation_is_the_running_total_of_the_report_that_closes_the_hour(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the precipitation is the METAR's running total, named for what it is, not an hourly amount (GH-2841).
+
+    The reports of api.weather.gov/stations/KORD/observations (read 2026-10-16, the stub stands in for the station)
+    from 2026-10-15 22:51 to 23:51: the amounts of the precipitation group restart at 22:54 and grow to the 17.5 mm of
+    the METAR of 23:51 (`P0069`, with the 6-hour amount of 22.9 mm in `60090`). An hour holds the one report kept for
+    it, the METAR of 23:51 for 00:00, so the amounts of the reports in between do not come beside it, and the name says
+    that the amount is the one since the last routine report, no precipitation of the last hour.
+    """
+    amounts = {"22:51": 4.3, "22:54": 0.8, "23:06": 8.4, "23:38": 17.3, "23:42": 17.5, "23:51": 17.5}
+    observations = [
+        _observation(_stamp(f"10-15 {time}"), 14.0, report=True, precipitation=amount)
+        for time, amount in amounts.items()
+    ]
+    _serve_observations(monkeypatch, observations)
+
+    df = _hourly(["precipitation_amount_since_last_routine_report"], _stamp("10-16 00:00"), _stamp("10-16 00:00"))
+
+    assert df.select("parameter", "timestamp", "value").rows() == [
+        ("precipitation_amount_since_last_routine_report", _stamp("10-16 00:00"), 17.5),
+    ]
 
 
 def test_nws_hourly_fills_the_full_hour_grid_that_skip_empty_reads(monkeypatch: pytest.MonkeyPatch) -> None:

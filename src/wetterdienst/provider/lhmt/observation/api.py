@@ -78,7 +78,7 @@ class LhmtObservationValues(TimeseriesValues):
         if not self.sr.start or not self.sr.end:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         frames = []
         for day in _days(self.sr.start, self.sr.end):
             content = self._download_day(station_id, day, settings)

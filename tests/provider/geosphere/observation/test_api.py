@@ -34,7 +34,7 @@ def test_geosphere_observation_api() -> None:
         end=datetime(2022, 6, 2, tzinfo=ZoneInfo("UTC")),
     )
     station_at = stations_at.filter_by_station_id("4821")
-    df = station_at.values.all().df
+    df = station_at.values().all().df
     assert df.get_column("value").is_not_null().sum() == 25
 
 
@@ -73,7 +73,7 @@ def test_geosphere_observation_api_radiation(
         end=datetime(2022, 6, 2, hour=23, minute=50, tzinfo=ZoneInfo("UTC")),
     )
     station_at = stations_at.filter_by_station_id("4821")
-    df = station_at.values.all().df
+    df = station_at.values().all().df
     assert df.get_column("value").is_not_null().sum() == expected_rows
     # the result is slightly different for each resolution
     assert df.get_column("value").sum() == expected_sum
@@ -106,7 +106,7 @@ def _data_window(monkeypatch: pytest.MonkeyPatch, requests: int = 1, **dates: da
     monkeypatch.setattr(api, "download_file", _download)
 
     request = GeosphereObservationRequest(parameters=[("10_minutes", "data", "humidity_relative")], **dates)
-    request.filter_by_station_id("4821").values.all()
+    request.filter_by_station_id("4821").values().all()
 
     assert len(data_urls) == requests
     return parse_qs(urlparse(data_urls[0]).query)["start"][0], parse_qs(urlparse(data_urls[-1]).query)["end"][0]
@@ -220,7 +220,7 @@ def test_geosphere_observation_values_without_dates_stay_under_the_api_limit(
     """
     windows = _serve_archive(monkeypatch, step, archive_start, archive_end)
     request = GeosphereObservationRequest(parameters=[(resolution, "data", "humidity_relative")])
-    df = request.filter_by_station_id("4821").values.all().df
+    df = request.filter_by_station_id("4821").values().all().df
     # a window starts inside the archive, so a reading on a boundary is among those checked
     assert any(archive_start < begin < archive_end for begin, _ in windows)
     timestamps = df.get_column("timestamp").to_list()
@@ -236,7 +236,7 @@ def test_geosphere_observation_values_of_a_long_explicit_window_are_split(monkey
     request = GeosphereObservationRequest(
         parameters=[("10_minutes", "data", "humidity_relative")], start=start, end=end
     )
-    df = request.filter_by_station_id("4821").values.all().df
+    df = request.filter_by_station_id("4821").values().all().df
     assert len(windows) == 13
     assert df.height == 145
 
@@ -275,7 +275,7 @@ def test_geosphere_observation_values_lost_midway_raise_not_partial(monkeypatch:
         end=end,
     )
     with pytest.raises(NoInternetError):
-        request.filter_by_station_id("4821").values.all()
+        request.filter_by_station_id("4821").values().all()
 
 
 def test_geosphere_observation_windows_of_a_local_time_request_leave_no_gap(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -297,7 +297,7 @@ def test_geosphere_observation_windows_of_a_local_time_request_leave_no_gap(monk
         start=datetime(2000, 10, 28, 3, tzinfo=vienna),
         end=datetime(2003, 1, 1, tzinfo=vienna),
     )
-    request.filter_by_station_id("4821").values.all()
+    request.filter_by_station_id("4821").values().all()
     assert len(windows) > 1
     # 03:00 CEST (UTC+2) is 01:00 UTC, a day of buffer before it
     assert windows[0][0] == datetime(2000, 10, 27, 1, tzinfo=ZoneInfo("UTC"))
@@ -412,7 +412,7 @@ def test_geosphere_observation_values_of_a_whole_dataset_batch_the_parameters(
         options=Options(humanize=False, convert_units=False),
     )
     names = [parameter.name_original for parameter in request.parameters]
-    df = request.filter_by_station_id("4821").values.all().df
+    df = request.filter_by_station_id("4821").values().all().df
     # every request asks for every parameter, and there are few enough of them
     assert all(sorted(asked) == sorted(names) for _, _, asked, _ in requests)
     assert len(requests) == n_requests <= 240
@@ -441,7 +441,7 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
         end=end,
         options=Options(humanize=False, convert_units=False),
     )
-    df = request.filter_by_station_id("4821").values.all().df
+    df = request.filter_by_station_id("4821").values().all().df
     assert [(names, dataset) for _, _, names, dataset in requests] == [
         (["tl", "rf"], "klima-v2-1h"),
         (["rf"], "klima-v2-10min"),
@@ -454,11 +454,15 @@ def test_geosphere_observation_values_ask_for_the_requested_parameters_only(monk
 
 
 @pytest.mark.synthetic_values  # the archive's readings count timestamps and parameters, they are no temperatures
-@pytest.mark.parametrize("resolution", ["daily", "monthly"])
+@pytest.mark.parametrize(
+    ("resolution", "parameter"),
+    [("daily", "temperature_air_mean_minmax_2m"), ("monthly", "temperature_air_mean_2m")],
+)
 @freeze_time(datetime(2020, 12, 2, 13, 37, 21, tzinfo=ZoneInfo("UTC")))
 def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_request(
     monkeypatch: pytest.MonkeyPatch,
     resolution: str,
+    parameter: str,
 ) -> None:
     """Test that one parameter at a resolution that never needs windows still asks for the whole record (GH-2517).
 
@@ -467,8 +471,8 @@ def test_geosphere_observation_values_of_one_daily_or_monthly_parameter_are_one_
     """
     start = datetime(1900, 1, 1, tzinfo=ZoneInfo("UTC"))
     requests = _serve_archive_of_parameters(monkeypatch, timedelta(days=30), start, start + timedelta(days=90))
-    request = GeosphereObservationRequest(parameters=[(resolution, "data", "temperature_air_mean_2m")])
-    df = request.filter_by_station_id("4821").values.all().df
+    request = GeosphereObservationRequest(parameters=[(resolution, "data", parameter)])
+    df = request.filter_by_station_id("4821").values().all().df
     assert len(requests) == 1
     assert df.height == 4
 
@@ -484,7 +488,7 @@ def test_geosphere_observation_stations_that_still_report_have_no_end(monkeypatc
     ).encode()
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
 
-    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_minmax_2m")]).all().df
 
     assert dict(zip(df["station_id"], df["end_timestamp"], strict=True)) == {
         "1": None,
@@ -517,7 +521,7 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
     ).encode()
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=BytesIO(stations), status=200))
 
-    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+    df = GeosphereObservationRequest(parameters=[("daily", "data", "temperature_air_mean_minmax_2m")]).all().df
 
     assert df.schema["wmo_id"] == pl.String
     assert df.select("station_id", "wmo_id").rows() == [
@@ -595,7 +599,7 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
         settings=Settings(cache_disable=True),
         options=Options(unit_targets=unit_targets),
     )
-    df = request.filter_by_station_id("4821").values.all().df.sort("parameter", "timestamp")
+    df = request.filter_by_station_id("4821").values().all().df.sort("parameter", "timestamp")
     values = {
         parameter: group.get_column("value").to_list()
         for (parameter,), group in df.group_by("parameter", maintain_order=True)
@@ -634,7 +638,7 @@ def test_geosphere_observation_none_code_is_a_daily_one(
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
         settings=Settings(cache_disable=True),
     )
-    df = request.filter_by_station_id("4821").values.all().df
+    df = request.filter_by_station_id("4821").values().all().df
     assert -1.0 in df.get_column("value").to_list()
 
 
@@ -665,7 +669,7 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    df = request.filter_by_station_id("4821").values.all().df
+    df = request.filter_by_station_id("4821").values().all().df
     df = df.sort("parameter", "timestamp")
     rows = {
         parameter: group.select("value", "quality_flags").rows()

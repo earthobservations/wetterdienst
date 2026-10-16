@@ -31,7 +31,7 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, station_id: s
         end=end_date,
     )
     request = stations.filter_by_station_id(station_id)
-    return request.values.all().df
+    return request.values().all().df
 
 
 def main() -> None:

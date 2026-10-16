@@ -40,7 +40,7 @@ def test_meteoswiss_observation_api_daily() -> None:
         start=datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2020, 1, 3, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("ABO")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert df.get_column("value").is_not_null().sum() == 3
 
 
@@ -68,7 +68,7 @@ def test_meteoswiss_observation_api_resolutions(resolution: str) -> None:
         start=datetime(2022, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2022, 12, 31, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("ABO")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert df.get_column("value").is_not_null().sum() > 0
 
 
@@ -116,7 +116,7 @@ def _hourly_values(monkeypatch: pytest.MonkeyPatch, start: str, end: str) -> tup
         end=end,
         settings=Settings(cache_disable=True),
     ).filter_by_station_id("BER")
-    return request.values.all().df, read
+    return request.values().all().df, read
 
 
 @pytest.mark.parametrize(

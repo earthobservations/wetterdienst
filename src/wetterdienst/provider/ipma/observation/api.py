@@ -62,7 +62,7 @@ class IpmaObservationValues(TimeseriesValues):
         cached = getattr(self, "_feed_cache", None)
         if cached is not None:
             return cached
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         # one all-stations feed serves every station; a five-minute cache means the concurrent
         # per-station queries in a rank loop download it once.
         file = download_file(

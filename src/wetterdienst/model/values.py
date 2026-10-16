@@ -182,7 +182,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = df.sort(sort_columns)
             self.stations_counter += 1
             self.stations_collected.append(station_id)
-            yield ValuesResult(stations=self.sr, values=self, df=df)
+            yield ValuesResult(stations=self.sr, df=df)
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:
         """Whether the station index already says this station started after the window ended.
@@ -249,18 +249,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         resolution_dataset_pairs = (
             df.select(["resolution", "dataset"]).unique().sort(["resolution", "dataset"]).rows(named=True)
         )
-        return [self.sr.stations.metadata[pair["resolution"]][pair["dataset"]] for pair in resolution_dataset_pairs]
+        return [self.sr.request.metadata[pair["resolution"]][pair["dataset"]] for pair in resolution_dataset_pairs]
 
     def _collect_station_data(self, station_id: str, available_datasets: list[DatasetModel]) -> pl.DataFrame:
         """Collect and process data for a single station."""
         if not available_datasets:
             return pl.DataFrame()
         data = []
-        # self.sr.stations.parameters is parsed at runtime to a list[ParameterModel],
+        # self.sr.request.parameters is parsed at runtime to a list[ParameterModel],
         # but the static type of the attribute is a union of input forms. Cast here so
         # the typechecker understands we iterate ParameterModel instances.
         for dataset, parameters in group_parameters_by_dataset(
-            cast("Iterable[ParameterModel]", self.sr.stations.parameters),
+            cast("Iterable[ParameterModel]", self.sr.request.parameters),
         ):
             if dataset not in available_datasets:
                 continue
@@ -449,11 +449,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # concatenates it against a populated frame, and none of that survives a frame with no
             # columns at all
             log.info("No data available for given constraints")
-            return ValuesResult(stations=self.sr, values=self, df=self._empty_values_df())
+            return ValuesResult(stations=self.sr, df=self._empty_values_df())
 
         df = pl.concat(data, how="diagonal")
 
-        return ValuesResult(stations=self.sr, values=self, df=df)
+        return ValuesResult(stations=self.sr, df=df)
 
     def to_target(self, target: str, if_exists: Literal["replace", "append", "fail", "skip"] = "fail") -> None:
         """Wrap to_target of all queried results."""

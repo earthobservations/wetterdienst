@@ -275,6 +275,11 @@ df = stations.df
 df
 ```
 
+A station id the request has no station for -- one that does not exist, or has no data for the
+requested parameters and periods -- is left out of the result with a warning naming it (log level
+`WARNING`): the stations that do exist are returned, and when none does the result is empty. The command
+line and the REST API do the same for a list of `--stations` ids.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -302,7 +307,8 @@ df
 
 The `threshold` parameter (0–1, default **0.8**) controls how strictly the name must
 match.  Lower values accept more typos; higher values require a closer match.  The
-`rank` parameter limits how many stations are returned (default 1).
+`rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
+of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two
@@ -399,7 +405,7 @@ Unlike `filter_by_distance`, `filter_by_rank` returns **all** stations sorted by
 distance in `stations.df`, not just `rank` rows. The `rank` limit is applied lazily
 during value collection: Wetterdienst walks the distance-sorted stations and stops
 once `rank` stations *with data* have been consumed. To see the `rank` closest
-stations that actually returned data, use `stations.values.all().df_stations` rather
+stations that actually returned data, use `stations.values().all().df_stations` rather
 than `stations.df`. Enable the `skip_empty` option to walk past a station that returned data
 but too little of it, as `skip_threshold` and `skip_criteria` define.
 ```
@@ -450,8 +456,8 @@ A test holds this table to the columns the providers declare, so a column added 
 
 ### Values
 
-Values are just an extension of requests. You can query data by using the
-`.query()` method on the values object:
+Values are just an extension of requests. `stations.values()` builds the reader of the values of the
+stations, and you can query data station by station with its `.query()` method:
 
 ```{code-cell}
 ---
@@ -471,7 +477,7 @@ request = DwdObservationRequest(
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
 
 # From here you can query data by station
-for result in stations.values.query():
+for result in stations.values().query():
     # analyse the station here
     break
 
@@ -497,7 +503,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
-df = stations.values.all().df.drop_nulls("value")
+df = stations.values().all().df.drop_nulls("value")
 df
 ```
 
@@ -506,8 +512,9 @@ once, parsed nicely into column structure with improved parameter names. Instead
 ``start`` and ``end`` you may as well want to use ``periods`` to update your
 database once in a while with a fixed set of records.
 
-A result can be cut down after the fact with ``values.filter_by_date("2020-08")``, which takes the
-same date strings as the CLI and the REST API. Each covers everything it names: ``"2020-08-01"``
+A result can be cut down after the fact with ``values.filtered_by_date("2020-08")``, which takes the
+same date strings as the CLI and the REST API and gives a new result back, leaving ``values`` as it
+was. Each covers everything it names: ``"2020-08-01"``
 is that whole day -- all 24 readings of it for hourly data -- ``"2020-08"`` the month and
 ``"2020"`` the year, while an interval such as ``"2017-01/2019-12"`` runs from the start of the
 first span to the end of the second. A date carrying a time, ``"2020-08-01T12"``, names one
@@ -522,7 +529,7 @@ frame, without a cast. The schemas are exported as objects to assert against:
 import polars as pl
 from wetterdienst.model.schema import LONG_SCHEMA
 
-df = stations.values.all().df
+df = stations.values().all().df
 assert df.schema == LONG_SCHEMA
 
 # filter by names that may or may not be present, and join on the station
@@ -542,7 +549,7 @@ A test in the library holds each of them against what a result returns, so a cha
 dtype or its place is a visible diff in a pull request and a breaking change.
 
 ```{note}
-**Migrating from 0.154.0 or earlier.** `.values.all().df` used to store the four identity columns as polars `Enum`,
+**Migrating from 0.154.0 or earlier.** `.values().all().df` used to store the four identity columns as polars `Enum`,
 with the categories taken from the data of each result, while an empty result and an interpolated or
 summarized one had `String`. They are `String` now. Code that cast them back, such as
 `df.with_columns(pl.col(pl.Enum).cast(pl.String))`, or cast a join key or the column of an `is_in`,
@@ -572,7 +579,7 @@ request = DwdObservationRequest(
   options=options,
 )
 stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
-values = stations.values.all()
+values = stations.values().all()
 print(values.df.head())
 # df_stations has only stations that appear in the values
 values.df_stations
@@ -605,8 +612,9 @@ unless the table says so.
 - A value outside the physical range of its parameter that is no code (4021 degrees for a daily
   maximum, 17,802 mm for a month of rain) is treated the same way where the table below names the
   provider: null, with `raw:<number>` as the last token, the number as short as it can be written
-  (`raw:4021`, `raw:110.26`). The ranges are generous and the same for every resolution, so a value that
-  is only odd stays.
+  (`raw:4021`, `raw:110.26`). The ranges are generous and, for the rain and the sunshine of a span,
+  grow with the resolution (what is no reading of a minute is one of a day), so a value that is only odd
+  stays.
 - `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
   `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
   value with several tokens become null, so take the first token of a code that can be followed by
@@ -617,7 +625,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 
 | Provider | codes in `quality_flags` |
 | --- | --- |
-| DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
+| DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
 | DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
 | DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
 | DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](../data/provider/dwd/road/15_minutes.md)) |
@@ -648,7 +656,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | DWD poi | `---`, and any text that is no number (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
-| DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter, such as the 17,802 mm of a month of rain (null) |
+| DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
 | Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
 | IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
@@ -658,7 +666,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
 | Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
 | Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
-| RMI | a value outside the range of its parameter, such as the 4021 degrees of a daily maximum (null) |
+| RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code
@@ -666,6 +674,42 @@ already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road deco
 missing value. CHMI, MeteoSwiss, SMHI, DWD phenology and the real-time values of AEMET read a text that is no
 number as null without a token; none was found in their files, and DWD observation does the same for a letter
 outside `P` and `I` in a measurement method.
+
+### Results
+
+What a request answers is a result, and the results are what a caller reads:
+
+| Result | Made by | Holds |
+| --- | --- | --- |
+| `StationsResult` | `request.all()` and the `request.filter_by_*` methods | `df`, the stations selected, and the `request` they come from |
+| `ValuesResult` | `stations.values().all()`, and each step of `stations.values().query()` | `df`, the values, and the `stations` they were read for |
+| `InterpolatedValuesResult` and `SummarizedValuesResult` | `request.interpolate()` and `request.summarize()` | `df`, the values of the point, and the `stations` they were made from |
+| `HistoryResult` | each step of `stations.history().query()` | `history`, one station's history, and its `stations` |
+
+- **A result is not changed once it is built.** Assigning to one raises `FrozenInstanceError`, and
+  `filtered_by_date` and `filtered_by_sql` give a new result of the same kind back, so a result you hand
+  on is the one you made. The frame-returning forms are `result.filtered_by_sql(sql).df`.
+- **`request` is the request** that made a `StationsResult`, with the settings, options, parameters and
+  window it was given (`stations.settings`, `.options`, `.parameters`, `.start` and `.end` read them).
+  The stations are in `df`; `df_all` (every station of the request), `stations_filter` and `rank` say how `df`
+  was selected from them and are for the library.
+- **`values()` and `history()` are methods.** Each builds a new reader on every call, so two walks over
+  the stations never share state; keep the reader in a variable where you use it more than once.
+- **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
+  the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
+- Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
+  `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; they are documented below.
+
+```{note}
+**Migrating from 0.155.0 or earlier.** The names a result had are refused with an error that says what
+to write instead. `StationsResult.stations` (and the `stations=` argument) is `request`;
+`stations.values.all()`, `.values.query()` and `.history.query()` are `stations.values().all()`,
+`stations.values().query()` and `stations.history().query()`; `ValuesResult.values` is gone, use
+`stations.values()` for a reader; `values.filter_by_date(date)` and `values.filter_by_sql(sql)`, which changed
+the result and returned its frame, are `values.filtered_by_date(date)` and `values.filtered_by_sql(sql)`, which
+return a new result (`.df` is its frame). Code that wrote `values.filter_by_sql(sql)` and went on with `values`
+now continues with `values = values.filtered_by_sql(sql)`.
+```
 
 ### Interpolation & Summary
 
@@ -691,7 +735,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 values.to_dict(with_metadata=True, with_stations=True)
 ```
 
@@ -710,7 +754,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 print(values.to_json(with_metadata=True, with_stations=True))
 ```
 
@@ -729,7 +773,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 values.to_ogc_feature_collection(with_metadata=True)
 ```
 
@@ -748,7 +792,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 print(values.to_geojson(with_metadata=True))
 ```
 
@@ -767,7 +811,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 print(values.to_csv())
 ```
 
@@ -799,8 +843,8 @@ request = DwdObservationRequest(
   options=options
 )
 stations = request.filter_by_station_id(station_id=[1048])
-values = stations.values.all()
-df = values.filter_by_sql("parameter='temperature_air_2m' AND value < -7.0;")
+values = stations.values().all()
+df = values.filtered_by_sql("parameter='temperature_air_2m' AND value < -7.0;").df
 df
 ```
 
@@ -881,7 +925,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
+stations.values().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
 ```
 
 The previous example uses a batch approach meaning each station is written one by one. The first station is written
@@ -900,7 +944,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather")
+stations.values().all().to_target("influxdb://localhost/?database=dwd&table=weather")
 ```
 
 You could also iterate over the stations and write them one by one:
@@ -915,7 +959,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-for station in stations.values.query():
+for station in stations.values().query():
     station.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
 ```
 
@@ -947,13 +991,13 @@ whose message is the whole of what there is to know. A package a sink needs that
 that installs it. Anything else out of `to_target` is a defect or an environment problem and keeps
 its own class and traceback.
 
-The CLI takes the same argument as `--if_exists`, which is what a scheduled acquisition needs —
+The CLI takes the same argument as `--if-exists`, which is what a scheduled acquisition needs —
 see [Scheduling](scheduling.md):
 
 ```bash
 wetterdienst values --provider=dwd --network=observation \
-    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 \
-    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if_exists=append
+    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --stations=01048 \
+    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
 ## Errors
@@ -975,7 +1019,7 @@ below it say what kind of failure it is:
 from wetterdienst import RequestError, UpstreamError, WetterdienstError
 
 try:
-    values = request.filter_by_station_id("01048").values.all()
+    values = request.filter_by_station_id("01048").values().all()
 except RequestError as e:
     print(f"rephrase the request: {e}")
 except UpstreamError as e:
@@ -988,9 +1032,10 @@ Each class keeps the built-in classes it was before, so an `except ValueError`, 
 `except FileNotFoundError` or `except IndexError` that caught it still does: `InvalidEnumerationError` is
 a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an `OSError`,
 `IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
-`ConfigurationError` and an `ImportError`. The REST API, the MCP tools and the command line decide by
-the class what to answer: a `RequestError` is a 400 or a usage error (exit 2), a `NotFoundError` a 404,
-a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
+`ConfigurationError` and an `ImportError`, `CredentialRejectedError` (a provider answered 401 or 403 to the
+credential you configured) a `ConfigurationError` and a `PermissionError`. The REST API, the MCP tools
+and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
+(exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
 `WetterdienstError` included, the server's error. See [REST API](restapi.md#errors) for the body.
 
 ### Offline
