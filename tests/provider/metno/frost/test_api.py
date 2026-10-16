@@ -178,7 +178,7 @@ def test_metno_frost_values_6hour_fallback() -> None:
     """
     df = (
         MetnoFrostRequest(
-            parameters=[("6_hour", "data", "precipitation_amount")],
+            parameters=[("6_hours", "data", "precipitation_amount")],
             start=dt.datetime(2005, 9, 1, tzinfo=UTC),
             end=dt.datetime(2006, 1, 1, tzinfo=UTC),
         )
@@ -188,7 +188,7 @@ def test_metno_frost_values_6hour_fallback() -> None:
     )
     # SN18700 has exactly 2 synoptic precipitation observations in this window
     assert len(df) == 2
-    assert df["resolution"].unique().to_list() == ["6_hour"]
+    assert df["resolution"].unique().to_list() == ["6_hours"]
     assert df["parameter"].unique().to_list() == ["precipitation_amount"]
     dates = df["timestamp"].to_list()
     assert dt.datetime(2005, 9, 7, 0, 0, 0, tzinfo=UTC) in dates

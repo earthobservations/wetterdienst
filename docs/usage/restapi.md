@@ -54,11 +54,30 @@ The following examples use [httpie](https://github.com/httpie/cli) to demonstrat
 http localhost:7890/api/coverage
 ```
 
-The list downloads nothing, so it answers at once. For a network that needs credentials it says
-whether they are present (`configured`); `valid` is `false` where they are not, and `null` where
-they are, because whether the provider accepts them is a request to the provider. Ask for one
-network at a time, which gives up after a few seconds and answers `null` as well when it could not
-tell (treat `null` as unknown, not as rejected):
+The list downloads nothing, so it answers at once. Each network of each provider has
+
+| Field | |
+| --- | --- |
+| `name_short` | the provider's short name, `DWD` |
+| `country` | the country of the provider, `Germany` |
+| `url` | where the provider publishes the data |
+| `kind` | what the network is, see below |
+| `auth` | whether the network needs credentials |
+| `configured` | whether the server has them |
+| `date_required` | whether a dataset of the network needs the request to name `start` and `end` |
+
+`kind` says which endpoints take the network. A **timeseries network** has stations and values, is
+`observation`, `forecast` or `derived`, and is what `stations`, `values`, `history`, `interpolate`,
+and `summarize` take, and what `coverage` with a provider and network lists the resolutions,
+datasets and parameters of. Every network is one but two. The **standalone networks** are
+`dwd/radar` (`radar`) and `dwd/alerts` (`alerts`): they have their own request classes and results in
+Python, no stations or parameters, and every endpoint above answers a request for them with a 404. A
+new standalone network gets a `kind` of its own.
+
+The list leaves out whether the provider accepts the credentials of a network that has them, because
+that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
+and answers `valid` as `true` or `false`, or `null` when it could not tell (treat `null` as unknown,
+not as rejected):
 
 ```bash
 http localhost:7890/api/auth provider==aemet network==observation

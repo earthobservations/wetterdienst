@@ -1,11 +1,11 @@
-# 6 hour
+# 6 hours
 
 ## metadata
 
-| property      | value  |
-|---------------|--------|
-| name          | 6_hour |
-| original name | PT6H   |
+| property      | value   |
+|---------------|---------|
+| name          | 6_hours |
+| original name | PT6H    |
 | description   | Synoptic observations reported every six hours. |
 
 ## datasets

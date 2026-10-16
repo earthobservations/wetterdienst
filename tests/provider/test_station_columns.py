@@ -2,14 +2,18 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """A station column a provider builds but its `_base_columns` leave out is found, not dropped in silence (GH-2019)."""
 
+import re
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
-from wetterdienst import Settings
+from wetterdienst import Settings, Wetterdienst
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.util.network import File
+
+PYTHON_API = Path(__file__).parents[2] / "docs" / "usage" / "python-api.md"
 
 
 def _serve_ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -46,3 +50,36 @@ def test_a_declared_column_is_not_found(monkeypatch: pytest.MonkeyPatch, station
 
     assert df["wmo_id"].to_list() == ["10147"]
     assert station_column_findings == []
+
+
+def _documented_station_columns() -> set[tuple[str, str]]:
+    """Read the `(provider/network, column)` pairs of the table of station columns in the Python API page."""
+    text = PYTHON_API.read_text(encoding="utf8")
+    section = text.split("#### Station columns of a provider", 1)[1].split("\n### ", 1)[0]
+    pairs = set()
+    for line in section.splitlines():
+        if not line.startswith("| `"):
+            continue
+        networks, columns, _ = (cell.strip() for cell in line.strip("|").split("|", 2))
+        pairs |= {
+            (network, column)
+            for network in re.findall(r"`([^`]+)`", networks)
+            for column in re.findall(r"`([^`]+)`", columns)
+        }
+    return pairs
+
+
+def test_every_station_column_a_provider_adds_is_in_the_docs() -> None:
+    """The table of station columns lists each column a request declares besides `STATIONS_SCHEMA`, and no other."""
+    declared = set()
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            api = Wetterdienst(provider, network)
+            declared |= {
+                (f"{provider}/{network}", column)
+                for column in getattr(api, "_base_columns", ())
+                if column not in TimeseriesRequest._base_columns  # noqa: SLF001
+            }
+    documented = _documented_station_columns()
+    assert declared - documented == set(), "declared by a provider and not in the table of python-api.md"
+    assert documented - declared == set(), "in the table of python-api.md and declared by no provider"

@@ -19,7 +19,7 @@ from pydantic_extra_types.timezone_name import (
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
 
 if TYPE_CHECKING:
@@ -45,6 +45,15 @@ _EXPECTED_PARAMETER = (
     "a DatasetModel or a ParameterModel"
 )
 
+
+#: what the data of a timeseries network is: measured (`observation`), forecast, or computed from
+#: measurements (`derived`). A timeseries network has stations, values and a metadata model.
+TimeseriesKind = Literal["observation", "forecast", "derived"]
+
+#: what a network in the registry is: a timeseries network of one of the `TimeseriesKind`s, or a standalone one,
+#: which has its own request class and result and no stations or values to request (the radar products and the
+#: warnings of `dwd`). Which one decides where a network can be requested: see `Wetterdienst.discover()`.
+NetworkKind = Literal["observation", "forecast", "derived", "radar", "alerts"]
 
 # any of the three models that carry a canonical and a source name and are looked up by either
 _NamedModel = TypeVar("_NamedModel", "ResolutionModel", "DatasetModel", "ParameterModel")
@@ -195,6 +204,8 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
     suggestion = (
         _renamed_hint(item_search, {model.name.lower() for model in models}, dataset) if kind == "parameters" else ""
     )
+    if kind == "resolutions" and RENAMED_RESOLUTIONS.get(item_search) in candidates:
+        suggestion = f" It was renamed to '{RENAMED_RESOLUTIONS[item_search]}'."
     if not suggestion:
         if kind == "parameters":
             # a near spelling of another quantity is no hint, the list of available names is the answer then
@@ -205,6 +216,11 @@ def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: Dat
         f"{model.name}/{model.name_original}" if model.name != model.name_original else model.name for model in models
     )
     return f"'{item}'.{suggestion} Available {kind}: {available}"
+
+
+def is_quality_flag(parameter: ParameterModel) -> bool:
+    """Say whether a parameter is a quality flag of the source: `quality` or a `quality_*` of the canonical table."""
+    return parameter.name.startswith("quality")
 
 
 class ParameterModel(BaseModel):  # noqa: PLW1641
@@ -304,21 +320,25 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
             return self.parameters[item]
         parameter = _find(self.parameters, item)
         if parameter is None:
-            raise KeyError(_not_found("parameters", item, self.parameters, self))
+            # the parameters of the dataset are those it iterates over, which the message lists (GH-2641)
+            raise KeyError(_not_found("parameters", item, self, self))
         return parameter
 
     def __getattr__(self, item: str) -> ParameterModel:
         """Get a parameter by name."""
         parameter = _find(self.parameters, item)
         if parameter is None:
-            raise AttributeError(_not_found("parameters", item, self.parameters, self))
+            raise AttributeError(_not_found("parameters", item, self, self))
         return parameter
 
     # on purpose, not pydantic's iteration over (name, value) pairs of the fields: a model here is iterated
-    # as the collection of its parameters
+    # as the collection of its parameters. The quality flags are not among them (`is_quality_flag`): they come back
+    # in the `quality_flags` column of the parameter they belong to and cannot be requested, so everything that lists
+    # what a dataset offers (this iterator, `discover()`, the list in a not-found message) leaves them out, while a
+    # name that is looked up is found whatever it is, and answered with the explanation of `search_parameter`
     def __iter__(self) -> Iterator[ParameterModel]:  # ty: ignore[invalid-method-override]
-        """Iterate over all parameters."""
-        return iter(parameter for parameter in self.parameters if not parameter.name.startswith("quality"))
+        """Iterate over all parameters but the quality flags."""
+        return iter(parameter for parameter in self.parameters if not is_quality_flag(parameter))
 
 
 class ResolutionModel(BaseModel):
@@ -413,7 +433,7 @@ class MetadataModel(BaseModel):
     country: str
     copyright: str
     url: str
-    kind: Literal["observation", "forecast", "derived"]
+    kind: TimeseriesKind
     timezone: TimeZoneName
     auth: bool = False
     resolutions: list[ResolutionModel]
@@ -471,7 +491,7 @@ class MetadataModel(BaseModel):
         parameter = _find(dataset.parameters, parameter_search.parameter)
         if parameter is None:
             raise KeyError(_not_found("parameters", parameter_search.parameter, dataset, dataset))
-        if parameter.name.startswith("quality"):
+        if is_quality_flag(parameter):
             msg = (
                 f"'{parameter_search.parameter}' is a quality flag. Quality flags are returned in the "
                 f"'quality_flags' column next to the parameter they belong to and cannot be requested on their own."
