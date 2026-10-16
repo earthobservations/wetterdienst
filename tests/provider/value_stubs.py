@@ -82,6 +82,8 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 from wetterdienst.provider.nws.observation import NwsObservationRequest
 from wetterdienst.provider.nws.observation import api as nws_api
+from wetterdienst.provider.rmi.observation import RmiObservationRequest
+from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
@@ -321,11 +323,21 @@ def _dwd_daily_climate_summary(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool
 def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the description says `missing value = -999`; the files write -99.9
     # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
-    # in stundenwerte_TF_14006_20201104_20251231_hist.zip)
+    # in stundenwerte_TF_14006_20201104_20251231_hist.zip). That file holds 995.9 in P_STD in all of its 44531 rows, the
+    # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the reader
+    # nulls a constant from 500 readings on (GH-2699), so the file is served with 500 rows
+    rows = [
+        "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor",
+        "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor",
+    ]
+    start = dt.datetime(2025, 1, 5, 2, tzinfo=_UTC)
+    rows += [
+        f"   14006;{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;   4.0;   5.0;  -0.5;  995.9;"
+        "  -0.2;  90.0;  -0.9;eor"
+        for hour in range(498)
+    ]
     product = (
-        "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n"
-        "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor\n"
-        "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor\n"
+        "STATIONS_ID;MESS_DATUM;QN_8;ABSF_STD;VP_STD;TF_STD;P_STD;TT_STD;RF_STD;TD_STD;eor\n" + "\n".join(rows) + "\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "moisture", product, "14006", drop_nulls=drop_nulls)
 
@@ -1065,18 +1077,26 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 
 def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # api.weather.gov/stations/KBOS/observations (read 2026-10-12): 12:54Z is the METAR `36005KT`, a direction of 360,
-    # and 14:54Z `00000KT`, a calm, which the endpoint gives as a direction of 0 beside a speed of 0 (GH-2794)
-    def observation(hour: int, direction: int, speed: float) -> dict[str, Any]:
-        return {
-            "properties": {
-                "station": "https://api.weather.gov/stations/KBOS",
-                "timestamp": f"2026-10-12T{hour:02d}:54:00+00:00",
-                "windDirection": {"unitCode": "wmoUnit:degree_(angle)", "value": direction, "qualityControl": "V"},
-                "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": "V"},
-            }
+    # and 14:54Z `00000KT`, a calm, which the endpoint gives as a direction of 0 beside a speed of 0 (GH-2794). The
+    # METAR carries the `precipitationLastHour` key and a 5-minute ASOS row, which the endpoint serves beside it at the
+    # minutes 0, 5, 10, ..., does not; the rows at 12:55 and 15:00 are the 5-minute rows `hourly` leaves out (GH-2857)
+    def observation(timestamp: str, direction: int, speed: float, *, report: bool) -> dict[str, Any]:
+        properties = {
+            "station": "https://api.weather.gov/stations/KBOS",
+            "timestamp": f"2026-10-12T{timestamp}:00+00:00",
+            "windDirection": {"unitCode": "wmoUnit:degree_(angle)", "value": direction, "qualityControl": "V"},
+            "windSpeed": {"unitCode": "wmoUnit:km_h-1", "value": speed, "qualityControl": "V"},
         }
+        if report:
+            properties["precipitationLastHour"] = {"unitCode": "wmoUnit:mm", "value": None, "qualityControl": "Z"}
+        return {"properties": properties}
 
-    features = [observation(12, 360, 9.36), observation(14, 0, 0)]
+    features = [
+        observation("12:54", 360, 9.36, report=True),
+        observation("12:55", 350, 11.1, report=False),
+        observation("14:54", 0, 0, report=True),
+        observation("15:00", 0, 0, report=False),
+    ]
     serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
     request = NwsObservationRequest(
         parameters=[("hourly", "data")],
@@ -1138,6 +1158,75 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "06070").values.all().df
+
+
+def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # stationValue of 04339, `acc_precip` of `timeResolution=year` (read 2026-10-15): 1343.1 mm for 2013 is a reading,
+    # 9574.3 mm for 2014 and 6026.5 mm for 2015 are sums no gauge produced (the other stations' yearly maxima are 818 to
+    # 1150 mm), outside the 6,000 mm bound of a precipitation, far above what any DMI gauge reads (GH-2797). DMI marks
+    # both `validity: false`
+    rows = [
+        ("2013-01-01T06:00:00+00:00", "2014-01-01T06:00:00+00:00", 1343.1, "none"),
+        ("2014-01-01T06:00:00+00:00", "2015-01-01T06:00:00+00:00", 9574.3, "manual"),
+        ("2015-01-01T06:00:00+00:00", "2016-01-01T06:00:00+00:00", 6026.5, "none"),
+    ]
+    features = [
+        {
+            "properties": {
+                "parameterId": "acc_precip",
+                "from": start,
+                "to": end,
+                "value": value,
+                "qcStatus": qc_status,
+                "validity": value < 3_000,
+            }
+        }
+        for start, end, value, qc_status in rows
+    ]
+    serve(monkeypatch, dmi_api, {"stationValue": json.dumps({"features": features}).encode()})
+    request = DmiObservationRequest(
+        parameters=[("annual", "data")],
+        start=_day(2013, 1, 1),
+        end=_day(2015, 1, 1),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "annual", "data", "04339").values.all().df
+
+
+def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # `aws:aws_1day` of station 6414 (read 2026-10-15): 2003-08-05 is a day of readings, on 2003-08-06 the mean is
+    # 110.26 and the maximum 4021 degrees, which no thermometer read, and `validated` is false for both (GH-2797). The
+    # other attributes are left out, the reader taking what it maps
+    day = {
+        "temp_avg": 24.03,
+        "temp_max": 31.6,
+        "temp_min": 16.14,
+        "wind_gusts_speed": 7.65,
+        "qc_flags": json.dumps({"validated": {"TEMP_AVG": False, "TEMP_MAX": False, "TEMP_MIN": False}}),
+    }
+    features = [
+        {"properties": {"timestamp": "2003-08-05T00:00:00Z", **day}},
+        {
+            "properties": {
+                "timestamp": "2003-08-06T00:00:00Z",
+                **day,
+                "temp_avg": 110.26,
+                "temp_max": 4021,
+                "temp_min": 16.84,
+                "wind_gusts_speed": 5.24,
+            }
+        },
+    ]
+    serve(monkeypatch, rmi_api, {"aws:aws_1day": json.dumps({"numberMatched": 2, "features": features}).encode()})
+    request = RmiObservationRequest(
+        parameters=[("daily", "data")],
+        start=_day(2003, 8, 5),
+        end=_day(2003, 8, 7),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "daily", "data", "6414").values.all().df
 
 
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1216,6 +1305,8 @@ STUBS = [
         tokens=(
             ("humidity_absolute", "-99.9", None),
             ("humidity_relative", "-99.9", None),
+            # the pressure of a file that holds one value, null with the text the file wrote (GH-2699)
+            ("pressure_air_site", "995.9", None),
             ("pressure_vapor", "-99.9", None),
             ("temperature_dew_point_2m", "-99.9", None),
             ("temperature_wet_2m", "-99.9", None),
@@ -1379,6 +1470,21 @@ STUBS = [
         reading=("wind_direction", 250.0),
         sentinels=(("wind_direction", 0.0),),
         tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dmi/observation annual/data",
+        _dmi_annual,
+        reading=("precipitation_amount", 1343.1),
+        # a sum no gauge produced is no sentinel: it is outside the range of its parameter
+        sentinels=(("precipitation_amount", 9574.3), ("precipitation_amount", 6026.5)),
+        tokens=(("precipitation_amount", "9574.3", None), ("precipitation_amount", "6026.5", None)),
+    ),
+    ValueStub(
+        "rmi/observation daily/data",
+        _rmi_daily,
+        reading=("temperature_air_min_2m", 16.84),
+        sentinels=(("temperature_air_mean_2m", 110.26), ("temperature_air_max_2m", 4021.0)),
+        tokens=(("temperature_air_mean_2m", "110.26", None), ("temperature_air_max_2m", "4021", None)),
     ),
     ValueStub(
         "imgw/hydrology daily/hydrology",
@@ -1570,11 +1676,6 @@ NO_STUB = {
         "the files write an empty field for a missing value: no cell that is no number in the d, h, t, m and y files "
         "of ber, jun and sma (152,308 daily rows, hourly 1990 to 1999 and recent, 10 minute 2010 to 2019), 2026-10-12. "
         "The wind direction 0 has speeds up to 13 m/s beside it, so it is north"
-    ),
-    "rmi/observation": (
-        "no reader maps a sentinel; its values are JSON numbers, missing ones are null: 10 minute (June 2023), hourly "
-        "and daily (1995 to 2023) of 6447, 6414 and 6451. The daily layer holds three days of 6414 in 2003 that are "
-        "no readings (temp_max 4021.0 and 6013.0, wind_gusts_speed 81.5) but no sentinel either (GH-2797)"
     ),
     "wsv/pegel": (
         "no reader maps a sentinel; its values are JSON numbers, and the current measurement of its 1,168 timeseries "

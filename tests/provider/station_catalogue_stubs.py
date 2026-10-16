@@ -937,12 +937,13 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DmiObservationRequest, ("daily", "data"))
 
 
-def _eccc(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
-    # `collections/climate-stations/items` (2026-10-15), four of the 8435 features trimmed to the properties the reader
-    # reads, with the dates of the collections as published (Chemainus has no hourly collection, Gladman Point no
-    # monthly one). `LATITUDE` and `LONGITUDE` are packed degrees, minutes and seconds (`485500000` is 48 deg 55'),
-    # while the geometry of the feature is decimal degrees (GH-2942); `ELEVATION` is text, and null for a station
-    # without one
+def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
+    # `collections/climate-stations/items` (2026-10-15), five of the 8435 features trimmed to the properties the reader
+    # reads, with the dates of the collections as published (Chemainus and Carway have no hourly collection, Alert A no
+    # daily and no monthly one, Gladman Point no monthly one). A station is listed for hourly and daily only if the list
+    # gives its collection a first date, and with the dates of that collection (GH-2867). `LATITUDE` and `LONGITUDE`
+    # are packed degrees, minutes and seconds (`485500000` is 48 deg 55'), while the geometry of the feature is decimal
+    # degrees (GH-2942); `ELEVATION` is text, and null for a station without one
     keys = ("FIRST", "LAST", "HLY_FIRST", "HLY_LAST", "DLY_FIRST", "DLY_LAST", "MLY_FIRST", "MLY_LAST")
 
     def feature(
@@ -1013,6 +1014,19 @@ def _eccc(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
                 [-113.37611111111111, 48.999725],
             ),
             feature(
+                7559,
+                "ALERT A",
+                "NU",
+                (823100000, -621700000),
+                "AST",
+                "30.50",
+                (
+                    *("1988-04-01 05:00:00", "2026-10-13 12:30:10", "1988-04-01 05:00:00", "2026-10-13 12:30:10"),
+                    *(None, None, None, None),
+                ),
+                [-62.28333333333333, 82.51666666666667],
+            ),
+            feature(
                 10904,
                 "GLADMAN POINT",
                 "NU",
@@ -1028,7 +1042,15 @@ def _eccc(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         ],
     }
     _serve(monkeypatch, eccc_api, {"climate-stations/items": json.dumps(catalogue).encode("utf8")})
-    return _stations(EcccObservationRequest, ("daily", "data"))
+    return _stations(EcccObservationRequest, (resolution, "data"))
+
+
+def _eccc_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    return _eccc(monkeypatch, "hourly")
+
+
+def _eccc_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    return _eccc(monkeypatch, "daily")
 
 
 FMI_ANTARCTICA = Accepted(
@@ -1466,7 +1488,20 @@ STUBS = [
     Stub("nws/observation hourly/data", _nws),
     Stub("meteofrance/observation daily/core", _meteofrance_observation, expected=METEOFRANCE_EXPECTED),
     Stub("meteofrance/synop subdaily/data", _meteofrance_synop),
-    Stub("eccc/observation daily/data", _eccc),
+    Stub(
+        "eccc/observation hourly/data",
+        _eccc_hourly,
+        # the hourly collection of Esquimalt Harbour starts 1994-02-01 00:00 PST, the station in 1957
+        expected={
+            "52": {"start_timestamp": dt.datetime(1994, 2, 1, 8, tzinfo=dt.UTC)},
+            "7559": {"start_timestamp": dt.datetime(1988, 4, 1, 9, tzinfo=dt.UTC)},
+        },
+    ),
+    Stub(
+        "eccc/observation daily/data",
+        _eccc_daily,
+        expected={"52": {"start_timestamp": dt.datetime(1957, 10, 1, tzinfo=dt.UTC)}},
+    ),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
     Stub("dwd/poi hourly/data", _dwd_poi, (DWD_NAMES,)),
     Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),

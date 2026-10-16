@@ -239,12 +239,13 @@ entry for each invalid parameter, where `loc` names it:
 
 | Status | When |
 | --- | --- |
-| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range |
-| 404 | what the request names does not exist: a provider, network, station, forecast run, or a path |
+| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range |
+| 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
 | 501 | the server cannot serve it: a credential or an optional package it lacks, which the body does not name |
+| 503 | the server could not reach the data provider (no network connection); the request was valid and can be retried, the body says so and does not name the provider's address |
 | 500 | the server's own error, or the provider's: the body names the exception's type and nothing else, the cause is in the server log |
 
 Read `status` for what happened and `detail` for a sentence to show; the wording of `detail` is not

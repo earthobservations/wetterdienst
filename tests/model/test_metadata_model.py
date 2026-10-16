@@ -2,11 +2,14 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for metadata models."""
 
+import logging
 import re
+from enum import Enum
 
 import pytest
 
-from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
+from wetterdienst.metadata.resolution import Frequency, Resolution
 from wetterdienst.model.metadata import (
     ParameterModel,
     ParameterSearch,
@@ -37,6 +40,12 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
         # other separators
         ("daily.climate_summary", ParameterSearch("daily", "climate_summary")),
         ("daily:climate_summary", ParameterSearch("daily", "climate_summary")),
+        # the resolution as the member the package exports (GH-2636)
+        ((Resolution.DAILY, "climate_summary"), ParameterSearch("daily", "climate_summary")),
+        (
+            (Resolution.MINUTE_10, "solar", "radiation_global"),
+            ParameterSearch("10_minutes", "solar", "radiation_global"),
+        ),
     ],
 )
 def test_parameter_search(value: str | ParameterModel, expected: ParameterModel) -> None:
@@ -108,6 +117,12 @@ def test_parse_parameters(value: str | ParameterModel, expected: ParameterModel)
     assert parse_parameters(value, DwdObservationMetadata) == expected
 
 
+class _Unnamed(Enum):
+    """An enumeration whose value is no name, which the metadata cannot be searched for."""
+
+    ONE = 1
+
+
 @pytest.mark.parametrize(
     ("value", "error", "message"),
     [
@@ -118,7 +133,9 @@ def test_parse_parameters(value: str | ParameterModel, expected: ParameterModel)
         ("daily/", ValueError, "expected 'resolution/dataset'"),
         # parts that are not names
         (("daily", 1), TypeError, "expected the parts as strings, got int '1'"),
-        ((Resolution.DAILY, "climate_summary"), TypeError, "expected the parts as strings, got Resolution"),
+        (("daily", _Unnamed.ONE), TypeError, "expected the parts as strings, got _Unnamed"),
+        # only Resolution is read as its value: another enumeration's would be searched for and not found
+        ((Frequency.HOURLY, "kl"), TypeError, "expected the parts as strings, got Frequency"),
         (Resolution.DAILY, TypeError, "got Resolution"),
     ],
 )
@@ -145,11 +162,68 @@ def test_parameter_search_invalid(value: str | tuple, error: type[Exception], me
         ),
     ],
 )
-def test_parse_parameters_not_found(value: str, message: str, caplog: pytest.LogCaptureFixture) -> None:
-    """Test that a parameter that cannot be resolved is warned about with the reason."""
-    assert parse_parameters(value, DwdObservationMetadata) == []
+def test_parse_parameters_not_found(value: str, message: str) -> None:
+    """Test that a parameter that cannot be resolved is refused with the reason, and the close match."""
+    with pytest.raises(InvalidParameterError) as excinfo:
+        parse_parameters(value, DwdObservationMetadata)
+    assert message in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("dayly/kl", "'dayly'. Did you mean 'daily'? Available resolutions:"),
+        ("daily/klx", "'klx'. Did you mean 'kl'? Available datasets:"),
+        ("daily/kl/quality_wind", "'quality_wind' is a quality flag."),
+    ],
+)
+def test_parse_parameters_not_found_warn(value: str, message: str, caplog: pytest.LogCaptureFixture) -> None:
+    """Test that on_unknown="warn" logs the same reason as a warning and returns what resolved."""
+    assert parse_parameters(value, DwdObservationMetadata, on_unknown="warn") == []
     assert message in caplog.text
     assert caplog.records[0].levelname == "WARNING"
+
+
+def test_parse_parameters_names_every_unknown_parameter() -> None:
+    """Test that a request with several bad entries is refused once, naming all of them."""
+    with pytest.raises(InvalidParameterError) as excinfo:
+        parse_parameters(
+            ["daily/kl/temperature_air_mean_2m", "daily/foo", "dayly/kl", "daily/kl/"],
+            DwdObservationMetadata,
+        )
+    message = str(excinfo.value)
+    assert "'foo'" in message
+    assert "'dayly'" in message
+    assert "'daily/kl/' could not be parsed as a parameter" in message
+
+
+def test_parse_parameters_warn_keeps_the_others(caplog: pytest.LogCaptureFixture) -> None:
+    """Test that on_unknown="warn" is the skipping of old: the parameters that resolved are returned."""
+    with caplog.at_level(logging.WARNING):
+        parameters = parse_parameters(
+            ["daily/kl/temperature_air_mean_2m", "daily/foo"], DwdObservationMetadata, on_unknown="warn"
+        )
+    assert parameters == [DwdObservationMetadata.daily.climate_summary.temperature_air_mean_2m]
+    assert "daily/foo not found" in caplog.text
+
+
+def test_parse_parameters_refuses_an_unknown_on_unknown() -> None:
+    """Test that a value that is neither "raise" nor "warn" is refused with the two listed."""
+    with pytest.raises(InvalidEnumerationError, match="Valid values: raise, warn"):
+        parse_parameters("daily/kl", DwdObservationMetadata, on_unknown="ignore")  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        (Resolution.DAILY, "climate_summary"),
+        [(Resolution.DAILY, "climate_summary")],
+        [Resolution.DAILY, "climate_summary"],
+    ],
+)
+def test_parse_parameters_accepts_enum_members(value: object) -> None:
+    """Test that the resolution may be given as its member, in a tuple or in a list of its parts (GH-2636)."""
+    assert parse_parameters(value, DwdObservationMetadata) == [*DwdObservationMetadata.daily.climate_summary]  # ty: ignore[invalid-argument-type]
 
 
 def test_parse_parameters_deduplicated() -> None:
@@ -171,8 +245,8 @@ def test_parse_parameters_wrong_type() -> None:
     """Test that a parameter of an unsupported type is named as such."""
     with pytest.raises(TypeError, match="got int"):
         parse_parameters(1, DwdObservationMetadata)
-    with pytest.raises(TypeError, match="expected the parts as strings, got Resolution"):
-        parse_parameters([(Resolution.DAILY, "climate_summary")], DwdObservationMetadata)
+    with pytest.raises(TypeError, match="expected the parts as strings, got _Unnamed"):
+        parse_parameters([("daily", _Unnamed.ONE)], DwdObservationMetadata)
 
 
 @pytest.mark.parametrize(
@@ -194,16 +268,16 @@ def test_lookup_suggests(lookup: object) -> None:
         lookup()
 
 
-def test_parse_parameters_malformed_is_skipped(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that a malformed parameter is skipped like an unknown one, not raised to the caller.
+def test_parse_parameters_malformed_is_refused_like_an_unknown_one() -> None:
+    """Test that a malformed parameter is refused, not answered with the others and a log line.
 
     A trailing separator is easy to produce from CLI or REST input and used to be answered with
-    the whole dataset; taking the parameters listed next to it down with it would be worse than
-    either.
+    the whole dataset, then with the parameters next to it and no word of what was left out.
     """
-    parameters = parse_parameters(["daily/kl/", "daily/solar"], DwdObservationMetadata)
+    with pytest.raises(InvalidParameterError, match="'daily/kl/' could not be parsed as a parameter"):
+        parse_parameters(["daily/kl/", "daily/solar"], DwdObservationMetadata)
+    parameters = parse_parameters(["daily/kl/", "daily/solar"], DwdObservationMetadata, on_unknown="warn")
     assert parameters == [*DwdObservationMetadata.daily.solar]
-    assert "'daily/kl/' could not be parsed as a parameter" in caplog.text
 
 
 def test_group_parameters_by_dataset_groups_a_dataset_asked_for_twice() -> None:

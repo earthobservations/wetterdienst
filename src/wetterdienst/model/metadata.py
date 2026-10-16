@@ -9,17 +9,18 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
 from pydantic_extra_types.timezone_name import (
     TimeZoneName,  # noqa: TC002, needs to stay here for pydantic model to work
 )
 
+from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
-from wetterdienst.metadata.resolution import Resolution  # noqa: TC001, needs to stay here for pydantic model to work
+from wetterdienst.metadata.resolution import Resolution
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -578,6 +579,26 @@ def build_metadata_model(metadata: dict, name: str) -> MetadataModel:
     return MetadataModel.model_validate(metadata)
 
 
+def _name_of(part: object) -> object:
+    """Give a ``Resolution`` member the name it is searched for by, its value, and anything else as it is.
+
+    ``Resolution`` is one of the two names the package exports, so ``(Resolution.DAILY, "kl")`` is
+    taken as ``("daily", "kl")``. Any other enumeration names nothing in the metadata and is left for
+    the caller to be refused with the other parts that are not names.
+    """
+    return part.value if isinstance(part, Resolution) else part
+
+
+ON_UNKNOWN = ("raise", "warn")
+
+
+def check_on_unknown(on_unknown: str) -> None:
+    """Refuse an ``on_unknown`` that is neither ``"raise"`` nor ``"warn"``, listing the two."""
+    if on_unknown not in ON_UNKNOWN:
+        msg = f"{on_unknown!r} is not a valid on_unknown. Valid values: {', '.join(ON_UNKNOWN)}"
+        raise InvalidEnumerationError(msg)
+
+
 @dataclass
 class ParameterSearch:
     """Dataclass to hold a search for a parameter."""
@@ -603,13 +624,12 @@ class ParameterSearch:
         else:
             msg = f"expected {_EXPECTED_PARAMETER}, got {type(value).__name__}"
             raise TypeError(msg)
-        # the parts are names, so an enum member mixed into a tuple -- (Resolution.DAILY, "kl") --
-        # is rejected here, naming the accepted forms, rather than searched for and not found
-        for part in parts:
+        named = [_name_of(part) for part in parts]
+        for part in named:
             if not isinstance(part, str):
                 msg = f"{value!r}: expected the parts as strings, got {type(part).__name__} '{part}'"
                 raise TypeError(msg)
-        parts = [part.strip().lower() for part in parts]
+        parts = [part.strip().lower() for part in cast("list[str]", named)]
         if len(parts) not in (2, 3) or not all(parts):
             msg = (
                 f"{value!r}: expected 'resolution/dataset' or 'resolution/dataset/parameter' "
@@ -624,43 +644,54 @@ class ParameterSearch:
         return "/".join(filter(None, [self.resolution, self.dataset, self.parameter]))
 
 
-def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> list[ParameterModel]:
+def _entries(parameters: _PARAMETER_TYPE) -> list[str | Iterable[str] | DatasetModel | ParameterModel]:
+    """Split what was asked for into the entries that are each one search, enumeration members as names."""
+    if isinstance(parameters, str | DatasetModel | ParameterModel):
+        # "daily/climate_summary" -> ["daily/climate_summary"]
+        return [parameters]
+    if not isinstance(parameters, Iterable):
+        msg = f"expected {_EXPECTED_PARAMETER}, or a sequence of those, got {type(parameters).__name__}"
+        raise TypeError(msg)
+    # materialized first: the check below would otherwise exhaust an iterator
+    entries = cast("list[str | Iterable[str] | DatasetModel | ParameterModel]", [_name_of(p) for p in parameters])
+    names = [p for p in entries if isinstance(p, str)]
+    if entries and len(names) == len(entries) and all(sep not in p for p in names for sep in POSSIBLE_SEPARATORS):
+        # ("daily", "climate_summary") -> [("daily", "climate_summary")]
+        return [names]
+    return entries
+
+
+def parse_parameters(
+    parameters: _PARAMETER_TYPE,
+    metadata: MetadataModel,
+    on_unknown: Literal["raise", "warn"] = "raise",
+) -> list[ParameterModel]:
     """Parse one parameter or a sequence of them into the provider's parameter models.
 
     A parameter the provider does not have, or one that is not shaped like a parameter at all, is
-    not fatal on its own -- the other parameters are still resolved and returned -- but it is
-    logged as a warning naming the reason, because silently returning less data than was asked for
-    is otherwise invisible. Only a request where nothing at all resolves fails, which the caller
-    raises. A part that is not a string is a ``TypeError`` and does propagate: it says the caller
-    passed the wrong kind of object rather than misspelled a name.
+    refused with an `InvalidParameterError` naming every such entry with its close match and the
+    names that would have matched, because returning less than was asked for without saying so is
+    the answer a caller cannot see. With ``on_unknown="warn"`` each is logged as a warning instead
+    and the others are still resolved and returned; only a request where nothing at all resolves
+    fails then, which the caller raises. A part that is not a string, nor an enumeration member
+    with a string value, is a ``TypeError`` and does propagate: it says the caller passed the wrong
+    kind of object rather than misspelled a name.
     """
-    entries: list[str | Iterable[str] | DatasetModel | ParameterModel]
-    if isinstance(parameters, str | DatasetModel | ParameterModel):
-        # "daily/climate_summary" -> ["daily/climate_summary"]
-        entries = [parameters]
-    elif isinstance(parameters, Iterable):
-        # materialized first: the check below would otherwise exhaust an iterator
-        entries = list(parameters)
-        names = [p for p in entries if isinstance(p, str)]
-        if entries and len(names) == len(entries) and all(sep not in p for p in names for sep in POSSIBLE_SEPARATORS):
-            # ("daily", "climate_summary") -> [("daily", "climate_summary")]
-            entries = [names]
-    else:
-        msg = f"expected {_EXPECTED_PARAMETER}, or a sequence of those, got {type(parameters).__name__}"
-        raise TypeError(msg)
+    check_on_unknown(on_unknown)
+    entries = _entries(parameters)
     parameters_found = []
     seen = set()
+    problems = []
     for parameter in entries:
         try:
             parameter_search = ParameterSearch.parse(parameter)
             found = metadata.search_parameter(parameter_search)
         except ValueError as e:
-            # malformed, e.g. a trailing separator -- skipped like an unknown name, so that one
-            # bad entry does not take the parameters around it down with it
-            log.warning(f"{parameter!r} could not be parsed as a parameter: {e.args[0]}")
+            # malformed, e.g. a trailing separator
+            problems.append(f"{parameter!r} could not be parsed as a parameter: {e.args[0]}")
             continue
         except KeyError as e:
-            log.warning(f"{parameter_search.concat()} not found in {metadata.name}: {e.args[0]}")
+            problems.append(f"{parameter_search.concat()} not found in {metadata.name}: {e.args[0]}")
             continue
         for parameter_found in found:
             # requests commonly overlap e.g. a dataset and one of its parameters, which would
@@ -673,6 +704,14 @@ def parse_parameters(parameters: _PARAMETER_TYPE, metadata: MetadataModel) -> li
             if key not in seen:
                 seen.add(key)
                 parameters_found.append(parameter_found)
+    if problems and on_unknown == "raise":
+        error = InvalidParameterError("; ".join(problems))
+        error.resolved = bool(parameters_found)
+        raise error
+    # warned about once the whole request is read, so that a request with one bad entry among
+    # others names all of them whichever way it goes on
+    for problem in problems:
+        log.warning(problem)
     return parameters_found
 
 

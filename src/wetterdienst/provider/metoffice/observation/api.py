@@ -137,8 +137,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         if file.status != 404 or not missing_ok:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.debug(f"No MetOffice file {url}: {file.content}")
+            log.debug(f"No MetOffice file {url}: {file.content}")
             return None
         return file.content.read()
 
@@ -310,7 +309,7 @@ class MetOfficeObservationRequest(TimeseriesRequest):
             )
             # a dataset's station catalogue is one required file, so any failure of it -- a 404
             # included -- is an outage, which swallowed would read as a dataset without stations
-            # (GH-2519). NoInternetError skips the dataset silently
+            # (GH-2519). A failed connection (NoInternetError) is raised as well (GH-2640)
             file.raise_if_exception()
             if isinstance(file.content, Exception):
                 continue

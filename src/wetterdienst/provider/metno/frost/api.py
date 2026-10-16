@@ -20,7 +20,7 @@ from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import PROBE_TIMEOUT, download_file
+from wetterdienst.util.network import PROBE_TIMEOUT, File, download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
@@ -410,6 +410,12 @@ _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
 _DAILY = "daily"
 
 
+def _raise_if_offline(file: File) -> None:
+    """Raise the `NoInternetError` of a download that could not connect, which no status below answers (GH-2640)."""
+    if file.is_no_internet_error:
+        file.raise_if_exception()
+
+
 def _frost_time(value: datetime) -> str:
     """Give a request bound as Frost reads it: the text of its UTC wall clock.
 
@@ -557,7 +563,8 @@ class MetnoFrostValues(TimeseriesValues):
         # the status is read before the generic failure warning below: a 404 or 412 says there is
         # nothing (or that a fallback applies), not that the request failed
         # 412: no data for this station/elements/period combination
-        if file.is_no_internet_error or file.status == 412:
+        _raise_if_offline(file)
+        if file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: one or more elements may require specific time-series parameters (e.g.
         # historical synoptic data). Fall back to resolving each requested parameter individually.
@@ -663,7 +670,8 @@ class MetnoFrostValues(TimeseriesValues):
         )
         # the status before the body, as in `_collect_station_parameter_or_dataset`
         # 412: no data for this station/element/period combination
-        if file.is_no_internet_error or file.status == 412:
+        _raise_if_offline(file)
+        if file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: element may require specific time-series parameters (e.g. historical synoptic data)
         if file.status == 404:
@@ -740,7 +748,8 @@ class MetnoFrostValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
-        if avail_file.is_no_internet_error or avail_file.status in (404, 412):
+        _raise_if_offline(avail_file)
+        if avail_file.status in (404, 412):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(avail_file.content, Exception):
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
@@ -783,7 +792,8 @@ class MetnoFrostValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            if obs_file.is_no_internet_error or obs_file.status in (404, 412):
+            _raise_if_offline(obs_file)
+            if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
                 log.warning(f"Failed to download {obs_url}: {obs_file.content}")
@@ -920,8 +930,8 @@ class MetnoFrostRequest(TimeseriesRequest):
             )
             raise PermissionError(msg)
         # the catalogue is one required file, so any other failure of it -- a 404 included -- is an
-        # outage, which swallowed would read as a network without stations (GH-2599). NoInternetError
-        # returns silently, to give an empty frame
+        # outage, which swallowed would read as a network without stations (GH-2599). A failed
+        # connection (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()

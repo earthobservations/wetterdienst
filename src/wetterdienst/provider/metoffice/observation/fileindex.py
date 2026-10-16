@@ -42,8 +42,8 @@ def latest_release_version(settings: Settings, token: str | None) -> str | None:
 
     A listing that cannot be fetched raises a ``DownloadError`` -- a 404 included, for the listing is
     the one file every request depends on -- where it read as no release and so as a network without
-    stations or values (GH-2519). ``None`` is for a listing that was read and names no release, and
-    for no connection at all, which stays quiet.
+    stations or values (GH-2519), and no connection at all raises ``NoInternetError`` (GH-2640).
+    ``None`` is for a listing that was read and names no release.
     """
     file = download_file(
         url=_RELEASE_LISTING_URL,
@@ -55,6 +55,7 @@ def latest_release_version(settings: Settings, token: str | None) -> str | None:
     )
     file.raise_if_exception()
     if isinstance(file.content, Exception):
+        # narrows the type; `raise_if_exception` has raised for any failed download
         return None
     try:
         # the listing is a network boundary: a non-JSON body (e.g. a temporary HTML error page) or an

@@ -227,11 +227,10 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
             # answered before either branch reads the listing: an empty one fails differently in
             # each, and both in a way that names neither the directory nor what was looked for.
             #
-            # And said with the doubt it deserves: `fs.find` walks with `on_error="omit"`, which
-            # swallows `OSError` -- aiohttp's `ClientOSError` is one -- so a listing that could not
-            # be read arrives looking exactly like a directory that holds nothing, as does the 404
-            # of a station id that does not exist
-            message = f"No file listed within {url}; a listing that failed looks the same as one that is empty"
+            # A listing that failed raises -- a connection that could not be made as `NoInternetError`
+            # (GH-2640) -- so what is empty here is a directory that holds nothing or that does not
+            # exist, as the 404 of a station id that does not exist
+            message = f"No file listed within {url}; a missing directory lists as empty"
             if not one_station_only:
                 raise IndexError(message)
             log.warning(message)
@@ -348,19 +347,10 @@ class DwdMosmixRequest(TimeseriesRequest):
             # to raise here. Reached by a station whose directory DWD has emptied or retired, and
             # by a path that no longer exists, which `fs.find` answers with no entries.
             #
-            # Warned about rather than simply answered, because a listing that *failed* looks the
-            # same from here: `fs.find` walks with `on_error="omit"`, which swallows `OSError`, and
-            # aiohttp's `ClientOSError` is one -- so a connection reset mid-listing is swallowed
-            # inside fsspec, never reaches the retry around this call, and arrives as an empty
-            # directory would -- as does the 404 of a station id that does not exist. An
-            # unremarked `[]` would make either a fact about the station.
-            #
-            # Telling them apart here, with an `fs.exists` probe before answering, has been
-            # proposed three times in review and is written up against `on_error="raise"` on
-            # GH-1947: the probe narrows the window rather than closing it, and can fail the same
-            # way the listing did, while the listing reporting what it swallowed fixes every
-            # provider at once
-            log.warning(f"No MOSMIX run listed within {url}; a listing that failed looks the same as one that is empty")
+            # Warned about rather than simply answered, because a path that no longer exists lists as
+            # empty too, as does the 404 of a station id that does not exist. A listing that failed
+            # is not that: it raises, and offline it raises `NoInternetError` (GH-2640).
+            log.warning(f"No MOSMIX run listed within {url}; a missing directory lists as empty")
             return []
         df = pl.DataFrame({"url": urls}, orient="col")
         df = df.with_columns(_run_stamp(pl.col("url")).alias("timestamp"))

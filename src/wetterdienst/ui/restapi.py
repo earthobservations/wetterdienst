@@ -33,6 +33,7 @@ from wetterdienst.exceptions import (
     InvalidTimeIntervalError,
     MissingDependencyError,
     MissingTimeIntervalError,
+    NoInternetError,
     ReversedTimeIntervalError,
     WetterdienstError,
 )
@@ -1415,6 +1416,23 @@ def _refusal_detail(e: Exception, what: str) -> str:
     return str(e)
 
 
+_UPSTREAM_UNREACHABLE = (
+    "The server could not reach the data provider (no network connection). The request was valid; try again later."
+)
+
+
+def _upstream_unreachable(e: NoInternetError, what: str) -> HTTPException:
+    """Answer a provider the server could not connect to with a 503, as an outage and not as a crash (GH-2640).
+
+    Neither the caller's mistake nor a defect: the request was well formed and the same one can
+    succeed once the connection is back, which is what a 503 says and a client may retry on. The
+    message names the provider's URL, which is for whoever runs the server, so it goes to the log as
+    a warning, with no traceback to read, and the body carries a fixed sentence.
+    """
+    log.warning(f"Failed to {what}: {e}")
+    return HTTPException(status_code=503, detail=_UPSTREAM_UNREACHABLE)
+
+
 def _server_error(e: Exception) -> HTTPException:
     """Answer a failure that is the server's with a 500 that names its type and nothing else (GH-2767).
 
@@ -1423,11 +1441,28 @@ def _server_error(e: Exception) -> HTTPException:
     The caller of an unauthenticated API has no use for the server's file system layout, so the
     body carries a fixed sentence and the exception's class, and the text stays where the traceback
     is, in the server log. The body is the problem of `_problem_response`, with that text as its `detail`.
+
+    A provider the server could not connect to is not that: it is a 503 (`_upstream_unreachable`),
+    for the catch-alls that answer every failure of the collection with this.
     """
+    if isinstance(e, NoInternetError):
+        return _upstream_unreachable(e, "reach the data provider")
     return HTTPException(
         status_code=500,
         detail=f"Internal server error ({type(e).__name__}). The cause is in the server log.",
     )
+
+
+def _logged_server_error(e: Exception, what: str) -> HTTPException:
+    """Log a failure that is the server's or the provider's, and answer it with `_server_error`.
+
+    A provider the server could not connect to is an outage, not a defect (GH-2640): a 503 and a
+    warning without a traceback (`_upstream_unreachable`), where anything else is an error with one.
+    """
+    if isinstance(e, NoInternetError):
+        return _upstream_unreachable(e, what)
+    log.error(f"Failed to {what}.", exc_info=e)
+    return _server_error(e)
 
 
 def _configuration_missing_on_the_server(e: ConfigurationError, what: str) -> HTTPException:
@@ -1451,7 +1486,8 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     the exception's place in the `WetterdienstError` hierarchy (`failure_status`): a request the
     caller phrased wrong is theirs to fix, so an info line without a traceback and a 400, and a
     provider, network, station or issue that does not exist a 404; a credential or an optional
-    dependency the server lacks is a 501; anything else is a logged traceback and a 500 that does
+    dependency the server lacks is a 501; a provider the server could not connect to is a 503;
+    anything else is a logged traceback and a 500 that does
     not repeat the exception's text (`_server_error`).
     """
     if isinstance(e, MissingDependencyError):
@@ -1460,6 +1496,8 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
         return _credential_missing_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
+    if isinstance(e, NoInternetError):
+        return _upstream_unreachable(e, what)
     status = _caller_refusal_status(e, request)
     if status is None:
         log.error(f"Failed to {what}.", exc_info=e)
@@ -1652,8 +1690,7 @@ def stripes_stations(
     except Exception as e:
         # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
-        log.exception("Failed to get stripes stations")
-        raise _server_error(e) from e
+        raise _logged_server_error(e, "get stripes stations") from e
     content = stations.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
     media_type = "text/csv" if request.format == "csv" else "application/json"
     return Response(content=content, media_type=media_type)
@@ -1762,8 +1799,7 @@ def history(
     except Exception as e:
         # past the station lookup the request has nothing left to refuse: what fails from here on
         # is the server's or the data source's, whatever its type
-        log.exception("Failed to acquire history provider")
-        raise _server_error(e) from e
+        raise _logged_server_error(e, "acquire history provider") from e
 
     try:
         content = history_provider.to_json(
@@ -1773,8 +1809,7 @@ def history(
             indent=4 if request.pretty else None,
         )
     except Exception as e:
-        log.exception("Failed to collect station history")
-        raise _server_error(e) from e
+        raise _logged_server_error(e, "collect station history") from e
     return Response(content=content, media_type="application/json")
 
 
@@ -1811,8 +1846,7 @@ def alerts(
     except Exception as e:
         # a feed that does not list, download or read, and an alert in it the parser does not
         # expect: the date was converted already, so not even an `OverflowError` is the caller's
-        log.exception("Failed to get weather alerts")
-        raise _server_error(e) from e
+        raise _logged_server_error(e, "get weather alerts") from e
 
     content = result.to_format(request.format, indent=request.pretty)
     media_type = "text/csv" if request.format == "csv" else "application/json"

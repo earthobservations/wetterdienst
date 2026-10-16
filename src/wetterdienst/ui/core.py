@@ -24,6 +24,7 @@ from wetterdienst.exceptions import (
     DateRequiredError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
+    NoInternetError,
     NoParametersFoundError,
     NotEnoughDataError,
     NotFoundError,
@@ -1077,14 +1078,16 @@ def failure_status(e: BaseException) -> int:
     issue a negative offset carries past year 9999 -- and the dates on the way that come that close
     are the request's. A `ConfigurationError`, a credential or an optional dependency this
     installation lacks, is a 501: the request was well formed, and the deployment declines it.
-    Anything else is a 500, an `UpstreamError` and an unclassified `WetterdienstError` among it:
-    a provider's file in a layout its parser does not expect or an upstream that does not answer is
-    not the caller's to fix, so a class added to the hierarchy without a place here is the
-    server's error until it is given one.
+    A `NoInternetError`, no connection to the provider could be made, is a 503: nothing is wrong
+    with the request or the server's code, and the same request can succeed once the connection is
+    back (GH-2640). Anything else is a 500, an `UpstreamError` and an unclassified
+    `WetterdienstError` among it: a provider's file in a layout its parser does not expect or an
+    upstream that answers badly is not the caller's to fix, so a class added to the hierarchy
+    without a place here is the server's error until it is given one.
 
     Kept here rather than in the REST API so that `wetterdienst issues` asks the same question
-    without importing FastAPI: there a refusal is a usage error, exit 2, and anything else a logged
-    traceback, exit 1.
+    without importing FastAPI: there a refusal is a usage error, exit 2, a `NoInternetError` one line, exit 1,
+    and anything else a logged traceback, exit 1.
     """
     if isinstance(e, NotFoundError):
         return 404
@@ -1092,6 +1095,8 @@ def failure_status(e: BaseException) -> int:
         return 400
     if isinstance(e, ConfigurationError):
         return 501
+    if isinstance(e, NoInternetError):
+        return 503
     return 500
 
 
@@ -1346,8 +1351,8 @@ def _get_stations_request(
 
     parameters = parse_parameters(request.parameters, api.metadata)
     if not parameters:
-        # raised here rather than left to the request, which would only see the empty list this
-        # resolved to and could not name what was asked for
+        # an unknown parameter raised above; this is a request that names none at all, raised here
+        # rather than left to the request, which would only see the empty list it resolved to
         msg = f"No valid parameters could be parsed from {request.parameters!r} for {api.__name__}"
         raise NoParametersFoundError(msg)
 

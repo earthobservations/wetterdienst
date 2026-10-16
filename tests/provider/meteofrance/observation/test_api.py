@@ -16,7 +16,7 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File
 
@@ -381,7 +381,7 @@ def test_meteofrance_observation_api_hourly_ten_minute_wind_is_named_for_its_win
     df = _values("hourly", "core", "wind_direction_last_10min", "31069001", start, end)
     assert df.get_column("value").to_list() == [10.0]
     for old in ("wind_speed", "wind_direction"):
-        with pytest.raises(NoParametersFoundError):
+        with pytest.raises(InvalidParameterError):
             MeteoFranceObservationRequest(parameters=[("hourly", "core", old)])
 
 
@@ -402,7 +402,7 @@ def test_meteofrance_observation_api_hourly_fxy_is_the_highest_ten_minute_mean(
     df = _values("hourly", "core", "wind_speed_rolling_mean_max", "31069001", _utc(2025, 1, 1), _utc(2025, 2, 1))
     assert df.get_column("timestamp").to_list() == [_utc(2025, 1, 1, 2), _utc(2025, 1, 3, 7)]
     assert df.get_column("value").to_list() == [2.5, 2.3]
-    with pytest.raises(NoParametersFoundError):
+    with pytest.raises(InvalidParameterError):
         MeteoFranceObservationRequest(parameters=[("hourly", "core", "wind_gust_max")])
 
 

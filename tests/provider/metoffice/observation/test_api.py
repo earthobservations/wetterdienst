@@ -288,8 +288,8 @@ def test_ceda_token_redirect_returns_none(monkeypatch: pytest.MonkeyPatch) -> No
     assert not download._TOKEN_CACHE  # noqa: SLF001
 
 
-def test_ceda_token_failed_exchange_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A token exchange that never reached CEDA is "not authenticated", not a crash, and not cached."""
+def test_ceda_token_exchange_that_never_reached_ceda_raises_no_internet(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A token exchange that never reached CEDA raises `NoInternetError`, and is not cached (GH-2640)."""
     from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
     from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
     from wetterdienst.settings import Settings  # noqa: PLC0415
@@ -305,7 +305,8 @@ def test_ceda_token_failed_exchange_returns_none(monkeypatch: pytest.MonkeyPatch
         )
 
     monkeypatch.setattr(download, "post_file", _fake_post)
-    assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
+    with pytest.raises(NoInternetError):
+        download.get_ceda_token(Settings(auth={"ceda": "user:pass"}))
     assert not download._TOKEN_CACHE  # noqa: SLF001
 
 

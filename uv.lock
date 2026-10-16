@@ -7080,7 +7080,7 @@ dev = [
     { name = "pybufrkit", specifier = ">=0.2.25" },
     { name = "pytest", specifier = ">=9.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
-    { name = "pytest-rerunfailures", specifier = ">=16.4" },
+    { name = "pytest-rerunfailures", specifier = ">=16.7" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "ruff", specifier = ">=0.16.0" },

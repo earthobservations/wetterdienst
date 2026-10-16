@@ -26,8 +26,9 @@ from wetterdienst import Author, Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.history import TimeseriesHistory
-from wetterdienst.model.metadata import NetworkKind
+from wetterdienst.model.metadata import NetworkKind, ParameterSearch
 from wetterdienst.options import Options
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
@@ -807,7 +808,7 @@ def test_unreachable_selection_is_a_server_error(
 
 
 def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
-    """Test that a parameter the provider does not have is answered with the request it was asked of."""
+    """Test that a parameter the provider does not have is answered with a 400 that names it (GH-2636)."""
     response = client.get(
         "/api/values",
         params={
@@ -818,8 +819,8 @@ def test_values_dwd_no_valid_parameters(client: TestClient) -> None:
         },
     )
     assert response.status_code == 400
-    assert "No valid parameters could be parsed from" in response.text
-    assert "DwdObservationRequest" in response.text
+    assert response.json()["detail"] == _UNKNOWN_PARAMETER
+    assert "'abc'. Available datasets:" in response.text
 
 
 @pytest.mark.remote
@@ -2737,6 +2738,178 @@ def test_a_reader_missing_on_the_server_is_a_501(
     assert "pip install wetterdienst[bufr]" in caplog.text
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "params"),
+    [
+        (
+            "/api/stations",
+            "get_stations",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl",
+                "periods": "recent",
+                "all": "true",
+            },
+        ),
+        (
+            "/api/values",
+            "get_values",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31/1986-11-01",
+            },
+        ),
+        (
+            "/api/interpolate",
+            "get_interpolate",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31",
+            },
+        ),
+        (
+            "/api/summarize",
+            "get_summarize",
+            {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "daily/kl/temperature_air_mean_2m",
+                "station": "00071",
+                "timestamp": "1986-10-31",
+            },
+        ),
+    ],
+)
+def test_a_provider_the_server_cannot_reach_is_a_503(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    params: dict[str, str],
+) -> None:
+    """A server without a connection to the provider answers 503, as an outage that can be retried (GH-2640).
+
+    Not a 500, which is the server's own bug, and not an empty 200, which a client cannot tell from
+    a provider with no data. The provider's address is for the log, not for the caller.
+    """
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    def offline(**_kwargs: object) -> None:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", offline)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 503
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["status"] == 503
+    assert "could not reach the data provider" in body["detail"]
+    assert "opendata.dwd.de" not in response.text
+    # said where the server's operator reads it, without a traceback: it is no defect
+    assert "opendata.dwd.de/some/dir/" in caplog.text
+    assert all(record.exc_info is None for record in caplog.records if record.name == "wetterdienst.ui.restapi")
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "target", "params"),
+    [
+        ("/api/alerts", "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest.query", {}),
+        ("/api/stripes/stations", "wetterdienst.ui.restapi._get_stripes_stations", {"kind": "temperature"}),
+    ],
+)
+def test_a_provider_the_server_cannot_reach_is_a_503_without_a_traceback_where_the_handler_is_a_catch_all(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    target: str,
+    params: dict[str, str],
+) -> None:
+    """The routes that answer every failure of the lookup as the server's say 503 for an outage, without a traceback."""
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    def offline(*_args: object, **_kwargs: object) -> None:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(target, offline)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
+        response = client.get(endpoint, params=params)
+
+    assert response.status_code == 503
+    assert "could not reach the data provider" in response.json()["detail"]
+    assert "opendata.dwd.de" not in response.text
+    assert all(record.exc_info is None for record in caplog.records if record.name == "wetterdienst.ui.restapi")
+
+
+def test_mcp_a_provider_the_server_cannot_reach_is_a_tool_error_that_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tool error of an offline provider is the REST API's 503 and its sentence, for the agent to read (GH-2640)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    def offline(**_kwargs: object) -> None:
+        msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_stations", offline)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool("stations", {**_OBSERVATION, "all": True})
+
+    with pytest.raises(ToolError, match="HTTP error 503") as error:
+        asyncio.run(_call())
+    assert "could not reach the data provider" in str(error.value)
+    assert "opendata.dwd.de" not in str(error.value)
+
+
+def test_an_offline_server_answers_503_through_the_whole_request(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The network layer failing to connect reaches the caller of a real route as a 503 (GH-2640).
+
+    FMI's catalogue is one download, so the request goes through its own code, the shared download
+    and the REST handler, with only the connection replaced.
+    """
+    from unittest.mock import MagicMock, Mock  # noqa: PLC0415
+
+    import stamina  # noqa: PLC0415
+    from aiohttp import ClientConnectorError  # noqa: PLC0415
+
+    filesystem = MagicMock()
+    filesystem.cat_file.side_effect = ClientConnectorError(
+        Mock(ssl=None, host="opendata.fmi.fi", port=443), OSError("offline")
+    )
+    monkeypatch.setattr("wetterdienst.util.network.NetworkFilesystemManager.get", lambda **_kwargs: filesystem)
+    with stamina.set_testing(True, attempts=1):
+        response = client.get(
+            "/api/stations",
+            params={"provider": "fmi", "network": "observation", "parameters": "hourly/data", "all": "true"},
+        )
+
+    assert response.status_code == 503
+    assert "could not reach the data provider" in response.json()["detail"]
+
+
 def test_values_a_value_error_from_the_values_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -3090,6 +3263,19 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
 _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
 
 
+def _unknown_parameter_detail() -> str:
+    """Say what the library says of `daily/abc`, which the REST API answers word for word (GH-2636)."""
+    try:
+        DwdObservationMetadata.search_parameter(ParameterSearch("daily", "abc"))
+    except KeyError as e:
+        return f"daily/abc not found in DwdObservationMetadata: {e.args[0]}"
+    raise AssertionError  # pragma: no cover
+
+
+_UNKNOWN_PARAMETER = _unknown_parameter_detail()
+_UNKNOWN_PERIOD = "foo could not be parsed from Period. Valid values: historical, recent, now, future"
+
+
 def _year_10000_message() -> str:
     """Python's own words for a year past 9999, which 3.14 changed."""
     import datetime as dt  # noqa: PLC0415
@@ -3137,21 +3323,21 @@ def _year_10000_message() -> str:
             "/api/values",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
             400,
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="values-unknown-parameter",
         ),
         pytest.param(
             "/api/interpolate",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048", "timestamp": "2020-06-30"},
             400,
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="interpolate-unknown-parameter",
         ),
         pytest.param(
             "/api/values",
             {**_OBSERVATION, "station": "01048", "periods": "foo"},
             400,
-            "foo could not be parsed from Period.",
+            _UNKNOWN_PERIOD,
             id="values-unknown-period",
         ),
         pytest.param(
@@ -3790,13 +3976,13 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         pytest.param(
             "/api/stations",
             {**_OBSERVATION, "parameters": "daily/abc", "all": "true"},
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="stations-unknown-parameter",
         ),
         pytest.param(
             "/api/stations",
             {**_OBSERVATION, "periods": "foo", "all": "true"},
-            "foo could not be parsed from Period.",
+            _UNKNOWN_PERIOD,
             id="stations-unknown-period",
         ),
         pytest.param(
@@ -3833,7 +4019,7 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
         pytest.param(
             "/api/history",
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="history-unknown-parameter",
         ),
         pytest.param(
@@ -7172,12 +7358,12 @@ def test_mcp_a_refused_window_is_worded_in_terms_of_timestamp(
         ),
         pytest.param(
             {**_OBSERVATION, "parameters": "daily/abc", "station": "01048"},
-            "No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest",
+            _UNKNOWN_PARAMETER,
             id="unknown-parameter",
         ),
         pytest.param(
             {**_OBSERVATION, "station": "01048", "periods": "foo"},
-            "foo could not be parsed from Period.",
+            _UNKNOWN_PERIOD,
             id="unknown-period",
         ),
     ],
@@ -7907,6 +8093,23 @@ def test_coverage_of_dmo_carries_the_lead_times_the_others_leave_out(client: Tes
     assert dmo
     assert all(parameter["lead_times"] for parameter in dmo)
     assert not any("lead_times" in parameter for parameter in parameters_of("observation"))
+
+
+@pytest.mark.parametrize(
+    ("params", "detail"),
+    [
+        ({"resolutions": "foo"}, "Resolution 'foo' not found in DwdObservationMetadata. Available resolutions: "),
+        ({"datasets": "foo"}, "Dataset 'foo' not found in DwdObservationMetadata. Available datasets: "),
+    ],
+)
+def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_404(
+    client: TestClient, params: dict[str, str], detail: str
+) -> None:
+    """Test a name the network does not have is answered with a 404 that names it, not with `{}` (GH-2636)."""
+    response = client.get("/api/coverage", params={"provider": "dwd", "network": "observation", **params})
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["detail"].startswith(detail)
 
 
 def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
