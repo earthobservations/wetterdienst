@@ -221,7 +221,8 @@ def test_coverage(client: TestClient) -> None:
     for network_info in dwd.values():
         assert network_info["auth"] is False
         assert network_info["configured"] is True
-        assert network_info["valid"] is True
+        # whether the credentials are accepted is `/api/auth`'s to tell: `/api/coverage` has no `valid` (GH-2641)
+        assert "valid" not in network_info
     # `road` requires a date range for value queries, other DWD networks don't
     assert dwd["observation"]["date_required"] is False
     assert dwd["road"]["date_required"] is True
@@ -7079,9 +7080,9 @@ def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.Monkey
 
     async def _call() -> None:
         async with Client(mcp) as client:
-            await client.call_tool("stations", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+            await client.call_tool("history", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
 
-    with pytest.raises(ToolError, match=r"^date is not an argument of stations, which takes all, ") as error:
+    with pytest.raises(ToolError, match=r"^date is not an argument of history, which takes all, ") as error:
         asyncio.run(_call())
     assert "renamed" not in str(error.value)
 

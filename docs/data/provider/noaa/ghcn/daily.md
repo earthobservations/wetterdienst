@@ -30,7 +30,7 @@
 | {term}`snow_depth`                                         | snwd          | Snow depth (mm or inches as per user preference, inches on Daily Form pdf file)                                                 | mm   | >=0         |
 | {term}`temperature_air_max_2m` | tmax | Maximum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths on Daily Form pdf file | °C | - |
 | {term}`temperature_air_min_2m` | tmin | Minimum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths  on Daily Form pdf file | °C | - |
-| {term}`temperature_air_mean_2m` | tavg | Mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2. | °C | - |
+| {term}`temperature_air_mean_2m` | tavg | Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day. | °C | - |
 | {term}`cloud_cover_total_midnight_to_midnight`             | acmc          | Average cloudiness midnight to midnight from 30-second ceilometer data (percent)                                                | %    | >=0,<=100   |
 | {term}`cloud_cover_total_midnight_to_midnight_manual`      | acmh          | Average cloudiness midnight to midnight from manual observation (percent)                                                       | %    | >=0,<=100   |
 | {term}`cloud_cover_total_sunrise_to_sunset`                | acsc          | Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)                                                   | %    | >=0,<=100   |
