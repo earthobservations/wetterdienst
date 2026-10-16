@@ -130,9 +130,10 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         dt.datetime(1991, 11, 18, 23, tzinfo=utc),
         dt.datetime(2000, 1, 1, tzinfo=utc),
     )
-    # the first file of 2000 begins with the six stamps 23:00 to 23:50 UTC of 1999-12-31 (GH-2815)
+    # the first file of 2000 begins with the six stamps 23:00 to 23:50 UTC of 1999-12-31 (GH-2815), and is chosen
+    # from 22:00 UTC, as the file of 1999 lists the stamps of that hour twice and it tells the copy (GH-2829)
     assert bounds["20000101_20091231"] == (
-        dt.datetime(1999, 12, 31, 23, tzinfo=utc),
+        dt.datetime(1999, 12, 31, 22, tzinfo=utc),
         dt.datetime(2010, 1, 1, tzinfo=utc),
     )
     assert bounds["19900101_19910630"] == (
@@ -170,7 +171,9 @@ def test_historical_file_bounds_are_utc_instants_of_the_stamps(
         # that ends in summer ends at 23:00 UTC, where Berlin's CEST midnight is 22:00 UTC
         ("1991-11-18T23:00+00:00", "1991-11-18T23:30+00:00", ["19911119_19991231"]),
         ("1991-06-30T22:30+00:00", "1991-06-30T22:50+00:00", ["19900101_19910630"]),
-        ("1999-12-31T22:00+00:00", "1999-12-31T22:50+00:00", ["19911119_19991231"]),
+        # the file of 1999 lists these stamps twice, one row a copy of a row of the file of 2000 (GH-2829)
+        ("1999-12-31T22:00+00:00", "1999-12-31T22:50+00:00", ["19911119_19991231", "20000101_20091231"]),
+        ("1999-12-31T21:00+00:00", "1999-12-31T21:50+00:00", ["19911119_19991231"]),
         # the stamps 23:00 to 23:50 UTC of 1999-12-31 are in the file of 2000, whose name says 20000101, and the
         # wind file of 1999 holds them as MEZ 00:00 to 00:50 (GH-2815)
         ("1999-12-31T23:00+00:00", "1999-12-31T23:50+00:00", ["19911119_19991231", "20000101_20091231"]),
@@ -241,9 +244,9 @@ def test_the_one_and_five_minute_files_meet_at_midnight_utc_and_reach_into_it(
     """Test the bounds of the 1- and 5-minute files at the turn of 1999 to 2000 (GH-2815).
 
     The file of January 2000 begins at 00:00 UTC, unlike the 10 minute one. The file of December 1999 is MEZ and
-    holds stamps past its MEZ midnight (1-minute: to 00:59, 5-minute: 00:00; station 00003 and 01048, read
-    2026-10-13), which are 23:00 to 23:59 UTC, so it ends at 00:00 UTC of 2000-01-01 and a request for that hour
-    gets the December file.
+    holds stamps past its MEZ midnight (1-minute: to 00:59, 5-minute: 00:00, which the parser drops, GH-2827;
+    station 00003 and 01048, read 2026-10-13), which are 23:00 to 23:59 UTC, so it ends at 00:00 UTC of 2000-01-01
+    and a request for that hour gets the December file.
     """
     base = f"https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/{directory}/"
     listing = pl.DataFrame({"url": [base + december, base + january], "filename": [december, january]}).lazy()
