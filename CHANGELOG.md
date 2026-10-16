@@ -66,6 +66,8 @@ Types of changes:
   running total since the last routine METAR and the winds are 2-minute means; a SPECI nearer the
   full hour than a synoptic METAR takes its 3- and 6-hour amounts with it, see the provider page
   (GH-2857)
+- The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
+  takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
 
 ### Removed
 
