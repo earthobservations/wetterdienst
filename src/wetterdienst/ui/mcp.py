@@ -168,8 +168,8 @@ _EXCLUDE_PATTERNS = (
     r"^/$",
     r"^/robots\.txt$",
     r"^/health$",
-    r"^/api/version$",
-    r"^/api/settings$",
+    r"^/api(/v1)?/version$",
+    r"^/api(/v1)?/settings$",
 )
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).
@@ -254,8 +254,13 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     # httpx2, not httpx: FastMCP 4 types ``OpenAPIProvider.client`` as ``httpx2.AsyncClient`` and
     # drives it directly, so the two clients are not interchangeable here. The requests are marked so
     # the REST app leaves them out of fastapi's telemetry (GH-2432)
+    #
+    # `raise_app_exceptions=False`: an exception no endpoint handled is answered by the app as its
+    # 500 problem, a fixed sentence, as it is over HTTP. The default raises it into FastMCP, whose
+    # tool error then carries the exception's own text -- a path of the server, say -- which the
+    # REST API deliberately hides (GH-2767, GH-2984)
     client = httpx2.AsyncClient(
-        transport=httpx2.ASGITransport(app=_mark_tool_requests(rest_app)),
+        transport=httpx2.ASGITransport(app=_mark_tool_requests(rest_app), raise_app_exceptions=False),
         base_url=_ASGI_BASE_URL,
     )
     provider = OpenAPIProvider(

@@ -2370,7 +2370,10 @@ def test_value_endpoints_default_to_compact_output() -> None:
 
     for model in (StationsRequest, HistoryRequest, ValuesRequest, InterpolationRequest, SummaryRequest):
         assert model.model_fields["with_metadata"].default is False
+    # a listing of stations is the stations, so it takes no `with_stations` (GH-3034)
+    for model in (HistoryRequest, ValuesRequest, InterpolationRequest, SummaryRequest):
         assert model.model_fields["with_stations"].default is False
+    assert "with_stations" not in StationsRequest.model_fields
 
 
 def test_request_models_have_field_descriptions() -> None:
@@ -3128,7 +3131,7 @@ _SQL_GATED = [
 def test_sql_gate_covers_every_route_taking_sql() -> None:
     """Every route offering `sql` or `sql_values` is in the gate's tests, so a new one cannot slip by."""
     offered = {
-        (path.removeprefix("/api/"), parameter["name"])
+        (path.removeprefix("/api/v1/"), parameter["name"])
         for path, operations in restapi.app.openapi()["paths"].items()
         for operation in operations.values()
         for parameter in operation.get("parameters", [])
@@ -4480,10 +4483,7 @@ def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) ->
     ("listing", "download", "detail"),
     [
         pytest.param(
-            None,
-            _alerts_snapshot(FileNotFoundError("404")),
-            "could not download weather alerts snapshot",
-            id="download",
+            None, _alerts_snapshot(FileNotFoundError("404")), "Failed to download http://x: 404", id="download"
         ),
         pytest.param(
             None,
@@ -4508,7 +4508,7 @@ def test_alerts_a_date_that_does_not_parse_is_the_callers(client: TestClient) ->
         pytest.param([], None, "no weather-alerts snapshot listed at", id="empty-listing"),
     ],
 )
-def test_alerts_a_feed_that_cannot_be_read_is_a_500(
+def test_alerts_a_feed_that_cannot_be_read_is_a_502(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -4516,9 +4516,11 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
     download: Callable[..., object] | None,
     detail: str,
 ) -> None:
-    """A CAP feed that does not list, download or read is the server's 500, not the caller's 400 (GH-2294).
+    """A CAP feed that does not list, download or read is the provider's 502, not the caller's 400 (GH-2294, GH-2985).
 
-    The body says no more than the exception's type (GH-2767); what it said is in the log.
+    The body is the fixed sentence of a provider that failed and says no more (GH-2767); what it
+    said is in the log. An `OverflowError` out of DWD's own timestamp is the feed's, not the
+    request's, though the request's date can raise one too.
     """
     params = {}
     if listing is not None:
@@ -4530,11 +4532,12 @@ def test_alerts_a_feed_that_cannot_be_read_is_a_500(
     if download is not None:
         monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", download)
 
-    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         response = client.get("/api/alerts", params=params)
 
-    assert response.status_code == 500
-    assert response.json()["detail"] == IsStr(regex=r"Internal server error \(\w+\)\. The cause is in the server log\.")
+    assert response.status_code == 502
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["detail"] == restapi._UPSTREAM_FAILED  # noqa: SLF001
     assert detail not in response.text
     assert detail in caplog.text
 
@@ -4834,10 +4837,10 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    parameters = app.openapi()["paths"]["/api/summarize"]["get"]["parameters"]
+    parameters = app.openapi()["paths"]["/api/v1/summarize"]["get"]["parameters"]
     (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
     assert field["deprecated"] is True
-    parameters = app.openapi()["paths"]["/api/interpolate"]["get"]["parameters"]
+    parameters = app.openapi()["paths"]["/api/v1/interpolate"]["get"]["parameters"]
     (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
     assert "deprecated" not in field
 
@@ -5209,7 +5212,7 @@ def test_values_skip_threshold_bounds_are_in_the_schema_the_mcp_tools_take() -> 
     """The MCP tools are generated from the OpenAPI schema, so the bounds reach them there (GH-2334)."""
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    parameters = app.openapi()["paths"]["/api/values"]["get"]["parameters"]
+    parameters = app.openapi()["paths"]["/api/v1/values"]["get"]["parameters"]
     (schema,) = (parameter["schema"] for parameter in parameters if parameter["name"] == "skip_threshold")
     assert schema["exclusiveMinimum"] == 0
     assert schema["maximum"] == 1
@@ -5715,7 +5718,9 @@ def test_with_metadata_names_the_settings_block_where_it_comes() -> None:
     paths = restapi.app.openapi()["paths"]
 
     def description(path: str) -> str:
-        (parameter,) = (p for p in paths[path]["get"]["parameters"] if p["name"] == "with_metadata")
+        (parameter,) = (
+            p for p in paths[path.replace("/api/", "/api/v1/")]["get"]["parameters"] if p["name"] == "with_metadata"
+        )
         return parameter["description"]
 
     for path in ("/api/values", "/api/interpolate", "/api/summarize"):
@@ -5908,11 +5913,11 @@ def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> Non
     `use_nearby_station_distance`, which sets no setting, is not among them.
     """
     paths = restapi.app.openapi()["paths"]
-    taken = {parameter["name"]: parameter for parameter in paths["/api/settings"]["get"]["parameters"]}
+    taken = {parameter["name"]: parameter for parameter in paths["/api/v1/settings"]["get"]["parameters"]}
     expected: set[str] = set()
     for name, endpoint in _ENDPOINT_OF_SETTINGS.items():
         settings = restapi.ServerSettings.model_fields[name].annotation.model_fields
-        for parameter in paths[endpoint]["get"]["parameters"]:
+        for parameter in paths[endpoint.replace("/api/", "/api/v1/")]["get"]["parameters"]:
             if parameter["name"] in settings:
                 expected.add(parameter["name"])
                 assert taken[parameter["name"]] == parameter, (endpoint, parameter["name"])
@@ -6149,16 +6154,16 @@ _VALUES_SERVER_DEFAULTS = {
     "drop_nulls": True,
 }
 _SCHEMA_SERVER_DEFAULTS = {
-    "/api/values": _VALUES_SERVER_DEFAULTS,
-    "/api/interpolate": {**_GEO_SERVER_DEFAULTS, "use_nearby_station_distance": 2.0},
-    "/api/summarize": _GEO_SERVER_DEFAULTS,
-    "/api/settings": {**_VALUES_SERVER_DEFAULTS, **_GEO_SERVER_DEFAULTS, "use_nearby_station_distance": 2.0},
+    "/api/v1/values": _VALUES_SERVER_DEFAULTS,
+    "/api/v1/interpolate": {**_GEO_SERVER_DEFAULTS, "use_nearby_station_distance": 2.0},
+    "/api/v1/summarize": _GEO_SERVER_DEFAULTS,
+    "/api/v1/settings": {**_VALUES_SERVER_DEFAULTS, **_GEO_SERVER_DEFAULTS, "use_nearby_station_distance": 2.0},
 }
 _SCHEMA_REQUESTS = {
-    "/api/values": "ValuesRequest",
-    "/api/interpolate": "InterpolationRequest",
-    "/api/summarize": "SummaryRequest",
-    "/api/settings": "SettingsRequest",
+    "/api/v1/values": "ValuesRequest",
+    "/api/v1/interpolate": "InterpolationRequest",
+    "/api/v1/summarize": "SummaryRequest",
+    "/api/v1/settings": "SettingsRequest",
 }
 
 
@@ -6189,10 +6194,10 @@ def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypat
     reported = client.get("/api/settings").json()
     for path, expected in _SCHEMA_SERVER_DEFAULTS.items():
         assert {name: parameters[path][name]["schema"]["default"] for name in expected} == expected, path
-        if path != "/api/settings":
+        if path != "/api/v1/settings":
             # but `drop_nulls`, which it reports in effect
             as_reported = {name: value for name, value in expected.items() if name != "drop_nulls"}
-            assert as_reported.items() <= reported[path.removeprefix("/api/")].items()
+            assert as_reported.items() <= reported[path.removeprefix("/api/v1/")].items()
         assert parameters[path].keys() == plain[path].keys()
         for name, parameter in parameters[path].items():
             if name not in expected:
@@ -6204,12 +6209,12 @@ def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypat
                 "schema": {**plain[path][name]["schema"], "default": None},
             }
     for path, name in (
-        ("/api/values", "unit_targets"),
-        ("/api/interpolate", "interpolation_station_distance"),
-        ("/api/interpolate", "interpolation_station_distance_homogeneous"),
-        ("/api/summarize", "summary_station_distance"),
-        ("/api/summarize", "use_nearby_station_distance"),
-        ("/api/settings", "unit_targets"),
+        ("/api/v1/values", "unit_targets"),
+        ("/api/v1/interpolate", "interpolation_station_distance"),
+        ("/api/v1/interpolate", "interpolation_station_distance_homogeneous"),
+        ("/api/v1/summarize", "summary_station_distance"),
+        ("/api/v1/summarize", "use_nearby_station_distance"),
+        ("/api/v1/settings", "unit_targets"),
     ):
         assert "default" not in parameters[path][name]["schema"], (path, name)
 
@@ -6246,13 +6251,15 @@ def test_openapi_with_malformed_server_settings_is_built_without_them(
 
     parameters = _schema_parameters(client, monkeypatch)
 
-    assert parameters["/api/values"]["shape"]["schema"]["default"] == "long"
+    assert parameters["/api/v1/values"]["shape"]["schema"]["default"] == "long"
     assert restapi.app.openapi_schema is None
     monkeypatch.delenv("WD_TS_SKIP_THRESHOLD")
     schema = restapi.app.openapi()
     assert schema is restapi.app.openapi_schema
     (shape,) = (
-        parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
+        parameter
+        for parameter in schema["paths"]["/api/v1/values"]["get"]["parameters"]
+        if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
 
@@ -6278,7 +6285,7 @@ def test_mcp_tool_settings_defaults_are_the_servers(monkeypatch: pytest.MonkeyPa
 
     tools = asyncio.run(_tools())
     for tool in ("values", "interpolate", "summarize"):
-        expected = _SCHEMA_SERVER_DEFAULTS[f"/api/{tool}"]
+        expected = _SCHEMA_SERVER_DEFAULTS[f"/api/v1/{tool}"]
         assert {name: tools[tool][name]["default"] for name in expected} == expected
 
 
@@ -6296,10 +6303,10 @@ def test_openapi_gives_an_infinite_server_setting_no_default(
 
     parameters = _schema_parameters(client, monkeypatch)
 
-    for path in ("/api/interpolate", "/api/summarize", "/api/settings"):
+    for path in ("/api/v1/interpolate", "/api/v1/summarize", "/api/v1/settings"):
         assert "default" not in parameters[path]["min_gain_of_value_pairs"]["schema"], path
         assert parameters[path]["num_additional_stations"]["schema"]["default"] == 3
-    for path in ("/api/interpolate", "/api/settings"):
+    for path in ("/api/v1/interpolate", "/api/v1/settings"):
         assert "default" not in parameters[path]["use_nearby_station_distance"]["schema"], path
 
 
@@ -6323,7 +6330,7 @@ def test_openapi_drop_nulls_default_is_the_servers_as_set_whatever_its_shape(
 
     parameters = _schema_parameters(client, monkeypatch)
 
-    for path in ("/api/values", "/api/settings"):
+    for path in ("/api/v1/values", "/api/v1/settings"):
         assert parameters[path]["drop_nulls"]["schema"]["default"] is default, path
     assert client.get("/api/settings").json()["values"]["drop_nulls"] is False
     filled_in = client.get("/api/settings", params={"shape": "long", "drop_nulls": str(default).lower()}).json()
@@ -6359,7 +6366,9 @@ def test_openapi_with_a_route_added_keeps_the_servers_defaults(monkeypatch: pyte
     schema = restapi.app.openapi()
     assert "/api/added" in schema["paths"]
     (shape,) = (
-        parameter for parameter in schema["paths"]["/api/values"]["get"]["parameters"] if parameter["name"] == "shape"
+        parameter
+        for parameter in schema["paths"]["/api/v1/values"]["get"]["parameters"]
+        if parameter["name"] == "shape"
     )
     assert shape["schema"]["default"] == "wide"
 
@@ -6822,14 +6831,14 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
     assert {span.parent.span_id for span in operations if span.parent} == {tool_call.context.span_id}
 
 
-def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
+def test_values_a_failed_dwd_download_is_a_502_not_an_empty_result(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """An upstream outage answers a 5xx, where it used to read as a station without data (GH-2430).
+    """An upstream outage answers a 502, where it used to read as a station without data (GH-2430).
 
-    The body names the type only (GH-2767); the status and the file are in the log.
+    The body is a fixed sentence (GH-2767); the status and the file are in the log.
     """
     from aiohttp import ClientResponseError, RequestInfo  # noqa: PLC0415
     from multidict import CIMultiDict, CIMultiDictProxy  # noqa: PLC0415
@@ -6865,7 +6874,7 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
     failed = File(url=url, content=error, status=503)
     monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
 
-    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         response = client.get(
             "/api/values",
             params={
@@ -6877,7 +6886,8 @@ def test_values_a_failed_dwd_download_is_a_500_not_an_empty_result(
             },
         )
 
-    _is_a_500_naming_only(response, "DownloadError", hides=url)
+    _is_a_problem(response, 502, restapi._UPSTREAM_FAILED)  # noqa: SLF001
+    assert url not in response.text
     assert f"Failed to download {url}: 503, message='Service Unavailable'" in caplog.text
 
 
@@ -7135,14 +7145,14 @@ def test_stations_output_schemas_name_the_span_as_the_frame_does(client: TestCli
     assert not {"start_date", "end_date"} & set(schema["properties"])
 
 
-def test_values_a_timed_out_download_is_logged_with_the_file(
+def test_values_a_timed_out_download_is_a_504_logged_with_the_file(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A download that timed out is logged naming the file, where its message was empty (GH-2460).
+    """A download that timed out is a 504, logged naming the file, where its message was empty (GH-2460).
 
-    The body of the 500 names the type only (GH-2767).
+    The body is a fixed sentence (GH-2767).
     """
     from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
 
@@ -7174,7 +7184,7 @@ def test_values_a_timed_out_download_is_logged_with_the_file(
     failed = File(url=url, content=FSTimeoutError(), status=408)
     monkeypatch.setattr(dwd_observation_download, "download_files", lambda **_kwargs: [failed])
 
-    with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
         response = client.get(
             "/api/values",
             params={
@@ -7186,7 +7196,8 @@ def test_values_a_timed_out_download_is_logged_with_the_file(
             },
         )
 
-    _is_a_500_naming_only(response, "DownloadError", hides=url)
+    _is_a_problem(response, 504, restapi._UPSTREAM_TIMED_OUT)  # noqa: SLF001
+    assert url not in response.text
     assert f"Failed to download {url}" in caplog.text
 
 
@@ -7523,7 +7534,7 @@ def test_the_list_of_every_provider_leaves_out_a_network_that_fails_to_import(
 def test_mcp_tool_for_a_network_whose_module_fails_to_import_raises_the_import_error(
     monkeypatch: pytest.MonkeyPatch, route: str
 ) -> None:
-    """The MCP `auth` and `coverage` tools raise the import error, not the 404 of an unknown network (GH-2800)."""
+    """The MCP `auth` and `coverage` tools answer the import error as a 500, not as a 404 (GH-2984)."""
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
@@ -7543,8 +7554,12 @@ def test_mcp_tool_for_a_network_whose_module_fails_to_import_raises_the_import_e
         async with Client(mcp) as mcp_client:
             await mcp_client.call_tool(route, {"provider": "dwd", "network": "dmo"})
 
-    with pytest.raises(ToolError, match=r"failed to import: lxml\.etree not found") as error:
+    with pytest.raises(ToolError, match=r"HTTP error 500") as error:
         asyncio.run(_call())
+    # a defect, which the tool error names by its type and no more, as the REST API's 500 does:
+    # the message is the server's (GH-2984)
+    assert "ImportError" in str(error.value)
+    assert "lxml" not in str(error.value)
     assert "Choose provider and network" not in str(error.value)
     assert "HTTP error 404" not in str(error.value)
 
@@ -8092,7 +8107,7 @@ _COVERAGE_NETWORKS = [
 def test_coverage_schema_in_openapi(client: TestClient) -> None:
     """`/openapi.json` describes both answers of `/api/coverage`, down to the parameter (GH-2090)."""
     schema = client.get("/openapi.json").json()
-    answer = schema["paths"]["/api/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    answer = schema["paths"]["/api/v1/coverage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     # one object, not an `anyOf` of the two: that would wrap the MCP tool's result in `result`
     assert answer["type"] == "object"
     assert answer["additionalProperties"]["anyOf"] == [
@@ -8639,7 +8654,7 @@ def _image_params(query: dict[str, object], **given: object) -> dict[str, object
 def test_image_routes_cover_every_route_rendering_an_image() -> None:
     """Every route offering `width`, `height` and `scale` is in the size limit's tests, so none slips by."""
     offered = {
-        path.removeprefix("/api/")
+        path.removeprefix("/api/v1/")
         for path, operations in restapi.app.openapi()["paths"].items()
         for operation in operations.values()
         if {"width", "height", "scale"} <= {parameter["name"] for parameter in operation.get("parameters", [])}
@@ -8924,7 +8939,7 @@ def test_the_422_is_the_problem_in_the_openapi_document(client: TestClient) -> N
         pytest.param("StationNotFoundError", 404, id="station"),
         pytest.param("RequestError", 400, id="request"),
         pytest.param("ConfigurationError", 501, id="configuration"),
-        pytest.param("UpstreamError", 500, id="upstream"),
+        pytest.param("UpstreamError", 502, id="upstream"),
         pytest.param("WetterdienstError", 500, id="root"),
     ],
 )
@@ -9031,7 +9046,7 @@ def test_an_mcp_tool_error_is_prose_without_a_python_repr() -> None:
 
 @pytest.mark.parametrize(
     ("error", "status"),
-    [("RequestError", 400), ("NotFoundError", 404), ("ConfigurationError", 501), ("UpstreamError", 500)],
+    [("RequestError", 400), ("NotFoundError", 404), ("ConfigurationError", 501), ("UpstreamError", 502)],
 )
 def test_an_exception_of_the_library_outside_an_endpoints_handling_is_answered_by_its_kind(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, error: str, status: int
