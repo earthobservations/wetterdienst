@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.155.0] - 2026-10-16
+
 ### Added
 
 - `WetterdienstError` is the root of every class of `wetterdienst.exceptions`, so
@@ -32,6 +34,13 @@ Types of changes:
   `alerts` for `dwd/radar` and `dwd/alerts`, the standalone networks that `stations`, `values` and
   the other timeseries endpoints refuse. The four are null for a network that cannot be imported
   (GH-2641)
+- `stations` (`/api/stations`, the MCP tool and `wetterdienst stations`) takes the window `values`
+  takes, as `timestamp` or, on the command line, `--start`/`--end`, and lists only the stations
+  whose record overlaps it, so the nearest three are no longer ones that closed a century ago. A
+  station is left out when it started after the window or ended before it by more than two readings
+  of its resolution (two days up to daily, as the end an index states lags a station still
+  reporting); one whose start or end is not published is kept. Without a window nothing changes
+  (GH-2635)
 
 ### Changed
 
@@ -141,6 +150,24 @@ Types of changes:
   (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
+- **Breaking**: an empty result is exit 0 on the command line, as it is a 200 on the REST API: a
+  window without readings, a selection that finds no station, a glossary filter that matches
+  nothing. The sentence goes to stderr and stdout holds what the REST API answers (`{"values": []}`,
+  the CSV header); a `--target` is left as it is. It exited 1, as a failure does. A script that told
+  "no data" by exit 1 tests the output, or the sentence on stderr; exit 1 now only means failure
+  (GH-2635)
+- **Breaking**: a `name` selects its one best match in `values` on the command line, the REST API
+  and MCP, as `filter_by_name` does; it selected the best five, and read the values of all five.
+  `stations` still lists the best five. Pass `--rank` or `rank` for another number, `rank=5` to
+  `filter_by_name` for the listing's (GH-2635)
+- A list of station ids (`filter_by_station_id`, `--station`, `station=`) leaves out an id the
+  network has no station for as before, and now names it in a warning; where none exists the result
+  is empty on every surface. The one reference station of `interpolate` and `summarize` keeps its
+  404 and exit 2 (GH-2635)
+- The command line renders a result through the function the REST API does: with
+  `--with_metadata=true` its JSON and GeoJSON carry the `settings` block next to `metadata`, as the
+  REST API's did. `--pretty` is one option on every command, bare or as `--pretty=true`;
+  `interpolate` and `summarize` took it only bare, the others only with a value (GH-2635)
 
 ### Removed
 
@@ -219,6 +246,9 @@ Types of changes:
   Plain MEZ and UTC periods are unchanged. A change inside a shared day (36 stations on 1991-11-01)
   is taken to be after its stamp 00. Add an hour to flagged stamps to get the old ones; 30 rows
   that the shift puts on a stamp that is there are dropped (GH-2709)
+- `wetterdienst stations|values|interpolate|summarize --format=png|jpg|webp|svg|pdf` wrote the
+  `repr` of the image (`b'\x89PNG...'`) to stdout; it writes the image as the REST API sends it
+  (GH-2635)
 
 ## [0.154.0] - 2026-10-15
 
@@ -5289,7 +5319,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.154.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.155.0...HEAD
+[0.155.0]: https://github.com/earthobservations/wetterdienst/compare/v0.154.0...v0.155.0
 [0.154.0]: https://github.com/earthobservations/wetterdienst/compare/v0.153.0...v0.154.0
 [0.153.0]: https://github.com/earthobservations/wetterdienst/compare/v0.152.0...v0.153.0
 [0.152.0]: https://github.com/earthobservations/wetterdienst/compare/v0.151.0...v0.152.0

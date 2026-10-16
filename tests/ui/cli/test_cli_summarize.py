@@ -78,7 +78,7 @@ def test_cli_summarize_geojson(metadata: dict) -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"metadata", "data"}
+    assert response.keys() == {"metadata", "settings", "data"}
     assert response["metadata"] == metadata
     assert response["data"] == {
         "type": "FeatureCollection",

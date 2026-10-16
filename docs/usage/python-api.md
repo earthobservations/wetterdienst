@@ -275,6 +275,11 @@ df = stations.df
 df
 ```
 
+A station id the request has no station for -- one that does not exist, or has no data for the
+requested parameters and periods -- is left out of the result with a warning naming it (log level
+`WARNING`): the stations that do exist are returned, and when none does the result is empty. The command
+line and the REST API do the same for a list of `--station` ids.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -302,7 +307,8 @@ df
 
 The `threshold` parameter (0–1, default **0.8**) controls how strictly the name must
 match.  Lower values accept more typos; higher values require a closer match.  The
-`rank` parameter limits how many stations are returned (default 1).
+`rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
+of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two
