@@ -15,6 +15,7 @@ from wetterdienst import Settings
 from wetterdienst.core.util import one_row_per_station
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
+from wetterdienst.provider.noaa.ghcn.api import GHCND_WEST_LONGITUDE_STATIONS
 from wetterdienst.util.network import File
 
 
@@ -201,13 +202,22 @@ GHCND_LOST_SIGN_ROWS = (
     "UKW00015041  53.3667    0.6833   21.0    STURGATE                                    ",
     "UV000005503  12.3500    1.5200  304.0    OUAGADOUGOU                                 ",
     "UVM00065505  12.4670    3.4830  300.0    DEDOUGOU                               65505",
+    "AGE00135039  35.7297    0.6500   50.0    ORAN-HOPITAL MILITAIRE                      ",
+    "AGE00147714  35.7700    0.8000   78.0    ORAN-CAP FALCON                             ",
+    "AGE00147717  35.2000    0.6300  476.0    SIDI-BEL-ABBES                              ",
+    "FRE00104957  43.2481    0.1550  312.0    ESPOEY                                      ",
+    "UKE00100808  53.7667    0.3667    2.0    HULL                                        ",
+    "UKE00105894  54.1050    0.6417  175.0    HIGH MOWTHORPE                              ",
+    "UKE00105900  51.8067    0.3581  128.0    ROTHAMSTED                                  ",
+    "UKE00156864  52.4008    0.2353   41.0    MONKS WOOD                                  ",
+    "UKE00156884  51.3103    0.4744   38.0    WISLEY                                      ",
 )
 
 
 def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """The twenty stations of GH-2886 are read west of Greenwich, as the other catalogues have them.
+    """The 29 stations of GH-2886 are read west of Greenwich, as the other catalogues have them.
 
     The rows are copied from `ghcnd-stations.txt` as NOAA publishes them, each with an east longitude where the
     station lies west of it. Lowestoft, which does lie east of Greenwich, is left as listed (GH-2886).
@@ -223,6 +233,12 @@ def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
     expected["UKE00105899"] = 1.75
     assert dict(df.select("station_id", "longitude").rows()) == expected
     assert df.filter(pl.col("station_id") == "UKE00156848").select("latitude").item() == 53.0306
+    # every id of the table is pinned by a raw row, here or in the Bordeaux, Caen and Valencia test above
+    assert set(GHCND_WEST_LONGITUDE_STATIONS) == {row[:11] for row in GHCND_LOST_SIGN_ROWS} | {
+        "FR000007510",
+        "FRE00104044",
+        "SP000008416",
+    }
 
 
 GHCNH_STATION_LIST = (

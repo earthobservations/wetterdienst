@@ -150,8 +150,7 @@ class ChmiObservationValues(TimeseriesValues):
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            if not file.is_no_internet_error:
-                log.debug(f"No CHMI file {url} for station {station_id}: {file.content}")
+            log.debug(f"No CHMI file {url} for station {station_id}: {file.content}")
             return None
         return file.content.read()
 
@@ -256,8 +255,8 @@ class ChmiObservationRequest(TimeseriesRequest):
             use_certifi=settings.use_certifi,
         )
         # the catalogue is one required file, so any failure of it -- a 404 included -- is an outage,
-        # which swallowed would read as a network without stations (GH-2519). NoInternetError returns
-        # silently, to give an empty frame
+        # which swallowed would read as a network without stations (GH-2519). A failed connection
+        # (NoInternetError) is raised as well (GH-2640)
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()

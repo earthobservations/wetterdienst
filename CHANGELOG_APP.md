@@ -62,10 +62,13 @@ Types of changes:
   technology while open (GH-2976)
 - `[Layout]` Grey, green and red text, and placeholders, reach the 4.5:1 contrast of WCAG 2.2 AA
   on the light and the dark background: slightly darker in light mode, slightly lighter in dark
-  mode. The solid green buttons ("Show") keep their colour and stay at 2.2:1 until that colour is
-  chosen anew (GH-2974)
+  mode (GH-2974)
 - `[Layout]` Links inside running text are underlined, so they stand out without their colour
   (GH-2977)
+- `[Layout]` The label of the solid green buttons ("Show", the table/chart toggle, the current
+  page, the Meteogram's Compact) is dark (`#0f172b`) in light mode too, 8.0:1 on the brand green
+  where white was 2.2:1; dark mode had it already and the green itself is unchanged. Outline, soft
+  and ghost buttons keep their colours (GH-2974)
 
 ## [0.20.0] - 2026-10-15
 

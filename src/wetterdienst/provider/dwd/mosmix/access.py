@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from zipfile import BadZipFile
 
 import polars as pl
+from aiohttp import ClientConnectorError, ClientSSLError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse
@@ -23,7 +24,12 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import raw_column
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
-from wetterdienst.util.network import NetworkFilesystemManager
+from wetterdienst.util.network import (
+    NetworkFilesystemManager,
+    _bare_tls_failure,
+    _no_internet_error,
+    _scrubbed_connector_error,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -102,8 +108,27 @@ class KMLReader:
         https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
         """
         dwdfs = self._filesystem_for(url)
-        response = dwdfs.open(url, block_size=0)
-        total = dwdfs.size(url)
+        failure: OSError | None = None
+        try:
+            response = dwdfs.open(url, block_size=0)
+        except ClientSSLError as e:
+            # the host answered, so a certificate or handshake failure is not being offline: the bare
+            # `ssl.SSLError`, as the listings and `download_file` keep it (GH-2553)
+            failure = _bare_tls_failure(e)
+        except ClientConnectorError as e:
+            # the place this reader meets the network, through fsspec and not `download_file`:
+            # raised as every other failed connection is, not as the aiohttp error (GH-2640)
+            failure = _no_internet_error(url, _scrubbed_connector_error(e))
+        # raised outside the `except`, so that the aiohttp error, which holds a proxy's key, is no
+        # `__context__`
+        if failure is not None:
+            raise failure
+        try:
+            total = dwdfs.size(url)
+        except ClientConnectorError:
+            # a HEAD is made even for a run the cache holds, which has been opened by now: the size
+            # only sizes the progress bar
+            total = None
 
         buffer = BytesIO()
 

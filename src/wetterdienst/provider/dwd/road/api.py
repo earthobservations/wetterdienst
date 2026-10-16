@@ -969,10 +969,14 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # as it drops an empty file, and a group whose every download failed -- a 403, a timeout --
         # would read as a group with nothing published
         failed = [file for file in files if isinstance(file.content, Exception)]
+        # a lost connection is no gap in a window: the readings of the files that arrived would be
+        # handed back as if they were the window's (GH-2640)
+        for file in failed:
+            if file.is_no_internet_error:
+                file.raise_if_exception()
         if failed and len(failed) == len(files):
             # a 404 is a file DWD has withdrawn since the listing was read, which is warned about
-            # below; any other failure is raised. A `NoInternetError` is let through: it is what a
-            # failed connection is stored as
+            # below; any other failure is raised when every file of the group failed
             for file in failed:
                 if file.status != HTTPStatus.NOT_FOUND:
                     file.raise_if_exception()

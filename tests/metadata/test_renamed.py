@@ -57,7 +57,7 @@ def test_dwd_low_cloud_cover_is_named_for_2km(metadata: MetadataModel, caplog: p
 
     dataset = low_cloud[0].dataset
     old = f"{dataset.resolution.name}/{dataset.name}/cloud_cover_below_1000ft"
-    assert parse_parameters(old, metadata) == []
+    assert parse_parameters(old, metadata, on_unknown="warn") == []
     assert "It was renamed to 'cloud_cover_below_2km'." in caplog.text
 
 
@@ -87,7 +87,10 @@ def test_dwd_graupel_is_not_named_sleet(
     assert [parameter.name for parameter in graupel] == ["count_weather_type_graupel"]
     assert "count_weather_type_sleet" not in {parameter.name for parameter in dataset_model}
 
-    assert parse_parameters(f"{resolution}/{dataset}/count_weather_type_sleet", DwdObservationMetadata) == []
+    assert (
+        parse_parameters(f"{resolution}/{dataset}/count_weather_type_sleet", DwdObservationMetadata, on_unknown="warn")
+        == []
+    )
     assert "It was renamed to 'count_weather_type_graupel'." in caplog.text
 
 
@@ -297,7 +300,7 @@ def test_a_name_a_dataset_lacks_is_answered_with_the_name_it_has(
     metadata: MetadataModel, value: str, message: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The warning for a parameter a dataset does not have names the one it has under another name."""
-    assert parse_parameters(value, metadata) == []
+    assert parse_parameters(value, metadata, on_unknown="warn") == []
     assert message in caplog.text
     # not a guess besides the answer
     assert caplog.text.count("Did you mean") == int("Did you mean" in message)
@@ -318,7 +321,7 @@ def test_a_name_of_another_quantity_is_not_guessed_at(
     metadata: MetadataModel, value: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A dataset without the quantity names none, and the list of what it has is the answer."""
-    assert parse_parameters(value, metadata) == []
+    assert parse_parameters(value, metadata, on_unknown="warn") == []
     assert "Did you mean" not in caplog.text
     assert "Available parameters:" in caplog.text
 
@@ -344,14 +347,14 @@ def test_a_typo_of_a_quantity_the_dataset_has_is_still_guessed_at(
     value: str, guess: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The guess is kept where it is the same quantity spelled differently."""
-    assert parse_parameters(value, DwdObservationMetadata) == []
+    assert parse_parameters(value, DwdObservationMetadata, on_unknown="warn") == []
     assert f"Did you mean '{guess}'?" in caplog.text
 
 
 @pytest.mark.parametrize("value", ["hourly/large/eror_absolute_wind_speed", "hourly/large/error_absolut_wind_speed"])
 def test_a_misspelled_error_prefix_is_still_guessed_at(value: str, caplog: pytest.LogCaptureFixture) -> None:
     """`error_absolute_` is part of the name, so a typo in it is a typo of the quantity, not another one."""
-    assert parse_parameters(value, DwdMosmixMetadata) == []
+    assert parse_parameters(value, DwdMosmixMetadata, on_unknown="warn") == []
     assert "Did you mean 'error_absolute_wind_speed'?" in caplog.text
 
 
@@ -368,15 +371,17 @@ def test_a_rename_in_a_dataset_leaves_the_name_alone_in_a_dataset_that_has_it() 
     """The old name still resolves where it is the parameter's own, which is why it is a rename per dataset."""
     assert [p.name for p in parse_parameters("daily/data/wind_speed", AemetObservationMetadata)] == ["wind_speed"]
     assert [p.name for p in parse_parameters("daily/data/wind_speed", KnmiObservationMetadata)] == ["wind_speed"]
-    assert parse_parameters("hourly/data/wind_speed", AemetObservationMetadata) == []
+    assert parse_parameters("hourly/data/wind_speed", AemetObservationMetadata, on_unknown="warn") == []
 
 
 def test_a_request_for_several_parameters_names_the_renamed_one_and_keeps_the_rest(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The old name is dropped with a hint that says what it is called, and the others are returned."""
+    """With on_unknown="warn" the old name is dropped with a hint of its new name, and the others are returned."""
     found = parse_parameters(
-        ["hourly/large/temperature_air_max_2m", "hourly/large/temperature_air_2m"], DwdMosmixMetadata
+        ["hourly/large/temperature_air_max_2m", "hourly/large/temperature_air_2m"],
+        DwdMosmixMetadata,
+        on_unknown="warn",
     )
     assert [parameter.name for parameter in found] == ["temperature_air_2m"]
     assert "It was renamed to 'temperature_air_max_2m_last_12h' in this dataset." in caplog.text
@@ -465,7 +470,7 @@ def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: p
     )
     for old in ("error_absolute_temperature_air_mean_2m", "error_absolute_temperature_dew_point_mean_2m"):
         assert old not in PARAMETERS
-        assert parse_parameters(f"hourly/large/{old}", DwdMosmixMetadata) == []
+        assert parse_parameters(f"hourly/large/{old}", DwdMosmixMetadata, on_unknown="warn") == []
         assert f"It was renamed to '{old.replace('_mean', '')}'." in caplog.text
     with pytest.raises(ValidationError, match=r"'error_absolute_temperature_air_mean_2m' is now 'error_absolute"):
         Options(geo_station_distance={"error_absolute_temperature_air_mean_2m": 10.0})

@@ -233,39 +233,36 @@ def _lhmt_values(days: int) -> pl.DataFrame:
     )
 
 
-def test_lhmt_observation_values_offline_stop_at_first_day_without_warning(
+def test_lhmt_observation_values_offline_raise_at_the_first_day(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Offline, the day loop stops after one request, returns nothing and logs no warning."""
+    """Offline, the day loop raises `NoInternetError` after one request and logs no warning (GH-2640)."""
     attempted = _fake_download_file(monkeypatch, NoInternetError("no route to host"))
-    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.lhmt"):
-        df = _lhmt_values(days=30)
-    assert df.is_empty()
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.provider.lhmt"), pytest.raises(NoInternetError):
+        _lhmt_values(days=30)
     assert len(attempted) == 1
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
-def test_lhmt_observation_values_offline_stop_at_first_station(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lhmt_observation_values_offline_raise_at_the_first_station(monkeypatch: pytest.MonkeyPatch) -> None:
     """Offline, the request ends at the first download: the second station is not tried (GH-2620)."""
     attempted = _fake_download_file(monkeypatch, NoInternetError("no route to host"))
     start = dt.datetime(2020, 7, 1, tzinfo=UTC)
-    df = (
-        LhmtObservationRequest(parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=29))
-        .filter_by_station_id([VILNIUS, KAUNAS])
-        .values.all()
-        .df
-    )
-    assert df.is_empty()
+    request = LhmtObservationRequest(
+        parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=29)
+    ).filter_by_station_id([VILNIUS, KAUNAS])
+    with pytest.raises(NoInternetError):
+        request.values.all()
     assert len(attempted) == 1
 
 
-def test_lhmt_observation_values_going_offline_midway_keeps_what_was_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A network lost after the first day ends the loop there, with that day's values."""
+def test_lhmt_observation_values_going_offline_midway_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network lost after the first day raises, instead of answering with that day's values: they are partial."""
     attempted = _fake_download_file(monkeypatch, _DAY_JSON, NoInternetError("no route to host"))
-    df = _lhmt_values(days=30)
+    with pytest.raises(NoInternetError):
+        _lhmt_values(days=30)
     assert len(attempted) == 2
-    assert df.get_column("value").drop_nulls().to_list() == [22.3]
 
 
 def test_lhmt_observation_values_missing_day_does_not_stop_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:

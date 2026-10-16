@@ -4,6 +4,8 @@
 
 import datetime as dt
 import json
+from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -15,6 +17,7 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.nws.observation import NwsObservationRequest
 from wetterdienst.provider.nws.observation import api as nws_api
 from wetterdienst.provider.nws.observation.api import NwsObservationValues
+from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 DENVER = "KDEN"
@@ -78,13 +81,14 @@ def test_nws_url_narrows_to_the_window_the_request_asked_for() -> None:
     """Test that the request's own window is passed to the endpoint rather than post-filtered.
 
     Asked for nothing in particular the endpoint answers with its whole rolling week, close to a
-    megabyte, however little of it the request wanted.
+    megabyte, however little of it the request wanted. The window is widened by half an hour on both sides, so
+    that the report kept for the hour at its edge does not depend on where the window is cut (GH-2857).
     """
     url = _values(_request())._build_url(DENVER)  # noqa: SLF001
 
     assert url.startswith(f"https://api.weather.gov/stations/{DENVER}/observations?")
-    assert "start=2026-08-20T00%3A00%3A00Z" in url
-    assert "end=2026-08-21T00%3A00%3A00Z" in url
+    assert "start=2026-08-19T23%3A30%3A00Z" in url
+    assert "end=2026-08-21T00%3A30%3A00Z" in url
 
 
 @pytest.mark.parametrize(
@@ -104,14 +108,14 @@ def test_nws_url_names_the_window_in_utc_whatever_zone_it_was_asked_in(
     """Test that a window asked in Denver time reaches the endpoint as the UTC instants it stands for (GH-2682).
 
     18:00 in Denver (UTC-6 in August) is 00:00 UTC of the next day, so the wall clock of the bounds as written
-    is not what the endpoint, which reads `Z`, must be sent.
+    is not what the endpoint, which reads `Z`, must be sent. It is sent half an hour either side of them (GH-2857).
     """
     request = NwsObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")], start=start, end=end)
 
     url = _values(request)._build_url(DENVER)  # noqa: SLF001
 
-    assert "start=2026-08-20T00%3A00%3A00Z" in url
-    assert "end=2026-08-21T00%3A00%3A00Z" in url
+    assert "start=2026-08-19T23%3A30%3A00Z" in url
+    assert "end=2026-08-21T00%3A30%3A00Z" in url
 
 
 def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
@@ -217,6 +221,10 @@ def test_nws_values_returns_the_requested_window_only() -> None:
     assert df.get_column("station_id").unique().to_list() == [DENVER]
     assert df.get_column("timestamp").min() >= start_date
     assert df.get_column("timestamp").max() <= end_date
+    # one reading for each full hour, stamped with it, not the 12 an hour the endpoint serves (GH-2857)
+    stamps = df.get_column("timestamp").to_list()
+    assert {stamp.minute for stamp in stamps} == {0}
+    assert len(stamps) == len(set(stamps)) <= 2 * 24 + 1
     # degree_celsius, as the endpoint's own unitCode says -- Denver is not outside these
     values = df.get_column("value").drop_nulls()
     assert values.min() > -50
@@ -345,3 +353,337 @@ def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeyp
     assert values["precipitation_amount"] == pytest.approx(0.8)
     assert values["precipitation_amount_last_3h"] == pytest.approx(1.3)
     assert values["precipitation_amount_last_6h"] == pytest.approx(28.4)
+
+
+# The observations of KDEN from 2026-10-14 11:30Z to 2026-10-15 12:30Z that carry the `precipitationLastHour` key, the
+# METAR and SPECI reports of api.weather.gov/stations/KDEN/observations (read 2026-10-15), as (time, whether the report
+# has a `rawMessage`, temperature in degree Celsius, sea level pressure in Pa, precipitation of the last hour in mm).
+# The routine METAR is the one at :53; the others are SPECI (17:20, 17:30, 18:49, 20:30, 23:12, ...) and reports at
+# other minutes. A quarter of the reports have an empty `rawMessage`, and one is filed at a minute of the 5-minute grid
+# (00:05), with no sea level pressure.
+KDEN_REPORTS = (
+    ("10-14 11:53", True, 6.7, 101650, 0.3),
+    ("10-14 12:53", False, 6.7, 101720, 0),
+    ("10-14 13:23", False, 6.7, None, None),
+    ("10-14 13:40", False, 6.1, None, None),
+    ("10-14 13:43", False, 6.1, None, None),
+    ("10-14 13:53", True, 6.1, 101710, 0),
+    ("10-14 14:53", True, 6.1, 101770, 0.3),
+    ("10-14 15:53", False, 6.1, 101780, 0),
+    ("10-14 16:53", True, 6.7, 101750, 0),
+    ("10-14 17:20", True, 6.7, None, 0),
+    ("10-14 17:30", True, 6.7, None, 0),
+    ("10-14 17:53", True, 6.7, 101690, 0),
+    ("10-14 18:49", True, 7, None, 0),
+    ("10-14 18:53", True, 6.7, 101600, 0),
+    ("10-14 19:20", False, 7.2, None, 0),
+    ("10-14 19:34", False, 7.2, None, 0),
+    ("10-14 19:53", False, 7.2, 101500, 0),
+    ("10-14 20:30", True, 6.7, None, 0.3),
+    ("10-14 20:53", True, 6.7, 101480, 0.3),
+    ("10-14 21:18", False, 7.2, None, 0),
+    ("10-14 21:20", False, 7.2, None, 0),
+    ("10-14 21:53", False, 7.8, 101420, 0),
+    ("10-14 22:53", True, 8.3, 101420, None),
+    ("10-14 23:12", True, 8.3, None, None),
+    ("10-14 23:26", False, 7.8, None, 0),
+    ("10-14 23:42", False, 7.8, None, 0),
+    ("10-14 23:50", False, 8, None, 0),
+    ("10-14 23:53", False, 7.8, 101370, 0),
+    ("10-15 00:05", False, 7.2, None, None),
+    ("10-15 00:53", True, 7.2, 101400, None),
+    ("10-15 01:53", True, 6.7, 101480, None),
+    ("10-15 02:15", True, 6.7, None, None),
+    ("10-15 02:53", True, 6.7, 101550, None),
+    ("10-15 03:39", True, 6.7, None, None),
+    ("10-15 03:53", True, 6.7, 101600, None),
+    ("10-15 04:36", True, 6.1, None, None),
+    ("10-15 04:53", True, 6.1, 101670, None),
+    ("10-15 05:11", False, 6.1, None, None),
+    ("10-15 05:53", True, 6.1, 101700, None),
+    ("10-15 05:56", True, 5.6, None, None),
+    ("10-15 06:10", True, 5.6, None, None),
+    ("10-15 06:53", True, 5.6, 101740, None),
+    ("10-15 07:42", False, 5.6, None, None),
+    ("10-15 07:53", False, 5.6, 101760, None),
+    ("10-15 08:07", False, 5.6, None, None),
+    ("10-15 08:19", True, 5.6, None, None),
+    ("10-15 08:53", True, 5, 101870, None),
+    ("10-15 09:53", False, 4.4, 101940, None),
+    ("10-15 10:53", False, 5, 102060, None),
+    ("10-15 11:27", True, 5, None, None),
+    ("10-15 11:53", True, 5, 102210, None),
+)
+# the full hours the day keeps for the window of 2026-10-14 12:00Z to 2026-10-15 12:00Z, 25 of them, each with the
+# report kept for it: the one nearest to the full hour, which is the routine METAR at :53 but for 00:05 and 05:56,
+# which lie nearer to the full hour than the METAR does
+KDEN_KEPT = (
+    ("10-14 12:00", "10-14 11:53"),
+    ("10-14 13:00", "10-14 12:53"),
+    ("10-14 14:00", "10-14 13:53"),
+    ("10-14 15:00", "10-14 14:53"),
+    ("10-14 16:00", "10-14 15:53"),
+    ("10-14 17:00", "10-14 16:53"),
+    ("10-14 18:00", "10-14 17:53"),
+    ("10-14 19:00", "10-14 18:53"),
+    ("10-14 20:00", "10-14 19:53"),
+    ("10-14 21:00", "10-14 20:53"),
+    ("10-14 22:00", "10-14 21:53"),
+    ("10-14 23:00", "10-14 22:53"),
+    ("10-15 00:00", "10-15 00:05"),
+    ("10-15 01:00", "10-15 00:53"),
+    ("10-15 02:00", "10-15 01:53"),
+    ("10-15 03:00", "10-15 02:53"),
+    ("10-15 04:00", "10-15 03:53"),
+    ("10-15 05:00", "10-15 04:53"),
+    ("10-15 06:00", "10-15 05:56"),
+    ("10-15 07:00", "10-15 06:53"),
+    ("10-15 08:00", "10-15 07:53"),
+    ("10-15 09:00", "10-15 08:53"),
+    ("10-15 10:00", "10-15 09:53"),
+    ("10-15 11:00", "10-15 10:53"),
+    ("10-15 12:00", "10-15 11:53"),
+)
+
+
+def _stamp(text: str) -> dt.datetime:
+    """Read `10-14 11:53` as a UTC instant of 2026."""
+    return dt.datetime.strptime(f"2026-{text}", "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
+
+
+def _observation(timestamp: dt.datetime, temperature: float, *, report: bool, **quantities: float | None) -> dict:
+    """Write an observation the way the endpoint serves it, with the quantities it is given.
+
+    A report carries the `precipitationLastHour` key, a 5-minute row leaves it out. A quantity that is `None` is
+    served as a null value with the flag of the endpoint's unmeasured quantities.
+    """
+
+    def quantity(unit_code: str, value: float | None) -> dict[str, object]:
+        return {"unitCode": unit_code, "value": value, "qualityControl": "V" if value is not None else "Z"}
+
+    properties = {
+        "station": "https://api.weather.gov/stations/KDEN",
+        "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        "temperature": quantity("wmoUnit:degC", temperature),
+    }
+    if "sea_level_pressure" in quantities:
+        properties["seaLevelPressure"] = quantity("wmoUnit:Pa", quantities["sea_level_pressure"])
+    if report:
+        properties["precipitationLastHour"] = quantity("wmoUnit:mm", quantities.get("precipitation"))
+    return {"properties": properties}
+
+
+def _kden_day() -> list[dict]:
+    """Serve KDEN for 2026-10-14 11:30Z to 2026-10-15 12:30Z: the reports above and a 5-minute row at each grid minute.
+
+    The reports are as the endpoint served them. The 5-minute rows are generated (the endpoint serves one at every
+    multiple of five minutes that carries no report), with the temperature of the report before them in whole
+    degrees, as the 5-minute rows of KDEN have it (4,056 of 4,056 rows of ten stations, 2026-10-15).
+    """
+    reports = {_stamp(text): (temperature, pressure, rain) for text, _, temperature, pressure, rain in KDEN_REPORTS}
+    observations = []
+    temperature = 7.0
+    time = _stamp("10-14 11:30")
+    while time <= _stamp("10-15 12:30"):
+        if time in reports:
+            temperature, pressure, rain = reports[time]
+            observations.append(
+                _observation(time, temperature, report=True, sea_level_pressure=pressure, precipitation=rain),
+            )
+        elif time.minute % 5 == 0:
+            observations.append(_observation(time, float(round(temperature)), report=False))
+        time += dt.timedelta(minutes=1)
+    # the endpoint answers the latest first
+    return observations[::-1]
+
+
+def _serve_observations(monkeypatch: pytest.MonkeyPatch, observations: list[dict]) -> None:
+    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": observations}).encode()})
+
+
+def _hourly(
+    parameters: list[str], start: dt.datetime, end: dt.datetime, options: Options | None = None
+) -> pl.DataFrame:
+    request = NwsObservationRequest(
+        parameters=[("hourly", "data", parameter) for parameter in parameters],
+        start=start,
+        end=end,
+        settings=Settings(cache_disable=True),
+        options=options,
+    )
+    sr = stations_result(request, "hourly", "data", "KDEN")
+    return NwsObservationValues(sr=sr).all().df
+
+
+def test_nws_hourly_keeps_one_report_an_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a day of 5-minute rows, METAR and SPECI is one reading for each hour, the nearest report (GH-2857).
+
+    The endpoint serves about 12 observations an hour, and `hourly` returned all of them. The day is KDEN's from
+    2026-10-14 12:00Z to 2026-10-15 12:00Z, with the half hour on either side that is asked for: 342 observations,
+    291 5-minute rows and 51 reports, of which 25 are the routine METAR at :53 and the others SPECI or at other minutes.
+    """
+    observations = _kden_day()
+    assert len(observations) == 342
+    _serve_observations(monkeypatch, observations)
+
+    df = _hourly(
+        ["temperature_air_2m", "pressure_air_sea_level", "precipitation_amount"],
+        _stamp("10-14 12:00"),
+        _stamp("10-15 12:00"),
+        Options(drop_nulls=False),
+    )
+
+    temperature = df.filter(pl.col("parameter") == "temperature_air_2m").sort("timestamp")
+    # one row for each full hour, stamped with it
+    assert temperature.get_column("timestamp").to_list() == [_stamp(hour) for hour, _ in KDEN_KEPT]
+    # each carries the reading of the report kept for its hour, with its tenth of a degree where the report has one
+    reports = {text: (temperature, pressure, rain) for text, _, temperature, pressure, rain in KDEN_REPORTS}
+    assert temperature.get_column("value").to_list() == [reports[report][0] for _, report in KDEN_KEPT]
+    # the reports that lie nearer to the full hour than the METAR carry no sea level pressure, which the METAR does
+    pressure = dict(df.filter(pl.col("parameter") == "pressure_air_sea_level").select("timestamp", "value").rows())
+    assert pressure[_stamp("10-14 15:00")] == pytest.approx(1017.7)
+    assert pressure[_stamp("10-15 06:00")] is None
+    assert pressure[_stamp("10-15 00:00")] is None
+    precipitation = dict(df.filter(pl.col("parameter") == "precipitation_amount").select("timestamp", "value").rows())
+    assert precipitation[_stamp("10-14 15:00")] == pytest.approx(0.3)
+
+
+def test_nws_hourly_fills_the_full_hour_grid_that_skip_empty_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station that reported every hour is complete on the full-hour grid, and not skipped (GH-2857).
+
+    `skip_empty` counts the hours a station has a value for. Rows at :53 and :05 would fall in 23 of the 25 hours of
+    the day (00:05 and 00:53 share the hour 00:00, 11:53 is cut off), below the default threshold of 0.95, and the
+    station would be skipped as incomplete.
+    """
+    _serve_observations(monkeypatch, _kden_day())
+
+    df = _hourly(
+        ["temperature_air_2m"],
+        _stamp("10-14 12:00"),
+        _stamp("10-15 12:00"),
+        Options(skip_empty=True, skip_threshold=1.0),
+    )
+
+    assert df.height == len(KDEN_KEPT)
+
+
+def _serve_window(monkeypatch: pytest.MonkeyPatch, observations: list[dict]) -> None:
+    """Serve the observations between the `start` and `end` of the url, as the endpoint answers them."""
+
+    def between(url: str) -> bytes:
+        query = parse_qs(urlparse(url).query)
+        start, end = (
+            dt.datetime.strptime(query[key][0], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC) for key in ("start", "end")
+        )
+        features = [
+            feature
+            for feature in observations
+            if start <= dt.datetime.fromisoformat(feature["properties"]["timestamp"]) <= end
+        ]
+        return json.dumps({"features": features}).encode()
+
+    serve(monkeypatch, nws_api, {"/observations": between})
+
+
+def test_nws_hourly_does_not_depend_on_where_the_window_is_cut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the report an hour keeps is the same whichever window asks for it (GH-2857).
+
+    The endpoint answers the observations between the `start` and `end` it is sent, as here. The window of 14:00 to
+    16:00 reaches the endpoint as 13:30 to 16:30, so the METAR of 13:53 is there to be the report of the hour of
+    14:00. Sent as 14:00 it would not be, and the 5-minute row of 14:00 would be kept instead, which the window from
+    12:00 never keeps.
+    """
+    _serve_window(monkeypatch, _kden_day())
+    wide = _hourly(["temperature_air_2m"], _stamp("10-14 12:00"), _stamp("10-14 16:00")).sort("timestamp")
+    short = _hourly(["temperature_air_2m"], _stamp("10-14 14:00"), _stamp("10-14 16:00")).sort("timestamp")
+
+    assert wide.get_column("timestamp").to_list() == [_stamp(hour) for hour, _ in KDEN_KEPT[:5]]
+    assert short.select("timestamp", "value").rows() == wide.select("timestamp", "value").rows()[2:]
+    assert short.get_column("value").to_list()[0] == 6.1
+
+
+def test_nws_hourly_keeps_the_report_just_after_the_end_of_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the endpoint is asked past the end: the SPECI of 16:02 is the report of 16:00 (GH-2857).
+
+    The window ends at 16:00 and the METAR of 15:53 is 7 minutes from the full hour, the SPECI of 16:02 two. Sent
+    as 16:00 the endpoint would not serve the SPECI, and the METAR would be kept for an hour the longer window
+    gives to the SPECI.
+    """
+    observations = [
+        _observation(_stamp("10-14 15:53"), 10.0, report=True),
+        _observation(_stamp("10-14 16:02"), 11.0, report=True),
+    ]
+    _serve_window(monkeypatch, observations)
+
+    df = _hourly(["temperature_air_2m"], _stamp("10-14 15:00"), _stamp("10-14 16:00"))
+
+    assert df.select("timestamp", "value").rows() == [(_stamp("10-14 16:00"), 11.0)]
+
+
+def test_nws_hourly_url_asks_for_the_half_hour_around_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the endpoint is asked for the observations that decide which report the edge hours keep (GH-2857)."""
+    urls: list[str] = []
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        urls.append(url or args[0])
+        return File(url=urls[-1], content=BytesIO(json.dumps({"features": []}).encode()), status=200)
+
+    monkeypatch.setattr(nws_api, "download_file", download_file)
+    _hourly(["temperature_air_2m"], _stamp("10-14 12:00"), _stamp("10-14 16:00"))
+
+    assert urls == [
+        "https://api.weather.gov/stations/KDEN/observations?start=2026-10-14T11%3A30%3A00Z&end=2026-10-14T16%3A30%3A00Z"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("served", "kept"),
+    [
+        pytest.param(
+            [("14:54", True), ("14:55", False), ("15:00", False), ("15:05", False)],
+            [("15:00", 0)],
+            id="a report over the 5-minute row at the full hour",
+        ),
+        pytest.param([("14:57", True), ("15:03", True)], [("15:00", 0)], id="two reports as near: the earlier"),
+        pytest.param([("14:58", True), ("15:03", True)], [("15:00", 0)], id="the nearer of two reports"),
+        pytest.param([("14:54", True), ("15:02", True)], [("15:00", 1)], id="a SPECI nearer the hour than the METAR"),
+        pytest.param([("14:30", True), ("15:29", True)], [("15:00", 1)], id="14:30 belongs to 15:00"),
+        pytest.param([("14:30", True), ("15:30", True)], [("15:00", 0), ("16:00", 1)], id="15:30 belongs to 16:00"),
+        pytest.param(
+            [("16:50", False), ("16:55", False), ("17:00", False), ("17:05", False)],
+            [("17:00", 2)],
+            id="no report: the 5-minute row nearest the hour",
+        ),
+        pytest.param(
+            [("16:20", False), ("16:35", False), ("16:55", False)],
+            [("16:00", 0), ("17:00", 2)],
+            id="no report: one 5-minute row for each hour",
+        ),
+        pytest.param(
+            [("17:20", True), ("17:25", False), ("17:35", False)],
+            [("17:00", 0), ("18:00", 2)],
+            id="a report far from the hour, and the next hour",
+        ),
+    ],
+)
+def test_nws_hourly_report_rules(
+    monkeypatch: pytest.MonkeyPatch, served: list[tuple[str, bool]], kept: list[tuple[str, int]]
+) -> None:
+    """Test which observation an hour keeps, and that it is stamped with the hour (GH-2857).
+
+    A report, then the one nearest to the full hour, then the earlier. The observation served at position `index`
+    has the temperature 10 + `index`, so the value says which one was kept.
+    """
+    observations = [
+        _observation(_stamp(f"10-14 {time}"), 10.0 + index, report=report)
+        for index, (time, report) in enumerate(served)
+    ]
+    _serve_observations(monkeypatch, observations)
+    df = _hourly(["temperature_air_2m"], _stamp("10-14 00:00"), _stamp("10-14 23:59")).sort("timestamp")
+    assert df.select("timestamp", "value").rows() == [(_stamp(f"10-14 {hour}"), 10.0 + index) for hour, index in kept]
+
+
+def test_nws_hourly_of_a_station_without_observations_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station the endpoint holds nothing for still returns an empty frame (GH-2857)."""
+    _serve_observations(monkeypatch, [])
+    assert _hourly(["temperature_air_2m"], _stamp("10-14 00:00"), _stamp("10-14 23:59")).is_empty()

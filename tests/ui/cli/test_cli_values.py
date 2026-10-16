@@ -1131,9 +1131,12 @@ def test_cli_values_unknown_parameter_is_a_usage_error() -> None:
     )
 
     assert result.exit_code == 2, result.output
-    assert result.stderr.endswith(
-        "\n\nError: No valid parameters could be parsed from ['daily/nonexistent'] for DwdObservationRequest\n"
+    # the unknown name, with the datasets that would have matched, in one line (GH-2636)
+    error = result.stderr.split("\n\nError: ")[-1]
+    assert error.startswith(
+        "daily/nonexistent not found in DwdObservationMetadata: 'nonexistent'. Available datasets: "
     )
+    assert error.count("\n") == 1
 
 
 def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1151,6 +1154,54 @@ def test_cli_values_leaves_an_upstream_failure_its_traceback(monkeypatch: pytest
     assert result.exit_code == 1
     assert isinstance(result.exception, FileNotFoundError)
     assert "Usage:" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("command", "entry_point"),
+    [
+        pytest.param(["values", "--station=01048"], "get_values", id="values"),
+        pytest.param(["stations", "--all"], "get_stations", id="stations"),
+        pytest.param(["interpolate", "--station=01048", "--start=2020-01-01"], "get_interpolate", id="interpolate"),
+        pytest.param(["summarize", "--station=01048", "--start=2020-01-01"], "get_summarize", id="summarize"),
+    ],
+)
+def test_cli_an_unreachable_provider_is_one_logged_line_and_exit_1(
+    command: list[str],
+    entry_point: str,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test no connection to the provider is told in the one line it is, naming the URL, exit 1 (GH-2640).
+
+    Not a traceback, which is for a defect, not a usage error (exit 2), which says the command line
+    was wrong, and not `No data available for given constraints`, which says nothing about why.
+    """
+    from wetterdienst.exceptions import NoInternetError  # noqa: PLC0415
+
+    msg = "No internet connection: could not reach https://opendata.dwd.de/some/dir/ (Cannot connect)"
+
+    def offline(**_kwargs: object) -> None:
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(f"wetterdienst.ui.cli.{entry_point}", offline)
+    with caplog.at_level(logging.ERROR):
+        result = CliRunner().invoke(
+            cli,
+            [
+                command[0],
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl/temperature_air_mean_2m",
+                *command[1:],
+            ],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert isinstance(result.exception, SystemExit)
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [msg]
+    assert all(record.exc_info is None for record in caplog.records)
+    assert "Usage:" not in result.output
+    assert "No data available" not in caplog.text
 
 
 class _UnplacedError(WetterdienstError):

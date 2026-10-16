@@ -9,7 +9,7 @@ import pytest
 from dirty_equals import IsApprox
 
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import NoParametersFoundError
+from wetterdienst.exceptions import InvalidParameterError, NoParametersFoundError
 from wetterdienst.model.result import ValuesResult
 from wetterdienst.provider.dwd.observation import (
     DwdObservationMetadata,
@@ -98,7 +98,18 @@ def test_api_drop_nulls(default_settings: Settings) -> None:
 
 
 def test_api_no_valid_parameters(default_settings: Settings) -> None:
-    """Test that an error is raised when no valid parameters are found.
+    """Test that a parameter that does not exist is refused, naming it, by default (GH-2636)."""
+    with pytest.raises(InvalidParameterError, match=re.escape("daily/abc not found in DwdObservationMetadata")):
+        DwdObservationRequest(
+            parameters=[
+                ("daily", "abc"),
+            ],
+            settings=default_settings,
+        )
+
+
+def test_api_no_valid_parameters_with_on_unknown_warn(default_settings: Settings) -> None:
+    """Test that an error is raised when no valid parameters are found, however unknown ones are handled.
 
     The message names the concrete request, not the abstract base, so it says which provider and
     network the parameters were looked for in.
@@ -112,6 +123,7 @@ def test_api_no_valid_parameters(default_settings: Settings) -> None:
                 ("daily", "abc"),
             ],
             settings=default_settings,
+            on_unknown="warn",
         )
 
 
@@ -121,11 +133,11 @@ def test_api_no_valid_parameters_from_iterator(default_settings: Settings) -> No
         NoParametersFoundError,
         match=re.escape("No valid parameters could be parsed from ['daily/abc'] for DwdObservationRequest"),
     ):
-        DwdObservationRequest(parameters=iter(["daily/abc"]), settings=default_settings)
+        DwdObservationRequest(parameters=iter(["daily/abc"]), settings=default_settings, on_unknown="warn")
 
 
 def test_api_partly_valid_parameters(default_settings: Settings, caplog: pytest.LogCaptureFixture) -> None:
-    """Test that invalid parameters are ignored."""
+    """Test that on_unknown="warn" ignores the invalid parameters, as every request did before (GH-2636)."""
     request = DwdObservationRequest(
         parameters=[
             ("daily", "temperature_air"),
@@ -134,6 +146,7 @@ def test_api_partly_valid_parameters(default_settings: Settings, caplog: pytest.
             ("daily", "solar"),
         ],
         settings=default_settings,
+        on_unknown="warn",
     )
     assert "daily/wind not found in DwdObservationMetadata" in caplog.text
     assert "daily/precipitation not found in DwdObservationMetadata" in caplog.text

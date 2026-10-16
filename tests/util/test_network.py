@@ -32,7 +32,6 @@ from aiohttp import (
     ClientConnectorSSLError,
     ClientOSError,
     ClientPayloadError,
-    ClientProxyConnectionError,
     ClientResponseError,
     ClientSSLError,
     ClientTimeout,
@@ -91,10 +90,13 @@ def test_create_fsspec_filesystem() -> None:
     assert id(fs1) == id(fs2)
 
 
-def test_file_raise_if_exception_no_internet_does_not_raise() -> None:
-    """File.raise_if_exception() must not raise for NoInternetError."""
-    f = File(url="http://example.com/file.txt", content=NoInternetError("no internet"), status=503)
-    f.raise_if_exception()  # should return silently
+def test_file_raise_if_exception_no_internet_raises_it() -> None:
+    """File.raise_if_exception() raises the NoInternetError the download stored, as it is (GH-2640)."""
+    error = NoInternetError("no internet")
+    f = File(url="http://example.com/file.txt", content=error, status=503)
+    with pytest.raises(NoInternetError) as caught:
+        f.raise_if_exception()
+    assert caught.value is error
 
 
 def test_file_raise_if_exception_other_exception_raises() -> None:
@@ -138,6 +140,12 @@ def test_download_file_returns_no_internet_error_on_connector_error() -> None:
     assert result.is_no_internet_error
     assert result.status == 503
     assert isinstance(result.content, NoInternetError)
+    # naming the file, and without the query, which can carry a key (GH-2640)
+    assert "http://example.com/file.txt" in str(result.content)
+    assert isinstance(result.content.__cause__, OSError)
+    assert str(result.content.__cause__) == "Network unreachable"
+    with pytest.raises(NoInternetError):
+        result.raise_if_exception()
 
 
 def test_download_file_does_not_retry_a_rate_limit() -> None:
@@ -1147,25 +1155,49 @@ def test_a_file_fetched_without_a_cache_never_claims_otherwise(
     assert second.from_cache is False
 
 
-def test_a_listing_made_offline_degrades_as_the_rest_of_the_library_does(
+def test_a_listing_made_offline_raises_no_internet_naming_the_url(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Being offline is not this listing failing to read; it is every path being offline.
+    """Being offline is not an empty directory: it is raised, the connection error underneath (GH-2640).
 
-    A download comes back carrying `NoInternetError` for `raise_if_exception` to log at debug, and
-    providers answer with empty frames -- `dmi`, `rmi`, `smhi`, `nws` and `fmi` all rely on it. A
-    listing has no `File` to carry that in, so raising here would make the one path that lists abort
-    with an aiohttp traceback where every other path degrades quietly.
+    The listing answered `[]`, which every provider then read as a source with no files, and DWD
+    observation reported as a restructured directory. A directory that is not there stays `[]`.
     """
     from unittest.mock import Mock  # noqa: PLC0415
 
-    def find(_self: object, _url: str, **_kwargs: object) -> list[str]:
-        raise ClientConnectorError(Mock(ssl=None, host="opendata.dwd.de", port=443), OSError("offline"))
+    os_error = OSError("offline")
+    attempts = []
+
+    def find(_self: object, url: str, **_kwargs: object) -> list[str]:
+        attempts.append(url)
+        raise ClientConnectorError(Mock(ssl=None, host="opendata.dwd.de", port=443), os_error)
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
 
-    assert list_remote_files_fsspec("https://example.com/offline/", Settings(cache_dir=tmp_path)) == []
+    with stamina.set_testing(True, attempts=2), pytest.raises(NoInternetError) as raised:
+        list_remote_files_fsspec("https://example.com/offline/?key=secret", Settings(cache_dir=tmp_path))
+
+    # asked again as a failed connection is, then raised
+    assert len(attempts) == 2
+    assert "https://example.com/offline/" in str(raised.value)
+    assert "secret" not in str(raised.value)
+    assert raised.value.__cause__ is os_error
+    assert raised.value.__context__ is None
+
+
+def test_a_listing_of_a_directory_that_is_not_there_is_still_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A 404 is an answer, `[]`, and not `NoInternetError` (GH-2640)."""
+
+    def find(_self: object, _url: str, **_kwargs: object) -> list[str]:
+        raise FileNotFoundError
+
+    monkeypatch.setattr(HTTPFileSystem, "find", find)
+
+    assert list_remote_files_fsspec("https://example.com/gone/", Settings(cache_dir=tmp_path)) == []
 
 
 def test_a_cache_that_cannot_be_read_is_scrubbed_like_a_failed_download(
@@ -3358,11 +3390,11 @@ def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
     assert len(attempts) == 1
 
 
-def test_a_directory_listing_leaves_other_errors_as_they_were(
+def test_a_directory_listing_that_is_refused_raises_no_internet_naming_the_url(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """A refused connection naming no proxy credential still leaves a listing as a ClientConnectorError (GH-2590)."""
+    """A refused connection leaves a listing as a `NoInternetError` naming the URL, the OS error its cause (GH-2640)."""
     key = _tls_failure("handshake").args[0]
     refused = ClientConnectorError(key, ConnectionRefusedError(61, "Connection refused"))
 
@@ -3371,10 +3403,11 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
 
     monkeypatch.setattr(HTTPFileSystem, "ls", ls)
 
-    with stamina.set_testing(True, attempts=1), pytest.raises(ClientConnectorError) as raised:
+    with stamina.set_testing(True, attempts=1), pytest.raises(NoInternetError) as raised:
         list_remote_directory_fsspec("https://example.com/refused/", Settings(cache_dir=tmp_path))
 
-    assert raised.value is refused
+    assert "https://example.com/refused/" in str(raised.value)
+    assert raised.value.__cause__ is refused.os_error
 
 
 @pytest.mark.parametrize(
@@ -3387,7 +3420,7 @@ def test_a_directory_listing_leaves_other_errors_as_they_were(
     ids=["reset", "refused", "dns"],
 )
 @pytest.mark.parametrize("with_proxy", [True, False], ids=["proxy", "no-proxy"])
-def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_without_the_proxy_password(
+def test_a_directory_listing_that_cannot_connect_raises_no_internet_without_the_proxy_password(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
@@ -3395,11 +3428,12 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
     *,
     with_proxy: bool,
 ) -> None:
-    """A connector failure that is not TLS keeps its type and loses the proxy's password (GH-2602).
+    """A connector failure that is not TLS is raised as `NoInternetError` and loses the proxy's password (GH-2602).
 
-    Its repr renders the connection key, and stamina logs that repr on a retry. It stays a
-    `ClientConnectorError`, with or without a proxy, as callers that catch aiohttp's errors expect,
-    and nothing on its chain or in the frames it carries leads back to the unscrubbed key.
+    The repr of the connector error renders the connection key, and stamina logs that repr on a
+    retry. What is raised after the last attempt is a `NoInternetError` with the OS error underneath
+    as its cause, with or without a proxy, and nothing on its chain or in the frames it carries leads
+    back to the key (GH-2640).
     """
     error = ClientConnectorError(
         _tls_failure(
@@ -3430,16 +3464,16 @@ def test_a_directory_listing_that_cannot_connect_raises_a_connector_error_withou
     with (
         stamina.set_testing(True, attempts=2),
         caplog.at_level(logging.DEBUG, logger="stamina"),
-        pytest.raises(ClientConnectorError) as raised,
+        pytest.raises(NoInternetError) as raised,
     ):
         list_remote_directory_fsspec("https://example.com/down/", Settings(cache_dir=tmp_path))
 
-    assert type(raised.value) is ClientConnectorError
-    assert raised.value.os_error is os_error
-    assert raised.value.os_error.__traceback__ is None
+    assert raised.value.__cause__ is os_error
+    assert os_error.__traceback__ is None
     rendered = "".join(traceback.format_exception(raised.value))
     assert "secret" not in repr(raised.value) + str(raised.value) + rendered
-    assert raised.value.__cause__ is None
+    assert os_error.__cause__ is None
+    assert os_error.__context__ is None
     assert raised.value.__context__ is None
     # still a failure to read for the retry that wraps the call
     assert len(attempts) == 2
@@ -3474,7 +3508,7 @@ def test_a_directory_listing_through_a_refusing_proxy_keeps_the_password_out_of_
     with (
         stamina.set_testing(True, attempts=2),
         caplog.at_level(logging.DEBUG, logger="stamina"),
-        pytest.raises(ClientConnectorError) as raised,
+        pytest.raises(NoInternetError) as raised,
     ):
         list_remote_directory_fsspec("https://example.com/dir/", settings)
 
@@ -3482,10 +3516,12 @@ def test_a_directory_listing_through_a_refusing_proxy_keeps_the_password_out_of_
     with_locals = "".join(traceback.TracebackException.from_exception(raised.value, capture_locals=True).format())
     leaks = "secret" in repr(raised.value) + str(raised.value) + with_locals
     assert not leaks
-    assert type(raised.value) is ClientProxyConnectionError
     # the encoded `Proxy-Authorization` header sits in the frames of the OS error underneath
-    assert raised.value.os_error.__traceback__ is None
-    assert raised.value.__cause__ is None
+    cause = raised.value.__cause__
+    assert isinstance(cause, OSError)
+    assert cause.__traceback__ is None
+    assert cause.__cause__ is None
+    assert cause.__context__ is None
     assert raised.value.__context__ is None
     # stamina's own `args` field would show the settings the caller built: what is read is the
     # repr of the error it logs

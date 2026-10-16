@@ -14,12 +14,12 @@
 
 #### metadata
 
-| property      | value                                                                                                                                                              |
-|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name          | data                                                                                                                                                               |
-| original name | data                                                                                                                                                               |
-| description   | Historical hourly station observations (temperature, pressure, precipitation, etc.) for the US ([details](https://www.weather.gov/documentation/services-web-api)) |
-| access        | [here](https://www.weather.gov/documentation/services-web-api)                                                                                                     |
+| property      | value                                                                                                                                                                                                                          |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | data                                                                                                                                                                                                                           |
+| original name | data                                                                                                                                                                                                                           |
+| description   | Station observations (temperature, pressure, precipitation, etc.) for the US, one report for each hour: the METAR or SPECI report nearest to the full hour, else the nearest 5-minute row ([details](https://www.weather.gov/documentation/services-web-api)) |
+| access        | [here](https://www.weather.gov/documentation/services-web-api)                                                                                                                                                                 |
 
 #### parameters
 

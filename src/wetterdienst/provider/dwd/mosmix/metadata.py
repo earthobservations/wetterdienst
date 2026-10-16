@@ -231,11 +231,6 @@ DwdMosmixMetadata = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_base_convective",
-                            "name_original": "h_bsc",
-                            "unit": "meter",
-                        },
-                        {
                             "name": "cloud_cover_above_7km",
                             "name_original": "nh",
                             "unit": "percent",
@@ -304,31 +299,6 @@ DwdMosmixMetadata = {
                             "name": "precipitation_duration",
                             "name_original": "drr1",
                             "unit": "second",
-                        },
-                        {
-                            "name": "precipitation_amount_last_1h",
-                            "name_original": "rr1",
-                            "unit": "millimeter",
-                        },
-                        {
-                            "name": "precipitation_amount_last_3h",
-                            "name_original": "rr3",
-                            "unit": "millimeter",
-                        },
-                        {
-                            "name": "precipitation_amount_last_6h",
-                            "name_original": "rr6",
-                            "unit": "millimeter",
-                        },
-                        {
-                            "name": "precipitation_amount_last_12h",
-                            "name_original": "rrh",
-                            "unit": "millimeter",
-                        },
-                        {
-                            "name": "precipitation_amount_last_24h",
-                            "name_original": "rrd",
-                            "unit": "millimeter",
                         },
                         {
                             "name": "precipitation_amount_liquid_significant_weather_last_1h",
@@ -693,16 +663,6 @@ DwdMosmixMetadata = {
                         {
                             "name": "radiation_global",
                             "name_original": "rad1h",
-                            "unit": "kilojoule_per_square_meter",
-                        },
-                        {
-                            "name": "radiation_global_last_3h",
-                            "name_original": "rads3",
-                            "unit": "kilojoule_per_square_meter",
-                        },
-                        {
-                            "name": "radiation_sky_long_wave_last_3h",
-                            "name_original": "radl3",
                             "unit": "kilojoule_per_square_meter",
                         },
                         {
