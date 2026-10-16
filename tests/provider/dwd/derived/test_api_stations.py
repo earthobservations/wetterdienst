@@ -382,7 +382,7 @@ from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import _read_meta_df
 from wetterdienst.util.network import File
 
-print(Wetterdienst("dwd", "derived").__name__)
+print(Wetterdienst.resolve("dwd", "derived").__name__)
 row = "00001 19310101 19860630            478     47.8413    8.8493 Aach"
 content = BytesIO(f"header\\r\\nrule\\r\\n{row}\\r\\n".encode("latin-1"))
 file = File(url="https://example.org/stations.txt", content=content, status=200)

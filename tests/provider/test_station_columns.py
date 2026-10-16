@@ -11,6 +11,7 @@ import pytest
 from wetterdienst import Settings, Wetterdienst
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
+from wetterdienst.ui.core import resolve_network
 from wetterdienst.util.network import File
 
 PYTHON_API = Path(__file__).parents[2] / "docs" / "usage" / "python-api.md"
@@ -74,7 +75,7 @@ def test_every_station_column_a_provider_adds_is_in_the_docs() -> None:
     declared = set()
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
-            api = Wetterdienst(provider, network)
+            api = resolve_network(provider, network)
             declared |= {
                 (f"{provider}/{network}", column)
                 for column in getattr(api, "_base_columns", ())

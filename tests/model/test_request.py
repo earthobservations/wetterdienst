@@ -703,10 +703,10 @@ def test_discover_still_narrows_to_what_is_named() -> None:
     assert list(DwdObservationRequest.discover(resolutions=Resolution.DAILY)) == ["daily"]
 
 
-def test_get_network_names_raises_what_the_constructor_raises() -> None:
+def test_get_network_names_raises_what_resolve_raises() -> None:
     """Test that an unknown provider is an `ApiNotFoundError` in both, not a bare KeyError in one (GH-2636)."""
     with pytest.raises(ApiNotFoundError, match="No API available for provider foo"):
-        Wetterdienst("foo", "bar")
+        Wetterdienst.resolve("foo", "bar")
     with pytest.raises(ApiNotFoundError, match=r"No API available for provider foo. Available providers: aemet, "):
         Wetterdienst.get_network_names("foo")
     assert "observation" in Wetterdienst.get_network_names(" DWD ")

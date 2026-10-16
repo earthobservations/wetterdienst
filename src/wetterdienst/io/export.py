@@ -24,7 +24,7 @@ from wetterdienst.util.extras import as_missing_dependency, import_optional, mis
 from wetterdienst.util.url import ConnectionString, redact_password
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
     import plotly.graph_objs as go
     import sqlalchemy
@@ -64,7 +64,15 @@ def require_kaleido() -> None:
     import_optional("kaleido", "Rendering an image", extra="plotting")
 
 
-@dataclass(frozen=True)
+def _taken_by(method: Callable[..., object], kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    """Pick the arguments `method` takes by name out of `kwargs`, all of them for one that takes any."""
+    parameters = inspect.signature(method).parameters
+    if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+        return dict(kwargs)
+    return {name: value for name, value in kwargs.items() if name in parameters}
+
+
+@dataclass(frozen=True, kw_only=True)
 class ExportMixin:
     """Postprocessing data.
 
@@ -110,12 +118,14 @@ class ExportMixin:
     # The three formatters below are declared as narrowly as every subclass keeps them: each takes
     # `with_metadata` (and may take more, keyword-only with a default) and returns a mapping, which a
     # TypedDict is and a `dict` is not. A wider declaration made every subclass an invalid override.
+    # None of the formatters takes an argument it does not know: an unknown keyword is a `TypeError`
+    # (GH-3043), and `to_format` is what picks the arguments of the one it calls.
     @abstractmethod
     def to_dict(self, *, with_metadata: bool = False) -> Mapping[str, object]:
         """Convert station information into dictionary format."""
 
     @abstractmethod
-    def to_json(self, *args: Any, **kwargs: Any) -> str:  # noqa: ANN401
+    def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
         """Convert station information into JSON format."""
 
     @abstractmethod
@@ -125,7 +135,7 @@ class ExportMixin:
         Abstract method implementation.
         """
 
-    def to_geojson(self, *, with_metadata: bool = False, indent: int | bool | None = 4, **_kwargs: Any) -> str:  # noqa: ANN401
+    def to_geojson(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
         """Convert station information into GeoJSON format.
 
         Args:
@@ -249,7 +259,7 @@ class ExportMixin:
         return self._flatten().write_csv(**kwargs)
 
     @abstractmethod
-    def to_plot(self, **kwargs: Any) -> go.Figure:  # noqa: ANN401
+    def to_plot(self) -> go.Figure:
         """Create a plotly figure from the DataFrame."""
 
     @abstractmethod
@@ -260,7 +270,6 @@ class ExportMixin:
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
-        **kwargs: object,
     ) -> bytes | str:
         """Create an image from the plotly figure."""
 
@@ -268,7 +277,8 @@ class ExportMixin:
         """Create an image from the plotly figure.
 
         Args:
-            **kwargs: Additional arguments passed to the image creation method
+            **kwargs: The arguments of the image creation method: `fmt`, `width`, `height`, `scale`
+                and `max_side`. Any other is a `TypeError`.
 
         Returns:
             Image data as bytes or string
@@ -285,9 +295,14 @@ class ExportMixin:
         - `to_geojson`
         - `to_image`
 
+        The one set of arguments a caller builds for every format (`with_metadata`, `indent`,
+        `width`, ...) is given, and each formatter is passed those it takes: `indent` is not passed
+        to a chart, `width` not to JSON, and CSV is given none. An argument that no format takes is dropped here, as the
+        method that is called is the one that is exact about its arguments (GH-3043).
+
         Args:
             fmt: Output format
-            **kwargs: Additional arguments passed to the formatting method
+            **kwargs: Arguments for the formatting method, of which it is given those it takes
 
         Returns:
             Formatted data
@@ -296,13 +311,13 @@ class ExportMixin:
         fmt = fmt.lower()
 
         if fmt == "json":
-            return self.to_json(**kwargs)
+            return self.to_json(**_taken_by(self.to_json, kwargs))
         if fmt == "csv":
             return self.to_csv()
         if fmt == "geojson":
-            return self.to_geojson(**kwargs)
+            return self.to_geojson(**_taken_by(self.to_geojson, kwargs))
         if fmt in ("html", "png", "jpg", "webp", "svg", "pdf"):
-            return self.to_image(fmt=fmt, **kwargs)
+            return self.to_image(fmt=fmt, **_taken_by(self._to_image, kwargs))
         msg = "Unknown output format"
         raise KeyError(msg)
 
