@@ -10,6 +10,7 @@ import socket
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
+from http import HTTPStatus
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,16 @@ def is_html_document(output: str) -> bool:
     return output.lstrip().lower().startswith(("<!doctype html>", "<html>"))
 
 
+def _is_server_fault(failure: Exception) -> bool:
+    """Say whether a failure carries the status of a 5xx that is no `ClientResponseError`.
+
+    AEMET reports its own faults as the `estado` of the envelope of an HTTP 200, and the reader raises
+    that as a `DownloadError` caused by an error that holds the `estado` as `status` (GH-2965).
+    """
+    status = getattr(failure, "status", None)
+    return isinstance(status, int) and status >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
 @contextmanager
 def skip_if_upstream_unavailable() -> Generator[None]:
     """Skip a remote test whose upstream did not answer, rather than fail it.
@@ -62,7 +73,7 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     except Exception as error:
         # a download raised through `File.raise_if_exception` carries the failure as its cause
         failure = error.__cause__ if isinstance(error, DownloadError) and error.__cause__ else error
-        if isinstance(failure, Exception) and _worth_retrying(failure):
+        if isinstance(failure, Exception) and (_worth_retrying(failure) or _is_server_fault(failure)):
             pytest.skip(f"upstream did not answer: {error!r}")
         raise
 

@@ -165,6 +165,12 @@ Types of changes:
   (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
+- **Breaking**: `aemet/observation`, `knmi/observation` and `smhi/observation` values raise a
+  `DownloadError` for a download that timed out, was dropped, was cut short or came back as a 5xx
+  (for AEMET also an `estado` of 500 or more), as every other provider does, where they logged a
+  warning and answered an empty frame that read as a station without data. A 404 stays the empty
+  result, as does a 429 or another 4xx. The REST API answers 500 and the command line exits 1.
+  Catch `DownloadError` (or `WetterdienstError`) where the empty frame was relied on (GH-2965)
 - **Breaking**: the mean that a source computes as (maximum + minimum) / 2 is
   `temperature_air_mean_minmax_2m` (new), no longer `temperature_air_mean_2m`:
   `eccc/observation` daily and monthly `mean_temperature` and `geosphere/observation` daily
