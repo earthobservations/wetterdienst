@@ -30,8 +30,7 @@ Types of changes:
   give every network a `name_short`, `country`, `url` and `kind`. `kind` is `observation`,
   `forecast` or `derived` for a timeseries network, which has stations and values, and `radar` or
   `alerts` for `dwd/radar` and `dwd/alerts`, the standalone networks that `stations`, `values` and
-  the other timeseries endpoints refuse. The four are null for a network that cannot be imported
-  (GH-2641)
+  the other timeseries endpoints refuse (GH-2641)
 
 ### Changed
 
@@ -212,6 +211,16 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
+- A client ID that Frost rejects (HTTP 401 or 403) raises `CredentialRejectedError`, a
+  `ConfigurationError` that is still a `PermissionError`. The REST API and the MCP tools answer 501
+  "The provider rejected the credential of this server for metno/frost" and log the setting, no
+  longer a 500 that names `WD_AUTH__METNO_FROST`; the command line prints one line and exits 1,
+  without a traceback (GH-2665)
+- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` leave out a network
+  that cannot be imported (a broken install, a missing extra) and a provider with no network left,
+  and log why; they listed it as needing no credentials. `/api/coverage` and `/api/auth` for that
+  network are still a 500 (a 501 for a missing extra), no longer a 404 as for an unknown network
+  (GH-2800, GH-2801)
 
 ## [0.154.0] - 2026-10-15
 

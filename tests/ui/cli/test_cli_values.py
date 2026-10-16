@@ -1494,3 +1494,49 @@ def test_cli_without_a_credential_says_which_setting_to_change(
     assert "Traceback" not in result.stderr
     assert result.stderr.startswith("Error: ")
     assert len(result.stderr.splitlines()) == 1
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize(
+    ("command", "options"),
+    [
+        ("stations", ["--all"]),
+        ("values", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("interpolate", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+        ("summarize", ["--station=SN18700", "--start=2020-01-01", "--end=2020-01-02"]),
+    ],
+)
+def test_cli_with_a_rejected_credential_says_which_setting_to_replace(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    command: str,
+    options: list[str],
+    status: int,
+) -> None:
+    """A client ID Frost refuses is told in one line, exit 1, naming the setting and not the ID (GH-2665).
+
+    As for a missing key, the command line's user is the one who can replace it; it arrived as a
+    traceback, and the options were right, so it is no usage error either.
+    """
+    from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    client_id = "frost-client-id-4f9a"
+
+    def download_file(*, url: str, **_kwargs: object) -> File:
+        return File(url=url, content=OSError(f"{status}, message='Unauthorized'"), status=status)
+
+    monkeypatch.setenv("WD_AUTH__METNO_FROST", client_id)
+    monkeypatch.setattr(frost_api, "download_file", download_file)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        cli,
+        [command, "--provider=metno", "--network=frost", "--parameters=hourly/data/temperature_air_2m", *options],
+    )
+    assert result.exit_code == 1, result.output
+    assert f"HTTP {status}" in result.stderr
+    assert "WD_AUTH__METNO_FROST" in result.stderr
+    assert client_id not in result.stderr
+    assert "Traceback" not in result.stderr
+    assert result.stderr.startswith("Error: ")
+    assert len(result.stderr.splitlines()) == 1
