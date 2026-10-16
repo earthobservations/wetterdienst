@@ -225,6 +225,37 @@ def test_the_mean_of_the_daily_extremes_is_declared_where_the_source_computes_it
     assert geosphere["monthly", "data"]["tl_mittel"] == "temperature_air_mean_2m"
 
 
+def test_the_count_and_the_normal_of_the_mean_of_the_daily_extremes_are_named_for_it() -> None:
+    """ECCC monthly's valid-days count and normal of `mean_temperature` count and normalise that mean (GH-3017).
+
+    On Toronto City 2019 the monthly `mean_temperature` is the mean of the 365 daily `MEAN_TEMPERATURE` values
+    (12 of 12 months to the digit), which are (max + min) / 2, and `days_with_valid_mean_temp` is the number
+    of days with one (12 of 12). `normal_mean_temperature` is the 1981-2010 "Mean daily temperature" of ECCC's
+    `climate-normals` (65 of 65 rows equal), which is within 0.2 degrees C of the mean of the daily maxima plus
+    the mean of the daily minima, halved, on 467 station-months (a mean of the hours differs from (max + min) / 2
+    by 0.45 on average on Toronto City's days). None of the three is a statistic of all readings, so none is
+    named `temperature_air_mean_2m`.
+    """
+    monthly = {
+        p.name_original: p.name
+        for r in EcccObservationMetadata
+        for d in r
+        for p in d.parameters
+        if (r.name, d.name) == ("monthly", "data")
+    }
+    assert monthly["mean_temperature"] == "temperature_air_mean_minmax_2m"
+    assert monthly["days_with_valid_mean_temp"] == "count_days_valid_temperature_air_mean_minmax_2m"
+    assert monthly["normal_mean_temperature"] == "temperature_air_mean_minmax_2m_normal"
+    new, mean = PARAMETERS["temperature_air_mean_minmax_2m_normal"], PARAMETERS["temperature_air_mean_2m"]
+    for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
+        assert getattr(new, field) == getattr(mean, field), field
+    count, beside = (
+        PARAMETERS["count_days_valid_temperature_air_mean_minmax_2m"],
+        PARAMETERS["count_days_valid_temperature_air_max_2m"],
+    )
+    assert count.unit_type == beside.unit_type
+
+
 def test_the_mean_of_the_daily_extremes_behaves_as_the_mean_beside_it() -> None:
     """It is the same field spatially: the unit type, interpolation and lapse rate of `temperature_air_mean_2m`."""
     new, mean = PARAMETERS["temperature_air_mean_minmax_2m"], PARAMETERS["temperature_air_mean_2m"]

@@ -16,16 +16,18 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
-from aiohttp import ClientResponseError
+from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
-from wetterdienst.exceptions import NoInternetError
+from tests.conftest import skip_if_upstream_unavailable
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.aemet.observation.api import (
     AemetKeyRejectedError,
     AemetObservationRequest,
     AemetObservationValues,
+    _AemetEnvelopeError,
     _download_with_rate_limit_retry,
 )
 from wetterdienst.provider.aemet.observation.parser import (
@@ -34,7 +36,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File, _worth_retrying
+from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
 
 MADRID_RETIRO = "3195"
 BARCELONA = "0076"
@@ -48,36 +50,36 @@ requires_aemet_credentials = pytest.mark.skipif(
 )
 
 
-def _is_refusal_or_outage(failure: Exception) -> bool:
-    """Tell whether AEMET did not answer the request: a refused key, an HTTP 429, a timeout or an HTTP 5xx.
+def _is_refusal(failure: Exception) -> bool:
+    """Tell whether AEMET refused the request: a refused key or an HTTP 429.
 
-    A rate limit or a fault that AEMET reports in the envelope of an HTTP 200 (`estado` 429 or 5xx) reaches
-    here as a plain `Exception` that is not told from a 404 of the envelope, so it still fails the test.
+    A timeout, a dropped connection and a 5xx are no refusal: the reader raises them as a `DownloadError`, which
+    `skip_if_upstream_unavailable` skips on (GH-2965). A rate limit that AEMET reports in the envelope of an HTTP
+    200 (`estado` 429) reaches here as an envelope error that is not told from a 404 of the envelope, so it still
+    fails the test.
 
     A 400, a 404 or an envelope that says there is no data is AEMET answering, and what it most likely says is
     that the request was built wrong, which is what these tests are there to catch (see `tests/conftest.py`).
     """
     if isinstance(failure, AemetKeyRejectedError):
         return True
-    if isinstance(failure, ClientResponseError) and failure.status == HTTPStatus.TOO_MANY_REQUESTS:
-        return True
-    return _worth_retrying(failure)
+    return isinstance(failure, ClientResponseError) and failure.status == HTTPStatus.TOO_MANY_REQUESTS
 
 
 def _values_or_skip(
     make_request: Callable[[], AemetObservationRequest],
     monkeypatch: pytest.MonkeyPatch,
 ) -> pl.DataFrame:
-    """Build a request and read its values, and skip the test if AEMET refused or did not answer (GH-2965).
+    """Build a request and read its values, and skip the test if AEMET refused the key or the rate (GH-2965).
 
-    The reader logs the failure of a station list or a chunk and goes on with an empty frame, so a 401, a 429
-    or a 5xx never reaches the test as the exception that `skip_if_upstream_unavailable` skips on. CI runs
-    every job of both workflows on one key, and AEMET answers that with a 401 or a 429 for part of the calls;
-    the test asserts what AEMET publishes, which a refusal says nothing about. The request is built here,
-    because filtering by station id already reads the station list.
+    The reader logs the failure of a station list or a chunk and goes on with an empty frame, so a 401 or a 429
+    never reaches the test as the exception that `skip_if_upstream_unavailable` skips on (a timeout, a dropped
+    connection or a 5xx does: the reader raises those). CI runs every job of both workflows on one key, and AEMET
+    answers that with a 401 or a 429 for part of the calls; the test asserts what AEMET publishes, which a refusal
+    says nothing about. The request is built here, because filtering by station id already reads the station list.
 
-    Only an empty frame after failures that all are a refusal or an outage skips (a revoked key skips the
-    same way, and the reason names it). Any other failure, such as a 404, and an empty frame without one fail.
+    Only an empty frame after failures that all are a refusal skips (a revoked key skips the same way, and the
+    reason names it). Any other failure, such as a 404, and an empty frame without one fail.
     """
     failures: list[Exception] = []
     fetch = aemet_api._fetch_datos  # noqa: SLF001
@@ -90,7 +92,7 @@ def _values_or_skip(
 
     monkeypatch.setattr(aemet_api, "_fetch_datos", recording_fetch)
     df = make_request().values.all().df
-    if df.is_empty() and failures and all(_is_refusal_or_outage(failure) for failure in failures):
+    if df.is_empty() and failures and all(_is_refusal(failure) for failure in failures):
         pytest.skip(f"AEMET did not hand out the data: {failures[0]!r}")
     return df
 
@@ -687,12 +689,10 @@ def _not_skipped(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     [
         pytest.param(AemetKeyRejectedError("AEMET answered HTTP 401: Unauthorized"), id="key-rejected"),
         pytest.param(_response_error(429), id="rate-limit"),
-        pytest.param(_response_error(503), id="5xx"),
-        pytest.param(FSTimeoutError(), id="timeout"),
     ],
 )
 def test_values_or_skip_skips_when_aemet_refused_the_data(monkeypatch: pytest.MonkeyPatch, refusal: Exception) -> None:
-    """A chunk AEMET refused or did not answer (a 401 or a 429 of a key shared by CI) skips, naming the answer."""
+    """A chunk AEMET refused (a 401 or a 429 of a key shared by CI) skips, naming the answer."""
     _fake_fetch_datos(monkeypatch, refusal)
     with pytest.raises(pytest.skip.Exception, match="AEMET did not hand out the data"):
         _values_or_skip(_daily_request, monkeypatch)
@@ -734,6 +734,205 @@ def test_values_or_skip_hands_out_what_aemet_answered(monkeypatch: pytest.Monkey
     _fake_fetch_datos(monkeypatch, records)
     df = _not_skipped(monkeypatch)
     assert df.filter(pl.col("parameter").eq("wind_direction_gust_max")).get_column("value").to_list() == [50.0]
+
+
+_OUTAGES = [
+    pytest.param(FSTimeoutError(), id="timeout"),
+    pytest.param(ServerDisconnectedError(), id="dropped connection"),
+    pytest.param(ClientPayloadError("body cut short"), id="cut body"),
+    pytest.param(_response_error(500), id="500"),
+    pytest.param(_response_error(503), id="503"),
+]
+
+
+def _download_error(cause: Exception) -> DownloadError:
+    error = DownloadError("https://opendata.aemet.es/opendata/api/x", "outage")
+    error.__cause__ = cause
+    return error
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
+def test_aemet_observation_values_raise_a_download_error_at_the_first_chunk(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """An AEMET that did not answer ends the request with the `DownloadError`, after one request (GH-2965)."""
+    failure = _download_error(FSTimeoutError())
+    attempted = _fake_fetch_datos(monkeypatch, failure)
+    with pytest.raises(DownloadError) as raised:
+        _values(resolution, years=10, station_ids=(MADRID_RETIRO, BARCELONA))
+    assert raised.value is failure
+    assert len(attempted) == 1
+
+
+def test_aemet_observation_values_going_down_midway_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An AEMET that stops answering after the first chunk raises, rather than answering with the chunk read."""
+    records = json.dumps([{"fecha": "2010-01-01", "tmed": "5,5"}]).encode("latin-1")
+    attempted = _fake_fetch_datos(monkeypatch, records, _download_error(_response_error(503)))
+    with pytest.raises(DownloadError):
+        _values("daily", years=10)
+    assert len(attempted) == 2
+
+
+def _serve_envelope_and_datos(monkeypatch: pytest.MonkeyPatch, envelope: File, datos: File | None = None) -> list[str]:
+    """Answer the envelope request with `envelope` and the request of its "datos" link with `datos`.
+
+    Returns the urls asked.
+    """
+    asked: list[str] = []
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        asked.append(url)
+        if len(asked) == 1:
+            return envelope
+        assert datos is not None
+        return datos
+
+    monkeypatch.setattr(aemet_api, "_download_with_rate_limit_retry", download)
+    return asked
+
+
+_ENDPOINT = "https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/datos/x"
+_DATOS = "https://opendata.aemet.es/opendata/sh/0123abc?X-Amz-Signature=secret"
+
+
+def _fetch() -> bytes | Exception:
+    return aemet_api._fetch_datos(  # noqa: SLF001
+        _ENDPOINT, Settings(auth={"aemet": "dummy-key-for-test"}, cache_disable=True), CacheExpiry.NO_CACHE
+    )
+
+
+@pytest.mark.parametrize("failure", _OUTAGES)
+def test_aemet_fetch_datos_returns_an_envelope_that_did_not_answer_as_a_download_error(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    """The envelope request that timed out, was dropped or cut short, or met a 5xx, is a `DownloadError` naming it."""
+    _serve_envelope_and_datos(monkeypatch, File(url=_ENDPOINT, content=failure, status=500))
+    result = _fetch()
+    assert isinstance(result, DownloadError)
+    assert result.url == _ENDPOINT
+    assert result.__cause__ is failure
+
+
+@pytest.mark.parametrize("failure", _OUTAGES)
+def test_aemet_fetch_datos_returns_a_datos_link_that_did_not_answer_as_a_download_error(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    """The "datos" request that did not answer is a `DownloadError` naming the link, without its signature."""
+    _serve_envelope_and_datos(monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=failure, status=500))
+    result = _fetch()
+    assert isinstance(result, DownloadError)
+    assert result.url == "https://opendata.aemet.es/opendata/sh/0123abc"
+    assert "secret" not in str(result)
+    assert result.__cause__ is failure
+
+
+@pytest.mark.parametrize("estado", [500, 502, 503])
+def test_aemet_fetch_datos_returns_a_fault_of_the_envelope_as_a_download_error(
+    monkeypatch: pytest.MonkeyPatch, estado: int
+) -> None:
+    """AEMET reports its own faults as the `estado` of an HTTP 200, which is a 5xx like any other."""
+    _serve_envelope_and_datos(monkeypatch, _envelope(estado))
+    result = _fetch()
+    assert isinstance(result, DownloadError)
+    assert result.url == "envelope"
+    assert str(estado) in str(result)
+
+
+def test_aemet_fetch_datos_returns_an_estado_that_is_no_number_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An `estado` the JSON gives as text is no status to compare: it stays a plain failure, which is logged."""
+    body = json.dumps({"estado": "500", "descripcion": "the answer"}).encode()
+    _serve_envelope_and_datos(monkeypatch, File(url=_ENDPOINT, content=BytesIO(body), status=200))
+    result = _fetch()
+    assert isinstance(result, Exception)
+    assert not isinstance(result, DownloadError)
+
+
+def test_aemet_fetch_datos_returns_what_is_an_answer_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 404, an `estado` of 404 or 429, a refused key and a body that is no envelope stay what they were."""
+    for file in (
+        File(url=_ENDPOINT, content=FileNotFoundError(_ENDPOINT), status=404),
+        File(url=_ENDPOINT, content=_response_error(429), status=429),
+        File(url=_ENDPOINT, content=_response_error(400), status=400),
+        _envelope(404),
+        _envelope(429),
+        File(url=_ENDPOINT, content=BytesIO(b"<html>maintenance</html>"), status=200),
+    ):
+        _serve_envelope_and_datos(monkeypatch, file)
+        result = _fetch()
+        assert isinstance(result, Exception)
+        assert not isinstance(result, DownloadError), file
+    for file in (
+        File(url=_ENDPOINT, content=_response_error(401), status=401),
+        _envelope(403),
+    ):
+        _serve_envelope_and_datos(monkeypatch, file)
+        assert isinstance(_fetch(), AemetKeyRejectedError)
+    _serve_envelope_and_datos(
+        monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=FileNotFoundError(_DATOS), status=404)
+    )
+    assert isinstance(_fetch(), FileNotFoundError)
+
+
+def test_aemet_fetch_datos_returns_no_internet_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failed connection stays the `NoInternetError` it is (GH-2640)."""
+    offline = NoInternetError("no route to host")
+    _serve_envelope_and_datos(monkeypatch, File(url=_ENDPOINT, content=offline, status=503))
+    assert _fetch() is offline
+
+
+def test_aemet_observation_values_keep_the_empty_result_for_no_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 404 and an `estado` of 404 are AEMET answering that it has no data: the empty frame, as before."""
+    _serve_envelope_and_datos(monkeypatch, File(url=_ENDPOINT, content=FileNotFoundError(_ENDPOINT), status=404))
+    assert _values("daily", years=1).is_empty()
+    _serve_envelope_and_datos(monkeypatch, _envelope(404))
+    assert _values("hourly", years=1).is_empty()
+
+
+@pytest.mark.parametrize(
+    ("failure", "skipped"),
+    [
+        pytest.param(FSTimeoutError(), True, id="timeout"),
+        pytest.param(_response_error(503), True, id="503"),
+        pytest.param(_AemetEnvelopeError(500, "AEMET fault"), True, id="estado-500"),
+        pytest.param(FileNotFoundError("not found"), False, id="404 is an answer"),
+    ],
+)
+def test_aemet_outage_met_by_the_values_reader_skips_the_remote_test(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+    skipped: bool,  # noqa: FBT001
+) -> None:
+    """A remote AEMET test is skipped on an outage of the values, which used to reach it as an empty frame."""
+    stations = json.dumps(
+        [
+            {
+                "indicativo": MADRID_RETIRO,
+                "nombre": "MADRID, RETIRO",
+                "provincia": "MADRID",
+                "altitud": "667",
+                "latitud": "402941N",
+                "longitud": "34041W",
+            }
+        ]
+    ).encode("latin-1")
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        if "todasestaciones" in url:
+            return _envelope(200, datos="https://opendata.aemet.es/opendata/sh/stations")
+        if url.endswith("/sh/stations"):
+            return File(url=url, content=BytesIO(stations), status=200)
+        if isinstance(failure, _AemetEnvelopeError):
+            return _envelope(failure.status)
+        return File(url=url, content=failure, status=500)
+
+    monkeypatch.setattr(aemet_api, "_download_with_rate_limit_retry", download)
+
+    @skip_if_upstream_unavailable()
+    def _remote_test() -> None:
+        assert not _daily_request().values.all().df.is_empty()
+
+    with pytest.raises(pytest.skip.Exception if skipped else AssertionError):
+        _remote_test()
 
 
 def _probe_answering(monkeypatch: pytest.MonkeyPatch, *files: File) -> list[dict]:

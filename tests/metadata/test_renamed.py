@@ -247,6 +247,17 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
         ),
         (DwdPoiMetadata, "hourly/data/weather_last_3h", "It was renamed to 'weather_past'."),
         (DwdPoiMetadata, "hourly/data/weather_secondary_last_3h", "It was renamed to 'weather_secondary_past'."),
+        # GH-3017: the count of the days behind the mean of the daily extremes, and its normal; names no dataset has
+        (
+            EcccObservationMetadata,
+            "monthly/data/count_days_valid_temperature_air_mean_2m",
+            "It was renamed to 'count_days_valid_temperature_air_mean_minmax_2m'.",
+        ),
+        (
+            EcccObservationMetadata,
+            "monthly/data/temperature_air_mean_2m_normal",
+            "It was renamed to 'temperature_air_mean_minmax_2m_normal'.",
+        ),
         # GH-2845, GH-2846, GH-2847
         (
             DwdSwsmosMetadata,

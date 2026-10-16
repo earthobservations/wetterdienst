@@ -143,6 +143,10 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "weather_secondary_last_3h": "weather_secondary_past",
     # GH-2817: DWD POI's "previous day" wind maximum is the maximum of the 6 hours before the report
     "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h",
+    # GH-3017: the count of the days behind `temperature_air_mean_minmax_2m` and the normal of it, which ECCC builds
+    # from the daily (max + min) / 2 too; no other provider had them, so the old names are no table entries any more
+    "count_days_valid_temperature_air_mean_2m": "count_days_valid_temperature_air_mean_minmax_2m",
+    "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
 }
 
 _WIND_LAST_10MIN = {
