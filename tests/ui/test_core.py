@@ -698,7 +698,7 @@ _STATUS_OF = {
     "CredentialMissingError": 501,
     "CredentialRejectedError": 501,
     "DateRequiredError": 400,
-    "DownloadError": 500,
+    "DownloadError": 502,
     "ExportRefusedError": 500,
     "ImageTooLargeError": 400,
     "InvalidBoundingBoxError": 400,
@@ -708,8 +708,8 @@ _STATUS_OF = {
     "IssueNotFoundError": 404,
     "LocationOutOfRangeError": 400,
     "MetadataNotFoundError": 404,
-    "MetaFileFormatError": 500,
-    "MetaFileNotFoundError": 500,
+    "MetaFileFormatError": 502,
+    "MetaFileNotFoundError": 502,
     "MissingDependencyError": 501,
     "MissingTimeIntervalError": 400,
     "NoInternetError": 503,
@@ -719,13 +719,13 @@ _STATUS_OF = {
     "NotEnoughDataError": 400,
     "NotFoundError": 404,
     "ParameterNotCarriedError": 400,
-    "ProductFileNotFoundError": 500,
+    "ProductFileNotFoundError": 502,
     "ProviderNotFoundError": 404,
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
     "StationNotFoundError": 404,
-    "UpstreamError": 500,
+    "UpstreamError": 502,
     "WetterdienstError": 500,
 }
 
@@ -752,6 +752,41 @@ def test_every_exception_class_is_classified() -> None:
     assert sorted(classes) == sorted(_STATUS_OF)
     for name, cls in classes.items():
         assert core.failure_status(cls.__new__(cls)) == _STATUS_OF[name], name
+
+
+def test_an_upstream_failure_after_a_timeout_is_a_504() -> None:
+    """A provider that did not answer in time is a 504, found in the chain of causes; a dropped connection a 502."""
+    from aiohttp import ClientPayloadError, ServerTimeoutError  # noqa: PLC0415
+    from fsspec.exceptions import FSTimeoutError  # noqa: PLC0415
+
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
+
+    for cause in (TimeoutError(), ServerTimeoutError(), FSTimeoutError()):
+        error = DownloadError("https://example.org/file", "timed out")
+        error.__cause__ = cause
+        assert core.failure_status(error) == 504, type(cause)
+    # through one more link, as a provider that wraps the download's failure in its own
+    outer = DownloadError("https://example.org/other", "wrapped")
+    inner = DownloadError("https://example.org/file", "timed out")
+    inner.__cause__ = TimeoutError()
+    outer.__cause__ = inner
+    assert core.failure_status(outer) == 504
+    dropped = DownloadError("https://example.org/file", "dropped")
+    dropped.__cause__ = ClientPayloadError()
+    assert core.failure_status(dropped) == 502
+    assert core.failure_status(DownloadError("https://example.org/file", "no cause")) == 502
+
+    # a timeout the failure was merely raised while handling is not its cause
+    def raised_in_a_handler() -> None:
+        try:
+            raise TimeoutError  # noqa: TRY301
+        except TimeoutError:
+            url = "https://example.org/file"
+            raise DownloadError(url, "raised in a handler") from None
+
+    with pytest.raises(DownloadError) as raised:
+        raised_in_a_handler()
+    assert core.failure_status(raised.value) == 502
 
 
 def test_an_unclassified_wetterdienst_error_is_a_server_error() -> None:

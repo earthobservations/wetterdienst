@@ -99,6 +99,6 @@ test.describe('OpenAPI proxy', () => {
     expect(response.status()).toBe(200)
     const schema = await response.json()
     expect(schema.openapi).toBeTruthy()
-    expect(schema.paths['/api/coverage']).toBeTruthy()
+    expect(schema.paths['/api/v1/coverage']).toBeTruthy()
   })
 })

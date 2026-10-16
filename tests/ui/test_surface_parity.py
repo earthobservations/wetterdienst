@@ -128,6 +128,11 @@ def _rest(path: str, **params: str) -> Any:  # noqa: ANN401
     return client.get(path, params={"provider": "dwd", "network": "observation", "parameters": PARAMETER, **params})
 
 
+def _versioned(path: str) -> str:
+    """Give the path the OpenAPI document lists an endpoint under: the alias is served, but not documented."""
+    return path.replace("/api/", "/api/v1/", 1)
+
+
 def _ids(stations: Any) -> set[str]:  # noqa: ANN401
     """Name the stations of a listing."""
     return {station["station_id"] for station in stations["stations"]}
@@ -196,7 +201,9 @@ def test_an_explicit_rank_is_the_number_of_matches_everywhere(surface: str) -> N
 def test_the_rank_of_a_name_is_described_with_the_numbers_it_defaults_to() -> None:
     """The request models, which the OpenAPI schema and the MCP tools describe, say what a name defaults to."""
     openapi = TestClient(restapi.app).get("/openapi.json").json()
-    parameters = {parameter["name"]: parameter for parameter in openapi["paths"]["/api/stations"]["get"]["parameters"]}
+    parameters = {
+        parameter["name"]: parameter for parameter in openapi["paths"]["/api/v1/stations"]["get"]["parameters"]
+    }
     assert f"default {DEFAULT_NAME_RANK_LISTING} for `stations`" in parameters["rank"]["description"]
     assert f"{DEFAULT_NAME_RANK} for `values`" in parameters["rank"]["description"]
 
@@ -616,7 +623,6 @@ _CLI_ONLY_OF = {
     ("history",): {"format": "history writes JSON only, as REST does without a `format`"},
 }
 _REST_ONLY_OF = {
-    core.StationsRequest: {"with_stations": "accepted and not read: a listing of stations is the stations"},
     core.CoverageRequest: {"pretty": "the command line always indents"},
 }
 _NO_COMMAND = {
@@ -689,7 +695,7 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
     schema = model.model_json_schema()["properties"]
 
     # the endpoint takes the fields, and the tool is the endpoint
-    parameters = {p["name"]: p for p in restapi.app.openapi()["paths"][endpoint]["get"]["parameters"]}
+    parameters = {p["name"]: p for p in restapi.app.openapi()["paths"][_versioned(endpoint)]["get"]["parameters"]}
     assert set(parameters) == set(fields)
     if tool is not None:
         arguments = _tools()[tool]["properties"]
@@ -840,7 +846,9 @@ def test_the_singular_of_a_list_is_refused_by_the_mcp_tool_naming_the_plural(too
 def test_the_one_reference_station_of_an_estimate_stays_singular_on_every_surface() -> None:
     """`interpolate` and `summarize` take one `station`, not a list, and the plural is not an alias of it (GH-2561)."""
     for endpoint, path in (("/api/interpolate", ("interpolate",)), ("/api/summarize", ("summarize",))):
-        assert "station" in {p["name"] for p in restapi.app.openapi()["paths"][endpoint]["get"]["parameters"]}
+        assert "station" in {
+            p["name"] for p in restapi.app.openapi()["paths"][_versioned(endpoint)]["get"]["parameters"]
+        }
         assert "station" in _cli_options(path)
         assert "stations" not in _cli_options(path)
     response = _rest("/api/interpolate", stations="00001", timestamp="2020-05")
@@ -1021,3 +1029,68 @@ def test_an_option_that_was_never_renamed_is_clicks_own_refusal(command: str, op
     assert result.exit_code == 2, result.output
     assert "was renamed" not in result.output
     assert f"No such option '{option}'" in result.output
+
+
+# a failure is the same classification on REST and in the MCP tools (GH-2561, GH-2984)
+
+
+def _classified_failures() -> list[Any]:
+    from wetterdienst import exceptions  # noqa: PLC0415
+
+    timeout = exceptions.DownloadError("https://opendata.example.org/file.zip", "timed out")
+    timeout.__cause__ = TimeoutError()
+    return [
+        pytest.param(exceptions.RequestError("the request cannot be served"), 400, id="request"),
+        pytest.param(exceptions.StationNotFoundError("no such station"), 404, id="not-found"),
+        pytest.param(exceptions.CredentialRejectedError("WD_AUTH__X was rejected"), 501, id="credential"),
+        pytest.param(exceptions.MissingDependencyError("pip install x"), 501, id="dependency"),
+        pytest.param(exceptions.DownloadError("https://opendata.example.org/file.zip", "503"), 502, id="download"),
+        pytest.param(
+            exceptions.NoInternetError("No internet connection: could not reach https://x"), 503, id="offline"
+        ),
+        pytest.param(timeout, 504, id="timeout"),
+        pytest.param(RuntimeError("/srv/secret/path"), 500, id="bug"),
+    ]
+
+
+@pytest.mark.parametrize(("error", "status"), _classified_failures())
+def test_a_failure_is_classified_alike_over_rest_and_through_the_mcp_tool(
+    monkeypatch: pytest.MonkeyPatch, error: BaseException, status: int
+) -> None:
+    """One exception gets one status and one sentence on REST and as a tool error, not each surface's own (GH-2561).
+
+    The tool error is made from the REST API's problem, so it carries the status and the `detail`
+    over, and whatever the REST API leaves out of the `detail` -- a path, a URL, a setting -- is
+    left out of the tool error too. An exception no endpoint handled is covered by
+    `test_an_unhandled_exception_is_the_fixed_500_over_http_and_through_mcp` (GH-2984).
+    """
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    def raises(**_kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr("wetterdienst.ui.restapi.get_values", raises)
+    arguments = {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "stations": "00001"}
+
+    rest = _rest("/api/values", stations="00001")
+    assert rest.status_code == status, rest.text
+    assert rest.headers["content-type"] == "application/problem+json"
+    detail = rest.json()["detail"]
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            await client.call_tool("values", arguments)
+
+    with pytest.raises(ToolError) as tool_error:
+        asyncio.run(call())
+    message = str(tool_error.value)
+    assert f"HTTP error {status}" in message
+    assert detail in message
+    for secret in ("/srv/secret/path", "opendata.example.org", "WD_AUTH__X"):
+        assert secret not in message or secret in detail, secret

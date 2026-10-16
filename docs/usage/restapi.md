@@ -33,7 +33,8 @@ Visit [wetterdienst.eobs.org](https://wetterdienst.eobs.org) to use the web inte
 
 By default the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints return only
 the requested data. Add `with_metadata=true` to include the provider-metadata block, and (for the
-value endpoints) `with_stations=true` to include the queried stations' metadata. With
+endpoints of values and `history`) `with_stations=true` to include the queried stations' metadata;
+a listing of `stations` is the stations, and takes no `with_stations`. With
 `with_metadata=true`, the JSON and GeoJSON of `values`, `interpolate` and `summarize` also carry a
 `settings` block next to `metadata`: the settings the result was got with, named as the endpoint's
 query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
@@ -67,6 +68,26 @@ Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts 
 and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
 the microsecond, with its offset, for instance `2026-09-01T00:00:00.000000+00:00`.
 
+## Versioning
+
+The routes are served under `/api/v1/...`, and OpenAPI (`/openapi.json`, `/docs`) documents that
+prefix. `/api/...` is an alias of the current version: the same routes with the same handlers, so
+`/api/values` and `/api/v1/values` answer alike. The alias is not deprecated, and it follows the
+current version, so a client that must not move with the next one asks for `/api/v1`. The
+examples on this page and the web app use the alias.
+
+`GET /api/version` reports the version of the contract next to that of the package:
+
+```json
+{"version": "0.155.0", "api_version": "1", "mcp_enabled": true}
+```
+
+`api_version` is raised with a change a client has to follow. A path under a version that does
+not exist (`/api/v2/...`) is a 404.
+
+The operation ids of the OpenAPI document (`values_api_values_get`) and the names of the MCP tools
+(`values`) do not carry the version.
+
 ## One vocabulary
 
 A request is spelled the same on the REST API, the command line and the MCP tools, so that what is
@@ -77,7 +98,7 @@ learnt on one holds on the others:
   command with hyphens, `--name-threshold`. The mapping is that and nothing else, and a test holds
   every parameter of every request to it: a parameter has an option and an argument of its name and
   type, or is written down with the reason it has none (`--target` writes to a file, which REST does
-  not; `with_stations` of `stations` is not read). The underscored spellings of the command line,
+  not). The underscored spellings of the command line,
   `--convert_units` and the like, are refused with an error naming the hyphenated one.
 - **A parameter that takes a list is plural.** `parameters`, `periods`, `stations` and `sections`,
   and `resolutions` and `datasets` of `coverage`, take a list; `station`, `parameter`, `period`,
@@ -269,7 +290,7 @@ The limit holds for the REST API and the MCP tools; the library and the CLI have
 
 ### Errors
 
-Every error of the `/api` routes is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
+Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
 problem, served as `application/problem+json`, whatever its status: a 400, a 404, a 422, a 500 or
 the 404 of a path that does not exist. The `/mcp` endpoint answers its own errors as JSON-RPC.
 
@@ -306,15 +327,24 @@ entry for each invalid parameter, where `loc` names it:
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
+| 502 | the data provider failed or sent an answer the server cannot read: a download that was refused or cut short, a file in a layout it does not expect; the request was valid and can be retried |
 | 503 | the server could not reach the data provider (no network connection); the request was valid and can be retried, the body says so and does not name the provider's address |
-| 500 | the server's own error, or the provider's: the body names the exception's type and nothing else, the cause is in the server log |
+| 504 | the data provider did not answer in time; the request was valid and can be retried |
+| 500 | the server's own error, a defect: the body names the exception's type and nothing else, the cause is in the server log |
 
 Read `status` for what happened and `detail` for a sentence to show; the wording of `detail` is not
 part of the contract, and `type` is `about:blank` until the errors have codes of their own. A client
 that read `detail` as the list of a 422 reads `errors` now.
 
+The library's exceptions are answered by their class in the hierarchy of
+`wetterdienst.exceptions` (a `RequestError` is a 400, a `NotFoundError` a 404, a
+`ConfigurationError` a 501, an `UpstreamError` a 502, 503 or 504), and the command line and the MCP
+tools ask the same table. A client may retry a 502, 503 or 504; a 4xx it has to change the request
+for, a 501 whoever runs the server has to act on, and a 500 is a defect.
+
 The MCP tools put the same text into the tool error of an error the API answers, as `HTTP error
-422: Unprocessable Content - limit: Input should be greater than or equal to 1`.
+422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an exception
+that no endpoint handled is the 500 sentence there too, not its own message.
 
 ## MCP endpoint
 
@@ -358,7 +388,7 @@ Without the `[mcp]` extra installed, the REST API behaves exactly as before and 
 simply absent. `GET /api/version` says which of the two an instance is:
 
 ```json
-{"version": "0.132.0", "mcp_enabled": true}
+{"version": "0.155.0", "api_version": "1", "mcp_enabled": true}
 ```
 
 The app reads that flag before offering an MCP client configuration, so an instance installed

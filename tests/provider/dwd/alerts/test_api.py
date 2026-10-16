@@ -14,7 +14,13 @@ import polars as pl
 import pytest
 
 from wetterdienst import Wetterdienst
-from wetterdienst.exceptions import InvalidTimeIntervalError
+from wetterdienst.exceptions import (
+    DownloadError,
+    InvalidTimeIntervalError,
+    MetaFileFormatError,
+    MetaFileNotFoundError,
+    RequestError,
+)
 from wetterdienst.provider.dwd.alerts import (
     DwdWeatherAlertGranularity,
     DwdWeatherAlertLanguage,
@@ -128,15 +134,49 @@ def test_granularity_parsing(value: str, expected: DwdWeatherAlertGranularity) -
 
 
 def test_invalid_granularity_raises() -> None:
-    """Verify an unknown granularity is rejected."""
-    with pytest.raises(ValueError, match="granularity"):
+    """Verify an unknown granularity is rejected as a `RequestError`, still a `ValueError` (GH-2985)."""
+    with pytest.raises(RequestError, match="granularity") as raised:
         DwdWeatherAlertRequest(granularity="bogus")
+    assert isinstance(raised.value, ValueError)
 
 
 def test_invalid_language_raises() -> None:
-    """Verify an unknown language is rejected."""
-    with pytest.raises(ValueError, match="language"):
+    """Verify an unknown language is rejected as a `RequestError`, still a `ValueError` (GH-2985)."""
+    with pytest.raises(RequestError, match="language") as raised:
         DwdWeatherAlertRequest(language="it")
+    assert isinstance(raised.value, ValueError)
+
+
+def test_a_timestamp_that_does_not_parse_is_a_request_error() -> None:
+    """A date that is no ISO 8601 is a `RequestError`, still a `ValueError`, not taken for a defect (GH-2985)."""
+    with pytest.raises(RequestError, match="yesterday") as raised:
+        DwdWeatherAlertRequest(timestamp="yesterday")
+    assert isinstance(raised.value, ValueError)
+
+
+@pytest.mark.parametrize(
+    ("cap", "cause"),
+    [
+        pytest.param(b"<alert><sent>0001-01-01T00:00:00+01:00</sent></alert>", OverflowError, id="overflow"),
+        pytest.param(b"<alert><sent>not-a-time</sent></alert>", ValueError, id="time"),
+        pytest.param(b"<alert><sent>", SyntaxError, id="xml"),
+    ],
+)
+def test_query_wraps_an_alert_the_parser_cannot_read(
+    monkeypatch: pytest.MonkeyPatch, cap: bytes, cause: type[Exception]
+) -> None:
+    """A snapshot the parser cannot read is a `MetaFileFormatError`, the feed's fault (GH-2985)."""
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    zipped = _make_zip(cap)
+
+    def fake_download(*_a: object, **_k: object) -> File:
+        return File(url="http://x", content=zipped, status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", fake_download)
+    with pytest.raises(MetaFileFormatError, match="does not expect") as raised:
+        DwdWeatherAlertRequest().query()
+    assert isinstance(raised.value.__cause__, cause)
 
 
 def _make_zip(*files: bytes) -> io.BytesIO:
@@ -172,15 +212,16 @@ def test_empty_archive_yields_empty_frame() -> None:
 
 
 def test_query_wraps_download_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify a download failure (e.g. a 404 from a rolled-off snapshot) becomes a clean OSError."""
+    """Verify a download failure (e.g. a 404 from a rolled-off snapshot) is a `DownloadError` (GH-2985)."""
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     def fake_download(*_a: object, **_k: object) -> File:
         return File(url="http://x", content=FileNotFoundError("404"), status=404)
 
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", fake_download)
-    with pytest.raises(OSError, match="could not download weather alerts snapshot"):
+    with pytest.raises(DownloadError, match="Failed to download http://x: 404") as raised:
         DwdWeatherAlertRequest().query()
+    assert isinstance(raised.value.__cause__, FileNotFoundError)
 
 
 def test_query_raises_no_internet_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -200,14 +241,14 @@ def test_query_raises_no_internet_as_it_is(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_query_wraps_bad_zip(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify a non-zip 200 body becomes a clean OSError instead of a raw BadZipFile."""
+    """Verify a non-zip 200 body becomes a `DownloadError` instead of a raw BadZipFile (GH-2985)."""
     from wetterdienst.util.network import File  # noqa: PLC0415
 
     def fake_download(*_a: object, **_k: object) -> File:
         return File(url="http://x", content=io.BytesIO(b"<html>error</html>"), status=200)
 
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.download_file", fake_download)
-    with pytest.raises(OSError, match="not a valid zip archive"):
+    with pytest.raises(DownloadError, match="not a valid zip archive"):
         DwdWeatherAlertRequest().query()
 
 
@@ -310,7 +351,7 @@ def test_resolve_snapshot_an_empty_listing_is_not_the_dates(monkeypatch: pytest.
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.api.list_remote_directory_fsspec", lambda *_a, **_k: [])
 
     request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00")
-    with pytest.raises(FileNotFoundError, match="no weather-alerts snapshot listed at"):
+    with pytest.raises(MetaFileNotFoundError, match="no weather-alerts snapshot listed at"):
         request._resolve_snapshot()  # noqa: SLF001
 
 

@@ -18,12 +18,19 @@ import json
 import logging
 import re
 import zipfile
+import zlib
 from typing import TYPE_CHECKING, Any, ClassVar, Never
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidTimeIntervalError, NoInternetError
+from wetterdienst.exceptions import (
+    DownloadError,
+    InvalidTimeIntervalError,
+    MetaFileFormatError,
+    MetaFileNotFoundError,
+    RequestError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
@@ -255,7 +262,7 @@ class DwdWeatherAlertRequest:
             return mapping[value]
         except KeyError as e:
             msg = f"granularity {granularity!r} not supported, use 'community' or 'district'"
-            raise ValueError(msg) from e
+            raise RequestError(msg) from e
 
     @staticmethod
     def _parse_language(language: str | DwdWeatherAlertLanguage) -> DwdWeatherAlertLanguage:
@@ -267,7 +274,7 @@ class DwdWeatherAlertRequest:
         except ValueError as e:
             supported = ", ".join(item.value for item in DwdWeatherAlertLanguage)
             msg = f"language {language!r} not supported, use one of {supported}"
-            raise ValueError(msg) from e
+            raise RequestError(msg) from e
 
     @staticmethod
     def _parse_timestamp(timestamp: str | dt.datetime | None) -> dt.datetime | None:
@@ -279,7 +286,10 @@ class DwdWeatherAlertRequest:
             timestamp = timestamp.strip()
             if not timestamp:
                 return None
-            parsed = dt.datetime.fromisoformat(timestamp)
+            try:
+                parsed = dt.datetime.fromisoformat(timestamp)
+            except ValueError as e:
+                raise RequestError(str(e)) from e
         else:
             parsed = timestamp
         if parsed.tzinfo is None:
@@ -311,8 +321,8 @@ class DwdWeatherAlertRequest:
         For a dated request the newest snapshot produced at or before ``timestamp`` is selected from
         the directory listing; the filename timestamps are UTC. Raises ``InvalidTimeIntervalError``
         (a ``ValueError``) if ``timestamp`` falls before DWD's rolling window (no snapshot at or
-        before it is available), and ``FileNotFoundError`` if the listing holds no snapshot at all,
-        which is no date's doing.
+        before it is available), and ``MetaFileNotFoundError`` (a ``FileNotFoundError`` too) if the
+        listing holds no snapshot at all, which is no date's doing.
         """
         if self.timestamp is None:
             return self.url, None
@@ -327,7 +337,7 @@ class DwdWeatherAlertRequest:
 
         if not snapshots:
             msg = f"no weather-alerts snapshot listed at {self._directory_url}"
-            raise FileNotFoundError(msg)
+            raise MetaFileNotFoundError(msg)
 
         candidates = [(timestamp, name) for timestamp, name in snapshots if timestamp <= self.timestamp]
         if not candidates:
@@ -358,19 +368,24 @@ class DwdWeatherAlertRequest:
         )
         # A download failure (e.g. HTTP 404 from a snapshot that rolled off the window between the
         # directory listing and this download, a timeout) is surfaced as content being an
-        # Exception; wrap it with context instead of leaking the raw fsspec error. No internet is
-        # raised as it is, naming the URL (GH-2640).
-        if isinstance(file.content, NoInternetError):
-            raise file.content
-        if isinstance(file.content, Exception):
-            msg = f"could not download weather alerts snapshot from {url}"
-            raise OSError(msg) from file.content
+        # Exception, raised as the `DownloadError` naming the file, its cause underneath. No
+        # internet is raised as it is, naming the URL (GH-2640).
+        file.raise_if_exception()
+        content = file.content
+        if isinstance(content, Exception):  # raised above
+            raise content
         try:
-            alerts = self._parse_archive(file.content)
+            alerts = self._parse_archive(content)
+            df = self._build_dataframe(alerts)
         except zipfile.BadZipFile as e:
-            msg = f"weather alerts snapshot from {url} is not a valid zip archive"
-            raise OSError(msg) from e
-        df = self._build_dataframe(alerts)
+            raise DownloadError(url, "the snapshot is not a valid zip archive") from e
+        except (ValueError, OverflowError, SyntaxError, EOFError, zlib.error) as e:
+            # an alert whose time DWD wrote in a form the parser does not read, or one a datetime
+            # cannot hold, an XML that does not parse (lxml's `XMLSyntaxError` is a `SyntaxError`) or
+            # an archive member that does not inflate: the feed's, not the request's, whose own date
+            # was converted already
+            msg = f"weather alerts snapshot from {url} holds what the parser does not expect: {e}"
+            raise MetaFileFormatError(msg) from e
         return DwdWeatherAlertResult(df=df, granularity=self.granularity, language=self.language, snapshot=snapshot)
 
     @staticmethod

@@ -33,6 +33,7 @@ from wetterdienst.exceptions import (
     RequestError,
     StartDateEndDateError,
     StationNotFoundError,
+    UpstreamError,
 )
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
@@ -573,7 +574,6 @@ class StationsRequest(_RefusesRenamedParameters):
     timestamp: _StationsTimestampField = None
 
     with_metadata: _WithMetadataField = False
-    with_stations: _WithStationsField = False
 
     format: _FormatField = "json"
     pretty: _PrettyField = False
@@ -1122,19 +1122,29 @@ class AlertsRequest(_RefusesRenamedParameters):
 def failure_status(e: BaseException) -> int:
     """Tell the HTTP status a failure is answered with, from its place in the `WetterdienstError` hierarchy.
 
+    The one table every surface reads (REST, the MCP tools through REST, the command line)::
+
+        RequestError, OverflowError          400  the request cannot be served as phrased
+        NotFoundError                        404  a provider, network, station or issue that does not exist
+        ConfigurationError                   501  a credential or optional dependency this installation lacks
+        NoInternetError                      503  no connection to the provider could be made
+        UpstreamError after a timeout        504  the provider did not answer in time
+        any other UpstreamError              502  the provider failed, or sent what the parser does not expect
+        anything else                        500  our bug
+
     A `RequestError` -- a date, period, parameter, bounding box, point or issue that cannot be
-    served as given -- is a 400, and a `NotFoundError` -- a provider, network, station or issue the
-    lookup does not know -- a 404. An `OverflowError` is a 400 as well: it is a date at the edge of
-    what a datetime holds -- `9999-12-31T23:00Z` once a provider converts it to its own zone, an
-    issue a negative offset carries past year 9999 -- and the dates on the way that come that close
-    are the request's. A `ConfigurationError`, a credential or an optional dependency this
-    installation lacks, is a 501: the request was well formed, and the deployment declines it.
-    A `NoInternetError`, no connection to the provider could be made, is a 503: nothing is wrong
-    with the request or the server's code, and the same request can succeed once the connection is
-    back (GH-2640). Anything else is a 500, an `UpstreamError` and an unclassified
-    `WetterdienstError` among it: a provider's file in a layout its parser does not expect or an
-    upstream that answers badly is not the caller's to fix, so a class added to the hierarchy
-    without a place here is the server's error until it is given one.
+    served as given -- is a 400, and a `NotFoundError` a 404. An `OverflowError` is a 400 as well: it
+    is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a provider converts it
+    to its own zone, an issue a negative offset carries past year 9999 -- and the dates on the way
+    that come that close are the request's. A `ConfigurationError`, a credential or an optional
+    dependency this installation lacks, is a 501: the request was well formed, and the deployment
+    declines it. A `NoInternetError` is a 503: nothing is wrong with the request or the server's
+    code, and the same request can succeed once the connection is back (GH-2640). Any other
+    `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
+    provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
+    underneath (its `__cause__`) was a timeout. What is left is a 500, an unclassified
+    `WetterdienstError` among it, so a class added to the hierarchy without a place here is the
+    server's error until it is given one.
 
     Kept here rather than in the REST API so that `wetterdienst issues` asks the same question
     without importing FastAPI: there a refusal is a usage error, exit 2, a `NoInternetError` one line, exit 1,
@@ -1148,7 +1158,27 @@ def failure_status(e: BaseException) -> int:
         return 501
     if isinstance(e, NoInternetError):
         return 503
+    if isinstance(e, UpstreamError):
+        return 504 if timed_out(e) else 502
     return 500
+
+
+def timed_out(e: BaseException) -> bool:
+    """Tell whether a failure was a timeout, itself or by the failure it was raised from.
+
+    A download that did not answer in time is a `DownloadError` whose `__cause__` is the timeout
+    (`TimeoutError`, which `asyncio`, aiohttp's `ServerTimeoutError` and fsspec's `FSTimeoutError`
+    all derive from), so the chain is followed. Its own message is empty, and the class is the only
+    thing that tells it from a dropped connection.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = e
+    while current is not None and id(current) not in seen:
+        if isinstance(current, TimeoutError):
+            return True
+        seen.add(id(current))
+        current = current.__cause__
+    return False
 
 
 def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
