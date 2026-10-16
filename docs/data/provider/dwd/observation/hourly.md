@@ -238,8 +238,8 @@ Codes (precipitation_form):
 
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. | °C | - |
-| {term}`humidity_relative` | rf_tu | Relative humidity. | % | >=0,<=100 |
+| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are UTC. | °C | - |
+| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are UTC. | % | >=0,<=100 |
 
 ### temperature_soil
 

@@ -187,6 +187,12 @@ Types of changes:
   (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
+- **Breaking**: the mean that a source computes as (maximum + minimum) / 2 is
+  `temperature_air_mean_minmax_2m` (new), no longer `temperature_air_mean_2m`:
+  `eccc/observation` daily and monthly `mean_temperature` and `geosphere/observation` daily
+  `tl_mittel`. Request the new name; the old one raises `InvalidParameterError` in those datasets,
+  which says what it is called now. Geosphere monthly `tl_mittel` keeps `temperature_air_mean_2m`
+  (GH-2839)
 - **Breaking**: an empty result is exit 0 on the command line, as it is a 200 on the REST API: a
   window without readings, a selection that finds no station, a glossary filter that matches
   nothing. The sentence goes to stderr and stdout holds what the REST API answers (`{"values": []}`,
@@ -276,6 +282,16 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
+- The description of `noaa/ghcn` daily `tavg` said it was (max + min) / 2. It is GHCN's own
+  average daily temperature, an average of hourly readings (UTC day) from source 'S', and that is
+  what the description now says; `temperature_air_mean_2m` stays (GH-2839)
+- **Breaking**: `dwd/observation` `hourly/temperature_air` `historical`: the stamps of periods that
+  DWD's `Metadaten_Parameter` calls "Stundenwerte in MEZ (MD)", up to 1991 at 80 East German
+  stations, are MEZ, not UTC, and are returned one hour earlier than before, per parameter
+  (`temperature_air_2m`, `humidity_relative`), with `zone:mez` in `quality_flags` (`3,zone:mez`).
+  Plain MEZ and UTC periods are unchanged. A change inside a shared day (36 stations on 1991-11-01)
+  is taken to be after its stamp 00. Add an hour to flagged stamps to get the old ones; 30 rows
+  that the shift puts on a stamp that is there are dropped (GH-2709)
 - `wetterdienst stations|values|interpolate|summarize --format=png|jpg|webp|svg|pdf` wrote the
   `repr` of the image (`b'\x89PNG...'`) to stdout; it writes the image as the REST API sends it
   (GH-2635)

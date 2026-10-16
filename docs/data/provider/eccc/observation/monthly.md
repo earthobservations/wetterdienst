@@ -29,7 +29,7 @@
 | {term}`cooling_degree_day`      | cooling_degree_days     | cooling degree days        | °Cd  | >=0         |
 | {term}`heating_degree_day`      | heating_degree_days     | heating degree days        | °Cd  | >=0         |
 | {term}`temperature_air_max_2m`  | max_temperature         | 2m maximum air temperature | °C   | -           |
-| {term}`temperature_air_mean_2m` | mean_temperature        | 2m mean air temperature    | °C   | -           |
+| {term}`temperature_air_mean_minmax_2m` | mean_temperature | 2m mean air temperature, the mean of the daily values | °C | - |
 | {term}`temperature_air_min_2m`  | min_temperature         | 2m minimum air temperature | °C   | -           |
 | {term}`snow_depth`              | snow_on_ground_last_day | snow depth on the last day | cm   | >=0         |
 | {term}`precipitation_amount`    | total_precipitation     | precipitation height       | mm   | >=0         |

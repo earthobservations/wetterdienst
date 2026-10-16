@@ -219,7 +219,7 @@ NoaaGhcnMetadata = {
                             "name_original": "tmin",
                             "unit": "degree_celsius",
                         },
-                        # derived from temperature_air_max_2m and temperature_air_min_2m
+                        # the source's own TAVG, no (TMAX + TMIN) / 2: that is TAXN, which is not served (GH-2839)
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tavg",

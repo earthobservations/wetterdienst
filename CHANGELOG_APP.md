@@ -34,6 +34,8 @@ Types of changes:
   labels of `probability_radiation_global_last_1h`, `weather_last_3h` and
   `weather_secondary_last_3h` are gone with those names: against an older backend the prettified id
   shows (GH-2836, GH-2837, GH-2840, GH-2843, GH-2844, GH-2845)
+- `[Glossary]` The new parameter `temperature_air_mean_minmax_2m`, the mean computed from the
+  day's maximum and minimum (ECCC, Geosphere daily), has a label in all 11 languages (GH-2839)
 - **Breaking** `[API requests]` The app asks `stations`, `values` and `history` for `stations`, the
   plural the backend takes a list by, where it sent `station`, and the API page lists it so. A
   backend from before the change refuses the plural as an input it does not know: use an app and a
