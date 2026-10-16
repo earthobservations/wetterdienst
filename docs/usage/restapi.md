@@ -116,7 +116,7 @@ what the answer is missing:
     },
     "producer": {
       "name": "wetterdienst",
-      "version": "0.155.0",
+      "version": "0.156.0",
       "repository": "https://github.com/earthobservations/wetterdienst",
       "documentation": "https://wetterdienst.readthedocs.io",
       "doi": "10.5281/zenodo.3960624"

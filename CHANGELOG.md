@@ -16,6 +16,28 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- Every JSON and GeoJSON answer of `stations`, `values`, `interpolate`, `summarize` and `history`,
+  over REST, on the command line and in the MCP tools, carries a `metadata` block, with or without
+  `with_metadata`: the provider's `license` (SPDX identifier, name, URL; null where it states none)
+  and `attribution`, the request as resolved, `retrieved_at`, `counts`, `crs`, `warnings` (each with
+  a stable `code`: an unknown station id, a skipped station, ...), `api_version` and
+  `schema_version`. `with_metadata=true` adds the unit of each parameter and what `quality_flags`
+  holds. The library has the licence at `request.metadata.license` (GH-2561)
+- Those answers, CSV and images included, carry the same in the headers `X-Wetterdienst-API-Version`,
+  `-Schema-Version`, `-Retrieved-At`, `-Provider`, `-License`, `-Attribution`, `-Stations`, `-Rows`
+  and `-Warnings`, and a `Link: <licence>; rel="license"` (GH-2561)
+
+### Changed
+
+- The OpenAPI document requires `metadata` in the answers of `stations`, `values`, `interpolate`
+  and `summarize`, and the component schemas of the stations answer are
+  `_StationsWithMetadataDict` and `_StationsWithMetadataOgcFeatureCollection`, no longer
+  `_StationsDict` and `_StationsOgcFeatureCollection`; a client generated from the document names its
+  types after them. A provider's metadata declaration has to give `license` and `attribution`
+  (`None` where the provider states none), or `MetadataModel` refuses it (GH-2561)
+
 ## [0.156.0] - 2026-10-16
 
 ### Added
@@ -30,16 +52,6 @@ Types of changes:
   `/api/...` stays, an alias of the current version with the same handlers and not deprecated, so a
   client of `/api` changes nothing. `/api/version` reports `api_version` (`"1"`). The operation ids
   and the MCP tool names do not change (GH-2561)
-- Every JSON and GeoJSON answer of `stations`, `values`, `interpolate`, `summarize` and `history`,
-  over REST, on the command line and in the MCP tools, carries a `metadata` block, with or without
-  `with_metadata`: the provider's `license` (SPDX identifier, name, URL; null where it states none)
-  and `attribution`, the request as resolved, `retrieved_at`, `counts`, `crs`, `warnings` (each with
-  a stable `code`: an unknown station id, a skipped station, ...), `api_version` and
-  `schema_version`. `with_metadata=true` adds the unit of each parameter and what `quality_flags`
-  holds. The library has the licence at `request.metadata.license` (GH-2561)
-- Those answers, CSV and images included, carry the same in the headers `X-Wetterdienst-API-Version`,
-  `-Schema-Version`, `-Retrieved-At`, `-Provider`, `-License`, `-Attribution`, `-Stations`, `-Rows`
-  and `-Warnings`, and a `Link: <licence>; rel="license"` (GH-2561)
 
 ### Changed
 
@@ -115,12 +127,6 @@ Types of changes:
   `StationsResult.request` is typed `TimeseriesRequest`, no longer a union with the two forecast
   requests. `Settings.fsspec_client_kwargs` and the `settings` and `options` of a request are
   `dict[str, Any]`, so the keys of `fsspec_client_kwargs` must be strings (GH-2622)
-- The OpenAPI document requires `metadata` in the answers of `stations`, `values`, `interpolate`
-  and `summarize`, and the component schemas of the stations answer are
-  `_StationsWithMetadataDict` and `_StationsWithMetadataOgcFeatureCollection`, no longer
-  `_StationsDict` and `_StationsOgcFeatureCollection`; a client generated from the document names its
-  types after them. A provider's metadata declaration has to give `license` and `attribution`
-  (`None` where the provider states none), or `MetadataModel` refuses it (GH-2561)
 
 ### Fixed
 
