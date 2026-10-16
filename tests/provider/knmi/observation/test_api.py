@@ -540,7 +540,8 @@ def _daily_values(days: int = 1) -> pl.DataFrame:
     return (
         _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=days - 1))
         .filter_by_station_id(DE_BILT)
-        .values().all()
+        .values()
+        .all()
         .df
     )
 

@@ -242,23 +242,16 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     assert quality_by_parameter[names[1]] == "0"
 
 
-def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
-    """The 4021 degrees of station 6414 on 2003-08-06 are null with `raw:4021`; a gust of 81.5 m/s stays (GH-2797).
-
-    Rows as the WFS serves them for the daily layer of 6414 (checked 2026-10-15): `temp_avg` 110.26 and `temp_max` 4021
-    on 2003-08-06, `wind_gusts_speed` 81.5 on 2003-10-09 (below the 115 m/s of the highest gust measured, so no range
-    finds it), `qc_flags` not validated. A source null is dropped as before, and a validated value is left alone.
-    """
-    resolution = next(resolution for resolution in rmi_api.RmiObservationRequest.metadata if resolution.name == "daily")
+def _collect_wide(resolution_name: str, rows: list[dict], qc: dict[str, bool] | None = None) -> pl.DataFrame:
+    """Read wide features as the WFS serves them for the resolution of a dataset through the reader of RMI."""
+    resolution = next(
+        resolution for resolution in rmi_api.RmiObservationRequest.metadata if resolution.name == resolution_name
+    )
     dataset = next(iter(resolution))
     names = [parameter.name_original for parameter in dataset.parameters]
-    qc = json.dumps({"validated": {"TEMP_AVG": False, "TEMP_MAX": False, "WIND_GUSTS_SPEED": False, "TEMP_MIN": True}})
-    rows = [
-        {"timestamp": "2003-08-06T00:00:00Z", "temp_avg": 110.26, "temp_max": 4021.0, "temp_min": 16.84},
-        {"timestamp": "2003-10-09T00:00:00Z", "temp_avg": 14.05, "temp_max": 17.79, "wind_gusts_speed": 81.5},
-    ]
+    flags = json.dumps({"validated": qc or {}})
     wide = pl.DataFrame(
-        [{**dict.fromkeys(names), **row, "qc_flags": qc} for row in rows],
+        [{**dict.fromkeys(names), **row, "qc_flags": flags} for row in rows],
         schema={"timestamp": pl.String, **dict.fromkeys(names, pl.Float64), "qc_flags": pl.String},
     )
     values = object.__new__(rmi_api.RmiObservationValues)
@@ -268,8 +261,24 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
         end=dt.datetime(2003, 10, 9, tzinfo=UTC),
     )
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
+    return values._collect_station_parameter_or_dataset("6414", dataset)  # noqa: SLF001
 
-    df = values._collect_station_parameter_or_dataset("6414", dataset)  # noqa: SLF001
+
+def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
+    """The 4021 degrees and the 81.5 m/s gust of station 6414 are null with `raw:4021` and `raw:81.5` (GH-2797).
+
+    Rows as the WFS serves them for the daily layer of 6414 (checked 2026-10-16): `temp_avg` 110.26 and `temp_max` 4021
+    on 2003-08-06, `wind_gusts_speed` 81.5 on 2003-10-09, `qc_flags` not validated. The highest gust of any of the 14
+    stations in the 36 years of the layer besides is 51.05 m/s (6434, 2002-12-30), which is kept. A source null is
+    dropped as before, and a validated value is left alone.
+    """
+    qc = {"TEMP_AVG": False, "TEMP_MAX": False, "WIND_GUSTS_SPEED": False, "TEMP_MIN": True}
+    rows = [
+        {"timestamp": "2003-08-06T00:00:00Z", "temp_avg": 110.26, "temp_max": 4021.0, "temp_min": 16.84},
+        {"timestamp": "2003-10-09T00:00:00Z", "temp_avg": 14.05, "temp_max": 17.79, "wind_gusts_speed": 81.5},
+        {"timestamp": "2002-12-30T00:00:00Z", "wind_gusts_speed": 51.05},
+    ]
+    df = _collect_wide("daily", rows, qc)
     found = {(row["parameter"], row["timestamp"].date().isoformat()): row for row in df.iter_rows(named=True)}
     assert {key: (row["value"], row["quality_flags"]) for key, row in found.items()} == {
         ("temp_avg", "2003-08-06"): (None, "0,raw:110.26"),
@@ -277,8 +286,40 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
         ("temp_min", "2003-08-06"): (16.84, "1"),
         ("temp_avg", "2003-10-09"): (14.05, "0"),
         ("temp_max", "2003-10-09"): (17.79, "0"),
-        ("wind_gusts_speed", "2003-10-09"): (81.5, "0"),
+        ("wind_gusts_speed", "2003-10-09"): (None, "0,raw:81.5"),
+        ("wind_gusts_speed", "2002-12-30"): (51.05, "0"),
     }
+
+
+@pytest.mark.parametrize(
+    ("resolution", "sunshine", "arrives"),
+    [
+        # the minutes of sunshine of the span: 30 is half an hour of sun, so no 10 minutes can hold it
+        ("10_minutes", 30.0, False),
+        ("10_minutes", 10.0, True),
+        ("hourly", 30.0, True),
+        ("hourly", 60.0, True),
+        # 6459, 2013-03-24: a day whose hours add up to 3,807.66 minutes, 63.86 minutes at 10:00 and 373.08 at 13:00
+        ("hourly", 63.86, False),
+        ("hourly", 373.08, False),
+        ("daily", 30.0, True),
+        ("daily", 1440.0, True),
+        # 6459, 2013-05-24, which no day holds
+        ("daily", 13_850.58, False),
+    ],
+)
+def test_collect_holds_the_sunshine_to_the_span_of_the_resolution(
+    resolution: str,
+    sunshine: float,
+    arrives: bool,  # noqa: FBT001
+) -> None:
+    """The same number of minutes is a reading of a day and no reading of ten minutes (GH-2797)."""
+    df = _collect_wide(resolution, [{"timestamp": "2013-05-24T00:00:00Z", "sun_duration": sunshine}])
+    row = df.filter(pl.col("parameter") == "sun_duration").row(0, named=True)
+    if arrives:
+        assert row["value"] == sunshine
+    else:
+        assert (row["value"], row["quality_flags"]) == (None, f"raw:{sunshine:.15g}")
 
 
 def test_collect_filters_a_zero_length_window_without_a_during_period() -> None:
