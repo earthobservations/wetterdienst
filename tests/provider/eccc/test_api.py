@@ -122,7 +122,7 @@ def test_eccc_api_values(options_convert_units_false: Options) -> None:
                 "station_id": "2",
                 "resolution": "daily",
                 "dataset": "data",
-                "parameter": "temperature_air_mean_2m",
+                "parameter": "temperature_air_mean_minmax_2m",
                 "timestamp": dt.datetime(1979, 11, 2, tzinfo=ZoneInfo(key="UTC")),
                 "value": 6.3,
                 "quality_flags": None,
@@ -167,7 +167,7 @@ def test_eccc_degree_days_are_degree_days_not_day_counts(options_convert_units_f
     ).filter_by_station_id(station_id=("2",))
     df = request.values.all().df
     values = dict(df.select("parameter", "value").iter_rows())
-    assert values["heating_degree_day"] == pytest.approx(18 - values["temperature_air_mean_2m"])
+    assert values["heating_degree_day"] == pytest.approx(18 - values["temperature_air_mean_minmax_2m"])
     # a count of days would be a whole number, and could never exceed the single day requested
     assert values["heating_degree_day"] > 1
 
@@ -216,7 +216,7 @@ def test_eccc_monthly_returns_data(options_convert_units_false: Options) -> None
     ).filter_by_station_id(station_id=("26",))
     df = request.values.all().df
     assert not df.is_empty()
-    assert "temperature_air_mean_2m" in df.get_column("parameter").unique().to_list()
+    assert "temperature_air_mean_minmax_2m" in df.get_column("parameter").unique().to_list()
     # one row per month over the two years requested, so the year-month date parsed
     dates = df.get_column("timestamp").unique()
     assert dates.len() == 24
@@ -418,7 +418,7 @@ def test_eccc_daily_is_stamped_at_00_utc_of_its_date(
     _serve_eccc(monkeypatch, _daily_rows())
     day = local[:10]
     request = EcccObservationRequest(
-        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        parameters=[("daily", "data", "temperature_air_mean_minmax_2m")],
         start=day,
         end=day,
         options=options_convert_units_false,
@@ -434,7 +434,7 @@ def test_eccc_daily_values_of_a_year_are_all_stamped_at_00_utc(
     """Test that every daily value of a year is at 00:00 UTC, whichever side of a clock change it lies on."""
     _serve_eccc(monkeypatch, _daily_rows())
     request = EcccObservationRequest(
-        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        parameters=[("daily", "data", "temperature_air_mean_minmax_2m")],
         start=dt.datetime(2025, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2025, 12, 31, tzinfo=ZoneInfo("UTC")),
         options=options_convert_units_false,
@@ -458,7 +458,7 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
         ],
     )
     request = EcccObservationRequest(
-        parameters=[("monthly", "data", "temperature_air_mean_2m")],
+        parameters=[("monthly", "data", "temperature_air_mean_minmax_2m")],
         start=f"{month}-01",
         end=f"{month}-01",
         options=options_convert_units_false,
@@ -467,6 +467,45 @@ def test_eccc_monthly_is_stamped_at_00_utc_of_the_first_of_the_month(
     assert df.get_column("timestamp").to_list() == [
         dt.datetime.fromisoformat(f"{month}-01").replace(tzinfo=ZoneInfo("UTC"))
     ]
+
+
+def test_eccc_monthly_count_and_normal_of_the_mean_carry_the_name_of_the_mean(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """The valid-days count and the normal of `mean_temperature` are named as the mean is, not as a mean of readings.
+
+    A row of the collection for Gilbert Plains (STN_ID 3793) as it answers it, served for the test station: the
+    January 2001 mean is the mean of 31 daily values, each (max + min) / 2, and `NORMAL_MEAN_TEMPERATURE` is ECCC's
+    1981-2010 "Mean daily temperature" of January, -16.59 in its `climate-normals` collection (GH-3017).
+    """
+    _serve_eccc(
+        monkeypatch,
+        [
+            {
+                "LOCAL_DATE": "2001-01",
+                "MEAN_TEMPERATURE": -10.541935483870967,
+                "DAYS_WITH_VALID_MEAN_TEMP": 31,
+                "NORMAL_MEAN_TEMPERATURE": -16.59,
+            },
+        ],
+        _TORONTO_STATION | {"FIRST_DATE": "1990-01-01 00:00:00", "MLY_FIRST_DATE": "1990-01-01 00:00:00"},
+    )
+    request = EcccObservationRequest(
+        parameters=[
+            ("monthly", "data", "temperature_air_mean_minmax_2m"),
+            ("monthly", "data", "count_days_valid_temperature_air_mean_minmax_2m"),
+            ("monthly", "data", "temperature_air_mean_minmax_2m_normal"),
+        ],
+        start="2001-01-01",
+        end="2001-01-01",
+        options=options_convert_units_false,
+    )
+    df = request.filter_by_station_id("51459").values.all().df
+    assert dict(df.select("parameter", "value").iter_rows()) == {
+        "temperature_air_mean_minmax_2m": -10.541935483870967,
+        "count_days_valid_temperature_air_mean_minmax_2m": 31,
+        "temperature_air_mean_minmax_2m_normal": -16.59,
+    }
 
 
 # The first and last day of TORONTO INTL A, given by the station list with a time of day, "2013-06-11 09:00:00" and
@@ -520,7 +559,7 @@ def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
     """
     _serve_eccc(monkeypatch, rows, _FIRST_AND_LAST_DAY_STATION)
     request = EcccObservationRequest(
-        parameters=[(resolution, "data", "temperature_air_mean_2m")],
+        parameters=[(resolution, "data", "temperature_air_mean_minmax_2m")],
         start=day,
         end=day,
         options=options_convert_units_false,
@@ -685,8 +724,8 @@ _WHITE_ROCK_ROWS = {
 }
 _ALL_RESOLUTIONS = [
     ("hourly", "data", "temperature_air_2m"),
-    ("daily", "data", "temperature_air_mean_2m"),
-    ("monthly", "data", "temperature_air_mean_2m"),
+    ("daily", "data", "temperature_air_mean_minmax_2m"),
+    ("monthly", "data", "temperature_air_mean_minmax_2m"),
 ]
 
 
@@ -1010,7 +1049,7 @@ def test_eccc_a_request_without_dates_for_a_hand_built_result_asks_for_the_years
     """
     urls = _serve_eccc(monkeypatch, _WHITE_ROCK_ROWS)
     request = EcccObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_2m"), ("daily", "data", "temperature_air_mean_2m")],
+        parameters=[("hourly", "data", "temperature_air_2m"), ("daily", "data", "temperature_air_mean_minmax_2m")],
         options=options_convert_units_false,
     )
     end = dt.datetime(2000, 12, 31, tzinfo=ZoneInfo("UTC"))
@@ -1085,7 +1124,7 @@ def test_eccc_the_years_of_the_last_hours_of_the_utc_year_follow_the_last_hourly
     }
     urls = _serve_eccc(monkeypatch, rows, station)
     EcccObservationRequest(
-        parameters=[("daily", "data", "temperature_air_mean_2m"), ("hourly", "data", "temperature_air_2m")],
+        parameters=[("daily", "data", "temperature_air_mean_minmax_2m"), ("hourly", "data", "temperature_air_2m")],
         options=options_convert_units_false,
     ).filter_by_station_id("51459").values.all()
     assert [url.split("UTC_YEAR=")[1].split("&")[0] for url in urls if "UTC_YEAR=" in url] == ["2014", "2015"]
@@ -1098,7 +1137,7 @@ def test_eccc_daily_year_window_is_the_calendar_year_of_local_date(
     """Test that the rows of a year are asked for as the calendar year of LOCAL_DATE, not a window moved by the zone."""
     urls = _serve_eccc(monkeypatch, _daily_rows())
     EcccObservationRequest(
-        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        parameters=[("daily", "data", "temperature_air_mean_minmax_2m")],
         start="2025-01-15",
         end="2025-01-15",
         options=options_convert_units_false,
@@ -1183,7 +1222,7 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
     _serve_eccc(monkeypatch, rows)
     request = EcccObservationRequest(
         parameters=[
-            ("daily", "data", "temperature_air_mean_2m"),
+            ("daily", "data", "temperature_air_mean_minmax_2m"),
             ("daily", "data", "precipitation_amount"),
         ],
         start="2023-01-01",
@@ -1198,8 +1237,8 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("precipitation_amount", 0.0, "T"),
         ("precipitation_amount", 1.2, "E"),
-        ("temperature_air_mean_2m", -5.0, None),
-        ("temperature_air_mean_2m", None, "M"),
+        ("temperature_air_mean_minmax_2m", -5.0, None),
+        ("temperature_air_mean_minmax_2m", None, "M"),
     ]
 
 
@@ -1285,7 +1324,7 @@ def test_eccc_monthly_has_no_flags_and_so_null_quality_flags(
     """Test that monthly rows, which ECCC publishes without flags, come back with null `quality_flags`."""
     _serve_eccc(monkeypatch, [{"LOCAL_DATE": "2025-01", "MEAN_TEMPERATURE": -5.4}])
     request = EcccObservationRequest(
-        parameters=[("monthly", "data", "temperature_air_mean_2m")],
+        parameters=[("monthly", "data", "temperature_air_mean_minmax_2m")],
         start="2025-01-01",
         end="2025-01-01",
         options=options_convert_units_false,
@@ -1309,7 +1348,7 @@ def test_eccc_collects_the_years_of_a_station_with_the_in_memory_engine(
     """
     _serve_eccc(monkeypatch, _daily_rows())
     request = EcccObservationRequest(
-        parameters=[("daily", "data", "temperature_air_mean_2m")],
+        parameters=[("daily", "data", "temperature_air_mean_minmax_2m")],
         start="2025-01-15",
         end="2025-01-15",
         options=options_convert_units_false,

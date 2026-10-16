@@ -65,7 +65,7 @@ def test_stripes_values_non_defaults(params: dict) -> None:
         "show_years": "true",
         "show_data_availability": "true",
     } | params
-    params = [f"--{k}={v}" for k, v in params.items()]
+    params = [f"--{k.replace('_', '-')}={v}" for k, v in params.items()]
     runner = CliRunner()
     result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", *params])
     assert result.exit_code == 0
@@ -77,11 +77,11 @@ def test_stripes_values_start_year_ge_end_year() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["stripes", "values", "--kind=precipitation", "--station=1048", "--start_year=2020", "--end_year=2019"],
+        ["stripes", "values", "--kind=precipitation", "--station=1048", "--start-year=2020", "--end-year=2019"],
     )
     assert result.exit_code == 2
     assert (
-        "Error: Invalid value for '--end_year': Input should be greater than '--start_year' (2020) (got 2019).\n"
+        "Error: Invalid value for '--end-year': Input should be greater than '--start-year' (2020) (got 2019).\n"
         in (result.stderr)
     )
 
@@ -91,10 +91,10 @@ def test_stripes_values_wrong_name_threshold() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["stripes", "values", "--kind=precipitation", "--station=1048", "--name_threshold=1.01"],
+        ["stripes", "values", "--kind=precipitation", "--station=1048", "--name-threshold=1.01"],
     )
     assert result.exit_code == 2
-    assert "Error: Invalid value for '--name_threshold': Input should be less than or equal to 1 (got 1.01).\n" in (
+    assert "Error: Invalid value for '--name-threshold': Input should be less than or equal to 1 (got 1.01).\n" in (
         result.stderr
     )
 

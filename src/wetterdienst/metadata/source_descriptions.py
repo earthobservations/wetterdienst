@@ -877,7 +877,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             " of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid "
             "precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and"
             " solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable,"
-            " automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define."
+            " automatic ascertainment; returned as null, the 9 stays as the last token of quality_flags, raw:9. The "
+            "files also hold 2 and 3, which the current sheet does not define."
         ),
         ("hourly", "pressure", "p"): "Barometric pressure at sea level NN.",
         ("hourly", "pressure", "p0"): "Barometric pressure at station height.",
@@ -904,8 +905,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "of the station's local true solar time, not UTC: they are returned as written, not shifted, and their "
             "`quality_flags` carry `zone:woz` (`10,zone:woz`). The other stamps are UTC."
         ),
-        ("hourly", "temperature_air", "rf_tu"): "Relative humidity.",
-        ("hourly", "temperature_air", "tt_tu"): "Air temperature 2 m above ground.",
+        ("hourly", "temperature_air", "rf_tu"): (
+            "Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "
+            '"Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: '
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "The other stamps are UTC."
+        ),
+        ("hourly", "temperature_air", "tt_tu"): (
+            "Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "
+            '"Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: '
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "The other stamps are UTC."
+        ),
         ("hourly", "temperature_soil", "v_te002"): (
             "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none."
         ),
@@ -1138,7 +1149,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "EcccObservationMetadata": {
         ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
-        ("daily", "data", "mean_temperature"): "Daily mean 2m air temperature.",
+        ("daily", "data", "mean_temperature"): "Daily mean 2m air temperature, (maximum + minimum) / 2.",
         ("daily", "data", "min_temperature"): "Daily minimum 2m air temperature.",
         ("daily", "data", "snow_on_ground"): "Total snow depth.",
         ("daily", "data", "speed_max_gust"): "Maximum wind gust.",
@@ -1167,16 +1178,20 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "cooling_degree_days"): "cooling degree days",
         ("monthly", "data", "days_with_precip_ge_1mm"): "days with >= 1 mm precipitation",
         ("monthly", "data", "days_with_valid_max_temp"): "days with a valid maximum temperature",
-        ("monthly", "data", "days_with_valid_mean_temp"): "days with a valid mean temperature",
+        ("monthly", "data", "days_with_valid_mean_temp"): (
+            "days with a valid mean temperature, the daily mean being calculated from the daily extremes"
+        ),
         ("monthly", "data", "days_with_valid_min_temp"): "days with a valid minimum temperature",
         ("monthly", "data", "days_with_valid_precip"): "days with a valid precipitation observation",
         ("monthly", "data", "days_with_valid_snowfall"): "days with a valid snowfall observation",
         ("monthly", "data", "days_with_valid_sunshine"): "days with a valid sunshine observation",
         ("monthly", "data", "heating_degree_days"): "heating degree days",
         ("monthly", "data", "max_temperature"): "2m maximum air temperature",
-        ("monthly", "data", "mean_temperature"): "2m mean air temperature",
+        ("monthly", "data", "mean_temperature"): "2m mean air temperature, the mean of the daily values",
         ("monthly", "data", "min_temperature"): "2m minimum air temperature",
-        ("monthly", "data", "normal_mean_temperature"): "normal of the mean air temperature",
+        ("monthly", "data", "normal_mean_temperature"): (
+            "normal of the mean air temperature, the daily mean being calculated from the daily extremes"
+        ),
         ("monthly", "data", "normal_precipitation"): "normal of the precipitation height",
         ("monthly", "data", "normal_snowfall"): "normal of the snowfall total",
         ("monthly", "data", "normal_sunshine"): "normal of the sunshine duration",
@@ -1219,7 +1234,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "sh_manu"): "manually measured snow depth",
         ("daily", "data", "shneu_manu"): "new snow depth",
         ("daily", "data", "so_h"): "sunshine duration",
-        ("daily", "data", "tl_mittel"): "air temperature mean at 2m",
+        ("daily", "data", "tl_mittel"): "air temperature mean at 2m, calculated from (tlmax + tlmin)/2",
         ("daily", "data", "tlmax"): "air temperature max at 2m",
         ("daily", "data", "tlmin"): "air temperature min at 2m",
         ("daily", "data", "tsmin"): "air temperature min at 0.05m",
@@ -1349,7 +1364,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "NoaaGhcnMetadata": {
         ("daily", "data", "tavg"): (
-            "Mean temperature calculated from tmean = (temperature_air_max_2m + temperature_air_min_2m) / 2."
+            "Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 "
+            "UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day."
         ),
         ("daily", "data", "wdfm"): "Fastest mile wind direction (degrees).",
         ("daily", "data", "acmc"): "Average cloudiness midnight to midnight from 30-second ceilometer data (percent)",
@@ -1598,8 +1614,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "altimeter"): "Reduced pressure (hectopascals)",
         ("hourly", "data", "dew_point_temperature"): "Dew Point Temperature (⁰C to tenths)",
         ("hourly", "data", "precipitation"): (
-            "total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement "
-            "code column indicates a trace amount of precipitation (millimeters)"
+            "total liquid precipitation (rain or melted snow), nominally for the hour: a METAR's amount is the "
+            "running total since the last routine report, so one report of an hour is returned, the one filed at "
+            "the station's routine minute (else the last one that is no SPECI, else the last one) of the UTC hour; "
+            "a “T” in the measurement code column indicates a trace amount of precipitation (millimeters)"
         ),
         ("hourly", "data", "precipitation_12_hour"): (
             "12-hour total liquid precipitation (rain or melted snow) accumulation from FM12/SYNOP "
@@ -1676,7 +1694,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "mintemperaturelast24hours"): "minimum air temperature in the last 24 hours",
         ("hourly", "data", "precipitationlast3hours"): "precipitation height of last three hours",
         ("hourly", "data", "precipitationlast6hours"): "precipitation height of last six hours",
-        ("hourly", "data", "precipitationlasthour"): "precipitation height of last hour",
+        # the endpoint's key is precipitationLastHour, and the amount of the METAR's precipitation group is the
+        # running total since the last routine report (GH-2841): at KORD on 2026-10-15 the reports of 22:51 to 23:42
+        # read 4.3, 0.8, 8.4, 17.3 and 17.5 mm (a total that restarts after 22:51 and grows), and the METAR of 23:51
+        # 17.5 mm (P0069)
+        ("hourly", "data", "precipitationlasthour"): (
+            "precipitation group of the METAR or SPECI kept for the hour, the amount since the last routine METAR (a "
+            "running total, which a routine report holds for the whole hour and a SPECI for the part that had fallen "
+            "when it was filed); the endpoint calls it precipitationLastHour"
+        ),
         ("hourly", "data", "relativehumidity"): "relative humidity",
         ("hourly", "data", "sealevelpressure"): "air pressure at sea level",
         ("hourly", "data", "temperature"): "air temperature",

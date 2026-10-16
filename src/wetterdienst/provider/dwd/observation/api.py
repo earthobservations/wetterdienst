@@ -52,7 +52,12 @@ from wetterdienst.provider.dwd.observation.metadata import (
 from wetterdienst.provider.dwd.observation.metaindex import (
     create_meta_index_for_climate_observations,
 )
-from wetterdienst.provider.dwd.observation.parser import WOZ_COLUMN, parse_climate_observations_data
+from wetterdienst.provider.dwd.observation.parser import (
+    MEZ_MD_PREFIX,
+    WOZ_COLUMN,
+    mez_md_column,
+    parse_climate_observations_data,
+)
 from wetterdienst.settings import Settings
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
@@ -69,6 +74,8 @@ log = logging.getLogger(__name__)
 # are read oldest first, so their read order is that precedence; it rides through the concatenation
 # as a column under this name and is dropped again straight after.
 _PERIOD_RANK = "period_rank"
+# marks the rows of a parameter whose stamp was shifted to UTC, in the frame of `_tidy_up_df` only
+_SHIFTED = "shifted_to_utc"
 
 
 class DwdObservationValues(TimeseriesValues):
@@ -169,19 +176,29 @@ class DwdObservationValues(TimeseriesValues):
         """Tidy up the DataFrame by dropping unnecessary columns and renaming columns."""
         data = []
         series_quality = pl.Series()
-        # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816)
-        zone = (
-            pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")) if WOZ_COLUMN in df.columns else pl.lit(None, pl.String)
-        ).alias("zone")
         for column in df.columns[2:]:
-            if column.endswith(RAW_SUFFIX) or column == WOZ_COLUMN:
+            if column.endswith(RAW_SUFFIX) or column == WOZ_COLUMN or column.startswith(MEZ_MD_PREFIX):
                 continue
             if column.startswith(("qn", "qualitaet")):
                 series_quality = df.get_column(column)
             else:
+                # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816), those of a
+                # period the archive calls MEZ (MD) are shifted to UTC and flagged `zone:mez` (GH-2709)
+                shifted = (
+                    pl.col(mez_md_column(column)).fill_null(value=False)
+                    if mez_md_column(column) in df.columns
+                    else pl.lit(value=False)
+                )
+                zone = pl.lit(None, pl.String)
+                if WOZ_COLUMN in df.columns:
+                    zone = pl.when(pl.col(WOZ_COLUMN)).then(pl.lit("woz")).otherwise(zone)
+                zone = pl.when(shifted).then(pl.lit("mez")).otherwise(zone).alias("zone")
                 df_parameter = df.select(
                     "station_id",
-                    "timestamp",
+                    pl.when(shifted)
+                    .then(pl.col("timestamp") - pl.duration(hours=1))
+                    .otherwise(pl.col("timestamp"))
+                    .alias("timestamp"),
                     pl.lit(column, dtype=pl.String).alias("parameter"),
                     pl.col(column).alias("value"),
                     series_quality.alias("quality_flags"),
@@ -190,8 +207,17 @@ class DwdObservationValues(TimeseriesValues):
                     (pl.col(raw_column(column)) if raw_column(column) in df.columns else pl.lit(None, pl.String)).alias(
                         "raw"
                     ),
+                    shifted.alias(_SHIFTED),
                 )
-                data.append(df_parameter)
+                if mez_md_column(column) in df.columns:
+                    # a stamp the shift moves onto one that is there already (30 stamps at 26 of the 80 stations, at the
+                    # start of an MD period; 28 hold the same value on both) goes: the row that was not moved is kept
+                    df_parameter = (
+                        df_parameter.sort(_SHIFTED, maintain_order=True)
+                        .unique(subset=["station_id", "timestamp"], keep="first", maintain_order=True)
+                        .sort("timestamp", maintain_order=True)
+                    )
+                data.append(df_parameter.drop(_SHIFTED))
         df = pl.concat(data)
         # QN as DWD writes it, "3": the flag of a reading is kept only where there is a reading or a sentinel, whose
         # text follows it (`3,raw:-999`)

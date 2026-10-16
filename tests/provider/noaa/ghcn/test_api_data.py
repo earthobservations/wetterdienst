@@ -153,7 +153,111 @@ def test_api_hourly_wind_direction_999_is_no_direction(monkeypatch: pytest.Monke
     assert column("wind_direction") == [(4, 90.0)]
     assert column("wind_speed") == [(2, 0.0), (3, 0.0), (4, 4.1), (5, 4.1)]
     assert column("pressure_air_sea_level") == [(2, 999.0), (3, 1001.5), (4, 1001.0), (5, 1000.0)]
-    assert column("precipitation_amount") == [(3, 0.0), (4, 0.2)]
+    assert column("precipitation_amount_since_last_routine_report") == [(3, 0.0), (4, 0.2)]
+
+
+def test_api_hourly_precipitation_is_the_total_of_the_report_that_closes_the_hour(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The METAR amount is a running total, so an hour keeps the report at the routine minute (GH-2841).
+
+    The documentation (section IX): "When multiple observations are transmitted within the hour, the precipitation
+    totals represent a running total for that hour. To extract the total precipitation for a particular hour, the last
+    report should be used", the P group being "since the last routine METAR". Rows of GHCNh_USW00023174_2022.psv (Los
+    Angeles, read 2026-10-16), in UTC: 2022-03-28 18:15 to 18:53 holds the SPECI 2.5, 3.3 and 3.5 mm and the routine
+    METAR 2.8 mm, of the source 343; 17:37 holds a SPECI of 9.3 mm, the METAR of 17:53 12.4 mm and a SPECI of 17:57
+    0.2 mm, which is what fell since that METAR and which the METAR of 18:53 holds again; 2022-11-02 07:53 holds
+    a METAR of 0.8 mm and 07:58 a SPECI of 0.0 mm. Of the 98 hours of 2022 with several reports four end in such a
+    SPECI. Denver 2026-09-18 (GHCNh_USW00003017_2026.psv, read 2026-10-16): 23:34 holds a SPECI of 21.6 mm, the METAR
+    of 23:53 the same 21.6 mm and an `FM15` of source 413 at 23:59 0.0 mm, which is what fell since, as at 22:59 (2.3
+    mm after 0.0 at 22:53); 21:53 is added to make :53 the routine minute of the month. LAX 1996-10-30 12:00 holds a
+    `SYMT` row of 11.4 mm, the METAR of 12:53 5.6 mm: the routine minute is that of the month, as LAX reports at :00
+    until June 1996 and at :50 to :54 after. 2022-03-29 is made up: 01:20
+    and 01:40 hold SPECI only (the last one is the hour's), 02:53 a METAR with the missing value -9999, which is the
+    hour's, and 02:10 a SPECI of 1.0 mm whose amount does not stand in for it. The other elements keep every report.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"USW00023174,33.938,-118.3866,29.6,CA,LOS ANGELES INTL AP,,,72295,KLAX,US\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+
+    def report(time: str, amount: str, report_type: str) -> tuple[str, dict[str, str]]:
+        return (
+            f"{time}:00",
+            {
+                "temperature": "14.4",
+                "precipitation": amount,
+                "precipitation_Report_Type": report_type,
+                "precipitation_Source_Code": "343" if report_type == "FM15" else "223",
+            },
+        )
+
+    rows = [
+        # LAX 1996 (GHCNh_USW00023174_1996.psv): the METARs of the autumn come at :53, the `SYMT` row of 12:00 holds
+        # the amount of the hour before; 11:53 is made up, to make :53 the routine minute of the month
+        report("1996-10-30T11:53", "0.0", "FM15"),
+        report("1996-10-30T12:00", "11.4", "SYMT"),
+        report("1996-10-30T12:53", "5.6", "FM15"),
+        report("2022-03-28T17:37", "9.3", "FM16"),
+        report("2022-03-28T17:53", "12.4", "FM15"),
+        report("2022-03-28T17:57", "0.2", "FM16"),
+        report("2022-03-28T18:15", "2.5", "FM16"),
+        report("2022-03-28T18:30", "3.3", "FM16"),
+        report("2022-03-28T18:41", "3.5", "FM16"),
+        report("2022-03-28T18:53", "2.8", "FM15"),
+        report("2022-11-02T07:53", "0.8", "FM15"),
+        report("2022-11-02T07:58", "0.0", "FM16"),
+        report("2022-03-29T01:20", "0.2", "FM16"),
+        report("2022-03-29T01:40", "0.5", "FM16"),
+        report("2022-03-29T02:10", "1.0", "FM16"),
+        report("2022-03-29T02:53", "-9999", "FM15"),
+        # Denver (GHCNh_USW00003017_2026.psv): source 413 files `FM15` reports at other minutes after the METAR
+        report("2026-09-18T21:53", "0.0", "FM15"),
+        report("2026-09-18T22:53", "0.0", "FM15"),
+        report("2026-09-18T22:59", "2.3", "FM15"),
+        report("2026-09-18T23:34", "21.6", "FM16"),
+        report("2026-09-18T23:53", "21.6", "FM15"),
+        report("2026-09-18T23:59", "0.0", "FM15"),
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_USW00023174": ghcnh_psv("USW00023174", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[
+            ("hourly", "data", "precipitation_amount_since_last_routine_report"),
+            ("hourly", "data", "temperature_air_2m"),
+        ],
+        start=dt.datetime(1996, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2027, 1, 1, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+    ).filter_by_station_id("USW00023174")
+    df = request.values.all().df.sort("timestamp")
+    precipitation = df.filter(pl.col("parameter").eq("precipitation_amount_since_last_routine_report"))
+    # one report an hour, with the minute of the report: the METAR, no SPECI after it, and the last SPECI of an hour
+    # without a METAR; the -9999 of the METAR closing 02:00 is no value and the SPECI before it is not the hour's
+    assert [
+        (f"{ts:%y-%m-%dT%H:%M}", value) for ts, value in precipitation.select("timestamp", "value").iter_rows()
+    ] == [
+        ("96-10-30T11:53", 0.0),
+        ("96-10-30T12:53", 5.6),
+        ("22-03-28T17:53", 12.4),
+        ("22-03-28T18:53", 2.8),
+        ("22-03-29T01:40", 0.5),
+        ("22-11-02T07:53", 0.8),
+        # the routine minute of the month is :53, whatever is filed after it, the 21.6 mm of 23:00 included
+        ("26-09-18T21:53", 0.0),
+        ("26-09-18T22:53", 0.0),
+        ("26-09-18T23:53", 21.6),
+    ]
+    assert df.filter(pl.col("parameter").eq("temperature_air_2m")).height == len(rows)
 
 
 def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_wrote(
@@ -416,7 +520,10 @@ def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeyp
     assert got["USW00026451", "temperature_air_2m", "1997-01-31 11:50"] == (0.4, "4,source:223")
     assert got["ASN00086282", "temperature_air_2m", "1970-06-30 23:00"] == (10.4, "0,source:401")
     # the measurement code is the trace of a precipitation of 0.0 and the tendency of a pressure change
-    assert got["USW00026451", "precipitation_amount", "1996-07-08 19:00"] == (0.0, "5,measurement:T,source:335")
+    assert got["USW00026451", "precipitation_amount_since_last_routine_report", "1996-07-08 19:00"] == (
+        0.0,
+        "5,measurement:T,source:335",
+    )
     assert got["ACM00078861", "pressure_air_site_delta_last_3h", "1942-09-01 06:00"] == (
         -1.4,
         "1,measurement:7,source:220",

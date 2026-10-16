@@ -33,10 +33,12 @@ NoaaGhcnMetadata = {
                             "name_original": "relative_humidity",
                             "unit": "percent",
                         },
-                        # total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement
-                        # code column indicates a trace amount of precipitation (millimeters)
+                        # total liquid precipitation (rain or melted snow); totals are nominally for the hour, but a
+                        # METAR's amount is the running total since the last routine report, so the report that
+                        # closes the hour is the hour's (GH-2841); a “T” in the measurement code column indicates a
+                        # trace amount of precipitation (millimeters)
                         {
-                            "name": "precipitation_amount",
+                            "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitation",
                             "unit": "millimeter",
                         },
@@ -219,7 +221,7 @@ NoaaGhcnMetadata = {
                             "name_original": "tmin",
                             "unit": "degree_celsius",
                         },
-                        # derived from temperature_air_max_2m and temperature_air_min_2m
+                        # the source's own TAVG, no (TMAX + TMIN) / 2: that is TAXN, which is not served (GH-2839)
                         {
                             "name": "temperature_air_mean_2m",
                             "name_original": "tavg",

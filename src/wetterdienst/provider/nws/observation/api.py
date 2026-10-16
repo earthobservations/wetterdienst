@@ -119,7 +119,7 @@ NwsObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "precipitation_amount",
+                            "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitationlasthour",
                             "unit": "millimeter",
                         },

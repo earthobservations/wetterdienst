@@ -46,6 +46,8 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 GHCNH_WIND_DIRECTION_CALM = "0"
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
+# the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
+GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
 # the text some sources write in a code column for "no code": 245 at CAMU0019904 (6,191 hours of temperature), 367 at
 # UKI0000EGLL (20,623 hours of sea level pressure)
 GHCNH_NO_CODE = "Null"
@@ -90,6 +92,55 @@ GHCND_WEST_LONGITUDE_STATIONS = (
     "UV000005503",  # OUAGADOUGOU
     "UVM00065505",  # DEDOUGOU
 )
+
+
+def _closes_its_hour(df: pl.DataFrame) -> pl.Series:
+    """Say for each row of a GHCNh file whether its `precipitation` is the one that closes its hour (GH-2841).
+
+    A METAR's precipitation group is the amount since the last routine report, so the reports of an hour repeat a
+    growing total, and the file's documentation (section IX) says "to extract the total precipitation for a
+    particular hour, the last report should be used", the standard reporting time being "the most common minute
+    closest to the end of the hour". The hour is the UTC clock hour of the report, and a report counts if it holds a
+    precipitation (a missing value of -9999 is one: the report closing the hour has no amount, and the amount of an
+    earlier report is not the hour's). The report kept is, in this order:
+
+    1. the last one at the routine minute of its month, the most common minute of the reports that are not specials
+       (`:53` at LAX; a station changes its minute, LAX in 1996 from :00 of the SAO to :50 to :54 of the METAR in
+       July; of two equally common minutes the later one is taken, the one closer to the end of the hour). Whatever
+       is filed after it in the hour is the amount since that report, which the next hour's routine report holds
+       again: a SPECI (`FM16`, `SAOSP`) and, from source 413, `FM15` reports at other minutes that carry no sea level
+       pressure either. LAX 2022 has 4 of its 98 hours with several reports end in a SPECI (2022-03-28 17:53 reads
+       12.4 mm, 17:57 0.2 mm), and Denver 2026-09-18 23:53 reads 21.6 mm, the `FM15` of 23:59 0.0 mm;
+    2. else the last report that is not a special, for an hour whose routine report is missing or late;
+    3. else the last report.
+    """
+    # in steps, each a column of its own: a window over a predicate that is a window itself answered the wrong rows
+    reports = df.select(
+        pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC").alias("stamp"),
+        pl.col("precipitation").is_not_null().alias("reported"),
+        ~pl.col("precipitation_Report_Type").is_in(GHCNH_SPECIAL_REPORT_TYPES).fill_null(value=False).alias("plain"),
+    ).with_columns(
+        pl.col("stamp").dt.truncate("1h").alias("hour"),
+        pl.col("stamp").dt.minute().alias("minute"),
+        (pl.col("reported") & pl.col("plain")).alias("not_special"),
+    )
+    reports = reports.with_columns(
+        pl.col("minute")
+        .filter(pl.col("not_special"))
+        .mode()
+        .max()
+        .over(pl.col("stamp").dt.truncate("1mo"))
+        .alias("routine"),
+    ).with_columns(
+        (pl.col("not_special") & pl.col("minute").eq(pl.col("routine"))).alias("at_routine_minute"),
+    )
+    closing_stamp = pl.coalesce(
+        *(
+            pl.when(kept).then(pl.col("stamp")).max().over("hour")
+            for kept in ("at_routine_minute", "not_special", "reported")
+        )
+    )
+    return reports.select((pl.col("reported") & pl.col("stamp").eq(closing_stamp)).alias("closing")).to_series()
 
 
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
@@ -150,19 +201,20 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # return write several codes in one cell (`06:4`, `M;N`), none of those returned does (8 stations read on
         # 2026-10-15). `<element>_Report_Type` (`SAO`, `FM15`, ...) and `<element>_Source_Station_ID` are not returned.
         # A code of `Null` is no code (sources 245 and 367 write it): left out.
-        df = df.select(
-            "station_id",
-            "timestamp",
-            *(
-                pl.struct(
-                    pl.col(parameter).alias("value"),
-                    pl.col(f"{parameter}_Quality_Code").replace(GHCNH_NO_CODE, None).alias("quality"),
-                    pl.col(f"{parameter}_Measurement_Code").replace(GHCNH_NO_CODE, None).alias("measurement"),
-                    pl.col(f"{parameter}_Source_Code").replace(GHCNH_NO_CODE, None).alias("source"),
-                ).alias(parameter)
-                for parameter in parameters
-            ),
-        )
+        # `precipitation` is a METAR's running total, which the reports of an hour repeat with growing amounts; only
+        # the report that closes the hour keeps it (`_closes_its_hour`, GH-2841). The other elements keep every report
+        closing = _closes_its_hour(df)
+
+        def element(parameter: str) -> pl.Expr:
+            fields = pl.struct(
+                pl.col(parameter).alias("value"),
+                pl.col(f"{parameter}_Quality_Code").replace(GHCNH_NO_CODE, None).alias("quality"),
+                pl.col(f"{parameter}_Measurement_Code").replace(GHCNH_NO_CODE, None).alias("measurement"),
+                pl.col(f"{parameter}_Source_Code").replace(GHCNH_NO_CODE, None).alias("source"),
+            )
+            return pl.when(closing).then(fields) if parameter == "precipitation" else fields
+
+        df = df.select("station_id", "timestamp", *(element(parameter).alias(parameter) for parameter in parameters))
         df = df.unpivot(
             index=["station_id", "timestamp"],
             on=parameters,

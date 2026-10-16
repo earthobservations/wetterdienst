@@ -78,7 +78,7 @@ test.describe('API Stations Endpoint', () => {
 test.describe('API Values Endpoint', () => {
   test('should fetch values for a station', async ({ request }) => {
     const response = await request.get(
-      `${BACKEND_URL}/api/values?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00001`,
+      `${BACKEND_URL}/api/values?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&stations=00001`,
     )
 
     // May return 404 if station doesn't exist, or 200 with data
