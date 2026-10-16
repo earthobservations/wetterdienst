@@ -239,6 +239,13 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
+- **Breaking**: `dwd/observation` `hourly/temperature_air` `historical`: the stamps of periods that
+  DWD's `Metadaten_Parameter` calls "Stundenwerte in MEZ (MD)", up to 1991 at 80 East German
+  stations, are MEZ, not UTC, and are returned one hour earlier than before, per parameter
+  (`temperature_air_2m`, `humidity_relative`), with `zone:mez` in `quality_flags` (`3,zone:mez`).
+  Plain MEZ and UTC periods are unchanged. A change inside a shared day (36 stations on 1991-11-01)
+  is taken to be after its stamp 00. Add an hour to flagged stamps to get the old ones; 30 rows
+  that the shift puts on a stamp that is there are dropped (GH-2709)
 - `wetterdienst stations|values|interpolate|summarize --format=png|jpg|webp|svg|pdf` wrote the
   `repr` of the image (`b'\x89PNG...'`) to stdout; it writes the image as the REST API sends it
   (GH-2635)
