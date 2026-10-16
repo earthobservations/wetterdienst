@@ -7080,9 +7080,9 @@ def test_mcp_date_is_left_to_a_tool_without_timestamp(monkeypatch: pytest.Monkey
 
     async def _call() -> None:
         async with Client(mcp) as client:
-            await client.call_tool("stations", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
+            await client.call_tool("history", {**_OBSERVATION, "station": "01048", "date": "2020-06-30"})
 
-    with pytest.raises(ToolError, match=r"^date is not an argument of stations, which takes all, ") as error:
+    with pytest.raises(ToolError, match=r"^date is not an argument of history, which takes all, ") as error:
         asyncio.run(_call())
     assert "renamed" not in str(error.value)
 
