@@ -16,6 +16,7 @@ from polars import selectors as cs
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, clear_sentinels, raw_column
+from wetterdienst.provider.dwd.observation.download import ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
@@ -176,8 +177,10 @@ WIND_DIRECTION_PARAMETERS = (
 #   stations (read 2026-10-13): 20 zeros in the recent files and 51 in the historical ones (they overlap in 2025),
 #   every one beside a speed of 0.00, and every 10 minutes with a speed of 0.00 has the 0 (15818 on 2025-04-28: 220 at
 #   0.10 m/s at 18:20, 0 at 0.00 at 18:30, 200 at 0.20 at 18:40). The sheet of the dataset answers 404, so it follows
-#   the rule of 10 minute wind. The hourly urban_wind WINDRICHTUNG is not covered: its zeros never come beside a speed
-#   of 0.
+#   the rule of 10 minute wind. The hourly urban_wind WINDRICHTUNG is not covered, and is deliberately left as the
+#   source writes it: its 1,288 zeros in 295,005 hours (read 2026-10-12) never come beside a speed of 0 (the minimum
+#   speed is 0.1 m/s), mostly at 0.2 to 0.4 m/s, 11 hours at 1 m/s or more, and DWD's sheet says nothing of a 0, so
+#   whether it is a calm or north is not known.
 CALM_WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
     (
@@ -329,6 +332,17 @@ COLUMNS_MAPPING = {
 }
 
 
+# The hourly sun stamps of a period that DWD's `Metadaten_Parameter` calls "Stundenwerte in WOZ" are the hour of the
+# station's true solar time ("Wahre Ortszeit"), not UTC, but are returned as the stamps are written, unshifted
+# (GH-2816, GH-2617): the shift is the station's longitude over 15 plus the equation of time, 35 minutes at Aachen,
+# 20 at Hamburg, about 0 at Goerlitz, +-16 minutes over the year, so no whole hour. Instead the rows of those periods
+# are flagged `zone:woz` in `quality_flags`. The periods come from the metadata file of the station's archive
+# (`ProductFile.woz_spans`), as they are not at one date: 140 of the 528 stations with a WOZ period end the last one on
+# 2001-03-31, 172 have one that runs on (249,640 station days, to 2006), and some change back and forth by the month
+# (read 2026-10-15 in all 636 historical archives). A boolean column of the wide frame, dropped in `_tidy_up_df`.
+WOZ_COLUMN = "woz"
+
+
 def parse_climate_observations_data(
     files: list[File],
     dataset: DatasetModel,
@@ -478,6 +492,17 @@ def _parse_climate_observations_data(  # noqa: C901
         pl.col("timestamp").str.to_datetime("%Y%m%d%H%M", time_zone="UTC"),
     )
     df = _drop_rows_after_last_day(df, file, dataset, period)
+    if dataset == DwdObservationMetadata.hourly.sun:
+        spans = file.woz_spans if isinstance(file, ProductFile) else ()
+        df = df.with_columns(
+            pl.any_horizontal(
+                pl.col("timestamp").dt.date().is_between(first, last, closed="both") for first, last in spans
+            )
+            .fill_null(value=False)
+            .alias(WOZ_COLUMN)
+            if spans
+            else pl.lit(value=False).alias(WOZ_COLUMN)
+        )
     return _mez_to_utc(df, file, dataset, period)
 
 
