@@ -289,7 +289,7 @@
     "unitTypeLabel": "Magnitud",
     "loading": "Cargando…",
     "noResults": "Ningún parámetro coincide con la búsqueda.",
-    "count": "{count} de {total} parámetros"
+    "count": "{shown} de {count} parámetro | {shown} de {count} parámetros"
   },
   "meteogram": {
     "title": "Pronóstico del tiempo",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Cargando valores …",
-    "valuesCount": "{count} valores",
-    "valuesTransformed": "{count} valores (transformados de {total})",
+    "valuesCount": "{count} valor | {count} valores",
+    "valuesTransformed": "{count} valor (transformado de {total}) | {count} valores (transformados de {total})",
     "columns": "Columnas",
     "copyCurrentPage": "Copiar la página actual",
     "copyAllValues": "Copiar todos los valores",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Gráfico de {parameter}",
     "rowsPerPage": "Filas por página",
     "copied": "Copiado",
-    "copiedRows": "{count} filas copiadas al portapapeles",
+    "copiedRows": "{count} fila copiada al portapapeles | {count} filas copiadas al portapapeles",
     "downloaded": "Descargado",
     "downloadedValues": "Valores descargados como {format}",
     "downloadCancelled": "Descarga cancelada: la tabla cambió",

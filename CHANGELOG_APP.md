@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Languages]` Hamburgisch (`de-hh`) is Low German (Plattdüütsch) throughout, where its menus and
+  texts were German and only the glossary was Low German; the glossary's quality flags say
+  `Göödkennen`, as its `quality` says `Gööd`, where they said `Gütenkennen` (GH-2969)
+- `[Languages]` Luxembourgish shows the explorer mode descriptions, the SQL panel and "Methode" in
+  Luxembourgish, where they were English, and says `Datesaz` where it said "Dataset" (GH-2970).
+  The Polish, Czech, Luxembourgish and Low German text is not natively reviewed; a native
+  speaker's review is welcome (`app/i18n/TERMS.md`)
+
+### Fixed
+
+- `[DataViewer/Glossary]` Counts take their plural form: "1 value", "1 row copied to clipboard" and
+  "1 of 1 parameter", where they read "1 values" and the like, in all 11 languages. Polish and Czech
+  write three forms ("1 wartość", "2 wartości", "5 wartości") and French counts 0 as singular
+  (GH-2968)
+
 ## [0.21.0] - 2026-10-16
 
 ### Changed

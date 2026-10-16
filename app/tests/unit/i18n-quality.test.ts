@@ -1,19 +1,20 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { pluralForms } from '../../i18n/plural-rules'
 
 // Mechanical checks of the translations that `i18n-parity.test.ts` does not make (GH-2610). That one
 // holds the *keys* of the eleven locales to each other; this one looks at what is written under them:
 //
 // - placeholders: `{count}`, `@:` links and tags that a translation dropped, renamed or added
-// - plural syntax: none is used, and none may be used until pluralRules exist for the languages whose
-//   plural has more than two forms (pl, cs, ...)
+// - plural forms: a message that is written in forms has as many as its language has (two, and three
+//   in pl and cs), in every locale, as i18n/plural-rules.ts picks among them
 // - whitespace and empty labels, in the UI catalogs and in the glossaries
 // - text copied from en or de, which shows a reader that language they did not choose
 // - the project's own terms, written down in i18n/TERMS.md and used the same way throughout a locale
 //
-// What it cannot check is whether a translation is good. That takes a native speaker, and the
-// rows that wait for one are the allow-list entries below that say so.
+// What it cannot check is whether a translation is good. That takes a native speaker, and pl, cs, lb
+// and de-hh have not had one (i18n/TERMS.md says so under "Review status").
 
 const i18nDir = fileURLToPath(new URL('../../i18n', import.meta.url))
 
@@ -64,16 +65,29 @@ describe('the catalogs are read', () => {
 })
 
 describe('placeholders', () => {
-  // `{name}` slots, `@:key` / `@.modifier:key` links to another message, tags, and the `|` that
-  // separates plural forms. Compared as sorted lists, so a placeholder dropped, renamed or added
-  // fails, and so does one that is written twice where en has it once.
-  const TOKEN = /\{[^{}]*\}|@[.:][\w.:-]*|<\/?[a-z][^<>]*>|\|/gi
+  // `{name}` slots, `@:key` / `@.modifier:key` links to another message and tags. Compared as sorted
+  // lists, so a placeholder dropped, renamed or added fails, and so does one that is written twice where
+  // en has it once. A message in plural forms (`one | other`, and `one | few | other` in pl and cs) is
+  // compared one form at a time: each form of a locale carries what each form of en carries, so a
+  // count that one form leaves out is caught, and the number of forms is the next describe's business.
+  const TOKEN = /\{[^{}]*\}|@[.:][\w.:-]*|<\/?[a-z][^<>]*>/gi
   const tokens = (text: string) => (text.match(TOKEN) ?? []).sort()
+  const formsOf = (text: string) => text.split('|')
 
   it.each(others)('keeps the placeholders of en in %s', (locale) => {
-    const wrong = Object.keys(ui.en!)
-      .filter(key => JSON.stringify(tokens(ui[locale]![key] ?? '')) !== JSON.stringify(tokens(ui.en![key]!)))
-      .map(key => `${key}: en has [${tokens(ui.en![key]!)}], ${locale} has [${tokens(ui[locale]![key] ?? '')}]`)
+    const wrong = Object.keys(ui.en!).flatMap((key) => {
+      const wanted = JSON.stringify(tokens(formsOf(ui.en![key]!)[0]!))
+      return formsOf(ui[locale]![key] ?? '')
+        .filter(form => JSON.stringify(tokens(form)) !== wanted)
+        .map(form => `${key}: en has [${tokens(formsOf(ui.en![key]!)[0]!)}], ${locale} has [${tokens(form)}] in "${form.trim()}"`)
+    })
+    expect(wrong).toEqual([])
+  })
+
+  it('has the same placeholders in every form of en', () => {
+    const wrong = Object.keys(ui.en!).filter(key =>
+      new Set(formsOf(ui.en![key]!).map(form => JSON.stringify(tokens(form)))).size > 1,
+    )
     expect(wrong).toEqual([])
   })
 
@@ -94,33 +108,40 @@ describe('placeholders', () => {
   })
 })
 
-describe('plural syntax', () => {
-  // vue-i18n splits a message at `|` into plural forms and picks one by the count, with a rule that
-  // knows two forms (one / other) unless `pluralRules` says otherwise. The app has none, and shows
-  // its counts as "{count} values" with no form to pick. A message that wants plural forms has to
-  // bring `pluralRules` in the same change for the languages that have more than two (pl, cs: one,
-  // few, other), and give those two as many forms, or Polish and Czech are shown the wrong one.
+describe('plural forms', () => {
+  // vue-i18n splits a message at `|` into plural forms and asks the rule of the active language which
+  // one a count wants (i18n/plural-rules.ts, held to CLDR in plural-rules.test.ts). English writes
+  // two ("1 value | 2 values"), and so does every locale but Polish and Czech, which write three (one,
+  // few, other: "1 wartość | 2 wartości | 5 wartości"). A message in forms in one locale is in forms in
+  // all of them, with as many forms as its language has, or a count would read "1 values" in one
+  // language and be cut at the `|` in another (GH-2968).
   const usedIn = (catalog: Catalog) => Object.keys(catalog).filter(key => catalog[key]!.includes('|'))
   const forms = (text: string) => text.split('|').length
-  const manyForms = ['pl', 'cs']
 
-  it('is used only with pluralRules for the languages with more than two forms', () => {
-    const used = new Set(Object.values(ui).flatMap(usedIn))
-    if (used.size === 0)
-      return
-    const config = readFileSync(`${i18nDir}/i18n.config.ts`, 'utf-8')
-    expect(config, 'plural forms are used but i18n.config.ts has no pluralRules').toMatch(/pluralRules/)
-    // only the text from pluralRules on: the file has a 'pl' and a 'cs' in its number and date formats
-    const rules = config.slice(config.indexOf('pluralRules'))
-    for (const locale of manyForms)
-      expect(rules, `pluralRules has no rule for ${locale}`).toMatch(new RegExp(`['"]?${locale}['"]?\\s*:`))
+  it('has a plural rule for every locale', () => {
+    expect(Object.keys(pluralForms).sort()).toEqual(locales)
   })
 
-  it.each(others)('gives %s as many plural forms as en, or at least three where it has three', (locale) => {
-    const keys = Object.keys(ui.en!).filter(key => [ui.en!, ui[locale]!].some(catalog => catalog[key]!.includes('|')))
-    const wrong = keys.filter(key => manyForms.includes(locale)
-      ? forms(ui[locale]![key]!) < 3
-      : forms(ui[locale]![key]!) !== forms(ui.en![key]!))
+  it('writes the counts of the four messages that have one in plural forms', () => {
+    // not a list of everything with a count: `dateRange.estimatedValues` and `errExceedsLimit` carry one
+    // where one is no case, and `query.success` words it ("Returned rows: 1") so that it needs no form
+    expect(usedIn(ui.en!).sort()).toEqual(['dataViewer.copiedRows', 'dataViewer.valuesCount', 'dataViewer.valuesTransformed', 'glossary.count'])
+  })
+
+  it.each(others)('has plural forms in %s for the messages that en has them in', (locale) => {
+    expect(usedIn(ui[locale]!).sort()).toEqual(usedIn(ui.en!).sort())
+  })
+
+  it.each(locales)('gives %s as many plural forms as its language has', (locale) => {
+    const wrong = usedIn(ui[locale]!).filter(key => forms(ui[locale]![key]!) !== pluralForms[locale])
+    expect(wrong).toEqual([])
+  })
+
+  it('has a form that says the count in every form of a message', () => {
+    // `{count}` is the number the reader sees; a form that dropped it would show the noun alone
+    const wrong = Object.entries(ui).flatMap(([locale, catalog]) =>
+      usedIn(catalog).filter(key => catalog[key]!.split('|').some(form => !form.includes('{count}'))).map(key => `${locale} ${key}`),
+    )
     expect(wrong).toEqual([])
   })
 })
@@ -150,13 +171,11 @@ describe('whitespace', () => {
 const NAME = 'a name, a format or a product, written the same in every language'
 const UNIT = 'an international unit name, written the same'
 const COGNATE = 'the ordinary word in that language is spelled the same'
-const PENDING = 'still the English text: waits for a native speaker (GH-2610)'
-const SUSPECT = 'the word looks borrowed rather than native: waits for a native speaker (GH-2610)'
 
 interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
-  'common.all': { de: ['da'], why: COGNATE },
+  'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
   'common.documentation': { en: ['fr'], de: ['da'], why: COGNATE },
   'home.statParameters': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
@@ -218,70 +237,41 @@ const UI_SAME: Record<string, Same> = {
   'explorer.title': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
   'explorer.mode': { en: ['fr'], de: ['nl'], why: COGNATE },
   'explorer.modeStation': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
-  'explorer.modeInterpolation': { en: ['da', 'de-hh', 'de', 'fr'], why: COGNATE },
+  'explorer.modeInterpolation': { en: ['da', 'de', 'fr'], why: COGNATE },
   'explorer.unitDefault': { de: ['da'], why: COGNATE },
   'explorer.shape': { de: ['da'], why: COGNATE },
   'explorer.shapeLong': { en: ['fr'], de: ['da', 'nl'], why: COGNATE },
   'explorer.stationsDetails': { de: ['nl'], why: COGNATE },
-  'explorer.modeStationDesc': { en: ['lb'], why: PENDING },
-  'explorer.modeInterpolationDesc': { en: ['lb'], why: PENDING },
-  'explorer.modeSummaryDesc': { en: ['lb'], why: PENDING },
-  'explorer.modeStationHow': { en: ['lb'], why: PENDING },
-  'explorer.modeInterpolationHow': { en: ['lb'], why: PENDING },
-  'explorer.modeSummaryHow': { en: ['lb'], why: PENDING },
-  'explorer.modeHowItWorks': { en: ['lb'], why: PENDING },
-  'stationTable.name': { en: ['de-hh', 'de'], why: COGNATE },
+  'stationTable.name': { en: ['de'], why: COGNATE },
   'stationTable.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stationTable.latitude': { en: ['fr'], why: COGNATE },
   'stationTable.longitude': { en: ['fr'], why: COGNATE },
-  'parameterSelection.datasetLabel': { en: ['it', 'lb', 'nl'], why: COGNATE },
+  'parameterSelection.datasetLabel': { en: ['it', 'nl'], why: COGNATE },
   'parameterSelection.parametersLabel': { en: ['nl'], why: COGNATE },
   'interpolation.source': { en: ['fr'], why: COGNATE },
   'interpolation.latitude': { en: ['fr'], why: COGNATE },
   'interpolation.longitude': { en: ['fr'], why: COGNATE },
-  'dateRange.optional': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
+  'dateRange.optional': { en: ['de', 'lb'], why: COGNATE },
   'dateRange.max': { en: ['it'], de: ['cs', 'nl'], why: COGNATE },
   'dataViewer.dataTitle': { en: ['cs', 'da'], why: COGNATE },
   'dataViewer.axisDate': { en: ['fr'], de: ['cs', 'nl'], why: COGNATE },
   'dataViewer.paramLabelParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
-  'dataViewer.paramLabelDatasetParameter': { en: ['lb', 'nl'], why: COGNATE },
-  'dataViewer.statDataset': { en: ['it', 'lb', 'nl'], why: COGNATE },
+  'dataViewer.paramLabelDatasetParameter': { en: ['nl'], why: COGNATE },
+  'dataViewer.statDataset': { en: ['it', 'nl'], why: COGNATE },
   'dataViewer.statParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
-  'dataViewer.statMin': { en: ['de-hh', 'de', 'fr', 'it'], why: COGNATE },
-  'dataViewer.statMax': { en: ['de-hh', 'de', 'fr', 'it'], why: COGNATE },
+  'dataViewer.statMin': { en: ['de', 'fr', 'it'], why: COGNATE },
+  'dataViewer.statMax': { en: ['de', 'fr', 'it'], why: COGNATE },
   'dataViewer.statSum': { en: ['da'], why: COGNATE },
-  'query.enable': { en: ['lb'], why: PENDING },
-  'query.title': { en: ['lb'], why: PENDING },
-  'query.run': { en: ['lb'], why: PENDING },
-  'query.cancel': { en: ['lb'], why: PENDING },
-  'query.placeholder': { en: ['lb'], why: PENDING },
-  'query.syntaxError': { en: ['lb'], why: PENDING },
-  'query.hint': { en: ['lb'], why: PENDING },
-  'query.availableColumns': { en: ['lb'], why: PENDING },
-  'query.examples': { en: ['lb'], why: PENDING },
-  'query.success': { en: ['lb'], why: PENDING },
-  'query.exampleAll': { en: ['lb'], why: PENDING },
-  'query.exampleParameter': { en: ['lb'], why: PENDING },
-  'query.exampleTimestamp': { en: ['lb'], why: PENDING },
-  'query.exampleRange': { en: ['lb'], why: PENDING },
-  'query.exampleRecent': { en: ['lb'], why: PENDING },
-  'query.exampleStations': { en: ['lb'], why: PENDING },
-  'query.exampleStation': { en: ['lb'], why: PENDING },
-  'query.noData': { en: ['lb'], why: PENDING },
-  'query.initFailed': { en: ['lb'], why: PENDING },
-  'query.loadFailed': { en: ['lb'], why: PENDING },
-  'query.unknownError': { en: ['lb'], why: PENDING },
-  'query.queryFailed': { en: ['lb'], why: PENDING },
-  'history.datasetLabel': { en: ['it', 'lb', 'nl'], why: COGNATE },
+  'history.datasetLabel': { en: ['it', 'nl'], why: COGNATE },
   'history.error': { en: ['es'], why: COGNATE },
-  'history.colName': { en: ['de-hh', 'de'], why: COGNATE },
+  'history.colName': { en: ['de'], why: COGNATE },
   'history.colLatitude': { en: ['fr'], why: COGNATE },
   'history.colLongitude': { en: ['fr'], why: COGNATE },
   'history.colRegion': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'history.stationNames': { de: ['nl'], why: COGNATE },
   'history.colParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'history.colDescription': { en: ['fr'], why: COGNATE },
-  'history.colMethod': { en: ['lb'], de: ['nl'], why: SUSPECT },
+  'history.colMethod': { de: ['nl'], why: COGNATE },
 }
 
 const GLOSSARY_SAME: Record<string, Same> = {
@@ -365,15 +355,16 @@ describe('text copied from en or de', () => {
   })
 
   it.each([
-    ['de-hh', 'UI text', 0.9],
+    ['de-hh', 'UI text', 0.22],
     ['de-hh', 'glossary label', 0.25],
-    ['lb', 'UI text', 0.25],
+    ['lb', 'UI text', 0.17],
     ['lb', 'glossary label', 0.25],
   ] as const)('keeps %s from turning into a copy of de: at most %d of its %s', (locale, kind, ceiling) => {
-    // Hamburgisch is a deliberate dialect locale, not German with another name. Most of its UI text
-    // is still German today (GH-2610), so the ceiling sits just above where it is: a ratchet, to be
-    // lowered as the text is written in the dialect, that fails when it goes back up. Luxembourgish
-    // is held to a ceiling a good way above where it is, so that it cannot drift into German.
+    // Hamburgisch is a deliberate dialect locale, written in Low German throughout, the UI text as well
+    // as the glossary (GH-2969), not German with another name; Luxembourgish is not German either
+    // (GH-2970). What the two still share with German is units, names and international words, 19 % of
+    // the de-hh UI text and 14 % of the lb text today: the ceilings sit just above, so that a catalog
+    // that slides back into the German text fails, and are to be lowered, never raised, to follow it.
     const catalogs = kind === 'UI text' ? ui : glossary
     const keys = Object.keys(catalogs.de!)
     const same = keys.filter(key => catalogs[locale]![key] === catalogs.de![key]).length
@@ -463,7 +454,7 @@ describe('terminology', () => {
       'es': 'conjuntos? de datos',
       'fr': 'jeux? de données',
       'it': 'dataset',
-      'lb': 'dataset|datesätz',
+      'lb': 'dates[aä]',
       'nl': 'dataset',
       'pl': 'zbi\\S* danych',
     } },
@@ -471,7 +462,7 @@ describe('terminology', () => {
       'cs': 'rozlišení',
       'da': 'opløsning',
       'de': 'aufl[oö]s|aufgel[oö]s',
-      'de-hh': 'aufl[oö]s|aufgel[oö]s',
+      'de-hh': 'oplös',
       'en': 'resolution',
       'es': 'resoluci',
       'fr': 'résolution',
@@ -484,7 +475,7 @@ describe('terminology', () => {
       'cs': 'poskytovatel',
       'da': 'udbyder',
       'de': 'anbieter',
-      'de-hh': 'anbieter',
+      'de-hh': 'anbeder',
       'en': 'provider',
       'es': 'proveedor',
       'fr': 'fournisseur',
@@ -497,7 +488,7 @@ describe('terminology', () => {
       'cs': 'sí[ťt]',
       'da': 'netværk',
       'de': 'netz',
-      'de-hh': 'netz',
+      'de-hh': 'nettwark',
       'en': 'network',
       'es': '\\bred(es)?\\b',
       'fr': 'réseau',
@@ -512,7 +503,7 @@ describe('terminology', () => {
       'cs': 'období',
       'da': 'periode',
       'de': 'zeitr',
-      'de-hh': 'zeitr',
+      'de-hh': 'tietr',
       'en': 'period',
       'es': 'periodo',
       'fr': 'période',

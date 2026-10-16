@@ -1,8 +1,11 @@
-// Vue I18n runtime configuration (number & date formatting).
+import { pluralRules } from './plural-rules'
+
+// Vue I18n runtime configuration (number & date formatting, plural rules).
 // Message catalogs are loaded lazily from ./locales/*.json via the Nuxt i18n module.
 export default defineI18nConfig(() => ({
   legacy: false,
   fallbackLocale: 'en',
+  pluralRules,
   numberFormats: {
     'de': {
       decimal: { style: 'decimal', maximumFractionDigits: 2 },

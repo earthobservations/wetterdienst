@@ -67,6 +67,23 @@ describe('glossary Page', () => {
     expect(wrapper.text()).toContain('2 of 2 parameters')
   })
 
+  it('writes the count in the form of the whole vocabulary, not of the entries shown', async () => {
+    // "1 of 2 parameter" while the filter left one of two (GH-2968): the noun follows the total
+    clearNuxtData()
+    served = entries
+    const wrapper = await mountGlossary()
+    ;(wrapper.vm as any).search = 'sunshine'
+    await vi.waitFor(() => expect(wrapper.text()).toContain('1 of 2 parameters'))
+  })
+
+  it('reports a vocabulary of one parameter in the singular', async () => {
+    clearNuxtData()
+    served = entries.slice(0, 1)
+    const wrapper = await mountGlossary()
+    expect(wrapper.text()).toContain('1 of 1 parameter')
+    expect(wrapper.text()).not.toContain('1 of 1 parameters')
+  })
+
   it('says so when nothing is returned', async () => {
     // `useFetch` caches by url, so the payload from the mounts above would be reused otherwise
     clearNuxtData()

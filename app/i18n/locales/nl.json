@@ -289,7 +289,7 @@
     "unitTypeLabel": "Grootheid",
     "loading": "Laden…",
     "noResults": "Geen parameter komt overeen met je zoekopdracht.",
-    "count": "{count} van {total} parameters"
+    "count": "{shown} van {count} parameter | {shown} van {count} parameters"
   },
   "meteogram": {
     "title": "Weersverwachting",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",
-    "valuesCount": "{count} waarden",
-    "valuesTransformed": "{count} waarden (omgezet uit {total})",
+    "valuesCount": "{count} waarde | {count} waarden",
+    "valuesTransformed": "{count} waarde (omgezet uit {total}) | {count} waarden (omgezet uit {total})",
     "columns": "Kolommen",
     "copyCurrentPage": "Huidige pagina kopiëren",
     "copyAllValues": "Alle waarden kopiëren",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Grafiek van {parameter}",
     "rowsPerPage": "Rijen per pagina",
     "copied": "Gekopieerd",
-    "copiedRows": "{count} rijen naar het klembord gekopieerd",
+    "copiedRows": "{count} rij naar het klembord gekopieerd | {count} rijen naar het klembord gekopieerd",
     "downloaded": "Gedownload",
     "downloadedValues": "Waarden gedownload als {format}",
     "downloadCancelled": "Download geannuleerd: de tabel is gewijzigd",

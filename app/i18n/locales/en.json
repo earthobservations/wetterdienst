@@ -289,7 +289,7 @@
     "unitTypeLabel": "Quantity",
     "loading": "Loading…",
     "noResults": "No parameter matches your search.",
-    "count": "{count} of {total} parameters"
+    "count": "{shown} of {count} parameter | {shown} of {count} parameters"
   },
   "meteogram": {
     "title": "Weather forecast",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Loading values …",
-    "valuesCount": "{count} values",
-    "valuesTransformed": "{count} values (transformed from {total})",
+    "valuesCount": "{count} value | {count} values",
+    "valuesTransformed": "{count} value (transformed from {total}) | {count} values (transformed from {total})",
     "columns": "Columns",
     "copyCurrentPage": "Copy current page",
     "copyAllValues": "Copy all values",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Chart of {parameter}",
     "rowsPerPage": "Rows per page",
     "copied": "Copied",
-    "copiedRows": "{count} rows copied to clipboard",
+    "copiedRows": "{count} row copied to clipboard | {count} rows copied to clipboard",
     "downloaded": "Downloaded",
     "downloadedValues": "Values downloaded as {format}",
     "downloadCancelled": "Download cancelled: the table changed",

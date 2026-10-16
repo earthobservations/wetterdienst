@@ -289,7 +289,7 @@
     "unitTypeLabel": "Wielkość",
     "loading": "Ładowanie…",
     "noResults": "Żaden parametr nie pasuje do wyszukiwania.",
-    "count": "{count} z {total} parametrów"
+    "count": "{shown} z {count} parametru | {shown} z {count} parametrów | {shown} z {count} parametrów"
   },
   "meteogram": {
     "title": "Prognoza pogody",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Ładowanie wartości …",
-    "valuesCount": "{count} wartości",
-    "valuesTransformed": "{count} wartości (przekształcone z {total})",
+    "valuesCount": "{count} wartość | {count} wartości | {count} wartości",
+    "valuesTransformed": "{count} wartość (przekształcona z {total}) | {count} wartości (przekształcone z {total}) | {count} wartości (przekształconych z {total})",
     "columns": "Kolumny",
     "copyCurrentPage": "Kopiuj bieżącą stronę",
     "copyAllValues": "Kopiuj wszystkie wartości",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Wykres: {parameter}",
     "rowsPerPage": "Wiersze na stronę",
     "copied": "Skopiowano",
-    "copiedRows": "Skopiowano {count} wierszy do schowka",
+    "copiedRows": "Skopiowano {count} wiersz do schowka | Skopiowano {count} wiersze do schowka | Skopiowano {count} wierszy do schowka",
     "downloaded": "Pobrano",
     "downloadedValues": "Wartości pobrane jako {format}",
     "downloadCancelled": "Pobieranie anulowane: tabela się zmieniła",

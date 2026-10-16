@@ -480,6 +480,17 @@ describe('dataViewer downloads', () => {
     expect(copied[0]!.split('\n')[0]).toBe('station_id,parameter,timestamp,value,quality_flags')
   })
 
+  it('writes a single value and a single copied row in the singular', async () => {
+    // "1 values" and "1 rows copied to clipboard" before the counts had plural forms (GH-2968)
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(wrapper.text()).toMatch(/1 value(?!s)/)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true })
+    await wrapper.findAll('button[data-grace-area-trigger]')[1]!.trigger('click')
+    await vi.waitFor(() => expect(useToast().toasts.value.map(toast => toast.description)).toEqual(['1 row copied to clipboard']))
+  })
+
   it('does not offer GeoJSON again while one is being downloaded', async () => {
     // a second choice sent a second request and saved a second file
     let asked = false
