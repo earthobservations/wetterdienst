@@ -58,6 +58,30 @@ Types of changes:
 - The parameter columns of a wide values frame are in the order the request names its parameters,
   as an empty frame has them, not in the order the source delivered its rows in. A parameter no
   station delivered has no column in a populated frame (GH-2633)
+- **Breaking**: `nws/observation` `hourly` returns one observation for each station-hour, stamped
+  with the full hour, no longer the 12 an hour the endpoint serves (5-minute ASOS rows, METAR,
+  SPECI). The kept one is the METAR or SPECI report nearest to the full hour, normally the METAR at
+  :51 to :54; an hour with no report keeps its nearest 5-minute row. The 5-minute rows and the
+  minute of a report are no longer available; read `api.weather.gov` for them. Precipitation is a
+  running total since the last routine METAR and the winds are 2-minute means; a SPECI nearer the
+  full hour than a synoptic METAR takes its 3- and 6-hour amounts with it, see the provider page
+  (GH-2857)
+
+### Removed
+
+- **Breaking**: `dwd/mosmix` `large` no longer declares `h_bsc`, `rr1`, `rr3`, `rr6`, `rrh`, `rrd`,
+  `rads3` and `radl3`, which MOSMIX-L never delivers (none of the 114 elements of its 5648
+  stations); a request that named one got an empty frame and is now logged and dropped, or raises
+  `NoParametersFoundError` when no other parameter is requested. Drop them from the request;
+  MOSMIX-L's precipitation totals are `rr1c`, `rr3c`, `rr6c`, `rrhc` and `rrdc`. The description of
+  `sund3` says it is not a sliding 3 hour total (GH-2851)
+
+### Fixed
+
+- `noaa/ghcn` daily: 9 more stations, in the UK (Hull, Rothamsted, Wisley, ...), Algeria (Oran,
+  Sidi Bel Abbes) and France (Espoey), are placed west of Greenwich, no longer east of it, where
+  `ghcnd-stations.txt` has lost the sign of their longitude. They were 25 to 144 km off, so a
+  nearest-station search or an interpolation near them picked the wrong stations (GH-2886)
 - `eccc/observation` lists a station for `hourly` (`daily`) only if the station list gives it a
   `HLY_FIRST_DATE` (`DLY_FIRST_DATE`): 1685 of 8435 stations for hourly, 8340 for daily, no longer
   all of them, as the others have no row there. `stations`, `filter_by_rank` and
@@ -87,26 +111,11 @@ Types of changes:
   `NotFoundError` or `LookupError` instead of `KeyError`. Also, an `InvalidEnumerationError` lists
   the valid values, `(Resolution.DAILY, "kl")` works as `("daily", "kl")`, and `end` without `start`
   stays one instant, as `start` alone is, now documented (GH-2636)
-
-### Removed
-
-- **Breaking**: `dwd/mosmix` `large` no longer declares `h_bsc`, `rr1`, `rr3`, `rr6`, `rrh`, `rrd`,
-  `rads3` and `radl3`, which MOSMIX-L never delivers (none of the 114 elements of its 5648
-  stations); a request that named one got an empty frame and is now logged and dropped, or raises
-  `NoParametersFoundError` when no other parameter is requested. Drop them from the request;
-  MOSMIX-L's precipitation totals are `rr1c`, `rr3c`, `rr6c`, `rrhc` and `rrdc`. The description of
-  `sund3` says it is not a sliding 3 hour total (GH-2851)
-
-### Fixed
-
 - `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is null in a file that holds
   one value in each of at least 500 readings, which is the pressure of a station without a
   barometer and no reading (761 of the 1314 files hold one value, e.g. 997.3 for station 14072);
   the value stays as the last `quality_flags` token, `raw:997.3`. A constant that changed once in
   a file is not caught. Take the pressure of another source for such a station (GH-2699)
-
-### Fixed
-
 - A value outside the physical range of its parameter, which no sensor can have produced, is null,
   with the source's number (`raw:4021`) as the last token of `quality_flags`, no longer a reading:
   `rmi/observation` (a daily `temp_max` of 4021 degrees, a `temp_avg` of 110, a humidity of -6999 %,
