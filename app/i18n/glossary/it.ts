@@ -512,6 +512,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Precipitazione da tempo significativo (ultime 24 h)',
   precipitation_amount_significant_weather_last_3h: 'Precipitazione da tempo significativo (ultime 3 h)',
   precipitation_amount_significant_weather_last_6h: 'Precipitazione da tempo significativo (ultime 6 h)',
+  precipitation_amount_since_last_routine_report: 'Precipitazione dall\'ultimo rapporto di routine',
   precipitation_intensity: 'Intensità di precipitazione',
   pressure_air_site_delta_last_3h: 'Tendenza barometrica (ultime 3 h)',
   pressure_air_site_max: 'Pressione massima alla quota della stazione',

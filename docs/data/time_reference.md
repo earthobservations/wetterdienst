@@ -284,7 +284,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| ghcn | hourly | all | UTC | mixed (instant reports; precipitation is a running total for the hour up to the report) | yes |
+| ghcn | hourly | all | UTC | mixed (instant reports; precipitation is a running total up to the report, and the closing report of each hour is the one returned) | yes |
 | ghcn | daily | all | local (station's own observing day; docs give no zone except that TAVG from source 'S' runs to 2400 UTC) | unverified (date of the observing day; COOP stations report at an OBS-TIME, e.g. 0700) | partly |
 
 Notes:

@@ -141,6 +141,14 @@ Types of changes:
   (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
+- **Breaking**: the precipitation group of a METAR, `noaa/ghcn` hourly `precipitation` and
+  `nws/observation` `precipitationLastHour`, is `precipitation_amount_since_last_routine_report`
+  (new), no longer `precipitation_amount`: a running total since the last routine report, which a
+  routine report holds for the whole hour and a SPECI for the part that had fallen. Request the new
+  name; the old one raises `InvalidParameterError` in those datasets, which says what it is called
+  now. `noaa/ghcn` hourly returns this precipitation for one report of each UTC hour, the one at
+  the station's routine minute (`:53` at LAX), else the last that is no SPECI, no longer for every
+  report; its other elements keep every report (GH-2841)
 
 ### Removed
 

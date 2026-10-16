@@ -512,6 +512,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Nidderschlagshéicht aus signifikantem Wieder (lescht 24 h)',
   precipitation_amount_significant_weather_last_3h: 'Nidderschlagshéicht aus signifikantem Wieder (lescht 3 h)',
   precipitation_amount_significant_weather_last_6h: 'Nidderschlagshéicht aus signifikantem Wieder (lescht 6 h)',
+  precipitation_amount_since_last_routine_report: 'Nidderschlagshéicht zënter dem leschte Routinebericht',
   precipitation_intensity: 'Nidderschlagsintensitéit',
   pressure_air_site_delta_last_3h: 'Loftdrocktendenz (lescht 3 h)',
   pressure_air_site_max: 'Maximale Loftdrock op Statiounshéicht',

@@ -512,6 +512,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Nedbør fra signifikant vejr (seneste 24 t)',
   precipitation_amount_significant_weather_last_3h: 'Nedbør fra signifikant vejr (seneste 3 t)',
   precipitation_amount_significant_weather_last_6h: 'Nedbør fra signifikant vejr (seneste 6 t)',
+  precipitation_amount_since_last_routine_report: 'Nedbør siden sidste rutinemelding',
   precipitation_intensity: 'Nedbørintensitet',
   pressure_air_site_delta_last_3h: 'Tryktendens (seneste 3 t)',
   pressure_air_site_max: 'Maksimalt lufttryk i stationshøjde',

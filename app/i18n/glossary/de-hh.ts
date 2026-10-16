@@ -512,6 +512,7 @@ export const parameters: Record<string, string> = {
   precipitation_amount_significant_weather_last_24h: 'Nedderslaghööch ut signifikantem Wedder (lest 24 h)',
   precipitation_amount_significant_weather_last_3h: 'Nedderslaghööch ut signifikantem Wedder (lest 3 h)',
   precipitation_amount_significant_weather_last_6h: 'Nedderslaghööch ut signifikantem Wedder (lest 6 h)',
+  precipitation_amount_since_last_routine_report: 'Nedderslaghööch siet den lesten Routinebericht',
   precipitation_intensity: 'Nedderslagsintensität',
   pressure_air_site_delta_last_3h: 'Luftdrucktendenz (lest 3 h)',
   pressure_air_site_max: 'Hööchsten Luftdruck in Statschoonshööch',

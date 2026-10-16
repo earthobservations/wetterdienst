@@ -889,6 +889,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         zero_inflated=True,
     ),
     CanonicalParameter(
+        "precipitation_amount_since_last_routine_report",
+        "precipitation",
+        "Depth of precipitation since the last routine METAR, as the precipitation group of the report kept for "
+        "the hour gives it: a running total, which a routine report holds for the whole hour and a special report "
+        "(SPECI) for the part that had fallen when it was filed, not the amount of a fixed clock hour.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+    ),
+    CanonicalParameter(
         "precipitation_amount_significant_weather_last_12h",
         "precipitation",
         "Depth of precipitation from significant weather over the preceding 12 hours.",

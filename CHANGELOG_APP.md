@@ -34,6 +34,9 @@ Types of changes:
   labels of `probability_radiation_global_last_1h`, `weather_last_3h` and
   `weather_secondary_last_3h` are gone with those names: against an older backend the prettified id
   shows (GH-2836, GH-2837, GH-2840, GH-2843, GH-2844, GH-2845)
+- `[Glossary]` The new parameter `precipitation_amount_since_last_routine_report`, the METAR
+  precipitation of `noaa/ghcn` hourly and `nws/observation`, has a label in all 11 languages;
+  against an older backend those two datasets still show `precipitation_amount` (GH-2841)
 
 ### Fixed
 
