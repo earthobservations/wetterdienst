@@ -290,7 +290,7 @@ _PARAMETERS = [
     },
 ]
 
-HubeauMetadata = {
+_HubeauMetadataSpec = {
     "name_short": "Eaufrance",
     "name_english": "Eaufrance",
     "name_local": "Eaufrance",
@@ -317,7 +317,7 @@ HubeauMetadata = {
         for resolution in _STEP_TO_RESOLUTION.values()
     ],
 }
-HubeauMetadata = build_metadata_model(HubeauMetadata, "HubeauMetadata")
+HubeauMetadata = build_metadata_model(_HubeauMetadataSpec, "HubeauMetadata")
 
 
 class HubeauValues(TimeseriesValues[ParameterModel]):

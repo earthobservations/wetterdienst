@@ -16,7 +16,7 @@ layer is the resolution, which contains one or more datasets, which in turn cont
 following example reflects this structure for the `MINUTE_1` dataset `PRECIPITATION` of `DwdObservationRequest`.
 
 ```python
-DwdObservationMetadata = {
+_DwdObservationMetadataSpec = {
     "resolutions": [
         {
             "name": "1_minute",
@@ -60,7 +60,11 @@ DwdObservationMetadata = {
         }
     ]
 }
+DwdObservationMetadata = build_metadata_model(_DwdObservationMetadataSpec, "DwdObservationMetadata")
 ```
+
+The dict has a name of its own and the public name is bound to the model alone, which is what a type checker
+reads (mypy takes the first assignment of a name for its type).
 
 The attributes `periods` and `date_required` are actually required for each dataset but if they are equal for all 
 datasets of a resolution they can be defined on the resolution level instead saving you some lines of code.

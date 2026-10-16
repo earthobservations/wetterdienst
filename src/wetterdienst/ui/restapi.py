@@ -17,11 +17,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
-from pydantic import BaseModel, ConfigDict, ValidationError, with_config
+from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-
-# not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
-from typing_extensions import TypedDict
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
@@ -42,8 +39,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.model.metadata import NetworkKind  # noqa: TC001, needed at runtime by FastAPI
+from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution
 from wetterdienst.model.result import (
     _InterpolatedValuesDict,
     _InterpolatedValuesOgcFeatureCollection,
@@ -943,59 +939,9 @@ def auth(
     return get_auth(api, provider, network)
 
 
-# What `/api/coverage` answers, as `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build
-# it. The answer is still sent as those return it, so the models only describe it: the tests check a
-# real answer of every provider against them, and `extra="forbid"` makes a key added there fail.
-# `typing_extensions.TypedDict`, as pydantic refuses `typing.TypedDict` below Python 3.12 (GH-2090)
-@with_config(ConfigDict(extra="forbid"))
-class CoverageNetwork(TypedDict):
-    """A network in the list of every provider and its networks.
-
-    Whether the credentials are accepted is not in it: that takes a request to the provider, which a list of
-    every provider does not make, and `/api/auth` answers it for one network (GH-2564, GH-2641).
-    """
-
-    # a network that cannot be imported on this server is not listed at all (GH-2801)
-    name_short: str
-    country: str
-    # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
-    # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
-    kind: NetworkKind
-    url: str
-    auth: bool
-    configured: bool
-    date_required: bool
-
-
-@with_config(ConfigDict(extra="forbid"))
-class CoverageParameter(TypedDict):
-    """A parameter of a dataset, with `unit` as the source publishes it, which is not always the unit values come in."""
-
-    name: str
-    name_original: str
-    unit_type: UnitType
-    unit: str
-    description: str | None
-    # `dwd/dmo` only: the lead times whose run carries the parameter, `short` before `long`
-    lead_times: NotRequired[list[Literal["short", "long"]]]
-
-
-@with_config(ConfigDict(extra="forbid"))
-class CoverageDataset(TypedDict):
-    """A dataset of a resolution."""
-
-    description: str | None
-    parameters: list[CoverageParameter]
-
-
-@with_config(ConfigDict(extra="forbid"))
-class CoverageResolution(TypedDict):
-    """A resolution of a network."""
-
-    description: str | None
-    datasets: dict[str, CoverageDataset]
-
-
+# What `/api/coverage` answers is what `Wetterdienst.discover()` and `TimeseriesRequest.discover()` build,
+# described by the `Coverage*` models of `wetterdienst.model.metadata`. The answer is still sent as those return it, so
+# the models only describe it.
 # the answer without a provider and network: every provider, its networks and whether each needs
 # credentials; the answer for one: its resolutions, which a filter that matches none of leaves out
 CoverageProviders = dict[str, dict[str, CoverageNetwork]]

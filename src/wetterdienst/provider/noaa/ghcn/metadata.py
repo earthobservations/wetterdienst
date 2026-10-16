@@ -5,7 +5,7 @@
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
 # translate the above enums to dictionary based model
-NoaaGhcnMetadata = {
+_NoaaGhcnMetadataSpec = {
     "name_short": "NOAA",
     "name_english": "National Oceanic And Atmospheric Administration",
     "name_local": "National Oceanic And Atmospheric Administration",
@@ -1332,7 +1332,7 @@ NoaaGhcnMetadata = {
         },
     ],
 }
-NoaaGhcnMetadata = build_metadata_model(NoaaGhcnMetadata, "NoaaGhcnMetadata")
+NoaaGhcnMetadata = build_metadata_model(_NoaaGhcnMetadataSpec, "NoaaGhcnMetadata")
 
 DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].precipitation_amount.name_original: 1 / 10,

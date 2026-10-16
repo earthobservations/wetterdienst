@@ -41,8 +41,10 @@ def test_the_public_surface_type_checks_as_a_caller_sees_it() -> None:
 
     The script is checked by the checker the project uses on its own code, which reads the package
     from `src/`. An `assert_type` that no longer holds names the result that turned into `Any`, or
-    into something a caller must cast. (mypy and pyright, which the marker matters to, were run once
-    by hand against a built wheel; see GH-2622.)
+    into something a caller must cast. This run reads the checkout; `poe typecheck:installed`
+    (`tests/check_installed_typing.py`) runs the same script against the built wheel, installed as a caller
+    installs it. (mypy and pyright, which the marker matters to, were run by hand against a built wheel;
+    see GH-2622.)
     """
     completed = subprocess.run(  # noqa: S603
         [
@@ -150,3 +152,40 @@ def test_a_package_that_imports_names_exports_them(path: Path) -> None:
 
     assert exported is not None, f"{path.relative_to(ROOT)} imports names and declares no __all__"
     assert _imports_of(path) <= exported
+
+
+def _module_level_assignments(path: Path) -> dict[str, list[ast.AST]]:
+    """Map each name a module assigns at its top level to the assignments, in the order written."""
+    found: dict[str, list[ast.AST]] = {}
+    for node in ast.parse(path.read_text(encoding="utf8")).body:
+        targets = (
+            node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        )
+        for target in targets:
+            if isinstance(target, ast.Name):
+                found.setdefault(target.id, []).append(node)
+    return found
+
+
+def test_a_provider_metadata_name_is_bound_once_to_the_model() -> None:
+    """Test that `XMetadata = build_metadata_model(...)` is the only assignment of `XMetadata`.
+
+    A provider used to declare its metadata as a dict under the name that it then rebound to the model.
+    ty follows the rebinding, so a caller's `DwdObservationMetadata.daily` type-checked under it, but mypy
+    takes the first assignment for the declared type and read `DwdObservationMetadata` as a dict (and
+    `DwdObservationRequest.metadata` with it), where every attribute is an error. The dict has a name of its
+    own, and the public name is bound to the model alone.
+    """
+    rebound = []
+    for path in sorted(SRC.joinpath("provider").rglob("*.py")):
+        for name, assignments in _module_level_assignments(path).items():
+            builds_model = any(
+                isinstance(node, ast.Assign | ast.AnnAssign)
+                and isinstance(node.value, ast.Call)
+                and getattr(node.value.func, "id", getattr(node.value.func, "attr", None)) == "build_metadata_model"
+                for node in assignments
+            )
+            if builds_model and len(assignments) > 1:
+                rebound.append(f"{path.relative_to(ROOT)}: {name}")
+
+    assert not rebound, "give the dict of the metadata a name of its own:\n" + "\n".join(rebound)

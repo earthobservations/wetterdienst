@@ -6,7 +6,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import build_metadata_model
 from wetterdienst.provider.dwd.metadata import _METADATA
 
-DwdObservationMetadata = {
+_DwdObservationMetadataSpec = {
     **_METADATA,
     "kind": "observation",
     "timezone": "Europe/Berlin",
@@ -2059,7 +2059,7 @@ DwdObservationMetadata = {
         },
     ],
 }
-DwdObservationMetadata = build_metadata_model(DwdObservationMetadata, "DwdObservationMetadata")
+DwdObservationMetadata = build_metadata_model(_DwdObservationMetadataSpec, "DwdObservationMetadata")
 
 DWD_URBAN_DATASETS = [
     DwdObservationMetadata.minute_10.urban_temperature_air,

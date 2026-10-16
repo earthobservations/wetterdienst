@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-MeteoswissObservationMetadata = {
+_MeteoswissObservationMetadataSpec = {
     "name_short": "MeteoSwiss",
     "name_english": "MeteoSwiss",
     "name_local": "MétéoSuisse",
@@ -603,4 +603,6 @@ MeteoswissObservationMetadata = {
         },
     ],
 }
-MeteoswissObservationMetadata = build_metadata_model(MeteoswissObservationMetadata, "MeteoswissObservationMetadata")
+MeteoswissObservationMetadata = build_metadata_model(
+    _MeteoswissObservationMetadataSpec, "MeteoswissObservationMetadata"
+)

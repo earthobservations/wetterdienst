@@ -28,7 +28,7 @@ cooling_degree_hours_common_parameters = [
     },
 ]
 
-DwdDerivedMetadata = {
+_DwdDerivedMetadataSpec = {
     **_METADATA,
     "kind": "derived",
     "timezone": "Europe/Berlin",
@@ -472,7 +472,7 @@ DwdDerivedMetadata = {
         },
     ],
 }
-DwdDerivedMetadata = build_metadata_model(DwdDerivedMetadata, "DwdDerivedMetadata")
+DwdDerivedMetadata = build_metadata_model(_DwdDerivedMetadataSpec, "DwdDerivedMetadata")
 
 TECHNICAL_DATASETS = [
     DwdDerivedMetadata.monthly.heating_degreedays,

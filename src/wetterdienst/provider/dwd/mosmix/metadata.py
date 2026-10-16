@@ -7,7 +7,7 @@ from __future__ import annotations
 from wetterdienst.model.metadata import build_metadata_model
 from wetterdienst.provider.dwd.metadata import _METADATA
 
-DwdMosmixMetadata = {
+_DwdMosmixMetadataSpec = {
     **_METADATA,
     "kind": "forecast",
     "timezone": "Europe/Berlin",
@@ -806,4 +806,4 @@ DwdMosmixMetadata = {
         },
     ],
 }
-DwdMosmixMetadata = build_metadata_model(DwdMosmixMetadata, "DwdMosmixMetadata")
+DwdMosmixMetadata = build_metadata_model(_DwdMosmixMetadataSpec, "DwdMosmixMetadata")

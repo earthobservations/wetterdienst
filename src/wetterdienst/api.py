@@ -4,12 +4,13 @@
 
 import importlib
 import logging
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
 
 from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
+from wetterdienst.model.metadata import CoverageNetwork
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.settings import Settings, check_settings
 from wetterdienst.util.extras import missing_dependency_message
@@ -216,7 +217,7 @@ class Wetterdienst:
             return None
 
     @classmethod
-    def discover(cls) -> dict[str, Any]:
+    def discover(cls) -> dict[str, dict[str, CoverageNetwork]]:
         """Discover all available providers and networks with what they are.
 
         Nothing is downloaded, so this is as fast on a cold cache as on a warm one (GH-2564). Whether
@@ -240,9 +241,9 @@ class Wetterdienst:
         it needs credentials for or what it is would be a guess. The reason is logged as a warning. Asking
         for the network itself still tells why, as `resolve` raises the import error (GH-2801).
         """
-        result: dict[str, Any] = {}
+        result: dict[str, dict[str, CoverageNetwork]] = {}
         for provider, networks in cls.registry.items():
-            listed = {}
+            listed: dict[str, CoverageNetwork] = {}
             for network in networks:
                 try:
                     api = cls(provider, network)

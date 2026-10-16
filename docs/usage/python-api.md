@@ -1061,6 +1061,22 @@ except NoInternetError:
     df = pl.DataFrame()
 ```
 
+## Type checking
+
+The package ships `py.typed` (PEP 561), so mypy, pyright and ty read its annotations. The public
+surface is typed end to end: a request gives a `StationsResult`, `stations.values().all()` a
+`ValuesResult` whose `df` is a `pl.DataFrame`, `to_dict()` a typed dict whose `["values"]` you can
+index, and `Wetterdienst.discover()` a `dict[str, dict[str, CoverageNetwork]]`. CI checks
+`tests/typed_caller.py`, a script that uses the documented API, against the built wheel with `ty`,
+and the same script was run through `mypy --strict` and `pyright` in strict mode by hand.
+
+Two things to know when you type your own code against it. The values of a request come back long
+or wide as its `shape` option says, which is decided when the request runs and not when it is
+written, so `to_dict()["values"]` is declared as the union of the two kinds of rows. And the
+attributes `settings`, `options`, `parameters`, `start` and `end` of a request are
+declared as what its constructor accepts; read them from the result, where `stations.settings` is a
+`Settings` and `stations.parameters` a `list[ParameterModel]`.
+
 ## Caching
 
 The backbone of wetterdienst uses fsspec caching. It requires to create a directory under ``/home`` for the

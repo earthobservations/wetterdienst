@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from typing import BinaryIO
 
     from wetterdienst.metadata.resolution import Resolution
-    from wetterdienst.model.metadata import ResolutionModel
+    from wetterdienst.model.metadata import CoverageResolution, ResolutionModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -94,6 +94,11 @@ _CARRIED_ONLY_BY = {
 _LEAD_TIMES_PUBLISHED = {
     "icon": (DwdDmoLeadTime.SHORT, DwdDmoLeadTime.LONG),
     "icon_eu": (DwdDmoLeadTime.SHORT,),
+}
+# how `discover` names a lead time, which is how a request does (`lead_time="short"`)
+_LEAD_TIME_NAMES: dict[DwdDmoLeadTime, Literal["short", "long"]] = {
+    DwdDmoLeadTime.SHORT: "short",
+    DwdDmoLeadTime.LONG: "long",
 }
 
 
@@ -686,7 +691,7 @@ class DwdDmoRequest(TimeseriesRequest):
         cls,
         resolutions: str | Resolution | ResolutionModel | Sequence[str | Resolution | ResolutionModel] | None = None,
         datasets: str | DatasetModel | Sequence[str | DatasetModel] | None = None,
-    ) -> dict:
+    ) -> dict[str, CoverageResolution]:
         """Discover metadata as `TimeseriesRequest.discover` does, with each parameter's lead times.
 
         `lead_times` lists the lead times whose run carries the parameter, `short` before `long`,
@@ -700,7 +705,7 @@ class DwdDmoRequest(TimeseriesRequest):
                 for parameter in dataset["parameters"]:
                     only = _CARRIED_ONLY_BY.get(parameter["name_original"])
                     parameter["lead_times"] = [
-                        lead_time.name.lower()
+                        _LEAD_TIME_NAMES[lead_time]
                         for lead_time in _LEAD_TIMES_PUBLISHED[dataset_name]
                         if only in (None, lead_time)
                     ]

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-IpmaObservationMetadata = {
+_IpmaObservationMetadataSpec = {
     "name_short": "IPMA",
     "name_english": "Portuguese Institute for Sea and Atmosphere",
     "name_local": "Instituto Português do Mar e da Atmosfera",
@@ -81,4 +81,4 @@ IpmaObservationMetadata = {
         },
     ],
 }
-IpmaObservationMetadata = build_metadata_model(IpmaObservationMetadata, "IpmaObservationMetadata")
+IpmaObservationMetadata = build_metadata_model(_IpmaObservationMetadataSpec, "IpmaObservationMetadata")

@@ -3,8 +3,11 @@
 It is never run. It uses the public API the way the README and the documented examples do and states
 with `assert_type` what a type checker is to make of each result, so a change that turns one into
 `Any` or into something a caller must cast shows up as a diagnostic on the line that says what the
-caller expected. ty reads the package from `src/` as first-party code, so what depends on the marker
-or on `__all__` is held up by the tests beside it, not by this script.
+caller expected. Run against the checkout, ty reads the package from `src/` as first-party code;
+`check_installed_typing.py` runs this script against the installed wheel, where ty reads the
+installed annotations. ty reads them whether or not `py.typed` is there and whatever `__all__` says,
+which mypy and pyright do not, so those two are held up by the wheel listing in that script and by
+`test_a_package_that_imports_names_exports_them`.
 """
 
 from __future__ import annotations
@@ -13,8 +16,21 @@ from typing import Any, Literal, assert_type
 
 import polars as pl
 
-from wetterdienst import Options, Period, Resolution, Settings, Wetterdienst
+from wetterdienst import (
+    ConfigurationError,
+    Info,
+    NotFoundError,
+    Options,
+    Period,
+    RequestError,
+    Resolution,
+    Settings,
+    UpstreamError,
+    Wetterdienst,
+    WetterdienstError,
+)
 from wetterdienst.model.history import TimeseriesHistory
+from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution, DatasetModel, MetadataModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -23,7 +39,8 @@ from wetterdienst.model.result import (
     ValuesResult,
 )
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 
 # settings (the host's) and options (the request's) are accepted as the model or as a dict of its fields
 settings = Settings(cache_disable=True)
@@ -47,6 +64,8 @@ assert_type(api, type[TimeseriesRequest])
 stations = request.filter_by_station_id(station_id=(5779,))
 assert_type(stations, StationsResult)
 assert_type(stations.df, pl.DataFrame)
+assert_type(stations.request, TimeseriesRequest)
+assert_type(stations.filtered_by_sql("station_id = '05779'"), StationsResult)
 assert_type(request.all(), StationsResult)
 assert_type(request.filter_by_name("Zinnwald"), StationsResult)
 assert_type(request.filter_by_rank(latlon=(50.7, 13.7), rank=3), StationsResult)
@@ -71,6 +90,7 @@ assert_type(values.to_csv(), str)
 values.to_dict(with_stations=True)["values"]
 assert_type(values.to_ogc_feature_collection()["data"]["type"], Literal["FeatureCollection"])
 assert_type(values.filtered_by_date("2002-08"), ValuesResult)
+assert_type(values.filtered_by_sql("value > 1"), ValuesResult)
 assert_type(values.to_image(fmt="png"), bytes | str)
 values.to_target("sqlite:///values.db?table=values", if_exists="replace")
 for chunk in values_request.query():
@@ -78,6 +98,8 @@ for chunk in values_request.query():
 
 # history
 assert_type(stations.history(), TimeseriesHistory)
+assert_type(stations.history().to_json(), str)
+assert_type(stations.history().to_dict()["histories"], list[dict[str, Any]])
 
 # a point between stations
 interpolated = request.interpolate(latlon=(50.7, 13.7))
@@ -88,9 +110,21 @@ summarized = request.summarize(latlon=(50.7, 13.7))
 assert_type(summarized, SummarizedValuesResult)
 assert_type(summarized.to_dict()["values"][0]["distance"], float | None)
 
+# a forecast, whose request takes an issue
+mosmix = DwdMosmixRequest(parameters="hourly/small", issue="latest")
+assert_type(mosmix.all().request, TimeseriesRequest)
+
 # metadata
-assert_type(request.discover(resolutions="daily"), dict[str, Any])
+assert_type(request.metadata, MetadataModel)
+assert_type(DwdObservationMetadata, MetadataModel)
+assert_type(DwdObservationMetadata["daily"]["climate_summary"], DatasetModel)
+assert_type(request.discover(resolutions="daily"), dict[str, CoverageResolution])
+assert_type(request.discover()["daily"]["datasets"]["climate_summary"]["parameters"][0]["unit"], str)
+assert_type(Wetterdienst.discover(), dict[str, dict[str, CoverageNetwork]])
+assert_type(Wetterdienst.discover()["dwd"]["observation"]["auth"], bool)
+assert_type(Wetterdienst.get_provider_names(), list[str])
 assert_type(Resolution("daily"), Resolution)
+assert_type(Info().to_dict()["version"], str)
 
 # how the values of a request come back
 options = Options(shape="wide")
@@ -100,3 +134,14 @@ assert_type(options.replace(shape="long"), Options)
 # whether a provider that needs credentials has them, and accepts them
 assert_type(Wetterdienst.is_configured(api), bool)
 assert_type(Wetterdienst.is_valid(api), bool | None)
+
+
+# the exceptions a call raises share a root, and a caller catches them by what to do about them
+try:
+    request.all().values().all()
+except (RequestError, NotFoundError) as error:
+    assert_type(error, RequestError | NotFoundError)
+except (ConfigurationError, UpstreamError) as error:
+    assert_type(error, ConfigurationError | UpstreamError)
+except WetterdienstError as error:
+    assert_type(error, WetterdienstError)

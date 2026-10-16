@@ -337,7 +337,7 @@ def _remove_unless_forked(path: Path, pid: int) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
-def _default_fsspec_client_kwargs() -> dict:
+def _default_fsspec_client_kwargs() -> dict[str, Any]:
     """Return the client kwargs every request goes out with unless the caller says otherwise."""
     return {
         "headers": {"User-Agent": f"wetterdienst/{__import__('wetterdienst').__version__} ({platform.system()})"},
@@ -345,7 +345,7 @@ def _default_fsspec_client_kwargs() -> dict:
     }
 
 
-def _merge_fsspec_client_kwargs(given: dict) -> dict:
+def _merge_fsspec_client_kwargs(given: dict[str, Any]) -> dict[str, Any]:
     """Lay the caller's client kwargs over the defaults, a key the caller gives winning.
 
     ``headers`` is merged one level deeper, so that a header of the caller's own does not drop the
@@ -569,7 +569,7 @@ class Settings(BaseSettings):
 
     cache_disable: bool = Field(default=False)
     cache_dir: Path = Field(default_factory=default_cache_dir)
-    fsspec_client_kwargs: dict = Field(default_factory=_default_fsspec_client_kwargs)
+    fsspec_client_kwargs: dict[str, Any] = Field(default_factory=_default_fsspec_client_kwargs)
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
     # opt-in: parse DWD radar BUFR files into a polars DataFrame (RadarResult.df). Requires the

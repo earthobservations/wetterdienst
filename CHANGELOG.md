@@ -95,6 +95,21 @@ Types of changes:
   it cached, alive. Get a reader from `stations.values()`. `df_stations` of a `ValuesResult` now names
   the stations with a row in the frame, so it follows `filtered_by_sql`, and
   `InterpolatedValuesResult` and `SummarizedValuesResult` have it too (GH-2626)
+- The return types of `Wetterdienst.discover()`, `TimeseriesRequest.discover()` and `Info.to_dict()`
+  are typed dicts, no longer `dict[str, Any]`, so a type checker follows
+  `discover()["dwd"]["observation"]["kind"]` and `request.discover()["daily"]["datasets"]`. The
+  `Coverage*` types of the REST API (`CoverageNetwork`, `CoverageResolution`, `CoverageDataset` and
+  `CoverageParameter`) moved to `wetterdienst.model.metadata`; import them from there.
+  `StationsResult.request` is typed `TimeseriesRequest`, no longer a union with the two forecast
+  requests. `Settings.fsspec_client_kwargs` and the `settings` and `options` of a request are
+  `dict[str, Any]`, so the keys of `fsspec_client_kwargs` must be strings (GH-2622)
+
+### Fixed
+
+- mypy read `DwdObservationMetadata` and the other `<Provider>Metadata` of the provider modules as
+  a dict, and `DwdObservationRequest.metadata` with it, so `DwdObservationMetadata.daily.kl` was an
+  error in a type-checked program (pyright and ty were not affected); the dict a provider declares
+  has a private name of its own now, and the public name is the model (GH-2622)
 - **Breaking**: a data provider that failed is no longer a 500. An `UpstreamError` is a 502 (a
   download that was refused or cut short, a file the parser does not expect) or, after a timeout, a
   504; `NoInternetError` stays a 503. The body is a fixed sentence that says the request was
@@ -112,9 +127,6 @@ Types of changes:
 - **Breaking**: `/api/stations` and the MCP `stations` tool no longer take `with_stations`, which
   they accepted and ignored: a listing of stations is the stations. A request that still sends it
   is a 422; drop it. `history` and the value endpoints keep it (GH-3034)
-
-### Fixed
-
 - A client ID that Frost rejects (HTTP 401 or 403) raises `CredentialRejectedError`, a
   `ConfigurationError` that is still a `PermissionError`. The REST API and the MCP tools answer 501
   "The provider rejected the credential of this server for metno/frost" and log the setting, no

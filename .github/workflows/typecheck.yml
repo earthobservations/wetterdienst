@@ -1,7 +1,8 @@
 name: Typecheck
 
-# ty checks src/wetterdienst only; the installed dependency versions it resolves
-# imports against come from pyproject.toml/uv.lock.
+# `typecheck` runs ty on src/wetterdienst only; the installed dependency versions it resolves
+# imports against come from pyproject.toml/uv.lock. `installed` checks tests/typed_caller.py
+# against the built wheel, installed into clean environments, as a caller's checker sees the package.
 on:
   push:
     branches: [ main ]
@@ -9,6 +10,8 @@ on:
       - 'src/wetterdienst/**'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'tests/typed_caller.py'
+      - 'tests/check_installed_typing.py'
       - '.github/workflows/typecheck.yml'
   pull_request:
     branches: [ main ]
@@ -16,6 +19,8 @@ on:
       - 'src/wetterdienst/**'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'tests/typed_caller.py'
+      - 'tests/check_installed_typing.py'
       - '.github/workflows/typecheck.yml'
 
   # Allow job to be triggered manually.
@@ -49,3 +54,21 @@ jobs:
 
       - name: Run type checks
         run: uv run poe typecheck
+
+  installed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Install project
+        run: uv sync --all-extras
+
+      - name: Type-check the caller against the built wheel
+        run: uv run poe "typecheck:installed"

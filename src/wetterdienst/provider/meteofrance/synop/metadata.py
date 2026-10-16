@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
 
-MeteoFranceSynopMetadata = {
+_MeteoFranceSynopMetadataSpec = {
     "name_short": "Météo-France",
     "name_english": "Météo-France",
     "name_local": "Météo-France",
@@ -120,4 +120,4 @@ MeteoFranceSynopMetadata = {
         },
     ],
 }
-MeteoFranceSynopMetadata = build_metadata_model(MeteoFranceSynopMetadata, "MeteoFranceSynopMetadata")
+MeteoFranceSynopMetadata = build_metadata_model(_MeteoFranceSynopMetadataSpec, "MeteoFranceSynopMetadata")

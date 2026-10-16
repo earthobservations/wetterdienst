@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 # the answers that say Frost refuses the client ID, as opposed to one that says it could not be asked
 _FROST_REJECTED_STATUSES = frozenset({401, 403})
 
-MetnoFrostMetadata = {
+_MetnoFrostMetadataSpec = {
     "name_short": "MetNo Frost",
     "name_english": "Norwegian Meteorological Institute",
     "name_local": "Meteorologisk institutt",
@@ -378,7 +378,7 @@ MetnoFrostMetadata = {
         },
     ],
 }
-MetnoFrostMetadata = build_metadata_model(MetnoFrostMetadata, "MetnoFrostMetadata")
+MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMetadata")
 
 
 _EMPTY_VALUES_SCHEMA = {

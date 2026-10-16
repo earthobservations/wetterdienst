@@ -37,8 +37,6 @@ if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
-    from wetterdienst.provider.dwd.dmo import DwdDmoRequest
-    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 
 
 class StationsFilter(Enum):
@@ -236,7 +234,7 @@ class StationsResult(ExportMixin):
 
     #: the request that made this result: what a later step reads the settings, the parameters and the
     #: window of, and what a provider reads its own arguments of
-    request: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest
+    request: TimeseriesRequest
     #: the selected stations, one row per resolution, dataset and station
     df: pl.DataFrame
     #: every station of the request, which `df` was selected from

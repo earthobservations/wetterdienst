@@ -2,13 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Package for accessing weather data from various APIs."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from email.utils import getaddresses
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import metadata as package_metadata  # `wetterdienst.metadata` is a subpackage
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
+from typing import TypedDict
 
 from wetterdienst import boot
 from wetterdienst.api import Wetterdienst
@@ -59,6 +59,25 @@ def _read_authors(appname: str) -> list[Author]:
     ]
 
 
+class _AuthorDict(TypedDict):
+    """An author as `Info.to_dict` gives it."""
+
+    name: str
+    email: str
+    github_handle: str
+
+
+class _InfoDict(TypedDict):
+    """What `Info.to_dict` gives."""
+
+    name: str
+    version: str
+    authors: list[_AuthorDict]
+    repository: str
+    documentation: str
+    cache_dir: Path
+
+
 class Info:
     """Class for package information."""
 
@@ -94,12 +113,12 @@ class Info:
         cache_dir (default):    {self.cache_dir}
         """).strip()
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> _InfoDict:
         """Return dictionary representation of Info object."""
         return {
             "name": self.name,
             "version": self.version,
-            "authors": [asdict(author) for author in self.authors],
+            "authors": [{"name": a.name, "email": a.email, "github_handle": a.github_handle} for a in self.authors],
             "repository": self.repository,
             "documentation": self.documentation,
             "cache_dir": self.cache_dir,
