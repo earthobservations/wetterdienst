@@ -27,6 +27,7 @@ from wetterdienst.model.schema import (
 )
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
+from wetterdienst.util.response_warnings import warn_response
 from wetterdienst.util.url import redact_password
 
 if TYPE_CHECKING:
@@ -161,9 +162,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.options.skip_threshold:
-                    log.info(
+                    warn_response(
+                        log,
+                        "station-skipped",
                         f"station {station_id} is skipped as percentage of actual values ({percentage}) "
                         f"is below threshold ({self.sr.options.skip_threshold}).",
+                        level=logging.INFO,
                     )
                     continue
             if self.sr.options.humanize:

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 # RMI publishes automatic weather station (AWS) observations through a key-less GeoServer WFS
 # (GeoJSON). Each resolution is a single feature type (aws_10min / aws_1hour / aws_1day) whose
@@ -149,6 +149,8 @@ _RmiObservationMetadataSpec = {
     "name_local": "Koninklijk Meteorologisch Instituut / Institut Royal Météorologique",
     "country": "Belgium",
     "copyright": "© RMI (Royal Meteorological Institute of Belgium), CC BY 4.0",
+    "license": CC_BY_4_0,
+    "attribution": "© RMI (Royal Meteorological Institute of Belgium)",
     "url": "https://opendata.meteo.be/",
     "kind": "observation",
     "timezone": "Europe/Brussels",

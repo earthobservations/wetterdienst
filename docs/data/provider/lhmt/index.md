@@ -9,8 +9,10 @@ LHMT publishes hourly observations from the Lithuanian station network through t
 
 ## License
 
-LHMT data is provided as open data through [api.meteo.lt](https://api.meteo.lt/). Check the portal
-for the applicable usage conditions and attribution requirements.
+LHMT data is provided as open data through [api.meteo.lt](https://api.meteo.lt/), "unless stated
+otherwise" under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), which asks for the source
+(the Lithuanian Hydrometeorological Service) to be named and for derived data to be shared alike. Check the
+portal for the applicable usage conditions.
 
 ```{toctree}
 :hidden:

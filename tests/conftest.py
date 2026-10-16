@@ -522,8 +522,14 @@ def metadata() -> dict:
             "documentation": "https://wetterdienst.readthedocs.io",
         },
         "provider": {
+            "attribution": "Source: Deutscher Wetterdienst",
             "copyright": "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)",
             "country": "Germany",
+            "license": {
+                "spdx_id": "CC-BY-4.0",
+                "name": "Creative Commons Attribution 4.0 International",
+                "url": "https://creativecommons.org/licenses/by/4.0/",
+            },
             "name_english": "German Weather Service",
             "name_local": "Deutscher Wetterdienst",
             "url": "https://opendata.dwd.de/climate_environment/CDC/",

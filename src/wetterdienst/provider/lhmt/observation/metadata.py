@@ -16,7 +16,7 @@ and ``conditionCode`` (a non-numeric text state) fields are intentionally not ma
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, build_metadata_model
 
 _LhmtObservationMetadataSpec = {
     "name_short": "LHMT",
@@ -24,6 +24,12 @@ _LhmtObservationMetadataSpec = {
     "name_local": "Lietuvos hidrometeorologijos tarnyba",
     "country": "Lithuania",
     "copyright": "© LHMT (Lietuvos hidrometeorologijos tarnyba)",
+    "license": LicenseModel(
+        spdx_id="CC-BY-SA-4.0",
+        name="Creative Commons Attribution-ShareAlike 4.0 International",
+        url="https://creativecommons.org/licenses/by-sa/4.0/",
+    ),
+    "attribution": "Lietuvos hidrometeorologijos tarnyba (LHMT)",
     "url": "https://api.meteo.lt/",
     "kind": "observation",
     "timezone": "Europe/Vilnius",

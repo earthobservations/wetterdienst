@@ -8,7 +8,7 @@ to select the variable within each downloaded file.
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 _KnmiObservationMetadataSpec = {
     "name_short": "KNMI",
@@ -16,6 +16,8 @@ _KnmiObservationMetadataSpec = {
     "name_local": "Koninklijk Nederlands Meteorologisch Instituut",
     "country": "Netherlands",
     "copyright": "© KNMI",
+    "license": CC_BY_4_0,
+    "attribution": "© KNMI",
     "url": "https://dataplatform.knmi.nl/",
     "kind": "observation",
     "timezone": "Europe/Amsterdam",

@@ -68,10 +68,12 @@ from wetterdienst.ui.render import (
     SummarySettings,
     ValuesSettings,
     render,
+    render_history,
     render_stations,
 )
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.response_warnings import begin_response
 from wetterdienst.util.ui import read_list
 from wetterdienst.util.url import file_target_path, redact_password
 
@@ -317,7 +319,10 @@ pretty_opt = _bool_opt(
 with_metadata_opt = _bool_opt(
     "--with-metadata",
     default=False,
-    help="Include the provider metadata block in JSON/GeoJSON output. Default: false",
+    help=(
+        "Add the units and the quality flags to the metadata block of JSON/GeoJSON output, "
+        "which is always there. Default: false"
+    ),
 )
 with_stations_opt = _bool_opt(
     "--with-stations",
@@ -1439,6 +1444,7 @@ def stations(
         },
     )
     set_logging_level(debug=debug)
+    begin_response()
 
     api = get_timeseries_api(provider=provider, network=network)
 
@@ -1608,6 +1614,7 @@ def history(
     )
 
     set_logging_level(debug=debug)
+    begin_response()
 
     api = get_timeseries_api(provider=provider, network=network, history=True)
 
@@ -1625,12 +1632,7 @@ def history(
     history_provider = stations_.history()
 
     try:
-        output = history_provider.to_json(
-            with_metadata=request.with_metadata,
-            with_stations=request.with_stations,
-            sections=request.sections,
-            indent=4 if pretty else None,
-        )
+        output, _ = render_history(stations_, history_provider, request)
     except NoInternetError:
         # told by `_Cli.invoke` in one line
         raise
@@ -1818,6 +1820,7 @@ def values(
         },
     )
     set_logging_level(debug=debug)
+    begin_response()
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -1958,6 +1961,7 @@ def interpolate(
     )
 
     set_logging_level(debug=debug)
+    begin_response()
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -2105,6 +2109,7 @@ def summarize(
         },
     )
     set_logging_level(debug=debug)
+    begin_response()
 
     api = get_timeseries_api(request.provider, request.network)
 

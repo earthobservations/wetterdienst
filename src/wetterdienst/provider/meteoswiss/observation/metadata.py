@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 _MeteoswissObservationMetadataSpec = {
     "name_short": "MeteoSwiss",
@@ -12,6 +12,8 @@ _MeteoswissObservationMetadataSpec = {
     "name_local": "MétéoSuisse",
     "country": "Switzerland",
     "copyright": "© MeteoSwiss (Federal Office of Meteorology and Climatology), CC BY 4.0",
+    "license": CC_BY_4_0,
+    "attribution": "© MeteoSwiss (Federal Office of Meteorology and Climatology)",
     "url": "https://www.meteoswiss.admin.ch/",
     "kind": "observation",
     "timezone": "Europe/Zurich",

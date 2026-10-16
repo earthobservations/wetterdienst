@@ -15,7 +15,7 @@ argument, e.g. ``t2m``, ``ws_10min``, ``rrday``.
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 _FmiObservationMetadataSpec = {
     "name_short": "FMI",
@@ -23,6 +23,8 @@ _FmiObservationMetadataSpec = {
     "name_local": "Ilmatieteen laitos",
     "country": "Finland",
     "copyright": "© Finnish Meteorological Institute",
+    "license": CC_BY_4_0,
+    "attribution": "© Finnish Meteorological Institute",
     "url": "https://en.ilmatieteenlaitos.fi/open-data",
     "kind": "observation",
     "timezone": "Europe/Helsinki",

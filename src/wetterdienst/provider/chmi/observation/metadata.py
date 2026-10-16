@@ -87,6 +87,8 @@ _ChmiObservationMetadataSpec = {
     "name_local": "Český hydrometeorologický ústav",
     "country": "Czechia",
     "copyright": "© Czech Hydrometeorological Institute (CHMI)",
+    "license": None,
+    "attribution": None,
     "url": "https://opendata.chmi.cz/",
     "kind": "observation",
     "timezone": "Europe/Prague",

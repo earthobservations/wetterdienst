@@ -11,6 +11,13 @@ _NoaaGhcnMetadataSpec = {
     "name_local": "National Oceanic And Atmospheric Administration",
     "country": "United States Of America",
     "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
+    "license": None,
+    "attribution": (
+        "Menne, Matthew J., Imke Durre, Bryant Korzeniewski, Shelley McNeill, Kristy Thomas, Xungang Yin, "
+        "Steven Anthony, Ron Ray, Russell S. Vose, Byron E.Gleason, and Tamara G. Houston (2012): Global "
+        "Historical Climatology Network - Daily (GHCN-Daily), Version 3. NOAA National Climatic Data Center. "
+        "doi:10.7289/V5D21VHZ"
+    ),
     "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
     "kind": "observation",
     "timezone": "America/New_York",

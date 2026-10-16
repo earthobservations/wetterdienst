@@ -17,6 +17,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution, count_readings
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
+    OGL_UK_3_0,
     ParameterModel,
     build_metadata_model,
 )
@@ -40,6 +41,8 @@ _EAHydrologyMetadataSpec = {
     "name_local": "Environment Agency",
     "country": "United Kingdom",
     "copyright": "© Environment Agency of UK",
+    "license": OGL_UK_3_0,
+    "attribution": "Environment Agency",
     "url": "https://environment.data.gov.uk/",
     "kind": "observation",
     "timezone": "Europe/London",

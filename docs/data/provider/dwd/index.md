@@ -35,17 +35,20 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - annual resolution: the day (`Jultag`) a plant reached a phase (flowering, leaf unfolding, harvest)
     - 110 plant datasets across two reporter groups, reaching back to 1925
 
-For a quick overview of the work of the DWD check the current 
-[dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14) 
+For a quick overview of the work of the DWD check the current
+[dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14)
 (only in german language).
 
 ## License
 
-The German Weather Service specified their data as being open though they ask you to
-reference them as copyright owner. Take a look at the 
-[Open Data Strategy at the DWD](https://www.dwd.de/EN/ourservices/opendata/opendata.html)
-and the [Official Copyright](https://www.dwd.de/EN/service/legal_notice/legal_notice.html) 
-statements before using the data.
+The German Weather Service publishes its open data under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), "providing the source is duly acknowledged":
+the text form is "Source: Deutscher Wetterdienst". Take a look at the
+[Open Data Strategy at the DWD](https://www.dwd.de/EN/ourservices/opendata/opendata.html),
+the [Official Copyright](https://www.dwd.de/EN/service/legal_notice/legal_notice.html) and the
+[rules for acknowledging the DWD as source](https://www.dwd.de/EN/service/legal_notice/templates_dwd_as_source.html)
+before using the data. Every answer of the REST API names the licence and the credit line in its
+[response metadata](../../../usage/restapi.md#response-metadata).
 
 ```{toctree}
 :hidden:

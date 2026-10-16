@@ -57,6 +57,7 @@ from wetterdienst.settings import Settings, resolve_options
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.history import TimeseriesHistory
@@ -242,12 +243,16 @@ class TimeseriesRequest:
                 )
                 raise NoPeriodsFoundError(msg)
             if dropped := requested - served:
-                log.warning(
+                warn_response(
+                    log,
+                    "period-not-published",
                     f"Periods {_format_periods(dropped)} are not published for the datasets requested from "
                     f"{type(self).__name__} and are skipped. Available periods: {_format_periods(published)}",
                 )
             if served != published and not self._selects_by_period:
-                log.warning(
+                warn_response(
+                    log,
+                    "period-not-narrowing",
                     f"{type(self).__name__} does not read its data per period, so asking for "
                     f"{_format_periods(served)} does not narrow what is returned: every period the requested "
                     f"datasets publish ({_format_periods(published)}) is read.",
@@ -539,7 +544,9 @@ class TimeseriesRequest:
         # an empty or a shorter one with no word on why (GH-2635)
         found = set(df_station_id.get_column("station_id"))
         if unknown := [station for station in dict.fromkeys(station_id_series) if station not in found]:
-            log.warning(
+            warn_response(
+                log,
+                "unknown-station",
                 f"No station with station_id {', '.join(map(str, unknown))} for the requested parameters and "
                 f"periods of {type(self).__name__}.",
             )

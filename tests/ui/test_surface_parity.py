@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 import click
@@ -128,6 +129,16 @@ def _rest(path: str, **params: str) -> Any:  # noqa: ANN401
     return client.get(path, params={"provider": "dwd", "network": "observation", "parameters": PARAMETER, **params})
 
 
+def _untimed(text: str) -> str:
+    """Give an answer without the time it was made at, which no two requests share."""
+    return re.sub(r'"retrieved_at": "[^"]*"', '"retrieved_at": ""', text)
+
+
+def _json(text: str) -> Any:  # noqa: ANN401
+    """Read the JSON of an answer but for the time it was made at."""
+    return json.loads(_untimed(text))
+
+
 def _versioned(path: str) -> str:
     """Give the path the OpenAPI document lists an endpoint under: the alias is served, but not documented."""
     return path.replace("/api/", "/api/v1/", 1)
@@ -225,7 +236,8 @@ def test_a_window_without_readings_is_an_empty_result_on_every_surface(caplog: p
     assert library.is_empty()
     assert cli_result.exit_code == 0, cli_result.output
     assert rest_response.status_code == 200
-    assert json.loads(cli_result.stdout) == rest_response.json() == _EMPTY_VALUES
+    assert _json(cli_result.stdout) == _json(rest_response.text)
+    assert _json(cli_result.stdout)["values"] == []
     # said once, on stderr, where the logs go -- and not on stdout, which is the answer
     said = [
         record.getMessage()
@@ -255,7 +267,8 @@ def test_no_station_found_is_an_empty_listing_on_every_surface(caplog: pytest.Lo
 
     assert cli_result.exit_code == 0, cli_result.output
     assert rest_response.status_code == 200
-    assert json.loads(cli_result.stdout) == rest_response.json() == {"stations": []}
+    assert _json(cli_result.stdout) == _json(rest_response.text)
+    assert _json(cli_result.stdout)["stations"] == []
     assert "No stations available for given constraints" in caplog.text
 
 
@@ -318,8 +331,14 @@ def test_unknown_station_ids_give_empty_values_and_a_warning(caplog: pytest.LogC
     assert library.is_empty()
     assert cli_result.exit_code == 0, cli_result.output
     assert rest_response.status_code == 200
-    assert json.loads(cli_result.stdout) == rest_response.json() == _EMPTY_VALUES
+    assert _json(cli_result.stdout) == _json(rest_response.text)
+    assert _json(cli_result.stdout)["values"] == []
     assert caplog.text.count("No station with station_id 99999") == 3
+    # the answer says it too, by a code that stays: a caller of REST cannot read the log
+    warnings = rest_response.json()["metadata"]["warnings"]
+    assert [warning["code"] for warning in warnings] == ["unknown-station"]
+    assert "99999" in warnings[0]["message"]
+    assert rest_response.headers["X-Wetterdienst-Warnings"] == "unknown-station"
 
 
 def test_the_reference_station_of_a_summary_keeps_its_404(caplog: pytest.LogCaptureFixture) -> None:
@@ -378,7 +397,7 @@ def test_a_window_can_be_given_as_start_and_end_as_for_values() -> None:
     by_start_end = _cli("stations", "--all", "--start=1910-01-01", "--end=1912-01-01")
 
     assert by_timestamp.exit_code == by_start_end.exit_code == 0
-    assert by_timestamp.stdout == by_start_end.stdout
+    assert _untimed(by_timestamp.stdout) == _untimed(by_start_end.stdout)
     assert _ids(json.loads(by_start_end.stdout)) == {"00007"}
 
 
@@ -439,7 +458,7 @@ def test_the_command_line_renders_what_the_rest_api_does(
     payload = json.loads(cli_result.stdout)
     assert list(payload)[:2] == ["metadata", "settings"]
     assert payload["settings"]["humanize"] is False
-    assert payload == rest_response.json()
+    assert _json(cli_result.stdout) == _json(rest_response.text)
 
 
 def test_the_values_of_the_stubbed_network_are_rendered_alike() -> None:
@@ -449,7 +468,7 @@ def test_the_values_of_the_stubbed_network_are_rendered_alike() -> None:
 
     assert cli_result.exit_code == 0, cli_result.output
     assert "settings" in json.loads(cli_result.stdout)
-    assert cli_result.stdout.rstrip("\n") == rest_response.text
+    assert _untimed(cli_result.stdout.rstrip("\n")) == _untimed(rest_response.text)
 
 
 def test_a_chart_is_written_as_the_image_the_rest_api_sends() -> None:
@@ -523,9 +542,9 @@ def test_pretty_is_a_flag_and_a_boolean_on_every_command(monkeypatch: pytest.Mon
 
     bare, valued, off, default = run("--pretty"), run("--pretty=true"), run("--pretty=false"), run()
 
-    assert bare == valued
-    assert off == default
-    assert bare != off
+    assert _untimed(bare) == _untimed(valued)
+    assert _untimed(off) == _untimed(default)
+    assert _untimed(bare) != _untimed(off)
     assert "\n    " in bare
     assert "\n" not in off.rstrip("\n")
 
@@ -882,7 +901,7 @@ def test_a_list_is_read_comma_separated_and_repeated_alike(surface: str) -> None
         comma = client.get("/api/stations", params={**base, "stations": "00001,00002"})
         repeated = client.get("/api/stations", params={**base, "stations": ["00001", "00002"]})
         assert comma.status_code == repeated.status_code == 200, (comma.text, repeated.text)
-        assert comma.json() == repeated.json()
+        assert _json(comma.text) == _json(repeated.text)
         assert _ids(comma.json()) == {"00001", "00002"}
     else:
         comma = _cli("stations", "--stations=00001,00002")
@@ -943,8 +962,8 @@ def test_a_bare_boolean_is_on_and_a_boolean_with_a_value_is_that_value(command: 
     off = _cli(*command, "--with-metadata=false")
 
     assert bare.exit_code == valued.exit_code == off.exit_code == 0, (bare.output, off.output)
-    assert bare.stdout == valued.stdout
-    assert bare.stdout != off.stdout
+    assert _untimed(bare.stdout) == _untimed(valued.stdout)
+    assert _untimed(bare.stdout) != _untimed(off.stdout)
     assert "metadata" in bare.stdout
 
 

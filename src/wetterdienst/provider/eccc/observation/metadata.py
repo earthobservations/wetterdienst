@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, build_metadata_model
 
 _EcccObservationMetadataSpec = {
     "name_short": "ECCC",
@@ -12,6 +12,12 @@ _EcccObservationMetadataSpec = {
     "name_local": "Environnement Et Changement Climatique Canada",
     "country": "Canada",
     "copyright": "© Environment And Climate Change Canada (ECCC)",
+    "license": LicenseModel(
+        spdx_id=None,
+        name="Licence Agreement for Use of Environment and Climate Change Canada Data",
+        url="https://climate.weather.gc.ca/prods_servs/attachment1_e.html",
+    ),
+    "attribution": "based on Environment and Climate Change Canada data",
     "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
     "kind": "observation",
     "timezone": "UTC",

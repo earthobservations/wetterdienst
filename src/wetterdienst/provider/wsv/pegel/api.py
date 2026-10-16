@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, ClassVar
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file
@@ -252,6 +252,12 @@ _WsvPegelMetadataSpec = {
     "name_local": "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
     "country": "Germany",
     "copyright": "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
+    "license": LicenseModel(
+        spdx_id="DL-DE-ZERO-2.0",
+        name="Data licence Germany - Zero - Version 2.0",
+        url="https://www.govdata.de/dl-de/zero-2-0",
+    ),
+    "attribution": None,
     "url": "https://pegelonline.wsv.de/webservice/ueberblick",
     "kind": "observation",
     "timezone": "Europe/Berlin",

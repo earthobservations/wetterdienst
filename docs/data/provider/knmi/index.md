@@ -14,8 +14,9 @@ the `WD_AUTH__KNMI` environment variable (or `Settings(auth={"knmi": "<api_key>"
 ## License
 
 KNMI data is published as open data through the
-[KNMI Data Platform](https://dataplatform.knmi.nl/); see the platform for the applicable
-license and attribution requirements.
+[KNMI Data Platform](https://dataplatform.knmi.nl/), where each of the three datasets read here
+(10-minute, hourly and daily in-situ observations) lists its licence as
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ```{toctree}
 :hidden:

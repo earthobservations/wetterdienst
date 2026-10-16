@@ -20,6 +20,7 @@ from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
+    ETALAB_2_0,
     ParameterModel,
     build_metadata_model,
 )
@@ -296,6 +297,8 @@ _HubeauMetadataSpec = {
     "name_local": "Eaufrance",
     "country": "France",
     "copyright": "© Eaufrance",
+    "license": ETALAB_2_0,
+    "attribution": "Eaufrance",
     "url": "https://www.eaufrance.fr/",
     "kind": "observation",
     "timezone": "Europe/Paris",

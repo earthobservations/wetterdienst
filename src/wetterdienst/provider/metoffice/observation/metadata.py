@@ -32,7 +32,7 @@ declare here). Radiation (``glbl_irad_amt`` etc.) is kJ/m² per the Open Data Us
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import build_metadata_model
+from wetterdienst.model.metadata import OGL_UK_3_0, build_metadata_model
 
 _TEMPERATURE = {"unit": "degree_celsius"}
 _PRECIPITATION = {"unit": "millimeter"}
@@ -133,6 +133,8 @@ _MetOfficeObservationMetadataSpec = {
     "name_local": "Met Office",
     "country": "United Kingdom",
     "copyright": "© Crown Copyright, Met Office, MIDAS Open, Open Government Licence v3.0",
+    "license": OGL_UK_3_0,
+    "attribution": "© Crown Copyright, Met Office, MIDAS Open",
     "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
     "kind": "observation",
     "timezone": "Europe/London",

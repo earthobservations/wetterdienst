@@ -33,6 +33,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
 from wetterdienst.ui.mcp import _TOOL_NAMES
+from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
 
 if TYPE_CHECKING:
@@ -3004,7 +3005,9 @@ def test_stations_schema_admits_null_core_columns_and_provider_columns(client: T
     """
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     # the endpoint's dict response carries its stations as `_Station` items
-    assert schemas["_StationsDict"]["properties"]["stations"]["items"] == {"$ref": "#/components/schemas/_Station"}
+    assert schemas["_StationsWithMetadataDict"]["properties"]["stations"]["items"] == {
+        "$ref": "#/components/schemas/_Station"
+    }
     station = schemas["_Station"]
     nullable = {"latitude": "number", "longitude": "number", "elevation": "number", "name": "string"}
     for field, json_type in nullable.items():
@@ -3827,7 +3830,14 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
         },
         orient="row",
     )
-    stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, request=None)
+    # the request the `metadata` block is read off: of the two parameters the values below are of
+    request = DwdObservationRequest(
+        parameters=[
+            ("daily", "climate_summary", "temperature_air_mean_2m"),
+            ("daily", "precipitation_more", "precipitation_amount"),
+        ],
+    )
+    stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, request=request)
     row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.UTC)}
     df_values = pl.DataFrame(
         [
@@ -3852,12 +3862,6 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
     )
     if shape == "wide":
         # widened by the method the values pipeline widens with, so the row is the one it writes
-        request = DwdObservationRequest(
-            parameters=[
-                ("daily", "climate_summary", "temperature_air_mean_2m"),
-                ("daily", "precipitation_more", "precipitation_amount"),
-            ],
-        )
         values = SimpleNamespace(
             sr=SimpleNamespace(parameters=request.parameters, settings=request.settings, options=request.options)
         )
@@ -3883,6 +3887,9 @@ def test_values_output_validates_against_the_served_schema(shape: str, fmt: str,
 
     result = _values_result_of_shape(shape)
     payload = json.loads(result.to_json() if fmt == "json" else result.to_geojson())
+    # the `metadata` block is the REST API's, and always there
+    metadata = response_metadata(result, SimpleNamespace(provider="dwd", network="observation", with_metadata=False))
+    payload = {"metadata": metadata_to_dict(metadata), **payload}
     components = app.openapi()["components"]
     jsonschema.validate(payload, {"$ref": f"#/components/schemas/{schema_name}", "components": components})
 
@@ -3928,9 +3935,13 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
             )
             return response.structured_content
 
-    data = asyncio.run(_call())
+    answer = asyncio.run(_call())["result"]
     expected = json.loads(result.to_json() if fmt == "json" else result.to_geojson())
-    assert data["result"] == expected
+    # the tool inherits the `metadata` block of the REST answer
+    metadata = answer.pop("metadata")
+    assert metadata["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+    assert metadata["api_version"] == "1"
+    assert answer == expected
 
 
 def _pydantic_writes_extra_items() -> bool:
@@ -4161,7 +4172,7 @@ class _HistoryFails:
             self.fail()
         # what of the real class the endpoint calls, which reads its results from the `query` that fails
         history = SimpleNamespace(sr=None, query=self.fail)
-        history.to_json = lambda **kwargs: TimeseriesHistory.to_json(history, **kwargs)
+        history.to_dict = lambda **kwargs: TimeseriesHistory.to_dict(history, **kwargs)
         return history
 
 
@@ -5486,14 +5497,19 @@ def test_data_endpoints_report_no_settings_without_metadata(
 ) -> None:
     """The settings applied are reported with `with_metadata` alone, as the metadata is (GH-2359)."""
     _stub_result(monkeypatch, endpoint)
-    params = {**_OBSERVATION, "stations": "01048"}
+    params = {**_OBSERVATION, _station_of(endpoint): "01048"}
     if endpoint != "/api/values":
         params["timestamp"] = "2026-01-01"
 
-    payload = client.get(endpoint, params=params).json()
+    response = client.get(endpoint, params=params)
 
+    assert response.status_code == 200, response.text
+    payload = response.json()
     assert "settings" not in payload
-    assert "metadata" not in payload
+    # the block is always there (GH-2561), and with the heavy parts left to `with_metadata`
+    assert "provider" in payload["metadata"]
+    assert "parameters" not in payload["metadata"]
+    assert "quality" not in payload["metadata"]
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -5654,10 +5670,13 @@ def test_data_endpoints_write_the_rest_as_without_the_settings(
     response = client.get(endpoint, params=params)
 
     assert response.status_code == 200, response.text
-    settings = json.dumps(response.json()["settings"], ensure_ascii=fmt == "json")
-    written = result.to_format(fmt, with_metadata=True, with_stations=True, indent=False)
+    answer = response.json()
+    metadata = json.dumps(answer["metadata"], ensure_ascii=fmt == "json")
+    settings = json.dumps(answer["settings"], ensure_ascii=fmt == "json")
+    written = result.to_format(fmt, with_metadata=False, with_stations=True, indent=False)
     assert "rlitz" in written
-    assert response.text.replace(f'"settings": {settings}, ', "") == written
+    # the `metadata` block and the `settings` go in front of what the result's own format writes
+    assert response.text == f'{{"metadata": {metadata}, "settings": {settings}, {written[1:]}'
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
