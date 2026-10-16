@@ -141,6 +141,12 @@ Types of changes:
   (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
+- **Breaking**: the mean that a source computes as (maximum + minimum) / 2 is
+  `temperature_air_mean_minmax_2m` (new), no longer `temperature_air_mean_2m`:
+  `eccc/observation` daily and monthly `mean_temperature` and `geosphere/observation` daily
+  `tl_mittel`. Request the new name; the old one raises `InvalidParameterError` in those datasets,
+  which says what it is called now. Geosphere monthly `tl_mittel` keeps `temperature_air_mean_2m`
+  (GH-2839)
 
 ### Removed
 
@@ -212,6 +218,9 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
+- The description of `noaa/ghcn` daily `tavg` said it was (max + min) / 2. It is GHCN's own
+  average daily temperature, an average of hourly readings (UTC day) from source 'S', and that is
+  what the description now says; `temperature_air_mean_2m` stays (GH-2839)
 
 ## [0.154.0] - 2026-10-15
 

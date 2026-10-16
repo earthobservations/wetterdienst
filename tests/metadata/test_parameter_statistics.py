@@ -38,6 +38,7 @@ from wetterdienst.provider.dwd.road import DwdRoadMetadata
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
+from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
@@ -60,6 +61,10 @@ _MEAN_OF_EXTREMES = re.compile(
     r"\b(?:mean|average) of (?:the )?(?:daily )?(?:\w+ )?(?:maxima|minima|maximum|minimum|max|min)\b"
     r"|\b(?:mean|average) (?:daily )?(?:maximum|minimum)\b",
     re.IGNORECASE,
+)
+# "(maximum + minimum) / 2", "(tlmax + tlmin)/2": the mean a source computes from the day's two extremes
+_HALF_SUM_OF_EXTREMES = re.compile(
+    r"\(\s*(?:\w*max\w*\s*\+\s*\w*min\w*|\w*min\w*\s*\+\s*\w*max\w*)\s*\)\s*/\s*2", re.IGNORECASE
 )
 _MULTIDAY = re.compile(r"multi-?day|several days", re.IGNORECASE)
 _PREVIOUS_DAY = re.compile(r"previous day|yesterday|day before", re.IGNORECASE)
@@ -174,6 +179,56 @@ def test_a_mean_of_daily_extremes_is_named_a_mean() -> None:
         if named_mean_of_extremes and not re.search(r"\b(?:mean|average)\b", description, re.IGNORECASE):
             wrong.append(f"{site}: named a mean of extremes, described {description!r}")
     assert not wrong, "\n".join(wrong)
+
+
+def test_a_mean_computed_from_the_daily_extremes_is_named_for_it() -> None:
+    """A source that says the mean is (max + min) / 2 has `temperature_air_mean_minmax_2m`, not `_mean_2m` (GH-2839).
+
+    ECCC's glossary: "Mean temperature is the average of the two" (the day's maximum and minimum), which
+    Toronto City 2019 matches on 362 of 362 days, and which differs from the mean of the hourly values on
+    330 of them (0.45 degrees C on average); Geosphere's `klima-v2-1d` says "Mittelwert berechnet aus
+    (tlmax + tlmin)/2". A mean of readings through the day is `temperature_air_mean_2m`. The rule matches
+    the formula where a source writes it (Geosphere); ECCC's own wording ("the average of the two") is
+    pinned by `test_the_mean_of_the_daily_extremes_is_declared_where_the_source_computes_it`.
+    """
+    wrong = []
+    for site, _, parameter, evidence in _sourced_parameters():
+        if _HALF_SUM_OF_EXTREMES.search(evidence) and parameter.name != "temperature_air_mean_minmax_2m":
+            wrong.append(f"{site}: the source says {evidence!r}, so the name is `temperature_air_mean_minmax_2m`")
+    assert not wrong, "\n".join(wrong)
+    for description in (
+        "Daily mean 2m air temperature, (maximum + minimum) / 2.",
+        "mean from (tlmax + tlmin)/2",
+        "mean from (min + max)/2",
+    ):
+        assert _HALF_SUM_OF_EXTREMES.search(description), description
+    # the mean of the daily maxima is another statistic, with its own names
+    assert not _HALF_SUM_OF_EXTREMES.search("Monthly mean of daily temperature maxima at 2 m above ground.")
+
+
+def test_the_mean_of_the_daily_extremes_is_declared_where_the_source_computes_it() -> None:
+    """ECCC daily and monthly, and Geosphere daily; Geosphere monthly is a mean of other values and stays (GH-2839)."""
+    eccc = {
+        (r.name, d.name): {p.name_original: p.name for p in d.parameters} for r in EcccObservationMetadata for d in r
+    }
+    for resolution in ("daily", "monthly"):
+        assert eccc[resolution, "data"]["mean_temperature"] == "temperature_air_mean_minmax_2m"
+    geosphere = {
+        (r.name, d.name): {p.name_original: p.name for p in d.parameters}
+        for r in GeosphereObservationMetadata
+        for d in r
+    }
+    assert geosphere["daily", "data"]["tl_mittel"] == "temperature_air_mean_minmax_2m"
+    # the monthly value is close to the mean of all the hours (Wien Hohe Warte, June 2024: 21.1 against 21.05 hourly
+    # and 21.32 for the mean of the daily (max + min) / 2)
+    assert geosphere["monthly", "data"]["tl_mittel"] == "temperature_air_mean_2m"
+
+
+def test_the_mean_of_the_daily_extremes_behaves_as_the_mean_beside_it() -> None:
+    """It is the same field spatially: the unit type, interpolation and lapse rate of `temperature_air_mean_2m`."""
+    new, mean = PARAMETERS["temperature_air_mean_minmax_2m"], PARAMETERS["temperature_air_mean_2m"]
+    for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
+        assert getattr(new, field) == getattr(mean, field), field
 
 
 def test_the_special_statistics_in_a_name_are_the_ones_the_source_states() -> None:
