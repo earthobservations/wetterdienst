@@ -37,7 +37,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.metoffice.observation.download import get_ceda_token
+from wetterdienst.provider.metoffice.observation.download import get_ceda_token, raise_if_ceda_rejected
 from wetterdienst.provider.metoffice.observation.fileindex import download_url, latest_release_version
 from wetterdienst.provider.metoffice.observation.metadata import MetOfficeObservationMetadata
 from wetterdienst.provider.metoffice.observation.parser import parse_station_metadata, parse_values
@@ -134,6 +134,9 @@ class MetOfficeObservationValues(TimeseriesValues):
         # absent where the raw one is not) and is a 404; any other failure -- a timeout, a 5xx, a
         # refused token -- is an outage, which swallowed would read as a year without data (GH-2461).
         # A file every station depends on is not routine to lack, so its caller asks for the 404 too
+        # A token that CEDA refuses (401, 403) is the `CredentialRejectedError` (GH-3018), which a station-year the
+        # archive lacks never is
+        raise_if_ceda_rejected(file, settings)
         if file.status != 404 or not missing_ok:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
@@ -310,6 +313,7 @@ class MetOfficeObservationRequest(TimeseriesRequest):
             # a dataset's station catalogue is one required file, so any failure of it -- a 404
             # included -- is an outage, which swallowed would read as a dataset without stations
             # (GH-2519). A failed connection (NoInternetError) is raised as well (GH-2640)
+            raise_if_ceda_rejected(file, settings)
             file.raise_if_exception()
             if isinstance(file.content, Exception):
                 continue

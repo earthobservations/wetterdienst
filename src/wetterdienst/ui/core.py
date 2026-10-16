@@ -39,7 +39,7 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
-from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LISTING
+from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LISTING, TimeseriesRequest
 from wetterdienst.options import Options, SkipThreshold, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
     import plotly.graph_objs as go
 
-    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.api import StandaloneRequest
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
         StationsResult,
@@ -1247,7 +1247,7 @@ class AuthAnswer(TypedDict):
     valid: bool | None
 
 
-def get_auth(api: type[TimeseriesRequest], provider: str, network: str) -> AuthAnswer:
+def get_auth(api: type[TimeseriesRequest] | StandaloneRequest, provider: str, network: str) -> AuthAnswer:
     """Check the credentials of one network, probing its provider where they are configured.
 
     The one place a credential is checked against its provider: `/api/coverage` and `about coverage`
@@ -1331,7 +1331,7 @@ def get_glossary(
 
 
 def get_issues(
-    api: type[TimeseriesRequest],
+    api: type,
     request: IssuesRequest,
     settings: Settings,
 ) -> list[str]:
@@ -1373,26 +1373,49 @@ def get_issues(
     return [format_timestamp(issue) for issue in issues]
 
 
+def resolve_network(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
+    """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts) too.
+
+    `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other two.
+    The surfaces take both kinds by name -- `coverage` lists them, `auth` and `issues` answer for them, and
+    the timeseries commands refuse them (`check_timeseries_api`) -- so this picks the one that applies.
+
+    Raises:
+        ApiNotFoundError: the provider or network is not in the registry.
+
+    """
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+    if Wetterdienst.is_standalone(provider, network):
+        return Wetterdienst.resolve_standalone(provider, network)
+    return Wetterdienst.resolve(provider, network)
+
+
 def check_timeseries_api(
-    api: type[TimeseriesRequest],
+    api: type[TimeseriesRequest] | StandaloneRequest,
     provider: str,
     network: str,
     *,
     history: bool = False,
-) -> None:
+) -> type[TimeseriesRequest]:
     """Refuse a network the timeseries commands cannot serve, before any request is built.
 
     A standalone network (dwd/radar, dwd/alerts) has no metadata model, so there are no parameters to
     resolve: `ApiNotFoundError`, which the callers word with where the networks are listed. With
     `history`, a network without station history is refused with `NotImplementedError` before its
     station catalogue is downloaded to find that out.
+
+    Returns:
+        The class, which is a timeseries request now.
+
     """
-    if not hasattr(api, "metadata"):
+    if not issubclass(api, TimeseriesRequest):
         msg = f"Provider '{provider}' and network '{network}' have no stations or values to request."
         raise ApiNotFoundError(msg)
     if history and not getattr(api, "_history", None):
         msg = f"History not implemented for {api.__name__}"
         raise NotImplementedError(msg)
+    return api
 
 
 def overlay_options(base: Options, given: Mapping[str, Any]) -> Options:

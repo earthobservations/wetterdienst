@@ -24,6 +24,20 @@ Types of changes:
   stations --lead-time=...` now fails with click's `No such option`, and a tool call with either
   with a tool error. `/api/stations` still accepts them and its OpenAPI document now says it
   ignores them (GH-3056)
+- **Breaking**: a download that did not answer is a `DownloadError`, where it was logged and read as
+  no data, in the `metno/frost` values and the AEMET and KNMI station lists: a timeout, a dropped
+  connection, a body cut short and a 5xx. A TLS failure (a certificate that does not verify) is one
+  too, in those and in the AEMET, KNMI and `smhi/observation` values. A 404, a 412 and any other
+  4xx but a refused credential stay the empty result. The REST API answers 502 (504 after a
+  timeout) and the command line exits 1; catch `DownloadError` (or `UpstreamError`) where you
+  relied on the empty frame (GH-3022)
+- **Breaking**: a credential that the provider rejects (HTTP 401 or 403) raises
+  `CredentialRejectedError` in the `metno/frost`, `aemet/observation`, `knmi/observation` and
+  `metoffice/observation` values and in the AEMET, KNMI and Met Office station lists, as it does in
+  the `metno/frost` stations. It was an empty result with a warning, for Met Office also a
+  `DownloadError`. The REST API and the MCP tools answer 501, the command line prints one line.
+  A refused pre-signed link, which takes no credential, stays what it was; catch
+  `CredentialRejectedError` (a `PermissionError`) where you relied on the empty result (GH-3018)
 
 ## [0.156.0] - 2026-10-16
 
@@ -114,6 +128,29 @@ Types of changes:
   `StationsResult.request` is typed `TimeseriesRequest`, no longer a union with the two forecast
   requests. `Settings.fsspec_client_kwargs` and the `settings` and `options` of a request are
   `dict[str, Any]`, so the keys of `fsspec_client_kwargs` must be strings (GH-2622)
+- **Breaking**: `to_geojson`, `to_ogc_feature_collection` and `to_plot` of the results take the
+  arguments they declare and no others. They accepted any keyword and dropped it, so
+  `to_geojson(with_metdata=True)` wrote a document without metadata; it is a `TypeError` now, and a
+  type checker reports it. `to_image` takes `fmt`, `width`, `height`, `scale` and `max_side` and no
+  others. Fix the name or drop the argument. `to_format(fmt, **kwargs)` still takes one set of
+  arguments for any format and gives each format those it takes, so the command line, REST and MCP
+  are unchanged; `to_csv` still passes its keywords to polars (GH-3043)
+- **Breaking**: the results (`StationsResult`, `ValuesResult`, `InterpolatedValuesResult`,
+  `SummarizedValuesResult` and `HistoryResult`) are built by keyword only.
+  `ValuesResult(df, stations)` is a `TypeError`: write
+  `ValuesResult(stations=..., df=...)`. The library builds them, so only code that constructs one
+  by hand is affected (GH-3044)
+- **Breaking**: `Wetterdienst.resolve` is for the timeseries networks and is typed so. `dwd/radar`
+  and `dwd/alerts`, whose classes are no `TimeseriesRequest`, are refused with an `ApiNotFoundError`
+  that names their own entry point, `Wetterdienst.resolve_standalone("dwd", "radar")`, which is
+  typed to the exact class for literal names; or import the class. `Wetterdienst.standalone` lists
+  them and `Wetterdienst.is_standalone(provider, network)` tells (GH-3045)
+
+### Deprecated
+
+- `Wetterdienst(provider, network)` warns with a `DeprecationWarning` and still returns the class
+  of either kind of network. Use `Wetterdienst.resolve(provider, network)`, or `resolve_standalone`
+  for `dwd/radar` and `dwd/alerts` (GH-3045)
 
 ### Fixed
 
