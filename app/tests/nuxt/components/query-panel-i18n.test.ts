@@ -5,9 +5,9 @@ import { defineComponent, h } from 'vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 
 // The SQL panel's own text was English in every language, written into the template and the script
-// (GH-2610). It is in the catalogs now, under `query.*`; these hold the panel to them in the
-// languages that have the text, and `lb` to the English it still shows until a native speaker has
-// written it (see the allow-list in tests/unit/i18n-quality.test.ts).
+// (GH-2610). It is in the catalogs now, under `query.*`; these hold the panel to them in some of the
+// languages, Luxembourgish (GH-2970) and Low German (GH-2969) among them, whose text is not natively
+// reviewed (see i18n/TERMS.md).
 
 // the panel's DuckDB, answered by DuckDB-wasm's Node build rather than the browser's bundles
 vi.mock('@duckdb/duckdb-wasm', async () => {
@@ -54,10 +54,11 @@ afterEach(async () => {
 
 /** What the panel says in query mode, per language: the button that enters it, and the chrome inside. */
 const said = {
-  de: { enable: 'Mit SQL-Abfrage transformieren', inside: ['SQL-Abfrage-Transformation', 'Abfrage ausführen', 'Abbrechen', 'Beispielabfragen', 'Fragen Sie die Tabelle data mit Standard-SQL ab.', 'Verfügbare Spalten:'] },
-  fr: { enable: 'Transformer avec une requête SQL', inside: ['Transformation par requête SQL', 'Exécuter la requête', 'Annuler', 'Exemples de requêtes', 'Interrogez la table data avec du SQL standard.', 'Colonnes disponibles :'] },
-  pl: { enable: 'Przekształć zapytaniem SQL', inside: ['Przekształcenie zapytaniem SQL', 'Uruchom zapytanie', 'Anuluj', 'Przykładowe zapytania', 'Odpytaj tabelę data za pomocą standardowego SQL.', 'Dostępne kolumny:'] },
-  lb: { enable: 'Transform with SQL Query', inside: ['SQL Query Transform', 'Run Query', 'Cancel', 'Example Queries', 'Query the data table with standard SQL.', 'Available columns:'] },
+  'de': { enable: 'Mit SQL-Abfrage transformieren', inside: ['SQL-Abfrage-Transformation', 'Abfrage ausführen', 'Abbrechen', 'Beispielabfragen', 'Fragen Sie die Tabelle data mit Standard-SQL ab.', 'Verfügbare Spalten:'] },
+  'fr': { enable: 'Transformer avec une requête SQL', inside: ['Transformation par requête SQL', 'Exécuter la requête', 'Annuler', 'Exemples de requêtes', 'Interrogez la table data avec du SQL standard.', 'Colonnes disponibles :'] },
+  'pl': { enable: 'Przekształć zapytaniem SQL', inside: ['Przekształcenie zapytaniem SQL', 'Uruchom zapytanie', 'Anuluj', 'Przykładowe zapytania', 'Odpytaj tabelę data za pomocą standardowego SQL.', 'Dostępne kolumny:'] },
+  'lb': { enable: 'Mat enger SQL-Ufro transforméieren', inside: ['SQL-Ufro-Transformatioun', 'Ufro ausféieren', 'Ofbriechen', 'Beispillufroen', 'Frot d\'Tabell data mat Standard-SQL of.', 'Verfügbar Kolonnen:'] },
+  'de-hh': { enable: 'Mit SQL-Afraag transformeren', inside: ['SQL-Afraag-Transformatschoon', 'Afraag utföhren', 'Afbreken', 'Bispelafraagen', 'Frag de Tabell data mit Standard-SQL af.', 'Verfögbare Spalten:'] },
 } as const
 
 describe('queryPanel in the active language', () => {

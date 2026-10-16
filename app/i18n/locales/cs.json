@@ -289,7 +289,7 @@
     "unitTypeLabel": "Veličina",
     "loading": "Načítání…",
     "noResults": "Hledání neodpovídá žádný parametr.",
-    "count": "{count} z {total} parametrů"
+    "count": "{count} z {total} parametru | {count} z {total} parametrů | {count} z {total} parametrů"
   },
   "meteogram": {
     "title": "Předpověď počasí",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",
-    "valuesCount": "{count} hodnot",
-    "valuesTransformed": "{count} hodnot (transformováno z {total})",
+    "valuesCount": "{count} hodnota | {count} hodnoty | {count} hodnot",
+    "valuesTransformed": "{count} hodnota (transformována z {total}) | {count} hodnoty (transformovány z {total}) | {count} hodnot (transformováno z {total})",
     "columns": "Sloupce",
     "copyCurrentPage": "Kopírovat aktuální stránku",
     "copyAllValues": "Kopírovat všechny hodnoty",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Graf: {parameter}",
     "rowsPerPage": "Řádků na stránku",
     "copied": "Zkopírováno",
-    "copiedRows": "{count} řádků zkopírováno do schránky",
+    "copiedRows": "{count} řádek zkopírován do schránky | {count} řádky zkopírovány do schránky | {count} řádků zkopírováno do schránky",
     "downloaded": "Staženo",
     "downloadedValues": "Hodnoty staženy jako {format}",
     "downloadCancelled": "Stahování zrušeno: tabulka se změnila",

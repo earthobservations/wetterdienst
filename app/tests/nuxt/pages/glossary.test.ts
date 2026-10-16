@@ -67,6 +67,15 @@ describe('glossary Page', () => {
     expect(wrapper.text()).toContain('2 of 2 parameters')
   })
 
+  it('reports a single parameter in the singular', async () => {
+    // "1 of 1 parameters" before the count had plural forms (GH-2968)
+    clearNuxtData()
+    served = entries.slice(0, 1)
+    const wrapper = await mountGlossary()
+    expect(wrapper.text()).toContain('1 of 1 parameter')
+    expect(wrapper.text()).not.toContain('1 of 1 parameters')
+  })
+
   it('says so when nothing is returned', async () => {
     // `useFetch` caches by url, so the payload from the mounts above would be reused otherwise
     clearNuxtData()

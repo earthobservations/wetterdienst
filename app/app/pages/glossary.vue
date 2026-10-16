@@ -97,7 +97,7 @@ const entries = computed<GlossaryEntry[]>(() => {
       />
       <div v-else class="space-y-4">
         <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ t('glossary.count', { count: entries.length, total: glossary?.length ?? 0 }) }}
+          {{ t('glossary.count', { count: entries.length, total: glossary?.length ?? 0 }, glossary?.length ?? 0) }}
         </p>
         <div
           v-for="entry in entries"

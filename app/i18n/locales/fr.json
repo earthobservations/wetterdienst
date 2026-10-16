@@ -289,7 +289,7 @@
     "unitTypeLabel": "Grandeur",
     "loading": "Chargement…",
     "noResults": "Aucun paramètre ne correspond à la recherche.",
-    "count": "{count} sur {total} paramètres"
+    "count": "{count} sur {total} paramètre | {count} sur {total} paramètres"
   },
   "meteogram": {
     "title": "Prévisions météo",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Chargement des valeurs …",
-    "valuesCount": "{count} valeurs",
-    "valuesTransformed": "{count} valeurs (transformées depuis {total})",
+    "valuesCount": "{count} valeur | {count} valeurs",
+    "valuesTransformed": "{count} valeur (transformée depuis {total}) | {count} valeurs (transformées depuis {total})",
     "columns": "Colonnes",
     "copyCurrentPage": "Copier la page actuelle",
     "copyAllValues": "Copier toutes les valeurs",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Graphique de {parameter}",
     "rowsPerPage": "Lignes par page",
     "copied": "Copié",
-    "copiedRows": "{count} lignes copiées dans le presse-papiers",
+    "copiedRows": "{count} ligne copiée dans le presse-papiers | {count} lignes copiées dans le presse-papiers",
     "downloaded": "Téléchargé",
     "downloadedValues": "Valeurs téléchargées au format {format}",
     "downloadCancelled": "Téléchargement annulé : le tableau a changé",

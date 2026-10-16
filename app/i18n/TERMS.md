@@ -20,7 +20,7 @@ are in `glossary/<locale>.ts`).
 | Source key | `stripes.station` | `dataViewer.statParameter` | `parameterSelection.datasetLabel` | `parameterSelection.resolutionLabel` | `history.periods` | `glossary:parameters.quality` | `parameterSelection.providerLabel` | `parameterSelection.networkLabel` | `dateRange.label` | `home.dataProvidersTitle` |
 | `en` | Station | Parameter | Dataset | Resolution | Periods | Quality | Provider | Network | Date Range | Weather services |
 | `de` | Station | Parameter | Datensatz | Auflösung | Zeiträume | Qualität | Anbieter | Netzwerk | Zeitraum | Wetterdienste |
-| `de-hh` | Station | Parameter | Datensatz | Auflösung | Zeiträume | Gööd | Anbieter | Netzwerk | Zeitraum | Wetterdienste |
+| `de-hh` | Station | Parameter | Datensatz | Oplösung | Tietrüüm | Gööd | Anbeder | Nettwark | Tietruum | Wedderdeenste |
 | `fr` | Station | Paramètre | Jeu de données | Résolution | Périodes | Qualité | Fournisseur | Réseau | Plage de dates | Services météorologiques |
 | `es` | Estación | Parámetro | Conjunto de datos | Resolución | Periodos | Calidad | Proveedor | Red | Rango de fechas | Servicios meteorológicos |
 | `it` | Stazione | Parametro | Dataset | Risoluzione | Periodi | Qualità | Fornitore | Rete | Intervallo di date | Servizi meteorologici |
@@ -28,13 +28,14 @@ are in `glossary/<locale>.ts`).
 | `pl` | Stacja | Parametr | Zbiór danych | Rozdzielczość | Okresy | Jakość | Dostawca | Sieć | Zakres dat | Służby meteorologiczne |
 | `cs` | Stanice | Parametr | Datová sada | Rozlišení | Období | Kvalita | Poskytovatel | Síť | Rozsah dat | Meteorologické služby |
 | `da` | Station | Parameter | Datasæt | Opløsning | Perioder | Kvalitet | Udbyder | Netværk | Datointerval | Vejrtjenester |
-| `lb` | Statioun | Parameter | Dataset | Opléisung | Perioden | Qualitéit | Ubidder | Netzwierk | Datumberäich | Wiederdéngschter |
+| `lb` | Statioun | Parameter | Datesaz | Opléisung | Perioden | Qualitéit | Ubidder | Netzwierk | Datumberäich | Wiederdéngschter |
 
 ## Terms that are different things
 
 - **Period** is a stretch of time in a station's history (the periods of missing data), and **date
-  range** is what the user picks in the date picker. Both are "Zeitraum" in German (and `de-hh`),
-  where the two collapse; every other locale has two words.
+  range** is what the user picks in the date picker. Both are "Zeitraum" in German and `Tietruum` in
+  `de-hh` (the period's plural is `Tietrüüm`), where the two collapse; every other locale has two
+  words.
 - **Resolution** is the interval a value stands for (10 minutes, daily), never the date range.
 - **Provider** is the source of the data (DWD, NOAA) and **weather service** is the institution
   behind it: the home page counts weather services, the explorer picks a provider. The
@@ -51,7 +52,7 @@ How each locale speaks to the reader, as the catalogs have it now. A new string 
 | --- | --- | --- |
 | `en` | no direct address needed | British spelling (`humanised`, `colour`), as `en-GB` in `nuxt.config.ts` |
 | `de` | Sie | |
-| `de-hh` | du | Hamburgisch in the glossary; see the open rows below for the UI text |
+| `de-hh` | du | Plattdüütsch (Low German, Hamburg), in the UI text and in the glossary alike |
 | `fr` | vous | |
 | `es` | tú | `periodo`, not `período` |
 | `it` | tu | |
@@ -61,17 +62,46 @@ How each locale speaks to the reader, as the catalogs have it now. A new string 
 | `da` | du | |
 | `lb` | Dir (second person plural) | |
 
+## Counts
+
+A message that says how many of something is written in plural forms separated by `|`: two
+(`{count} value | {count} values`) in every locale but `pl` and `cs`, which have three (one, few,
+other: `{count} wartość | {count} wartości | {count} wartości`). `i18n/plural-rules.ts` says which
+form a count takes, from the CLDR rules of the language (French takes the first for 0 and 1, the
+others for 1 only), and the component passes the number as the plural argument:
+`t('dataViewer.valuesCount', { count }, count)`. `glossary.count` takes its form from `{total}`, the
+number its noun follows. `tests/unit/i18n-quality.test.ts` holds every locale to the number of forms
+and to `{count}` in each of them. A count that needs no form ("Estimated values: {count}") is not
+written in forms.
+
+## Review status: not natively reviewed
+
+The text of four locales was written without a native speaker, and none has read it since. It is
+meant to be understood, not to be the last word, and **a review by a native speaker is welcome**
+(an issue or a pull request against the catalog is all it takes):
+
+- `pl` and `cs`: the whole catalogs and, since GH-2968, the three plural forms of the counts.
+- `lb` (Luxembourgish): the whole catalog; the explorer mode descriptions, the SQL panel (`query.*`)
+  and `history.colMethod` were English until GH-2970 and are the newest text. The dataset is a
+  `Datesaz` (plural `Datesätz`) and a method a `Methode`: the two words that looked borrowed, chosen
+  rather than confirmed.
+- `de-hh` (Plattdüütsch): the UI text, written for GH-2969 in the language the glossary is in and with
+  its vocabulary (`Nedderslag`, `Daag`, `Stünn`, `Weer`/`Wedder`, `lest`, `vun`, `för`, `ünner`). The
+  glossary has several spellings of the same word (`Sünnschien`, `Sünnenschien`; `Snééhööchd`,
+  `Snehööch`), so there is no one orthography to follow; the UI text leans on the Sass spelling and
+  is itself not uniform. The quality term is `Gööd` and its sixteen flag entries `Göödkennen`.
+  `Datensatz` is kept as Low German shares the word; `Anbeder`, `Nettwark`, `Oplösung` and `Tietruum`
+  are the words chosen for provider, network, resolution and date range.
+
+Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
+native speaker either; these four are the ones known not to have been.
+
 ## Open: waits for a native speaker
 
 Not decided here, and the text is left as it is. The review table with the proposals is in the pull
 request that added this file, and the issue it belongs to is
 [GH-2610](https://github.com/earthobservations/wetterdienst/issues/2610).
 
-- `de-hh`: most of the UI text is the German text (about 85 %); the glossary is Plattdüütsch. The
-  quality label is `Gööd` while its sixteen flag entries say `Gütenkennen`.
-- `lb`: the explorer mode descriptions (`explorer.mode*Desc`, `*How`, `modeHowItWorks`) and the SQL
-  query panel (`query.*`) are still the English text; `history.colMethod` ("Method") and
-  `Dataset` (also `Datesätz` once) look borrowed.
 - `lb`: the four map hints (`mapHint`, `mapHintMultiple`) address the reader with "du" ("Tipp op
   ...") where the rest of the locale uses "Dir".
 - `nl`: `waarneming` (glossary, one label) and `observatie` (the UI) are both used for "observation".

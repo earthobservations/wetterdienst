@@ -289,7 +289,7 @@
     "unitTypeLabel": "Størrelse",
     "loading": "Indlæser…",
     "noResults": "Ingen parameter matcher din søgning.",
-    "count": "{count} af {total} parametre"
+    "count": "{count} af {total} parameter | {count} af {total} parametre"
   },
   "meteogram": {
     "title": "Vejrudsigt",
@@ -555,8 +555,8 @@
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",
-    "valuesCount": "{count} værdier",
-    "valuesTransformed": "{count} værdier (transformeret fra {total})",
+    "valuesCount": "{count} værdi | {count} værdier",
+    "valuesTransformed": "{count} værdi (transformeret fra {total}) | {count} værdier (transformeret fra {total})",
     "columns": "Kolonner",
     "copyCurrentPage": "Kopiér aktuel side",
     "copyAllValues": "Kopiér alle værdier",
@@ -577,7 +577,7 @@
     "facetChartLabel": "Diagram over {parameter}",
     "rowsPerPage": "Rækker pr. side",
     "copied": "Kopieret",
-    "copiedRows": "{count} rækker kopieret til udklipsholderen",
+    "copiedRows": "{count} række kopieret til udklipsholderen | {count} rækker kopieret til udklipsholderen",
     "downloaded": "Downloadet",
     "downloadedValues": "Værdier downloadet som {format}",
     "downloadCancelled": "Download annulleret: tabellen er ændret",

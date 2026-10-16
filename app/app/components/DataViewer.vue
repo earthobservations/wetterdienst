@@ -518,14 +518,14 @@ async function copyCurrentPage() {
   await navigator.clipboard.writeText(valuesToCsv(paginatedValues.value, selectedColumns.value))
   toast.add({
     title: t('dataViewer.copied'),
-    description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }),
+    description: t('dataViewer.copiedRows', { count: paginatedValues.value.length }, paginatedValues.value.length),
     color: 'success',
   })
 }
 
 async function copyAllValues() {
   await navigator.clipboard.writeText(valuesToCsv(sortedValues.value, selectedColumns.value))
-  toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }), color: 'success' })
+  toast.add({ title: t('dataViewer.copied'), description: t('dataViewer.copiedRows', { count: sortedValues.value.length }, sortedValues.value.length), color: 'success' })
 }
 
 const canFetchData = computed(() => {
@@ -1356,8 +1356,8 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
       <div class="flex items-center justify-between">
         <span class="text-sm text-gray-500 dark:text-gray-400">
           <template v-if="valuesPending">{{ t('dataViewer.loadingValues') }}</template>
-          <template v-else-if="isDataTransformed">{{ t('dataViewer.valuesTransformed', { count: displayData.length, total: allValues.length }) }}</template>
-          <template v-else>{{ t('dataViewer.valuesCount', { count: allValues.length }) }}</template>
+          <template v-else-if="isDataTransformed">{{ t('dataViewer.valuesTransformed', { count: displayData.length, total: allValues.length }, displayData.length) }}</template>
+          <template v-else>{{ t('dataViewer.valuesCount', { count: allValues.length }, allValues.length) }}</template>
         </span>
         <div class="flex items-center gap-4">
           <div v-if="viewMode === 'table'" class="flex items-center gap-2">
