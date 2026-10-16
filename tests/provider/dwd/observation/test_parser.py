@@ -753,7 +753,7 @@ def test_parse_dwd_hourly_precipitation_form_keeps_every_code_the_files_hold() -
     codes = df.get_column("wrtr").to_list()
     assert codes == ["0", "1", "2", "3", "4", "6", "7", "8", None, None]
     assert df.get_column("wrtr__raw").to_list() == [None] * 8 + ["9", "-999"]
-    assert {int(code) for code in codes if code is not None} == _documented_codes("hourly.md", "wrtr") - {9}
+    assert {int(code) for code in codes if code is not None} == _documented_codes("hourly.md", "wrtr")
     # only the precipitation form: a 9 in the height or the indicator beside it is a value
     assert df.get_column("r1").to_list() == ["0.0"] * 10
     assert df.get_column("rs_ind").to_list() == ["1"] * 10
