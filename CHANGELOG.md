@@ -27,6 +27,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `dwd/observation` `hourly/precipitation` `precipitation_form` (`wrtr`) 9, DWD's
+  "Missing value, Type of precipitation unascertainable", is no longer returned as the code 9: the
+  value is null and the 9 is the last token of `quality_flags` (`3,raw:9`). Read the null as an
+  unknown form, and `raw:9` where the code matters; the form codes left are 0, 1, 2, 3, 4, 6, 7
+  and 8 (GH-2703)
 - **Breaking**: a parameter that takes a list is plural on the REST API, the MCP tools and the
   command line. `station` of `stations`, `values` and `history` is `stations` (`--stations`); the
   other lists (`parameters`, `periods`, `resolutions`, `datasets`) were plural already, and their
@@ -69,6 +74,7 @@ Types of changes:
   give every network a `name_short`, `country`, `url` and `kind`. `kind` is `observation`,
   `forecast` or `derived` for a timeseries network, which has stations and values, and `radar` or
   `alerts` for `dwd/radar` and `dwd/alerts`, the standalone networks that `stations`, `values` and
+  the other timeseries endpoints refuse (GH-2641)
   the other timeseries endpoints refuse. The four are null for a network that cannot be imported
   (GH-2641)
 - `stations` (`/api/stations`, the MCP tool and `wetterdienst stations`) takes the window `values`
@@ -282,6 +288,15 @@ Types of changes:
   are left out of the list too (GH-2641)
 - The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
   its coverage request with a 404 (GH-2641)
+- A client ID that Frost rejects (HTTP 401 or 403) raises `CredentialRejectedError`, a
+  `ConfigurationError` that is still a `PermissionError`. The REST API and the MCP tools answer 501
+  "The provider rejected the credential of this server for metno/frost" and log the setting, no
+  longer a 500 that names `WD_AUTH__METNO_FROST`; the command line prints one line and exits 1,
+  without a traceback (GH-2665)
+- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` leave out a network
+  that cannot be imported (a broken install) and a provider with no network left,
+  and log why; they listed it as needing no credentials. Asking for that network by name still
+  tells the import error (GH-2800, GH-2801)
 - The description of `noaa/ghcn` daily `tavg` said it was (max + min) / 2. It is GHCN's own
   average daily temperature, an average of hourly readings (UTC day) from source 'S', and that is
   what the description now says; `temperature_air_mean_2m` stays (GH-2839)

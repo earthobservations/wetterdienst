@@ -143,7 +143,7 @@ Codes (cloud_cover_total_measurement_method):
 |------------------------------|---------------|-----------------------|------|------------------------------|
 | {term}`precipitation_amount` | r1 | Precipitation height during the previous hour. | mm | >=0 |
 | {term}`precipitation_index` | rs_ind | Precipitation indicator; 0 = no; 1 = yes. | - | ∈ {0, 1} |
-| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ {0, 1, 2, 3, 4, 6, 7, 8, 9} |
+| {term}`precipitation_form` | wrtr | Precipitation form; 0 = no precipitation; 1 = rain only (in historical data before 01.01.1979); 4 = form of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable, automatic ascertainment; returned as null, the 9 stays as the last token of quality_flags, raw:9. The files also hold 2 and 3, which the current sheet does not define. | - | ∈ {0, 1, 2, 3, 4, 6, 7, 8} |
 
 Codes (precipitation_indicator):
 
@@ -164,7 +164,7 @@ Codes (precipitation_form):
 | 6    | liquid precipitation, automatic ascertainment, corresponds to WMO code 11                                                                                                                       |
 | 7    | solid precipitation, automatic ascertainment, corresponds to WMO code 12                                                                                                                        |
 | 8    | liquid and solid precipitation, automatic ascertainment, corresponds to WMO code 13                                                                                                             |
-| 9    | missing value, form of precipitation unascertainable, automatic ascertainment, corresponds to WMO code 15; returned as 9, not as null                                                           |
+| 9    | missing value, form of precipitation unascertainable, automatic ascertainment, corresponds to WMO code 15; returned as null, the 9 stays as `raw:9` in `quality_flags` (GH-2703)                  |
 
 ### pressure
 

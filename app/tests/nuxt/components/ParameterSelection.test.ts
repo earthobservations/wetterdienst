@@ -217,8 +217,8 @@ describe('parameterSelection Component', () => {
 
   it('does not offer a standalone network, which has no stations, parameters or coverage', async () => {
     // `dwd/radar` and `dwd/alerts` answer a 404 to the coverage the selects read next (GH-2641)
-    const network = (kind: string | null) => ({ auth: false, configured: true, kind, date_required: false })
-    // a kind that is no timeseries kind is not offered, a later standalone network or a network that could not be imported
+    const network = (kind: string) => ({ auth: false, configured: true, kind, date_required: false })
+    // a kind that is no timeseries kind is not offered, a later standalone network
     registerEndpoint('/api/coverage', () => ({
       dwd: {
         observation: network('observation'),
@@ -226,7 +226,6 @@ describe('parameterSelection Component', () => {
         radar: network('radar'),
         alerts: network('alerts'),
         satellite: network('satellite'),
-        broken: network(null),
       },
       standalone: { alerts: network('alerts') },
     }))

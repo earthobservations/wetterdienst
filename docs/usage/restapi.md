@@ -130,6 +130,11 @@ datasets and parameters of. Every network is one but two. The **standalone netwo
 Python, no stations or parameters, and every endpoint above answers a request for them with a 404. A
 new standalone network gets a `kind` of its own.
 
+A network that cannot be imported on the server, such as one whose package is broken, is not in the
+list, nor is a provider none of whose networks can be; the server logs why. Asking for that network
+by name, `coverage` or `auth` with its provider and network, answers a 500, or a 501 where an
+optional package is missing, never a 404 as for a network that does not exist.
+
 The list leaves out whether the provider accepts the credentials of a network that has them, because
 that is a request to the provider. Ask for one network at a time, which gives up after a few seconds
 and answers `valid` as `true` or `false`, or `null` when it could not tell (treat `null` as unknown,
@@ -300,7 +305,7 @@ entry for each invalid parameter, where `loc` names it:
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
-| 501 | the server cannot serve it: a credential or an optional package it lacks, which the body does not name |
+| 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 503 | the server could not reach the data provider (no network connection); the request was valid and can be retried, the body says so and does not name the provider's address |
 | 500 | the server's own error, or the provider's: the body names the exception's type and nothing else, the cause is in the server log |
 
