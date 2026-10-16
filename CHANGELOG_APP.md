@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-16
+
 ### Changed
 
 - `[API errors]` The app reads the backend's errors as RFC 9457 problems: a refused request shows
@@ -1193,7 +1195,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...HEAD
+[0.21.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...app-v0.21.0
 [0.20.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...app-v0.20.0
 [0.19.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...app-v0.19.0
 [0.18.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.0...app-v0.18.1
