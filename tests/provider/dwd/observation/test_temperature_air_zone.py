@@ -176,7 +176,9 @@ def _values(monkeypatch: pytest.MonkeyPatch, archive: bytes) -> pl.DataFrame:
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    return stations_result(request, "hourly", "temperature_air", "00222").values.all().df.sort("parameter", "timestamp")
+    return (
+        stations_result(request, "hourly", "temperature_air", "00222").values().all().df.sort("parameter", "timestamp")
+    )
 
 
 def test_the_values_of_an_mez_md_period_are_shifted_to_utc_per_parameter_and_carry_zone_mez(

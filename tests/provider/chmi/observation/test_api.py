@@ -193,7 +193,8 @@ def _values(resolution: str, start: dt.datetime, end: dt.datetime) -> pl.DataFra
             end=end,
         )
         .filter_by_station_id(CHEB)
-        .values.all()
+        .values()
+        .all()
         .df
     )
 

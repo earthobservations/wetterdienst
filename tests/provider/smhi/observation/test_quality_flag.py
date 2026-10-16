@@ -54,7 +54,7 @@ def test_smhi_values_carry_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> 
         end="2025-03-31",
         settings=Settings(cache_disable=True),
     ).filter_by_station_id("98230")
-    df = request.values.all().df.sort("timestamp")
+    df = request.values().all().df.sort("timestamp")
     assert df.schema["quality_flags"] == pl.String
     assert df.get_column("quality_flags").to_list() == ["Y", "Y", "Y"]
     assert "quality" not in df.columns

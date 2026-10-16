@@ -193,7 +193,7 @@ def test_historical_files_are_chosen_by_the_instants_they_cover(
     interval = portion.closed(
         dt.datetime.fromisoformat(start).astimezone(berlin), dt.datetime.fromisoformat(end).astimezone(berlin)
     )
-    values = SimpleNamespace(sr=SimpleNamespace(stations=SimpleNamespace(interval=interval)))
+    values = SimpleNamespace(sr=SimpleNamespace(request=SimpleNamespace(interval=interval)))
     chosen = DwdObservationValues._get_historical_date_ranges(  # noqa: SLF001
         values, "01048", DwdObservationMetadata.minute_10.temperature_air, default_settings
     )

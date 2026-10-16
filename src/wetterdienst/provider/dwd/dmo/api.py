@@ -484,14 +484,14 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         super().__post_init__()
-        stations = cast("DwdDmoRequest", self.sr.stations)
+        stations = cast("DwdDmoRequest", self.sr.request)
         _refuse_parameters_the_run_does_not_carry(
             cast("list[ParameterModel]", stations.parameters),
             cast("DwdDmoLeadTime", stations.lead_time),
         )
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
-            settings=cast("Settings", self.sr.stations.settings),
+            settings=cast("Settings", self.sr.request.settings),
         )
         # directories already reported as naming nothing, so one empty listing is one line rather
         # than one per station of an `all_stations` request
@@ -501,7 +501,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         """Get DWD DMO path."""
         from typing import cast  # noqa: PLC0415
 
-        stations = cast("DwdDmoRequest", self.sr.stations)
+        stations = cast("DwdDmoRequest", self.sr.request)
         return _dmo_kmz_path(
             dataset.name_original,
             cast("DwdDmoStationGroup", stations.station_group),
@@ -520,7 +520,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
     ) -> pl.DataFrame:
         from typing import cast  # noqa: PLC0415
 
-        issue = cast("dt.datetime | DwdForecastDate", cast("DwdDmoRequest", self.sr.stations).issue)
+        issue = cast("dt.datetime | DwdForecastDate", cast("DwdDmoRequest", self.sr.request).issue)
         df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
@@ -546,7 +546,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         """Read large icon_eu file with all stations."""
         from typing import cast  # noqa: PLC0415
 
-        if cast("DwdDmoRequest", self.sr.stations).station_group == DwdDmoStationGroup.ALL_STATIONS:
+        if cast("DwdDmoRequest", self.sr.request).station_group == DwdDmoStationGroup.ALL_STATIONS:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu)
         else:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon_eu, station_id=station_id)
@@ -561,7 +561,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         """Read either large icon file with all stations or small single station file."""
         from typing import cast  # noqa: PLC0415
 
-        if cast("DwdDmoRequest", self.sr.stations).station_group == DwdDmoStationGroup.ALL_STATIONS:
+        if cast("DwdDmoRequest", self.sr.request).station_group == DwdDmoStationGroup.ALL_STATIONS:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon)
         else:
             dmo_path = self.get_dwd_dmo_path(DwdDmoMetadata.hourly.icon, station_id=station_id)
@@ -576,7 +576,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         """Get URL for a specific date."""
         from typing import cast  # noqa: PLC0415
 
-        stations = cast("DwdDmoRequest", self.sr.stations)
+        stations = cast("DwdDmoRequest", self.sr.request)
         lead_time = cast("DwdDmoLeadTime", stations.lead_time)
         urls = list_remote_files_fsspec(url, cast("Settings", stations.settings), CacheExpiry.NO_CACHE)
         if not urls:

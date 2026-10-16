@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 def test_dwd_obs_daily_climate_summary_history() -> None:
     """Test history query for daily climate summary dataset."""
     stations = DwdObservationRequest(parameters=[("daily", "climate_summary")]).filter_by_station_id("02564")
-    history_result = next(stations.history.query())
+    history_result = next(stations.history().query())
     history = history_result.history
     assert len(history.name.station) == 1
     station_name = history.name.station[0]
@@ -1282,7 +1282,7 @@ def test_dwd_obs_monthly_climate_summary_history() -> None:
     We only assert numbers of entries here to make sure both wind_extreme files for each station are taken into account.
     """
     stations = DwdObservationRequest(parameters=[("monthly", "climate_summary")]).filter_by_station_id("2564")
-    history_result = next(stations.history.query())
+    history_result = next(stations.history().query())
     history = history_result.history
     assert len(history.name.station) == 1
     assert len(history.name.operator) == 4
@@ -1300,7 +1300,7 @@ def test_dwd_obs_subdaily_wind_extreme_history() -> None:
     We only assert numbers of entries here to make sure both wind_extreme files for each station are taken into account.
     """
     stations = DwdObservationRequest(parameters=[("subdaily", "wind_extreme")]).filter_by_station_id("2564")
-    history_result = next(stations.history.query())
+    history_result = next(stations.history().query())
     history = history_result.history
     assert len(history.name.station) == 2
     assert len(history.name.operator) == 8
@@ -1321,7 +1321,7 @@ def test_dwd_obs_10_minutes_urban_wind_history() -> None:
     10-minute route to a URL that does not exist and yielded nothing at all.
     """
     stations = DwdObservationRequest(parameters=[("10_minutes", "urban_wind")]).filter_by_station_id("00399")
-    history_result = next(stations.history.query())
+    history_result = next(stations.history().query())
     history = history_result.history
     assert len(history.name.station) == 1
     assert history.name.station[0].station_name == "Berlin-Alexanderplatz"
@@ -1425,7 +1425,7 @@ def test_dwd_obs_history_names_its_station(
         lambda **_: pl.LazyFrame({"station_id": ["01048"] * len(urls), "url": urls}),
     )
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_metadata_zip(files), status=200))
-    stations = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))
+    stations = SimpleNamespace(request=SimpleNamespace(settings=Settings()))
     collector = DwdObservationHistory(sr=cast("StationsResult", stations))
     histories = list(collector._collect_station_history("01048", [dataset]))  # noqa: SLF001
     assert [
@@ -1458,7 +1458,7 @@ def test_dwd_obs_history_names_its_dataset(monkeypatch: pytest.MonkeyPatch) -> N
         ),
     )
     monkeypatch.setattr(api, "download_file", lambda url, **_: File(url=url, content=_metadata_zip(files), status=200))
-    stations = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))
+    stations = SimpleNamespace(request=SimpleNamespace(settings=Settings()))
     collector = DwdObservationHistory(sr=cast("StationsResult", stations))
     histories = list(collector._collect_station_history("01048", datasets))  # noqa: SLF001
     assert [history.model_dump(include={"station_id", "resolution", "dataset"}) for history in histories] == [

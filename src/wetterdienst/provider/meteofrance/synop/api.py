@@ -144,7 +144,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
         current_year = datetime.now(tz=ZoneInfo("UTC")).year
         start_date = self.sr.start or datetime(_SYNOP_ARCHIVE_START_YEAR, 1, 1, tzinfo=ZoneInfo("UTC"))
         end_date = self.sr.end or datetime.now(tz=ZoneInfo("UTC"))
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         parameter_columns = [parameter.name_original for parameter in dataset]
         read_columns = ["geo_id_wmo", "validity_time", *parameter_columns]
         dfs = []

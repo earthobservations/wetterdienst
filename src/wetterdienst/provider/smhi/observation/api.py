@@ -100,7 +100,7 @@ class SmhiObservationValues(TimeseriesValues):
         else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         data = []
         for parameter in parameters:
             df = self._collect_parameter(station_id, parameter, settings)

@@ -39,7 +39,7 @@ def create_dwd_climate_summary_duckdb_dump(path: Path, *, test: bool) -> None:
         periods="historical",
     ).filter_by_rank(latlon=(47.5, 7.5), rank=10)
     request.to_target(duckdb_target(path, "stations"))
-    for result in tqdm(request.values.query(), total=request.df.shape[0]):
+    for result in tqdm(request.values().query(), total=request.df.shape[0]):
         result.to_target(duckdb_target(path, "values"))
         if test:
             break

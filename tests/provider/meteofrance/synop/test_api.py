@@ -43,7 +43,7 @@ def _values(
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     )
-    return stations_result(request, "subdaily", "data", "07005").values.all().df.sort("timestamp")
+    return stations_result(request, "subdaily", "data", "07005").values().all().df.sort("timestamp")
 
 
 def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -210,7 +210,7 @@ def test_meteofrance_synop_api_values() -> None:
         start=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 2, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("07005")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     values = df.get_column("value")
     assert values.is_not_null().sum() > 0
     # temperature is converted from Kelvin to Celsius, so should be within a plausible range
@@ -236,5 +236,5 @@ def test_meteofrance_synop_api_parameters(parameter: str) -> None:
         start=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 3, tzinfo=ZoneInfo("UTC")),
     ).filter_by_station_id("07690")
-    df = next(request.values.query()).df
+    df = next(request.values().query()).df
     assert df.get_column("value").is_not_null().sum() > 0

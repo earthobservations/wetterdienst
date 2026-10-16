@@ -1622,7 +1622,7 @@ def history(
         log.exception("Failed to get stations for history.")
         sys.exit(1)
 
-    history_provider = stations_.history
+    history_provider = stations_.history()
 
     try:
         output = history_provider.to_json(

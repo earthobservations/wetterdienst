@@ -210,7 +210,7 @@ class TimeseriesHistory(ABC):
         resolution_dataset_pairs = (
             df.select(["resolution", "dataset"]).unique().sort(["resolution", "dataset"]).rows(named=True)
         )
-        return [self.sr.stations.metadata[pair["resolution"]][pair["dataset"]] for pair in resolution_dataset_pairs]
+        return [self.sr.request.metadata[pair["resolution"]][pair["dataset"]] for pair in resolution_dataset_pairs]
 
     @abstractmethod
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:

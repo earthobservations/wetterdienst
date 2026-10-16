@@ -290,7 +290,7 @@ def _stripes_of(monkeypatch: pytest.MonkeyPatch, values: dict[int, float | None]
     unit_converter.update_targets(real.options.unit_targets)
     stations = SimpleNamespace(
         to_dict=lambda: {"stations": [{"station_id": "01048", "name": "Dresden-Klotzsche"}]},
-        values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame), unit_converter=unit_converter),
+        values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame), unit_converter=unit_converter),
         parameters=real.parameters,
         options=real.options,
     )
@@ -543,7 +543,7 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
     def _collect_station_parameter_or_dataset(
         self: DwdObservationValues,  # noqa: ARG001
@@ -610,7 +610,7 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
     monkeypatch.setattr(DwdObservationRequest, "all", _all)
     monkeypatch.setattr(

@@ -43,7 +43,7 @@ def _stations() -> StationsResult:
         ],
         schema=STATIONS_SCHEMA,
     )
-    return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
 def _history(station_id: str = KLOTZSCHE) -> History:

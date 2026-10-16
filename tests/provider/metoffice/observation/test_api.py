@@ -415,7 +415,8 @@ def test_metoffice_observation_values_daily_rain() -> None:
             end=dt.datetime(2023, 7, 10, tzinfo=UTC),
         )
         .filter_by_station_id(LERWICK)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert not df.is_empty()
@@ -438,7 +439,8 @@ def test_metoffice_observation_values_daily_temperature_one_row_per_day() -> Non
             end=dt.datetime(2023, 7, 5, tzinfo=UTC),
         )
         .filter_by_station_id(LERWICK)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert not df.is_empty()

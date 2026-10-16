@@ -52,7 +52,7 @@ def main(obs_id: str, for_id: str) -> None:
         issue=get_earliest_issue(),
     ).filter_by_station_id(station_id=for_id)
     print(forecast_request.df)
-    forecast_values = forecast_request.values.all()
+    forecast_values = forecast_request.values().all()
     print(forecast_values.df)
     observation_request = DwdObservationRequest(
         parameters=("hourly", "temperature_air", "temperature_air_2m"),
@@ -61,7 +61,7 @@ def main(obs_id: str, for_id: str) -> None:
         end=dt.datetime.now(tz=ZoneInfo("UTC")),
     ).filter_by_station_id(station_id=obs_id)
     print(observation_request.df)
-    observation_values = observation_request.values.all()
+    observation_values = observation_request.values().all()
     print(observation_values.df)
     df_joined = (
         forecast_values.df.select(["timestamp", "value"])

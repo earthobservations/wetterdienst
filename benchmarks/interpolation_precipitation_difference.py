@@ -32,7 +32,7 @@ def get_regular_df(start_date: dt.datetime, end_date: dt.datetime, exclude_stati
         end=end_date,
     )
     request = stations.filter_by_distance(latlon=LATLON, distance=30)
-    df = request.values.all().df.drop_nulls(subset=["value"])
+    df = request.values().all().df.drop_nulls(subset=["value"])
     station_ids = df.get_column("station_id")
     first_station_id = set(station_ids).difference(set(exclude_stations)).pop()
     return df.filter(pl.col("station_id").eq(first_station_id))

@@ -968,7 +968,7 @@ def test_cli_values_a_value_error_from_the_values_exits_1(
     def fail() -> None:
         raise ValueError(msg)
 
-    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     given = [f"--target={tmp_path / target}"] if target else []
 

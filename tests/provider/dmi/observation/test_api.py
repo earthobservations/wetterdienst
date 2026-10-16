@@ -261,7 +261,7 @@ def test_dmi_observation_values_daily() -> None:
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 5, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
-    values = request.values.all().df
+    values = request.values().all().df
     dates = values.get_column("timestamp").sort().to_list()
     assert dates[0] == dt.datetime(2023, 6, 1, tzinfo=UTC)
     assert dates[-1] == dt.datetime(2023, 6, 5, tzinfo=UTC)
@@ -277,7 +277,7 @@ def test_dmi_observation_values_hourly_utc() -> None:
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 6, tzinfo=UTC),
     ).filter_by_station_id([COPENHAGEN_LANDBOHOJSKOLEN])
-    values = request.values.all().df
+    values = request.values().all().df
     first_date = values.get_column("timestamp").min()
     assert first_date == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
     assert not values.drop_nulls(subset="value").is_empty()
@@ -293,7 +293,7 @@ def test_dmi_observation_values_empty_for_unknown_station() -> None:
         end=dt.datetime(2023, 6, 5, tzinfo=UTC),
         settings=settings,
     ).filter_by_station_id(["00000"])
-    values = request.values.all().df
+    values = request.values().all().df
     assert values.is_empty()
 
 
@@ -348,7 +348,7 @@ def _collect_hourly(
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=start,
         end=end,
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
     return values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, dataset)  # noqa: SLF001
@@ -500,7 +500,7 @@ def test_collect_dates_daily_max_precipitation_by_the_day_it_ends_on(monkeypatch
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=dt.datetime(2025, 3, 28, tzinfo=UTC),
         end=dt.datetime(2025, 4, 1, tzinfo=UTC),
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
     df = values._collect_station_parameter_or_dataset(COPENHAGEN_LANDBOHOJSKOLEN, dataset)  # noqa: SLF001
@@ -555,7 +555,7 @@ def test_collect_nulls_the_wind_direction_of_an_hour_without_wind_and_no_other(m
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=dt.datetime(2020, 2, 14, tzinfo=UTC),
         end=dt.datetime(2020, 5, 2, 6, tzinfo=UTC),
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["hourly"].datasets[0]
     df = values._collect_station_parameter_or_dataset("06070", dataset)  # noqa: SLF001
@@ -603,7 +603,7 @@ def test_collect_carries_qc_status_and_validity_in_quality_flags(monkeypatch: py
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
         end=dt.datetime(2011, 7, 27, tzinfo=UTC),
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata["daily"].datasets[0]
     df = values._collect_station_parameter_or_dataset("04339", dataset)  # noqa: SLF001
@@ -638,7 +638,7 @@ def _collect_station_values(resolution: str, rows: list[tuple[str, str, float, s
     values.sr = SimpleNamespace(  # ty: ignore[invalid-assignment]
         start=dt.datetime(2011, 7, 24, tzinfo=UTC),
         end=dt.datetime(2015, 1, 1, tzinfo=UTC),
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
     )
     dataset = dmi_api.DmiObservationMetadata[resolution].datasets[0]
     with pytest.MonkeyPatch.context() as monkeypatch:

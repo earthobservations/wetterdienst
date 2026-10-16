@@ -509,7 +509,7 @@ class TimeseriesRequest:
         df = self._coerce_meta_fields(df)
 
         return StationsResult(
-            stations=self,
+            request=self,
             df=df,
             df_all=df,
             stations_filter=StationsFilter.ALL,
@@ -543,7 +543,7 @@ class TimeseriesRequest:
             )
 
         return StationsResult(
-            stations=self,
+            request=self,
             df=df_station_id,
             df_all=df,
             stations_filter=StationsFilter.BY_STATION_ID,
@@ -618,7 +618,7 @@ class TimeseriesRequest:
             log.info(f"No weather stations were found for name {name}")
 
         return StationsResult(
-            stations=self,
+            request=self,
             df=df,
             df_all=df_all,
             stations_filter=StationsFilter.BY_NAME,
@@ -644,7 +644,7 @@ class TimeseriesRequest:
         consumed. The stations that ended up contributing values are then exposed via
         ``ValuesResult.df_stations``.
 
-        In other words, use ``stations.values.all().df_stations`` (not
+        In other words, use ``stations.values().all().df_stations`` (not
         ``stations.df``) to see the ``rank`` closest stations that actually returned
         data. Enable the option ``skip_empty`` to walk past a station that returned data but
         too little of it, as ``skip_threshold`` and ``skip_criteria`` define.
@@ -686,7 +686,7 @@ class TimeseriesRequest:
             log.info("None of the stations has a position to be ranked by")
         df = located
         return StationsResult(
-            stations=self,
+            request=self,
             df=df,
             df_all=df_all,
             stations_filter=StationsFilter.BY_RANK,
@@ -735,7 +735,7 @@ class TimeseriesRequest:
             log.info("No weather stations were found for the provided coordinates")
 
         return StationsResult(
-            stations=self,
+            request=self,
             df=df,
             df_all=ranked.df_all,
             stations_filter=StationsFilter.BY_DISTANCE,
@@ -774,7 +774,7 @@ class TimeseriesRequest:
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
 
-        return StationsResult(stations=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_BBOX)
+        return StationsResult(request=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_BBOX)
 
     def filter_by_sql(self, sql: str) -> StationsResult:
         """Filter stations by SQL query.
@@ -792,7 +792,7 @@ class TimeseriesRequest:
         df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
-        return StationsResult(stations=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_SQL)
+        return StationsResult(request=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:
         """Interpolate values across multiple stations.
@@ -877,7 +877,7 @@ class TimeseriesRequest:
             on="station_id",
         )
         stations_result = StationsResult(
-            stations=self,
+            request=self,
             df=df_stations,
             df_all=df_all,
             stations_filter=StationsFilter.BY_STATION_ID,
@@ -990,7 +990,7 @@ class TimeseriesRequest:
             right_on="taken_station_id",
         )
         stations_result = StationsResult(
-            stations=self,
+            request=self,
             df=df_stations,
             df_all=df_all,
             stations_filter=StationsFilter.BY_STATION_ID,

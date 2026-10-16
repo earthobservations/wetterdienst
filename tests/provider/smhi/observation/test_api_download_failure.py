@@ -91,7 +91,7 @@ def test_smhi_values_raise_a_download_error_for_a_download_that_did_not_answer(
     """
     _failing(monkeypatch, failure, archive=archive)
     with pytest.raises(DownloadError) as raised:
-        _request().values.all()
+        _request().values().all()
     assert raised.value.__cause__ is failure
     assert "/parameter/2/station/98230/period/" in raised.value.url
 
@@ -101,7 +101,7 @@ def test_smhi_values_raise_no_internet_error_as_before(monkeypatch: pytest.Monke
     offline = NoInternetError("no route to host")
     requested = _failing(monkeypatch, offline)
     with pytest.raises(NoInternetError) as raised:
-        _request().values.all()
+        _request().values().all()
     assert raised.value is offline
     assert len(requested) == 1
 
@@ -112,7 +112,7 @@ def test_smhi_values_keep_the_empty_result_for_a_station_without_the_parameter(
     """A 404 is SMHI answering that the station does not report the parameter: an empty frame, no warning."""
     requested = _failing(monkeypatch, FileNotFoundError("not found"))
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.smhi"):
-        df = _request().values.all().df
+        df = _request().values().all().df
     assert df.is_empty()
     assert len(requested) == 2
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
@@ -124,7 +124,7 @@ def test_smhi_values_keep_the_empty_result_for_an_answer_that_is_a_refusal(
     """A 4xx other than a 404 is an answer: an empty frame, with the warning it had."""
     _failing(monkeypatch, _response_error(403))
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.smhi"):
-        df = _request().values.all().df
+        df = _request().values().all().df
     assert df.is_empty()
     assert [record for record in caplog.records if record.levelno == logging.WARNING]
 
@@ -147,7 +147,7 @@ def test_smhi_outage_met_by_the_values_reader_skips_the_remote_test(
 
     @skip_if_upstream_unavailable()
     def _remote_test() -> None:
-        assert not _request().values.all().df.is_empty()
+        assert not _request().values().all().df.is_empty()
 
     with pytest.raises(pytest.skip.Exception if skipped else AssertionError):
         _remote_test()

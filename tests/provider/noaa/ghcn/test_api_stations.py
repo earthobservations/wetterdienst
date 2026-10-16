@@ -698,7 +698,7 @@ def test_noaa_ghcn_hourly_stations_without_position_fetched_by_id(
     assert stations.df.select("station_id", "latitude", "longitude").rows() == [(station_id, None, None)]
     (feature,) = stations.to_ogc_feature_collection()["data"]["features"]
     assert feature["geometry"] is None
-    values = stations.values.all().df
+    values = stations.values().all().df
     assert values.select("station_id", "timestamp", "value").rows() == [
         (station_id, dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),
     ]
@@ -770,7 +770,7 @@ def test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position
         ],
         settings=default_settings,
     )
-    df = request.filter_by_station_id("AUM00011158").values.all().df
+    df = request.filter_by_station_id("AUM00011158").values().all().df
     assert sorted(df.select(pl.col("resolution"), "timestamp", "value").rows()) == [
         ("daily", dt.datetime(1938, 1, 2, tzinfo=ZoneInfo("UTC")), -5.0),
         ("hourly", dt.datetime(1938, 1, 2, 6, tzinfo=ZoneInfo("UTC")), -11.1),

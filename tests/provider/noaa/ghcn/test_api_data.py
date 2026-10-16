@@ -35,7 +35,7 @@ def test_api_amsterdam(start_date: dt.datetime, end_date: dt.datetime, default_s
         end=end_date,
         settings=default_settings,
     ).filter_by_name("DE BILT")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -78,7 +78,7 @@ def test_api_hourly_neustrelitz(default_settings: Settings) -> None:
         end=dt.datetime(1977, 2, 1, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id("GMA00092791")  # Neustrelitz, Germany -- non-US, immutable historical data
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -140,7 +140,7 @@ def test_api_hourly_wind_direction_999_is_no_direction(monkeypatch: pytest.Monke
         end=dt.datetime(1942, 1, 18, tzinfo=ZoneInfo("UTC")),
         settings=settings,
     ).filter_by_station_id("ACM00078861")
-    df = request.values.all().df
+    df = request.values().all().df
 
     def column(parameter: str) -> list[tuple[int, float]]:
         frame = df.filter(pl.col("parameter").eq(parameter)).sort("timestamp")
@@ -239,7 +239,7 @@ def test_api_hourly_precipitation_is_the_total_of_the_report_that_closes_the_hou
         end=dt.datetime(2027, 1, 1, tzinfo=ZoneInfo("UTC")),
         settings=settings,
     ).filter_by_station_id("USW00023174")
-    df = request.values.all().df.sort("timestamp")
+    df = request.values().all().df.sort("timestamp")
     precipitation = df.filter(pl.col("parameter").eq("precipitation_amount_since_last_routine_report"))
     # one report an hour, with the minute of the report: the METAR, no SPECI after it, and the last SPECI of an hour
     # without a METAR; the -9999 of the METAR closing 02:00 is no value and the SPECI before it is not the hour's
@@ -297,7 +297,7 @@ def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_
         settings=settings,
         options=Options(drop_nulls=False),
     ).filter_by_station_id("USW00023174")
-    df = request.values.all().df.sort("parameter", "timestamp")
+    df = request.values().all().df.sort("parameter", "timestamp")
     assert df.select("parameter", "value", "quality_flags").rows() == [
         ("wind_direction", 360.0, None),
         ("wind_direction", None, "raw:0"),
@@ -343,7 +343,7 @@ def test_api_hourly_snow_depth_is_millimeters(monkeypatch: pytest.MonkeyPatch) -
             settings=settings,
             options=options,
         ).filter_by_station_id("USW00026451")
-        return request.values.all().df.get_column("value").to_list()
+        return request.values().all().df.get_column("value").to_list()
 
     assert values(Options(convert_units=False)) == [910.0]
     assert values(Options()) == [91.0]
@@ -413,7 +413,7 @@ def test_api_hourly_quality_code_is_the_plain_flag_and_the_value_stays(monkeypat
         settings=settings,
         options=Options(drop_nulls=False, convert_units=False),
     ).filter_by_station_id(["ACM00078861", "USW00026451"])
-    df = request.values.all().df
+    df = request.values().all().df
     got = {
         (station, parameter, timestamp.strftime("%Y-%m-%d %H:%M")): (value, flags)
         for station, parameter, timestamp, value, flags in df.select(
@@ -507,7 +507,7 @@ def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeyp
         settings=settings,
         options=Options(drop_nulls=False, convert_units=False),
     ).filter_by_station_id(list(files))
-    df = request.values.all().df
+    df = request.values().all().df
     got = {
         (station, parameter, timestamp.strftime("%Y-%m-%d %H:%M")): (value, flags)
         for station, parameter, timestamp, value, flags in df.select(

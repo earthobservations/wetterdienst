@@ -91,7 +91,7 @@ def _values_or_skip(
         return payload
 
     monkeypatch.setattr(aemet_api, "_fetch_datos", recording_fetch)
-    df = make_request().values.all().df
+    df = make_request().values().all().df
     if df.is_empty() and failures and all(_is_refusal(failure) for failure in failures):
         pytest.skip(f"AEMET did not hand out the data: {failures[0]!r}")
     return df
@@ -366,7 +366,7 @@ def test_aemet_observation_daily_normalizes_non_utc_start_end_date_to_utc(monkey
             start=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
             end=dt.datetime(2020, 1, 1, 0, 30, tzinfo=madrid),
             settings=Settings(auth={"aemet": "dummy-key-for-test"}),
-        ).filter_by_station_id(MADRID_RETIRO).values.all()
+        ).filter_by_station_id(MADRID_RETIRO).values().all()
 
     assert len(captured_urls) == 1
     assert "fechaini/2019-12-31T23:30:00UTC" in captured_urls[0]
@@ -595,7 +595,8 @@ def _values(resolution: str, years: int, station_ids: tuple[str, ...] = (MADRID_
             settings=Settings(auth={"aemet": "dummy-key-for-test"}),
         )
         .filter_by_station_id(station_ids)
-        .values.all()
+        .values()
+        .all()
         .df
     )
 
@@ -929,7 +930,7 @@ def test_aemet_outage_met_by_the_values_reader_skips_the_remote_test(
 
     @skip_if_upstream_unavailable()
     def _remote_test() -> None:
-        assert not _daily_request().values.all().df.is_empty()
+        assert not _daily_request().values().all().df.is_empty()
 
     with pytest.raises(pytest.skip.Exception if skipped else AssertionError):
         _remote_test()

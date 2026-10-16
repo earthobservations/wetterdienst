@@ -405,7 +405,7 @@ Unlike `filter_by_distance`, `filter_by_rank` returns **all** stations sorted by
 distance in `stations.df`, not just `rank` rows. The `rank` limit is applied lazily
 during value collection: Wetterdienst walks the distance-sorted stations and stops
 once `rank` stations *with data* have been consumed. To see the `rank` closest
-stations that actually returned data, use `stations.values.all().df_stations` rather
+stations that actually returned data, use `stations.values().all().df_stations` rather
 than `stations.df`. Enable the `skip_empty` option to walk past a station that returned data
 but too little of it, as `skip_threshold` and `skip_criteria` define.
 ```
@@ -456,8 +456,8 @@ A test holds this table to the columns the providers declare, so a column added 
 
 ### Values
 
-Values are just an extension of requests. You can query data by using the
-`.query()` method on the values object:
+Values are just an extension of requests. `stations.values()` builds the reader of the values of the
+stations, and you can query data station by station with its `.query()` method:
 
 ```{code-cell}
 ---
@@ -477,7 +477,7 @@ request = DwdObservationRequest(
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
 
 # From here you can query data by station
-for result in stations.values.query():
+for result in stations.values().query():
     # analyse the station here
     break
 
@@ -503,7 +503,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=("00003", "01048"))
-df = stations.values.all().df.drop_nulls("value")
+df = stations.values().all().df.drop_nulls("value")
 df
 ```
 
@@ -512,8 +512,9 @@ once, parsed nicely into column structure with improved parameter names. Instead
 ``start`` and ``end`` you may as well want to use ``periods`` to update your
 database once in a while with a fixed set of records.
 
-A result can be cut down after the fact with ``values.filter_by_date("2020-08")``, which takes the
-same date strings as the CLI and the REST API. Each covers everything it names: ``"2020-08-01"``
+A result can be cut down after the fact with ``values.filtered_by_date("2020-08")``, which takes the
+same date strings as the CLI and the REST API and gives a new result back, leaving ``values`` as it
+was. Each covers everything it names: ``"2020-08-01"``
 is that whole day -- all 24 readings of it for hourly data -- ``"2020-08"`` the month and
 ``"2020"`` the year, while an interval such as ``"2017-01/2019-12"`` runs from the start of the
 first span to the end of the second. A date carrying a time, ``"2020-08-01T12"``, names one
@@ -528,7 +529,7 @@ frame, without a cast. The schemas are exported as objects to assert against:
 import polars as pl
 from wetterdienst.model.schema import LONG_SCHEMA
 
-df = stations.values.all().df
+df = stations.values().all().df
 assert df.schema == LONG_SCHEMA
 
 # filter by names that may or may not be present, and join on the station
@@ -548,7 +549,7 @@ A test in the library holds each of them against what a result returns, so a cha
 dtype or its place is a visible diff in a pull request and a breaking change.
 
 ```{note}
-**Migrating from 0.154.0 or earlier.** `.values.all().df` used to store the four identity columns as polars `Enum`,
+**Migrating from 0.154.0 or earlier.** `.values().all().df` used to store the four identity columns as polars `Enum`,
 with the categories taken from the data of each result, while an empty result and an interpolated or
 summarized one had `String`. They are `String` now. Code that cast them back, such as
 `df.with_columns(pl.col(pl.Enum).cast(pl.String))`, or cast a join key or the column of an `is_in`,
@@ -578,7 +579,7 @@ request = DwdObservationRequest(
   options=options,
 )
 stations = request.filter_by_rank(latlon=karlsruhe, rank=2)
-values = stations.values.all()
+values = stations.values().all()
 print(values.df.head())
 # df_stations has only stations that appear in the values
 values.df_stations
@@ -674,6 +675,42 @@ missing value. CHMI, MeteoSwiss, SMHI, DWD phenology and the real-time values of
 number as null without a token; none was found in their files, and DWD observation does the same for a letter
 outside `P` and `I` in a measurement method.
 
+### Results
+
+What a request answers is a result, and the results are what a caller reads:
+
+| Result | Made by | Holds |
+| --- | --- | --- |
+| `StationsResult` | `request.all()` and the `request.filter_by_*` methods | `df`, the stations selected, and the `request` they come from |
+| `ValuesResult` | `stations.values().all()`, and each step of `stations.values().query()` | `df`, the values, and the `stations` they were read for |
+| `InterpolatedValuesResult` and `SummarizedValuesResult` | `request.interpolate()` and `request.summarize()` | `df`, the values of the point, and the `stations` they were made from |
+| `HistoryResult` | each step of `stations.history().query()` | `history`, one station's history, and its `stations` |
+
+- **A result is not changed once it is built.** Assigning to one raises `FrozenInstanceError`, and
+  `filtered_by_date` and `filtered_by_sql` give a new result of the same kind back, so a result you hand
+  on is the one you made. The frame-returning forms are `result.filtered_by_sql(sql).df`.
+- **`request` is the request** that made a `StationsResult`, with the settings, options, parameters and
+  window it was given (`stations.settings`, `.options`, `.parameters`, `.start` and `.end` read them).
+  The stations are in `df`; `df_all` (every station of the request), `stations_filter` and `rank` say how `df`
+  was selected from them and are for the library.
+- **`values()` and `history()` are methods.** Each builds a new reader on every call, so two walks over
+  the stations never share state; keep the reader in a variable where you use it more than once.
+- **A values result does not hold the reader** that produced it, so one you keep for a long job keeps
+  the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
+- Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
+  `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; they are documented below.
+
+```{note}
+**Migrating from 0.155.0 or earlier.** The names a result had are refused with an error that says what
+to write instead. `StationsResult.stations` (and the `stations=` argument) is `request`;
+`stations.values.all()`, `.values.query()` and `.history.query()` are `stations.values().all()`,
+`stations.values().query()` and `stations.history().query()`; `ValuesResult.values` is gone, use
+`stations.values()` for a reader; `values.filter_by_date(date)` and `values.filter_by_sql(sql)`, which changed
+the result and returned its frame, are `values.filtered_by_date(date)` and `values.filtered_by_sql(sql)`, which
+return a new result (`.df` is its frame). Code that wrote `values.filter_by_sql(sql)` and went on with `values`
+now continues with `values = values.filtered_by_sql(sql)`.
+```
+
 ### Interpolation & Summary
 
 Wetterdienst can derive a time series for an arbitrary location from the surrounding
@@ -698,7 +735,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 values.to_dict(with_metadata=True, with_stations=True)
 ```
 
@@ -717,7 +754,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 print(values.to_json(with_metadata=True, with_stations=True))
 ```
 
@@ -736,7 +773,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 values.to_ogc_feature_collection(with_metadata=True)
 ```
 
@@ -755,7 +792,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 print(values.to_geojson(with_metadata=True))
 ```
 
@@ -774,7 +811,7 @@ request = DwdObservationRequest(
     end="2020-01-02"
 )
 stations = request.filter_by_station_id(station_id="01048")
-values = stations.values.all()
+values = stations.values().all()
 print(values.to_csv())
 ```
 
@@ -806,8 +843,8 @@ request = DwdObservationRequest(
   options=options
 )
 stations = request.filter_by_station_id(station_id=[1048])
-values = stations.values.all()
-df = values.filter_by_sql("parameter='temperature_air_2m' AND value < -7.0;")
+values = stations.values().all()
+df = values.filtered_by_sql("parameter='temperature_air_2m' AND value < -7.0;").df
 df
 ```
 
@@ -888,7 +925,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
+stations.values().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
 ```
 
 The previous example uses a batch approach meaning each station is written one by one. The first station is written
@@ -907,7 +944,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values.all().to_target("influxdb://localhost/?database=dwd&table=weather")
+stations.values().all().to_target("influxdb://localhost/?database=dwd&table=weather")
 ```
 
 You could also iterate over the stations and write them one by one:
@@ -922,7 +959,7 @@ request = DwdObservationRequest(
     end="2020-01-01",
 )
 stations = request.filter_by_station_id(station_id=[1048, 1050])
-for station in stations.values.query():
+for station in stations.values().query():
     station.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
 ```
 
@@ -982,7 +1019,7 @@ below it say what kind of failure it is:
 from wetterdienst import RequestError, UpstreamError, WetterdienstError
 
 try:
-    values = request.filter_by_station_id("01048").values.all()
+    values = request.filter_by_station_id("01048").values().all()
 except RequestError as e:
     print(f"rephrase the request: {e}")
 except UpstreamError as e:

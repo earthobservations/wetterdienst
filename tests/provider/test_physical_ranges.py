@@ -239,7 +239,7 @@ def _lhmt_values(
         settings=Settings(cache_disable=True),
         options=options,
     )
-    return request.filter_by_station_id("vilniaus-ams").values.all().df
+    return request.filter_by_station_id("vilniaus-ams").values().all().df
 
 
 def test_the_check_sees_a_frame_a_provider_hands_back(

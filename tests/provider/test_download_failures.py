@@ -48,7 +48,7 @@ def _settings() -> Settings:
 def _values(values_class: type, **sr: object) -> Any:  # noqa: ANN401
     """Build a values object that holds only what the site under test reads off its `sr`."""
     values = object.__new__(values_class)
-    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=_settings()), **sr)
+    values.sr = SimpleNamespace(request=SimpleNamespace(settings=_settings()), **sr)
     return values
 
 

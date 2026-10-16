@@ -140,7 +140,7 @@ def request_stations(
         raise no_elevation_in_reach_error(unanswerable, elevation)
     tqdm_out = TqdmToLogger(log, level=logging.INFO)
     for result in tqdm(
-        stations_ranked.values.query(),
+        stations_ranked.values().query(),
         total=len(stations_by_id),
         desc="querying stations for summary",
         unit="station",
@@ -181,15 +181,15 @@ def apply_station_values_per_parameter(
     draws on mean the same thing here as in the interpolation.
     """
     options = stations_ranked.options
-    # once, not once per parameter per station: `values` builds a `TimeseriesValues` and with it a
+    # once, not once per parameter per station: `values()` builds a `TimeseriesValues` and with it a
     # `UnitConverter`, whose tables run to a couple of hundred entries
-    unit_converter = stations_ranked.values.unit_converter
+    unit_converter = stations_ranked.values().unit_converter
     contributed = False
-    for parameter in stations_ranked.stations.parameters:
+    for parameter in stations_ranked.request.parameters:
         if not isinstance(parameter, ParameterModel):
             continue
         dataset = parameter.dataset
-        if parameter.name not in stations_ranked.stations.interpolatable_parameters:
+        if parameter.name not in stations_ranked.request.interpolatable_parameters:
             log.info(f"parameter {parameter.name} can not be interpolated")
             continue
         # the radius follows the resolution for a parameter that decorrelates fast in space, so it
@@ -235,8 +235,8 @@ def apply_station_values_per_parameter(
             param_dict,
             param_key,
             dataset.resolution.value,
-            cast("dt.datetime | None", stations_ranked.stations.start),
-            cast("dt.datetime | None", stations_ranked.stations.end),
+            cast("dt.datetime | None", stations_ranked.request.start),
+            cast("dt.datetime | None", stations_ranked.request.end),
             decimals=decimals_for(parameter, unit_converter, convert_units=options.convert_units),
         )
         if param_data is None:

@@ -146,7 +146,7 @@ def test_ipma_observation_values() -> None:
         end=dt.datetime.now(UTC),
     )
     station_id = request.all().df["station_id"][0]
-    df = request.filter_by_station_id(station_id).values.all().df
+    df = request.filter_by_station_id(station_id).values().all().df
     assert not df.is_empty()
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert set(df["parameter"].unique().to_list()) <= {

@@ -540,7 +540,8 @@ def _daily_values(days: int = 1) -> pl.DataFrame:
     return (
         _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=days - 1))
         .filter_by_station_id(DE_BILT)
-        .values.all()
+        .values()
+        .all()
         .df
     )
 
@@ -685,7 +686,8 @@ def test_knmi_observation_values_daily() -> None:
             end=dt.datetime(2020, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(DE_BILT)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [DE_BILT]
@@ -718,7 +720,8 @@ def test_knmi_observation_values_10_minutes() -> None:
             end=dt.datetime(2020, 6, 1, 12, 10, tzinfo=UTC),
         )
         .filter_by_station_id(DE_BILT)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [DE_BILT]
@@ -770,7 +773,8 @@ def _hourly_values(days: int, station_ids: tuple[str, ...] = (DE_BILT,)) -> pl.D
     return (
         _request([("hourly", "data", "temperature_air_2m")], start, start + dt.timedelta(days=days))
         .filter_by_station_id(station_ids)
-        .values.all()
+        .values()
+        .all()
         .df
     )
 
@@ -805,7 +809,7 @@ def test_knmi_values_offline_raise_at_the_first_resolution(monkeypatch: pytest.M
         start + dt.timedelta(days=3),
     ).filter_by_station_id(DE_BILT)
     with pytest.raises(NoInternetError):
-        request.values.all()
+        request.values().all()
     assert len(attempted) == 1
 
 
@@ -818,7 +822,7 @@ def test_knmi_values_going_offline_midway_raises(
     start = dt.datetime(2020, 1, 1, tzinfo=UTC)
     request = _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=5))
     with pytest.raises(NoInternetError):
-        request.filter_by_station_id((DE_BILT, EELDE)).values.all()
+        request.filter_by_station_id((DE_BILT, EELDE)).values().all()
     assert len(attempted) == 2
 
 

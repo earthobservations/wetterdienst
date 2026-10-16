@@ -11,6 +11,7 @@ import pathlib
 import sys
 import zipfile
 from collections.abc import Callable, Iterator
+from dataclasses import replace
 from http import HTTPStatus
 from pathlib import Path
 from types import SimpleNamespace
@@ -2930,7 +2931,7 @@ def test_values_a_value_error_from_the_values_is_a_500(
     def fail() -> None:
         raise ValueError(msg)
 
-    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = client.get(
@@ -3564,7 +3565,7 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     endpoints answer it with a 400 since GH-2429, and a station the lookup does not know with a 404.
     """
     if entry_point is None:
-        stations = SimpleNamespace(values=SimpleNamespace(all=refuse))
+        stations = SimpleNamespace(values=lambda: SimpleNamespace(all=refuse))
         monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     else:
         monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
@@ -3595,7 +3596,7 @@ def test_values_an_issue_the_source_does_not_list_is_a_404(
         {"resolution": ["hourly"], "dataset": ["icon"], "station_id": ["10382"], "name": ["Berlin-Tegel"]},
     )
     stations = StationsResult(
-        stations=DwdDmoRequest(parameters=["hourly/icon/temperature_air_2m"], issue="2020-01-01T00:00"),
+        request=DwdDmoRequest(parameters=["hourly/icon/temperature_air_2m"], issue="2020-01-01T00:00"),
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -3650,7 +3651,7 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
     def fail() -> None:
         raise duckdb.OutOfMemoryException(msg)
 
-    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"})
@@ -3694,7 +3695,7 @@ def test_values_a_refused_sql_values_clause_is_a_400(
 
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     frame = pl.DataFrame({"station_id": ["01048"], "parameter": ["temperature_air_mean_2m"], "value": [1.0]})
-    stations = SimpleNamespace(values=SimpleNamespace(all=lambda: ExportMixin(df=frame)))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=lambda: ExportMixin(df=frame)))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     # the memory limit is 1 GiB plus the frame's size, here made 64 MiB in all so the refusal comes cheap
     monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
@@ -3725,7 +3726,7 @@ def test_values_a_duckdb_failure_inside_duckdb_is_a_500_with_a_clause_too(
     def fail() -> None:
         raise getattr(duckdb, name)(msg)
 
-    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = TestClient(restapi.app, raise_server_exceptions=False).get(
@@ -3755,7 +3756,7 @@ def test_values_the_bare_duckdb_error_is_the_callers_only_with_a_clause(
     def fail() -> None:
         raise duckdb.Error(msg)
 
-    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     params = {**_OBSERVATION, "stations": "01048"}
     if sql_values:
@@ -3823,7 +3824,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
         },
         orient="row",
     )
-    stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, stations=None)
+    stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, request=None)
     row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.UTC)}
     df_values = pl.DataFrame(
         [
@@ -3858,7 +3859,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
             sr=SimpleNamespace(parameters=request.parameters, settings=request.settings, options=request.options)
         )
         df_values = TimeseriesValues._widen_df(values, df_values)  # noqa: SLF001
-    return ValuesResult(stations=stations, values=None, df=df_values)
+    return ValuesResult(stations=stations, df=df_values)
 
 
 @pytest.mark.parametrize("shape", ["long", "wide"])
@@ -3903,7 +3904,7 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     result = _values_result_of_shape(shape)
-    stations = SimpleNamespace(values=SimpleNamespace(all=lambda: result))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=lambda: result))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     mcp = build_mcp_server(restapi.app)
 
@@ -4100,7 +4101,7 @@ def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values:
     )
     result = SimpleNamespace(
         to_dict=lambda: {"stations": stations},
-        values=SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
+        values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
     )
     request = SimpleNamespace(filter_by_station_id=lambda _station: result)
     monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period: request)
@@ -4152,7 +4153,6 @@ class _HistoryFails:
     def __init__(self, step: str, fail: Callable[[], None] = _fail) -> None:
         self.step, self.fail = step, fail
 
-    @property
     def history(self) -> SimpleNamespace:
         if self.step == "history":
             self.fail()
@@ -5388,9 +5388,11 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
 
     values = _values_result_of_shape("long")
     # the request the metadata is read off
-    values.stations.stations = DwdObservationRequest(parameters=[("daily", "climate_summary")])
+    request = DwdObservationRequest(parameters=[("daily", "climate_summary")])
+    stations = replace(values.stations, request=request)
     if station_name is not None:
-        values.stations.df = values.stations.df.with_columns(pl.lit(station_name).alias("name"))
+        stations = replace(stations, df=stations.df.with_columns(pl.lit(station_name).alias("name")))
+    values = replace(values, stations=stations)
     row = {
         "station_id": "a87d0e9bb6fb2b4b",
         "resolution": "daily",
@@ -6411,7 +6413,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
     def _collect(
         self: DwdObservationValues,  # noqa: ARG001
@@ -7433,7 +7435,7 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     def fail() -> None:
         raise ValueError(msg)
 
-    stations = SimpleNamespace(values=SimpleNamespace(all=fail))
+    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"})

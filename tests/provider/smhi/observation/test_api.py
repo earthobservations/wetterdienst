@@ -48,7 +48,8 @@ def test_smhi_observation_values_daily() -> None:
             end=dt.datetime(2020, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(ABISKO)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [ABISKO]
@@ -74,7 +75,8 @@ def test_smhi_observation_values_hourly() -> None:
             end=dt.datetime(2020, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(ABISKO)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [ABISKO]
@@ -106,7 +108,8 @@ def test_smhi_observation_values_monthly() -> None:
             end=dt.datetime(2020, 1, 31, tzinfo=UTC),
         )
         .filter_by_station_id(ABISKO)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [ABISKO]
@@ -128,7 +131,7 @@ def test_smhi_observation_values_minute_1() -> None:
     "latest-day" period, no historical archive at all) -- structural/range checks only,
     like AEMET's real-time hourly endpoint.
     """
-    df = SmhiObservationRequest(parameters=[("minute_1", "data")]).filter_by_station_id(ABISKO).values.all().df
+    df = SmhiObservationRequest(parameters=[("minute_1", "data")]).filter_by_station_id(ABISKO).values().all().df
     assert not df.is_empty()
     assert df["station_id"].unique().to_list() == [ABISKO]
     assert df["resolution"].unique().to_list() == ["1_minute"]

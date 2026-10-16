@@ -196,7 +196,7 @@ def test_ea_values_of_the_two_kinds_of_level_come_from_their_own_measure(
         responses[f"{measure['@id']}/readings.json"] = json.dumps({"items": [reading]}).encode()
     monkeypatch.setattr(ea_api, "download_file", _serve(responses))
     request = EAHydrologyRequest(parameters=[parameter], settings=default_settings)
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     assert df.get_column("parameter").to_list() == [parameter[2]]
     assert df.get_column("value").to_list() == [pytest.approx(expected)]
 
@@ -397,7 +397,7 @@ def test_ea_values_read_the_measure_of_the_requested_parameter(
     }
     monkeypatch.setattr(ea_api, "download_file", _serve(responses))
     request = EAHydrologyRequest(parameters=[("daily", "data", "discharge_mean")], settings=default_settings)
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     assert df.get_column("parameter").unique().to_list() == ["discharge_mean"]
     # the second of the three notations, so anything matching on parameter and period alone
     # would have taken the first
@@ -489,7 +489,7 @@ def test_ea_15_minute_values_come_from_the_window_asked_for(default_settings: Se
         start=start_date,
         end=end_date,
     )
-    df = request.filter_by_rank(latlon=(51.5, -1.0), rank=1).values.all().df
+    df = request.filter_by_rank(latlon=(51.5, -1.0), rank=1).values().all().df
     assert not df.is_empty()
     assert df.get_column("timestamp").min() >= start_date
     assert df.get_column("timestamp").max() <= end_date

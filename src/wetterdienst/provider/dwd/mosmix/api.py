@@ -103,7 +103,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         super().__post_init__()
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
-            settings=cast("Settings", self.sr.stations.settings),
+            settings=cast("Settings", self.sr.request.settings),
         )
 
     @property
@@ -133,7 +133,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         """Collect MOSMIX data for a given station and parameter or dataset."""
         from typing import cast  # noqa: PLC0415
 
-        stations = cast("DwdMosmixRequest", self.sr.stations)
+        stations = cast("DwdMosmixRequest", self.sr.request)
         # Shift issue date to 3, 9, 15, 21 hour format
         # After __post_init__, issue is always dt.datetime | DwdForecastDate (str is resolved)
         issue = cast("dt.datetime | DwdForecastDate", stations.issue)
@@ -183,7 +183,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         """Read single MOSMIX-L file for all stations or multiple files for single stations."""
         from typing import cast  # noqa: PLC0415
 
-        all_stations = cast("DwdMosmixRequest", self.sr.stations).station_group == DwdMosmixStationGroup.ALL_STATIONS
+        all_stations = cast("DwdMosmixRequest", self.sr.request).station_group == DwdMosmixStationGroup.ALL_STATIONS
         if all_stations:
             url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_L_PATH)
         else:
@@ -222,7 +222,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         """
         from typing import cast  # noqa: PLC0415
 
-        urls = list_remote_files_fsspec(url, cast("Settings", self.sr.stations.settings), CacheExpiry.NO_CACHE)
+        urls = list_remote_files_fsspec(url, cast("Settings", self.sr.request.settings), CacheExpiry.NO_CACHE)
         if not urls:
             # answered before either branch reads the listing: an empty one fails differently in
             # each, and both in a way that names neither the directory nor what was looked for.

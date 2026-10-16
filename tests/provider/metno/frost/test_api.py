@@ -73,7 +73,8 @@ def test_metno_frost_values_hourly() -> None:
             end=dt.datetime(2020, 1, 2, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert len(df) == 25
@@ -96,7 +97,8 @@ def test_metno_frost_values_daily() -> None:
             end=dt.datetime(2020, 1, 31, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert len(df) == 31
@@ -117,7 +119,8 @@ def test_metno_frost_values_monthly() -> None:
             end=dt.datetime(2020, 12, 31, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert len(df) == 12
@@ -148,7 +151,8 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
                 end=dt.datetime(2020, 1, 2, tzinfo=UTC),
             )
             .filter_by_station_id(OSLO_BLINDERN)
-            .values.all()
+            .values()
+            .all()
             .df
         )
     acquisitions = [r.message for r in caplog.records if r.message.startswith("Acquiring data from")]
@@ -183,7 +187,8 @@ def test_metno_frost_values_6hour_fallback() -> None:
             end=dt.datetime(2006, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(OSLO_BLINDERN)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     # SN18700 has exactly 2 synoptic precipitation observations in this window

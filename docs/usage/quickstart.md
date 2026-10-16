@@ -53,7 +53,7 @@ associated values result:
 mystnb:
   number_source_lines: true
 ---
-values = stations.values.all()
+values = stations.values().all()
 values.df
 ```
 

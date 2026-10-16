@@ -115,7 +115,7 @@ class DwdPoiValues(TimeseriesValues):
             dataset = parameter_or_dataset
         else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         file = download_file(
             url=_station_file_url(station_id),
             cache_dir=settings.cache_dir,

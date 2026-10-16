@@ -8,7 +8,7 @@ from them rather than the other way round::
 
     from wetterdienst.model.schema import LONG_SCHEMA
 
-    assert request.filter_by_station_id("01048").values.all().df.schema == LONG_SCHEMA
+    assert request.filter_by_station_id("01048").values().all().df.schema == LONG_SCHEMA
 
 ``station_id``, ``resolution``, ``dataset`` and ``parameter`` are ``String`` in every one of them,
 populated or empty, from one request or from another, so that two results concatenate and a result

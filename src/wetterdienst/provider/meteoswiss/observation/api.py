@@ -62,7 +62,7 @@ class MeteoswissObservationValues(TimeseriesValues):
         dataset = cast("DatasetModel", parameter_or_dataset)
         granularity = dataset.resolution.name_original
         station_id_lower = station_id.lower()
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         item_url = self._item_endpoint.format(station_id=station_id_lower)
         file = download_file(
             url=item_url,

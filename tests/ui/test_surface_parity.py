@@ -176,7 +176,7 @@ def test_a_name_fetches_the_one_best_match_on_every_surface() -> None:
 
     The command line and REST read five stations' values for a name, where the library read one.
     """
-    library = set(_request().filter_by_name("Dresden").values.all().df.get_column("station_id"))
+    library = set(_request().filter_by_name("Dresden").values().all().df.get_column("station_id"))
     cli_values = _cli("values", "--name=Dresden", "--timestamp=2020-05")
     rest_values = _rest("/api/values", name="Dresden", timestamp="2020-05")
 
@@ -210,7 +210,7 @@ def test_a_window_without_readings_is_an_empty_result_on_every_surface(caplog: p
     The command line exited 1, as for a failure, so a schedule asking for a value before it is published failed.
     """
     window = {"timestamp": "1930-06-01"}
-    library = _request(start="1930-06-01", end="1930-06-01").filter_by_station_id("00001").values.all().df
+    library = _request(start="1930-06-01", end="1930-06-01").filter_by_station_id("00001").values().all().df
     with caplog.at_level(logging.WARNING):
         cli_result = _cli("values", "--stations=00001", "--timestamp=1930-06-01")
     rest_response = _rest("/api/values", stations="00001", **window)
@@ -304,7 +304,7 @@ def test_only_unknown_station_ids_are_an_empty_listing(surface: str, caplog: pyt
 def test_unknown_station_ids_give_empty_values_and_a_warning(caplog: pytest.LogCaptureFixture) -> None:
     """The values of ids that do not exist are empty on the library, the command line and REST, with the warning."""
     with caplog.at_level(logging.WARNING):
-        library = _request().filter_by_station_id("99999").values.all().df
+        library = _request().filter_by_station_id("99999").values().all().df
         cli_result = _cli("values", "--stations=99999", "--timestamp=2020-05")
         rest_response = _rest("/api/values", stations="99999", timestamp="2020-05")
 

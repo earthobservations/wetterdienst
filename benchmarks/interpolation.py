@@ -79,7 +79,7 @@ def request_weather_data(
         utm_y.append(y)
 
     # request parameter from weather stations
-    df = request.values.all().df.drop_nulls(subset=["value"])
+    df = request.values().all().df.drop_nulls(subset=["value"])
     print(df)
     # filters by one exact time and saves the given parameter per station at this time
     day_time = start_date + dt.timedelta(days=1)
