@@ -63,7 +63,7 @@ _EMPTY_VALUES_SCHEMA = {
 # 569.7 m/s. Such a value is read as null and keeps its text as `raw:4021` (GH-2797). Merely odd values stay: the
 # 81.5 m/s gust of 6414 on 2003-10-09 is below the 115 m/s of the highest gust measured.
 _AIR_TEMPERATURE = (-90.0, 60.0)  # degree Celsius
-_SOIL_TEMPERATURE = (-90.0, 100.0)
+_SOIL_TEMPERATURE = (-90.0, 100.0)  # also the surface, which may be hotter than the air
 _WIND_SPEED = (0.0, 115.0)  # m/s
 _RANGES: dict[str, tuple[float, float]] = {
     "precip_quantity": (0.0, 6_000.0),  # mm
@@ -71,7 +71,7 @@ _RANGES: dict[str, tuple[float, float]] = {
     "temp_avg": _AIR_TEMPERATURE,
     "temp_max": _AIR_TEMPERATURE,
     "temp_min": _AIR_TEMPERATURE,
-    "temp_grass_pt100_avg": _AIR_TEMPERATURE,
+    "temp_grass_pt100_avg": _SOIL_TEMPERATURE,  # a surface temperature, not an air one
     "temp_soil_avg_5cm": _SOIL_TEMPERATURE,
     "temp_soil_avg_10cm": _SOIL_TEMPERATURE,
     "temp_soil_avg_20cm": _SOIL_TEMPERATURE,

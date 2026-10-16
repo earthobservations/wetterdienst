@@ -98,6 +98,47 @@ Types of changes:
 - `dwd/observation` `hourly/urban_wind` `wind_direction`: the description says that its 0, which
   comes with 0.1 to 0.8 m/s and never with 0, is returned as 0 because DWD does not state whether
   it is a calm or north, unlike the calm of `10_minutes/urban_wind` that is null (GH-2809)
+- **Breaking**: the strongest gust of the last 10 minutes is `wind_gust_max_last_10min` (new), no
+  longer `wind_gust_max`, which is the strongest gust of the row's interval: `fmi/observation`
+  hourly `wg_10min`, `meteofrance/synop` subdaily `raf10`, `metoffice/observation` hourly weather
+  `q10mnt_mxgst_spd` and `nws/observation` `windgust`. Request the new name; the old one raises
+  `InvalidParameterError` in those datasets, which says what it is called now.
+  `meteofrance/observation` hourly `DXY` (`wind_direction_gust_max`), the direction of the hour's
+  highest 10-minute mean and of no gust, is no longer served. `wind_gust_max` stays for every gust
+  of an interval (GH-2836)
+- **Breaking**: the 2-minute averages of the wind are `wind_speed_last_2min` and
+  `wind_direction_last_2min` (new), no longer `wind_speed` and `wind_direction`: `nws/observation`
+  (the ASOS's 2-minute averages) and `eccc/observation` hourly direction (ECCC: "the average
+  direction during the two minute period"). Request the new names; NWS's old ones are not found,
+  and ECCC's `wind_direction` still selects its row, which comes back named
+  `wind_direction_last_2min`. ECCC's speed (one-, two- or ten-minute), `dwd/road` (10 minutes in
+  some station groups, 15 or none in others) and `noaa/ghcn` (GHCNh states no window) keep their
+  names (GH-2837, GH-2838)
+- **Breaking**: `dwd/mosmix` (small, large) and `dwd/dmo` (icon, icon_eu) `pppp`, DWD's "Surface
+  pressure, reduced", is `pressure_air_sea_level`, no longer `pressure_air_site_reduced`: it is
+  reduced to sea level (Hamburg and Munich-Flughafen agree with the sea-level pressure of their
+  reports within 1 hPa). `nws/observation` `barometricpressure`, the METAR altimeter setting
+  (A#### x 33.86389 Pa, KATL at 315 m reads 101.8 kPa), is `pressure_air_site_reduced`, now
+  described as reduced to sea level with the standard atmosphere, no longer `pressure_air_site`
+  (the station's pressure). Request the new names; the old ones are not found in those datasets
+  (GH-2840, GH-2842)
+- **Breaking**: `dwd/mosmix` large `rrad1` is `radiation_global_relative_last_1h` (new), the global
+  radiation of the last hour relative to that at the top of the atmosphere, no longer
+  `probability_radiation_global_last_1h`. `dwd/poi` `past_weather_1` and `past_weather_2` are
+  `weather_past` and `weather_secondary_past` (new): their window is 6 hours in the reports of
+  00, 06, 12 and 18 UTC and 3 hours in the others, not `weather_last_3h` and
+  `weather_secondary_last_3h`. `dwd/swsmos` `RR6`, DWD's liquid precipitation of the last 6 hours,
+  is `precipitation_amount_liquid_last_6h` (new), no longer `precipitation_amount_last_6h`. The
+  retired names answer with the one to use (GH-2843, GH-2844, GH-2845)
+- **Breaking**: `rmi/observation` `temp_grass_pt100_avg`, RMI's "average temperature measured on
+  the grass" (10 minutes, hourly, daily), is `temperature_surface_mean`, a surface temperature,
+  no longer `temperature_air_mean_0_05m`. Request the new name (GH-2846)
+- **Breaking**: the daily totals of potential evapotranspiration, `meteoswiss/observation` daily
+  `erefaod0` and `dwd/derived` daily `vpgfao` and `vpgh`, are
+  `evapotranspiration_potential_grass_fao` and `evapotranspiration_potential_grass_haude`, as the
+  monthly ones are, no longer the `_last_24h` names, which no source serves now and which stay for
+  one that publishes a trailing 24 hours at a sub-daily timestamp. Request the plain names
+  (GH-2847)
 - The `restapi` extra needs `starlette>=1.3` (was `>=0.46`): the first release whose test client
   takes `httpx2`. A host that pins an older starlette upgrades it (GH-3013)
 

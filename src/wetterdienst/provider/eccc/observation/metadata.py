@@ -64,7 +64,7 @@ EcccObservationMetadata = {
                         {
                             # published in tens of degrees, decoded in the parser like the daily
                             # gust direction
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_2min",
                             "name_original": "wind_direction",
                             "unit": "degree",
                         },

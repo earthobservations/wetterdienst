@@ -108,6 +108,24 @@ def test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes(monkeypatch: py
             MeteoFranceSynopRequest(parameters=[("subdaily", "data", old)])
 
 
+def test_meteofrance_synop_api_gust_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that raf10 comes back as the gust of the last 10 minutes it is, no gust of the interval (GH-2836).
+
+    The sheet says "raf10 rafales sur les 10 dernières minutes" beside "rafper rafales sur une période", and raf10
+    is below rafper in 77 % of the 141873 pairs of synop_2024.csv.gz in which both are given. The rows are
+    made after those of Toulouse-Blagnac (07630). The old name is not found in the dataset.
+    """
+    rows = [
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "raf10": "4.1", "rafper": "6.2"},
+        {"geo_id_wmo": "07005", "validity_time": "2024-01-01T03:00:00Z", "raf10": "3.0", "rafper": "3.0"},
+    ]
+    df = _values(monkeypatch, rows, ["wind_gust_max_last_10min"])
+    assert df.get_column("parameter").unique().to_list() == ["wind_gust_max_last_10min"]
+    assert df.get_column("value").to_list() == [4.1, 3.0]
+    with pytest.raises(InvalidParameterError):
+        MeteoFranceSynopRequest(parameters=[("subdaily", "data", "wind_gust_max")])
+
+
 def test_meteofrance_synop_api_calm_wind_direction_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that dd=0 has no direction, whatever ff is, where 360 is north and the other directions stay (GH-2856).
 

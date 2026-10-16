@@ -34,7 +34,7 @@
 | {term}`cloud_cover_total`                                  | n             | Total cloud cover                                                               | %     | >=0,<=100   |
 | {term}`precipitation_amount_significant_weather_last_1h`   | rr1c          | Total precipitation during the last hour consistent with significant weather    | kg/m² | >=0         |
 | {term}`precipitation_amount_significant_weather_last_3h`   | rr3c          | Total precipitation during the last 3 hours consistent with significant weather | kg/m² | >=0         |
-| {term}`pressure_air_site_reduced`                          | pppp          | Surface pressure, reduced                                                       | Pa    | >=0         |
+| {term}`pressure_air_sea_level`                             | pppp          | Surface pressure, reduced                                                       | Pa    | >=0         |
 | {term}`probability_fog_last_1h`                            | wwm           | Probability for fog within the last hour                                        | %     | >=0,<=100   |
 | {term}`probability_fog_last_6h`                            | wwm6          | Probability for fog within the last 6 hours                                     | %     | >=0,<=100   |
 | {term}`probability_fog_last_12h`                           | wwmh          | Probability for fog within the last 12 hours                                    | %     | >=0,<=100   |
@@ -103,7 +103,7 @@
 | {term}`precipitation_amount_significant_weather_last_6h`         | rr6c          | Total precipitation during the last 6 hours consistent with significant weather     | kg/m² | >=0         |
 | {term}`precipitation_amount_significant_weather_last_12h`        | rrhc          | Total precipitation during the last 12 hours consistent with significant weather    | kg/m² | >=0         |
 | {term}`precipitation_amount_significant_weather_last_24h`        | rrdc          | Total precipitation during the last 24 hours consistent with significant weather    | kg/m² | >=0         |
-| {term}`pressure_air_site_reduced`                                | pppp          | Surface pressure, reduced                                                           | Pa    | >=0         |
+| {term}`pressure_air_sea_level`                                   | pppp          | Surface pressure, reduced                                                           | Pa    | >=0         |
 | {term}`probability_drizzle_last_1h`                              | wwz           | Probability: Occurrence of drizzle within the last hour                             | %     | >=0,<=100   |
 | {term}`probability_drizzle_last_6h`                              | wwz6          | Probability: Occurrence of drizzle within the last 6 hours                          | %     | >=0,<=100   |
 | {term}`probability_drizzle_last_12h`                             | wwzh          | Probability: Occurrence of drizzle within the last 12 hours                         | %     | >=0,<=100   |
@@ -154,7 +154,7 @@
 | {term}`probability_precipitation_stratiform_last_1h`             | wwd           | Probability: Occurrence of stratiform precipitation within the last hour            | %     | >=0,<=100   |
 | {term}`probability_precipitation_stratiform_last_6h`             | wwd6          | Probability: Occurrence of stratiform precipitation within the last 6 hours         | %     | >=0,<=100   |
 | {term}`probability_precipitation_stratiform_last_12h`            | wwdh          | Probability: Occurrence of stratiform precipitation within the last 12 hours        | %     | >=0,<=100   |
-| {term}`probability_radiation_global_last_1h`                     | rrad1         | Global irradiance within the last hour                                              | %     | >=0,<=100   |
+| {term}`radiation_global_relative_last_1h`                        | rrad1         | Global irradiance within the last hour                                              | %     | >=0,<=100   |
 | {term}`probability_sunshine_duration_relative_gt_0pct_last_24h`  | psd00         | Probability: relative sunshine duration > 0 % within 24 hours                       | %     | >=0,<=100   |
 | {term}`probability_sunshine_duration_relative_gt_30pct_last_24h` | psd30         | Probability: relative sunshine duration > 30 % within 24 hours                      | %     | >=0,<=100   |
 | {term}`probability_sunshine_duration_relative_gt_60pct_last_24h` | psd60         | Probability: relative sunshine duration > 60 % within 24 hours                      | %     | >=0,<=100   |

@@ -412,7 +412,8 @@ def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypat
     The rows are the file's own for station 31069001 (Toulouse-Blagnac) at 2025-01-01 02 h, 2025-01-01 09 h
     (FF = 0.0, DD = 0, with a gust from 320) and 2025-01-03 07 h (DD = 360), and for 31042012 (Luchon) at
     2025-01-31 05 h, where FF, DD, FXY and DXY all read zero. The field descriptions give the directions
-    "en rose de 360" and no code for a calm wind.
+    "en rose de 360" and no code for a calm wind. DXY, the direction of FXY, is in the file and is not read
+    (GH-2836): the hourly `wind_direction_gust_max` is not found.
     """
     latest = [
         {"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010102", "FF": "2.2", "DD": "10", "FXY": "2.5", "DXY": "140"},
@@ -425,10 +426,9 @@ def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypat
     df = _values("hourly", "core", "wind_direction_last_10min", "31069001", start, end)
     assert df.get_column("timestamp").to_list() == [_utc(2025, 1, 1, 2), _utc(2025, 1, 3, 7)]
     assert df.get_column("value").to_list() == [10.0, 360.0]
-    df = _values("hourly", "core", "wind_direction_gust_max", "31069001", start, end)
-    assert df.get_column("value").to_list() == [140.0, 320.0, 340.0]
-    for parameter in ("wind_direction_last_10min", "wind_direction_gust_max"):
-        assert _values("hourly", "core", parameter, "31042012", start, end).is_empty()
+    assert _values("hourly", "core", "wind_direction_last_10min", "31042012", start, end).is_empty()
+    with pytest.raises(InvalidParameterError):
+        MeteoFranceObservationRequest(parameters=[("hourly", "core", "wind_direction_gust_max")])
 
 
 def test_meteofrance_observation_api_hourly_variable_wind_direction_is_null(monkeypatch: pytest.MonkeyPatch) -> None:

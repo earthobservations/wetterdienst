@@ -64,7 +64,7 @@ DwdMosmixMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site_reduced",
+                            "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
                         },
@@ -331,7 +331,7 @@ DwdMosmixMetadata = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site_reduced",
+                            "name": "pressure_air_sea_level",
                             "name_original": "pppp",
                             "unit": "pascal",
                         },
@@ -586,7 +586,7 @@ DwdMosmixMetadata = {
                             "unit": "percent",
                         },
                         {
-                            "name": "probability_radiation_global_last_1h",
+                            "name": "radiation_global_relative_last_1h",
                             "name_original": "rrad1",
                             "unit": "percent",
                         },

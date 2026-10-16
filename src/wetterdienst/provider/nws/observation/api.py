@@ -79,22 +79,22 @@ NwsObservationMetadata = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_last_2min",
                             "name_original": "winddirection",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_last_2min",
                             "name_original": "windspeed",
                             "unit": "kilometer_per_hour",
                         },
                         {
-                            "name": "wind_gust_max",
+                            "name": "wind_gust_max_last_10min",
                             "name_original": "windgust",
                             "unit": "kilometer_per_hour",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_reduced",
                             "name_original": "barometricpressure",
                             "unit": "pascal",
                         },

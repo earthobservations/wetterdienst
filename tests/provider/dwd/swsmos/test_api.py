@@ -93,7 +93,7 @@ def test_swsmos_values() -> None:
         "temperature_dew_point_2m",
         "temperature_surface",
         "precipitation_amount_liquid",
-        "precipitation_amount_last_6h",
+        "precipitation_amount_liquid_last_6h",
         "probability_precipitation_liquid_last_6h",
         "probability_precipitation_amount_gt_5mm_last_6h",
         "road_surface_condition",

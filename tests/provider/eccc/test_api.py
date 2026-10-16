@@ -197,7 +197,7 @@ def test_eccc_hourly_returns_data(options_convert_units_false: Options) -> None:
     pressure = df.filter(pl.col("parameter") == "pressure_air_site").get_column("value").drop_nulls()
     assert 80 < pressure.max() < 110
     # published in tens of degrees; without the decode every bearing sits inside 0..36
-    direction = df.filter(pl.col("parameter") == "wind_direction").get_column("value").drop_nulls()
+    direction = df.filter(pl.col("parameter") == "wind_direction_last_2min").get_column("value").drop_nulls()
     assert direction.max() > 36
 
 
@@ -1263,16 +1263,16 @@ def test_eccc_hourly_wind_direction_of_0_is_a_calm_and_null_and_36_is_north(monk
     ]
     _serve_eccc(monkeypatch, rows)
     request = EcccObservationRequest(
-        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        parameters=[("hourly", "data", "wind_direction_last_2min"), ("hourly", "data", "wind_speed")],
         start=dt.datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2019, 1, 9, tzinfo=ZoneInfo("UTC")),
         options=Options(convert_units=False, drop_nulls=False),
     )
     df = request.filter_by_station_id("51459").values.all().df
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
-        ("wind_direction", 310.0, None),
-        ("wind_direction", 360.0, None),
-        ("wind_direction", None, "raw:0"),
+        ("wind_direction_last_2min", 310.0, None),
+        ("wind_direction_last_2min", 360.0, None),
+        ("wind_direction_last_2min", None, "raw:0"),
         ("wind_speed", 29.0, None),
         ("wind_speed", 12.0, None),
         ("wind_speed", 0.0, None),

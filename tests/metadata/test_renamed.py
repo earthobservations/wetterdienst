@@ -14,13 +14,21 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, MetadataModel, _find, _not_found, _spot_name, parse_parameters
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata
+from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.provider.dwd.poi.metadata import DwdPoiMetadata
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
+from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
+from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
+from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
+from wetterdienst.provider.metoffice.observation import MetOfficeObservationMetadata
+from wetterdienst.provider.nws.observation import NwsObservationMetadata
+from wetterdienst.provider.rmi.observation import RmiObservationMetadata
 
 
 def test_renamed_parameters_point_from_a_retired_name_to_a_canonical_one() -> None:
@@ -180,6 +188,83 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
             KnmiObservationMetadata,
             "hourly/data/wind_direction",
             "It was renamed to 'wind_direction_last_10min' in this dataset.",
+        ),
+        # GH-2836: the 10-minute gust of four providers, whose plain `wind_gust_max` is the interval's
+        (
+            FmiObservationMetadata,
+            "hourly/data/wind_gust_max",
+            "It was renamed to 'wind_gust_max_last_10min' in this dataset.",
+        ),
+        (
+            MeteoFranceSynopMetadata,
+            "subdaily/data/wind_gust_max",
+            "It was renamed to 'wind_gust_max_last_10min' in this dataset.",
+        ),
+        (
+            MetOfficeObservationMetadata,
+            "hourly/weather/wind_gust_max",
+            "It was renamed to 'wind_gust_max_last_10min' in this dataset.",
+        ),
+        (
+            NwsObservationMetadata,
+            "hourly/data/wind_gust_max",
+            "It was renamed to 'wind_gust_max_last_10min' in this dataset.",
+        ),
+        # GH-2837: the ASOS's 2-minute averages
+        (
+            NwsObservationMetadata,
+            "hourly/data/wind_speed",
+            "It was renamed to 'wind_speed_last_2min' in this dataset.",
+        ),
+        (
+            NwsObservationMetadata,
+            "hourly/data/wind_direction",
+            "It was renamed to 'wind_direction_last_2min' in this dataset.",
+        ),
+        # GH-2840, GH-2842: the altimeter setting and the reduced pressure of MOSMIX and DMO
+        (
+            NwsObservationMetadata,
+            "hourly/data/pressure_air_site",
+            "It was renamed to 'pressure_air_site_reduced' in this dataset.",
+        ),
+        (
+            DwdMosmixMetadata,
+            "hourly/small/pressure_air_site_reduced",
+            "It was renamed to 'pressure_air_sea_level' in this dataset.",
+        ),
+        (
+            DwdDmoMetadata,
+            "hourly/icon/pressure_air_site_reduced",
+            "It was renamed to 'pressure_air_sea_level' in this dataset.",
+        ),
+        # GH-2843, GH-2844: names no dataset has any more
+        (
+            DwdMosmixMetadata,
+            "hourly/large/probability_radiation_global_last_1h",
+            "It was renamed to 'radiation_global_relative_last_1h'.",
+        ),
+        (DwdPoiMetadata, "hourly/data/weather_last_3h", "It was renamed to 'weather_past'."),
+        (DwdPoiMetadata, "hourly/data/weather_secondary_last_3h", "It was renamed to 'weather_secondary_past'."),
+        # GH-2845, GH-2846, GH-2847
+        (
+            DwdSwsmosMetadata,
+            "hourly/data/precipitation_amount_last_6h",
+            "It was renamed to 'precipitation_amount_liquid_last_6h' in this dataset.",
+        ),
+        (
+            RmiObservationMetadata,
+            "10_minutes/data/temperature_air_mean_0_05m",
+            "It was renamed to 'temperature_surface_mean' in this dataset.",
+        ),
+        (
+            MeteoswissObservationMetadata,
+            "daily/data/evapotranspiration_potential_grass_fao_last_24h",
+            "It was renamed to 'evapotranspiration_potential_grass_fao' in this dataset.",
+        ),
+        (
+            DwdDerivedMetadata,
+            "daily/soil/evapotranspiration_potential_grass_haude_last_24h",
+            "It was renamed to 'evapotranspiration_potential_grass_haude' in this dataset.",
         ),
         # GH-2673: a `_mean_` temperature that moved to the spot name, which difflib took for another
         # quantity: the minimum, the 20 cm soil and the 10 cm grass temperature

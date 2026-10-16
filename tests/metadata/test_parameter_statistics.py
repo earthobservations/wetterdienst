@@ -29,15 +29,23 @@ from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.source_descriptions import DERIVED_DESCRIPTIONS, SOURCE_DESCRIPTIONS
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata
+from wetterdienst.provider.dwd.derived import DwdDerivedMetadata
 from wetterdienst.provider.dwd.dmo import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata
+from wetterdienst.provider.dwd.road import DwdRoadMetadata
+from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
+from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
+from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
+from wetterdienst.provider.metoffice.observation import MetOfficeObservationMetadata
+from wetterdienst.provider.nws.observation import NwsObservationMetadata
+from wetterdienst.provider.rmi.observation import RmiObservationMetadata
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
 
 # a dataset whose own interval is one of these needs no qualifier for a window of that many hours
@@ -479,18 +487,22 @@ def test_a_window_name_must_end_where_the_window_does() -> None:
 # a mean over a stated number of minutes, in the words the wind rows use: DWD "10-minute mean" and
 # "10-Min-Mittel", POI "Mean wind speed over the last 10 minutes", AEMET "Mean wind speed ... over the 10
 # minutes preceding 'fint'", FMI and SMHI "Mean over 10 minutes", Météo-France "averaged over 10 minutes",
-# MET Norway "over the last ten minutes". "the average of the six 10-minute intervals" of DWD's urban
+# MET Norway "over the last ten minutes", NWS "the 2-minute average of the ASOS" and ECCC "the average of the
+# two minutes ending at the time of observation". "the average of the six 10-minute intervals" of DWD's urban
 # hourly sheets is the mean of the whole hour, not of a window in it
 _WIND_MEAN_WINDOW = re.compile(
     # the window follows the mean in the same sentence
     r"\b(?:mean|average|averaged)\b(?:(?!\.\s).){0,100}?"
-    r"\b(?P<before>\d+|one|ten)[ -]?min(?:ute)?s?\b(?![ -]*intervals\b)"
-    r"|\b(?P<after>\d+|one|ten)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average|mittel)",
+    r"\b(?P<before>\d+|one|two|ten)[ -]?min(?:ute)?s?\b(?![ -]*intervals\b)"
+    r"|\b(?P<after>\d+|one|two|ten)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average|mittel)",
     re.IGNORECASE,
 )
-_NUMBER_WORDS = {"one": 1, "ten": 10}
+_NUMBER_WORDS = {"one": 1, "two": 2, "ten": 10}
 _TEN_MINUTES = re.compile(r"\b(?:10|ten)[ -]?min(?:ute)?s?\b", re.IGNORECASE)
 _WIND_MEAN_NAMES = {"wind_speed": "wind_speed_last_10min", "wind_direction": "wind_direction_last_10min"}
+_TWO_MINUTES = re.compile(r"\b(?:2|two)[ -]?min(?:ute)?s?\b", re.IGNORECASE)
+_TWO_MINUTE_WIND_NAMES = {"wind_speed_last_2min", "wind_direction_last_2min"}
+_GUST_LAST_10MIN = "wind_gust_max_last_10min"
 
 # Rows named `wind_speed` or `wind_direction` below daily resolution whose source states a mean over a window
 # shorter than the row's interval, found by the rule below and left as they are by the change that found them.
@@ -527,8 +539,8 @@ def _shorter_wind_mean_sites() -> list[str]:
 def test_a_wind_mean_over_a_shorter_window_is_not_named_the_interval_mean() -> None:
     """`wind_speed` and `wind_direction` state no window shorter than the row's interval.
 
-    A source that does state one takes `_last_10min`. The table's `wind_speed` is the "mean speed of the wind
-    over the period", so DWD's hourly `ff`
+    A source that does state one takes `_last_10min` (`_last_2min` for two minutes). The table's `wind_speed` is
+    the "mean speed of the wind over the period", so DWD's hourly `ff`
     ("10-Min-Mittel der Windgeschwindigkeit"), DWD POI's "Mean wind speed over the last 10 minutes" and
     AEMET's "over the 10 minutes preceding 'fint'" handed a caller the 10 minutes before the hour as though
     it were the hour's mean (GH-2697). The rule is the one for temperatures (GH-2660): a mean over a window
@@ -556,6 +568,142 @@ def test_the_ten_minute_wind_names_are_for_a_window_the_source_states() -> None:
         elif _INTERVAL_MINUTES.get(resolution, 0) <= 10:
             wrong.append(f"{site}: named for a window shorter than the interval, but the interval is {resolution}")
     assert not wrong, "\n".join(wrong)
+
+
+def test_the_two_minute_wind_names_are_for_a_window_the_source_states() -> None:
+    """`wind_speed_last_2min` and `wind_direction_last_2min` are only for a stated 2 minutes in a longer row."""
+    seen = set()
+    wrong = []
+    for site, resolution, parameter, evidence in _sourced_parameters():
+        if parameter.name not in _TWO_MINUTE_WIND_NAMES:
+            continue
+        seen.add(parameter.name)
+        if not _TWO_MINUTES.search(evidence):
+            wrong.append(f"{site}: named a 2-minute mean, but the source says {evidence!r}")
+        elif _INTERVAL_MINUTES.get(resolution, 0) <= 2:
+            wrong.append(f"{site}: named for a window shorter than the interval, but the interval is {resolution}")
+    assert not wrong, "\n".join(wrong)
+    assert seen == _TWO_MINUTE_WIND_NAMES
+
+
+def test_the_ten_minute_gust_name_is_for_a_window_the_source_states() -> None:
+    """`wind_gust_max_last_10min` is only for a stated 10 minutes in a longer row, and `wind_gust_max` is not one.
+
+    FMI "Maximum over 10 minutes", Météo-France SYNOP "rafales sur les 10 dernières minutes", Met Office "10
+    minute maximum gust speed" and the NWS reportable gust, "the highest gust stored in memory for the past 10
+    minutes", are not the strongest gust of the hour or of the three hours they sit in, which is what the plain
+    name says (GH-2836). Other providers' `wind_gust_max` rows are held to the same: none states a 10-minute
+    window in a row longer than that.
+    """
+    seen = 0
+    wrong = []
+    for site, resolution, parameter, evidence in _sourced_parameters():
+        if parameter.name not in (_GUST_LAST_10MIN, "wind_gust_max"):
+            continue
+        says_ten = bool(_TEN_MINUTES.search(evidence))
+        longer = _INTERVAL_MINUTES.get(resolution, 0) > 10
+        if parameter.name == _GUST_LAST_10MIN:
+            seen += 1
+            if not says_ten:
+                wrong.append(f"{site}: named a 10-minute gust, but the source says {evidence!r}")
+            elif not longer:
+                wrong.append(f"{site}: named for a window shorter than the interval, but the interval is {resolution}")
+        elif says_ten and longer:
+            wrong.append(f"{site}: the source states 10 minutes ({evidence!r}), the name is the interval's gust")
+    assert not wrong, "\n".join(wrong)
+    assert seen == 4
+
+
+def test_nws_eccc_and_the_gust_rows_name_their_windows() -> None:
+    """The rows GH-2836 and GH-2837 name, and the ones they leave.
+
+    NWS `windspeed` and `winddirection` are the ASOS's 2-minute averages and `windgust` its 10-minute peak. ECCC's
+    hourly direction is "the average direction during the two minute period ending at the time of observation",
+    where its speed is the average of "the one-, two- or ten-minute period" and keeps `wind_speed`, as
+    `noaa/ghcn` does, for which the GHCNh documentation states no window.
+    """
+    nws = {p.name_original: p.name for p in NwsObservationMetadata["hourly"]["data"]}
+    assert nws["windspeed"] == "wind_speed_last_2min"
+    assert nws["winddirection"] == "wind_direction_last_2min"
+    assert nws["windgust"] == "wind_gust_max_last_10min"
+    eccc = {p.name_original: p.name for p in EcccObservationMetadata["hourly"]["data"]}
+    assert eccc["wind_direction"] == "wind_direction_last_2min"
+    assert eccc["wind_speed"] == "wind_speed"
+    fmi = {p.name_original: p.name for p in FmiObservationMetadata["hourly"]["data"]}
+    assert fmi["wg_10min"] == "wind_gust_max_last_10min"
+    metoffice = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["weather"]}
+    assert metoffice["q10mnt_mxgst_spd"] == "wind_gust_max_last_10min"
+    # the hourly weather wind says no window of its own (the WM page says the SYNOP and METAR winds are kept here,
+    # which no data could be checked against without a CEDA login), and the whole-hour gust of the wind table is plain
+    assert metoffice["wind_speed"] == "wind_speed"
+    assert metoffice["wind_direction"] == "wind_direction"
+    metoffice_wind = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["wind"]}
+    assert metoffice_wind["max_gust_speed"] == "wind_gust_max"
+
+
+def test_dwd_road_wind_keeps_the_names_of_its_interval() -> None:
+    """DWD road wind has no `_last_10min` name: the template's averaging period is not one for the dataset (GH-2838).
+
+    The BUFR template of the road messages puts a time significance and a period before the wind: of the 23 station
+    groups read on 2026-10-15, FN, ER, HL, HV, JO, KA, KO, MC, NI, RH, RP and SD say a mean over the last 10 minutes,
+    HJ, KK and SH a mean over 15 (and some subsets of KK and SH none), and DD, JA, KM, LH, ND, RB, SP and WW a time
+    averaged value over a period of 0. The dataset merges the groups under one name, so none of the three can
+    state the window of every row.
+    """
+    road = {p.name_original: p.name for p in DwdRoadMetadata["15_minutes"]["data"]}
+    assert road["windSpeed"] == "wind_speed"
+    assert road["windDirection"] == "wind_direction"
+    assert road["maximumWindGustSpeed"] == "wind_gust_max"
+
+
+def test_pppp_is_sea_level_pressure_and_the_altimeter_setting_is_not() -> None:
+    """MOSMIX and DMO `pppp` are `pressure_air_sea_level`; NWS `barometricpressure` is `pressure_air_site_reduced`.
+
+    DWD's "Surface pressure, reduced" reads 1022.6 hPa at Hamburg (16 m) and 1027.2 at Munich (515 m) in the
+    MOSMIX_L run of 13 October 2026, 04 UTC, where Munich's own pressure at 515 m would be tens of hPa lower, and
+    it follows the sea-level pressure of the POI reports of the same hours (GH-2842). The NWS
+    endpoint's `barometricPressure` is the altimeter setting of the METAR (A#### x 33.86389 Pa, KATL at 315 m reads
+    101829 Pa), reduced with the standard atmosphere; its `seaLevelPressure` holds the name `pppp` has elsewhere,
+    so it takes `pressure_air_site_reduced`, as `noaa/ghcn`'s `altimeter` does (GH-2840).
+    """
+    for metadata, datasets in ((DwdMosmixMetadata, ("small", "large")), (DwdDmoMetadata, ("icon", "icon_eu"))):
+        for dataset in datasets:
+            names = {p.name_original: p.name for p in metadata["hourly"][dataset]}
+            assert names["pppp"] == "pressure_air_sea_level"
+            assert "pressure_air_site_reduced" not in names.values()
+    nws = {p.name_original: p.name for p in NwsObservationMetadata["hourly"]["data"]}
+    assert nws["barometricpressure"] == "pressure_air_site_reduced"
+    assert nws["sealevelpressure"] == "pressure_air_sea_level"
+    assert "altimeter setting" in PARAMETERS["pressure_air_site_reduced"].description
+
+
+def test_the_renamed_names_of_the_audit_are_each_a_row() -> None:
+    """GH-2843 to GH-2847: the rows the audit of GH-2614 renamed, each by the source's own field."""
+    mosmix = {p.name_original: p.name for p in DwdMosmixMetadata["hourly"]["large"]}
+    # RRad1, "Global irradiance within the last hour" in %, never exceeds 80 and follows the clearness index
+    assert mosmix["rrad1"] == "radiation_global_relative_last_1h"
+    assert "probability_radiation_global_last_1h" not in PARAMETERS
+    poi = {p.name_original: p.name for p in DwdPoiMetadata["hourly"]["data"]}
+    assert poi["past_weather_1"] == "weather_past"
+    assert poi["past_weather_2"] == "weather_secondary_past"
+    assert "weather_last_3h" not in PARAMETERS
+    assert "weather_secondary_last_3h" not in PARAMETERS
+    swsmos = {p.name_original: p.name for p in DwdSwsmosMetadata["hourly"]["data"]}
+    assert swsmos["RR6"] == "precipitation_amount_liquid_last_6h"
+    assert swsmos["RRL1c"] == "precipitation_amount_liquid"
+    for resolution in ("10_minutes", "hourly", "daily"):
+        rmi = {p.name_original: p.name for p in RmiObservationMetadata[resolution]["data"]}
+        assert rmi["temp_grass_pt100_avg"] == "temperature_surface_mean"
+        assert "temperature_air_mean_0_05m" not in rmi.values()
+    swiss = {p.name_original: p.name for p in MeteoswissObservationMetadata["daily"]["data"]}
+    assert swiss["erefaod0"] == "evapotranspiration_potential_grass_fao"
+    derived = {p.name_original: p.name for p in DwdDerivedMetadata["daily"]["soil"]}
+    assert derived["vpgfao"] == "evapotranspiration_potential_grass_fao"
+    assert derived["vpgh"] == "evapotranspiration_potential_grass_haude"
+    # the monthly totals of the same fields were never windowed
+    monthly = {p.name_original: p.name for p in DwdDerivedMetadata["monthly"]["soil"]}
+    assert monthly["summe von vpgfao"] == "evapotranspiration_potential_grass_fao"
+    assert monthly["summe von vpgh"] == "evapotranspiration_potential_grass_haude"
 
 
 def test_dwd_poi_and_aemet_hourly_and_dwd_synoptic_wind_name_their_ten_minutes() -> None:
@@ -622,12 +770,13 @@ def test_meteofrance_synop_wind_names_its_ten_minutes() -> None:
     """The rows GH-2733 names: SYNOP `dd` and `ff`, "direction du vent moyen 10 min" and "vitesse du vent moyen 10 min".
 
     The sheet states the 10 minutes for both, and the files agree: `dd` equals the hourly `DD` and `ff` the hourly
-    `FF` cut to the integer at the same stamp. The gust `raf10` is not a mean and keeps its name.
+    `FF` cut to the integer at the same stamp. The gust `raf10`, "rafales sur les 10 dernières minutes", is
+    no mean, and is `wind_gust_max_last_10min` (GH-2836).
     """
     subdaily = {p.name_original: p.name for p in MeteoFranceSynopMetadata["subdaily"]["data"]}
     assert subdaily["dd"] == "wind_direction_last_10min"
     assert subdaily["ff"] == "wind_speed_last_10min"
-    assert subdaily["raf10"] == "wind_gust_max"
+    assert subdaily["raf10"] == "wind_gust_max_last_10min"
 
 
 def test_knmi_hourly_wind_direction_names_its_ten_minutes() -> None:
@@ -651,12 +800,13 @@ def test_meteofrance_hourly_fxy_is_the_highest_ten_minute_mean_not_a_gust() -> N
     The hour's highest 10-minute mean is no gust: in the hourly files of department 31 (2020 to 2026) `FXY` is
     at least `FF` in 99.9993 % of the rows and its mean (3.69 m/s) lies between that of `FF` (2.91 m/s) and those
     of the 3-second gust `FXI3S` (5.61 m/s) and the instantaneous gust `FXI` (6.03 m/s). The hourly gusts `FXI` and
-    `FXI3S` stay unmapped; `DXY`, "direction de FXY", keeps `wind_direction_gust_max`, which has no better name
-    yet (GH-2836). The daily `FXI` is a gust and keeps its name.
+    `FXI3S` stay unmapped; `DXY`, "direction de FXY", is the direction of that mean and no gust's, no canonical
+    name says so, and it is not read (GH-2836). The daily `FXI` is a gust and keeps its name.
     """
     hourly = {p.name_original: p.name for p in MeteoFranceObservationMetadata["hourly"]["core"]}
     assert hourly["FXY"] == "wind_speed_rolling_mean_max"
-    assert hourly["DXY"] == "wind_direction_gust_max"
+    assert "DXY" not in hourly
+    assert "wind_direction_gust_max" not in hourly.values()
     assert "FXI" not in hourly
     assert "FXI3S" not in hourly
     assert "wind_gust_max" not in hourly.values()
@@ -679,6 +829,8 @@ def test_the_wind_mean_window_regex_reads_the_sources_wording() -> None:
         ("Mean wind direction over the last ten minutes before the observation time.", "hourly"),
         ("Past 10 minute mean wind direction, representative for 10 meters. DD", "hourly"),
         ("Wind speed. One minute mean, every minute.", "10_minutes"),
+        ("wind speed, the 2-minute average of the ASOS", "hourly"),
+        ("wind direction, the average of the two minutes ending at the time of observation", "hourly"),
     ):
         assert _states_a_shorter_wind_mean(evidence, resolution), evidence
     for evidence, resolution in (

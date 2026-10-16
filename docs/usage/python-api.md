@@ -656,7 +656,7 @@ The table lists the plain codes and the further kinds; the `raw:` tokens are in 
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount`, a trace (0.0) |
 | Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
-| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` and `DXY` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
+| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
 | Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
 | RMI | a value outside the range of its parameter, such as the 4021 degrees of a daily maximum (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |

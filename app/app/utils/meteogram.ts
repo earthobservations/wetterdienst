@@ -235,7 +235,7 @@ export const METEOGRAM_SERIES = {
   cloudCoverLow: ['cloud_cover_below_2km', 'nl'],
   cloudCoverMid: ['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'],
   cloudCoverHigh: ['cloud_cover_above_7km', 'nh'],
-  pressure: ['pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
+  pressure: ['pressure_air_sea_level', 'pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
 } as const satisfies Record<string, readonly string[]>
 
 /**

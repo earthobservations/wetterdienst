@@ -882,7 +882,7 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     body = json.dumps({"features": [{"type": "Feature", "properties": row} for row in rows]}).encode()
     serve(monkeypatch, eccc_api, {"climate-hourly": body})
     request = EcccObservationRequest(
-        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        parameters=[("hourly", "data", "wind_direction_last_2min"), ("hourly", "data", "wind_speed")],
         start=_day(2019, 1, 1),
         end=_day(2019, 1, 9),
         settings=_settings(),
@@ -1452,10 +1452,10 @@ STUBS = [
     ValueStub(
         "nws/observation hourly/data",
         _nws_hourly,
-        reading=("wind_direction", 360.0),
-        sentinels=(("wind_direction", 0.0),),
+        reading=("wind_direction_last_2min", 360.0),
+        sentinels=(("wind_direction_last_2min", 0.0),),
         # a calm is no direction; the speed of 0 is a reading
-        tokens=(("wind_direction", "0", None),),
+        tokens=(("wind_direction_last_2min", "0", None),),
     ),
     ValueStub(
         "smhi/observation hourly/data",
@@ -1508,10 +1508,10 @@ STUBS = [
     ValueStub(
         "eccc/observation hourly/data",
         _eccc_hourly,
-        reading=("wind_direction", 310.0),
+        reading=("wind_direction_last_2min", 310.0),
         # a calm has no direction; the speed of 0 is a reading
-        sentinels=(("wind_direction", 0.0),),
-        tokens=(("wind_direction", "0", None),),
+        sentinels=(("wind_direction_last_2min", 0.0),),
+        tokens=(("wind_direction_last_2min", "0", None),),
     ),
     ValueStub(
         "aemet/observation daily/data",

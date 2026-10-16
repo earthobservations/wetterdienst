@@ -22,6 +22,18 @@ Types of changes:
   `errors`, one line for each invalid parameter, and else `detail`, which is text. The proxy answers
   a backend it cannot reach as a problem too (`type`, `title`, `status`, `detail`). It still reads
   the list a backend from before the change put under `detail` (GH-2634)
+- `[Meteogram]` The pressure panel reads MOSMIX `pressure_air_sea_level`, the name the backend gives
+  `pppp` in the release following 0.154.0, and keeps `pressure_air_site_reduced` as a fallback:
+  against an older backend it works as before, but an app older than this one against the new
+  backend draws no pressure panel (GH-2842)
+- `[Glossary]` The new parameters `wind_gust_max_last_10min`, `wind_speed_last_2min`,
+  `wind_direction_last_2min`, `radiation_global_relative_last_1h`, `weather_past`,
+  `weather_secondary_past` and `precipitation_amount_liquid_last_6h` have a label in all 11
+  languages, `pressure_air_site_reduced` says sea level with the standard atmosphere and
+  `temperature_surface_mean` a surface, ground or grass, where it said the ground. The
+  labels of `probability_radiation_global_last_1h`, `weather_last_3h` and
+  `weather_secondary_last_3h` are gone with those names: against an older backend the prettified id
+  shows (GH-2836, GH-2837, GH-2840, GH-2843, GH-2844, GH-2845)
 
 ### Fixed
 
