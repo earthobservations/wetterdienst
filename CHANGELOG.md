@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- `wetterdienst stations` no longer takes `--lead-time` and `--issue`, which 0.156.0 added, and
+  the MCP `stations` tool no longer takes `lead_time` and `issue`: they never changed the list, the
+  run being chosen for `values`. Drop the flag or argument, or pass it to `values`; `wetterdienst
+  stations --lead-time=...` now fails with click's `No such option`, and a tool call with either
+  with a tool error. `/api/stations` still accepts them and its OpenAPI document now says it
+  ignores them (GH-3056)
 - **Breaking**: a download that did not answer is a `DownloadError`, where it was logged and read as
   no data, in the `metno/frost` values and the AEMET and KNMI station lists: a timeout, a dropped
   connection, a body cut short and a 5xx. A TLS failure (a certificate that does not verify) is one

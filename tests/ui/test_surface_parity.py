@@ -625,6 +625,14 @@ _CLI_ONLY_OF = {
 _REST_ONLY_OF = {
     core.CoverageRequest: {"pretty": "the command line always indents"},
 }
+#: fields REST accepts and ignores, which the command and the tool therefore do not take (GH-3056): REST has
+#: accepted them since before 0.155.0, and a model forbidding extras would answer its callers with a 422
+_ACCEPTED_AND_IGNORED = {
+    core.StationsRequest: {
+        "lead_time": "the stations of a forecast network are the same for every run, which `values` chooses",
+        "issue": "the stations of a forecast network are the same for every run, which `values` chooses",
+    },
+}
 _NO_COMMAND = {
     core.StripesValuesRequest: "the data of the stripes has no command: `stripes values` writes the image",
     core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
@@ -697,18 +705,22 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
     # the endpoint takes the fields, and the tool is the endpoint
     parameters = {p["name"]: p for p in restapi.app.openapi()["paths"][_versioned(endpoint)]["get"]["parameters"]}
     assert set(parameters) == set(fields)
+    ignored = _ACCEPTED_AND_IGNORED.get(model, {})
+    for name in ignored:
+        assert "ignored" in parameters[name]["description"], "REST says it ignores what it accepts and ignores"
+    taken = set(fields) - set(ignored)
     if tool is not None:
         arguments = _tools()[tool]["properties"]
-        assert set(arguments) == set(fields)
+        assert set(arguments) == taken
         assert {name: _kind(argument) for name, argument in arguments.items()} == {
-            name: _kind(schema[name]) for name in fields
+            name: _kind(schema[name]) for name in taken
         }
 
     if path is None:
         assert model in _NO_COMMAND
         return
     options = _cli_options(path)
-    rest_only = _REST_ONLY_OF.get(model, {})
+    rest_only = {**_REST_ONLY_OF.get(model, {}), **ignored}
     cli_only = {**_CLI_ONLY, **_CLI_ONLY_OF.get(path, {})}
     assert set(fields) - set(options) == set(rest_only), "a field without an option is written down with its reason"
     assert set(options) - set(fields) <= set(cli_only), "an option without a field is written down with its reason"
@@ -1029,6 +1041,52 @@ def test_an_option_that_was_never_renamed_is_clicks_own_refusal(command: str, op
     assert result.exit_code == 2, result.output
     assert "was renamed" not in result.output
     assert f"No such option '{option}'" in result.output
+
+
+@pytest.mark.parametrize("option", ["--lead-time", "--issue"])
+def test_stations_on_the_command_line_do_not_take_the_run(option: str) -> None:
+    """`stations` has no `--lead-time` and `--issue`, the run being chosen for `values`, which has them (GH-3056).
+
+    0.156.0 added them to satisfy the parity test, and they changed nothing in the list.
+    """
+    result = _cli("stations", "--all", f"{option}=long")
+    assert result.exit_code == 2, result.output
+    assert f"No such option '{option}'" in result.output
+    assert {"lead_time", "issue"} <= set(_cli_options(("values",)))
+
+
+@pytest.mark.parametrize("name", ["lead_time", "issue"])
+def test_stations_over_rest_accept_and_ignore_the_run(name: str) -> None:
+    """`/api/stations` answers a run with the same list as without one (GH-3056).
+
+    REST has accepted them since before 0.155.0, and a model forbidding extras would answer a caller with a 422.
+    """
+    without = _rest_stations(all="true")
+    with_run = _rest_stations(all="true", **{name: "short" if name == "lead_time" else "2026-10-01T11:00"})
+    assert with_run == without
+    parameters = restapi.app.openapi()["paths"][_versioned("/api/stations")]["get"]["parameters"]
+    assert "ignored" in next(p["description"] for p in parameters if p["name"] == name)
+
+
+@pytest.mark.parametrize("name", ["lead_time", "issue"])
+def test_the_stations_tool_refuses_the_run(name: str) -> None:
+    """The MCP `stations` tool does not take the run, and a call giving it is refused, as for any other argument."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            await client.call_tool("stations", {"provider": "dwd", "network": "observation", name: "long"})
+
+    with pytest.raises(ToolError, match=f"{name} is not an argument of stations"):
+        asyncio.run(call())
+    # the tools that read a run keep it
+    assert {"lead_time", "issue"} <= set(_tools()["values"]["properties"])
 
 
 # a failure is the same classification on REST and in the MCP tools (GH-2561, GH-2984)
