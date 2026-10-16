@@ -136,6 +136,20 @@ WEATHER_NOT_REPORTED_PARAMETERS = {
 }
 
 
+# The hourly precipitation form `WRTR` writes 9 where the form is not known, which DWD's sheet words "Missing value,
+# Type of precipitation unascertainable" (the English one; the German "Fehlkennung; fehlender Wert oder
+# Niederschlagsform nicht feststellbar", WMO code 15). It is the missing value of the column, not a form: read
+# 2026-10-16 in 120 of the 2,887 zips of recent/ and historical/ (every sixth, the first 60 of each, 11.3 million rows),
+# 270 rows hold it, and in 261 of them `R1` beside it is -999 too, in 9 it is 0.0 (station 01048, 2021-07-09 17:00 in
+# stundenwerte_RR_01048_19950901_20251231_hist.zip: `1048;2021070917;    3;   0.0;   1;   9;eor`). Only this column
+# (GH-2703): the daily `RSKF` and `RSF` document the same code, but no file holds it (all stations, 2026-10-14), and
+# the precipitation indicators of the minute datasets are 0 to 3.
+PRECIPITATION_FORM_MISSING = 9
+PRECIPITATION_FORM_PARAMETERS = {
+    DwdObservationMetadata.hourly.precipitation.precipitation_form.name_original,
+}
+
+
 # The wind files write 990 in the direction column where there is no direction (hourly: station 00003,
 # 1975-10-16 08:00, `3;1975101608;    5;   1.3; 990;eor`, a speed of 1.3 m/s beside it; 10 minute:
 # station 00198, 1994-05-02 13:50, `198;199405021350;    1;   1.1; 990;eor`). The descriptions
@@ -223,6 +237,7 @@ _MISSING_VALUE = Sentinel("-999")
 _SKY_OBSCURED = Sentinel(SKY_OBSCURED)
 _MOISTURE_MISSING = Sentinel(str(MOISTURE_MISSING))
 _WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
+_PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
 _WIND_DIRECTION_VARIABLE = Sentinel(str(WIND_DIRECTION_VARIABLE))
 _NO_WIND_DIRECTION = Sentinel("0")
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
@@ -342,6 +357,22 @@ COLUMNS_MAPPING = {
 # (read 2026-10-15 in all 636 historical archives). A boolean column of the wide frame, dropped in `_tidy_up_df`.
 WOZ_COLUMN = "woz"
 
+# The hourly air temperature and relative humidity stamps of a period that `Metadaten_Parameter` calls "Stundenwerte in
+# MEZ (MD)" (the eMD archive of the DDR's meteorological service, 80 of the 637 stations, up to 1991) are MEZ, the
+# fixed UTC+1, not UTC, and are shifted by -1 h (GH-2709): against NOAA ISD the value of the stamp HH is the report of
+# HH-1 UTC, 95 to 99.9 % identical at 38 of 39 stations with a twin (5 to 16 % before the shift), and none contradicts.
+# Only this label: the plain `Stundenwerte in MEZ` of 160 stations is UTC in the values at most of the stations checked
+# and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`, per parameter as `TT_TU`
+# and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot carry two clocks, so the shift
+# is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from one boolean column per parameter
+# named here. The rows are flagged `zone:mez`.
+MEZ_MD_PREFIX = "mez_md__"
+
+
+def mez_md_column(parameter: str) -> str:
+    """Name the boolean column of the wide frame that says which stamps of the parameter are MEZ (MD)."""
+    return f"{MEZ_MD_PREFIX}{parameter}"
+
 
 def parse_climate_observations_data(
     files: list[File],
@@ -420,6 +451,8 @@ def _parse_climate_observations_data(  # noqa: C901
             df = _null_station_constant(df, parameter)
     if dataset == DwdObservationMetadata.hourly.weather_phenomena:
         df = clear_sentinels(df, sorted(WEATHER_NOT_REPORTED_PARAMETERS & columns), _WEATHER_NOT_REPORTED)
+    if dataset == DwdObservationMetadata.hourly.precipitation:
+        df = clear_sentinels(df, sorted(PRECIPITATION_FORM_PARAMETERS & columns), _PRECIPITATION_FORM_MISSING)
     for wind_dataset, parameter in WIND_DIRECTION_PARAMETERS:
         if dataset == wind_dataset and parameter in columns:
             df = clear_sentinels(df, [parameter], _WIND_DIRECTION_VARIABLE)
@@ -502,6 +535,25 @@ def _parse_climate_observations_data(  # noqa: C901
             .alias(WOZ_COLUMN)
             if spans
             else pl.lit(value=False).alias(WOZ_COLUMN)
+        )
+    if dataset == DwdObservationMetadata.hourly.temperature_air and isinstance(file, ProductFile):
+        # a column for each parameter the file has, False where it has no span, so that the frames of two files of one
+        # period have the same columns
+        parameters = (
+            DwdObservationMetadata.hourly.temperature_air.temperature_air_2m.name_original,
+            DwdObservationMetadata.hourly.temperature_air.humidity_relative.name_original,
+        )
+        df = df.with_columns(
+            (
+                pl.any_horizontal(
+                    pl.col("timestamp").is_between(first, last, closed="both")
+                    for first, last in file.mez_md_spans[column]
+                )
+                if file.mez_md_spans.get(column)
+                else pl.lit(value=False)
+            ).alias(mez_md_column(column))
+            for column in parameters
+            if column in columns
         )
     return _mez_to_utc(df, file, dataset, period)
 

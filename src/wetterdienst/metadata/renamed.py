@@ -143,6 +143,10 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "weather_secondary_last_3h": "weather_secondary_past",
     # GH-2817: DWD POI's "previous day" wind maximum is the maximum of the 6 hours before the report
     "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h",
+    # GH-3017: the count of the days behind `temperature_air_mean_minmax_2m` and the normal of it, which ECCC builds
+    # from the daily (max + min) / 2 too; no other provider had them, so the old names are no table entries any more
+    "count_days_valid_temperature_air_mean_2m": "count_days_valid_temperature_air_mean_minmax_2m",
+    "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
 }
 
 _WIND_LAST_10MIN = {
@@ -164,6 +168,8 @@ _EXTREMES_MEAN_OF_DAILY = {
     "temperature_air_max_2m": "temperature_air_max_2m_mean",
     "temperature_air_min_2m": "temperature_air_min_2m_mean",
 }
+# GH-2839: a mean computed from the daily extremes, (max + min) / 2, is no mean of the day's readings
+_MIDRANGE_MEAN = {"temperature_air_mean_2m": "temperature_air_mean_minmax_2m"}
 
 #: canonical parameter names renamed inside one dataset, for a name that another dataset of the
 #: provider still has, so that `RENAMED_PARAMETERS` cannot hold it. Keyed by the name of the
@@ -185,6 +191,8 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         ("monthly", "data"): _EXTREMES_MEAN_OF_DAILY,
         ("annual", "data"): _EXTREMES_MEAN_OF_DAILY,
     },
+    "EcccObservationMetadata": {("daily", "data"): _MIDRANGE_MEAN, ("monthly", "data"): _MIDRANGE_MEAN},
+    "GeosphereObservationMetadata": {("daily", "data"): _MIDRANGE_MEAN},
     "DwdMosmixMetadata": {
         ("hourly", "small"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
         ("hourly", "large"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},

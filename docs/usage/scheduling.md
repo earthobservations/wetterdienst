@@ -29,10 +29,13 @@ writes through psycopg 3, which the `postgresql` extra installs; `postgresql+psy
 
 Three properties of the CLI matter for a scheduler:
 
-- **The exit code is meaningful.** A run that finds nothing exits `1` with
-  `No data available for given constraints`. That is the same exit code as a real failure, so a
-  schedule over a station that is merely quiet will look like a broken job. Either pick a query
-  that always returns something, or let the wrapper decide what an empty result means.
+- **The exit code is meaningful.** A run that finds nothing is no failure: it exits `0` with
+  `No data available for given constraints` on stderr and, where the REST API would answer an empty
+  list, the same on stdout -- a schedule that asks for today's value before it is published does not
+  fail. A `--target` is then left as it is: nothing is written, so the table or file keeps what the
+  last run wrote instead of being replaced with an empty one. Exit `1` is for a failure, and `2` for
+  a request that cannot be served as phrased. A wrapper that wants an empty result to count as one
+  tests the output, or the sentence on stderr.
 - **A run without a network connection fails, it does not write an empty result.** When the
   provider cannot be reached the command exits `1` with `No internet connection: could not reach
   <url> (...)`, and the target keeps what the last run wrote, so a dropped connection is not a
