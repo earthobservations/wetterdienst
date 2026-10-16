@@ -26,6 +26,12 @@ Types of changes:
   `ImportError`), so an existing `except` still catches it. New: `StartDateEndDateError` and
   `ImageTooLargeError` are also `ValueError`s, and `ProviderNotFoundError`, `StationNotFoundError`
   and `ApiNotFoundError` are also `LookupError`s (GH-2634)
+- `Wetterdienst.discover()`, `/api/coverage` and `wetterdienst about coverage` without arguments
+  give every network a `name_short`, `country`, `url` and `kind`. `kind` is `observation`,
+  `forecast` or `derived` for a timeseries network, which has stations and values, and `radar` or
+  `alerts` for `dwd/radar` and `dwd/alerts`, the standalone networks that `stations`, `values` and
+  the other timeseries endpoints refuse. The four are null for a network that cannot be imported
+  (GH-2641)
 
 ### Changed
 
@@ -66,6 +72,19 @@ Types of changes:
   running total since the last routine METAR and the winds are 2-minute means; a SPECI nearer the
   full hour than a synoptic METAR takes its 3- and 6-hour amounts with it, see the provider page
   (GH-2857)
+- `meteofrance/observation` stations have a `region`, the code of their département as the registry
+  lists it, with two digits (`09`) or three overseas (`972`); it was null. Corsica's two
+  départements are both `20`, as in the registry (GH-2019)
+- **Breaking**: the listing of every network (`Wetterdienst.discover()`, `/api/coverage` and
+  `wetterdienst about coverage` without arguments, the MCP `coverage` tool) no longer has `valid`.
+  It was `true` for a network without credentials, `false` for missing ones and null for present
+  ones, never checked. Read `configured`, and ask `/api/auth`, `wetterdienst about auth` or
+  `Wetterdienst.is_valid(api)` whether a provider accepts the credentials of one network (GH-2641)
+- **Breaking**: the resolution `6_hour` is `6_hours` (`Resolution.HOUR_6.value`, `metno/frost`), as
+  `10_minutes` is. The old value is not accepted: a `6_hour/data` parameter raises
+  `InvalidParameterError` (which says it was renamed), and
+  `geo_station_distance_resolution_factors={"6_hour": ...}` is refused with the new one named.
+  Write `6_hours/data` for Frost and `{"6_hours": 1.5}` for the factors (GH-2641, GH-2561)
 - `dwd/observation` `hourly/sun` `quality_flags` carry `zone:woz` (`10,zone:woz`) for a stamp of a
   period that DWD's `Metadaten_Parameter` calls "Stundenwerte in WOZ": the station's local true
   solar time, not UTC, at 528 of 636 stations, at 172 of them past 2001-03-31 (to 2006). Stamps
@@ -145,6 +164,11 @@ Types of changes:
   22:00 to 22:50 UTC is the one that is not a copy of a row of the 2000 file; the copy of 00:00 to
   00:50 MEZ of 2000-01-01 was kept in 201 of 226 differing cases. A request that touches 22:00 UTC
   on that day now also reads the 2000 file (GH-2829)
+- A failed lookup of a parameter by attribute (`dataset.klx`) listed the dataset's `quality_*`
+  flags under "Available parameters", which iterating the dataset and `coverage` leave out; they
+  are left out of the list too (GH-2641)
+- The explorer no longer offers `dwd/radar` and `dwd/alerts` as networks to choose, which answer
+  its coverage request with a 404 (GH-2641)
 
 ## [0.154.0] - 2026-10-15
 

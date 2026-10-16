@@ -6,7 +6,7 @@ export type Resolution
     | '10_minutes'
     | '15_minutes'
     | 'hourly'
-    | '6_hour'
+    | '6_hours'
     | 'subdaily'
     | 'daily'
     | 'monthly'
@@ -61,15 +61,24 @@ export interface GlossaryEntry {
   description: string
 }
 
-/** Per-network metadata in the coverage response */
+/**
+ * What a network is, as `GET /api/coverage` lists it: `observation`, `forecast` and `derived` are the
+ * timeseries networks, which have stations and values, `radar` and `alerts` are standalone
+ */
+export type NetworkKind = 'observation' | 'forecast' | 'derived' | 'radar' | 'alerts'
+
+/**
+ * Per-network metadata in the coverage response. Whether the credentials are accepted is not part of
+ * it (that is a request to the provider): `GET /api/auth` answers it for one network
+ */
 export interface CoverageNetworkInfo {
+  /** null for the four of a network that cannot be imported on the server */
+  name_short: string | null
+  country: string | null
+  kind: NetworkKind | null
+  url: string | null
   auth: boolean
   configured: boolean
-  /**
-   * `false` where the credentials are missing, `null` where they are configured: the list does not
-   * check them (that is a request to the provider), `GET /api/auth` does. Not a rejection, so unknown
-   */
-  valid: boolean | null
   date_required: boolean
 }
 

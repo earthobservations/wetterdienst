@@ -2066,7 +2066,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "min(air_temperature PT10M)"): "Lowest recorded air temperature per ten minutes",
         ("10_minutes", "data", "min(relative_humidity PT10M)"): "Minimum relative humidity per 10 min",
         ("10_minutes", "data", "sum(precipitation_amount PT10M)"): "Amount of precipitation per 10 minutes",
-        ("6_hour", "data", "sum(precipitation_amount PT6H)"): "Amount of precipitation per six hours",
+        ("6_hours", "data", "sum(precipitation_amount PT6H)"): "Amount of precipitation per six hours",
         ("annual", "data", "max(air_temperature P1Y)"): "Highest recorded air temperature per year",
         ("annual", "data", "mean(air_temperature P1Y)"): (
             "Annual mean temperature. The mean is an arithmetic mean of daily values."
@@ -2540,7 +2540,7 @@ RESOLUTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "subdaily": "SYNOP reports, made at their native three-hourly interval.",
     },
     "MetnoFrostMetadata": {
-        "6_hour": "Synoptic observations reported every six hours.",
+        "6_hours": "Synoptic observations reported every six hours.",
     },
 }
 

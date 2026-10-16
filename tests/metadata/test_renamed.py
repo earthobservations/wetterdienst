@@ -1,12 +1,16 @@
 """Tests for the names renamed on the way to 1.0."""
 
+import re
+
 import pytest
 from pydantic import ValidationError
 
 from tests.test_api import ALL_METADATA
 from wetterdienst import Options
+from wetterdienst.exceptions import InvalidParameterError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
+from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, MetadataModel, _find, _not_found, _spot_name, parse_parameters
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata
 from wetterdienst.provider.chmi.observation import ChmiObservationMetadata
@@ -16,6 +20,7 @@ from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadat
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
+from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
 
 
 def test_renamed_parameters_point_from_a_retired_name_to_a_canonical_one() -> None:
@@ -389,3 +394,30 @@ def test_mosmix_names_the_error_of_a_temperature_after_the_temperature(caplog: p
         assert f"It was renamed to '{old.replace('_mean', '')}'." in caplog.text
     with pytest.raises(ValidationError, match=r"'error_absolute_temperature_air_mean_2m' is now 'error_absolute"):
         Options(geo_station_distance={"error_absolute_temperature_air_mean_2m": 10.0})
+
+
+def test_a_renamed_resolution_is_refused_with_the_new_value_named() -> None:
+    """`6_hour` is `6_hours` (GH-2641): not accepted, and the refusal says what it is called now.
+
+    Every rename leads from a value `Resolution` no longer has to one it does, which keeps the old one refused.
+    """
+    values = {resolution.value for resolution in Resolution}
+    assert sorted(old for old in RENAMED_RESOLUTIONS if old in values) == []
+    assert sorted(new for new in RENAMED_RESOLUTIONS.values() if new not in values) == []
+    assert RENAMED_RESOLUTIONS == {"6_hour": "6_hours"}
+    assert Resolution.HOUR_6.value == "6_hours"
+    with pytest.raises(ValueError, match="'6_hour' is not a valid Resolution"):
+        Resolution("6_hour")
+
+    message = "'6_hour'. It was renamed to '6_hours'. Available resolutions:"
+    with pytest.raises(InvalidParameterError, match=re.escape(message)):
+        parse_parameters("6_hour/data/precipitation_amount", MetnoFrostMetadata)
+    assert [parameter.name for parameter in parse_parameters("6_hours/data", MetnoFrostMetadata)] == [
+        "precipitation_amount"
+    ]
+    with pytest.raises(KeyError, match="It was renamed to '6_hours'"):
+        MetnoFrostMetadata["6_hour"]
+    with pytest.raises(ValidationError, match=r"\['6_hour'\] not in .*\('6_hour' is now '6_hours'\)"):
+        Options(geo_station_distance_resolution_factors={"6_hour": 1.0})
+    options = Options(geo_station_distance_resolution_factors={"6_hours": 1.0})
+    assert options.geo_station_distance_resolution_factors == {"6_hours": 1.0}

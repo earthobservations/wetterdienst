@@ -487,7 +487,7 @@ def test_options_geo_station_distance_for_scales_with_resolution() -> None:
     options = Options()
     assert options.geo_station_distance_for("precipitation_amount", "10_minutes") == 15.0
     assert options.geo_station_distance_for("precipitation_amount", "hourly") == 20.0
-    assert options.geo_station_distance_for("precipitation_amount", "6_hour") == 30.0
+    assert options.geo_station_distance_for("precipitation_amount", "6_hours") == 30.0
     assert options.geo_station_distance_for("precipitation_amount", "daily") == 40.0
     assert options.geo_station_distance_for("precipitation_amount", "annual") == 40.0
     # a name from outside the resolution vocabulary is left as it is rather than guessed at
@@ -602,7 +602,7 @@ def test_options_geo_station_distance_resolution_factors() -> None:
                 "10_minutes",
                 "15_minutes",
                 "hourly",
-                "6_hour",
+                "6_hours",
                 "subdaily",
                 "daily",
                 "monthly",
