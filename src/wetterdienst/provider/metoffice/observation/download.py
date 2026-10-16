@@ -28,12 +28,13 @@ import time
 from typing import TYPE_CHECKING
 
 from wetterdienst.exceptions import NoInternetError
-from wetterdienst.util.network import post_file
+from wetterdienst.util.network import CREDENTIAL_REJECTED_STATUSES, post_file, raise_if_credential_rejected
 
 if TYPE_CHECKING:
     from pydantic import SecretStr
 
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
 
@@ -70,13 +71,26 @@ def _token_valid_until(token: str) -> float:
     return time.time() + _FALLBACK_TTL_SECONDS
 
 
+def raise_if_ceda_rejected(file: File, settings: Settings) -> None:
+    """Raise `CredentialRejectedError` for a download CEDA answered with a 401 or a 403, and forget the token (GH-3018).
+
+    A download that was sent the bearer token. The token stays in the cache for its three days otherwise,
+    and a long-running process (the REST API) would answer every request with the refusal of a token
+    that was only revoked, though the account is fine.
+    """
+    if isinstance(file.content, Exception) and file.status in CREDENTIAL_REJECTED_STATUSES and settings.auth.ceda:
+        _TOKEN_CACHE.pop(settings.auth.ceda, None)
+    raise_if_credential_rejected(file, "CEDA", "CEDA", "username and password")
+
+
 def get_ceda_token(settings: Settings) -> str | None:
     """Return a valid CEDA bearer token for the configured (username, password) credentials.
 
     A cached token is reused while it is still valid; otherwise a fresh one is minted from the
     credentials and cached. Returns None (rather than raising) if no credentials are configured or
-    the exchange fails, so callers can surface a clear "not authenticated" data gap instead of a
-    hard crash.
+    the exchange fails in a way that says nothing of the credentials, so callers can surface a clear
+    "not authenticated" data gap instead of a hard crash. Raises `NoInternetError` if CEDA cannot be
+    reached, and `CredentialRejectedError` if CEDA refuses the username and password (HTTP 401 or 403).
     """
     credentials = settings.auth.ceda
     if not credentials:
@@ -105,6 +119,10 @@ def get_ceda_token(settings: Settings) -> str | None:
             # raised rather than answered with no token: every request of this provider starts here,
             # and an offline one would end as an empty result with a warning (GH-2640)
             raise file.content
+        # CEDA refusing the username and password is not a token that failed to arrive: whoever runs the
+        # process has to replace them, and the data requests that follow would only be sent to a login
+        # page, see GH-3018
+        raise_if_credential_rejected(file, "CEDA", "CEDA", "username and password")
         if isinstance(file.content, Exception):
             # said out loud whichever way it failed, and once every three days at that: an
             # intercepted TLS handshake and a refusing server both arrive here, and every one of

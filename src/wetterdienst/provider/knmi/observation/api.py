@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -35,7 +35,12 @@ from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetad
 from wetterdienst.provider.knmi.observation.parser import decode_str, parse_knmi_netcdf, public_station_id
 from wetterdienst.settings import reveal
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.network import as_outage, download_file
+from wetterdienst.util.network import (
+    CREDENTIAL_REJECTED_STATUSES,
+    as_outage,
+    credential_rejected,
+    download_file,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -58,6 +63,10 @@ _STEP_BY_RESOLUTION = {
     Resolution.HOURLY: dt.timedelta(hours=1),
     Resolution.DAILY: dt.timedelta(days=1),
 }
+
+#: What a download of KNMI returns when it is not an answer to the request, and must be raised: no connection,
+#: no answer, a refused key.
+_UNANSWERED = (NoInternetError, DownloadError, CredentialRejectedError)
 
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 2
@@ -154,6 +163,11 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
     return last_file
 
 
+def _key_rejected(status: int) -> CredentialRejectedError:
+    """Say that KNMI refuses the API key, which is sent to the request that asks for a file or a listing (GH-3018)."""
+    return credential_rejected("KNMI", "KNMI", "API key", status)
+
+
 def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str | Exception:
     """Look up the most recently published file in a dataset.
 
@@ -167,7 +181,9 @@ def _latest_filename(dataset_name: str, version: str, settings: Settings) -> str
     }
     file = _download_with_retry(url, settings, CacheExpiry.ONE_HOUR, client_kwargs=client_kwargs)
     if isinstance(file.content, Exception):
-        return file.content
+        if file.status in CREDENTIAL_REJECTED_STATUSES:
+            return _key_rejected(file.status)
+        return as_outage(file.content, file.url)
     files = json.load(file.content).get("files", [])
     if not files:
         return Exception("no files found")
@@ -183,7 +199,9 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     A failure is returned, not raised. One that is no answer -- a timeout, a dropped connection, a
     body cut short, a 5xx -- is returned as the `DownloadError` naming the file (`as_outage`, GH-2965),
     a failed connection as the `NoInternetError`; the caller raises those. A 404 (a timestamp that is
-    not published) and any other 4xx, a 429 among them, are returned as they came.
+    not published) and any other 4xx, a 429 among them, are returned as they came. A 401 or 403 of the
+    request that carries the key is the `CredentialRejectedError` (GH-3018), returned like the others;
+    the same status of the pre-signed link says nothing of the key and is returned as it came.
 
     Each KNMI file covers the whole network for one timestamp, but the framework collects
     values per station, so the same file would otherwise be downloaded once per station.
@@ -200,6 +218,10 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     }
     resolve_file = _download_with_retry(resolve_url, settings, CacheExpiry.FIVE_MINUTES, client_kwargs=client_kwargs)
     if isinstance(resolve_file.content, Exception):
+        # only the request that carries the key says anything about it: a refusal of the pre-signed link
+        # below (an expired signature) is a file that is not served
+        if resolve_file.status in CREDENTIAL_REJECTED_STATUSES:
+            return _key_rejected(resolve_file.status)
         return as_outage(resolve_file.content, resolve_file.url)
     # a 200 with an unexpected body (throttling notice, API change) must not KeyError out of
     # the per-moment loop and abort the whole query -- surface it as a skippable failure.
@@ -242,13 +264,14 @@ class KnmiObservationValues(TimeseriesValues):
         for moment in _moments(start_date, end_date, resolution):
             filename = _filename_for(resolution, moment)
             payload = _fetch_netcdf(dataset_name, version, filename, settings)
-            if isinstance(payload, (NoInternetError, DownloadError)):
+            if isinstance(payload, _UNANSWERED):
                 # offline, every remaining moment would fail the same way (and an hourly month
                 # is 720 of them), nor would the next station's: the request ends here, with the
                 # error, rather than with the moments read (GH-2620, GH-2640). The same for a
                 # KNMI that does not answer -- a timeout, a dropped connection, a body cut short
                 # or a 5xx that the retries above did not clear: a range read in part is not an
-                # answer, and an empty one would read as a station without data (GH-2965)
+                # answer, and an empty one would read as a station without data (GH-2965). And for a
+                # key KNMI refuses, which every moment and station would meet again (GH-3018)
                 raise payload
             if isinstance(payload, Exception):
                 # a single missing timestamp (a 404) or one that KNMI refused (a 429, an answer)
@@ -372,14 +395,15 @@ class KnmiObservationRequest(TimeseriesRequest):
         """Read the station inventory from the most recent file of the given resolution."""
         dataset_name, version = _DATASET_BY_RESOLUTION[resolution]
         filename = _latest_filename(dataset_name, version, settings)
-        if isinstance(filename, NoInternetError):
-            # an unreachable KNMI is no network without stations (GH-2640)
+        # an unreachable KNMI is no network without stations (GH-2640), nor is one that does not answer
+        # (GH-3022) or refuses the key (GH-3018)
+        if isinstance(filename, _UNANSWERED):
             raise filename
         if isinstance(filename, Exception):
             log.warning(f"Failed to look up latest KNMI {resolution.value} file: {filename}")
             return None
         payload = _fetch_netcdf(dataset_name, version, filename, settings)
-        if isinstance(payload, NoInternetError):
+        if isinstance(payload, _UNANSWERED):
             raise payload
         if isinstance(payload, Exception):
             log.warning(f"Failed to fetch KNMI {resolution.value} stations: {payload}")

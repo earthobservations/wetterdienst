@@ -20,7 +20,7 @@ from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedE
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.aemet.observation.api import (
@@ -51,7 +51,9 @@ requires_aemet_credentials = pytest.mark.skipif(
 
 
 def _is_refusal(failure: Exception) -> bool:
-    """Tell whether AEMET refused the request: a refused key or an HTTP 429.
+    """Tell whether AEMET refused the request with an HTTP 429, the rate limit.
+
+    A refused key is raised as the `CredentialRejectedError` by the reader (GH-3018), which `_values_or_skip` skips on.
 
     A timeout, a dropped connection and a 5xx are no refusal: the reader raises them as a `DownloadError`, which
     `skip_if_upstream_unavailable` skips on (GH-2965). A rate limit that AEMET reports in the envelope of an HTTP
@@ -61,8 +63,6 @@ def _is_refusal(failure: Exception) -> bool:
     A 400, a 404 or an envelope that says there is no data is AEMET answering, and what it most likely says is
     that the request was built wrong, which is what these tests are there to catch (see `tests/conftest.py`).
     """
-    if isinstance(failure, AemetKeyRejectedError):
-        return True
     return isinstance(failure, ClientResponseError) and failure.status == HTTPStatus.TOO_MANY_REQUESTS
 
 
@@ -72,14 +72,17 @@ def _values_or_skip(
 ) -> pl.DataFrame:
     """Build a request and read its values, and skip the test if AEMET refused the key or the rate (GH-2965).
 
-    The reader logs the failure of a station list or a chunk and goes on with an empty frame, so a 401 or a 429
-    never reaches the test as the exception that `skip_if_upstream_unavailable` skips on (a timeout, a dropped
-    connection or a 5xx does: the reader raises those). CI runs every job of both workflows on one key, and AEMET
-    answers that with a 401 or a 429 for part of the calls; the test asserts what AEMET publishes, which a refusal
-    says nothing about. The request is built here, because filtering by station id already reads the station list.
+    The reader logs the failure of a chunk and goes on with an empty frame for a 429, so that never reaches the
+    test as the exception that `skip_if_upstream_unavailable` skips on (a timeout, a dropped connection or a 5xx
+    does: the reader raises those). A refused key is raised as the `CredentialRejectedError` (GH-3018), by the
+    chunk and by the station list alike, and skips here. CI runs every job of both workflows on one key, and
+    AEMET answers that with a 401 or a 429 for part of the calls; the test asserts what AEMET publishes, which a
+    refusal says nothing about. The request is built here, because filtering by station id already reads the
+    station list.
 
-    Only an empty frame after failures that all are a refusal skips (a revoked key skips the same way, and the
-    reason names it). Any other failure, such as a 404, and an empty frame without one fail.
+    Only a refusal skips: a key refused, and an empty frame after failures that all are a rate limit (a revoked
+    key skips the same way, and the reason names it). Any other failure, such as a 404, and an empty frame
+    without one fail.
     """
     failures: list[Exception] = []
     fetch = aemet_api._fetch_datos  # noqa: SLF001
@@ -91,7 +94,10 @@ def _values_or_skip(
         return payload
 
     monkeypatch.setattr(aemet_api, "_fetch_datos", recording_fetch)
-    df = make_request().values().all().df
+    try:
+        df = make_request().values().all().df
+    except CredentialRejectedError as refused:
+        pytest.skip(f"AEMET did not hand out the data: {(failures or [refused])[0]!r}")
     if df.is_empty() and failures and all(_is_refusal(failure) for failure in failures):
         pytest.skip(f"AEMET did not hand out the data: {failures[0]!r}")
     return df
@@ -774,6 +780,68 @@ def test_aemet_observation_values_going_down_midway_raises(monkeypatch: pytest.M
     assert len(attempted) == 2
 
 
+@pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
+def test_aemet_observation_values_raise_credential_rejected_error_at_the_first_chunk(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """A key AEMET refuses ends the request after one request, naming the setting and not the key (GH-3018)."""
+    attempted = _fake_fetch_datos(monkeypatch, AemetKeyRejectedError("AEMET answered HTTP 401: Unauthorized"))
+    with pytest.raises(CredentialRejectedError) as raised:
+        _values(resolution, years=10, station_ids=(MADRID_RETIRO, BARCELONA))
+    assert "WD_AUTH__AEMET" in str(raised.value)
+    assert "dummy-key-for-test" not in f"{raised.value!s}{raised.value!r}"
+    assert len(attempted) == 1
+
+
+def test_aemet_observation_values_raise_when_the_key_is_refused_midway(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A key refused after the first chunk raises, rather than answering with the chunk read (GH-3018)."""
+    records = json.dumps([{"fecha": "2010-01-01", "tmed": "5,5"}]).encode("latin-1")
+    attempted = _fake_fetch_datos(monkeypatch, records, AemetKeyRejectedError("AEMET answered HTTP 401: Unauthorized"))
+    with pytest.raises(CredentialRejectedError):
+        _values("daily", years=10)
+    assert len(attempted) == 2
+
+
+def _stations(monkeypatch: pytest.MonkeyPatch, answer: bytes | Exception) -> AemetObservationRequest:
+    """Serve the station list as `answer`, and give the request that reads it."""
+    monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *_args, **_kwargs: answer)
+    return AemetObservationRequest(
+        parameters=[("daily", "data")], settings=Settings(auth={"aemet": "dummy-key-for-test"})
+    )
+
+
+@pytest.mark.parametrize("failure", _OUTAGES)
+def test_aemet_observation_stations_raise_a_download_error_for_a_list_that_did_not_answer(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    """An AEMET that does not answer the station list is no network without stations (GH-3022)."""
+    error = _download_error(failure)
+    with pytest.raises(DownloadError) as raised:
+        _stations(monkeypatch, error).all()
+    assert raised.value is error
+
+
+def test_aemet_observation_stations_raise_credential_rejected_error_for_a_refused_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A key AEMET refuses for the station list is raised, not read as a network without stations (GH-3018)."""
+    request = _stations(monkeypatch, AemetKeyRejectedError("AEMET answered HTTP 403: Forbidden"))
+    with pytest.raises(CredentialRejectedError, match="WD_AUTH__AEMET"):
+        request.all()
+
+
+def test_aemet_observation_stations_keep_the_empty_result_for_an_answer(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An `estado` of 404 for the station list is AEMET answering: no stations, warned about, as before."""
+    request = _stations(monkeypatch, _AemetEnvelopeError(404, "No hay datos"))
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.aemet"):
+        assert request.all().df.is_empty()
+    assert [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING] == [
+        "Failed to fetch AEMET stations: No hay datos",
+    ]
+
+
 def _serve_envelope_and_datos(monkeypatch: pytest.MonkeyPatch, envelope: File, datos: File | None = None) -> list[str]:
     """Answer the envelope request with `envelope` and the request of its "datos" link with `datos`.
 
@@ -872,6 +940,17 @@ def test_aemet_fetch_datos_returns_what_is_an_answer_as_it_was(monkeypatch: pyte
         monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=FileNotFoundError(_DATOS), status=404)
     )
     assert isinstance(_fetch(), FileNotFoundError)
+
+
+def test_aemet_fetch_datos_does_not_take_a_refused_datos_link_for_a_refused_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The "datos" link is pre-signed and takes no key: its 403 says nothing of the key (GH-3018)."""
+    refusal = _response_error(403)
+    _serve_envelope_and_datos(monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=refusal, status=403))
+    result = _fetch()
+    assert result is refusal
+    assert not isinstance(result, AemetKeyRejectedError)
 
 
 def test_aemet_fetch_datos_returns_no_internet_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -13,22 +13,26 @@ from urllib.parse import parse_qs, urlparse
 import polars as pl
 from aiohttp import encode_basic_auth
 
-from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError
+from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import PROBE_TIMEOUT, File, download_file
+from wetterdienst.util.network import (
+    CREDENTIAL_REJECTED_STATUSES,
+    PROBE_TIMEOUT,
+    File,
+    as_outage,
+    download_file,
+    raise_if_credential_rejected,
+)
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel
 
 log = logging.getLogger(__name__)
-
-# the answers that say Frost refuses the client ID, as opposed to one that says it could not be asked
-_FROST_REJECTED_STATUSES = frozenset({401, 403})
 
 MetnoFrostMetadata = {
     "name_short": "MetNo Frost",
@@ -410,10 +414,25 @@ _CLOUD_COVER_NOT_ESTIMATED = ("-3", "9")
 _DAILY = "daily"
 
 
-def _raise_if_offline(file: File) -> None:
-    """Raise the `NoInternetError` of a download that could not connect, which no status below answers (GH-2640)."""
-    if file.is_no_internet_error:
-        file.raise_if_exception()
+def _raise_if_rejected(file: File) -> None:
+    """Raise the `CredentialRejectedError` of a download that Frost answered with a 401 or a 403 (GH-2665, GH-3018)."""
+    raise_if_credential_rejected(file, "Frost API", "METNO_FROST", "client ID")
+
+
+def _raise_if_unanswered(file: File) -> None:
+    """Raise for a download that Frost did not answer, or answered with a refusal of the client ID (GH-3022, GH-3018).
+
+    A client ID that Frost refuses (401, 403) is the `CredentialRejectedError`, whoever runs the process has to
+    replace it. A timeout, a dropped connection, a body cut short, a 5xx and a connection that could not be made
+    are the `DownloadError` and the `NoInternetError` (`as_outage`): none of them is Frost saying there is no data,
+    and answered as an empty frame they read as a station without data. What Frost does answer stays with the
+    caller, which reads the status: a 404 and a 412 are no data, and any other 4xx is warned about.
+    """
+    _raise_if_rejected(file)
+    if isinstance(file.content, Exception):
+        failure = as_outage(file.content, file.url)
+        if isinstance(failure, (NoInternetError, DownloadError)):
+            raise failure
 
 
 def _frost_time(value: datetime) -> str:
@@ -563,7 +582,7 @@ class MetnoFrostValues(TimeseriesValues):
         # the status is read before the generic failure warning below: a 404 or 412 says there is
         # nothing (or that a fallback applies), not that the request failed
         # 412: no data for this station/elements/period combination
-        _raise_if_offline(file)
+        _raise_if_unanswered(file)
         if file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: one or more elements may require specific time-series parameters (e.g.
@@ -670,7 +689,7 @@ class MetnoFrostValues(TimeseriesValues):
         )
         # the status before the body, as in `_collect_station_parameter_or_dataset`
         # 412: no data for this station/element/period combination
-        _raise_if_offline(file)
+        _raise_if_unanswered(file)
         if file.status == 412:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         # 404: element may require specific time-series parameters (e.g. historical synoptic data)
@@ -748,7 +767,7 @@ class MetnoFrostValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
-        _raise_if_offline(avail_file)
+        _raise_if_unanswered(avail_file)
         if avail_file.status in (404, 412):
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
         if isinstance(avail_file.content, Exception):
@@ -792,7 +811,7 @@ class MetnoFrostValues(TimeseriesValues):
                 cache_disable=settings.cache_disable,
                 use_certifi=settings.use_certifi,
             )
-            _raise_if_offline(obs_file)
+            _raise_if_unanswered(obs_file)
             if obs_file.status in (404, 412):
                 continue
             if isinstance(obs_file.content, Exception):
@@ -870,7 +889,7 @@ def _probe_frost_credentials(settings: Settings) -> bool | None:
         use_certifi=settings.use_certifi,
         attempts=1,
     )
-    if file.status in _FROST_REJECTED_STATUSES:
+    if file.status in CREDENTIAL_REJECTED_STATUSES:
         return False
     if not isinstance(file.content, Exception) and file.status == 200:
         return True
@@ -923,12 +942,7 @@ class MetnoFrostRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        if isinstance(file.content, Exception) and file.status in _FROST_REJECTED_STATUSES:
-            msg = (
-                f"Frost API rejected the request with HTTP {file.status}. "
-                "Check that WD_AUTH__METNO_FROST contains a valid client ID."
-            )
-            raise CredentialRejectedError(msg)
+        _raise_if_rejected(file)
         # the catalogue is one required file, so any other failure of it -- a 404 included -- is an
         # outage, which swallowed would read as a network without stations (GH-2599). A failed
         # connection (NoInternetError) is raised as well (GH-2640)
