@@ -49,7 +49,7 @@ from wetterdienst.provider.rmi.observation import RmiObservationMetadata
 from wetterdienst.provider.smhi.observation import SmhiObservationMetadata
 
 # a dataset whose own interval is one of these needs no qualifier for a window of that many hours
-_RESOLUTION_HOURS = {"hourly": 1, "6_hour": 6, "daily": 24}
+_RESOLUTION_HOURS = {"hourly": 1, "6_hours": 6, "daily": 24}
 
 _WINDOW = re.compile(
     r"\b(?:within|during|over|in|for|of) the (?:last|previous|preceding|past) (\d+)[ -]?(?:hours?|h)\b",
@@ -263,7 +263,7 @@ _INTERVAL_MINUTES = {
     "hourly": 60,
     # the shortest step of a subdaily dataset (Météo-France SYNOP is three-hourly)
     "subdaily": 180,
-    "6_hour": 360,
+    "6_hours": 360,
     "daily": 1440,
 }
 

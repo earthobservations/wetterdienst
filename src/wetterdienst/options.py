@@ -23,7 +23,7 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, Settings
 
 from wetterdienst.exceptions import InvalidEnumerationError
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
-from wetterdienst.metadata.renamed import RENAMED_PARAMETERS
+from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 
@@ -239,6 +239,9 @@ def _checked_resolution_factors_keys(values: object, prefix: str) -> object:
     unknown = sorted(set(values) - resolutions)
     if unknown:
         msg = f"Invalid resolutions in {prefix}geo_station_distance_resolution_factors: {unknown} not in {sorted(resolutions)}"  # noqa: E501
+        renamed = [f"'{name}' is now '{RENAMED_RESOLUTIONS[name]}'" for name in unknown if name in RENAMED_RESOLUTIONS]
+        if renamed:
+            msg += f" ({', '.join(renamed)})"
         raise ValueError(msg)
     return values
 

@@ -241,6 +241,13 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
     },
 }
 
+#: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
+#: value is refused with the new one named
+RENAMED_RESOLUTIONS: dict[str, str] = {
+    # GH-2641: the minute resolutions are plural (`10_minutes`), and so is this one
+    "6_hour": "6_hours",
+}
+
 #: request arguments, old name to new
 RENAMED_ARGUMENTS: dict[str, str] = {
     # GH-2437: the window is a pair of UTC timestamps, not of dates

@@ -107,7 +107,7 @@ does this provider have".
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
 them or none are configured, and null when that could not be told (treat it as unknown, not as \
-rejected). `coverage` does not check them, so it leaves `valid` null for a configured network.
+rejected). `coverage` does not check them and has no `valid`: it says whether they are `configured`.
 
 ## Conventions
 - provider/network: use "dwd"/"observation" for German ground observations (the common case). Call \

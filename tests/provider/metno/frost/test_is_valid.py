@@ -102,9 +102,9 @@ def test_is_valid_is_one_short_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_discover_does_not_probe_a_configured_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The listing of providers leaves `valid` null for a configured client ID, which `is_valid()` checks (GH-2564)."""
+    """The listing of providers has no `valid` for a configured client ID, which `is_valid()` checks (GH-2564)."""
     calls = _answer(monkeypatch, Exception("401"), 401)
     entry = Wetterdienst.discover()["metno"]["frost"]
-    assert (entry["auth"], entry["configured"], entry["valid"]) == (True, True, None)
+    assert (entry["auth"], entry["configured"], "valid" in entry) == (True, True, False)
     assert calls == []
     assert Wetterdienst.is_valid(MetnoFrostRequest) is False

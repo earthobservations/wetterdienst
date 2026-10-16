@@ -184,7 +184,21 @@ const STATES: State[] = [
     state: 'backend-lacks-provider',
     path: '/history',
     // the page is restricted to dwd/observation and says so where the backend has no dwd
-    handlers: { coverage: () => ({ noaa: { ghcn: { auth: false, configured: false, valid: null, date_required: false } } }) },
+    handlers: {
+      coverage: () => ({
+        noaa: {
+          ghcn: {
+            name_short: 'NOAA',
+            country: 'United States Of America',
+            kind: 'observation',
+            url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
+            auth: false,
+            configured: false,
+            date_required: false,
+          },
+        },
+      }),
+    },
     reach: async (page) => {
       await expect(page.getByRole('main').locator('[role="alert"], .text-error').first()).toBeVisible()
     },

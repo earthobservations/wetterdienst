@@ -19,7 +19,7 @@ Data is © Norwegian Meteorological Institute (MET Norway). See
 
 10_minutes.md
 hourly.md
-6_hour.md
+6_hours.md
 daily.md
 monthly.md
 annual.md

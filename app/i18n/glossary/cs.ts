@@ -626,7 +626,7 @@ export const resolutions: Record<string, string> = {
   '10_minutes': 'Každých 10 minut',
   '15_minutes': 'Každých 15 minut',
   'hourly': 'Hodinově',
-  '6_hour': 'Každých 6 hodin',
+  '6_hours': 'Každých 6 hodin',
   'subdaily': 'Několikrát denně',
   'daily': 'Denně',
   'monthly': 'Měsíčně',

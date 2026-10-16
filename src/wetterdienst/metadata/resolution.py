@@ -17,7 +17,7 @@ class Resolution(Enum):
     MINUTE_10 = "10_minutes"  # used by DWD for file server
     MINUTE_15 = "15_minutes"  # used by DWD for file server
     HOURLY = "hourly"  # used by DWD for file server
-    HOUR_6 = "6_hour"
+    HOUR_6 = "6_hours"
     SUBDAILY = "subdaily"  # used by DWD for file server
     DAILY = "daily"  # used by DWD for file server
     MONTHLY = "monthly"  # used by DWD for file server

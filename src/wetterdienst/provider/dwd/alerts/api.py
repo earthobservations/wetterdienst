@@ -18,7 +18,7 @@ import json
 import logging
 import re
 import zipfile
-from typing import TYPE_CHECKING, Any, Never
+from typing import TYPE_CHECKING, Any, ClassVar, Never
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -31,6 +31,7 @@ from wetterdienst.provider.dwd.alerts.metadata import (
     DwdWeatherAlertLanguage,
 )
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
+from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
@@ -182,6 +183,15 @@ class DwdWeatherAlertRequest:
     and language and parses it into a :class:`DwdWeatherAlertResult`. By default the latest snapshot
     is used; a ``timestamp`` selects a historical snapshot from DWD's rolling ~48-hour archive instead.
     """
+
+    # how `Wetterdienst.discover()` lists the network, which is no timeseries network and has no metadata model: the
+    # name and the country are the provider's, the url is where the warnings are published
+    listing: ClassVar = {
+        "name_short": _METADATA["name_short"],
+        "country": _METADATA["country"],
+        "kind": "alerts",
+        "url": DWD_ALERTS_BASE_URL,
+    }
 
     def __init__(
         self,

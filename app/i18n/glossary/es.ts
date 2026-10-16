@@ -626,7 +626,7 @@ export const resolutions: Record<string, string> = {
   '10_minutes': 'Cada 10 minutos',
   '15_minutes': 'Cada 15 minutos',
   'hourly': 'Cada hora',
-  '6_hour': 'Cada 6 horas',
+  '6_hours': 'Cada 6 horas',
   'subdaily': 'Varias veces al día',
   'daily': 'Diario',
   'monthly': 'Mensual',

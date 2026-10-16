@@ -33,13 +33,23 @@ export class ApiFailure {
   constructor(readonly status: number, readonly detail: string) {}
 }
 
+const DWD = { name_short: 'DWD', country: 'Germany', auth: false, configured: false, date_required: false }
+
 const PROVIDERS: CoverageResponse = {
   dwd: {
-    observation: { auth: false, configured: false, valid: null, date_required: false },
-    mosmix: { auth: false, configured: false, valid: null, date_required: false },
+    observation: { ...DWD, kind: 'observation', url: 'https://opendata.dwd.de/climate_environment/CDC/' },
+    mosmix: { ...DWD, kind: 'forecast', url: 'https://opendata.dwd.de/climate_environment/CDC/' },
   },
   noaa: {
-    ghcn: { auth: false, configured: false, valid: null, date_required: false },
+    ghcn: {
+      name_short: 'NOAA',
+      country: 'United States Of America',
+      kind: 'observation',
+      url: 'https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/',
+      auth: false,
+      configured: false,
+      date_required: false,
+    },
   },
 }
 

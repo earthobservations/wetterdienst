@@ -626,7 +626,7 @@ export const resolutions: Record<string, string> = {
   '10_minutes': 'Elke 10 minuten',
   '15_minutes': 'Elke 15 minuten',
   'hourly': 'Elk uur',
-  '6_hour': 'Elke 6 uur',
+  '6_hours': 'Elke 6 uur',
   'subdaily': 'Meerdere keren per dag',
   'daily': 'Dagelijks',
   'monthly': 'Maandelijks',

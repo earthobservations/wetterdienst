@@ -23,7 +23,7 @@ from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.metadata import ParameterModel, build_metadata_model
+from wetterdienst.model.metadata import NetworkKind, ParameterModel, TimeseriesKind, build_metadata_model
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
@@ -1330,7 +1330,16 @@ def test_discover_logs_a_network_that_cannot_be_imported(
     with caplog.at_level(logging.WARNING, logger="wetterdienst.api"):
         discovered = Wetterdienst.discover()
 
-    assert "fmi" in discovered
+    # nothing is known of it but what the listing needs the credentials for, and it says so with nulls (GH-2641)
+    assert discovered["fmi"]["observation"] == {
+        "name_short": None,
+        "country": None,
+        "kind": None,
+        "url": None,
+        "auth": False,
+        "configured": True,
+        "date_required": False,
+    }
     assert "fmi/observation cannot be imported: Module wetterdienst.provider.fmi.observation" in caplog.text
 
 
@@ -1353,7 +1362,7 @@ def test_discover_marks_providers_unconfigured_for_a_malformed_credential(caplog
     }
     # the networks the metadata says need a credential, not a list that a new one is to be added to
     assert set(auth) == set(_needing_a_credential())
-    assert all(entry["configured"] is False and entry["valid"] is False for entry in auth.values())
+    assert all(entry["configured"] is False for entry in auth.values())
     assert discovered["dwd"]["observation"]["configured"] is True
     assert [record.getMessage() for record in caplog.records if record.name == "wetterdienst.api"] == [
         (
@@ -1427,14 +1436,55 @@ def test_discover_lists_metoffice_as_needing_a_credential(monkeypatch: pytest.Mo
             monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
     assert Wetterdienst.discover()["metoffice"]["observation"] == {
+        "name_short": "MetOffice",
+        "country": "United Kingdom",
+        "kind": "observation",
+        "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
         "auth": True,
         "configured": False,
-        "valid": False,
         "date_required": False,
     }
     monkeypatch.setenv("WD_AUTH__CEDA", "user:password")
     entry = Wetterdienst.discover()["metoffice"]["observation"]
     assert (entry["auth"], entry["configured"]) == (True, True)
+
+
+def test_discover_says_what_every_network_is() -> None:
+    """Every network is listed with a name, a country, a url and a kind, which says if it is a timeseries (GH-2641).
+
+    A timeseries network has a metadata model, which the four are read from, and a kind of the three in
+    `TimeseriesKind`. A standalone one has no metadata model and its request class's `listing`, so that a
+    network added to the registry without either fails here rather than in the answer of `/api/coverage`.
+    """
+    discovered = Wetterdienst.discover()
+    timeseries_kinds = set(get_args(TimeseriesKind))
+    standalone = set(get_args(NetworkKind)) - timeseries_kinds
+    assert standalone == {"radar", "alerts"}
+
+    standalone_networks = set()
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            entry = discovered[provider][network]
+            api = Wetterdienst.resolve(provider, network)
+            assert set(entry) == {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
+            assert entry["name_short"], f"{provider}/{network}"
+            assert entry["country"], f"{provider}/{network}"
+            assert entry["url"].startswith("https://"), f"{provider}/{network}"
+            if hasattr(api, "metadata"):
+                assert entry["kind"] in timeseries_kinds, f"{provider}/{network}"
+                assert entry["kind"] == api.metadata.kind
+            else:
+                standalone_networks.add((provider, network))
+                assert entry["kind"] in standalone, f"{provider}/{network}"
+    # the two networks no timeseries endpoint takes, which the contract names (docs/usage/restapi.md)
+    assert standalone_networks == {("dwd", "radar"), ("dwd", "alerts")}
+    assert (discovered["dwd"]["radar"]["kind"], discovered["dwd"]["alerts"]["kind"]) == ("radar", "alerts")
+    assert discovered["dwd"]["radar"]["url"] == "https://opendata.dwd.de/weather/radar/"
+    assert discovered["dwd"]["alerts"]["url"] == "https://opendata.dwd.de/weather/alerts/cap"
+    # the name and the country of the standalone ones are the provider's, as the timeseries networks of it give them
+    for network in ("radar", "alerts"):
+        assert discovered["dwd"][network]["name_short"] == discovered["dwd"]["observation"]["name_short"]
+        assert discovered["dwd"][network]["country"] == discovered["dwd"]["observation"]["country"]
 
 
 def _registered_requests() -> list[tuple[str, str, type[TimeseriesRequest]]]:
@@ -1550,8 +1600,8 @@ def test_discover_downloads_nothing_with_every_credential_set(monkeypatch: pytes
     """The listing of every provider makes no request, however many credentials are configured (GH-2564).
 
     It probed each configured provider in turn, inside the request that the app's parameter selection
-    waits for: 76 s on a cold cache with AEMET failing. A configured network is listed with `valid`
-    null, and `Wetterdienst.is_valid` is how it is checked.
+    waits for: 76 s on a cold cache with AEMET failing. A configured network is listed as configured and
+    nothing more, and `Wetterdienst.is_valid` is how it is checked.
     """
     import sys  # noqa: PLC0415
 
@@ -1590,4 +1640,5 @@ def test_discover_downloads_nothing_with_every_credential_set(monkeypatch: pytes
     }
     assert auth
     assert set(auth) == set(_needing_a_credential())
-    assert all(entry["configured"] is True and entry["valid"] is None for entry in auth.values())
+    # the credentials are present, and whether they are accepted is not a thing the listing says (GH-2641)
+    assert all(entry["configured"] is True and "valid" not in entry for entry in auth.values())

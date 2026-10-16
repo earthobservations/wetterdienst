@@ -162,7 +162,7 @@ MetnoFrostMetadata = {
             ],
         },
         {
-            "name": "6_hour",
+            "name": "6_hours",
             "name_original": "PT6H",
             "periods": ["historical", "recent"],
             "date_required": True,
