@@ -69,7 +69,7 @@ request = DwdObservationRequest(
     options=options
 )
 stations = request.filter_by_station_id(station_id="1048")
-values = stations.values.all()
+values = stations.values().all()
 df = values.df
 df
 ```

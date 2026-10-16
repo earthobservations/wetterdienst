@@ -250,7 +250,7 @@ def test_hubeau_values_carry_the_qualification_code_as_a_whole_number(monkeypatc
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    df = request.filter_by_station_id("1011000101").values.all().df.sort("timestamp")
+    df = request.filter_by_station_id("1011000101").values().all().df.sort("timestamp")
     assert df.schema["quality_flags"] == pl.String
     assert df.get_column("quality_flags").to_list() == ["16", "12", None]
     assert "quality" not in df.columns
@@ -350,7 +350,7 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
     )
     station_id = request.all().df.get_column("station_id")[0]
 
-    df = request.filter_by_station_id(station_id).values.all().df
+    df = request.filter_by_station_id(station_id).values().all().df
 
     steps = df.get_column("timestamp").diff().drop_nulls().dt.total_minutes().to_list()
     assert steps, f"{station_id} returned no values to measure"

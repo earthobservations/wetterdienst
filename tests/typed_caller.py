@@ -60,7 +60,7 @@ assert_type(stations.to_dict()["stations"][0]["station_id"], str)
 assert_type(stations.to_ogc_feature_collection()["data"]["type"], Literal["FeatureCollection"])
 
 # values
-values_request = stations.values
+values_request = stations.values()
 assert_type(values_request, TimeseriesValues)
 values = values_request.all()
 assert_type(values, ValuesResult)
@@ -70,14 +70,14 @@ assert_type(values.to_json(with_metadata=True), str)
 assert_type(values.to_csv(), str)
 values.to_dict(with_stations=True)["values"]
 assert_type(values.to_ogc_feature_collection()["data"]["type"], Literal["FeatureCollection"])
-assert_type(values.filter_by_date("2002-08"), pl.DataFrame)
+assert_type(values.filtered_by_date("2002-08"), ValuesResult)
 assert_type(values.to_image(fmt="png"), bytes | str)
 values.to_target("sqlite:///values.db?table=values", if_exists="replace")
 for chunk in values_request.query():
     assert_type(chunk, ValuesResult)
 
 # history
-assert_type(stations.history, TimeseriesHistory)
+assert_type(stations.history(), TimeseriesHistory)
 
 # a point between stations
 interpolated = request.interpolate(latlon=(50.7, 13.7))

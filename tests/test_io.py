@@ -129,7 +129,7 @@ def stations_result_mock(df_stations: pl.DataFrame, stations_mock: TimeseriesReq
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=stations_mock,
+        request=stations_mock,
     )
 
 
@@ -272,7 +272,7 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=None,
+        request=None,
     ).to_dict()
     assert data.keys() == {"stations"}
     assert data["stations"] == [
@@ -301,7 +301,7 @@ def test_stations_to_dict_with_metadata(
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=stations_mock,
+        request=stations_mock,
     ).to_dict(with_metadata=True)
     assert data.keys() == {"stations", "metadata"}
     assert data["metadata"] == metadata
@@ -313,7 +313,7 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=None,
+        request=None,
     ).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
@@ -341,7 +341,7 @@ def test_stations_to_ogc_feature_collection_with_metadata(
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=stations_mock,
+        request=stations_mock,
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
     assert data["metadata"] == metadata
@@ -353,7 +353,7 @@ def test_stations_format_json(df_stations: pl.DataFrame) -> None:
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=None,
+        request=None,
     ).to_json()
     response = json.loads(output)
     assert response.keys() == {"stations"}
@@ -367,7 +367,7 @@ def test_stations_format_geojson(df_stations: pl.DataFrame, stations_mock: Times
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.ALL,
-        stations=stations_mock,
+        request=stations_mock,
     ).to_geojson()
     response = json.loads(output)
     assert response.keys() == {"data"}
@@ -382,7 +382,7 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
             df=df_stations,
             df_all=df_stations,
             stations_filter=StationsFilter.ALL,
-            stations=None,
+            request=None,
         )
         .to_csv()
         .strip()
@@ -400,7 +400,7 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
 
 def test_values_to_dict(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame of values to dictionary."""
-    data = ValuesResult(stations=None, values=None, df=df_values[0, :]).to_dict()
+    data = ValuesResult(stations=None, df=df_values[0, :]).to_dict()
     assert data.keys() == {"values"}
     assert data["values"] == [
         {
@@ -421,14 +421,14 @@ def test_values_to_dict_with_metadata(
     metadata: dict,
 ) -> None:
     """Test export of DataFrame of values to dictionary with metadata."""
-    data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_dict(with_metadata=True)
+    data = ValuesResult(stations=stations_result_mock, df=df_values[0, :]).to_dict(with_metadata=True)
     assert data.keys() == {"values", "metadata"}
     assert data["metadata"] == metadata
 
 
 def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_result_mock: StationsResult) -> None:
     """Test export of DataFrame of values to OGC feature collection."""
-    data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection()
+    data = ValuesResult(stations=stations_result_mock, df=df_values[0, :]).to_ogc_feature_collection()
     assert data.keys() == {"data"}
     assert data["data"]["features"][0] == {
         "geometry": {"coordinates": [13.5528, 48.8049, 645.0], "type": "Point"},
@@ -461,7 +461,7 @@ def test_values_to_ogc_feature_collection_with_metadata(
     metadata: dict,
 ) -> None:
     """Test export of DataFrame of values to OGC feature collection with metadata."""
-    data = ValuesResult(stations=stations_result_mock, values=None, df=df_values[0, :]).to_ogc_feature_collection(
+    data = ValuesResult(stations=stations_result_mock, df=df_values[0, :]).to_ogc_feature_collection(
         with_metadata=True,
     )
     assert data.keys() == {"data", "metadata"}
@@ -470,7 +470,7 @@ def test_values_to_ogc_feature_collection_with_metadata(
 
 def test_values_format_json(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to json."""
-    output = ValuesResult(stations=None, values=None, df=df_values).to_json()
+    output = ValuesResult(stations=None, df=df_values).to_json()
     response = json.loads(output)
     assert response.keys() == {"values"}
     station_ids = {reading["station_id"] for reading in response["values"]}
@@ -479,7 +479,7 @@ def test_values_format_json(df_values: pl.DataFrame) -> None:
 
 def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: StationsResult) -> None:
     """Test export of DataFrame to geojson."""
-    output = ValuesResult(df=df_values, stations=stations_result_mock, values=None).to_geojson()
+    output = ValuesResult(df=df_values, stations=stations_result_mock).to_geojson()
     response = json.loads(output)
     assert response.keys() == {"data"}
     item = response["data"]["features"][0]["values"][0]
@@ -495,7 +495,7 @@ def test_values_format_geojson(df_values: pl.DataFrame, stations_result_mock: St
 
 def test_values_format_csv(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
-    output = ValuesResult(stations=None, values=None, df=df_values).to_csv().strip()
+    output = ValuesResult(stations=None, df=df_values).to_csv().strip()
     lines = output.split("\n")
     assert lines[0] == "station_id,resolution,dataset,parameter,timestamp,value,quality_flags"
     assert lines[-1] == "01048,daily,climate_summary,temperature_air_max_2m,2022-01-01T00:00:00.000000+00:00,4.0,"
@@ -503,7 +503,7 @@ def test_values_format_csv(df_values: pl.DataFrame) -> None:
 
 def test_values_format_csv_kwargs(df_values: pl.DataFrame) -> None:
     """Test export of DataFrame to csv."""
-    output = ValuesResult(stations=None, values=None, df=df_values).to_csv(include_header=False).strip()
+    output = ValuesResult(stations=None, df=df_values).to_csv(include_header=False).strip()
     lines = output.split("\n")
     assert lines[0] == "01048,daily,climate_summary,temperature_air_max_2m,2019-01-01T00:00:00.000000+00:00,1.3,"
 
@@ -791,7 +791,7 @@ def test_values_plot_labels_the_unit_the_values_carry(
         options=options_kwargs,
     )
     stations = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
@@ -807,7 +807,7 @@ def test_values_plot_labels_the_unit_the_values_carry(
         },
     )
     pytest.importorskip("plotly")
-    figure = ValuesResult(stations=stations, values=stations.values, df=df).to_plot()
+    figure = ValuesResult(stations=stations, df=df).to_plot()
     assert [annotation.text for annotation in figure.layout.annotations] == [expected]
 
 
@@ -824,7 +824,7 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
         options=Options(convert_units=False),
     )
     stations = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
@@ -839,7 +839,7 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
             "value": [1.0, 2.0],
         },
     )
-    figure = ValuesResult(stations=stations, values=stations.values, df=df).to_plot()
+    figure = ValuesResult(stations=stations, df=df).to_plot()
     assert sorted(annotation.text for annotation in figure.layout.annotations) == [
         "10_minutes<br>solar<br>sunshine_duration (h)",
         "hourly<br>sun<br>sunshine_duration (min)",
@@ -915,11 +915,11 @@ def test_filter_by_sql_on_stations(df_stations: pl.DataFrame) -> None:
     raised `ColumnNotFoundError`. The CLI's own `--sql` goes through `TimeseriesRequest`, which
     named those two columns itself and so worked; both run this one filter now.
     """
-    df = ExportMixin(df=df_stations).filter_by_sql("region='Bayern'")
+    df = ExportMixin(df=df_stations).filtered_by_sql("region='Bayern'").df
     assert df.get_column("station_id").to_list() == ["01048"]
     # the timestamps keep the zone they came with
     assert df.schema["start_timestamp"].time_zone == "UTC"
-    assert ExportMixin(df=df_stations).filter_by_sql("region='Sachsen'").is_empty()
+    assert ExportMixin(df=df_stations).filtered_by_sql("region='Sachsen'").df.is_empty()
 
 
 @pytest.mark.sql
@@ -928,28 +928,30 @@ def test_filter_by_sql_names_a_renamed_column(df_stations: pl.DataFrame, df_valu
     import duckdb  # noqa: PLC0415
 
     with pytest.raises(duckdb.BinderException, match='column "date" was renamed to "timestamp"'):
-        ExportMixin(df=df_values).filter_by_sql("date >= '2019-01-01'")
+        ExportMixin(df=df_values).filtered_by_sql("date >= '2019-01-01'")
     # a stations frame never had `date` and has no `timestamp` to be sent to either
     with pytest.raises(duckdb.BinderException, match='Referenced column "date" not found'):
-        ExportMixin(df=df_stations).filter_by_sql("date >= '2019-01-01'")
+        ExportMixin(df=df_stations).filtered_by_sql("date >= '2019-01-01'")
 
     with pytest.raises(duckdb.BinderException, match='column "height" was renamed to "elevation"'):
-        ExportMixin(df=df_stations).filter_by_sql("height > 500")
+        ExportMixin(df=df_stations).filtered_by_sql("height > 500")
     # DuckDB matches identifiers regardless of case, and so does the hint
     with pytest.raises(duckdb.BinderException, match='column "HEIGHT" was renamed to "elevation"'):
-        ExportMixin(df=df_stations).filter_by_sql("HEIGHT > 500")
+        ExportMixin(df=df_stations).filtered_by_sql("HEIGHT > 500")
     # qualified by the table, which DuckDB reports in other words
     with pytest.raises(duckdb.BinderException, match='column "height" was renamed to "elevation"'):
-        ExportMixin(df=df_stations).filter_by_sql("df.height > 500")
+        ExportMixin(df=df_stations).filtered_by_sql("df.height > 500")
     # a values frame never had `height`, nor has it `elevation`, so DuckDB's own error stands
     with pytest.raises(duckdb.BinderException, match='Referenced column "height" not found'):
-        ExportMixin(df=df_values).filter_by_sql("height > 500")
+        ExportMixin(df=df_values).filtered_by_sql("height > 500")
     with pytest.raises(duckdb.BinderException, match='column "state" was renamed to "region"'):
-        ExportMixin(df=df_stations).filter_by_sql("state = 'Bayern'")
+        ExportMixin(df=df_stations).filtered_by_sql("state = 'Bayern'")
     # a column that never existed keeps DuckDB's own error
     with pytest.raises(duckdb.BinderException, match='Referenced column "altitude" not found'):
-        ExportMixin(df=df_stations).filter_by_sql("altitude > 500")
-    assert ExportMixin(df=df_stations).filter_by_sql("elevation > 500").get_column("station_id").to_list() == ["01048"]
+        ExportMixin(df=df_stations).filtered_by_sql("altitude > 500")
+    assert ExportMixin(df=df_stations).filtered_by_sql("elevation > 500").df.get_column("station_id").to_list() == [
+        "01048"
+    ]
 
 
 @pytest.mark.sql
@@ -966,22 +968,22 @@ def test_filter_by_sql_names_a_renamed_wide_quality_column() -> None:
         duckdb.BinderException,
         match='column "qn_temperature_air_mean_2m" was renamed to "temperature_air_mean_2m_quality_flags"',
     ):
-        ExportMixin(df=df).filter_by_sql("qn_temperature_air_mean_2m = 10")
+        ExportMixin(df=df).filtered_by_sql("qn_temperature_air_mean_2m = 10")
     # DuckDB matches identifiers regardless of case, and so does the hint
     with pytest.raises(duckdb.BinderException, match='was renamed to "temperature_air_mean_2m_quality_flags"'):
-        ExportMixin(df=df).filter_by_sql("QN_Temperature_Air_Mean_2m = 10")
+        ExportMixin(df=df).filtered_by_sql("QN_Temperature_Air_Mean_2m = 10")
     for old in ("temperature_air_mean_2m_quality", "temperature_air_mean_2m_quality_flag"):
         with pytest.raises(
             duckdb.BinderException, match=f'column "{old}" was renamed to "temperature_air_mean_2m_quality_flags"'
         ):
-            ExportMixin(df=df).filter_by_sql(f"{old} = 10")
+            ExportMixin(df=df).filtered_by_sql(f"{old} = 10")
     # a frame whose columns carry case, as source names do with humanize off, is named in its own
     df = pl.DataFrame({"TMK": [1.5], "TMK_quality_flags": ["10"]})
     with pytest.raises(duckdb.BinderException, match='column "qn_tmk" was renamed to "TMK_quality_flags"'):
-        ExportMixin(df=df).filter_by_sql("qn_tmk = 10")
+        ExportMixin(df=df).filtered_by_sql("qn_tmk = 10")
     # a `qn_` column whose successor the frame does not hold is simply not there
     with pytest.raises(duckdb.BinderException, match='Referenced column "qn_wind_speed" not found'):
-        ExportMixin(df=df).filter_by_sql("qn_wind_speed = 10")
+        ExportMixin(df=df).filtered_by_sql("qn_wind_speed = 10")
 
 
 @pytest.mark.sql
@@ -992,7 +994,7 @@ def test_filter_by_sql_names_the_quality_flags_that_replaced_quality() -> None:
     df = pl.DataFrame({"parameter": ["tmk"], "value": [1.5], "quality_flags": ["10"]})
     for old in ("quality", "quality_flag"):
         with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "quality_flags"'):
-            ExportMixin(df=df).filter_by_sql(f"{old} >= 5")
+            ExportMixin(df=df).filtered_by_sql(f"{old} >= 5")
 
 
 @pytest.mark.sql
@@ -1004,14 +1006,14 @@ def test_filter_by_sql_names_a_renamed_parameter_column() -> None:
     for old in ("wave_height_sign", "wave_height_sign_quality", "wave_height_sign_quality_flag", "qn_wave_height_sign"):
         new = "wave_height_significant" if old == "wave_height_sign" else "wave_height_significant_quality_flags"
         with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "{new}"'):
-            ExportMixin(df=df).filter_by_sql(f"{old} > 1")
+            ExportMixin(df=df).filtered_by_sql(f"{old} > 1")
     # several datasets prefix each column with its dataset, and the rename follows the parameter
     df = pl.DataFrame({"soil_thawing_thickness_bare_ground": [3.0]})
     with pytest.raises(
         duckdb.BinderException,
         match='column "soil_thawing_thickness_bare" was renamed to "soil_thawing_thickness_bare_ground"',
     ):
-        ExportMixin(df=df).filter_by_sql("soil_thawing_thickness_bare > 1")
+        ExportMixin(df=df).filtered_by_sql("soil_thawing_thickness_bare > 1")
 
 
 @pytest.mark.sql
@@ -1027,7 +1029,7 @@ def test_filter_by_sql_keeps_duckdbs_error_for_a_column_that_was_not_renamed() -
 
     df = pl.DataFrame({"count_days_multiday_wind_movement": [2.0]})
     with pytest.raises(duckdb.BinderException, match='Referenced column "count_days_multiday_wind_movement_24h"'):
-        ExportMixin(df=df).filter_by_sql("count_days_multiday_wind_movement_24h > 0")
+        ExportMixin(df=df).filtered_by_sql("count_days_multiday_wind_movement_24h > 0")
 
 
 @pytest.mark.parametrize("extension", ["csv", "json", "jsonl", "xlsx", "parquet", "feather"])
@@ -1124,12 +1126,20 @@ def test_export_netcdf_without_an_engine_says_so(
 @pytest.mark.sql
 def test_filter_by_sql(df_values: pl.DataFrame) -> None:
     """Test filter by sql statement."""
-    df = ExportMixin(df=df_values).filter_by_sql(
-        sql="parameter='temperature_air_max_2m' AND value < 1.5",
+    df = (
+        ExportMixin(df=df_values)
+        .filtered_by_sql(
+            sql="parameter='temperature_air_max_2m' AND value < 1.5",
+        )
+        .df
     )
     assert not df.is_empty()
-    df = ExportMixin(df=df_values).filter_by_sql(
-        sql="parameter='temperature_air_max_2m' AND value > 4",
+    df = (
+        ExportMixin(df=df_values)
+        .filtered_by_sql(
+            sql="parameter='temperature_air_max_2m' AND value > 4",
+        )
+        .df
     )
     assert df.is_empty()
 
@@ -1142,7 +1152,7 @@ def test_request(default_settings: Settings) -> None:
         periods=Period.RECENT,
         settings=default_settings,
     ).filter_by_station_id(station_id=[1048])
-    df = request.values.all().df
+    df = request.values().all().df
     assert not df.is_empty()
 
 
@@ -1156,7 +1166,7 @@ def test_export_unknown(default_settings: Settings) -> None:
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     with pytest.raises(ExportRefusedError) as exec_info:
         values.to_target("file:///test.foobar")
     assert exec_info.match("Unknown export file type")
@@ -1176,7 +1186,7 @@ def test_export_excel(options_convert_units_false_wide_shape: Options, tmp_path:
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     filename = tmp_path.joinpath("observations.xlsx")
     values.to_target(f"file://{filename}")
 
@@ -1308,7 +1318,7 @@ def test_export_parquet(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     # Save to Parquet file.
     filename = tmp_path.joinpath("observation.parquet")
     values.to_target(f"file://{filename}")
@@ -1344,7 +1354,7 @@ def test_export_zarr(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     # Save to Zarr group.
     filename = tmp_path.joinpath("observation.zarr")
     values.to_target(f"file://{filename}")
@@ -1402,7 +1412,7 @@ def test_export_zarr_two_datasets(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     filename = tmp_path.joinpath("observation.zarr")
 
     values.to_target(f"file://{filename}")
@@ -1433,7 +1443,7 @@ def test_export_feather(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     # Save to Feather file.
     filename = tmp_path.joinpath("observation.feather")
     values.to_target(f"file://{filename}")
@@ -1465,7 +1475,7 @@ def test_export_sqlite(options_convert_units_false_wide_shape: Options, tmp_path
         station_id=[1048],
     )
     filename = tmp_path.joinpath("observation.sqlite")
-    values = request.values.all()
+    values = request.values().all()
     values.to_target(f"sqlite:///{filename}?table=testdrive")
     connection = sqlite3.connect(filename)
     cursor = connection.cursor()
@@ -1570,7 +1580,7 @@ def test_export_cratedb(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    values = request.values.all()
+    values = request.values().all()
     with mock.patch(
         "pandas.DataFrame.to_sql",
     ) as mock_to_sql:
@@ -1596,7 +1606,7 @@ def test_export_duckdb(options_convert_units_false: Options, tmp_path: Path) -> 
         options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
     filename = tmp_path.joinpath("test.duckdb")
-    values = request.values.all()
+    values = request.values().all()
     values.to_target(f"duckdb:///{filename}?table=testdrive")
     connection = duckdb.connect(str(filename), read_only=True)
     cursor = connection.cursor()
@@ -1635,7 +1645,7 @@ def test_export_influxdb1_wide(options_convert_units_false_wide_shape: Options) 
         start="2019-01-01",
         options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
-    values = request.values.all()
+    values = request.values().all()
     mock_client = mock.MagicMock()
     with mock.patch(
         "influxdb.InfluxDBClient",
@@ -1707,7 +1717,7 @@ def test_export_influxdb1_tidy(options_convert_units_false: Options) -> None:
         start="2019-01-01",
         options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
-    values = request.values.all()
+    values = request.values().all()
     mock_client = mock.MagicMock()
     with mock.patch(
         "influxdb.InfluxDBClient",
@@ -1754,7 +1764,7 @@ def test_export_influxdb2_wide(options_convert_units_false_wide_shape: Options) 
         start="2019-01-01",
         options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
-    values = request.values.all()
+    values = request.values().all()
     mock_client = mock.MagicMock()
     with (
         mock.patch(
@@ -1818,7 +1828,7 @@ def test_export_influxdb2_tidy(options_convert_units_false: Options) -> None:
         start="2019-01-01",
         options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
-    values = request.values.all()
+    values = request.values().all()
     mock_client = mock.MagicMock()
     with (
         mock.patch(
@@ -1857,7 +1867,7 @@ def test_export_influxdb3_wide(options_convert_units_false_wide_shape: Options) 
         start="2019-01-01",
         options=options_convert_units_false_wide_shape,
     ).filter_by_station_id(station_id=[1048])
-    values = request.values.all()
+    values = request.values().all()
     with (
         mock.patch(
             "influxdb_client_3.InfluxDBClient3",
@@ -1921,7 +1931,7 @@ def test_export_influxdb3_tidy(options_convert_units_false: Options) -> None:
         start="2019-01-01",
         options=options_convert_units_false,
     ).filter_by_station_id(station_id=[1048])
-    values = request.values.all()
+    values = request.values().all()
     with (
         mock.patch(
             "influxdb_client_3.InfluxDBClient3",
@@ -2044,7 +2054,7 @@ def test_export_duckdb_single_query_results_if_exists_replace(tmp_path: Path) ->
         parameters=[("daily", "climate_summary")],
     ).filter_by_station_id(station_id=[1048, 1050])
 
-    values_query = request.values.query()
+    values_query = request.values().query()
 
     result_1048 = next(values_query)
     result_1048.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
@@ -2071,7 +2081,7 @@ def test_export_duckdb_single_query_results_if_exists_append(tmp_path: Path) -> 
         parameters=[("daily", "climate_summary")],
     ).filter_by_station_id(station_id=[1048, 1050])
 
-    values_query = request.values.query()
+    values_query = request.values().query()
 
     result_1048 = next(values_query)
     result_1048.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
@@ -2101,7 +2111,7 @@ def test_export_duckdb_all_result_if_exists_replace(tmp_path: Path) -> None:
         parameters=[("daily", "climate_summary")],
     ).filter_by_station_id(station_id=[1048])
 
-    values = request.values.all()
+    values = request.values().all()
     values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
 
     # Verify that the table exists and has station_id 1048
@@ -2112,7 +2122,7 @@ def test_export_duckdb_all_result_if_exists_replace(tmp_path: Path) -> None:
         parameters=[("daily", "climate_summary")],
     ).filter_by_station_id(station_id=[1050])
 
-    values = request.values.all()
+    values = request.values().all()
     values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="replace")
 
     # Verify that the table exists and has station_id 1050
@@ -2130,7 +2140,7 @@ def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
         parameters=[("daily", "climate_summary")],
     ).filter_by_station_id(station_id=[1048])
 
-    values = request.values.all()
+    values = request.values().all()
     values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
 
     # Verify that the table exists and has station_id 1048
@@ -2141,7 +2151,7 @@ def test_export_duckdb_all_result_if_exists_append(tmp_path: Path) -> None:
         parameters=[("daily", "climate_summary")],
     ).filter_by_station_id(station_id=[1050])
 
-    values = request.values.all()
+    values = request.values().all()
     values.to_target(f"duckdb:///{filename}?table=testdrive", if_exists="append")
 
     # Verify that the table exists and has station_id 1050
@@ -2554,7 +2564,7 @@ def _gauge_stations_result() -> StationsResult:
         },
         orient="row",
     ).with_columns(gauge_zero=pl.Series([None, None, -1.809], dtype=pl.Float64), distance=pl.lit(1.0))
-    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=GaugeRequestMock())
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, request=GaugeRequestMock())
 
 
 # per station id: the feature's position and its gauge_zero property
@@ -2597,7 +2607,7 @@ def test_values_to_ogc_feature_collection_without_elevation_and_with_gauge_zero(
         schema_overrides={"quality_flags": pl.String},
         orient="row",
     )
-    result = ValuesResult(stations=_gauge_stations_result(), values=None, df=df_values)
+    result = ValuesResult(stations=_gauge_stations_result(), df=df_values)
     features = json.loads(result.to_geojson())["data"]["features"]
     assert {
         feature["properties"]["id"]: (feature["geometry"]["coordinates"], feature["properties"]["gauge_zero"])
@@ -2723,7 +2733,7 @@ def test_filter_by_sql_cannot_read_files(
     tmp_path.joinpath("secret.csv").write_text("elevation\n645.0\n")
     tmp_path.joinpath("secret.txt").write_text("Freyung vorm Wald")
     with pytest.raises(duckdb.PermissionException, match=match):
-        ExportMixin(df=df_stations).filter_by_sql(clause.format(d=tmp_path.as_posix()))
+        ExportMixin(df=df_stations).filtered_by_sql(clause.format(d=tmp_path.as_posix()))
 
 
 @pytest.mark.sql
@@ -2732,7 +2742,7 @@ def test_filter_by_sql_cannot_reach_the_network(df_stations: pl.DataFrame) -> No
     import duckdb  # noqa: PLC0415
 
     with pytest.raises(duckdb.PermissionException, match="disabled"):
-        ExportMixin(df=df_stations).filter_by_sql(
+        ExportMixin(df=df_stations).filtered_by_sql(
             "elevation IN (SELECT elevation FROM read_csv('https://example.com/secret.csv'))"
         )
 
@@ -2740,7 +2750,7 @@ def test_filter_by_sql_cannot_reach_the_network(df_stations: pl.DataFrame) -> No
 @pytest.mark.sql
 def test_filter_by_sql_on_values_keeps_the_time_zone(df_values: pl.DataFrame) -> None:
     """A clause on the timestamps still filters, and the rows keep the zone they came with."""
-    df = ExportMixin(df=df_values).filter_by_sql("timestamp >= '2020-01-01' AND timestamp < '2022-01-01'")
+    df = ExportMixin(df=df_values).filtered_by_sql("timestamp >= '2020-01-01' AND timestamp < '2022-01-01'").df
     assert df.schema["timestamp"] == pl.Datetime(time_zone="UTC")
     assert df.get_column("timestamp").to_list() == [
         dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
@@ -2772,11 +2782,11 @@ def test_filter_by_sql_takes_a_single_condition(df_stations: pl.DataFrame, claus
     import duckdb  # noqa: PLC0415
 
     with pytest.raises(duckdb.ParserException):
-        ExportMixin(df=df_stations).filter_by_sql(clause)
+        ExportMixin(df=df_stations).filtered_by_sql(clause)
     # a trailing semicolon, as a clause copied from a statement has, is still taken, and so is a
     # trailing comment
     for taken in ("region = 'Bayern';", "region = 'Bayern' ; ; ", "region = 'Bayern' -- Freyung"):
-        assert ExportMixin(df=df_stations).filter_by_sql(taken).get_column("station_id").to_list() == ["01048"]
+        assert ExportMixin(df=df_stations).filtered_by_sql(taken).df.get_column("station_id").to_list() == ["01048"]
 
 
 @pytest.mark.sql
@@ -2786,14 +2796,18 @@ def test_filter_by_sql_runs_within_limits(df_stations: pl.DataFrame) -> None:
 
     # a list of 200 million integers needs 1.6 GB, and is refused where it would have been built
     with pytest.raises(duckdb.OutOfMemoryException):
-        ExportMixin(df=df_stations).filter_by_sql("(SELECT len(list(i)) FROM range(200000000) t(i)) > 0")
+        ExportMixin(df=df_stations).filtered_by_sql("(SELECT len(list(i)) FROM range(200000000) t(i)) > 0")
     # the clause reads its own connection's settings, so it can say which ones it runs under; the
     # memory limit is left to the refusal above, as DuckDB words sizes as it likes ("1.0 GiB")
-    df = ExportMixin(df=df_stations).filter_by_sql(
-        "current_setting('threads') = 1"
-        " AND starts_with(current_setting('max_temp_directory_size'), '0 ')"
-        " AND current_setting('lock_configuration')"
-        " AND NOT current_setting('enable_external_access')"
+    df = (
+        ExportMixin(df=df_stations)
+        .filtered_by_sql(
+            "current_setting('threads') = 1"
+            " AND starts_with(current_setting('max_temp_directory_size'), '0 ')"
+            " AND current_setting('lock_configuration')"
+            " AND NOT current_setting('enable_external_access')"
+        )
+        .df
     )
     assert df.get_column("station_id").to_list() == ["01048"]
 
@@ -2820,7 +2834,7 @@ def test_filter_by_sql_cannot_read_the_temp_directory(
     tmp_path.joinpath(".tmp").mkdir()
     tmp_path.joinpath(".tmp", "secret.txt").write_text("Freyung vorm Wald")
     with pytest.raises(duckdb.PermissionException):
-        ExportMixin(df=df_stations).filter_by_sql(clause)
+        ExportMixin(df=df_stations).filtered_by_sql(clause)
 
 
 @pytest.mark.sql
@@ -2832,11 +2846,11 @@ def test_filter_by_sql_memory_limit_counts_the_frame(
 
     # a list of 20 million integers needs 160 MB, which 1 GiB holds ...
     clause = "(SELECT len(list(i)) FROM range(20000000) t(i)) > 0"
-    assert ExportMixin(df=df_stations).filter_by_sql(clause).get_column("station_id").to_list() == ["01048"]
+    assert ExportMixin(df=df_stations).filtered_by_sql(clause).df.get_column("station_id").to_list() == ["01048"]
     # ... and 1 GiB plus a frame said to be 960 MiB smaller than nothing, 64 MiB in all, does not
     monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
     with pytest.raises(duckdb.OutOfMemoryException):
-        ExportMixin(df=df_stations).filter_by_sql(clause)
+        ExportMixin(df=df_stations).filtered_by_sql(clause)
 
 
 @pytest.mark.sql
@@ -2852,11 +2866,11 @@ def test_filter_by_sql_strips_a_long_clause_in_linear_time(df_stations: pl.DataF
         "region = 'Bayern'" + "; " * 50_000,
     ):
         start = time.perf_counter()
-        assert ExportMixin(df=df_stations).filter_by_sql(clause).get_column("station_id").to_list() == ["01048"]
+        assert ExportMixin(df=df_stations).filtered_by_sql(clause).df.get_column("station_id").to_list() == ["01048"]
         assert time.perf_counter() - start < 5
     # whitespace beyond ASCII, as a clause pasted from a web page ends with, goes too
     for tail in (";" + chr(0x3000), ";" + chr(0xA0), " ;\t;\n", chr(0x2028)):
-        assert ExportMixin(df=df_stations).filter_by_sql(f"region = 'Bayern'{tail}").height == 1
+        assert ExportMixin(df=df_stations).filtered_by_sql(f"region = 'Bayern'{tail}").df.height == 1
 
 
 @pytest.mark.parametrize(
@@ -3105,13 +3119,13 @@ def _two_dataset_stations_result() -> StationsResult:
         },
         orient="row",
     )
-    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=None)
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, request=None)
 
 
 def _values_result(stations: StationsResult, rows: list[dict]) -> ValuesResult:
     """Build a values result of hand-written rows."""
     df_values = pl.DataFrame(rows, schema_overrides={"timestamp": pl.Datetime(time_zone="UTC")}, orient="row")
-    return ValuesResult(stations=stations, values=None, df=df_values)
+    return ValuesResult(stations=stations, df=df_values)
 
 
 def test_values_to_ogc_feature_collection_gives_each_dataset_its_own_values() -> None:
@@ -3236,7 +3250,7 @@ def _unlocated_stations_result() -> StationsResult:
         },
         orient="row",
     ).with_columns(region=pl.lit(None, dtype=pl.String))
-    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, stations=None)
+    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, request=None)
 
 
 # per station id: the feature's geometry, null where the station has no position
@@ -3318,7 +3332,7 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
         "temperature_air_temperature_air_2m": None,
     }
     result = _values_result(
-        StationsResult(df=stations, df_all=stations, stations_filter=StationsFilter.ALL, stations=None),
+        StationsResult(df=stations, df_all=stations, stations_filter=StationsFilter.ALL, request=None),
         [
             {"station_id": "01048", "resolution": "daily", "dataset": None, "timestamp": utc(2025), **wide},
             {"station_id": "00011", "resolution": "daily", "dataset": None, "timestamp": utc(2019), **wide},
@@ -3529,12 +3543,12 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
     pytest.importorskip("plotly")
     request = DwdObservationRequest(parameters=parameters, options=options_kwargs)
     stations = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
     )
-    values = stations.values
+    values = stations.values()
     series = [
         (parameter.dataset.resolution.name, parameter.dataset.name, name)
         for parameter, name in zip(request.parameters, names, strict=True)
@@ -3575,8 +3589,8 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
         [values._widen_df(df).sort("resolution", "dataset", "timestamp") for df in stations_collected],  # noqa: SLF001
         how="diagonal",
     )
-    long = ValuesResult(stations=stations, values=values, df=df_long)
-    wide = ValuesResult(stations=stations, values=values, df=df_wide)
+    long = ValuesResult(stations=stations, df=df_long)
+    wide = ValuesResult(stations=stations, df=df_wide)
     assert "parameter" not in df_wide.columns
     assert _plot_of(wide) == _plot_of(long)
 
@@ -3586,13 +3600,13 @@ def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
     pytest.importorskip("plotly")
     request = DwdObservationRequest(parameters=["daily/kl/temperature_air_mean_2m"])
     stations = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
     )
-    df = stations.values._widen_df(pl.DataFrame(schema=LONG_SCHEMA))  # noqa: SLF001
-    assert ValuesResult(stations=stations, values=stations.values, df=df).to_plot().data == ()
+    df = stations.values()._widen_df(pl.DataFrame(schema=LONG_SCHEMA))  # noqa: SLF001
+    assert ValuesResult(stations=stations, df=df).to_plot().data == ()
 
 
 def test_export_file_relative_target_with_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -3611,13 +3625,17 @@ def test_filter_by_sql_names_the_renamed_station_timestamp_columns(
     import duckdb  # noqa: PLC0415
 
     with pytest.raises(duckdb.BinderException, match='column "start_date" was renamed to "start_timestamp"'):
-        ExportMixin(df=df_stations).filter_by_sql("start_date < '1960-01-01'")
+        ExportMixin(df=df_stations).filtered_by_sql("start_date < '1960-01-01'")
     with pytest.raises(duckdb.BinderException, match='column "END_DATE" was renamed to "end_timestamp"'):
-        ExportMixin(df=df_stations).filter_by_sql("END_DATE > '1990-01-01'")
+        ExportMixin(df=df_stations).filtered_by_sql("END_DATE > '1990-01-01'")
     # a values frame never had either, nor has it the new ones, so DuckDB's own error stands
     with pytest.raises(duckdb.BinderException, match='Referenced column "end_date" not found'):
-        ExportMixin(df=df_values).filter_by_sql("end_date > '1990-01-01'")
-    df = ExportMixin(df=df_stations).filter_by_sql("start_timestamp < '1960-01-01' AND end_timestamp > '1990-01-01'")
+        ExportMixin(df=df_values).filtered_by_sql("end_date > '1990-01-01'")
+    df = (
+        ExportMixin(df=df_stations)
+        .filtered_by_sql("start_timestamp < '1960-01-01' AND end_timestamp > '1990-01-01'")
+        .df
+    )
     assert df.get_column("station_id").to_list() == ["01048"]
 
 
@@ -3909,7 +3927,7 @@ def _write_zarr(tmp: Path) -> None:
 @pytest.mark.parametrize(
     ("module", "extra", "call"),
     [
-        pytest.param("duckdb", "sql", lambda _tmp: _one_row().filter_by_sql("true"), id="filter_by_sql"),
+        pytest.param("duckdb", "sql", lambda _tmp: _one_row().filtered_by_sql("true"), id="filter_by_sql"),
         pytest.param(
             "duckdb",
             "duckdb",
@@ -4009,7 +4027,7 @@ def test_export_influxdb1_tidy_writes_the_quality_flags_beside_the_value() -> No
         },
         schema_overrides={"quality_flags": pl.String},
     )
-    values = ValuesResult(stations=None, values=None, df=df)  # ty: ignore[invalid-argument-type]
+    values = ValuesResult(stations=None, df=df)  # ty: ignore[invalid-argument-type]
     mock_client = mock.MagicMock()
     with mock.patch("influxdb.InfluxDBClient", side_effect=[mock_client], create=True):
         values.to_target("influxdb://localhost/?database=dwd&table=weather")
@@ -4036,7 +4054,7 @@ def test_export_influxdb1_wide_does_not_write_the_raw_flags_of_a_missing_value_a
             "pressure_vapor_quality_flags": [None, "4", None],
         },
     )
-    values = ValuesResult(stations=None, values=None, df=df)  # ty: ignore[invalid-argument-type]
+    values = ValuesResult(stations=None, df=df)  # ty: ignore[invalid-argument-type]
     mock_client = mock.MagicMock()
     with mock.patch("influxdb.InfluxDBClient", side_effect=[mock_client], create=True):
         values.to_target("influxdb://localhost/?database=dwd&table=weather")

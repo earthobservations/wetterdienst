@@ -3,6 +3,7 @@
 """Tests for DWD SWSMOS (road weather forecast) provider."""
 
 import bz2
+import dataclasses
 import datetime as dt
 import logging
 from io import BytesIO
@@ -85,7 +86,7 @@ def test_swsmos_values() -> None:
     """The latest run returns an hourly forecast with the expected parameters and sane ranges."""
     request = DwdSwsmosRequest(parameters=[("hourly", "data")])
     station_id = request.all().df["station_id"][0]
-    df = request.filter_by_station_id(station_id).values.all().df
+    df = request.filter_by_station_id(station_id).values().all().df
     assert not df.is_empty()
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert set(df["parameter"].unique().to_list()) <= {
@@ -157,7 +158,7 @@ def _stub_stations(station_ids: tuple[str, ...] = ("A006",), settings: Settings 
         orient="row",
     )
     return StationsResult(
-        stations=request,
+        request=request,
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -193,7 +194,7 @@ def test_swsmos_parses_the_run_once_for_all_its_stations(monkeypatch: pytest.Mon
     _read_run_csv_original = api._read_run_csv  # noqa: SLF001
     monkeypatch.setattr(api, "_read_run_csv", lambda c: parses.append(1) or _read_run_csv_original(c))
 
-    values = _stub_stations(("A006", "B999", "C111")).values
+    values = _stub_stations(("A006", "B999", "C111")).values()
     dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
     answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999", "C111")]  # noqa: SLF001
 
@@ -222,7 +223,7 @@ def test_swsmos_pins_every_station_to_one_run(monkeypatch: pytest.MonkeyPatch) -
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(runs.pop(0)), status=200),
     )
 
-    values = _stub_stations(("A006", "B999")).values
+    values = _stub_stations(("A006", "B999")).values()
     dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
     answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
 
@@ -250,7 +251,7 @@ def test_swsmos_run_that_cannot_be_fetched_is_asked_for_once(
         ),
     )
 
-    values = _stub_stations(("A006", "B999")).values
+    values = _stub_stations(("A006", "B999")).values()
     dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
     answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999")]  # noqa: SLF001
 
@@ -299,14 +300,14 @@ def test_swsmos_latest_asks_for_the_newest_run_by_name(monkeypatch: pytest.Monke
             f"{api._BASE_URL}/swsmos_20260731070000_opendata.csv.bz2",  # noqa: SLF001
         ],
     )
-    _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+    _stub_stations().values()._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
     # with nothing but the alias to go on it is used, and held only briefly
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
-    _stub_stations().values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+    _stub_stations().values()._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
     # and an explicitly requested run names itself
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
-    stations.values._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
+    stations.request.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+    stations.values()._collect_station_parameter_or_dataset("A006", dataset)  # noqa: SLF001
 
     assert asked == [
         ("swsmos_20260731070000_opendata.csv.bz2", CacheExpiry.TWELVE_HOURS),
@@ -334,7 +335,7 @@ def test_swsmos_query_asks_for_the_latest_run_again(monkeypatch: pytest.MonkeyPa
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(runs.pop(0)), status=200),
     )
 
-    values = _stub_stations().values
+    values = _stub_stations().values()
     first = values.all().df
     second = values.all().df
 
@@ -343,11 +344,11 @@ def test_swsmos_query_asks_for_the_latest_run_again(monkeypatch: pytest.MonkeyPa
 
 
 def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The parsed run is released when the walk ends, rather than held by the result it produced.
+    """The parsed run is released when the walk ends, and the result holds no reader that could keep it.
 
-    `ValuesResult` holds the values object that produced it, so a result kept by the caller keeps
-    whatever that object holds -- and a request for one station's forecast would otherwise pin the
-    whole network's parsed run, some 20 MB, for as long as the result lived.
+    A request for one station's forecast would otherwise pin the whole network's parsed run, some
+    20 MB, for as long as the result a caller keeps lived. `ValuesResult` used to hold the values
+    object that produced it, which is what made that matter; it holds the stations and the frame now.
     """
     content = _run_file(("A006", "202607310800", "17.9"))
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
@@ -357,11 +358,11 @@ def test_swsmos_run_does_not_outlive_the_query(monkeypatch: pytest.MonkeyPatch) 
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
     )
 
-    values = _stub_stations().values
+    values = _stub_stations().values()
     result = values.all()
 
     assert not result.df.is_empty()
-    assert result.values is values  # the result does hold the object, which is why this matters
+    assert {field.name for field in dataclasses.fields(result)} == {"df", "stations"}
     assert values._run_frame_cache is None, "the run should be released with the walk that parsed it"  # noqa: SLF001
 
 
@@ -392,7 +393,8 @@ def test_swsmos_listing_entry_that_is_not_a_run_is_not_mistaken_for_one(monkeypa
         ),
     )
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -428,7 +430,8 @@ def test_swsmos_run_that_cannot_be_read_falls_back_to_the_one_before_it(
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
     )
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -466,7 +469,8 @@ def test_swsmos_run_that_arrives_empty_falls_back_like_one_that_cannot_be_read(
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bodies[kwargs["url"].rsplit("/", 1)[-1]]), status=200),
     )
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -502,9 +506,9 @@ def test_swsmos_unreadable_run_is_asked_for_again_where_nothing_stands_behind_it
 
     monkeypatch.setattr(api, "download_file", download)
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
 
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    df = stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -544,7 +548,8 @@ def test_swsmos_unreadable_run_with_a_fallback_is_still_asked_for_past_the_cache
     )
     monkeypatch.setattr(api, "download_file", download)
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -570,7 +575,8 @@ def test_swsmos_listing_naming_no_run_says_so(
     caplog.set_level(logging.WARNING)
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -601,9 +607,9 @@ def test_swsmos_unreadable_run_is_not_asked_for_again_where_there_is_no_cache(
 
     monkeypatch.setattr(api, "download_file", download)
     stations = _stub_stations(settings=Settings(cache_disable=True))
-    stations.stations.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2026, 7, 31, 8, tzinfo=UTC)
 
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    df = stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -701,10 +707,10 @@ def test_swsmos_issue_the_server_does_not_hold_is_not_found(monkeypatch: pytest.
         lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
     )
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
 
     with pytest.raises(IssueNotFoundError, match=r"swsmos_20200101000000_opendata\.csv\.bz2"):
-        stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
             "A006",
             DwdSwsmosRequest.metadata["hourly"]["data"],
         )
@@ -723,9 +729,9 @@ def test_swsmos_issue_not_found_where_the_listing_names_no_run_is_not_the_caller
         lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
     )
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
 
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    df = stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -757,7 +763,8 @@ def test_swsmos_latest_run_gone_since_the_listing_falls_back_to_the_one_before_i
         ),
     )
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -797,9 +804,9 @@ def test_swsmos_issue_the_listing_names_is_not_refused_when_its_fetch_404s(
         lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError("404 Not Found"), status=404),
     )
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
 
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    df = stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -823,9 +830,9 @@ def test_swsmos_issue_not_found_is_raised_for_every_station(monkeypatch: pytest.
         lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
     )
     stations = _stub_stations(("A006", "B999"))
-    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
-    # one values object, as one walk over the stations has: `.values` builds a new one per access
-    values = stations.values
+    stations.request.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    # one values object, as one walk over the stations has: `.values()` builds a new one per call
+    values = stations.values()
     dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
 
     for station_id in ("A006", "B999"):
@@ -851,9 +858,9 @@ def test_swsmos_issue_whose_run_is_served_asks_no_listing(monkeypatch: pytest.Mo
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
     )
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2026, 7, 31, 7, tzinfo=UTC)
 
-    df = stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    df = stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -877,10 +884,10 @@ def test_swsmos_issue_whose_fetch_fails_otherwise_is_not_refused_but_raised(monk
         lambda **kwargs: File(url=kwargs["url"], content=OSError("500 Internal Server Error"), status=500),
     )
     stations = _stub_stations()
-    stations.stations.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    stations.request.issue = dt.datetime(2020, 1, 1, tzinfo=UTC)
 
     with pytest.raises(DownloadError, match=r"swsmos_20200101000000_opendata\.csv\.bz2: 500 Internal Server Error"):
-        stations.values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        stations.values()._collect_station_parameter_or_dataset(  # noqa: SLF001
             "A006",
             DwdSwsmosRequest.metadata["hourly"]["data"],
         )
@@ -904,7 +911,8 @@ def test_swsmos_latest_run_pruned_since_the_listing_is_not_refused(
         lambda **kwargs: File(url=kwargs["url"], content=FileNotFoundError(kwargs["url"]), status=404),
     )
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         "A006",
         DwdSwsmosRequest.metadata["hourly"]["data"],
     )
@@ -940,7 +948,7 @@ def test_swsmos_latest_run_failing_with_a_server_error_is_raised_not_fallen_back
     )
 
     with pytest.raises(DownloadError, match=r"swsmos_20260731070000_opendata\.csv\.bz2: 503 Service Unavailable"):
-        _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+        _stub_stations().values()._collect_station_parameter_or_dataset(  # noqa: SLF001
             "A006",
             DwdSwsmosRequest.metadata["hourly"]["data"],
         )

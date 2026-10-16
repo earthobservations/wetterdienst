@@ -9,6 +9,7 @@ import json
 import logging
 import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING, Annotated, Any, Literal, LiteralString, cast
 
 import polars as pl
@@ -1487,8 +1488,7 @@ def limit_stations_to_window(stations: StationsResult) -> StationsResult:
     lag = pl.col("resolution").replace_strict(_END_LAG, default=_END_LAG_DEFAULT, return_dtype=pl.Duration("us"))
     ends_in_time = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") + lag >= start)
     begins_in_time = pl.col("start_timestamp").is_null() | (pl.col("start_timestamp") <= end)
-    stations.df = df.filter(ends_in_time & begins_in_time)
-    return stations
+    return replace(stations, df=df.filter(ends_in_time & begins_in_time))
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
@@ -1507,7 +1507,7 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
     if stations.stations_filter is StationsFilter.BY_RANK and stations.rank:
-        stations.df = stations.df.head(stations.rank)
+        return replace(stations, df=stations.df.head(stations.rank))
     return stations
 
 
@@ -1529,7 +1529,7 @@ def get_values(
     # TODO: Add stream-based processing here.
     # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
     # (`ParameterNotCarriedError`), or a parse failure -- propagates: reporting it is the caller's
-    values_ = stations_.values.all()
+    values_ = stations_.values().all()
 
     if values_.df.is_empty():
         # nothing to filter, and nothing more to say about it. An empty window is the caller's
@@ -1540,7 +1540,7 @@ def get_values(
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
-        values_.filter_by_sql(request.sql_values)
+        values_ = values_.filtered_by_sql(request.sql_values)
 
     return values_
 
@@ -1565,7 +1565,7 @@ def get_interpolate(
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
-        values_.filter_by_sql(request.sql_values)
+        values_ = values_.filtered_by_sql(request.sql_values)
 
     return values_
 
@@ -1590,7 +1590,7 @@ def get_summarize(
 
     if request.sql_values:
         log.info(f"Filtering with SQL: {request.sql_values}")
-        values_.filter_by_sql(request.sql_values)
+        values_ = values_.filtered_by_sql(request.sql_values)
 
     return values_
 
@@ -1760,7 +1760,7 @@ def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> Stations
     stations = request(Period.HISTORICAL).all()
     if active:
         station_ids_active = request(Period.RECENT).all().df.select("station_id")
-        stations.df = stations.df.join(station_ids_active, on="station_id")
+        stations = replace(stations, df=stations.df.join(station_ids_active, on="station_id"))
     return stations
 
 
@@ -1790,7 +1790,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         raise StationNotFoundError(msg)
     station = found[0]
 
-    df = stations.values.all().df.sort("timestamp")
+    df = stations.values().all().df.sort("timestamp")
     df = df.set_sorted("timestamp")
     df = df.select("timestamp", "value")
     # a station that returns no rows has no first and last year to upsample between (polars raises
@@ -1843,7 +1843,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         parameter=parameter_model.name,
         unit=_values_unit(
             parameter_model,
-            stations.values.unit_converter,
+            stations.values().unit_converter,
             convert_units=stations.options.convert_units,
         ),
     )

@@ -204,7 +204,7 @@ def test_dwd_observation_stations_filter_by_rank_single(
     )
     given_df = request.df.drop("end_timestamp")
     assert_frame_equal(given_df[0, :], expected_stations_df[0, :])
-    values = request.values.all()
+    values = request.values().all()
     assert_frame_equal(values.df_stations.head(1).drop("end_timestamp"), expected_stations_df.head(1))
 
 
@@ -223,7 +223,7 @@ def test_dwd_observation_stations_filter_by_rank_multiple(
         given_df.head(3),
         expected_stations_df,
     )
-    values = request.values.all()
+    values = request.values().all()
     assert_frame_equal(values.df_stations.drop("end_timestamp"), expected_stations_df)
 
 
@@ -357,7 +357,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "region": "Thüringen",
         },
     ]
-    df_values = request.values.all().df
+    df_values = request.values().all().df
     assert df_values.get_column("resolution").unique().sort().to_list() == ["daily", "hourly"]
     assert df_values.get_column("dataset").unique().sort().to_list() == [
         "climate_summary",
@@ -568,7 +568,7 @@ def test_request_keeps_the_window_under_its_new_names(default_settings: Settings
     assert request.start == dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert request.end == dt.datetime(2020, 1, 2, 12, tzinfo=ZoneInfo("UTC"))
     stations = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,

@@ -503,7 +503,7 @@ def test_api_dwd_observation(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -526,7 +526,7 @@ def test_api_dwd_observation_hourly_weather_phenomena(default_settings: Settings
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -544,7 +544,7 @@ def test_api_dwd_mosmix(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -564,7 +564,7 @@ def test_api_dwd_dmo_icon_single_stations(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -584,7 +584,7 @@ def test_api_dwd_dmo_icon_all_stations(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -604,7 +604,7 @@ def test_api_dwd_dmo_icon_eu_single_stations(default_settings: Settings) -> None
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -624,7 +624,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -652,7 +652,7 @@ def test_api_dwd_road(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -676,7 +676,7 @@ def test_api_dmi_observation(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -700,7 +700,7 @@ def test_api_rmi_observation(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -718,7 +718,7 @@ def test_api_eccc_observation(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -737,7 +737,7 @@ def test_api_imgw_hydrology(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -758,7 +758,7 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -779,7 +779,7 @@ def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -800,7 +800,7 @@ def test_api_noaa_ghcn_daily(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -822,7 +822,7 @@ def test_api_wsv_pegel(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -845,7 +845,7 @@ def test_api_ea_hydrology(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -866,7 +866,7 @@ def test_api_nws_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -883,7 +883,7 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -912,7 +912,7 @@ def test_api_metno_frost(default_settings: Settings) -> None:
     first_start_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_start_date:
         assert first_start_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
     assert _is_complete_values_df(values)
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
@@ -932,7 +932,7 @@ def test_api_geosphere_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -956,7 +956,7 @@ def test_api_meteofrance_synop(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -982,7 +982,7 @@ def test_api_meteofrance_observation(default_settings: Settings) -> None:
     assert _is_complete_stations_df(request.df, exclude_columns={"region", "end_timestamp"})
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -1002,7 +1002,7 @@ def test_api_meteoswiss_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -1029,7 +1029,7 @@ def test_api_aemet_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -1052,7 +1052,7 @@ def test_api_chmi_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -1074,7 +1074,7 @@ def test_api_smhi_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -1097,7 +1097,7 @@ def test_api_fmi_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)
@@ -1124,7 +1124,7 @@ def test_api_knmi_observation(default_settings: Settings) -> None:
     first_date = request.df.get_column("start_timestamp").gather(0).to_list()[0]
     if first_date:
         assert first_date.tzinfo == zoneinfo.ZoneInfo(key="UTC")
-    values = next(request.values.query()).df
+    values = next(request.values().query()).df
     first_date = values.get_column("timestamp").gather(0).to_list()[0]
     assert first_date.tzinfo
     assert set(values.columns).issuperset(DF_VALUES_MINIMUM_COLUMNS)

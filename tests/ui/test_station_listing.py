@@ -42,7 +42,7 @@ def _listing(
     )
     start, end = (None, None) if window is None else (_utc(date) for date in window)
     request: Any = SimpleNamespace(start=start, end=end)
-    return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.ALL)
+    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.ALL)
 
 
 def test_a_window_keeps_the_rows_whose_record_overlaps_it() -> None:

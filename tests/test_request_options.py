@@ -120,8 +120,8 @@ def _values(monkeypatch: pytest.MonkeyPatch, **given: Any) -> pl.DataFrame:  # n
             "name": pl.String,
         },
     )
-    sr = StationsResult(stations=request, df=stations, df_all=stations, stations_filter=StationsFilter.BY_STATION_ID)
-    return sr.values.all().df
+    sr = StationsResult(request=request, df=stations, df_all=stations, stations_filter=StationsFilter.BY_STATION_ID)
+    return sr.values().all().df
 
 
 #: for every option the values read: what to change, and what it is held against. The frame under
@@ -206,10 +206,10 @@ def _estimate(
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
         asked.append(distance)
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for index, station_id in enumerate(_OFFSETS):
@@ -566,14 +566,14 @@ def test_stations_result_has_the_options_of_its_request() -> None:
     """The result of a request carries its options, which the values read."""
     request = _request(options={"humanize": False})
     stations = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
     )
 
     assert stations.options is request.options
-    assert stations.values.sr.options.humanize is False
+    assert stations.values().sr.options.humanize is False
 
 
 def test_the_settings_of_a_request_are_the_hosts_alone_for_options() -> None:

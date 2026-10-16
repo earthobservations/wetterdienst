@@ -54,7 +54,7 @@ def test_dwd_road_weather() -> None:
         "road_type": 1,
         "station_group": "KK",
     }
-    values = request.values.all().df.drop_nulls(subset="value")
+    values = request.values().all().df.drop_nulls(subset="value")
     if values.is_empty():
         # this station, or its whole group, published nothing for the window -- ordinary for a
         # network where groups go quiet, and not something this test can tell from a regression
@@ -124,7 +124,7 @@ def _stub_stations(
         orient="row",
     )
     return StationsResult(
-        stations=request,
+        request=request,
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -145,7 +145,7 @@ def test_dwd_road_weather_group_with_nothing_published(monkeypatch: pytest.Monke
 
     # the group publishes nothing for the window, which is the whole of what upstream has to say
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
-    df = _stub_stations().values.all().df
+    df = _stub_stations().values().all().df
     assert df.is_empty()
     # and it is an answer rather than a hole: the columns a caller asks the result for are there
     assert set(df.columns) == {
@@ -216,7 +216,7 @@ def test_dwd_road_weather_tells_a_quiet_group_from_a_rename(
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listed)
-    values = _stub_stations().values
+    values = _stub_stations().values()
     with caplog.at_level(logging.INFO):
         df = values._create_file_index_for_dwd_road_weather_station(DwdRoadStationGroup.DD)  # noqa: SLF001
 
@@ -754,7 +754,7 @@ def test_dwd_road_weather_parses_a_group_once_for_all_its_stations(monkeypatch: 
             File(url="swis2-ISXD70_DWDD_131200-2609131200-DD---bin", content=BytesIO(b"x" * 500), status=200)
         ],
     )
-    values = _stub_stations(("A006", "B999", "C111")).values
+    values = _stub_stations(("A006", "B999", "C111")).values()
     dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
     answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999", "C111")]  # noqa: SLF001
 
@@ -775,7 +775,7 @@ def test_dwd_road_weather_keeps_one_group_rather_than_every_group(monkeypatch: p
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    values = _stub_stations().values
+    values = _stub_stations().values()
     parameters = list(DwdRoadRequest.metadata["15_minutes"]["data"])
     seen = []
 
@@ -850,7 +850,7 @@ def test_dwd_road_weather_converts_the_bufr_units_it_decodes(monkeypatch: pytest
             ("15_minutes", "data", "water_film_thickness"),
         ],
     )
-    df = stations.values.all().df
+    df = stations.values().all().df
     assert df.height == 2
     assert dict(df.select("parameter", "value").iter_rows()) == {
         "precipitation_intensity": 20.16,
@@ -1373,7 +1373,8 @@ def test_dwd_road_weather_empty_is_one_shape(
     monkeypatch.setattr(api, "download_files", lambda **_kwargs: [file] if files_upstream_has else [])
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())
 
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         station_id="A006",
         parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
     )
@@ -1409,7 +1410,8 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
             File(url="swis2-ISXD70_DWDD_131200-2609131200-DD---bin", content=BytesIO(b"x" * 500), status=200)
         ],
     )
-    df = _stub_stations().values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations().values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         station_id="A006",
         parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
     )
@@ -1444,7 +1446,8 @@ def test_dwd_road_weather_returns_the_verdict_as_a_quality_flag_string(monkeypat
     monkeypatch.setattr(
         api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
     )
-    df = _stub_stations(("P034",)).values._collect_station_parameter_or_dataset(  # noqa: SLF001
+    values = _stub_stations(("P034",)).values()
+    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
         station_id="P034",
         parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
     )
@@ -1673,7 +1676,7 @@ def test_dwd_road_weather_raises_when_every_download_of_a_group_failed(monkeypat
 
     _stub_downloads(monkeypatch, [ConnectionError("x"), ConnectionError("x")])
     with pytest.raises(DownloadError, match=r"example\.com/road/DD/swis2-ISXD70_DWDD_131200"):
-        _stub_stations().values.all()
+        _stub_stations().values().all()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1683,7 +1686,7 @@ def test_dwd_road_weather_raises_for_no_internet(monkeypatch: pytest.MonkeyPatch
 
     _stub_downloads(monkeypatch, [NoInternetError("x"), NoInternetError("x")])
     with pytest.raises(NoInternetError):
-        _stub_stations().values.all()
+        _stub_stations().values().all()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1695,7 +1698,7 @@ def test_dwd_road_weather_raises_for_no_internet_among_files_that_arrived(monkey
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
     _stub_downloads(monkeypatch, [BytesIO(b"x" * 500), NoInternetError("x")])
     with pytest.raises(NoInternetError):
-        _stub_stations().values.all()
+        _stub_stations().values().all()
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1708,7 +1711,7 @@ def test_dwd_road_weather_warns_for_files_that_failed_among_files_that_arrived(
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
     _stub_downloads(monkeypatch, [BytesIO(b"x" * 500), ConnectionError("x")])
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
-        df = _stub_stations().values.all().df
+        df = _stub_stations().values().all().df
 
     # the one file that arrived is read, converted from the kelvin DWD publishes
     assert df.drop_nulls("value").get_column("value").to_list() == [pytest.approx(285.0 - 273.15)]
@@ -1724,7 +1727,7 @@ def test_dwd_road_weather_still_drops_a_142_byte_file_that_downloaded(
     """The empty files of GH-1526 answered 200 with 142 bytes: they stay skipped, and are not failures."""
     _stub_downloads(monkeypatch, [BytesIO(b"x" * 142), BytesIO(b"x" * 142)])
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
-        df = _stub_stations().values.all().df
+        df = _stub_stations().values().all().df
 
     assert df.is_empty()
     assert "could not be downloaded" not in caplog.text
@@ -1738,7 +1741,7 @@ def test_dwd_road_weather_files_withdrawn_since_the_listing_are_warned_about(
     """A 404 is a file DWD removed after the listing was read: an empty answer and a warning, not an error."""
     _stub_downloads(monkeypatch, [FileNotFoundError("x"), FileNotFoundError("x")], status=404)
     with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.road.api"):
-        df = _stub_stations().values.all().df
+        df = _stub_stations().values().all().df
 
     assert df.is_empty()
     assert "2 of 2 files of DD could not be downloaded" in caplog.text
@@ -1758,4 +1761,4 @@ def test_dwd_road_weather_a_404_does_not_hide_the_failure_beside_it(monkeypatch:
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(_FAILED_DOWNLOAD_FILES))
     monkeypatch.setattr(api, "download_files", lambda **_kwargs: files)
     with pytest.raises(DownloadError, match=second):
-        _stub_stations().values.all()
+        _stub_stations().values().all()

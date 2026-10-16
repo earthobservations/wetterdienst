@@ -186,7 +186,8 @@ def test_fmi_observation_values_hourly() -> None:
             end=dt.datetime(2024, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(HELSINKI_KAISANIEMI)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [HELSINKI_KAISANIEMI]
@@ -219,7 +220,8 @@ def test_fmi_observation_values_daily() -> None:
             end=dt.datetime(2024, 1, 1, tzinfo=UTC),
         )
         .filter_by_station_id(HELSINKI_KAISANIEMI)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert df["station_id"].unique().to_list() == [HELSINKI_KAISANIEMI]
@@ -280,7 +282,8 @@ def test_fmi_observation_values_window_in_helsinki_time_across_the_clock_change(
             end=dt.datetime(2025, 3, 30, 23, tzinfo=helsinki),
         )
         .filter_by_station_id(HELSINKI_KAISANIEMI)
-        .values.all()
+        .values()
+        .all()
         .df
     )
 

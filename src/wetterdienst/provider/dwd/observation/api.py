@@ -84,7 +84,7 @@ class DwdObservationValues(TimeseriesValues):
 
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
 
-        stations = cast("DwdObservationRequest", self.sr.stations)
+        stations = cast("DwdObservationRequest", self.sr.request)
         settings = cast("Settings", stations.settings)
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         if isinstance(parameter_or_dataset, _DatasetModel):
@@ -219,7 +219,7 @@ class DwdObservationValues(TimeseriesValues):
         # In this case the interval should overlap with all files
         from typing import cast  # noqa: PLC0415
 
-        interval = cast("DwdObservationRequest", self.sr.stations).interval
+        interval = cast("DwdObservationRequest", self.sr.request).interval
         start_date_min, end_date_max = (interval and (interval.lower, interval.upper)) or (None, None)
         if start_date_min and end_date_max:
             # the interval is in the zone of the network, the bounds of the files are UTC
@@ -244,7 +244,7 @@ class DwdObservationHistory(TimeseriesHistory):
     def _collect_station_history(self, station_id: str, available_datasets: list[DatasetModel]) -> Iterator[History]:
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         for dataset in available_datasets:
             dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}"
             log.info(f"Acquiring station history for {dataset_identifier}.")

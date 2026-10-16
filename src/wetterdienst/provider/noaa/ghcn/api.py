@@ -107,7 +107,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         url = f"https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{station_id}_por.psv"
         file = url.format(station_id=station_id)
         file = download_file(
@@ -209,7 +209,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         """Collect station parameter for daily resolution."""
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
         file = url.format(station_id=station_id)
         file = download_file(

@@ -54,7 +54,7 @@ def test_imgw_hydrology_api_daily() -> None:
         start="2010-08-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, _expected_station("daily"))
-    values = request.values.all()
+    values = request.values().all()
     df_expected = pl.DataFrame(
         [
             {
@@ -98,7 +98,7 @@ def test_imgw_hydrology_api_monthly() -> None:
         start="2010-06-01",
     ).filter_by_station_id("150190130")
     assert_frame_equal(request.df, _expected_station("monthly"))
-    values = request.values.all()
+    values = request.values().all()
     df_expected_values = pl.DataFrame(
         [
             {
@@ -183,7 +183,7 @@ def test_imgw_hydrology_api_daily_consolidated_yearly_file() -> None:
         start="2023-11-01",
         end="2023-11-01",
     ).filter_by_station_id("149180020")
-    values = request.values.all()
+    values = request.values().all()
     df_expected = pl.DataFrame(
         [
             {
@@ -230,7 +230,7 @@ def test_imgw_hydrology_api_monthly_recent_export_formats() -> None:
             parameters=[("monthly", "hydrology")],
             start=start_date,
         ).filter_by_station_id("149180020")
-        values = request.values.all()
+        values = request.values().all()
         discharge = values.df.filter(pl.col("parameter").str.starts_with("discharge")).sort("parameter")
         assert discharge.get_column("value").to_list() == [expected_max, expected_mean, expected_min]
 
@@ -247,7 +247,7 @@ def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkey
     missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
-    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
     dataset = ImgwHydrologyMetadata.daily.hydrology
     monkeypatch.setattr(imgw_hydrology_api, "download_files", lambda **_kwargs: [missing, failed])
@@ -278,7 +278,7 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
         archive.writestr("codz_2023_03.csv", csv)
     buffer.seek(0)
     values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
-    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(values, "_get_urls", lambda _dataset: ["unused"])
     monkeypatch.setattr(
         imgw_hydrology_api,

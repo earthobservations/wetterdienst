@@ -191,7 +191,8 @@ def _unwritable_history_target(monkeypatch: pytest.MonkeyPatch, target: Path) ->
             return []
 
     class _Stations:
-        history = _History()
+        def history(self) -> _History:
+            return _History()
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
     runner = CliRunner()
@@ -247,7 +248,8 @@ def _history_to_target(monkeypatch: pytest.MonkeyPatch, target: str) -> Result:
             return []
 
     class _Stations:
-        history = _History()
+        def history(self) -> _History:
+            return _History()
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
     return CliRunner().invoke(
@@ -378,7 +380,7 @@ def test_history_network_without_history_is_a_usage_error(
         # the station lookup succeeds; MOSMIX has no history to collect for it
         request = DwdMosmixRequest(parameters=[("hourly", "large")])
         return StationsResult(
-            stations=request, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.BY_STATION_ID
+            request=request, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.BY_STATION_ID
         )
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)

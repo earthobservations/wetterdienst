@@ -26,7 +26,7 @@ request = DwdObservationRequest(
     parameters=[("daily", "kl")],
     settings=settings
 ).filter_by_station_id(1048)
-history = next(request.history.query())
+history = next(request.history().query())
 # the same as JSON, as `/api/history` and `wetterdienst history` return it
 print(history.to_json(sections={"name"}))
 # access history for climate summary daily station 1048 (Dresden Klotzsche)

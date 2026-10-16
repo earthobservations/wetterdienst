@@ -166,7 +166,8 @@ def test_lhmt_observation_values() -> None:
             end=dt.datetime(2020, 7, 1, 23, tzinfo=UTC),
         )
         .filter_by_station_id(VILNIUS)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert not df.is_empty()
@@ -228,7 +229,8 @@ def _lhmt_values(days: int) -> pl.DataFrame:
             end=start + dt.timedelta(days=days - 1),
         )
         .filter_by_station_id(VILNIUS)
-        .values.all()
+        .values()
+        .all()
         .df
     )
 
@@ -253,7 +255,7 @@ def test_lhmt_observation_values_offline_raise_at_the_first_station(monkeypatch:
         parameters=[("hourly", "data")], start=start, end=start + dt.timedelta(days=29)
     ).filter_by_station_id([VILNIUS, KAUNAS])
     with pytest.raises(NoInternetError):
-        request.values.all()
+        request.values().all()
     assert len(attempted) == 1
 
 
@@ -331,7 +333,8 @@ def test_lhmt_observation_values_window_in_vilnius_time_across_the_clock_change(
     df = (
         LhmtObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")], start=start, end=end)
         .filter_by_station_id(VILNIUS)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert asked == ["2025-03-29", "2025-03-30"]

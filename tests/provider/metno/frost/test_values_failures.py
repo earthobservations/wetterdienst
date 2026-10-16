@@ -91,7 +91,7 @@ def _values(
         start=start,
         end=end,
     )
-    return request.filter_by_station_id("SN18700").values, seen
+    return request.filter_by_station_id("SN18700").values(), seen
 
 
 def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pytest.MonkeyPatch) -> None:

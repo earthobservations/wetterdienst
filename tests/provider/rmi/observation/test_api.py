@@ -220,7 +220,7 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
 
     values = object.__new__(rmi_api.RmiObservationValues)
     values.sr = SimpleNamespace(
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 1, tzinfo=UTC),
     )
@@ -263,7 +263,7 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
     )
     values = object.__new__(rmi_api.RmiObservationValues)
     values.sr = SimpleNamespace(
-        stations=SimpleNamespace(settings=Settings(cache_disable=True)),
+        request=SimpleNamespace(settings=Settings(cache_disable=True)),
         start=dt.datetime(2003, 8, 6, tzinfo=UTC),
         end=dt.datetime(2003, 10, 9, tzinfo=UTC),
     )
@@ -316,7 +316,7 @@ def test_rmi_observation_values_start_equals_end() -> None:
             start=instant,
             end=instant,
         ).filter_by_station_id([UCCLE])
-        values = request.values.all().df
+        values = request.values().all().df
         assert values.get_column("timestamp").unique().to_list() == [instant]
 
 
@@ -344,7 +344,7 @@ def test_rmi_observation_values_hourly_utc() -> None:
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
-    values = request.values.all().df
+    values = request.values().all().df
     dates = values.get_column("timestamp").sort().to_list()
     assert dates[0] == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
     assert dates[-1] == dt.datetime(2023, 6, 1, 5, 0, tzinfo=UTC)
@@ -360,7 +360,7 @@ def test_rmi_observation_values_daily() -> None:
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 5, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
-    values = request.values.all().df
+    values = request.values().all().df
     dates = values.get_column("timestamp").sort().to_list()
     assert dates[0] == dt.datetime(2023, 6, 1, tzinfo=UTC)
     assert dates[-1] == dt.datetime(2023, 6, 5, tzinfo=UTC)
@@ -376,7 +376,7 @@ def test_rmi_observation_values_10_minutes() -> None:
         start=dt.datetime(2023, 6, 1, tzinfo=UTC),
         end=dt.datetime(2023, 6, 1, 0, 50, tzinfo=UTC),
     ).filter_by_station_id([UCCLE])
-    values = request.values.all().df
+    values = request.values().all().df
     assert values.get_column("timestamp").min() == dt.datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
     assert not values.drop_nulls(subset="value").is_empty()
 
@@ -391,5 +391,5 @@ def test_rmi_observation_values_empty_for_unknown_station() -> None:
         end=dt.datetime(2023, 6, 1, 5, tzinfo=UTC),
         settings=settings,
     ).filter_by_station_id(["99999"])
-    values = request.values.all().df
+    values = request.values().all().df
     assert values.is_empty()

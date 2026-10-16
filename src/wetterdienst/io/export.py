@@ -9,15 +9,15 @@ import logging
 import re
 from abc import abstractmethod
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError, MissingDependencyError
-from wetterdienst.metadata.renamed import renamed_column
+from wetterdienst.metadata.renamed import renamed_column, renamed_result_member
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
 from wetterdienst.util.url import ConnectionString, redact_password
@@ -63,19 +63,44 @@ def require_kaleido() -> None:
     import_optional("kaleido", "Rendering an image", extra="plotting")
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExportMixin:
     """Postprocessing data.
 
     This aids in collecting, filtering, formatting and emitting data acquired through the core machinery.
+
+    A result is frozen: nothing assigns to it once it is built, and a filter hands back a new result
+    (`filtered_by_sql`) instead of changing the one it was asked on.
     """
 
     df: pl.DataFrame
 
-    def filter_by_sql(self, sql: str) -> pl.DataFrame:
-        """Filter df using an SQL query WHERE clause."""
-        self.df = self._filter_by_sql(self.df, sql)
-        return self.df
+    # Out of the checker's view, so that it reads a result by its fields and methods: a `__getattr__`
+    # in view makes every name a result has not got an `object` instead of an error, and a `__new__`
+    # that takes anything stands in for the constructor the dataclass writes.
+    if not TYPE_CHECKING:
+
+        def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
+            """Refuse an argument that a result class was renamed or lost, saying what to write instead."""
+            for name in kwargs:
+                if (renamed := renamed_result_member(cls, name)) is not None:
+                    raise TypeError(renamed)
+            return super().__new__(cls)
+
+        def __getattr__(self, name: str) -> object:
+            """Refuse a member that a result class was renamed or lost, saying what to write instead."""
+            # only reached for a name the class does not have
+            if (renamed := renamed_result_member(type(self), name)) is not None:
+                raise AttributeError(renamed)
+            msg = f"'{type(self).__name__}' object has no attribute '{name}'"
+            raise AttributeError(msg)
+
+    def filtered_by_sql(self, sql: str) -> Self:
+        """Filter the frame with the WHERE clause of an SQL query and return a new result of it.
+
+        This result is left as it is.
+        """
+        return replace(self, df=self._filter_by_sql(self.df, sql))
 
     # The three formatters below are declared as narrowly as every subclass keeps them: each takes
     # `with_metadata` (and may take more, keyword-only with a default) and returns a mapping, which a

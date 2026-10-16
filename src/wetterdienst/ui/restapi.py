@@ -1598,7 +1598,7 @@ def history(
         raise _failure(e, request, "get stations for history") from e
 
     try:
-        history_provider = stations_.history
+        history_provider = stations_.history()
     except Exception as e:
         # past the station lookup the request has nothing left to refuse: what fails from here on
         # is the server's or the data source's, whatever its type

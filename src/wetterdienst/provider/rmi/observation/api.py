@@ -212,7 +212,7 @@ class RmiObservationValues(TimeseriesValues):
         else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:

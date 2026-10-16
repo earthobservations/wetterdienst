@@ -68,7 +68,7 @@ def _(mo):
         )
 
         # export all daily values station by station
-        for result in request.values.query():
+        for result in request.values().query():
             result.to_target(
                 "duckdb:///wetterdienst_pyconde_pydata_2026_demo.duckdb?table=values",
                 if_exists="append",

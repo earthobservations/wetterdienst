@@ -16,6 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `StationsResult.stations`, which held the request and not stations, is
+  `StationsResult.request`, and the `stations=` argument of `StationsResult(...)` is `request=`;
+  the stations were and are in `.df`. The old name raises an error that names the new one. Write
+  `stations.request.settings`, not `stations.stations.settings`, and `values.stations.request` for
+  the request behind a values result (GH-2626)
+- **Breaking**: `StationsResult.values` and `.history`, which built a new reader on every access,
+  are methods. Write `stations.values().all()`, `stations.values().query()`,
+  `stations.values().to_target(...)` and `stations.history().query()` where you wrote
+  `stations.values.all()` and so on; reading either as an attribute raises an error that names the
+  call (GH-2626)
+- **Breaking**: the results are frozen, so assigning to `result.df` raises `FrozenInstanceError`.
+  `filter_by_date` and `filter_by_sql` on a result, which replaced its frame and returned the frame,
+  are `filtered_by_date` and `filtered_by_sql`, which return a new result and leave the old one
+  as it was; the old names raise an error that names the new. Write `values =
+  values.filtered_by_sql(sql)`, and `.df` where you used the returned frame (GH-2626)
+- **Breaking**: `ValuesResult` no longer holds the reader that produced it, so `result.values` and
+  the `values=` argument are gone, and a result you keep no longer keeps its reader, with whatever
+  it cached, alive. Get a reader from `stations.values()`. `df_stations` now names the stations
+  with a row in the frame, so it follows `filtered_by_sql`, and `InterpolatedValuesResult` and
+  `SummarizedValuesResult` have it too (GH-2626)
+
 ## [0.155.0] - 2026-10-16
 
 ### Added

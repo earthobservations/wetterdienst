@@ -22,7 +22,7 @@ that of the stage, its warm-up and the loading of the modules and files, not of 
 - ``parse``: ``parse_climate_observations_data`` on the recent product files, collected.
 - ``historical``: the same on the historical (monthly) product files, which adds the transform from
   event ranges to one row per minute.
-- ``values_long`` and ``values_wide``: ``DwdObservationRequest(...).filter_by_station_id(...).values.all()``
+- ``values_long`` and ``values_wide``: ``DwdObservationRequest(...).filter_by_station_id(...).values().all()``
   on the cached recent files, with the unit conversion on, in both shapes. Only the discovery of the
   stations and files and the download are replaced by the local files; unpacking the zip is timed.
 
@@ -180,7 +180,7 @@ def _values(cache_dir: Path, stations: tuple[str, ...], shape: str) -> pl.DataFr
             settings=Settings(cache_disable=True),
             options=Options(shape=shape, convert_units=True),
         )
-        return _stations_result(request, stations).values.all().df
+        return _stations_result(request, stations).values().all().df
     finally:
         (
             dwd_observation_api.create_file_list_for_climate_observations,
@@ -215,7 +215,7 @@ def _stations_result(request: DwdObservationRequest, station_ids: tuple[str, ...
             "name": pl.String,
         },
     )
-    return StationsResult(stations=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
 
 
 def _stage(name: str, cache_dir: Path, stations: tuple[str, ...], engine: str) -> Callable[[], int]:

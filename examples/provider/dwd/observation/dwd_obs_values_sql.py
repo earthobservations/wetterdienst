@@ -37,7 +37,7 @@ def values_sql_example() -> None:
     log.info(f"Invoking SQL query '{sql}'")
 
     # Acquire observation values and filter with SQL.
-    results = stations.values.all()
+    results = stations.values().all()
     results.filter_by_sql(sql)
 
     print(results.df)

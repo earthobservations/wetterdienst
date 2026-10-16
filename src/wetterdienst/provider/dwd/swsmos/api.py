@@ -173,7 +173,7 @@ class DwdSwsmosValues(TimeseriesValues):
         would empty every request for half a day. An hour-old forecast is what `LATEST` should mean
         in that window, rather than nothing.
         """
-        issue = cast("DwdSwsmosRequest", self.sr.stations).issue
+        issue = cast("DwdSwsmosRequest", self.sr.request).issue
         if issue is not DwdForecastDate.LATEST:
             return [(_run_url(cast("dt.datetime", issue)), CacheExpiry.TWELVE_HOURS)]
         names, runs = _list_runs(settings)
@@ -220,7 +220,7 @@ class DwdSwsmosValues(TimeseriesValues):
             use_certifi=settings.use_certifi,
         )
         if isinstance(file.content, Exception):
-            issue = cast("DwdSwsmosRequest", self.sr.stations).issue
+            issue = cast("DwdSwsmosRequest", self.sr.request).issue
             if file.status == HTTPStatus.NOT_FOUND and issue is not DwdForecastDate.LATEST:
                 names, runs = _list_runs(settings)
                 if runs and url.rsplit("/", 1)[-1] not in names:
@@ -367,7 +367,7 @@ class DwdSwsmosValues(TimeseriesValues):
         else:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         df = self._run_frame(settings)
         if df.is_empty() or "ID" not in df.columns:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)

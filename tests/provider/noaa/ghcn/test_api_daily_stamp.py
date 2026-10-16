@@ -66,7 +66,7 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "temperature_air_max_2m")], start=day, end=day, settings=settings
     ).filter_by_station_id(station_id)
-    df = request.values.all().df
+    df = request.values().all().df
     midnight = dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC"))
     assert df.get_column("timestamp").to_list() == [midnight]
     assert df.get_column("value").to_list() == pytest.approx([expected])
@@ -77,7 +77,7 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
         end=midnight + dt.timedelta(days=1),
         settings=settings,
     ).filter_by_station_id(station_id)
-    assert wide.values.all().df.get_column("timestamp").sort().to_list() == [
+    assert wide.values().all().df.get_column("timestamp").sort().to_list() == [
         midnight - dt.timedelta(days=1),
         midnight,
         midnight + dt.timedelta(days=1),
@@ -123,7 +123,7 @@ def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPa
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     ).filter_by_station_id("USW00094728")
-    df = request.values.all().df.sort("parameter", "timestamp")
+    df = request.values().all().df.sort("parameter", "timestamp")
     assert df.schema["quality_flags"] == pl.String
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns

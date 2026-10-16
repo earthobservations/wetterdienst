@@ -35,7 +35,7 @@ def _values(request: NwsObservationRequest) -> NwsObservationValues:
     """Bind a values object to a request without going near the network."""
     return NwsObservationValues(
         sr=StationsResult(
-            stations=request,
+            request=request,
             df=pl.DataFrame(),
             df_all=pl.DataFrame(),
             stations_filter=StationsFilter.ALL,
@@ -215,7 +215,7 @@ def test_nws_values_returns_the_requested_window_only() -> None:
         end=end_date,
     )
 
-    df = request.filter_by_station_id([DENVER]).values.all().df
+    df = request.filter_by_station_id([DENVER]).values().all().df
 
     assert not df.is_empty()
     assert df.get_column("station_id").unique().to_list() == [DENVER]

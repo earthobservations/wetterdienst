@@ -77,7 +77,7 @@ def test_ea_daily_is_stamped_at_00_utc_of_the_day_it_names(
     request = EAHydrologyRequest(
         parameters=[("daily", "data", "discharge_mean")], start=day, end=day, settings=default_settings
     )
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     midnight = dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC"))
     assert df.get_column("timestamp").to_list() == [midnight]
     assert df.get_column("value").to_list() == [{"2025-06-10": 0.448, "2025-06-11": 0.359, "2025-06-12": 0.304}[day]]
@@ -109,7 +109,7 @@ def test_ea_daily_maximum_is_filed_under_the_day_of_its_window(
     request = EAHydrologyRequest(
         parameters=[("daily", "data", "discharge_max")], start=day, end=day, settings=default_settings
     )
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     midnight = dt.datetime.fromisoformat(day).replace(tzinfo=ZoneInfo("UTC"))
     assert df.get_column("timestamp").to_list() == [midnight]
     assert df.get_column("value").to_list() == [expected]
@@ -192,7 +192,7 @@ def test_ea_daily_window_answered_twice_keeps_the_reading_with_a_value_complete_
     request = EAHydrologyRequest(
         parameters=[("daily", "data", "discharge_max")], start=day, end=day, settings=default_settings
     )
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     assert df.get_column("value").to_list() == [expected]
 
 
@@ -241,7 +241,7 @@ def test_ea_daily_window_with_more_readings_than_days_keeps_the_last_day(
         end="2024-02-21",
         settings=default_settings,
     )
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     # 02-19 is answered twice (the 02-19T09:00 reading is incomplete), and the complete one stays
     assert df.get_column("value").to_list() == [7.2, 21.2, 9.05, 7.9]
     assert df.get_column("timestamp").dt.date().dt.strftime("%Y-%m-%d").to_list() == [
@@ -275,7 +275,7 @@ def test_ea_reading_quality_word_is_kept_in_quality_flags(
         end="2025-06-12",
         settings=default_settings,
     )
-    df = request.all().values.all().df.sort("timestamp")
+    df = request.all().values().all().df.sort("timestamp")
     assert df.select("value", "quality_flags").rows() == [(0.448, "Good"), (0.359, "Suspect"), (0.304, "Estimated")]
     assert "quality" not in df.columns
     assert "quality_flag" not in df.columns
@@ -306,7 +306,7 @@ def test_ea_reading_completeness_follows_the_quality_word_in_quality_flags(
         settings=default_settings,
         options={"drop_nulls": False},
     )
-    df = request.all().values.all().df.sort("timestamp")
+    df = request.all().values().all().df.sort("timestamp")
     assert df.get_column("quality_flags").to_list() == [
         "Good,completeness:Complete",
         "Good,completeness:Incomplete",
@@ -328,5 +328,5 @@ def test_ea_15_minute_reading_without_completeness_has_the_quality_alone(
         end="2025-06-11",
         settings=default_settings,
     )
-    df = request.all().values.all().df
+    df = request.all().values().all().df
     assert df.get_column("quality_flags").to_list() == ["Good"]

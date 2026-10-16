@@ -142,7 +142,7 @@ def test_the_values_of_a_period_in_true_solar_time_carry_zone_woz(monkeypatch: p
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    df = stations_result(request, "hourly", "sun", "00769").values.all().df.sort("timestamp")
+    df = stations_result(request, "hourly", "sun", "00769").values().all().df.sort("timestamp")
     assert df.select("timestamp", "value", "quality_flags").rows() == [
         (dt.datetime(2004, 6, 30, 12, tzinfo=UTC), 360.0, "10,zone:woz"),
         (dt.datetime(2004, 7, 1, 12, tzinfo=UTC), 360.0, "10"),

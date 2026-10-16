@@ -50,7 +50,7 @@ request = DwdPhenologyRequest(
     parameters=[("annual", "annual_common_hazel", "phenology_flowering_beginning")],
     periods="recent",
 )
-values = next(request.filter_by_station_id("07521").values.query()).df
+values = next(request.filter_by_station_id("07521").values().query()).df
 ```
 
 ## Reading `Jultag`

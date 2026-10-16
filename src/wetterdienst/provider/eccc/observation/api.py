@@ -185,7 +185,7 @@ class EcccObservationValues(TimeseriesValues):
         rows before it), is the bound the walk had before the dates of the collections were read (GH-2747, GH-2864).
         A station that the list gives no first date, or a result of stations built by hand, is kept.
         """
-        bounds = cast("EcccObservationRequest", self.sr.stations)._collection_bounds  # noqa: SLF001
+        bounds = cast("EcccObservationRequest", self.sr.request)._collection_bounds  # noqa: SLF001
         if not self.sr.end or bounds is None:
             return False
         first_dates = df_station_meta.select("station_id", "resolution", "dataset").join(
@@ -207,7 +207,7 @@ class EcccObservationValues(TimeseriesValues):
         1956-01-06; 6813 has HLY_FIRST_DATE 1995-02-16 and wind from 1994 (GH-2864). It is no guess in the other
         direction either: White Rock (925), FIRST_DATE 1929, has its first hourly row in 1994 (GH-2820).
         """
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         file = download_file(
             url=(
                 f"{self._endpoint}/collections/{self._resolution_to_dataset_mapping[dataset.resolution.value]}/"
@@ -243,7 +243,7 @@ class EcccObservationValues(TimeseriesValues):
         """
         if self.sr.start and self.sr.end:
             return range(self.sr.start.year, self.sr.end.year + 1)
-        bounds = cast("EcccObservationRequest", self.sr.stations)._collection_bounds  # noqa: SLF001
+        bounds = cast("EcccObservationRequest", self.sr.request)._collection_bounds  # noqa: SLF001
         row = None
         if bounds is not None:
             rows = bounds.filter(
@@ -269,7 +269,7 @@ class EcccObservationValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         """Collect station dataset."""
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         # Normalize parameter_or_dataset to a DatasetModel for uniform access below.
         from wetterdienst.model.metadata import DatasetModel as _DatasetModel  # noqa: PLC0415
 

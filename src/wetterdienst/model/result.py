@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import json
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Generic, Literal, NotRequired, TypeVar, cast
+from functools import update_wrapper
+from typing import TYPE_CHECKING, Generic, Literal, NotRequired, Self, TypeVar, cast
 
 import polars as pl
 from pydantic import ConfigDict, with_config
@@ -18,13 +19,15 @@ from pydantic import ConfigDict, with_config
 from typing_extensions import TypedDict
 
 from wetterdienst.io.export import ExportMixin, check_image_size, require_kaleido
+from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
     from collections.abc import Set as AbstractSet
+    from types import FunctionType
 
     import plotly.graph_objects as go
 
@@ -32,7 +35,6 @@ if TYPE_CHECKING:
     from wetterdienst.model.history import History, TimeseriesHistory
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.request import TimeseriesRequest
-    from wetterdienst.model.unit import UnitConverter
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest
@@ -154,44 +156,120 @@ class _StationsOgcFeatureCollection(TypedDict):
     data: _StationsOgcFeatureCollectionData
 
 
-@dataclass
-class StationsResult(ExportMixin):
-    """Result class for stations."""
+class _CalledMethod:
+    """A method of a result that used to be a property, which refuses to be read as one.
 
-    stations: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest
+    `stations.values.all()` read like an attribute and was a factory, building a new downloader on
+    every access. The method it is now would answer `stations.values.all` with Python's "'method'
+    object has no attribute 'all'", which says nothing of what to write instead.
+    """
+
+    def __init__(self, bound: Callable[..., object], owner: str, name: str) -> None:
+        self._bound = bound
+        self._owner = owner
+        self._name = name
+        update_wrapper(self, bound)
+
+    def __call__(self, *args: object, **kwargs: object) -> object:
+        """Call the method."""
+        return self._bound(*args, **kwargs)
+
+    def __getattr__(self, attr: str) -> object:
+        """Refuse the attribute of what the method returns, naming the call that gets there."""
+        # a dunder is looked up by Python and by tools that inspect a callable, which is no mistake
+        if attr.startswith("__"):
+            raise AttributeError(attr)
+        msg = f"{self._owner}.{self._name} is a method, not an attribute: write {self._name}().{attr}"
+        raise AttributeError(msg)
+
+
+class _FactoryMethod:
+    """Descriptor that hands out a method as `_CalledMethod`, and the function itself on the class."""
+
+    def __init__(self, func: FunctionType) -> None:
+        self._func = func
+        self._name = func.__name__
+        self.__doc__ = func.__doc__
+
+    def __get__(self, instance: object, owner: type | None = None) -> object:
+        """Bind the method to the result it is read from."""
+        if instance is None:
+            return self._func
+        return _CalledMethod(self._func.__get__(instance, owner), type(instance).__name__, self._name)
+
+
+_MethodT = TypeVar("_MethodT", bound="Callable[..., object]")
+
+
+def _factory_method(func: _MethodT) -> _MethodT:
+    """Mark a method that builds a new object per call, so that reading it as an attribute says what to write."""
+    # a type checker reads the method it was given: the descriptor only changes what a mistaken read says
+    return cast("_MethodT", _FactoryMethod(cast("FunctionType", func)))
+
+
+@dataclass(frozen=True)
+class StationsResult(ExportMixin):
+    """Result class for stations.
+
+    Built by a request (`all()` and the `filter_by_*` methods), and immutable: a filter gives a new
+    result, and nothing assigns to one. Callers use `df` (the stations the request selected), the
+    formats (`to_dict`, `to_json`, `to_geojson`, `to_csv`, ...) and `values()` / `history()`.
+    `settings`, `options`, `parameters`, `start` and `end` read what the request was given.
+
+    `df_all`, `stations_filter` and `rank` say how `df` was selected from the stations of the request
+    and are for the library: a caller reads `df`.
+    """
+
+    #: the request that made this result: what a later step reads the settings, the parameters and the
+    #: window of, and what a provider reads its own arguments of
+    request: TimeseriesRequest | DwdMosmixRequest | DwdDmoRequest
+    #: the selected stations, one row per resolution, dataset and station
     df: pl.DataFrame
+    #: every station of the request, which `df` was selected from
     df_all: pl.DataFrame
+    #: how `df` was selected, which says why only some of the stations are in it
     stations_filter: StationsFilter
+    #: the number of stations a ranked selection asked for, which `values()` stops at
     rank: int | None = None
 
     @property
     def settings(self) -> Settings:
         """Get settings for the request."""
-        return cast("Settings", self.stations.settings)
+        return cast("Settings", self.request.settings)
 
     @property
     def options(self) -> Options:
         """Get the options of the request: how the values come back and how stations are chosen."""
-        return cast("Options", self.stations.options)
+        return cast("Options", self.request.options)
 
     @property
     def parameters(self) -> list[ParameterModel]:
         """Get parameters from the request."""
-        return cast("list[ParameterModel]", self.stations.parameters)
+        return cast("list[ParameterModel]", self.request.parameters)
 
-    @property
+    @_factory_method
     def values(self) -> TimeseriesValues:
-        """Get values from the request."""
-        return self.stations._values.from_stations(self)  # noqa: SLF001
+        """Build the reader of the values of these stations: `values().all()` or `values().query()`.
 
-    @property
+        A new one on every call, so that two readers never share the state of a walk over the stations.
+        """
+        return self.request._values.from_stations(self)  # noqa: SLF001
+
+    @_factory_method
     def history(self) -> TimeseriesHistory:
-        """Get history from the request."""
+        """Build the reader of the history of these stations: `history().query()`.
+
+        A new one on every call.
+
+        Raises:
+            NotImplementedError: when the provider has no station history.
+
+        """
         # If the request implementation does not provide a history implementation
         # we raise a NotImplementedError so callers can handle it explicitly.
-        history = self.stations._history  # noqa: SLF001
+        history = self.request._history  # noqa: SLF001
         if history is None:
-            cls_name = self.stations.__class__.__name__
+            cls_name = self.request.__class__.__name__
             msg = "History not implemented for " + cls_name
             raise NotImplementedError(msg)
         return history.from_stations(self)
@@ -199,12 +277,12 @@ class StationsResult(ExportMixin):
     @property
     def start(self) -> datetime | None:
         """Get the start of the requested window."""
-        return cast("datetime | None", self.stations.start)
+        return cast("datetime | None", self.request.start)
 
     @property
     def end(self) -> datetime | None:
         """Get the end of the requested window."""
-        return cast("datetime | None", self.stations.end)
+        return cast("datetime | None", self.request.end)
 
     @property
     def station_id(self) -> pl.Series:
@@ -216,11 +294,11 @@ class StationsResult(ExportMixin):
         from wetterdienst import Info  # noqa: PLC0415
 
         info = Info()
-        name_local = self.stations.metadata.name_local
-        name_english = self.stations.metadata.name_english
-        country = self.stations.metadata.country
-        copyright_ = self.stations.metadata.copyright
-        url = self.stations.metadata.url
+        name_local = self.request.metadata.name_local
+        name_english = self.request.metadata.name_english
+        country = self.request.metadata.country
+        copyright_ = self.request.metadata.copyright
+        url = self.request.metadata.url
         return {
             "provider": {
                 "name_local": name_local,
@@ -283,7 +361,7 @@ class StationsResult(ExportMixin):
         core_columns = TimeseriesRequest._base_columns  # noqa: SLF001
         return [
             column
-            for column in getattr(self.stations, "_base_columns", core_columns)
+            for column in getattr(self.request, "_base_columns", core_columns)
             if column not in core_columns and column in self.df.columns
         ]
 
@@ -506,12 +584,27 @@ _RowsT = TypeVar("_RowsT")
 _DictT = TypeVar("_DictT", bound="Mapping[str, object]")
 
 
-@dataclass
+@dataclass(frozen=True)
 class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
-    """Result class for values."""
+    """What the results of values, interpolation and summary have in common.
+
+    A frozen result of a frame of values (`df`) and the stations it describes (`stations`), which has
+    `df_stations` (the stations behind the values), the formats and the plots. Where a method is not
+    a format, it gives a new result back: `filtered_by_date` and `filtered_by_sql`.
+    """
 
     stations: StationsResult
     df: pl.DataFrame
+
+    @property
+    def df_stations(self) -> pl.DataFrame:
+        """Get the stations the values come from, one row per resolution, dataset and station.
+
+        Only the stations that returned values: a request for the stations nearest a point lists
+        every station with a position, and the walk stops at the ones with data. Read off the values,
+        so that a result cut down by `filtered_by_date` or `filtered_by_sql` names the stations that are left.
+        """
+        return self.stations.df.join(self.df.select("station_id").unique(), on="station_id", how="semi")
 
     @staticmethod
     def _to_dict(df: pl.DataFrame) -> _RowsT:
@@ -549,7 +642,7 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
             indent = None
         return json.dumps(self.to_dict(with_metadata=with_metadata, with_stations=with_stations), indent=indent)
 
-    def _unit_symbols(self, unit_converter: UnitConverter) -> dict[str, str]:
+    def _unit_symbols(self) -> dict[str, str]:
         """Map every parameter a frame can carry to the symbol its values are written in.
 
         Keyed the way `_unit_symbol_key` reads a frame, by resolution and dataset as well as name.
@@ -565,6 +658,8 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
         a label saying seconds.
         """
         convert_units = self.stations.options.convert_units
+        unit_converter = UnitConverter()
+        unit_converter.update_targets(self.stations.options.unit_targets)
         symbols = {}
         for parameter in self.stations.parameters:
             unit = (
@@ -584,8 +679,10 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
         """Read the key of `_unit_symbols` off a frame."""
         return pl.concat_str(pl.col("resolution"), pl.lit("/"), pl.col("dataset"), pl.lit("/"), pl.col("parameter"))
 
-    def filter_by_date(self, date: str) -> pl.DataFrame:
-        """Filter values by date or date interval and return a new DataFrame.
+    def filtered_by_date(self, date: str) -> Self:
+        """Filter values by date or date interval and return a new result of them.
+
+        This result is left as it is.
 
         The date is read as the span it names, so ``"2020-05-01"`` keeps that whole day -- all 24
         readings of it for hourly data -- ``"2020-05"`` the month and ``"2020"`` the year. An
@@ -593,8 +690,7 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
         the second, and a date carrying a time (``"2020-05-01T12"``) names one instant and is
         matched exactly. See :func:`wetterdienst.model.util.filter_by_date`.
         """
-        self.df = filter_by_date(self.df, date=date)
-        return self.df
+        return replace(self, df=filter_by_date(self.df, date=date))
 
 
 class _ValuesOgcFeature(TypedDict):
@@ -621,18 +717,12 @@ class _ValuesOgcFeatureCollection(TypedDict):
     data: _ValuesOgcFeatureCollectionData
 
 
-@dataclass
+@dataclass(frozen=True)
 class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDict], _ValuesDict]):
     """Result class for values."""
 
     stations: StationsResult
-    values: TimeseriesValues
     df: pl.DataFrame
-
-    @property
-    def df_stations(self) -> pl.DataFrame:
-        """Get DataFrame with stations."""
-        return self.stations.df.filter(pl.col("station_id").is_in(self.values.stations_collected))
 
     def to_ogc_feature_collection(
         self, *, with_metadata: bool = False, **_kwargs: object
@@ -706,7 +796,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
-        units = self._unit_symbols(self.values.unit_converter)
+        units = self._unit_symbols()
         # used for subplots
         n = df.select(["resolution", "dataset", "parameter"]).n_unique()
         # used for name
@@ -930,7 +1020,7 @@ def history_to_json(
     return json.dumps(data, indent=indent)
 
 
-@dataclass
+@dataclass(frozen=True)
 class HistoryResult:
     """Result class for history data: how one station and dataset changed over time."""
 
@@ -1035,7 +1125,7 @@ class _InterpolatedValuesOgcFeatureCollection(TypedDict):
     data: _InterpolatedValuesOgcFeatureCollectionData
 
 
-@dataclass
+@dataclass(frozen=True)
 class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], _InterpolatedValuesDict]):
     """Result class for interpolated values."""
 
@@ -1043,6 +1133,11 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
     df: pl.DataFrame
     latlon: tuple[float, float]
     elevation: float | None = None
+
+    @property
+    def df_stations(self) -> pl.DataFrame:
+        """Get the stations the values were interpolated from, which `stations` is already cut down to."""
+        return self.stations.df
 
     def to_ogc_feature_collection(
         self,
@@ -1092,7 +1187,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
-        units = self._unit_symbols(self.stations.values.unit_converter)
+        units = self._unit_symbols()
         # used for subplots
         n = df.select(["dataset", "parameter"]).n_unique()
         # used for name
@@ -1219,7 +1314,7 @@ class _SummarizedValuesOgcFeatureCollection(TypedDict):
     data: _SummarizedValuesOgcFeatureCollectionData
 
 
-@dataclass
+@dataclass(frozen=True)
 class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _SummarizedValuesDict]):
     """Calculate summary of stations and parameters."""
 
@@ -1227,6 +1322,11 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
     df: pl.DataFrame
     latlon: tuple[float, float]
     elevation: float | None = None
+
+    @property
+    def df_stations(self) -> pl.DataFrame:
+        """Get the stations the values were summarized from, which `stations` is already cut down to."""
+        return self.stations.df
 
     def to_ogc_feature_collection(
         self,
@@ -1276,7 +1376,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         if df.is_empty():
             return go.Figure()
         # create unit mapping for title
-        units = self._unit_symbols(self.stations.values.unit_converter)
+        units = self._unit_symbols()
         # used for subplots
         n = df.select(["dataset", "parameter"]).n_unique()
         # used for name

@@ -255,6 +255,39 @@ RENAMED_ARGUMENTS: dict[str, str] = {
     "end_date": "end",
 }
 
+#: members of the result classes, by the class that had them, old name to what became of it. A result
+#: asked for one of these, or built with it as an argument, fails with this text rather than with the
+#: bare "no attribute" or "unexpected keyword argument" a name that never existed gets. `ExportMixin`
+#: is what every result but the history one derives from.
+RENAMED_RESULT_MEMBERS: dict[str, dict[str, str]] = {
+    "ExportMixin": {
+        # GH-2626: a result does not change under its holder any more, so a filter hands back a new one
+        "filter_by_sql": "was renamed to 'filtered_by_sql', which returns a new result and leaves this one as it is",
+    },
+    "_ValuesResult": {
+        "filter_by_date": "was renamed to 'filtered_by_date', which returns a new result and leaves this one as it is",
+    },
+    "StationsResult": {
+        # GH-2626: what the attribute held is the request, and the stations are in `df`
+        "stations": "was renamed to 'request': it is the request that made the stations, which are in 'df'",
+    },
+    "ValuesResult": {
+        # GH-2626: the downloader that produced a result is not part of it
+        "values": "is gone, as a result no longer holds the downloader that produced it; use 'stations.values()'",
+    },
+}
+
+
+def renamed_result_member(owner: type, name: str) -> str | None:
+    """Say what became of a member of a result class that was renamed or removed, if it was.
+
+    Looked up on the class and its bases, so that a rename on `ExportMixin` holds for every result.
+    """
+    for cls in owner.__mro__:
+        if (what := RENAMED_RESULT_MEMBERS.get(cls.__name__, {}).get(name)) is not None:
+            return f"{owner.__name__}.{name} {what}"
+    return None
+
 
 def refuse_renamed_arguments(owner: str, kwargs: Mapping[str, object]) -> None:
     """Fail on a keyword argument renamed for 1.0, naming the one to write instead.

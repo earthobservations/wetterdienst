@@ -30,7 +30,7 @@ def test_dwd_mosmix_l(options_humanize_false_drop_nulls_false: Options) -> None:
     ).filter_by_station_id(
         station_id=["01001"],
     )
-    response = next(request.values.query())
+    response = next(request.values().query())
 
     # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
@@ -184,7 +184,7 @@ def test_dwd_mosmix_s(options_humanize_false_drop_nulls_false: Options) -> None:
     ).filter_by_station_id(
         station_id=["01028"],
     )
-    response = next(request.values.query())
+    response = next(request.values().query())
     # Verify list of stations.
     station_names = response.stations.df.get_column("name").unique().to_list()
     assert station_names == ["BJORNOYA"]
@@ -259,7 +259,7 @@ def test_mosmix_date_filter(options_drop_nulls_false: Options) -> None:
         issue=now - dt.timedelta(hours=5),
         options=options_drop_nulls_false,
     ).filter_by_rank(latlon=(52.122050, 11.619845), rank=1)
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert len(given_df) == 40
 
 
@@ -275,7 +275,7 @@ def test_mosmix_l_parameters(options_humanize_false_drop_nulls_false: Options) -
     ).filter_by_station_id(
         station_id=("01001", "123"),
     )
-    response = next(request.values.query())
+    response = next(request.values().query())
     # Verify mosmix data.
     station_ids = response.stations.df.get_column("station_id").unique().to_list()
     assert station_ids == ["01001"]
@@ -311,7 +311,7 @@ def test_mosmix_latest_answers_with_the_newest_run_the_listing_names(monkeypatch
             "https://example.com/kml/MOSMIX_L_LATEST_01001.kmz",
         ],
     )
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
 
@@ -327,7 +327,7 @@ def test_mosmix_latest_falls_back_to_the_alias_where_no_run_is_named(monkeypatch
         "list_remote_files_fsspec",
         lambda *_args, **_kwargs: ["https://example.com/kml/MOSMIX_L_LATEST_01001.kmz"],
     )
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     resolved = values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
 
@@ -348,7 +348,7 @@ def test_mosmix_latest_with_neither_a_run_nor_an_alias_says_which_directory(monk
         "list_remote_files_fsspec",
         lambda *_args, **_kwargs: ["https://example.com/kml/README.txt"],
     )
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     with pytest.raises(IndexError, match="Unable to find LATEST file within"):
         values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
@@ -366,7 +366,7 @@ def test_mosmix_listing_entry_that_is_not_a_forecast_is_not_read_as_one(monkeypa
     monkeypatch.setattr(
         api, "list_remote_files_fsspec", lambda *_args, **_kwargs: ["https://example.com/kml/README.txt"]
     )
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     with pytest.raises(IndexError, match=r"Unable to find 2026-09-01 09:00:00 file within"):
         values.get_url_for_date(
@@ -409,7 +409,7 @@ def _stub_mosmix_stations(issue: str | dt.datetime = "latest") -> StationsResult
         orient="row",
     )
     return StationsResult(
-        stations=request,
+        request=request,
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -442,7 +442,7 @@ def test_mosmix_directory_holding_nothing_costs_that_station_and_no_more(
 
     caplog.set_level(logging.WARNING)
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
     asked = api.DwdForecastDate.LATEST if date == "LATEST" else date
 
     assert values.get_url_for_date("https://example.com/kml/", asked, one_station_only=True) is None
@@ -506,7 +506,9 @@ def test_mosmix_reads_the_run_out_of_every_naming_layout(
         lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
     )
 
-    resolved = _stub_mosmix_stations().values.get_url_for_date("https://example.com/kml/", asked, one_station_only=True)
+    resolved = (
+        _stub_mosmix_stations().values().get_url_for_date("https://example.com/kml/", asked, one_station_only=True)
+    )
 
     assert resolved.rsplit("/", 1)[-1] == expected
 
@@ -553,8 +555,10 @@ def test_mosmix_latest_answers_with_a_forecast_and_not_with_what_sits_beside_it(
         lambda *_args, **_kwargs: [f"https://example.com/kml/{name}" for name in listing],
     )
 
-    resolved = _stub_mosmix_stations().values.get_url_for_date(
-        "https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True
+    resolved = (
+        _stub_mosmix_stations()
+        .values()
+        .get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=True)
     )
 
     assert resolved.rsplit("/", 1)[-1] == expected
@@ -665,7 +669,7 @@ def test_mosmix_one_emptied_directory_does_not_cost_the_other_stations(monkeypat
     monkeypatch.setattr(api.KMLReader, "read", lambda _self, url: read.append(url))
     monkeypatch.setattr(api.KMLReader, "get_station_forecast", lambda _self, _station_id: pl.DataFrame({"x": [1]}))
 
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
     quiet = values.read_mosmix_large("01001", api.DwdForecastDate.LATEST)
     publishing = values.read_mosmix_large("01002", api.DwdForecastDate.LATEST)
 
@@ -749,7 +753,7 @@ def test_mosmix_an_empty_all_stations_listing_is_not_a_quiet_station(monkeypatch
     from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
 
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     # one station's directory: an answer
     assert (
@@ -833,7 +837,7 @@ def test_mosmix_an_issue_the_listing_does_not_hold_is_an_issue_not_found(
     from wetterdienst.provider.dwd.mosmix import api  # noqa: PLC0415
 
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: listing)
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     with pytest.raises(IndexError, match=r"Unable to find 2026-09-01 09:00:00 file within") as exception_info:
         values.get_url_for_date(
@@ -908,7 +912,7 @@ def test_mosmix_reads_the_run_asked_for_on_a_host_outside_utc(monkeypatch: pytes
     monkeypatch.setattr(api.KMLReader, "read", lambda _self, url: read.append(url))
     monkeypatch.setattr(api.KMLReader, "get_station_forecast", lambda _self, _station_id: pl.DataFrame())
 
-    values = _stub_mosmix_stations(issue=issue).values
+    values = _stub_mosmix_stations(issue=issue).values()
     values._collect_station_parameter_or_dataset("01001", api.DwdMosmixMetadata.hourly.large)  # noqa: SLF001
 
     assert [url.rsplit("/", 1)[-1] for url in read] == ["MOSMIX_L_2026100109_01001.kmz"]
@@ -924,7 +928,7 @@ def test_mosmix_a_naive_date_handed_to_the_url_lookup_is_utc(monkeypatch: pytest
         "list_remote_files_fsspec",
         lambda url, *_args, **_kwargs: [f"{url}MOSMIX_L_2026100107_01001.kmz", f"{url}MOSMIX_L_2026100109_01001.kmz"],
     )
-    values = _stub_mosmix_stations().values
+    values = _stub_mosmix_stations().values()
 
     resolved = values.get_url_for_date(
         "https://example.com/kml/",

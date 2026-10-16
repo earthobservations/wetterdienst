@@ -89,7 +89,8 @@ def test_wsv_readings_of_a_clock_change_day_are_distinct_utc_instants(
             end=(midnight + dt.timedelta(days=1)).astimezone(UTC) - dt.timedelta(minutes=15),
         )
         .all()
-        .values.all()
+        .values()
+        .all()
         .df
     )
     stamps = df.get_column("timestamp")

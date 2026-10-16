@@ -26,7 +26,7 @@ def plot_temperature_timeseries() -> None:
         parameters=("daily", "climate_summary", "temperature_air_mean_2m"),
         periods="historical",
     ).filter_by_name("Hohenpeissenberg")
-    df = stations.values.all().df
+    df = stations.values().all().df
     df_annual = df.group_by([pl.col("timestamp").dt.year()], maintain_order=True).agg(
         pl.col("value").mean().alias("value")
     )

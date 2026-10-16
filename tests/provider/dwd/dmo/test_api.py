@@ -247,11 +247,11 @@ def _stub_dmo_values(
         orient="row",
     )
     return StationsResult(
-        stations=request,
+        request=request,
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
-    ).values
+    ).values()
 
 
 @pytest.mark.parametrize(
@@ -1572,7 +1572,7 @@ def _dmo_stations_for(parameters: list[str], lead_time: Literal["short", "long"]
         {"resolution": ["hourly"], "dataset": ["icon"], "station_id": ["10382"], "name": ["Berlin-Tegel"]},
     )
     return StationsResult(
-        stations=DwdDmoRequest(parameters=parameters, lead_time=lead_time),
+        request=DwdDmoRequest(parameters=parameters, lead_time=lead_time),
         df=df_stations,
         df_all=df_stations,
         stations_filter=StationsFilter.BY_STATION_ID,
@@ -1614,7 +1614,7 @@ def test_dmo_a_parameter_the_run_does_not_carry_is_refused(
     from wetterdienst.exceptions import ParameterNotCarriedError  # noqa: PLC0415
 
     with pytest.raises(ParameterNotCarriedError) as excinfo:
-        _dmo_stations_for(parameters, lead_time).values  # noqa: B018
+        _dmo_stations_for(parameters, lead_time).values()
 
     assert str(excinfo.value).endswith(f"lead_time='{lead_time}', does not carry {refused}")
 
@@ -1636,7 +1636,7 @@ def test_dmo_a_parameter_the_run_carries_is_not_refused(
     """A whole dataset asks for what the run carries, so it is answered under either lead time."""
     from wetterdienst.model.metadata import parse_parameters  # noqa: PLC0415
 
-    values = _dmo_stations_for(parameters, lead_time).values
+    values = _dmo_stations_for(parameters, lead_time).values()
 
     assert values.sr.parameters == parse_parameters(parameters, DwdDmoRequest.metadata)
 

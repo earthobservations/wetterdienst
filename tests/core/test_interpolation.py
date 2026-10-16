@@ -952,7 +952,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for station_id in offsets:
@@ -1064,7 +1064,7 @@ def test_interpolate_and_summarize_keep_a_reading_in_a_small_source_unit_when_un
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: road_api.DwdRoadValues) -> Iterator[object]:  # noqa: ARG001
         for station_id in offsets:
@@ -1159,7 +1159,7 @@ def test_interpolation_places_stations_across_a_utm_zone_boundary_in_the_point_s
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for station_id, (lat, lon) in corners.items():
@@ -1244,7 +1244,7 @@ def test_interpolation_leaves_out_a_station_beyond_what_utm_covers(
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for station_id in coordinates:
@@ -1325,7 +1325,7 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_options_
     timestamps = [dt.datetime(2021, 2, day, tzinfo=ZoneInfo("UTC")) for day in (1, 2, 3)]
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
 
     def _filter_by_distance(
         self: DwdObservationRequest,
@@ -1333,7 +1333,7 @@ def test_interpolate_and_summarize_answer_whatever_shape_and_naming_the_options_
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _collect_station_data(
         self: DwdObservationValues,  # noqa: ARG001
@@ -1450,7 +1450,7 @@ def test_interpolate_and_summarize_take_an_elevation_any_resolution_of_a_station
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for station_id in offsets:

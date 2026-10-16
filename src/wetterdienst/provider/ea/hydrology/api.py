@@ -201,7 +201,7 @@ class EAHydrologyValues(TimeseriesValues[ParameterModel]):
         """Collect data for a station, parameter or dataset."""
         from typing import cast  # noqa: PLC0415
 
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         url = self._url.format(station_id=station_id)
         file = download_file(
             url=url,

@@ -389,7 +389,7 @@ class AemetObservationValues(TimeseriesValues):
         the last ~24h) it currently holds for the station. Filtering to a user-requested
         start/end (if any) happens generically afterward in TimeseriesValues.query().
         """
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         api_key = settings.auth.aemet
         if not api_key:
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -423,7 +423,7 @@ class AemetObservationValues(TimeseriesValues):
         )
 
     def _collect_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         api_key = settings.auth.aemet
         start_date = self.sr.start
         end_date = self.sr.end
@@ -493,7 +493,7 @@ class AemetObservationValues(TimeseriesValues):
         that year's annual total/summary. Which one this call returns is decided by
         dataset.resolution — the other rows are simply filtered out.
         """
-        settings = cast("Settings", self.sr.stations.settings)
+        settings = cast("Settings", self.sr.request.settings)
         api_key = settings.auth.aemet
         start_date = self.sr.start
         end_date = self.sr.end

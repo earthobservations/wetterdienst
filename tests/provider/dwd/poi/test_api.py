@@ -114,7 +114,7 @@ def test_dwd_poi_stations() -> None:
 def test_dwd_poi_values() -> None:
     """A station's reports come back hourly, in UTC, for roughly the last day."""
     request = DwdPoiRequest(parameters=[("hourly", "data")]).filter_by_station_id(["10147"])
-    df = request.values.all().df
+    df = request.values().all().df
     assert not df.is_empty()
     assert set(df.columns) >= {
         "station_id",
@@ -140,7 +140,7 @@ def test_dwd_poi_values() -> None:
 def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     """DWD publishes km/h and km; wetterdienst reports m/s and m."""
     request = DwdPoiRequest(parameters=[("hourly", "data", "wind_speed_last_10min"), ("hourly", "data", "visibility")])
-    df = request.filter_by_station_id(["10147"]).values.all().df.drop_nulls("value")
+    df = request.filter_by_station_id(["10147"]).values().all().df.drop_nulls("value")
     wind = df.filter(pl.col("parameter") == "wind_speed_last_10min").get_column("value")
     visibility = df.filter(pl.col("parameter") == "visibility").get_column("value")
     assert wind.is_between(0.0, 60.0).all()
@@ -174,7 +174,7 @@ def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(m
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    df = stations_result(request, "hourly", "data", "10147").values.all().df
+    df = stations_result(request, "hourly", "data", "10147").values().all().df
     df = df.sort("timestamp")
     direction = df.filter(pl.col("parameter") == "wind_direction_last_10min")
     assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (None, "raw:0"), (360.0, None)]
@@ -212,7 +212,7 @@ def test_dwd_poi_maximum_wind_of_the_previous_day_is_the_maximum_of_the_last_6_h
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=True),
     )
-    df = stations_result(request, "hourly", "data", "10637").values.all().df.sort("timestamp")
+    df = stations_result(request, "hourly", "data", "10637").values().all().df.sort("timestamp")
     reported = {stamp.hour: value for stamp, value in df.select("timestamp", "value").rows()}
     # km/h as m/s; the stamp's own hour is one of the 6 (06:00 to 11:00 alone would give 9 km/h at 12:00)
     assert reported == {hour: round(max(hourly[h] for h in range(hour - 5, hour + 1)) / 3.6, 4) for hour in (12, 18)}

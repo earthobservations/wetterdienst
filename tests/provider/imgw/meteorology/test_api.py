@@ -114,7 +114,7 @@ def test_imgw_meteorology_api_daily() -> None:
         orient="row",
     )
     assert_frame_equal(request.df, df_expected_station)
-    values = request.values.all()
+    values = request.values().all()
     df_expected_values = pl.DataFrame(
         [
             {
@@ -243,7 +243,7 @@ def test_imgw_meteorology_api_monthly() -> None:
         orient="row",
     )
     assert_frame_equal(request.df, df_expected_station)
-    values = request.values.all()
+    values = request.values().all()
     df_expected_values = pl.DataFrame(
         [
             {
@@ -426,7 +426,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
         start="2024-01-01",
         end="2024-01-01",
     ).filter_by_station_id("354150100")
-    values = request.values.all()
+    values = request.values().all()
     df_expected_values = pl.DataFrame(
         [
             {
@@ -721,7 +721,8 @@ def test_imgw_meteorology_brak_zjawiska_is_a_zero_even_when_the_cell_is_empty(
             end=start_date,
         )
         .filter_by_station_id(station_id)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert values.get_column("value").to_list() == [0.0]
@@ -848,7 +849,8 @@ def test_imgw_meteorology_values_match_the_upstream_column(
             end="2010-01-31" if dataset != "synop" else "2010-08-31",
         )
         .filter_by_station_id(station_id)
-        .values.all()
+        .values()
+        .all()
         .df.filter(pl.col("parameter") == parameter)
         .sort("timestamp")
     )
@@ -897,7 +899,8 @@ def test_imgw_meteorology_values_read_the_status_column(
             end=start_date,
         )
         .filter_by_station_id(station_id)
-        .values.all()
+        .values()
+        .all()
         .df
     )
     if expected is None:
@@ -934,7 +937,8 @@ def test_imgw_meteorology_daily_synop_returns_the_columns_it_reads(parameter: st
             end="2010-01-15",
         )
         .filter_by_station_id("349190600")
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert values.get_column("value").to_list() == [expected]
@@ -1038,7 +1042,8 @@ def test_imgw_meteorology_daily_precipitation_returns_a_dry_day_the_file_leaves_
             end="2010-02-16",
         )
         .filter_by_station_id("249180020")
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert values.get_column("value").to_list() == [0.0]
@@ -1055,7 +1060,7 @@ def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monk
     missing = File(url="https://example.invalid/missing.zip", content=FileNotFoundError("missing.zip"), status=404)
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
-    values.sr = SimpleNamespace(stations=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
+    values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
     monkeypatch.setattr(values, "_get_urls", lambda _dataset, _station_id: ["unused"])
     dataset = ImgwMeteorologyMetadata.daily.climate
     monkeypatch.setattr(imgw_meteorology_api, "download_files", lambda **_kwargs: [missing, failed])
@@ -1150,7 +1155,8 @@ def test_imgw_meteorology_daily_climate_across_the_end_of_k_d_t() -> None:
             end="2024-12-31",
         )
         .filter_by_station_id("250190390")
-        .values.all()
+        .values()
+        .all()
         .df
     )
     assert values.height == 366

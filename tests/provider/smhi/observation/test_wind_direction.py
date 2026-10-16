@@ -65,7 +65,7 @@ def _values(resolution: str, parameter: str, start: dt.datetime, end: dt.datetim
         settings=Settings(cache_disable=True),
         options=Options(drop_nulls=False),
     )
-    return request.filter_by_station_id("188790").values.all().df.sort("timestamp")
+    return request.filter_by_station_id("188790").values().all().df.sort("timestamp")
 
 
 def test_smhi_hourly_wind_direction_of_0_is_null_and_360_is_north(monkeypatch: pytest.MonkeyPatch) -> None:

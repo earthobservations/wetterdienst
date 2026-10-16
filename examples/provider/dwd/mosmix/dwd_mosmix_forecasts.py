@@ -31,7 +31,7 @@ def mosmix_example() -> None:
         station_id=["01001", "01008"],
     )
 
-    response = next(stations.values.query())
+    response = next(stations.values().query())
 
     # meta data enriched with information from metadata_for_forecasts()
     output_section("Metadata", response.stations.df)
@@ -51,7 +51,7 @@ def mosmix_example() -> None:
         station_id=["01001", "01008"],
     )
 
-    response = next(stations.values.query())
+    response = next(stations.values().query())
 
     # meta data enriched with information from metadata_for_forecasts()
     output_section("Metadata", response.stations.df)
@@ -68,7 +68,7 @@ def mosmix_example() -> None:
         station_id=["01001", "01008"],
     )
 
-    response = next(stations.values.query())
+    response = next(stations.values().query())
 
     output_section("Metadata", response.stations.df)
     output_section("Forecasts", response.df)

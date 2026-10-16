@@ -56,9 +56,7 @@ def test_a_result_with_another_timestamp_type_cannot_be_built_in_a_provider_test
     """Test that the guard in conftest.py refuses a result whose frame carries a local-time stamp."""
     df = pl.DataFrame(schema={"timestamp": pl.Datetime("us", "Europe/Berlin")})
     with pytest.raises(AssertionError, match="timestamp column is Datetime"):
-        getattr(results, cls)(
-            stations=None, df=df, **({"values": None} if cls == "ValuesResult" else {"latlon": (0, 0)})
-        )
+        getattr(results, cls)(stations=None, df=df, **({} if cls == "ValuesResult" else {"latlon": (0, 0)}))
 
 
 @pytest.mark.parametrize("method", ["interpolate", "summarize"])
@@ -99,7 +97,7 @@ def test_interpolated_and_summarized_timestamps_are_utc_microseconds(
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(stations=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for station_id in offsets:

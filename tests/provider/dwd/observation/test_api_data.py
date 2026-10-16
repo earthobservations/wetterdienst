@@ -76,7 +76,7 @@ def test_dwd_observation_data_empty(default_settings: Settings) -> None:
         periods="now",
         settings=default_settings,
     ).filter_by_rank(latlon=(52.384630, 9.733908), rank=1)
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.select(pl.col("station_id")).to_series().unique().to_list() == ["02011"]
     assert (
         # is_in over names that may be absent from the (period="now", possibly empty) result
@@ -223,7 +223,7 @@ def test_dwd_observation_data_leaves_out_dates_the_station_did_not_record(option
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.get_column("timestamp").min() == dt.datetime(1934, 1, 1, tzinfo=ZoneInfo("UTC"))
     assert given_df.height == 56  # 14 parameters over the 4 recorded days
     assert given_df.get_column("value").is_null().sum() == 16
@@ -245,7 +245,7 @@ def test_dwd_observation_data_result_missing_data(options_drop_nulls_false: Opti
         station_id=["03348"],
     )
 
-    assert request.values.all().df.is_empty()
+    assert request.values().all().df.is_empty()
 
 
 @pytest.mark.remote
@@ -257,7 +257,7 @@ def test_dwd_observation_data_result_all_missing_data(default_settings: Settings
         end=dt.datetime(2021, 10, 5, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(["05435"])
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.is_empty()
 
 
@@ -283,7 +283,7 @@ def test_dwd_observation_data_result_wide_single_dataset(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == dwd_climate_summary_wide_columns
     expected_df = pl.DataFrame(
         {
@@ -379,7 +379,7 @@ def test_dwd_observation_data_result_wide_single_parameter(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -427,7 +427,7 @@ def test_dwd_observation_data_result_wide_convert_units(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == dwd_climate_summary_wide_columns
     expected_df = pl.DataFrame(
         {
@@ -523,7 +523,7 @@ def test_dwd_observation_data_result_wide_two_datasets(
     ).filter_by_station_id(
         station_id=[1048],
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         {
             "station_id": ["01048"] * 2,
@@ -633,7 +633,7 @@ def test_dwd_observation_data_result_tidy_convert_units(options_humanize_false_d
     ).filter_by_station_id(
         station_id=(1048,),
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert given_df.columns == [
         "station_id",
         "resolution",
@@ -795,7 +795,7 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
         start="2022-06-01",
         settings=default_settings,
     ).filter_by_station_id("00399")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -848,7 +848,7 @@ def test_dwd_observations_urban_values_basic(default_settings: Settings, dataset
         end="2022-01-31",
         settings=default_settings,
     ).filter_by_name(name="Berlin-Alexanderplatz")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert not given_df.drop_nulls(subset=["value"]).is_empty()
 
 
@@ -907,7 +907,7 @@ def test_period_precedence_on_overlapping_timestamps(
         settings=default_settings,
     )
     stations_result = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
@@ -950,7 +950,7 @@ def _seam_values(resolution: str, dataset: str, parameter: str, station_id: str,
         settings=settings,
         options=Options(drop_nulls=False),
     )
-    return stations_result(request, resolution, dataset, station_id).values.all().df.sort("timestamp")
+    return stations_result(request, resolution, dataset, station_id).values().all().df.sort("timestamp")
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -1151,7 +1151,7 @@ def test_dwd_observations_urban_10_minutes_now(default_settings: Settings) -> No
         periods="now",
         settings=default_settings,
     ).filter_by_station_id("00399")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     assert not given_df.is_empty()
     now = dt.datetime.now(ZoneInfo("UTC"))
     # `now` holds the current day only, while `recent` reaches 500 days back -- the span is what
@@ -1170,7 +1170,7 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
         end="2016-01-02",
         settings=default_settings,
     ).filter_by_station_id("00399")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -1206,7 +1206,7 @@ def test_dwd_observations_urban_10_minutes_sunshine_duration_is_hours(default_se
         periods="recent",
         settings=default_settings,
     ).filter_by_station_id("00399")
-    values = request.values.all().df.get_column("value")
+    values = request.values().all().df.get_column("value")
     assert 300 < values.max() <= 612.0
 
 
@@ -1221,7 +1221,7 @@ def test_dwd_observation_data_10_minutes_result_tidy(options_humanize_false_conv
     ).filter_by_station_id(
         station_id=(1048,),
     )
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -1311,7 +1311,7 @@ def test_dwd_observation_data_monthly_tidy(default_settings: Settings) -> None:
         end="2020-12-01T00:00:00",
         settings=default_settings,
     ).filter_by_station_id("00433")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -1463,7 +1463,7 @@ def test_create_humanized_column_names_mapping() -> None:
         periods={"recent"},
     )
     stations_result = StationsResult(
-        stations=request,
+        request=request,
         df=pl.DataFrame(),
         df_all=pl.DataFrame(),
         stations_filter=StationsFilter.ALL,
@@ -1507,7 +1507,7 @@ def test_tidy_up_data(options_humanize_false_drop_nulls_false: Options) -> None:
         ],
         orient="row",
     )
-    given_df = request.values._tidy_up_df(df)  # noqa: SLF001
+    given_df = request.values()._tidy_up_df(df)  # noqa: SLF001
     given_df = given_df.select(
         [
             "station_id",
@@ -1665,7 +1665,7 @@ def test_dwd_observation_tidy_empty_df_no_start_end_date(default_settings: Setti
         periods="now",
         settings=default_settings,
     ).filter_by_station_id("01736")
-    assert request.values.all().df.is_empty()
+    assert request.values().all().df.is_empty()
 
 
 @pytest.mark.remote
@@ -1676,7 +1676,7 @@ def test_dwd_observation_not_tidy_empty_df_no_start_end_date(options_wide_shape:
         periods="now",
         options=options_wide_shape,
     ).filter_by_station_id("01736")
-    assert request.values.all().df.is_empty()
+    assert request.values().all().df.is_empty()
 
 
 @pytest.mark.remote
@@ -1691,7 +1691,7 @@ def test_dwd_observation_solar_daily(default_settings: Settings) -> None:
         end=dt.datetime(2021, 12, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(station_id=[3987])
-    assert not request.values.all().df.get_column("value").drop_nulls().is_empty()
+    assert not request.values().all().df.get_column("value").drop_nulls().is_empty()
 
 
 @pytest.mark.remote
@@ -1708,7 +1708,7 @@ def test_dwd_observation_solar_hourly(options_convert_units_false: Options) -> N
         end=dt.datetime(2022, 12, 31, 23, 59, tzinfo=ZoneInfo("UTC")),
         options=options_convert_units_false,
     ).filter_by_distance(latlon_bremen, 500)
-    values_df = next(request.values.query()).df
+    values_df = next(request.values().query()).df
     assert values_df.get_column("value").sum() == 417914.0
 
 
@@ -1726,7 +1726,7 @@ def test_dwd_observation_solar_hourly_timestamps_off(default_settings: Settings)
         end=dt.datetime(2024, 12, 8, 23, 0, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(station_id="03987")
-    values_df = next(request.values.query()).df
+    values_df = next(request.values().query()).df
     assert len(values_df) == 24
     assert values_df.get_column("value").sum() == 46.0
 
@@ -1742,7 +1742,7 @@ def test_dwd_observation_data_10_minutes_missing_data(options_humanize_false_con
     ).filter_by_station_id(
         station_id=(1048,),
     )
-    df = request.values.all().df
+    df = request.values().all().df
     assert df.filter(pl.col("value").eq(-999)).is_empty()
 
 
@@ -1755,7 +1755,7 @@ def test_dwd_observation_data_subdaily_wind_extreme_data(default_settings: Setti
     ).filter_by_station_id(
         station_id=(1048,),
     )
-    df = request.values.all().df
+    df = request.values().all().df
     df = df.drop_nulls("value")
     df = df.sort("parameter").group_by(["parameter"], maintain_order=True).head(1)
     assert df.to_dicts() == [
@@ -1789,7 +1789,7 @@ def test_dwd_observation_data_5minute_precipitation_data(default_settings: Setti
         end="2023-08-27 00:00",
         settings=default_settings,
     ).filter_by_station_id(station_id="01048")
-    values = request.values.all().df
+    values = request.values().all().df
     assert round(values.get_column("value").sum(), 2) == 4.35
 
 
@@ -1804,7 +1804,7 @@ def test_dwd_observation_data_5minute_precipitation_data_recent(default_settings
         periods={"recent", "now"},
         settings=default_settings,
     ).filter_by_station_id(station_id="01048")
-    values = request.values.all().df
+    values = request.values().all().df
     assert values.is_empty()
 
 
@@ -1817,7 +1817,7 @@ def test_dwd_observation_data_1minute_precipitation_data_tidy(default_settings: 
         end="1995-01-01 00:10",
         settings=default_settings,
     ).filter_by_station_id(1048)
-    values = request.values.all().df
+    values = request.values().all().df
     assert round(values.get_column("value").sum(), 2) == 2681.8
 
 
@@ -1846,7 +1846,7 @@ def test_dwd_observation_measurement_method_indicators(
         periods="recent",
         settings=default_settings,
     ).filter_by_station_id("00096")
-    values = request.values.all().df
+    values = request.values().all().df
     assert not values.is_empty()
     assert values.get_column("parameter").unique().to_list() == [parameter]
     assert set(values.get_column("value").drop_nulls().unique()) <= {1.0, 2.0}
@@ -1868,7 +1868,7 @@ def test_dwd_observation_true_local_time_offset(options_convert_units_false: Opt
             end=dt.datetime(2023, month, 10, 6, 0, tzinfo=ZoneInfo("UTC")),
             options=options_convert_units_false,
         ).filter_by_station_id("00183")
-        return request.values.all().df.get_column("value").to_list()
+        return request.values().all().df.get_column("value").to_list()
 
     february, november = offsets(2), offsets(11)
     assert february
@@ -1894,7 +1894,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
         start="2022-01-01",
         options=Options(unit_targets=unit_targets),
     ).filter_by_station_id("1048")
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             {
@@ -2057,7 +2057,7 @@ def test_dwd_observation_datasets_high_resolution(default_settings: Settings, da
     ).all()
     df_stations = request.df
     assert not df_stations.drop_nulls().is_empty()
-    given_df = next(request.values.query()).df
+    given_df = next(request.values().query()).df
     assert not given_df.is_empty()
     assert given_df.get_column("quality_flags").is_not_null().mean() >= 0.99
 
@@ -2081,7 +2081,7 @@ def test_dwd_observation_datasets_low_resolution(default_settings: Settings, dat
     ).all()
     df_stations = request.df
     assert not df_stations.drop_nulls().is_empty()
-    given_df = next(request.values.query()).df
+    given_df = next(request.values().query()).df
     assert not given_df.is_empty()
     assert given_df.get_column("quality_flags").is_not_null().mean() >= 0.99
 
@@ -2096,7 +2096,7 @@ def test_dwd_observation_annual_climate_indices(default_settings: Settings) -> N
         end=dt.datetime(1990, 12, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(station_id=["00003"])
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     expected_df = pl.DataFrame(
         [
             ("00003", "annual", "climate_indices", "count_days_frost", 26.0),
@@ -2137,7 +2137,7 @@ def test_dwd_observation_monthly_precipitation_indices(default_settings: Setting
         end=dt.datetime(1990, 7, 31, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id(station_id=["00003"])
-    given_df = request.values.all().df
+    given_df = request.values().all().df
     given = dict(given_df.select("parameter", "value").iter_rows())
     assert given == {
         "count_days_precipitation_amount_ge_0_1mm": 10.0,

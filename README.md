@@ -132,7 +132,7 @@ stations.head()
 # │ daily      ┆ climate_summary ┆ 05779      ┆ 1971-01-01 00:00:00 UTC ┆ … ┆ 13.7516   ┆ 877.0     ┆ Zinnwald-Georgenfeld ┆ Sachsen │
 # └────────────┴─────────────────┴────────────┴─────────────────────────┴───┴───────────┴───────────┴──────────────────────┴─────────┘
 
-values = request.values.all().df
+values = request.values().all().df
 values.head()
 # ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬───────────────┐
 # │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ timestamp               ┆ value ┆ quality_flags │
