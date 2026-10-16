@@ -877,7 +877,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             " of precipitation unascertainable and depositional precipitation, automatic ascertainment; 6 = liquid "
             "precipitation, automatic ascertainment; 7 = solid precipitation, automatic ascertainment; 8 = liquid and"
             " solid precipitation, automatic ascertainment; 9 = missing value, form of precipitation unascertainable,"
-            " automatic ascertainment. The files also hold 2 and 3, which the current sheet does not define."
+            " automatic ascertainment; returned as null, the 9 stays as the last token of quality_flags, raw:9. The "
+            "files also hold 2 and 3, which the current sheet does not define."
         ),
         ("hourly", "pressure", "p"): "Barometric pressure at sea level NN.",
         ("hourly", "pressure", "p0"): "Barometric pressure at station height.",
@@ -1177,7 +1178,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "cooling_degree_days"): "cooling degree days",
         ("monthly", "data", "days_with_precip_ge_1mm"): "days with >= 1 mm precipitation",
         ("monthly", "data", "days_with_valid_max_temp"): "days with a valid maximum temperature",
-        ("monthly", "data", "days_with_valid_mean_temp"): "days with a valid mean temperature",
+        ("monthly", "data", "days_with_valid_mean_temp"): (
+            "days with a valid mean temperature, the daily mean being calculated from the daily extremes"
+        ),
         ("monthly", "data", "days_with_valid_min_temp"): "days with a valid minimum temperature",
         ("monthly", "data", "days_with_valid_precip"): "days with a valid precipitation observation",
         ("monthly", "data", "days_with_valid_snowfall"): "days with a valid snowfall observation",
@@ -1186,7 +1189,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "max_temperature"): "2m maximum air temperature",
         ("monthly", "data", "mean_temperature"): "2m mean air temperature, the mean of the daily values",
         ("monthly", "data", "min_temperature"): "2m minimum air temperature",
-        ("monthly", "data", "normal_mean_temperature"): "normal of the mean air temperature",
+        ("monthly", "data", "normal_mean_temperature"): (
+            "normal of the mean air temperature, the daily mean being calculated from the daily extremes"
+        ),
         ("monthly", "data", "normal_precipitation"): "normal of the precipitation height",
         ("monthly", "data", "normal_snowfall"): "normal of the snowfall total",
         ("monthly", "data", "normal_sunshine"): "normal of the sunshine duration",
@@ -1609,8 +1614,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "altimeter"): "Reduced pressure (hectopascals)",
         ("hourly", "data", "dew_point_temperature"): "Dew Point Temperature (⁰C to tenths)",
         ("hourly", "data", "precipitation"): (
-            "total liquid precipitation (rain or melted snow) for past hour; a “T” in the measurement "
-            "code column indicates a trace amount of precipitation (millimeters)"
+            "total liquid precipitation (rain or melted snow), nominally for the hour: a METAR's amount is the "
+            "running total since the last routine report, so one report of an hour is returned, the one filed at "
+            "the station's routine minute (else the last one that is no SPECI, else the last one) of the UTC hour; "
+            "a “T” in the measurement code column indicates a trace amount of precipitation (millimeters)"
         ),
         ("hourly", "data", "precipitation_12_hour"): (
             "12-hour total liquid precipitation (rain or melted snow) accumulation from FM12/SYNOP "
@@ -1687,7 +1694,15 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "mintemperaturelast24hours"): "minimum air temperature in the last 24 hours",
         ("hourly", "data", "precipitationlast3hours"): "precipitation height of last three hours",
         ("hourly", "data", "precipitationlast6hours"): "precipitation height of last six hours",
-        ("hourly", "data", "precipitationlasthour"): "precipitation height of last hour",
+        # the endpoint's key is precipitationLastHour, and the amount of the METAR's precipitation group is the
+        # running total since the last routine report (GH-2841): at KORD on 2026-10-15 the reports of 22:51 to 23:42
+        # read 4.3, 0.8, 8.4, 17.3 and 17.5 mm (a total that restarts after 22:51 and grows), and the METAR of 23:51
+        # 17.5 mm (P0069)
+        ("hourly", "data", "precipitationlasthour"): (
+            "precipitation group of the METAR or SPECI kept for the hour, the amount since the last routine METAR (a "
+            "running total, which a routine report holds for the whole hour and a SPECI for the part that had fallen "
+            "when it was filed); the endpoint calls it precipitationLastHour"
+        ),
         ("hourly", "data", "relativehumidity"): "relative humidity",
         ("hourly", "data", "sealevelpressure"): "air pressure at sea level",
         ("hourly", "data", "temperature"): "air temperature",

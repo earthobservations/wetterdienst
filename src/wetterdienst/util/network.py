@@ -174,6 +174,29 @@ def _download_error(error: Exception, url: str) -> DownloadError:
     return DownloadError(_without_url_secrets(url), reason)
 
 
+def as_outage(error: Exception, url: str) -> Exception:
+    """Say what a caller that reads a failed download for itself raises for it, or hand the failure back.
+
+    For a provider that cannot go through `File.raise_if_exception` because a missing file is part
+    of its protocol -- a station that does not report a parameter (a 404), a timestamp that is not
+    published yet -- and answers an empty result for that, but must not answer one for a source that
+    did not answer (GH-2965). The failures that are no answer are the ones `_worth_retrying` asks
+    again for: a timeout, a dropped connection, a body cut short, a 5xx. They come back as the
+    `DownloadError` `File.raise_if_exception` would raise, naming the file and with the failure as
+    its `__cause__`. A failed connection is the `NoInternetError` it already is.
+
+    Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
+    a refused key or a 429 -- the source answering -- and what is no download error at all.
+    """
+    if isinstance(error, NoInternetError):
+        return error
+    if _worth_retrying(error):
+        failure = _download_error(error, url)
+        failure.__cause__ = error
+        return failure
+    return error
+
+
 def _no_internet_error(url: str, error: ClientConnectorError) -> NoInternetError:
     """Say that a connection could not be made to ``url``, with the connection error underneath as its cause.
 

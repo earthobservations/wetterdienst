@@ -67,8 +67,9 @@ station-hour twice (GH-2857):
 The kept observation is stamped with the full hour, 15:00 for the METAR of 14:54, as DWD and ECCC
 stamp their hourly readings. DWD's instant readings are those of about ten minutes before the stamp
 ([time zones and reference times](../../../time_reference.md)), the same kind of reading as a METAR
-filed at :51 to :54. The minute of the report is not kept, and `noaa/ghcn` hourly, which keeps the
-same METARs with their own minute and does not thin them, is another thing (GH-3000). A full-hour
+filed at :51 to :54. The minute of the report is not kept, and `noaa/ghcn` hourly, which keeps
+every report with its own minute and thins only its precipitation to one report for each UTC hour,
+is another thing (GH-2841, GH-3000). A full-hour
 stamp is what `interpolate` and `summarize` join on, and a stamp at :54 would count for nothing
 there; `skip_empty` counts by the truncated hour, and a day of KDEN with its own minutes came to 23
 of 25 hours, below its default threshold of 0.95. A missing or late METAR shows as a SPECI or a
@@ -81,8 +82,11 @@ How to read the values of the kept report:
 
 - `wind_speed`, `wind_direction`: the 2-minute averages ending at the report's time, not an hourly
   mean (GH-2837);
-- `precipitation_amount`: a running total since the last routine METAR (as the data read, the
-  endpoint does not state it), not the amount that fell in the hour before the stamp. SPECI do not
+- `precipitation_amount_since_last_routine_report` (`precipitationLastHour`, called
+  `precipitation_amount` until GH-2841): a running total since the last routine METAR (as the data
+  read, the endpoint does not state it), not the amount that fell in the hour before the stamp. The
+  kept report is the one rule 3 picks, the routine METAR unless a SPECI was filed nearer to the full
+  hour, and its running total is what the hour returns. SPECI do not
   add to it: at KDEN on 2026-10-14 three SPECI (10:27, 10:34, 10:42) and the METAR of 10:53 each
   read 0.3 mm, and the 6-hour amount at 11:53 is 0.8 mm
   (GH-2841). A routine METAR therefore holds the full hour, and a series of these values is an

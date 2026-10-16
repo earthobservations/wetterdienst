@@ -48,7 +48,7 @@ test.describe('API proxy', () => {
   })
 
   test('forwards repeated query parameters', async ({ request }) => {
-    const query = 'provider=dwd&network=observation&parameters=daily/kl&station=00011&station=00003'
+    const query = 'provider=dwd&network=observation&parameters=daily/kl&stations=00011&stations=00003'
 
     const viaProxy = await request.get(`/api/stations?${query}`, { timeout: REQUEST_TIMEOUT })
     // Assert success rather than branching on it: if the backend fails, both sides fail the same
@@ -69,7 +69,7 @@ test.describe('API proxy', () => {
     // the direct response. CI runs this against a cold cache, so the backend has to pull from DWD
     // opendata first; both the test and each request get their own generous budget.
     test.setTimeout(LARGE_PAYLOAD_TIMEOUT)
-    const query = 'provider=dwd&network=observation&parameters=daily/kl&station=00011&timestamp=1990-01-01/2024-12-31'
+    const query = 'provider=dwd&network=observation&parameters=daily/kl&stations=00011&timestamp=1990-01-01/2024-12-31'
 
     const viaProxy = await request.get(`/api/values?${query}`, { timeout: REQUEST_TIMEOUT })
     expect(viaProxy.ok()).toBeTruthy()

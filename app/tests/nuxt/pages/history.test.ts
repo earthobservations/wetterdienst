@@ -263,7 +263,7 @@ describe('history Page', () => {
     // each answer is for the station asked for, and held until the test lets it go
     const gates: Array<() => void> = []
     const { wrapper, vm, showButton } = await mountWithSelection(async (event) => {
-      const station = String(getQuery(event).station)
+      const station = String(getQuery(event).stations)
       await new Promise<void>(resolve => gates.push(resolve))
       return { histories: [{ station_id: station, parameter: [{ ...HISTORY.histories[0]!.parameter[0], station_id: station }] }] }
     })

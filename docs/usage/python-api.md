@@ -278,7 +278,7 @@ df
 A station id the request has no station for -- one that does not exist, or has no data for the
 requested parameters and periods -- is left out of the result with a warning naming it (log level
 `WARNING`): the stations that do exist are returned, and when none does the result is empty. The command
-line and the REST API do the same for a list of `--station` ids.
+line and the REST API do the same for a list of `--stations` ids.
 
 #### filter by name
 
@@ -990,13 +990,13 @@ whose message is the whole of what there is to know. A package a sink needs that
 that installs it. Anything else out of `to_target` is a defect or an environment problem and keeps
 its own class and traceback.
 
-The CLI takes the same argument as `--if_exists`, which is what a scheduled acquisition needs —
+The CLI takes the same argument as `--if-exists`, which is what a scheduled acquisition needs —
 see [Scheduling](scheduling.md):
 
 ```bash
 wetterdienst values --provider=dwd --network=observation \
-    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --station=01048 \
-    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if_exists=append
+    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --stations=01048 \
+    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
 ```
 
 ## Errors
@@ -1031,9 +1031,10 @@ Each class keeps the built-in classes it was before, so an `except ValueError`, 
 `except FileNotFoundError` or `except IndexError` that caught it still does: `InvalidEnumerationError` is
 a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an `OSError`,
 `IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
-`ConfigurationError` and an `ImportError`. The REST API, the MCP tools and the command line decide by
-the class what to answer: a `RequestError` is a 400 or a usage error (exit 2), a `NotFoundError` a 404,
-a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
+`ConfigurationError` and an `ImportError`, `CredentialRejectedError` (a provider answered 401 or 403 to the
+credential you configured) a `ConfigurationError` and a `PermissionError`. The REST API, the MCP tools
+and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
+(exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, and anything else, an unclassified
 `WetterdienstError` included, the server's error. See [REST API](restapi.md#errors) for the body.
 
 ### Offline

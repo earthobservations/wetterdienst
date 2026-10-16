@@ -2726,6 +2726,45 @@ def test_file_raise_if_exception_raises_a_download_error_naming_the_file(error: 
 
 
 @pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(FSTimeoutError(), id="timeout"),
+        pytest.param(ServerDisconnectedError(), id="disconnected"),
+        pytest.param(ClientPayloadError("Response payload is not completed"), id="payload"),
+        pytest.param(_response_error(_FAILED_URL, 500), id="500"),
+        pytest.param(_response_error(_FAILED_URL, 503), id="503"),
+    ],
+)
+def test_as_outage_gives_a_download_that_did_not_answer_as_the_download_error(error: Exception) -> None:
+    """A timeout, a dropped connection, a cut body or a 5xx is the `DownloadError` that `raise_if_exception` raises."""
+    url = f"{_FAILED_URL}?api_key=SECRET"
+    outage = network.as_outage(error, url)
+
+    assert isinstance(outage, DownloadError)
+    assert outage.__cause__ is error
+    with pytest.raises(DownloadError) as raised:
+        File(url=url, content=error, status=500).raise_if_exception()
+    assert str(outage) == str(raised.value)
+    assert "SECRET" not in str(outage)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(FileNotFoundError(_FAILED_URL), id="404"),
+        pytest.param(_response_error(_FAILED_URL, 404), id="404-response"),
+        pytest.param(_response_error(_FAILED_URL, 429), id="429"),
+        pytest.param(_response_error(_FAILED_URL, 403), id="403"),
+        pytest.param(ValueError("not a download error"), id="no-download-error"),
+        pytest.param(NoInternetError("no route to host"), id="no-internet"),
+    ],
+)
+def test_as_outage_hands_back_what_is_an_answer_as_it_was(error: Exception) -> None:
+    """A 404, another 4xx, a 429 and what is no download failure are returned, for the caller to answer."""
+    assert network.as_outage(error, _FAILED_URL) is error
+
+
+@pytest.mark.parametrize(
     "url",
     [
         pytest.param("https://example.invalid/data/file.zip?api_key=SECRET&station=01048", id="query"),

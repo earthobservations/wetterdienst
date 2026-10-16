@@ -11,16 +11,21 @@ naming / date stepping, the NetCDF parser, the retry loop, and the auth guard.
 """
 
 import datetime as dt
+import json
 import logging
 import sys
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedError
+from fsspec.exceptions import FSTimeoutError
 
-from wetterdienst.exceptions import MissingDependencyError, NoInternetError
+from tests.conftest import skip_if_upstream_unavailable
+from wetterdienst.exceptions import DownloadError, MissingDependencyError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation.api import (
@@ -464,6 +469,178 @@ def test_knmi_station_list_without_h5netcdf_names_the_extra(monkeypatch: pytest.
 
     with pytest.raises(MissingDependencyError, match=r"pip install wetterdienst\[knmi\]"):
         request.all()
+
+
+_STATION_FILE = "https://s3.example.invalid/stations.nc?X-Amz-Signature=secret"
+
+
+def _response_error(status: int) -> ClientResponseError:
+    return ClientResponseError(request_info=MagicMock(), history=(), status=status)
+
+
+def _serve_knmi(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure: Exception | None,
+    *,
+    at: str = "resolve",
+    ok: tuple[str, ...] = (),
+) -> list[str]:
+    """Serve KNMI: the station list and the files named in `ok` as files, every other file as `failure`.
+
+    `at` says which request of a failing file fails: the resolve of its download link or the download itself.
+    Returns the data files asked for (the names).
+    """
+    path = tmp_path / "stations.nc"
+    string_dtype = h5py.string_dtype()
+    with h5netcdf.File(path, "w") as file:
+        file.dimensions = {"station": 2}
+        station = file.create_variable("station", ("station",), dtype=string_dtype)
+        station[:] = ["0-20000-0-06260", "0-20000-0-06280"]
+        stationname = file.create_variable("stationname", ("station",), dtype=string_dtype)
+        stationname[:] = ["De Bilt", "Eelde"]
+        for name, values in {"lat": [52.0989, 53.1], "lon": [5.1797, 6.6], "height": [1.9, 4.0]}.items():
+            variable = file.create_variable(name, ("station",), dtype="f8")
+            variable[:] = values
+    stations = path.read_bytes()
+    data = _write_netcdf(tmp_path / "data.nc")
+    asked: list[str] = []
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        status = getattr(failure, "status", 500)
+        if "/files?maxKeys=1" in url:
+            return File(
+                url=url, content=BytesIO(json.dumps({"files": [{"filename": "latest.nc"}]}).encode()), status=200
+            )
+        if url.endswith("/url"):
+            name = url.rsplit("/", 2)[-2]
+            if name == "latest.nc":
+                link = _STATION_FILE
+            elif name in ok or failure is None or at == "download":
+                link = f"https://s3.example.invalid/{name}?X-Amz-Signature=secret"
+            else:
+                asked.append(name)
+                return File(url=url, content=failure, status=status)
+            return File(url=url, content=BytesIO(json.dumps({"temporaryDownloadUrl": link}).encode()), status=200)
+        name = url.split("?", maxsplit=1)[0].rsplit("/", 1)[-1]
+        if name == "stations.nc":
+            return File(url=url, content=BytesIO(stations), status=200)
+        if name in ok or failure is None:
+            asked.append(name)
+            return File(url=url, content=BytesIO(data), status=200)
+        asked.append(name)
+        return File(url=url, content=failure, status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._download_with_retry", download)
+    return asked
+
+
+def _daily_values(days: int = 1) -> pl.DataFrame:
+    start = dt.datetime(2020, 1, 1, tzinfo=UTC)
+    return (
+        _request([("daily", "data", "temperature_air_mean_2m")], start, start + dt.timedelta(days=days - 1))
+        .filter_by_station_id(DE_BILT)
+        .values().all()
+        .df
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(FSTimeoutError(), id="timeout"),
+        pytest.param(ServerDisconnectedError(), id="dropped connection"),
+        pytest.param(ClientPayloadError("body cut short"), id="cut body"),
+        pytest.param(_response_error(500), id="500"),
+        pytest.param(_response_error(503), id="503"),
+    ],
+)
+@pytest.mark.parametrize("at", ["resolve", "download"])
+def test_knmi_values_raise_a_download_error_for_a_file_that_did_not_answer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure: Exception, at: str
+) -> None:
+    """A timeout, a dropped connection, a cut body or a 5xx ends the request, naming the file, without the signature."""
+    asked = _serve_knmi(monkeypatch, tmp_path, failure, at=at)
+    with pytest.raises(DownloadError) as raised:
+        _daily_values(days=3)
+    assert raised.value.__cause__ is failure
+    assert "daily-observations-validated-20200101.nc" in raised.value.url
+    assert "?" not in raised.value.url
+    assert "secret" not in str(raised.value)
+    assert len(asked) == 1  # the next day is not asked for
+
+
+def test_knmi_values_raise_for_a_file_that_did_not_answer_after_one_that_did(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A range read in part is not an answer: the day that failed raises, rather than the day before it."""
+    _serve_knmi(monkeypatch, tmp_path, _response_error(503), ok=("daily-observations-validated-20200101.nc",))
+    with pytest.raises(DownloadError) as raised:
+        _daily_values(days=2)
+    assert "daily-observations-validated-20200102.nc" in raised.value.url
+
+
+def test_knmi_values_raise_no_internet_error_as_before(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A failed connection is still the `NoInternetError` it was (GH-2640)."""
+    offline = NoInternetError("no route to host")
+    asked = _serve_knmi(monkeypatch, tmp_path, offline)
+    with pytest.raises(NoInternetError) as raised:
+        _daily_values(days=3)
+    assert raised.value is offline
+    assert len(asked) == 1
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(FileNotFoundError("not published"), id="404"),
+        pytest.param(_response_error(404), id="404 as a response error"),
+        pytest.param(_response_error(429), id="429"),
+        pytest.param(_response_error(403), id="403"),
+    ],
+)
+def test_knmi_values_skip_a_file_that_is_an_answer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture, answer: Exception
+) -> None:
+    """A file KNMI answers for with a 404, a 429 or another 4xx is skipped with a warning, as before (GH-2965)."""
+    asked = _serve_knmi(monkeypatch, tmp_path, answer)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.knmi"):
+        df = _daily_values(days=2)
+    assert df.is_empty()
+    assert len(asked) == 2
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 2
+
+
+def test_knmi_values_skip_a_missing_day_and_keep_the_others(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A day that is not published is left out of a range whose other day is read."""
+    _serve_knmi(monkeypatch, tmp_path, FileNotFoundError("x"), ok=("daily-observations-validated-20200102.nc",))
+    df = _daily_values(days=2)
+    assert df.get_column("timestamp").unique().to_list() == [dt.datetime(2020, 1, 2, tzinfo=UTC)]
+
+
+@pytest.mark.parametrize(
+    ("failure", "skipped"),
+    [
+        pytest.param(FSTimeoutError(), True, id="timeout"),
+        pytest.param(_response_error(502), True, id="502"),
+        pytest.param(FileNotFoundError("not published"), False, id="404 is an answer"),
+    ],
+)
+def test_knmi_outage_met_by_the_values_reader_skips_the_remote_test(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure: Exception,
+    skipped: bool,  # noqa: FBT001
+) -> None:
+    """A remote KNMI test is skipped on an outage of the values, which used to reach it as an empty frame."""
+    _serve_knmi(monkeypatch, tmp_path, failure)
+
+    @skip_if_upstream_unavailable()
+    def _remote_test() -> None:
+        assert not _daily_values().is_empty()
+
+    with pytest.raises(pytest.skip.Exception if skipped else AssertionError):
+        _remote_test()
 
 
 @pytest.mark.remote

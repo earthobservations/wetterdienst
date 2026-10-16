@@ -26,11 +26,13 @@ from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LIST
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui import cli as cli_module
-from wetterdienst.ui import restapi
+from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
 
 if TYPE_CHECKING:
     import pathlib
+
+    from pydantic import BaseModel
 
 UTC = dt.UTC
 PARAMETER = "daily/kl/temperature_air_mean_2m"
@@ -138,7 +140,7 @@ def _library_stations(**selection: str) -> set[str]:
         rank = {"rank": int(selection["rank"])} if "rank" in selection else {}
         result = request.filter_by_name(selection["name"], **rank)
     else:
-        result = request.filter_by_station_id(selection["station"].split(","))
+        result = request.filter_by_station_id(selection["stations"].split(","))
     return set(result.df.get_column("station_id"))
 
 
@@ -210,8 +212,8 @@ def test_a_window_without_readings_is_an_empty_result_on_every_surface(caplog: p
     window = {"timestamp": "1930-06-01"}
     library = _request(start="1930-06-01", end="1930-06-01").filter_by_station_id("00001").values().all().df
     with caplog.at_level(logging.WARNING):
-        cli_result = _cli("values", "--station=00001", "--timestamp=1930-06-01")
-    rest_response = _rest("/api/values", station="00001", **window)
+        cli_result = _cli("values", "--stations=00001", "--timestamp=1930-06-01")
+    rest_response = _rest("/api/values", stations="00001", **window)
 
     assert library.is_empty()
     assert cli_result.exit_code == 0, cli_result.output
@@ -229,8 +231,8 @@ def test_a_window_without_readings_is_an_empty_result_on_every_surface(caplog: p
 
 def test_an_empty_csv_is_the_header_on_both_surfaces() -> None:
     """The CSV of an empty result is its header, as the REST API sends it."""
-    cli_result = _cli("values", "--station=00001", "--timestamp=1930-06-01", "--format=csv")
-    rest_response = _rest("/api/values", station="00001", timestamp="1930-06-01", format="csv")
+    cli_result = _cli("values", "--stations=00001", "--timestamp=1930-06-01", "--format=csv")
+    rest_response = _rest("/api/values", stations="00001", timestamp="1930-06-01", format="csv")
 
     assert cli_result.exit_code == 0, cli_result.output
     assert cli_result.stdout.strip() == rest_response.text.strip()
@@ -255,7 +257,7 @@ def test_an_empty_result_leaves_a_target_as_it_is(tmp_path: pathlib.Path, caplog
     target = tmp_path / "values.csv"
     target.write_text("kept")
     with caplog.at_level(logging.WARNING):
-        result = _cli("values", "--station=00001", "--timestamp=1930-06-01", f"--target=file://{target}")
+        result = _cli("values", "--stations=00001", "--timestamp=1930-06-01", f"--target=file://{target}")
 
     assert result.exit_code == 0, result.output
     assert target.read_text() == "kept"
@@ -271,7 +273,7 @@ def test_a_failure_is_still_an_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
         raise MissingDependencyError(msg)
 
     monkeypatch.setattr(cli_module, "get_values", refuse)
-    result = _cli("values", "--station=00001", "--timestamp=2020-05")
+    result = _cli("values", "--stations=00001", "--timestamp=2020-05")
     assert result.exit_code == 1
 
 
@@ -282,7 +284,7 @@ def test_a_failure_is_still_an_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_an_unknown_station_id_in_a_list_is_left_out_and_named(surface: str, caplog: pytest.LogCaptureFixture) -> None:
     """The stations that exist are listed, and a warning names the id that does not -- on every surface."""
     with caplog.at_level(logging.WARNING):
-        found = SURFACES[surface](station="00001,99999")
+        found = SURFACES[surface](stations="00001,99999")
 
     assert found == {"00001"}
     warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
@@ -293,7 +295,7 @@ def test_an_unknown_station_id_in_a_list_is_left_out_and_named(surface: str, cap
 def test_only_unknown_station_ids_are_an_empty_listing(surface: str, caplog: pytest.LogCaptureFixture) -> None:
     """A list of ids none of which exists is an empty result and a warning, not an error."""
     with caplog.at_level(logging.WARNING):
-        found = SURFACES[surface](station="99998,99999")
+        found = SURFACES[surface](stations="99998,99999")
 
     assert found == set()
     assert any("99998, 99999" in record.getMessage() for record in caplog.records)
@@ -303,8 +305,8 @@ def test_unknown_station_ids_give_empty_values_and_a_warning(caplog: pytest.LogC
     """The values of ids that do not exist are empty on the library, the command line and REST, with the warning."""
     with caplog.at_level(logging.WARNING):
         library = _request().filter_by_station_id("99999").values().all().df
-        cli_result = _cli("values", "--station=99999", "--timestamp=2020-05")
-        rest_response = _rest("/api/values", station="99999", timestamp="2020-05")
+        cli_result = _cli("values", "--stations=99999", "--timestamp=2020-05")
+        rest_response = _rest("/api/values", stations="99999", timestamp="2020-05")
 
     assert library.is_empty()
     assert cli_result.exit_code == 0, cli_result.output
@@ -414,12 +416,13 @@ def test_the_command_line_renders_what_the_rest_api_does(
     """With `with_metadata`, the command line writes the `settings` block too: the one function renders for both."""
     _stubbed_result(monkeypatch, endpoint)
     extra = {} if endpoint == "/api/values" else {"timestamp": "2026-01-01"}
-    rest_response = _rest(endpoint, station="01048", format=fmt, with_metadata="true", humanize="false", **extra)
+    station = "stations" if endpoint == "/api/values" else "station"
+    rest_response = _rest(endpoint, **{station: "01048"}, format=fmt, with_metadata="true", humanize="false", **extra)
     cli_result = _cli(
         _COMMAND[endpoint],
-        "--station=01048",
+        f"--{station}=01048",
         f"--format={fmt}",
-        "--with_metadata=true",
+        "--with-metadata=true",
         "--humanize=false",
         *(f"--{key}={value}" for key, value in extra.items()),
     )
@@ -434,8 +437,8 @@ def test_the_command_line_renders_what_the_rest_api_does(
 
 def test_the_values_of_the_stubbed_network_are_rendered_alike() -> None:
     """The values read through the stubbed network are the same text on the command line and over REST."""
-    cli_result = _cli("values", "--station=00001", "--timestamp=2020-05", "--with_metadata=true", "--pretty")
-    rest_response = _rest("/api/values", station="00001", timestamp="2020-05", with_metadata="true", pretty="true")
+    cli_result = _cli("values", "--stations=00001", "--timestamp=2020-05", "--with-metadata=true", "--pretty")
+    rest_response = _rest("/api/values", stations="00001", timestamp="2020-05", with_metadata="true", pretty="true")
 
     assert cli_result.exit_code == 0, cli_result.output
     assert "settings" in json.loads(cli_result.stdout)
@@ -506,7 +509,8 @@ def test_pretty_is_a_flag_and_a_boolean_on_every_command(monkeypatch: pytest.Mon
     extra = ["--timestamp=2026-01-01"] if endpoint != "/api/values" else []
 
     def run(*pretty: str) -> str:
-        result = _cli(_COMMAND[endpoint], "--station=01048", *extra, *pretty)
+        station = "--stations=01048" if endpoint == "/api/values" else "--station=01048"
+        result = _cli(_COMMAND[endpoint], station, *extra, *pretty)
         assert result.exit_code == 0, result.output
         return result.stdout
 
@@ -521,7 +525,7 @@ def test_pretty_is_a_flag_and_a_boolean_on_every_command(monkeypatch: pytest.Mon
 
 def test_a_bare_pretty_does_not_swallow_the_option_after_it() -> None:
     """`--pretty` followed by another option is a flag: it takes that option's place, not its text."""
-    result = _cli("stations", "--station=00001", "--pretty", "--format=json")
+    result = _cli("stations", "--stations=00001", "--pretty", "--format=json")
     assert result.exit_code == 0, result.output
     assert "\n    " in result.stdout
 
@@ -574,3 +578,446 @@ def test_an_empty_listing_leaves_a_target_as_it_is(tmp_path: pathlib.Path, caplo
     assert result.exit_code == 0, result.output
     assert target.read_text() == "kept"
     assert "Nothing was written to --target" in caplog.text
+
+
+# one vocabulary: a request is spelled the same on the command line, the REST API and the MCP tools (GH-2561)
+
+#: each request model, with the command, the endpoint and the MCP tool that take it. The REST API's query
+#: parameters are the model's fields, and the tools are generated from the endpoints, so what is checked is
+#: that the command line has them as options, by the one rule that makes a field an option: hyphens
+#: for underscores
+_SURFACES = {
+    core.StationsRequest: (("stations",), "/api/stations", "stations"),
+    core.ValuesRequest: (("values",), "/api/values", "values"),
+    core.InterpolationRequest: (("interpolate",), "/api/interpolate", "interpolate"),
+    core.SummaryRequest: (("summarize",), "/api/summarize", "summarize"),
+    core.HistoryRequest: (("history",), "/api/history", "history"),
+    core.IssuesRequest: (("issues",), "/api/issues", "issues"),
+    core.AlertsRequest: (("alerts",), "/api/alerts", "alerts"),
+    core.AuthRequest: (("about", "auth"), "/api/auth", "auth"),
+    core.CoverageRequest: (("about", "coverage"), "/api/coverage", "coverage"),
+    core.GlossaryRequest: (("about", "glossary"), "/api/glossary", "glossary"),
+    core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
+    # the command writes the image, the data of the stripes has no command of its own
+    core.StripesImageRequest: (("stripes", "values"), "/api/stripes/image", "stripes_image"),
+    core.StripesValuesRequest: (None, "/api/stripes/values", "stripes_values"),
+    core.SettingsRequest: (None, "/api/settings", None),
+}
+
+#: what a surface has beside the fields of the request, and why: the short list a new parameter cannot join
+#: by being forgotten
+_CLI_ONLY = {
+    "target": "writes the result to a file or a database instead of stdout, where REST answers the caller",
+    "if_exists": "what --target does with data already there",
+    "start": "with --end, the window as two options, read as the one `timestamp`",
+    "end": "with --start, the window as two options, read as the one `timestamp`",
+}
+_CLI_ONLY_OF = {
+    ("history",): {"format": "history writes JSON only, as REST does without a `format`"},
+}
+_REST_ONLY_OF = {
+    core.StationsRequest: {"with_stations": "accepted and not read: a listing of stations is the stations"},
+    core.CoverageRequest: {"pretty": "the command line always indents"},
+}
+_NO_COMMAND = {
+    core.StripesValuesRequest: "the data of the stripes has no command: `stripes values` writes the image",
+    core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
+}
+
+
+def _cli_command(path: tuple[str, ...]) -> click.Command:
+    command: click.Command = cli
+    for name in path:
+        command = command.commands[name]  # ty: ignore[unresolved-attribute]
+    return command
+
+
+def _cli_options(path: tuple[str, ...]) -> dict[str, click.Option]:
+    """Give each option of a command by the field of the request it sets, which is its name with underscores."""
+    return {
+        param.opts[0].removeprefix("--").replace("-", "_"): param
+        for param in _cli_command(path).params
+        if isinstance(param, click.Option) and param.expose_value and not param.hidden
+    }
+
+
+def _tools() -> dict[str, dict[str, Any]]:
+    """Give the input schema of each MCP tool."""
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def list_tools() -> dict[str, dict[str, Any]]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return {tool.name: tool.input_schema for tool in await client.list_tools()}
+
+    return asyncio.run(list_tools())
+
+
+def _kind(schema: dict[str, Any]) -> str:
+    """Name the JSON type of a field's schema, a reference to an enumeration being a string."""
+    options = schema.get("anyOf") or [schema]
+    kinds = {option.get("type", "string" if "$ref" in option else None) for option in options}
+    (kind,) = kinds - {None, "null"}
+    return kind
+
+
+def _cli_kind(param: click.Option) -> str:
+    """Name the JSON type a command line option is read as: a list or a mapping is written as one string."""
+    if param.type is click.BOOL:
+        return "boolean"
+    if isinstance(param.type, click.types.IntParamType):
+        return "integer"
+    if isinstance(param.type, click.types.FloatParamType):
+        return "number"
+    return "string"
+
+
+@pytest.mark.parametrize("model", _SURFACES, ids=lambda model: model.__name__)
+def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[BaseModel]) -> None:
+    """Each field has an option of the name and the type on the command line and an argument of them in the MCP tool.
+
+    A parameter then cannot be added to one surface and forgotten on another: the fields of the request model,
+    the query parameters of its endpoint and the arguments of its tool are one list, and the command line's
+    options are that list with underscores as hyphens, but for the few that are written down above with the
+    reason they have no counterpart.
+    """
+    path, endpoint, tool = _SURFACES[model]
+    fields = model.model_fields
+    schema = model.model_json_schema()["properties"]
+
+    # the endpoint takes the fields, and the tool is the endpoint
+    parameters = {p["name"]: p for p in restapi.app.openapi()["paths"][endpoint]["get"]["parameters"]}
+    assert set(parameters) == set(fields)
+    if tool is not None:
+        arguments = _tools()[tool]["properties"]
+        assert set(arguments) == set(fields)
+        assert {name: _kind(argument) for name, argument in arguments.items()} == {
+            name: _kind(schema[name]) for name in fields
+        }
+
+    if path is None:
+        assert model in _NO_COMMAND
+        return
+    options = _cli_options(path)
+    rest_only = _REST_ONLY_OF.get(model, {})
+    cli_only = {**_CLI_ONLY, **_CLI_ONLY_OF.get(path, {})}
+    assert set(fields) - set(options) == set(rest_only), "a field without an option is written down with its reason"
+    assert set(options) - set(fields) <= set(cli_only), "an option without a field is written down with its reason"
+    for name in set(fields) & set(options):
+        param = options[name]
+        assert _cli_kind(param) == {"array": "string", "object": "string"}.get(_kind(schema[name]), _kind(schema[name]))
+        # a choice of the command line is the choice of the request
+        choices = next((o["enum"] for o in schema[name].get("anyOf", [schema[name]]) if "enum" in o), None)
+        if isinstance(param.type, click.Choice) and choices is not None:
+            assert {c.lower() for c in param.type.choices} == {c.lower() for c in choices}, name
+
+
+def _options_of_every_command() -> list[tuple[tuple[str, ...], click.Option]]:
+    return [
+        (path, param)
+        for path, command in _commands(cli)
+        for param in command.params
+        if isinstance(param, click.Option) and param.expose_value and not param.hidden
+    ]
+
+
+def test_no_option_of_the_command_line_has_an_underscore() -> None:
+    """The command line spells an option with hyphens, and REST and MCP the same parameter with underscores (GH-2561).
+
+    The mapping is the one this module tests the options against: `--name-threshold` is `name_threshold`.
+    """
+    spelled = [(" ".join(path), opt) for path, param in _options_of_every_command() for opt in param.opts]
+    assert spelled
+    assert [(command, opt) for command, opt in spelled if "_" in opt] == []
+
+
+@pytest.mark.parametrize(
+    ("path", "option"),
+    [
+        pytest.param(path, param.opts[0], id=f"{' '.join(path)} {param.opts[0]}")
+        for path, param in _options_of_every_command()
+        if "-" in param.opts[0].removeprefix("--")
+    ],
+)
+@pytest.mark.parametrize("given", ["{old}=x", "{old} x", "{old}"])
+def test_an_option_by_its_underscored_name_is_refused_naming_the_hyphenated_one(
+    path: tuple[str, ...], option: str, given: str
+) -> None:
+    """The names the command line had, with underscores, are refused naming the new one, not read (GH-2561).
+
+    Not an alias: a hard rename, as the other renames of the 1.0 series are, with or without a value.
+    """
+    old = "--" + option.removeprefix("--").replace("-", "_")
+    result = CliRunner().invoke(cli, [*path, *given.format(old=old).split()])
+
+    assert result.exit_code == 2, result.output
+    assert f"Error: {old} was renamed to {option}." in result.output
+
+
+# a list is plural on every surface: what the singular was is refused naming the plural
+_SINGULARS = [
+    ((command,), old, new)
+    for command in ("stations", "values", "history")
+    for old, new in (("--station", "--stations"), ("--parameter", "--parameters"))
+] + [
+    (("stations",), "--period", "--periods"),
+    (("values",), "--period", "--periods"),
+    (("interpolate",), "--parameter", "--parameters"),
+    (("interpolate",), "--period", "--periods"),
+    (("summarize",), "--parameter", "--parameters"),
+    (("summarize",), "--period", "--periods"),
+    (("about", "coverage"), "--resolution", "--resolutions"),
+    (("about", "coverage"), "--dataset", "--datasets"),
+]
+
+
+@pytest.mark.parametrize(
+    ("path", "old", "new"), _SINGULARS, ids=lambda value: " ".join(value) if isinstance(value, tuple) else value
+)
+@pytest.mark.parametrize("given", ["{old}=x", "{old} x", "{old}"])
+def test_an_option_by_the_singular_of_its_list_is_refused_naming_the_plural(
+    path: tuple[str, ...], old: str, new: str, given: str
+) -> None:
+    """A parameter that takes a list is plural on the command line as it is over REST and MCP (GH-2561)."""
+    result = CliRunner().invoke(cli, [*path, *given.format(old=old).split()])
+
+    assert result.exit_code == 2, result.output
+    assert f"Error: {old} was renamed to {new}." in result.output
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "old", "new"),
+    [
+        (endpoint, old, new)
+        for endpoint in ("/api/stations", "/api/values", "/api/history")
+        for old, new in (("station", "stations"), ("parameter", "parameters"))
+    ]
+    + [(endpoint, "period", "periods") for endpoint in ("/api/stations", "/api/values")]
+    + [("/api/coverage", "resolution", "resolutions"), ("/api/coverage", "dataset", "datasets")],
+)
+def test_the_singular_of_a_list_is_refused_over_rest_naming_the_plural(endpoint: str, old: str, new: str) -> None:
+    """Over REST, as on the command line, the old name fails with the new one in the answer (GH-2561)."""
+    response = _rest(endpoint, **{old: "x"})
+
+    assert response.status_code == 422, response.text
+    assert f"{old} was renamed to {new}" in response.json()["detail"]
+    assert [error["type"] for error in response.json()["errors"] if error["loc"] == ["query", old]] == ["renamed"]
+
+
+@pytest.mark.parametrize(
+    ("tool", "old", "new"),
+    [
+        ("values", "station", "stations"),
+        ("stations", "station", "stations"),
+        ("history", "station", "stations"),
+        ("values", "parameter", "parameters"),
+        ("values", "period", "periods"),
+        ("coverage", "resolution", "resolutions"),
+        ("coverage", "dataset", "datasets"),
+    ],
+)
+def test_the_singular_of_a_list_is_refused_by_the_mcp_tool_naming_the_plural(tool: str, old: str, new: str) -> None:
+    """The MCP tools take the plural, and refuse the singular by naming it, as the endpoints do (GH-2561)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            await client.call_tool(tool, {"provider": "dwd", "network": "observation", old: "x"})
+
+    with pytest.raises(ToolError, match=f"{old} was renamed to {new}"):
+        asyncio.run(call())
+
+
+def test_the_one_reference_station_of_an_estimate_stays_singular_on_every_surface() -> None:
+    """`interpolate` and `summarize` take one `station`, not a list, and the plural is not an alias of it (GH-2561)."""
+    for endpoint, path in (("/api/interpolate", ("interpolate",)), ("/api/summarize", ("summarize",))):
+        assert "station" in {p["name"] for p in restapi.app.openapi()["paths"][endpoint]["get"]["parameters"]}
+        assert "station" in _cli_options(path)
+        assert "stations" not in _cli_options(path)
+    response = _rest("/api/interpolate", stations="00001", timestamp="2020-05")
+    assert response.status_code == 422
+    assert "renamed" not in response.text
+
+
+# lists are comma-separated by contract
+
+
+def test_the_openapi_document_has_each_list_as_one_comma_separated_value() -> None:
+    """A list in a query is documented as `?parameters=a,b`, and the repeated key is left out of it (GH-2561)."""
+    lists = [
+        (path, parameter)
+        for path, operations in restapi.app.openapi()["paths"].items()
+        for operation in operations.values()
+        for parameter in operation.get("parameters", [])
+        if any(option.get("type") == "array" for option in parameter["schema"].get("anyOf", [parameter["schema"]]))
+    ]
+    assert {parameter["name"] for _, parameter in lists} >= {"parameters", "periods", "stations", "sections"}
+    assert [(path, parameter["name"]) for path, parameter in lists if parameter.get("explode") is not False] == []
+    assert {parameter.get("style") for _, parameter in lists} == {"form"}
+
+
+@pytest.mark.parametrize("surface", ["cli", "rest"])
+def test_a_list_is_read_comma_separated_and_repeated_alike(surface: str) -> None:
+    """The comma-separated list is the contract; the repeated key is read as the same, and not documented (GH-2561)."""
+    if surface == "rest":
+        client = TestClient(restapi.app, raise_server_exceptions=False)
+        base = {"provider": "dwd", "network": "observation", "parameters": PARAMETER}
+        comma = client.get("/api/stations", params={**base, "stations": "00001,00002"})
+        repeated = client.get("/api/stations", params={**base, "stations": ["00001", "00002"]})
+        assert comma.status_code == repeated.status_code == 200, (comma.text, repeated.text)
+        assert comma.json() == repeated.json()
+        assert _ids(comma.json()) == {"00001", "00002"}
+    else:
+        comma = _cli("stations", "--stations=00001,00002")
+        repeated = _cli("stations", "--stations=00001", "--stations=00002")
+        # an option given twice is the last one given: a list is comma-separated here, and not repeated
+        assert comma.exit_code == 0, comma.output
+        assert _ids(json.loads(comma.stdout)) == {"00001", "00002"}
+        assert _ids(json.loads(repeated.stdout)) == {"00002"}
+
+
+# one boolean spelling
+
+_TRUE = ["true", "1", "yes", "on", "t", "y", "TRUE", "True"]
+_FALSE = ["false", "0", "no", "off", "f", "n", "FALSE", "False"]
+_NOT_BOOLEAN = ["maybe", "2", "truee", "nope"]
+
+
+@pytest.mark.parametrize("spelling", [*_TRUE, *_FALSE, *_NOT_BOOLEAN])
+def test_a_boolean_is_spelled_the_same_on_the_command_line_and_over_rest(spelling: str) -> None:
+    """`true`, `1`, `yes`, `on`, `t`, `y` and their opposites are a boolean on both, and nothing else is (GH-2561)."""
+    rest = _rest("/api/stations", all="true", pretty=spelling)
+    cli_result = _cli("stations", "--all", f"--pretty={spelling}")
+
+    if spelling in _NOT_BOOLEAN:
+        assert (rest.status_code, cli_result.exit_code) == (422, 2)
+        return
+    assert (rest.status_code, cli_result.exit_code) == (200, 0), (rest.text, cli_result.output)
+    # the one value decides the same, whichever surface reads it
+    assert ("\n" in rest.text) == ("\n" in cli_result.stdout.rstrip("\n")) == (spelling in _TRUE)
+
+
+def test_every_boolean_option_is_one_option_whatever_the_command() -> None:
+    """Each boolean option is on bare, and takes `=true` or `=false`: no flag takes no value (GH-2561)."""
+    booleans = [(path, param) for path, param in _options_of_every_command() if param.type is click.BOOL]
+    assert {param.opts[0] for _, param in booleans} >= {
+        "--all",
+        "--debug",
+        "--pretty",
+        "--with-metadata",
+        "--humanize",
+        "--skip-empty",
+        "--show-title",
+    }
+    assert [
+        (" ".join(path), param.opts[0])
+        for path, param in booleans
+        if (param.is_flag, param.flag_value) != (False, "true") or param.default not in {True, False}
+    ] == []
+    # the options that are no boolean take a value, so none is a bare flag of another kind
+    assert [(" ".join(path), param.opts[0]) for path, param in _options_of_every_command() if param.is_flag] == []
+
+
+@pytest.mark.parametrize("command", [["stations", "--all"], ["values", "--all", "--timestamp=2020-05"]])
+def test_a_bare_boolean_is_on_and_a_boolean_with_a_value_is_that_value(command: list[str]) -> None:
+    """`--with-metadata` is `--with-metadata=true`, as `--pretty` and `--all` are theirs (GH-2561)."""
+    bare = _cli(*command, "--with-metadata")
+    valued = _cli(*command, "--with-metadata=true")
+    off = _cli(*command, "--with-metadata=false")
+
+    assert bare.exit_code == valued.exit_code == off.exit_code == 0, (bare.output, off.output)
+    assert bare.stdout == valued.stdout
+    assert bare.stdout != off.stdout
+    assert "metadata" in bare.stdout
+
+
+# exclusive selections are one rule: the same error type, and the alternatives named
+
+
+@pytest.mark.parametrize(
+    ("selection", "error_type"),
+    [
+        pytest.param({}, "missing_one_of", id="none"),
+        pytest.param({"stations": "00001", "name": "Dresden"}, "mutually_exclusive", id="stations-and-name"),
+        pytest.param({"all": "true", "sql": "region='Sachsen'"}, "mutually_exclusive", id="all-and-sql"),
+        pytest.param(
+            {"latitude": "51", "longitude": "13", "rank": "2", "distance": "9"},
+            "mutually_exclusive",
+            id="rank-distance",
+        ),
+    ],
+)
+def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
+    selection: dict[str, str], error_type: str
+) -> None:
+    """None, two or half of a station selection is the one error, which names the alternatives, everywhere (GH-2561)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    rest = _rest("/api/values", **selection)
+    assert rest.status_code == 422, rest.text
+    assert {error["type"] for error in rest.json()["errors"]} == {error_type}
+    named = "rank or distance" if "rank" in selection else "all, stations, name"
+    assert f"xactly one of {named}" in rest.json()["detail"]
+
+    cli_result = _cli("values", *(f"--{key}={value}" for key, value in selection.items()))
+    assert cli_result.exit_code == 2, cli_result.output
+    option_names = "'--rank' or '--distance'" if "rank" in selection else "'--all', '--stations', '--name'"
+    assert f"one of {option_names}" in cli_result.output
+
+    async def call() -> None:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            await client.call_tool(
+                "values", {"provider": "dwd", "network": "observation", "parameters": PARAMETER, **selection}
+            )
+
+    with pytest.raises(ToolError) as tool_error:
+        asyncio.run(call())
+    assert f"xactly one of {named}" in str(tool_error.value)
+
+
+@pytest.mark.parametrize("given", [["00001", "00002"], "00001,00002"])
+def test_an_mcp_list_argument_is_a_list_or_one_comma_separated_string(given: list[str] | str) -> None:
+    """A tool takes a list as the JSON array its schema says, and as the comma-separated string (GH-2561)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> Any:  # noqa: ANN401
+        async with Client(build_mcp_server(restapi.app)) as client:
+            result = await client.call_tool(
+                "stations", {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "stations": given}
+            )
+            return result.structured_content
+
+    answer = asyncio.run(call())
+    assert _ids(answer.get("result", answer)) == {"00001", "00002"}
+
+
+@pytest.mark.parametrize(
+    ("command", "option"),
+    [("history", "--section"), ("values", "--start_date"), ("stations", "--statio")],
+)
+def test_an_option_that_was_never_renamed_is_clicks_own_refusal(command: str, option: str) -> None:
+    """Only a name an option had is told as a rename: a typo, or a name a refusal answers for, is click's (GH-2561)."""
+    result = CliRunner().invoke(cli, [command, f"{option}=x"])
+    assert result.exit_code == 2, result.output
+    assert "was renamed" not in result.output
+    assert f"No such option '{option}'" in result.output

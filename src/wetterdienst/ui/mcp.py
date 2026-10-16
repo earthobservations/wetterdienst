@@ -83,7 +83,7 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
 2. `values` — get the measurements for that station:
      values(provider="dwd", network="observation",
             parameters="daily/climate_summary/temperature_air_mean_2m",
-            station="01975", periods="recent")
+            stations="01975", periods="recent")
 
 ## Choosing a tool
 For "what was/is the weather at <place>" ALWAYS use `stations` then `values` -- that is the only \
@@ -126,6 +126,8 @@ come. Naming a station instead of coordinates answers at that station's own alti
 -- "recent" is roughly the last 1.5 years, "historical" reaches further back -- as do dwd/derived and \
 dwd/phenology. Most other providers publish everything under a single period, and asking for one \
 their datasets do not have is an error, not a narrower answer.
+- lists: an argument that takes several (`parameters`, `stations`, `periods`) is plural and takes them \
+comma-separated, e.g. stations="01975,04411". `interpolate` and `summarize` take one reference `station`.
 - Handy DWD datasets: daily/kl (= climate_summary: temperature, precipitation, wind, sunshine), \
 hourly/air_temperature, hourly/precipitation.
 
@@ -145,8 +147,8 @@ today). A date covers everything it names, so a day of hourly data is that day's
 "2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
 reading.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
-matches, or `station` ids the network has no station for (they are left out of the list and the rest is \
-answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
+matches, or ids in the `stations` argument the network has no station for (they are left out of the list and the \
+rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
 in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
@@ -157,7 +159,7 @@ format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
     -> station_id "01975"
   values(provider="dwd", network="observation",
-         parameters="daily/climate_summary/temperature_air_mean_2m", station="01975", periods="recent")
+         parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", periods="recent")
     -> last item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (i.e. 19.2 °C)
 """
 

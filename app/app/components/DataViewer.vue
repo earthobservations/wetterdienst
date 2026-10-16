@@ -235,7 +235,7 @@ const apiQuery = computed(() => {
     // Values mode - add values-specific settings
     return {
       ...base,
-      station: ss.selection?.stations?.map(station => station.station_id).join(',') ?? '',
+      stations: ss.selection?.stations?.map(station => station.station_id).join(',') ?? '',
       shape: props.settings.shape,
       skip_empty: props.settings.skipEmpty,
       skip_threshold: props.settings.skipThreshold,

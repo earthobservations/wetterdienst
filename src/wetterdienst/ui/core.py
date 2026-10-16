@@ -107,10 +107,10 @@ _IssueField = Annotated[
     str | None,
     Field(description="Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."),
 ]
-_AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the station/name/geo filters.")]
-_StationIdsField = Annotated[
+_AllField = Annotated[bool | None, Field(description="Return all stations, ignoring the stations/name/geo filters.")]
+_StationsField = Annotated[
     list[str] | None,
-    Field(description="One or more station ids to query, e.g. '01048' or '01048,04411'."),
+    Field(description="Station ids, comma-separated, e.g. '01048' or '01048,04411'."),
 ]
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
 _StationIdOptField = Annotated[
@@ -341,10 +341,10 @@ _NumAdditionalStationsField = Annotated[
 ]
 
 
-def _read_station_ids(value: str | list | None) -> list[str] | None:
-    """Read station ids from a comma-separated string or a list of them, None when there are none.
+def _read_items(value: str | list | None) -> list[str] | None:
+    """Read items, such as station ids, from a comma-separated string or a list of them, None when there are none.
 
-    A blank id selects nothing: FastAPI reads an empty `station=` as `[""]`, which would count as a
+    A blank item selects nothing: FastAPI reads an empty `stations=` as `[""]`, which would count as a
     station selection beside `all` or a point, and be refused as a second one.
     """
     items = [value] if isinstance(value, str) else (value or [])
@@ -390,10 +390,21 @@ def _raise_rule_errors(request: BaseModel, errors: list[InitErrorDetails]) -> No
         raise ValidationError.from_exception_data(type(request).__name__, errors)
 
 
-#: query parameters renamed on the way to 1.0, old name to new. The values, interpolation, summary
-#: and alerts requests, and each MCP tool taking the new name, refuse the old one with an error
-#: naming the new one, rather than one about a parameter they do not know (GH-2438)
-RENAMED_REQUEST_PARAMETERS: dict[str, str] = {"date": "timestamp"}
+#: query parameters renamed on the way to 1.0, old name to new: a parameter that takes a list is
+#: plural on every surface (GH-2561). A request model refuses the old name, where the model has
+#: the new one and not the old one, with an error naming the new one, rather than one about a
+#: parameter it does not know (GH-2438); so does each MCP tool taking the new name, and the command
+#: line, which names its option (`--station` was renamed to `--stations`). A model that takes the
+#: old name for what it is -- the one reference `station` of an interpolation or a summary, the
+#: `dataset` of the issues of a DMO product -- is not refused it
+RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
+    "date": "timestamp",
+    "station": "stations",
+    "parameter": "parameters",
+    "period": "periods",
+    "dataset": "datasets",
+    "resolution": "resolutions",
+}
 
 
 class _RefusesRenamedParameters(BaseModel):
@@ -407,7 +418,7 @@ class _RefusesRenamedParameters(BaseModel):
             errors = [
                 _rule_error("renamed", f"{old} was renamed to {new}", (old,), data[old], renamed_to=new)
                 for old, new in RENAMED_REQUEST_PARAMETERS.items()
-                if old in data
+                if old in data and old not in cls.model_fields and new in cls.model_fields
             ]
             if errors:
                 raise ValidationError.from_exception_data(cls.__name__, errors)
@@ -430,11 +441,20 @@ def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list
         # each group by the first field it gives, the one the error is located at
         firsts = [next(field for field in group if _is_set(request, field)) for group in made]
         errors = []
+        one_of = [list(group) for group in groups]
         for field in firsts:
             others = [other for other in firsts if other != field]
-            message = f"Cannot be combined with {join_names(others)}"
+            # the alternatives are named with the conflict, as they are with a missing one
+            message = f"Cannot be combined with {join_names(others)}, give exactly one of {describe_fields(groups)}"
             errors.append(
-                _rule_error("mutually_exclusive", message, (field,), getattr(request, field), conflicts_with=others)
+                _rule_error(
+                    "mutually_exclusive",
+                    message,
+                    (field,),
+                    getattr(request, field),
+                    conflicts_with=others,
+                    one_of=one_of,
+                )
             )
         return errors
     (group,) = made
@@ -447,7 +467,7 @@ def _check_one_of(request: BaseModel, groups: Sequence[tuple[str, ...]]) -> list
 
 
 _POINT = ("latitude", "longitude")
-_STATION_SELECTIONS = (("all",), ("station",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",))
+_STATION_SELECTIONS = (("all",), ("stations",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",))
 
 
 def _check_station_selection(request: StationsRequest | ValuesRequest) -> list[InitErrorDetails]:
@@ -525,13 +545,13 @@ class StationsRequest(_RefusesRenamedParameters):
     # station filter parameters
     all: _AllField = False
     # station ids
-    station: _StationIdsField = None
+    stations: _StationsField = None
 
-    @field_validator("station", mode="before")
+    @field_validator("stations", mode="before")
     @classmethod
-    def validate_station(cls, v: str | list | None) -> list[str] | None:
-        """Validate station."""
-        return _read_station_ids(v)
+    def validate_stations(cls, v: str | list | None) -> list[str] | None:
+        """Validate stations."""
+        return _read_items(v)
 
     # station name
     name: _NameField = None
@@ -571,7 +591,7 @@ class StationsRequest(_RefusesRenamedParameters):
         return self
 
 
-class HistoryRequest(BaseModel):
+class HistoryRequest(_RefusesRenamedParameters):
     """History request with validated parameters.
 
     Used to get historical station metadata.
@@ -602,13 +622,13 @@ class HistoryRequest(BaseModel):
 
     # station filter parameters
     # For history requests we accept one or more station ids (list) or 'all'.
-    station: _StationIdsField = None
+    stations: _StationsField = None
 
-    @field_validator("station", mode="before")
+    @field_validator("stations", mode="before")
     @classmethod
-    def validate_station(cls, v: str | list | None) -> list[str] | None:
-        """Validate station."""
-        return _read_station_ids(v)
+    def validate_stations(cls, v: str | list | None) -> list[str] | None:
+        """Validate stations."""
+        return _read_items(v)
 
     sections: _SectionsField = None
 
@@ -636,8 +656,8 @@ class HistoryRequest(BaseModel):
 
     @model_validator(mode="after")
     def check_station_selection(self) -> HistoryRequest:
-        """Check that exactly one of all or station is given."""
-        _raise_rule_errors(self, _check_one_of(self, (("all",), ("station",))))
+        """Check that exactly one of all or stations is given."""
+        _raise_rule_errors(self, _check_one_of(self, (("all",), ("stations",))))
         return self
 
 
@@ -690,13 +710,13 @@ class ValuesRequest(_RefusesRenamedParameters):
     # station filter parameters
     all: _AllField = False
     # station ids
-    station: _StationIdsField = None
+    stations: _StationsField = None
 
-    @field_validator("station", mode="before")
+    @field_validator("stations", mode="before")
     @classmethod
-    def validate_station(cls, v: str | list | None) -> list[str] | None:
-        """Validate station."""
-        return _read_station_ids(v)
+    def validate_stations(cls, v: str | list | None) -> list[str] | None:
+        """Validate stations."""
+        return _read_items(v)
 
     # station name
     name: _NameField = None
@@ -1009,7 +1029,7 @@ class SettingsRequest(BaseModel):
         return json.loads(v)
 
 
-class IssuesRequest(BaseModel):
+class IssuesRequest(_RefusesRenamedParameters):
     """Request model for listing available issue datetimes."""
 
     model_config = {"extra": "forbid"}
@@ -1040,7 +1060,7 @@ class IssuesRequest(BaseModel):
 # `/api/stripes/stations` below, each a model forbidding others as the other endpoints' requests
 # are: taken loose, a parameter the endpoint does not know was passed over, and the request answered
 # as if it had not been given it (GH-2479)
-class AuthRequest(BaseModel):
+class AuthRequest(_RefusesRenamedParameters):
     """Request model for checking the credentials of a provider and network."""
 
     model_config = {"extra": "forbid"}
@@ -1050,20 +1070,32 @@ class AuthRequest(BaseModel):
     debug: _DebugField = False
 
 
-class CoverageRequest(BaseModel):
+class CoverageRequest(_RefusesRenamedParameters):
     """Request model for listing providers and networks, or the resolutions, datasets and parameters of one."""
 
     model_config = {"extra": "forbid"}
 
     provider: str | None = None
     network: str | None = None
-    resolutions: str | None = None
-    datasets: str | None = None
+    resolutions: Annotated[
+        list[str] | None,
+        Field(description="Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network."),
+    ] = None
+    datasets: Annotated[
+        list[str] | None,
+        Field(description="Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network."),
+    ] = None
     pretty: _PrettyField = False
     debug: _DebugField = False
 
+    @field_validator("resolutions", "datasets", mode="before")
+    @classmethod
+    def validate_lists(cls, v: str | list | None) -> list[str] | None:
+        """Read a list given comma-separated, or repeated, None where it names nothing."""
+        return _read_items(v)
 
-class GlossaryRequest(BaseModel):
+
+class GlossaryRequest(_RefusesRenamedParameters):
     """Request model for looking up the canonical parameters."""
 
     model_config = {"extra": "forbid"}
@@ -1416,8 +1448,8 @@ def get_stations(
     if getattr(request, "all", False):
         return r.all()
 
-    if request.station:
-        return r.filter_by_station_id(request.station)
+    if request.stations:
+        return r.filter_by_station_id(request.stations)
 
     name: str | None = getattr(request, "name", None)
     if name:
@@ -1622,7 +1654,7 @@ class StripesData(BaseModel):
 StripesKind = Literal["temperature", "precipitation"]
 
 
-class StripesStationsRequest(BaseModel):
+class StripesStationsRequest(_RefusesRenamedParameters):
     """Request model for listing the stations climate stripes are made for, forbidding other parameters (GH-2479)."""
 
     model_config = {"extra": "forbid"}
@@ -1634,7 +1666,7 @@ class StripesStationsRequest(BaseModel):
     debug: _DebugField = False
 
 
-class StripesRequest(BaseModel):
+class StripesRequest(_RefusesRenamedParameters):
     """The station and the years climate stripes are made for, shared by their values and their image.
 
     Like the other request models, it states its rules once for the CLI, the REST API and MCP, which
@@ -1652,7 +1684,7 @@ class StripesRequest(BaseModel):
         str | None,
         Field(description="Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."),
     ] = None
-    # as for stations and values, and the CLI's --name_threshold
+    # as for stations and values, and the CLI's --name-threshold
     name_threshold: _NameThresholdField = 0.8
     start_year: Annotated[int | None, Field(description="First year. Default: the station's first.")] = None
     end_year: Annotated[

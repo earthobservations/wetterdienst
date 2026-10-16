@@ -9,12 +9,13 @@ import datetime as dt
 import json
 import logging
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import CredentialMissingError, NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -29,7 +30,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings, reveal
-from wetterdienst.util.network import PROBE_TIMEOUT, download_file, drop_cached_file
+from wetterdienst.util.network import PROBE_TIMEOUT, _without_url_secrets, as_outage, download_file, drop_cached_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -124,6 +125,14 @@ _REALTIME_VALUE_COLUMNS = (
 
 class AemetKeyRejectedError(Exception):
     """AEMET refused the API key (HTTP or envelope status 401 or 403), as opposed to any other failure."""
+
+
+class _AemetEnvelopeError(Exception):
+    """AEMET answered with an envelope whose `estado` is no 200, and `status` is that `estado`."""
+
+    def __init__(self, status: int | None, description: str) -> None:
+        super().__init__(description)
+        self.status = status
 
 
 class _AemetRetryableError(Exception):
@@ -223,8 +232,28 @@ def _read_envelope(file: File) -> dict | Exception:
         description = envelope.get("descripcion", "unknown AEMET error")
         if estado in _KEY_REJECTED_STATUSES:
             return AemetKeyRejectedError(description)
-        return Exception(description)
+        return _AemetEnvelopeError(estado, description)
     return envelope
+
+
+def _as_outage(failure: Exception, url: str) -> Exception:
+    """Return a failure of a request as the `DownloadError` or `NoInternetError` it is, if AEMET did not answer.
+
+    AEMET does not answer when the download timed out, was dropped or cut short, or came back as a
+    5xx (`as_outage`), and when it says so in the envelope of an HTTP 200: an `estado` of 500 or
+    more, which is how it reports its own faults (GH-2965). Any other failure is an answer and is
+    returned as it was: a 404, whether of the request or as `estado` 404 ("no data for these
+    criteria"), a refused key, a 429 that outlasted the retries, a body that is no envelope.
+    """
+    if (
+        isinstance(failure, _AemetEnvelopeError)
+        and isinstance(failure.status, int)
+        and failure.status >= HTTPStatus.INTERNAL_SERVER_ERROR
+    ):
+        error = DownloadError(_without_url_secrets(url), f"AEMET answered estado {failure.status}: {failure}")
+        error.__cause__ = failure
+        return error
+    return as_outage(failure, url)
 
 
 def _drop_cached_body(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
@@ -251,6 +280,9 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
 
     A failure is returned, not raised (see `_read_envelope` for the one that says the key is refused).
     The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
+    One that is no answer -- a timeout, a dropped connection, a body cut short, a 5xx, an `estado`
+    of 500 or more -- is returned as the `DownloadError` that names the file, and a failed connection
+    as the `NoInternetError` (`_as_outage`); the readers of values raise those (GH-2965).
 
     Nothing that failed stays in the cache (see `_drop_cached_body`): not an envelope that is a
     failure, not a "datos" body that is no JSON array, and not the envelope of a "datos" link that
@@ -262,14 +294,14 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        return envelope
+        return _as_outage(envelope, file.url)
     if not isinstance(envelope.get("datos"), str):
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
     if isinstance(datos_file.content, Exception):
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        return datos_file.content
+        return _as_outage(datos_file.content, datos_file.url)
     payload = datos_file.content.read()
     if not _is_json_array(payload):
         # a maintenance page or an error object answered with a 200: neither the body nor the link
@@ -396,7 +428,7 @@ class AemetObservationValues(TimeseriesValues):
 
         url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
-        if isinstance(payload, NoInternetError):
+        if isinstance(payload, (NoInternetError, DownloadError)):
             raise payload
         if isinstance(payload, Exception):
             log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
@@ -438,13 +470,16 @@ class AemetObservationValues(TimeseriesValues):
                 end_date=chunk_end.strftime("%Y-%m-%dT%H:%M:%SUTC"),
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
-            if isinstance(payload, NoInternetError):
+            if isinstance(payload, (NoInternetError, DownloadError)):
                 # offline, every remaining chunk (and station) would fail the same way: the request
-                # ends here, with the error, rather than with the chunks read (GH-2620, GH-2640)
+                # ends here, with the error, rather than with the chunks read (GH-2620, GH-2640).
+                # The same for an AEMET that did not answer -- a timeout, a dropped connection, a
+                # 5xx: a range read in part is not an answer, and an empty one would read as a
+                # station without data (GH-2965)
                 raise payload
             if isinstance(payload, Exception):
-                # rate-limit retries (if applicable) are already exhausted at this point,
-                # so this chunk's data is genuinely missing from the result.
+                # AEMET answered, and the answer is no data for this chunk (a 404), a refused key
+                # or a rate limit that outlasted the retries: this chunk is missing from the result.
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
@@ -508,7 +543,7 @@ class AemetObservationValues(TimeseriesValues):
                 end_year=end_year,
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
-            if isinstance(payload, NoInternetError):
+            if isinstance(payload, (NoInternetError, DownloadError)):
                 raise payload
             if isinstance(payload, Exception):
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")

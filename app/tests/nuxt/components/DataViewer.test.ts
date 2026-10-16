@@ -320,7 +320,7 @@ describe('dataViewer downloads', () => {
     items[2]!.click()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
     expect(asked).toHaveLength(1)
-    expect(asked[0]!.station).toBe('01048')
+    expect(asked[0]!.stations).toBe('01048')
     // the units the table was fetched in, which the old download left out
     expect(asked[0]!.humanize).toBe('true')
   })
@@ -335,9 +335,9 @@ describe('dataViewer downloads', () => {
         asked.push(query)
         return { type: 'FeatureCollection', features: [] }
       }
-      if (query.station === '04411')
+      if (query.stations === '04411')
         await newerHold.opened
-      return { values: [{ ...row, station_id: String(query.station) }] }
+      return { values: [{ ...row, station_id: String(query.stations) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
@@ -350,7 +350,7 @@ describe('dataViewer downloads', () => {
     items[2]!.click()
     // the newer Fetch answers only once the GeoJSON is saved
     await vi.waitFor(() => expect(saved).toHaveLength(1))
-    expect(asked[0]!.station).toBe('01048')
+    expect(asked[0]!.stations).toBe('01048')
     newerHold.open()
     await newer
   })
@@ -366,7 +366,7 @@ describe('dataViewer downloads', () => {
         await geojsonHold.opened
         return { type: 'FeatureCollection', features: [] }
       }
-      return { values: [{ ...row, station_id: String(query.station) }] }
+      return { values: [{ ...row, station_id: String(query.stations) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     await fetchData(viewer)
@@ -398,9 +398,9 @@ describe('dataViewer downloads', () => {
         asked.push(query)
         return { type: 'FeatureCollection', features: [] }
       }
-      if (query.station === '01048')
+      if (query.stations === '01048')
         await firstHold.opened
-      return { values: [{ ...row, station_id: String(query.station) }] }
+      return { values: [{ ...row, station_id: String(query.stations) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     const first = fetchData(viewer)
@@ -414,7 +414,7 @@ describe('dataViewer downloads', () => {
     const items = await openDownloads(wrapper)
     items[2]!.click()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
-    expect(asked[0]!.station).toBe('04411')
+    expect(asked[0]!.stations).toBe('04411')
   })
 
   it('keeps a cleared table empty when a fetch under way answers', async () => {
@@ -448,7 +448,7 @@ describe('dataViewer downloads', () => {
         return { type: 'FeatureCollection', features: [] }
       }
       await hold.opened
-      return { values: [{ ...row, station_id: String(query.station) }] }
+      return { values: [{ ...row, station_id: String(query.stations) }] }
     })
     const { wrapper, viewer, stationSelection } = await mountDataViewer()
     const fetching = fetchData(viewer)
@@ -464,7 +464,7 @@ describe('dataViewer downloads', () => {
     const items = await openDownloads(wrapper)
     items[2]!.click()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
-    expect(asked[0]!.station).toBe('01048')
+    expect(asked[0]!.stations).toBe('01048')
   })
 
   it('copies the columns the picker shows, where a download writes them all', async () => {
@@ -589,7 +589,7 @@ describe('dataViewer downloads', () => {
       // answered as FastAPI answers a refused request: the entries under `detail`, nothing around them
       if (getQuery(event).format === 'geojson') {
         setResponseStatus(event, 422)
-        return { detail: [{ loc: ['query', 'station'], msg: 'Cannot be combined with name' }] }
+        return { detail: [{ loc: ['query', 'stations'], msg: 'Cannot be combined with name' }] }
       }
       return { values: [row] }
     })
@@ -598,7 +598,7 @@ describe('dataViewer downloads', () => {
     const saved = catchDownload()
     const items = await openDownloads(wrapper)
     items[2]!.click()
-    await vi.waitFor(() => expect(document.body.textContent).toContain('station: Cannot be combined with name'))
+    await vi.waitFor(() => expect(document.body.textContent).toContain('stations: Cannot be combined with name'))
     expect(saved).toHaveLength(0)
   })
 })
@@ -617,7 +617,7 @@ describe('dataViewer pages', () => {
   it('shows the first page of an answer shorter than the page chosen while it was fetched', async () => {
     const hold = gate()
     registerEndpoint('/api/values', async (event) => {
-      const station = String(getQuery(event).station)
+      const station = String(getQuery(event).stations)
       if (station === '04411')
         await hold.opened
       return { values: rows(station === '04411' ? 40 : 500, station) }
@@ -690,7 +690,7 @@ describe('dataViewer pages', () => {
 describe('dataViewer query panel', () => {
   it('keeps the rows a newer Fetch put in the table when a query started before it answers', async () => {
     // the query's result, of the station fetched before, replaced them
-    registerEndpoint('/api/values', event => ({ values: rows(3, String(getQuery(event).station)) }))
+    registerEndpoint('/api/values', event => ({ values: rows(3, String(getQuery(event).stations)) }))
     // the worker DuckDB is started in, from a script made on the spot
     vi.stubGlobal('Worker', class {})
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:worker')

@@ -36,12 +36,12 @@ _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "dail
 _CLI_DWD = ["--provider=dwd", "--network=observation", "--parameters=daily/kl/temperature_air_mean_2m"]
 #: what each endpoint and command needs besides its options
 _REST_BASE = {
-    "values": {**_OBSERVATION, "station": "01048"},
+    "values": {**_OBSERVATION, "stations": "01048"},
     "interpolate": {**_OBSERVATION, "station": "01048", "timestamp": "2026-01-01"},
     "summarize": {**_OBSERVATION, "station": "01048", "timestamp": "2026-01-01"},
 }
 _CLI_BASE = {
-    "values": [*_CLI_DWD, "--station=01048"],
+    "values": [*_CLI_DWD, "--stations=01048"],
     "interpolate": [*_CLI_DWD, "--station=01048", "--timestamp=2026-01-01"],
     "summarize": [*_CLI_DWD, "--station=01048", "--timestamp=2026-01-01"],
 }
@@ -84,7 +84,7 @@ CASES = [
         "false",
         _VALUES,
         {"values": {"convert_units": "false"}},
-        {"values": ["--convert_units=false"]},
+        {"values": ["--convert-units=false"]},
     ),
     Case(
         "unit_targets",
@@ -92,16 +92,16 @@ CASES = [
         json.dumps(_FAHRENHEIT),
         _VALUES,
         {"values": {"unit_targets": json.dumps(_FAHRENHEIT)}},
-        {"values": [f"--unit_targets={json.dumps(_FAHRENHEIT)}"]},
+        {"values": [f"--unit-targets={json.dumps(_FAHRENHEIT)}"]},
     ),
-    Case("skip_empty", True, "true", _VALUES, {"values": {"skip_empty": "true"}}, {"values": ["--skip_empty=true"]}),  # noqa: FBT003
+    Case("skip_empty", True, "true", _VALUES, {"values": {"skip_empty": "true"}}, {"values": ["--skip-empty=true"]}),  # noqa: FBT003
     Case(
         "skip_threshold",
         0.5,
         "0.5",
         _VALUES,
         {"values": {"skip_threshold": "0.5"}},
-        {"values": ["--skip_threshold=0.5"]},
+        {"values": ["--skip-threshold=0.5"]},
     ),
     Case(
         "skip_criteria",
@@ -109,7 +109,7 @@ CASES = [
         "max",
         _VALUES,
         {"values": {"skip_criteria": "max"}},
-        {"values": ["--skip_criteria=max"]},
+        {"values": ["--skip-criteria=max"]},
     ),
     Case(
         "drop_nulls",
@@ -117,7 +117,7 @@ CASES = [
         "false",
         _VALUES,
         {"values": {"drop_nulls": "false"}},
-        {"values": ["--drop_nulls=false"]},
+        {"values": ["--drop-nulls=false"]},
     ),
     Case(
         "geo_station_distance_homogeneous",
@@ -129,8 +129,8 @@ CASES = [
             "summarize": {"summary_station_distance_homogeneous": "60"},
         },
         {
-            "interpolate": ["--interpolation_station_distance_homogeneous=60"],
-            "summarize": ["--summary_station_distance_homogeneous=60"],
+            "interpolate": ["--interpolation-station-distance-homogeneous=60"],
+            "summarize": ["--summary-station-distance-homogeneous=60"],
         },
     ),
     Case(
@@ -143,8 +143,8 @@ CASES = [
             "summarize": {"summary_station_distance_heterogeneous": "15"},
         },
         {
-            "interpolate": ["--interpolation_station_distance_heterogeneous=15"],
-            "summarize": ["--summary_station_distance_heterogeneous=15"],
+            "interpolate": ["--interpolation-station-distance-heterogeneous=15"],
+            "summarize": ["--summary-station-distance-heterogeneous=15"],
         },
     ),
     Case(
@@ -157,8 +157,8 @@ CASES = [
             "summarize": {"summary_station_distance": '{"precipitation_amount": 25}'},
         },
         {
-            "interpolate": ['--interpolation_station_distance={"precipitation_amount": 25}'],
-            "summarize": ['--summary_station_distance={"precipitation_amount": 25}'],
+            "interpolate": ['--interpolation-station-distance={"precipitation_amount": 25}'],
+            "summarize": ['--summary-station-distance={"precipitation_amount": 25}'],
         },
     ),
     Case(
@@ -167,7 +167,7 @@ CASES = [
         "0.5",
         _GEO,
         {"interpolate": {"use_nearby_station_distance": "0.5"}},
-        {"interpolate": ["--use_nearby_station_distance=0.5"]},
+        {"interpolate": ["--use-nearby-station-distance=0.5"]},
     ),
     Case(
         "geo_min_gain_of_value_pairs",
@@ -175,6 +175,10 @@ CASES = [
         "0.5",
         _GEO,
         {"interpolate": {"min_gain_of_value_pairs": "0.5"}, "summarize": {"min_gain_of_value_pairs": "0.5"}},
+        {
+            "interpolate": ["--min-gain-of-value-pairs=0.5"],
+            "summarize": ["--min-gain-of-value-pairs=0.5"],
+        },
     ),
     Case(
         "geo_num_additional_stations",
@@ -182,6 +186,7 @@ CASES = [
         "5",
         _GEO,
         {"interpolate": {"num_additional_stations": "5"}, "summarize": {"num_additional_stations": "5"}},
+        {"interpolate": ["--num-additional-stations=5"], "summarize": ["--num-additional-stations=5"]},
     ),
     # set by the server alone: no query parameter and no command line option names it
     Case("geo_station_distance_resolution_factors", {"daily": 3.0}, '{"daily": 3.0}', _GEO),
@@ -358,7 +363,7 @@ def test_an_argument_outranks_the_environment_and_a_dict_is_merged_into_it(monke
     options = _rest(monkeypatch, "values", given)
     assert options.unit_targets == {"temperature": "degree_kelvin", "speed": "knots"}
     assert options.shape == "long"
-    cli_options = _cli(monkeypatch, "values", [f"--unit_targets={given['unit_targets']}", "--shape=long"])
+    cli_options = _cli(monkeypatch, "values", [f"--unit-targets={given['unit_targets']}", "--shape=long"])
     assert cli_options.model_dump() == options.model_dump()
 
 
@@ -466,9 +471,9 @@ def test_a_malformed_host_setting_is_the_bare_500_where_only_options_are_read(
 @pytest.mark.parametrize(
     "args",
     [
-        ["values", *_CLI_BASE["values"], '--unit_targets={"foo": "bar"}'],
-        ["interpolate", *_CLI_BASE["interpolate"], '--interpolation_station_distance={"foo": 1}'],
-        ["summarize", *_CLI_BASE["summarize"], '--summary_station_distance={"foo": 1}'],
+        ["values", *_CLI_BASE["values"], '--unit-targets={"foo": "bar"}'],
+        ["interpolate", *_CLI_BASE["interpolate"], '--interpolation-station-distance={"foo": 1}'],
+        ["summarize", *_CLI_BASE["summarize"], '--summary-station-distance={"foo": 1}'],
     ],
 )
 def test_a_malformed_host_setting_is_told_before_an_option_is(monkeypatch: pytest.MonkeyPatch, args: list[str]) -> None:
