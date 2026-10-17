@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Jeden tvar dotazu pro všechny. GHCN od NOAA přidává stanice po celém světě, daleko za rámec zde uvedených zemí.",
     "glossaryHint": "Každý parametr je vysvětlen ve slovníku.",
     "providersLink": "Všichni poskytovatelé, jejich licence a nabídka",
+    "providersEmpty": "Žádné meteorologické služby k zobrazení.",
     "kindObservationsTitle": "Měření",
     "kindObservationsDesc": "Teplota, srážky, vítr, vlhkost, tlak, sluneční svit, sníh a další – od desetiminutových hodnot po roční průměry, včetně historických archivů.",
     "kindForecastsTitle": "Předpovědi",

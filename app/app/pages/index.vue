@@ -36,43 +36,31 @@ const features = computed(() => [
   { icon: 'i-lucide-line-chart', title: t('home.featureAnalysisTitle'), description: t('home.featureAnalysisDesc') },
 ])
 
-// The weather services behind the data, one entry per provider in the backend's registry. Kept in
-// sync by `tests/e2e/i18n-coverage.spec.ts`, which asks a running backend, so a provider
-// added upstream fails a test here rather than quietly going unmentioned. Names and flags are
-// proper nouns and stay untranslated; the flag is the service's own country, and NOAA's GHCN is
-// worldwide despite the US flag, which `home.dataProvidersDesc` says.
-const providers = [
-  { key: 'aemet', name: 'AEMET', flag: '🇪🇸' },
-  { key: 'chmi', name: 'CHMI', flag: '🇨🇿' },
-  { key: 'dmi', name: 'DMI', flag: '🇩🇰' },
-  { key: 'dwd', name: 'DWD', flag: '🇩🇪' },
-  { key: 'ea', name: 'EA', flag: '🇬🇧' },
-  { key: 'eaufrance', name: 'Eaufrance', flag: '🇫🇷' },
-  { key: 'eccc', name: 'ECCC', flag: '🇨🇦' },
-  { key: 'fmi', name: 'FMI', flag: '🇫🇮' },
-  { key: 'geosphere', name: 'GeoSphere', flag: '🇦🇹' },
-  { key: 'imgw', name: 'IMGW', flag: '🇵🇱' },
-  { key: 'ipma', name: 'IPMA', flag: '🇵🇹' },
-  { key: 'knmi', name: 'KNMI', flag: '🇳🇱' },
-  { key: 'lhmt', name: 'LHMT', flag: '🇱🇹' },
-  { key: 'meteofrance', name: 'Météo-France', flag: '🇫🇷' },
-  { key: 'meteoswiss', name: 'MeteoSwiss', flag: '🇨🇭' },
-  { key: 'metno', name: 'met.no', flag: '🇳🇴' },
-  { key: 'metoffice', name: 'Met Office', flag: '🇬🇧' },
-  { key: 'noaa', name: 'NOAA', flag: '🇺🇸' },
-  { key: 'nws', name: 'NWS', flag: '🇺🇸' },
-  { key: 'rmi', name: 'RMI', flag: '🇧🇪' },
-  { key: 'smhi', name: 'SMHI', flag: '🇸🇪' },
-  { key: 'wsv', name: 'WSV', flag: '🇩🇪' },
-]
+// The weather services behind the data, as the backend lists them (`GET /api/providers`): one chip for each
+// provider of its registry, so a provider added upstream is on this page without a change here. Short names
+// and flags: the flag is the provider's own country, and NOAA's GHCN is worldwide despite the US flag, which
+// `home.dataProvidersDesc` says. The request is the one the Providers pages share, by its key.
+const { locale } = useI18n()
+const collator = computed(() => new Intl.Collator(locale.value, { numeric: true }))
+const { data: providerList, pending: providersPending, error: providersError, refresh: refreshProviders } = useProviders()
 
-// Headline numbers, pinned to the backend by the same test: 22 providers and the 514 canonical
-// parameters of `metadata/parameter_table.py`.
+const providers = computed(() => (providerList.value?.providers ?? [])
+  .map(provider => ({ key: provider.provider, name: provider.name_short, flag: flagEmoji(provider.country_code) }))
+  .sort((a, b) => collator.value.compare(a.name, b.name)))
+const providersFailure = computed(() => providersError.value ? describeFetchError(providersError.value) : '')
+// until the first answer there is nothing to list: the chips' place is held by as many placeholders as
+// there are providers today, so the block is about as tall before the answer as after
+const providersLoading = computed(() => providersPending.value && !providerList.value)
+const PLACEHOLDER_WIDTHS = ['w-14', 'w-24', 'w-20', 'w-28', 'w-16', 'w-24', 'w-20']
+const placeholders = Array.from({ length: 22 }, (_, index) => PLACEHOLDER_WIDTHS[index % PLACEHOLDER_WIDTHS.length])
+
+// Headline numbers: the providers are the backend's count; the 514 canonical parameters of
+// `metadata/parameter_table.py` are written out, and `tests/unit/i18n-parity.test.ts` holds the glossary to them.
 const stats = computed(() => [
-  { value: String(providers.length), label: t('home.statProviders') },
-  { value: '514', label: t('home.statParameters') },
-  { value: '1 min – 1 a', label: t('home.statResolutions') },
-  { value: '0 €', label: t('home.statPrice') },
+  { key: 'providers', value: providerList.value ? String(providerList.value.metadata.counts.providers) : null, label: t('home.statProviders') },
+  { key: 'parameters', value: '514', label: t('home.statParameters') },
+  { key: 'resolutions', value: '1 min – 1 a', label: t('home.statResolutions') },
+  { key: 'price', value: '0 €', label: t('home.statPrice') },
 ])
 
 // The two open-source programmes the project runs on. Named on the page that asks nothing of the
@@ -166,9 +154,14 @@ const dataKinds = computed(() => [
     </p>
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-      <UCard v-for="stat in stats" :key="stat.label" :ui="{ body: 'text-center py-4' }">
+      <UCard v-for="stat in stats" :key="stat.key" :ui="{ body: 'text-center py-4' }">
+        <!-- the number of providers is the backend's: its place is held until it has answered (h-8 is the
+             line of text-2xl), and it is a dash where the request failed -->
         <div class="text-2xl font-bold text-primary-600 dark:text-primary-500">
-          {{ stat.value }}
+          <div v-if="stat.value === null && providersLoading" class="h-8 w-10 mx-auto rounded-md bg-elevated animate-pulse" aria-hidden="true" />
+          <template v-else>
+            {{ stat.value ?? '–' }}
+          </template>
         </div>
         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
           {{ stat.label }}
@@ -176,7 +169,7 @@ const dataKinds = computed(() => [
       </UCard>
     </div>
 
-    <UCard class="mb-6">
+    <UCard class="mb-6" data-testid="home-providers-card">
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-building-2" class="text-primary-500 shrink-0" />
@@ -185,16 +178,32 @@ const dataKinds = computed(() => [
           </h3>
         </div>
       </template>
-      <div class="flex flex-wrap gap-2">
-        <span
-          v-for="provider in providers"
-          :key="provider.key"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm"
-        >
-          <span aria-hidden="true">{{ provider.flag }}</span>
-          {{ provider.name }}
-        </span>
+      <UAlert
+        v-if="providersFailure"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-alert-circle"
+        :title="t('common.requestFailed')"
+        :description="providersFailure"
+        :actions="[{ label: t('common.retry'), onClick: () => refreshProviders() }]"
+      />
+      <div v-else-if="providersLoading" class="flex flex-wrap gap-2" role="status" :aria-label="t('common.loading')" aria-busy="true">
+        <div v-for="(width, index) in placeholders" :key="index" class="h-[1.875rem] rounded-full bg-elevated animate-pulse" :class="width" aria-hidden="true" />
       </div>
+      <p v-else-if="!providers.length" class="text-sm text-gray-500 dark:text-gray-400">
+        {{ t('home.providersEmpty') }}
+      </p>
+      <ul v-else class="flex flex-wrap gap-2" data-testid="home-providers">
+        <li v-for="provider in providers" :key="provider.key">
+          <NuxtLink
+            :to="`/providers/${provider.key}`"
+            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+          >
+            <span aria-hidden="true">{{ provider.flag }}</span>
+            {{ provider.name }}
+          </NuxtLink>
+        </li>
+      </ul>
       <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">
         {{ t('home.dataProvidersDesc') }}
         <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">

@@ -33,9 +33,24 @@ Types of changes:
   `/mcp/v1`, as the backend reports it in `/api/version` (`mcp_path`), so a client set up from here
   does not move with the next version. A backend that does not report it is still given `/mcp`
   (GH-3074)
+- `[Home]` The weather services on the home page, and their number, are the backend's providers
+  (`GET /api/providers`), not a list written in the app: a provider added upstream is on the page
+  without a release. Each chip, by the provider's short name and the flag of its country, links to
+  its Providers page; until the backend has answered there are placeholders of the same size, and
+  where it does not answer or lists none the block says so, with a Retry. It needs backend 0.158.0
+  or newer (GH-2565)
+- **Breaking**: `[Stripes]` The stripes page reads the station, parameter and unit of the values
+  from the `series` member of `stripes/values`, where the backend 0.157.0 had them in `metadata`;
+  it needs backend 0.158.0 or newer, and against an older one the page cannot draw (GH-3076)
+- `[Proxy]` Where the app's `/api` cannot reach the backend, the problem it answers is of the type
+  `urn:wetterdienst:problem:backend-unreachable` (it was `about:blank`) and carries `request_id`,
+  `instance`, `X-Request-ID` and `Retry-After` like the backend's own. The proxy sends the client's
+  `X-Request-ID` on to the backend, which answers with it (GH-3080)
 
 ### Fixed
 
+- `[Meteogram]` A navigation that fails after the forecast horizon, the panels or the compact view
+  is changed is no longer an unhandled promise rejection (GH-3081)
 - `[Meteogram]` The weekday and the date of the hover heading, and the weekday of the day labels
   and day cards, are written in the language of the page (`Do 15.10.`, `jeu. 15/10`), where the
   hover said "Thu" and `dd.mm` in every language, and Luxembourgish labels fell back to the

@@ -19,6 +19,42 @@ test.describe('Home Page', () => {
     await expect(explorerLink).toBeVisible()
     await expect(apiLink).toBeVisible()
   })
+
+  // The weather services are the backend's (`/api/providers`), so for a moment there are none to show: the
+  // block holds its place with placeholders. What is under the card must not move by more than a row of chips
+  // when the answer comes (a row is a chip of 30px and a gap of 8), however wide the window is.
+  for (const width of [1280, 768, 375]) {
+    test(`keeps the weather services block about as tall before the backend answers as after, at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      let release!: () => void
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      await page.route('**/api/providers', async (route) => {
+        await held
+        await route.continue()
+      })
+      await page.goto('/')
+      const card = page.getByTestId('home-providers-card')
+      await expect(card.getByRole('status')).toBeVisible()
+      const before = (await card.boundingBox())!.height
+
+      release()
+      await expect(page.getByTestId('home-providers')).toBeVisible({ timeout: 30_000 })
+      const after = (await card.boundingBox())!.height
+
+      expect(Math.abs(after - before), `the card was ${before}px tall before and ${after}px after`).toBeLessThanOrEqual(38)
+    })
+  }
+
+  test('links every weather service to its page', async ({ page }) => {
+    await page.goto('/')
+    const chip = page.getByTestId('home-providers').getByRole('link', { name: 'DWD' })
+
+    await expect(chip).toBeVisible({ timeout: 30_000 })
+    await chip.click()
+    await expect(page).toHaveURL(/\/providers\/dwd$/)
+  })
 })
 
 test.describe('API Documentation Page', () => {

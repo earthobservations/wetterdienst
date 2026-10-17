@@ -112,7 +112,7 @@ describe('stripes Page', () => {
     const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       years: [{ year: 2000, value: 9.5 }],
     }))
 
@@ -214,7 +214,7 @@ describe('stripes Page years', () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     // as the backend writes each year's value: at the year's first moment in UTC
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -244,7 +244,7 @@ describe('stripes Page years', () => {
     await (harness.vm as any).setLocale('de')
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -290,7 +290,7 @@ describe('stripes Page years', () => {
     await (harness.vm as any).setLocale(language)
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -323,7 +323,7 @@ describe('stripes Page years', () => {
     }))
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -378,7 +378,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
   async function showStripes() {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -455,7 +455,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     })
     registerEndpoint('/api/stripes/values', async () => {
       await answered
-      return { metadata: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
+      return { series: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
     })
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
@@ -524,7 +524,7 @@ describe('stripes Page values that could not be fetched', () => {
   const tempelhof = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
   const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_timestamp: '1893-01-01', end_timestamp: '2020-01-01' }
   const values = (station: typeof tempelhof) => ({
-    metadata: { station },
+    series: { station },
     values: [
       { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
       { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -791,7 +791,7 @@ describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout:
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
@@ -932,7 +932,7 @@ describe('stripes Page requests answered with a 503 once', () => {
 
   it('asks /api/stripes/values once more, and plots what that answer brings', async () => {
     endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
-    const { asked, handler } = flaky({ metadata: { station }, years: [{ year: 2000, value: 9.5 }] })
+    const { asked, handler } = flaky({ series: { station }, years: [{ year: 2000, value: 9.5 }] })
     endpoints.push(registerEndpoint('/api/stripes/values', handler))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
@@ -970,7 +970,7 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
     plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }],
     }))
     wrapper = await mountSuspended(defineComponent({
@@ -1043,7 +1043,7 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
     plotly.newPlot.mockClear()
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
-      metadata: { station },
+      series: { station },
       values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }],
     }))
     wrapper = await mountSuspended(defineComponent({

@@ -43,6 +43,8 @@ export default defineConfig({
     command: process.env.CI ? 'npm run build && npm run preview -- --port 4000' : 'npm run dev',
     url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI,
+    // read by nuxt.config.ts at build and start: the rate limiter is off for the suite's own server
+    env: { WD_E2E: '1' },
     timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
   },
 })

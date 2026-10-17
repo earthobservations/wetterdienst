@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Én forespørgselsform til dem alle. NOAA's GHCN føjer stationer til verden over, langt ud over de lande, der er nævnt her.",
     "glossaryHint": "Hver parameter er forklaret i ordlisten.",
     "providersLink": "Alle udbydere, deres licenser og udbud",
+    "providersEmpty": "Ingen vejrtjenester at vise.",
     "kindObservationsTitle": "Målinger",
     "kindObservationsDesc": "Temperatur, nedbør, vind, fugtighed, tryk, solskin, sne og mere – fra ti-minutters aflæsninger til årsmiddelværdier, historiske arkiver inklusive.",
     "kindForecastsTitle": "Prognoser",

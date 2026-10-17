@@ -33,8 +33,8 @@ const providers = computed<Provider[]>(() => {
         return true
       // the id a request names, both names, the country and its code: "DWD", "Wetterdienst",
       // "Germany" and "DE" find the same card
-      return [provider.provider, provider.name_english, provider.name_local, provider.country, provider.country_code]
-        .some(text => text !== null && text.toLowerCase().includes(term))
+      return [provider.provider, provider.name_english, provider.name_local, provider.country, provider.country_code ?? '']
+        .some(text => text.toLowerCase().includes(term))
     })
     .sort((a, b) => collator.value.compare(a.name_english, b.name_english))
 })

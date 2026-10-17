@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Una misma forma de consulta para todos. El GHCN de la NOAA añade estaciones de todo el mundo, mucho más allá de los países aquí listados.",
     "glossaryHint": "Cada parámetro está explicado en el glosario.",
     "providersLink": "Todos los proveedores, sus licencias y su oferta",
+    "providersEmpty": "No hay servicios meteorológicos que mostrar.",
     "kindObservationsTitle": "Mediciones",
     "kindObservationsDesc": "Temperatura, precipitación, viento, humedad, presión, insolación, nieve y más: desde valores de diez minutos hasta medias anuales, con archivos históricos.",
     "kindForecastsTitle": "Predicciones",

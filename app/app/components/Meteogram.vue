@@ -102,6 +102,8 @@ onMounted(() => {
 
     const router = useRouter()
     const route = useRoute()
+    // A rejected navigation (e.g. superseded by a subsequent replace() before this one resolves) would
+    // otherwise be an unhandled promise rejection, as the pages that sync their state to the URL catch it.
 
     watch(horizonHours, (h) => {
       const q = { ...route.query } as Record<string, any>
@@ -109,7 +111,7 @@ onMounted(() => {
         q.horizon = String(h)
       else
         delete q.horizon
-      void router.replace({ query: q })
+      void router.replace({ query: q }).catch(() => {})
     })
 
     watch(visiblePanels, (panels) => {
@@ -119,13 +121,13 @@ onMounted(() => {
         q.panels = visible.join(',')
       else
         delete q.panels
-      void router.replace({ query: q })
+      void router.replace({ query: q }).catch(() => {})
     }, { deep: true })
 
     watch(compact, (c) => {
       const q = { ...route.query } as Record<string, any>
       q.compact = c ? 'true' : 'false'
-      void router.replace({ query: q })
+      void router.replace({ query: q }).catch(() => {})
     })
   }
 })

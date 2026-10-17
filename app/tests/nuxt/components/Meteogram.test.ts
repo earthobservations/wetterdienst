@@ -1,6 +1,7 @@
+import process from 'node:process'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 
 // Plotly draws nothing in the test's document: its calls are recorded
@@ -507,5 +508,51 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
       expect(wrapper!.text()).not.toContain('15.10')
     // the rain, 24 times 0.25 mm, with the language's decimal separator
     expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
+  })
+})
+
+describe('meteogram display synced to the URL', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  const unhandled: unknown[] = []
+  const record = (reason: unknown) => unhandled.push(reason)
+
+  afterEach(() => {
+    process.off('unhandledRejection', record)
+    unhandled.length = 0
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // a navigation that fails -- one a guard redirects, or a newer one supersedes -- rejects `router.replace`;
+  // the pages that sync to the URL catch it, and the meteogram's own horizon, panels and compact view must too
+  it.each([
+    ['the horizon', (vm: any) => { vm.horizonHours = 24 }, { horizon: '24' }],
+    ['the panels', (vm: any) => { vm.visiblePanels = { ...vm.visiblePanels, wind: false } }, { panels: 'temp,precip,cloud,pressure' }],
+    ['the compact view', (vm: any) => { vm.compact = true }, { compact: 'true' }],
+  ])('leaves no unhandled rejection where a failed navigation follows a change of %s', async (_what, change, query) => {
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
+    // swapped in by hand: a spy keeps a handler on the promise it returns, which would hide an unhandled rejection
+    const router = useRouter()
+    const replaced: unknown[] = []
+    const { replace } = router
+    router.replace = (async (to: unknown) => {
+      replaced.push(to)
+      throw new Error('navigation aborted')
+    }) as typeof router.replace
+    onTestFinished(() => {
+      router.replace = replace
+    })
+    process.on('unhandledRejection', record)
+
+    change(wrapper.vm)
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(replaced).toHaveLength(1)
+    expect(replaced[0]).toMatchObject({ query })
+    expect(unhandled).toEqual([])
   })
 })

@@ -46,6 +46,7 @@
     "dataProvidersDesc": "One request shape for all of them. NOAA's GHCN adds stations worldwide, well beyond the countries listed here.",
     "glossaryHint": "Every parameter is explained in the glossary.",
     "providersLink": "All providers, their licences and what they offer",
+    "providersEmpty": "No weather services to show.",
     "kindObservationsTitle": "Measurements",
     "kindObservationsDesc": "Temperature, precipitation, wind, humidity, pressure, sunshine, snow and more, from ten-minute readings to annual means, historical archives included.",
     "kindForecastsTitle": "Forecasts",

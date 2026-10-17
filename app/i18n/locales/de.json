@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Eine Abfrageform für alle. Das GHCN der NOAA bringt zusätzlich Stationen weltweit, weit über die hier genannten Länder hinaus.",
     "glossaryHint": "Jeder Parameter ist im Glossar erklärt.",
     "providersLink": "Alle Anbieter, ihre Lizenzen und ihr Angebot",
+    "providersEmpty": "Keine Wetterdienste zum Anzeigen.",
     "kindObservationsTitle": "Messwerte",
     "kindObservationsDesc": "Temperatur, Niederschlag, Wind, Feuchte, Druck, Sonnenschein, Schnee und mehr – von Zehn-Minuten-Werten bis zu Jahresmitteln, samt historischer Archive.",
     "kindForecastsTitle": "Vorhersagen",

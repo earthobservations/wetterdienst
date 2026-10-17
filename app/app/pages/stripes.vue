@@ -111,7 +111,7 @@ const lastFetchedData = ref<StripesValuesResponse | null>(null)
 // the stripes' title: the kind and the station of the values. A kind changed clears the stripes, so
 // the kind chosen is theirs
 function plotTitle(data: StripesValuesResponse) {
-  const station = data.metadata.station
+  const station = data.series.station
   return t('stripes.plotTitle', { kind: kindLabel(kind.value), name: station.name, id: station.station_id })
 }
 // the stripes' accessible name, their title
@@ -159,7 +159,7 @@ async function fetchAndPlotStripes() {
   // and stripes that could not be drawn, with their Retry of the earlier values. This station's
   // drawn stripes stay while they are fetched anew, as for other years; a drawing of them under way,
   // as of a display option changed, still draws, and tells its own failure
-  if (plotFailed.value || lastFetchedData.value?.metadata.station.station_id !== selectedStation.value.station_id)
+  if (plotFailed.value || lastFetchedData.value?.series.station.station_id !== selectedStation.value.station_id)
     clearStripes()
   const started = ++fetchesStarted
   isLoading.value = true
@@ -452,7 +452,7 @@ async function drawStripes(data: StripesValuesResponse) {
     modeBarButtonsToRemove: ['lasso2d', 'select2d'],
     toImageButtonOptions: {
       format: 'png',
-      filename: `climate_stripes_${kind.value}_${data.metadata.station.station_id}`,
+      filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
       height: showTitle.value ? 700 : 600,
       width: 1400,
       scale: 2,
@@ -486,7 +486,7 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
 
   // Use current dimensions with a scale factor for high resolution
   // This preserves aspect ratio AND scales text/annotations proportionally
-  const station = lastFetchedData.value.metadata.station
+  const station = lastFetchedData.value.series.station
   try {
     await Plotly.downloadImage(plotContainer.value, {
       format,

@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Eng eenzeg Ufroform fir all. D'GHCN vun der NOAA bréngt nach Statiounen aus der ganzer Welt derbäi, wäit iwwer déi hei genannte Länner eraus.",
     "glossaryHint": "All Parameter ass am Glossar erkläert.",
     "providersLink": "All Ubidder, hir Lizenzen an hiren Offer",
+    "providersEmpty": "Keng Wiederdéngschter fir unzeweisen.",
     "kindObservationsTitle": "Miessungen",
     "kindObservationsDesc": "Temperatur, Nidderschlag, Wand, Fiichtegkeet, Drock, Sonnschäin, Schnéi a méi – vun Zéng-Minutten-Wäerter bis zu Joresmëttelwäerter, mat historeschen Archiven.",
     "kindForecastsTitle": "Prognosen",

@@ -1,6 +1,35 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { H3Event } from 'h3'
+import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { setResponseStatus } from 'h3'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearNuxtData } from '#app'
 import IndexPage from '~/pages/index.vue'
+import { providersResponse } from '../fixtures/providers'
+
+// The weather services are the backend's (`GET /api/providers`), which `useFetch` keys by name: cleared
+// between tests, or a later test is served the answer of the one before. Registered once: re-registering the
+// same path in a later test does not replace the handler.
+let served: (event: H3Event) => unknown = () => providersResponse()
+registerEndpoint('/api/providers', event => served(event))
+
+const mounted: Array<{ unmount: () => void }> = []
+async function mountHome() {
+  const wrapper = await mountSuspended(IndexPage)
+  mounted.push(wrapper)
+  return wrapper
+}
+function servicesTile(wrapper: Awaited<ReturnType<typeof mountHome>>) {
+  return wrapper.findAll('.text-2xl').find(el => el.element.parentElement?.textContent?.includes('weather services'))
+}
+function settled(wrapper: Awaited<ReturnType<typeof mountHome>>) {
+  return vi.waitFor(() => expect((wrapper.vm as any).providersLoading).toBe(false), { timeout: 5000 })
+}
+
+afterEach(() => {
+  mounted.splice(0).forEach(wrapper => wrapper.unmount())
+  clearNuxtData()
+  served = () => providersResponse()
+})
 
 describe('index Page', () => {
   beforeEach(() => {
@@ -43,18 +72,99 @@ describe('index Page', () => {
     expect(text).toContain('Radar')
   })
 
-  it('names the weather services behind the data', async () => {
-    vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
+  it('names the weather services behind the data, as the backend lists them', async () => {
+    const wrapper = await mountHome()
+    await settled(wrapper)
+    const chips = wrapper.findAll('[data-testid="home-providers"] a')
+
+    // by short name, in the order of the page's language, each with the flag of its country (a globe for several)
+    expect(chips.map(chip => chip.text())).toEqual(['🇪🇸 AEMET', '🇩🇪 DWD', '🌐 EUMETNET', '🇳🇴 met.no', '🇱🇺 MOSMIX'])
+    // and each leads to the page of the provider
+    expect(chips.map(chip => chip.attributes('href'))).toEqual(
+      ['/providers/aemet', '/providers/dwd', '/providers/eumetnet', '/providers/metno', '/providers/mosmix'],
     )
+    // the flag is decoration
+    expect(wrapper.findAll('[data-testid="home-providers"] [aria-hidden="true"]').map(el => el.text())).toContain('🇩🇪')
+  })
 
-    const wrapper = await mountSuspended(IndexPage)
-    const text = wrapper.text()
+  it('counts the weather services from the answer, not from a number of its own', async () => {
+    const wrapper = await mountHome()
+    await settled(wrapper)
+    expect(servicesTile(wrapper)?.text()).toBe('5')
 
-    expect(text).toContain('DWD')
-    expect(text).toContain('NOAA')
-    expect(text).toContain('Météo-France')
-    expect(text).toContain('MeteoSwiss')
+    // one more provider upstream is one more chip and a number higher, with nothing changed in the app
+    clearNuxtData()
+    served = () => {
+      const response = providersResponse()
+      response.providers.pop()
+      response.metadata.counts.providers = response.providers.length
+      return response
+    }
+    const fewer = await mountHome()
+    await settled(fewer)
+    expect(fewer.findAll('[data-testid="home-providers"] a')).toHaveLength(4)
+    expect(servicesTile(fewer)?.text()).toBe('4')
+  })
+
+  it('holds the place of the chips and the count until the backend has answered', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    served = async () => {
+      await gate
+      return providersResponse()
+    }
+    const wrapper = await mountHome()
+
+    expect((wrapper.vm as any).providersLoading).toBe(true)
+    // placeholders where the chips will be, and no number yet (nor a 0 that would be a claim)
+    expect(wrapper.find('[role="status"][aria-busy="true"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="home-providers"]')).toHaveLength(0)
+    expect(wrapper.text()).not.toContain('EUMETNET')
+    expect(wrapper.text()).not.toContain('No weather services')
+    expect(servicesTile(wrapper)?.text()).toBe('')
+
+    release()
+    await settled(wrapper)
+    expect(wrapper.find('[aria-busy="true"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('EUMETNET')
+  })
+
+  it('says so where the backend lists no weather service', async () => {
+    served = () => {
+      const response = providersResponse()
+      response.providers = []
+      response.metadata.counts.providers = 0
+      return response
+    }
+    const wrapper = await mountHome()
+    await settled(wrapper)
+
+    expect(wrapper.text()).toContain('No weather services to show.')
+    expect(wrapper.findAll('[data-testid="home-providers"]')).toHaveLength(0)
+  })
+
+  it('tells why the weather services are missing, with a way to ask again, and the rest of the page stays', async () => {
+    served = (event) => {
+      setResponseStatus(event, 502)
+      return { type: 'urn:wetterdienst:problem:backend-unreachable', title: 'Bad Gateway', status: 502, detail: 'The backend could not be reached.' }
+    }
+    const wrapper = await mountHome()
+    await settled(wrapper)
+
+    expect(wrapper.text()).toContain('Request failed')
+    expect(wrapper.text()).toContain('The backend could not be reached.')
+    // the count is not guessed at, and the numbers that do not come from the backend are there
+    expect(servicesTile(wrapper)?.text()).toBe('–')
+    expect(wrapper.text()).toContain('514')
+    const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')
+    expect(retry).toBeDefined()
+
+    served = () => providersResponse()
+    await retry!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('EUMETNET'))
+    expect(wrapper.text()).not.toContain('Request failed')
   })
 
   it('leads from the weather services to the page that says what each is', async () => {

@@ -54,6 +54,18 @@ test.describe('API proxy', () => {
     expect(body).toHaveProperty('detail')
   })
 
+  test('carries the request id of the client to the backend and its problem back', async ({ request }) => {
+    // The backend names the request in the `X-Request-ID` header of every answer and in the `request_id` of
+    // a problem, the client's own id where it sends a plain one. The proxy passes that id on, and the
+    // backend's answer is what the client reads (the `Retry-After` of a 502, 503 or 504 travels the same
+    // way, see tests/unit/proxy-forwards.test.ts: no backend of an e2e run fails on demand).
+    const response = await request.get('/api/values', { headers: { 'x-request-id': 'e2e-proxy-1' }, timeout: REQUEST_TIMEOUT })
+    expect([400, 422]).toContain(response.status())
+
+    expect(response.headers()['x-request-id']).toBe('e2e-proxy-1')
+    expect((await response.json()).request_id).toBe('e2e-proxy-1')
+  })
+
   test('forwards repeated query parameters', async ({ request }) => {
     const query = 'provider=dwd&network=observation&parameters=daily/kl&stations=00011&stations=00003'
 

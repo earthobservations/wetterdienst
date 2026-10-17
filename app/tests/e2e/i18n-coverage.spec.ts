@@ -5,9 +5,9 @@ import { expect, test } from '@playwright/test'
 
 // What the backend serves and what the app can name, checked against each other.
 //
-// The app labels every canonical parameter and every unit type in eleven languages, and names
-// every provider on its home page. Nothing in the app's own unit tests can notice when one of
-// those is added upstream: they read the catalogs and hold the locales to each other, so a new
+// The app labels every canonical parameter and every unit type in eleven languages (the providers
+// on its home page are the backend's own list, and the last test below holds the page to it).
+// Nothing in the app's own unit tests can notice when one of those is added upstream: they read the catalogs and hold the locales to each other, so a new
 // name in the backend leaves every catalog untouched, the parity green, and the name falling back
 // to a prettified English id in all eleven languages.
 //
@@ -20,7 +20,6 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
 
 const glossaryEn = fileURLToPath(new URL('../../i18n/glossary/en.ts', import.meta.url))
 const localeEn = fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url))
-const homePage = fileURLToPath(new URL('../../app/pages/index.vue', import.meta.url))
 
 interface GlossaryEntry { name: string, unit_type: string }
 
@@ -126,29 +125,32 @@ test.describe('the app can name what the backend serves', () => {
   test('the providers page can draw every provider it is served', async ({ request }) => {
     const response = await request.get(`${BACKEND_URL}/api/providers`, SLOW)
     expect(response.ok(), 'the backend did not serve /api/providers').toBeTruthy()
-    const { providers } = await response.json() as { providers: Array<{ provider: string, country_code: string }> }
+    const { providers } = await response.json() as { providers: Array<{ provider: string, country_code: string | null }> }
     const coverage = await (await request.get(`${BACKEND_URL}/api/coverage`, SLOW)).json() as Record<string, unknown>
 
     expect(providers.map(provider => provider.provider).sort(), 'the providers the registry has').toEqual(Object.keys(coverage).sort())
-    // a flag is drawn from two capital letters (ZZ is the globe of a provider of several countries)
-    const odd = providers.filter(provider => !/^[A-Z]{2}$/.test(provider.country_code)).map(provider => provider.provider)
+    // a flag is drawn from two capital letters (null is a provider of several countries, which gets the globe)
+    const odd = providers.filter(provider => provider.country_code !== null && !/^[A-Z]{2}$/.test(provider.country_code)).map(provider => provider.provider)
     expect(odd, 'providers whose country_code is no ISO 3166-1 alpha-2 code').toEqual([])
   })
 
-  test('the home page lists every provider', async ({ request }) => {
+  test('the home page lists every provider, and counts them', async ({ page, request }) => {
     const response = await request.get(`${BACKEND_URL}/api/coverage`, SLOW)
     expect(response.ok(), 'the backend did not serve /api/coverage').toBeTruthy()
-    const registered = new Set(Object.keys(await response.json() as Record<string, unknown>))
-    expect(registered.size, 'coverage came back empty').toBeGreaterThan(0)
+    const registered = Object.keys(await response.json() as Record<string, unknown>).sort()
+    expect(registered.length, 'coverage came back empty').toBeGreaterThan(0)
 
-    // written out in index.vue rather than fetched: a static claim about what the app offers, and
-    // so the one place in the app that can silently fall behind the registry
-    const block = readFileSync(homePage, 'utf-8').split('const providers = [')[1]?.split(']')[0] ?? ''
-    const listed = new Set([...block.matchAll(/key: '([a-z]+)'/g)].map(match => match[1] as string))
+    // read off the page, not off its source: the providers are the backend's (`/api/providers`), so what
+    // this holds is that the page shows every provider of the registry, each as a link to its own page, and
+    // that the number it states is that of the registry
+    await page.goto('/')
+    const chips = page.locator('[data-testid="home-providers"] a')
+    await expect(chips.first()).toBeVisible({ timeout: 30_000 })
+    const listed = (await chips.evaluateAll(anchors => anchors.map(anchor => anchor.getAttribute('href')?.replace('/providers/', '') ?? ''))).sort()
+    expect(listed, 'the providers the home page links to, against those of the registry').toEqual(registered)
 
-    const missing = [...registered].filter(name => !listed.has(name)).sort()
-    const stale = [...listed].filter(name => !registered.has(name)).sort()
-    expect(missing, 'providers the home page does not mention').toEqual([])
-    expect(stale, 'providers the home page mentions but the registry does not have').toEqual([])
+    // the first of the four numbers is the count of the providers
+    const stat = page.locator('.text-2xl').first()
+    await expect(stat).toHaveText(String(registered.length))
   })
 })

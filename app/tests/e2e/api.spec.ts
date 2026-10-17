@@ -118,6 +118,11 @@ test.describe('API Stripes Endpoints', () => {
     if (response.status() === 200) {
       const data = await response.json()
       expect(data).toHaveProperty('metadata')
+      // what the values are of is its own member, `metadata` being the block every answer has
+      expect(data.series).toMatchObject({ resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m' })
+      expect(data.series.station.station_id).toBe('01048')
+      expect(typeof data.series.unit).toBe('string')
+      expect(data.metadata).not.toHaveProperty('station')
       expect(data).toHaveProperty('values')
     }
   })
