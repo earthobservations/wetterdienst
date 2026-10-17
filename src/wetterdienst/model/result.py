@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import json
 import typing
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from datetime import datetime
 from enum import Enum
 from functools import update_wrapper
-from typing import TYPE_CHECKING, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
 
 import polars as pl
 from pydantic import ConfigDict, with_config
@@ -181,7 +181,7 @@ class _ProviderTerms(Protocol):
     name_local: str
     name_english: str
     country: str
-    country_code: str
+    country_code: str | None
     copyright: str
     url: str
     license: LicenseModel | None
@@ -283,8 +283,53 @@ def _factory_method(func: _MethodT) -> _MethodT:
     return cast("_MethodT", _FactoryMethod(cast("FunctionType", func)))
 
 
-@dataclass(frozen=True, kw_only=True)
-class StationsResult(ExportMixin):
+def _metadata_of(stations: StationsResult) -> _Metadata:
+    """Get the ``metadata`` block that the formats carry under ``with_metadata=True``.
+
+    It is the ``{"provider": {...}, "producer": {...}}`` block of the dictionary, JSON and GeoJSON formats, the
+    shape the REST API and the command line answer with. The provider's part is ``request.metadata`` (a
+    `MetadataModel`) as a dictionary, the producer's is ``Info()`` and the library's DOI. A caller who wants the
+    provider's metadata as an object reads ``stations.request.metadata``.
+    """
+    return describe_provider(stations.request.metadata)
+
+
+def _same(left: object, right: object) -> bool:
+    """Compare two fields of a result: frames by their columns and values, the rest by ``==``."""
+    if isinstance(left, pl.DataFrame) or isinstance(right, pl.DataFrame):
+        return (
+            isinstance(left, pl.DataFrame)
+            and isinstance(right, pl.DataFrame)
+            and left.schema == right.schema
+            and left.equals(right)
+        )
+    return bool(left == right)
+
+
+class _EqualByFields:
+    """Make the results compare by what they hold, and keep them unhashable.
+
+    Two results are equal when they are of the same class and every field of the dataclass is equal: a
+    frame (``df``, ``df_all``) when it has the same columns, dtypes, rows in the same order and values
+    (a null equals a null, a NaN a NaN), the request and the other fields by their own ``==``. The
+    generated ``__eq__`` of a dataclass compares the fields as a tuple, which asks polars for the truth
+    value of a frame and fails (GH-3037). A result of another class is not equal, a subclass included.
+
+    A result holds frames and is unhashable, as a frame is: ``hash(result)`` is a ``TypeError``, and a
+    result cannot be a key or a member of a set.
+    """
+
+    __hash__: ClassVar[None] = None
+
+    def __eq__(self, other: object) -> bool:
+        """Compare with another result by its fields."""
+        if type(other) is not type(self):
+            return NotImplemented
+        return all(_same(getattr(self, f.name), getattr(other, f.name)) for f in fields(cast("Any", self)))
+
+
+@dataclass(frozen=True, kw_only=True, eq=False)
+class StationsResult(_EqualByFields, ExportMixin):
     """Result class for stations.
 
     Built by a request (`all()` and the `filter_by_*` methods), and immutable: a filter gives a new
@@ -365,16 +410,6 @@ class StationsResult(ExportMixin):
         """Get station IDs from the DataFrame."""
         return self.df.get_column("station_id")
 
-    def get_metadata(self) -> _Metadata:
-        """Get the ``metadata`` block that the formats carry under ``with_metadata=True``.
-
-        It is the ``{"provider": {...}, "producer": {...}}`` block of `to_dict`, `to_json` and the other
-        formats, the shape the REST API and the command line answer with. The provider's part is
-        ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info().to_dict()`` and
-        the library's DOI; a caller who wants the typed provider metadata reads ``request.metadata``.
-        """
-        return describe_provider(self.request.metadata)
-
     def to_dict(self, *, with_metadata: bool = False) -> _StationsDict:
         """Format station information as dictionary.
 
@@ -389,7 +424,7 @@ class StationsResult(ExportMixin):
         # polars types its rows as dicts of Any; they carry the station columns, checked by the tests
         stations = cast("list[_Station]", df.to_dicts())
         if with_metadata:
-            return {"metadata": self.get_metadata(), "stations": stations}
+            return {"metadata": _metadata_of(self), "stations": stations}
         return {"stations": stations}
 
     def to_json(self, *, with_metadata: bool = False, indent: int | bool | None = 4) -> str:
@@ -471,7 +506,7 @@ class StationsResult(ExportMixin):
             features.append(self._to_ogc_feature(station, extra_columns))
         collection: _StationsOgcFeatureCollectionData = {"type": "FeatureCollection", "features": features}
         if with_metadata:
-            return {"metadata": self.get_metadata(), "data": collection}
+            return {"metadata": _metadata_of(self), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -645,8 +680,8 @@ _RowsT = TypeVar("_RowsT")
 _DictT = TypeVar("_DictT", bound="Mapping[str, object]")
 
 
-@dataclass(frozen=True, kw_only=True)
-class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
+@dataclass(frozen=True, kw_only=True, eq=False)
+class _ValuesResult(_EqualByFields, ExportMixin, Generic[_RowsT, _DictT]):
     """What the results of values, interpolation and summary have in common.
 
     A frozen result of a frame of values (`df`) and the stations it describes (`stations`), which has
@@ -686,7 +721,7 @@ class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
         # assembled key by key, as the keys come in this order and two of them are optional
         data: dict[str, object] = {}
         if with_metadata:
-            data["metadata"] = self.stations.get_metadata()
+            data["metadata"] = _metadata_of(self.stations)
         if with_stations:
             data["stations"] = self.stations.to_dict(with_metadata=False)["stations"]
         data["values"] = self._to_dict(self.df)
@@ -786,7 +821,7 @@ class _ValuesOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
     metadata: NotRequired[_Metadata]
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, kw_only=True, eq=False)
 class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDict], _ValuesDict]):
     """Result class for values."""
 
@@ -849,7 +884,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             )
         collection: _ValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": features}
         if with_metadata:
-            return {"metadata": self.stations.get_metadata(), "data": collection}
+            return {"metadata": _metadata_of(self.stations), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1056,7 +1091,7 @@ def history_to_dict(
     # assembled key by key, as the keys come in this order and two of them are optional
     data: dict[str, object] = {}
     if with_metadata:
-        data["metadata"] = stations.get_metadata()
+        data["metadata"] = _metadata_of(stations)
     if with_stations:
         data["stations"] = stations.to_dict(with_metadata=False)["stations"]
     data["histories"] = [
@@ -1086,8 +1121,8 @@ def history_to_json(
     return json.dumps(data, indent=indent)
 
 
-@dataclass(frozen=True, kw_only=True)
-class HistoryResult:
+@dataclass(frozen=True, kw_only=True, eq=False)
+class HistoryResult(_EqualByFields):
     """Result class for history data: how one station and dataset changed over time."""
 
     stations: StationsResult
@@ -1201,7 +1236,7 @@ class _InterpolatedValuesOgcFeatureCollection(_InterpolatedValuesOgcFeatureColle
     metadata: NotRequired[_Metadata]
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, kw_only=True, eq=False)
 class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], _InterpolatedValuesDict]):
     """Result class for interpolated values."""
 
@@ -1246,7 +1281,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         }
         collection: _InterpolatedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": self.stations.get_metadata(), "data": collection}
+            return {"metadata": _metadata_of(self.stations), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1394,7 +1429,7 @@ class _SummarizedValuesOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectio
     metadata: NotRequired[_Metadata]
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, kw_only=True, eq=False)
 class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _SummarizedValuesDict]):
     """Calculate summary of stations and parameters."""
 
@@ -1439,7 +1474,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         }
         collection: _SummarizedValuesOgcFeatureCollectionData = {"type": "FeatureCollection", "features": [feature]}
         if with_metadata:
-            return {"metadata": self.stations.get_metadata(), "data": collection}
+            return {"metadata": _metadata_of(self.stations), "data": collection}
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
@@ -1534,7 +1569,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
 # The dictionaries the results return, under names a caller can import to annotate a function that takes
 # or returns one (GH-3046). The classes keep their leading underscore: the REST API's OpenAPI components
 # are named after them, and `/api/v1` freezes those names.
-Metadata = _Metadata
+ResultMetadata = _Metadata
 StationsDict = _StationsDict
 StationsOgcFeatureCollection = _StationsOgcFeatureCollection
 ValuesDict = _ValuesDict
@@ -1551,7 +1586,7 @@ __all__ = [
     "InterpolatedValuesDict",
     "InterpolatedValuesOgcFeatureCollection",
     "InterpolatedValuesResult",
-    "Metadata",
+    "ResultMetadata",
     "StationsDict",
     "StationsFilter",
     "StationsOgcFeatureCollection",

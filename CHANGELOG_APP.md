@@ -29,6 +29,10 @@ Types of changes:
 
 ### Changed
 
+- `[API page/Home]` The MCP client configuration and the home link name the pinned endpoint
+  `/mcp/v1`, as the backend reports it in `/api/version` (`mcp_path`), so a client set up from here
+  does not move with the next version. A backend that does not report it is still given `/mcp`
+  (GH-3074)
 - `[Home]` The weather services on the home page, and their number, are the backend's providers
   (`GET /api/providers`), not a list written in the app: a provider added upstream is on the page
   without a release. Each chip, by the provider's short name and the flag of its country, links to

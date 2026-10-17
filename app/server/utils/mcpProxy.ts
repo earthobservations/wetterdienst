@@ -1,5 +1,5 @@
-// Shared handler that proxies the app's `/mcp` (and any sub-path) through to the backend's MCP
-// endpoint so it is reachable on the app origin (e.g. https://wetterdienst.eobs.org/mcp).
+// Shared handler that proxies the app's `/mcp` and `/mcp/v1` (and any sub-path) through to the backend's MCP
+// endpoint so it is reachable on the app origin (e.g. https://wetterdienst.eobs.org/mcp/v1).
 //
 // Unlike the JSON `/api/**` proxy, MCP uses the streamable-HTTP transport (POST for requests, GET for
 // the SSE stream, DELETE to end a session, plus the `mcp-session-id` header), so this forwards the
@@ -15,7 +15,7 @@ export function mcpProxyHandler() {
       public: { apiBase },
     } = useRuntimeConfig()
     // Forward faithfully to the backend origin, preserving the incoming path and query string so that
-    // the exact `/mcp`, a trailing-slash `/mcp/`, and any future sub-path all reach the backend as-is.
+    // the exact `/mcp`, `/mcp/v1` (and a later `/mcp/v2`), a trailing slash, and any future sub-path all reach the backend as-is.
     const target = `${new URL(apiBase).origin}${event.path}`
     // h3 strips the `accept` header when proxying, and the transport rejects a `*/*` (or missing)
     // Accept with 406. Pass through an SSE-aware Accept unchanged, otherwise send the required pair.

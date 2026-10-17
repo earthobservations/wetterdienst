@@ -185,6 +185,15 @@ _FormatField = Annotated[
     Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
     Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."),
 ]
+# of the stations and values requests, whose csv is streamed too, and which have a stream of their own (GH-3065)
+_StreamFormatField = Annotated[
+    Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Field(
+        description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
+        "svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a "
+        "longer answer than the others: see the limits of the server."
+    ),
+]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
 _DebugField = Annotated[bool, Field(description="Enable debug logging.")]
 _WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
@@ -310,24 +319,6 @@ _UseNearbyStationDistanceField = Annotated[
         ge=0,
         description="Use a nearby station's values directly when it is within this distance (km) of the target. "
         "Default: the server's WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1.",
-    ),
-]
-# what the CLI, the REST API and the MCP tool tell a caller who gives `use_nearby_station_distance`
-# to a summary (GH-2333)
-SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED = (
-    "It has no effect on a summary, which takes the nearest station with data anyway, and will be "
-    "removed in a future release. Leave it out."
-)
-# accepted still, so that a request giving it is not refused, and read by nothing. The schema marks
-# it deprecated; the CLI warns the caller who gives it, the REST API only logs it.
-# Defaults to `None`, not 1.0: FastAPI hands a query model every default as if given, so only `None`
-# says it was not
-_SummaryUseNearbyStationDistanceField = Annotated[
-    float | None,
-    Field(
-        ge=0,
-        deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
-        description=f"Deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
     ),
 ]
 _MinGainOfValuePairsField = Annotated[
@@ -577,7 +568,7 @@ class StationsRequest(_RefusesRenamedParameters):
 
     with_metadata: _WithMetadataField = False
 
-    format: _FormatField = "json"
+    format: _StreamFormatField = "json"
     pretty: _PrettyField = False
     debug: _DebugField = False
 
@@ -739,7 +730,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     with_metadata: _WithMetadataSettingsField = False
     with_stations: _WithStationsField = False
 
-    format: _FormatField = "json"
+    format: _StreamFormatField = "json"
     pretty: _PrettyField = False
     debug: _DebugField = False
 
@@ -964,7 +955,6 @@ class SummaryRequest(_RefusesRenamedParameters):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: _SummaryUseNearbyStationDistanceField = None
     min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
@@ -992,8 +982,6 @@ class SettingsRequest(BaseModel):
 
     Each is the field of the request that takes it, so it is read as that request reads it; one
     the interpolation and the summary request both take is one field here, given to both.
-    `use_nearby_station_distance` is the interpolation request's: the summary request's is
-    deprecated, and read by nothing.
     """
 
     model_config = {"extra": "forbid"}
@@ -1142,6 +1130,7 @@ def failure_status(e: BaseException) -> int:
         RequestError, OverflowError          400  the request cannot be served as phrased
         NotFoundError                        404  a provider, network, station or issue that does not exist
         ConfigurationError                   501  a credential or optional dependency this installation lacks
+        NotImplementedError                  501  something wetterdienst does not do for a network, e.g. history
         NoInternetError                      503  no connection to the provider could be made
         UpstreamError after a timeout        504  the provider did not answer in time
         any other UpstreamError              502  the provider failed, or sent what the parser does not expect
@@ -1153,7 +1142,8 @@ def failure_status(e: BaseException) -> int:
     to its own zone, an issue a negative offset carries past year 9999 -- and the dates on the way
     that come that close are the request's. A `ConfigurationError`, a credential or an optional
     dependency this installation lacks, is a 501: the request was well formed, and the deployment
-    declines it. A `NoInternetError` is a 503: nothing is wrong with the request or the server's
+    declines it, and so is a `NotImplementedError`, which says what wetterdienst does not do for a network (GH-3065).
+    A `NoInternetError` is a 503: nothing is wrong with the request or the server's
     code, and the same request can succeed once the connection is back (GH-2640). Any other
     `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
     provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
@@ -1169,7 +1159,7 @@ def failure_status(e: BaseException) -> int:
         return 404
     if isinstance(e, (RequestError, OverflowError)):
         return 400
-    if isinstance(e, ConfigurationError):
+    if isinstance(e, (ConfigurationError, NotImplementedError)):
         return 501
     if isinstance(e, NoInternetError):
         return 503
@@ -1616,8 +1606,13 @@ def get_values(
     request: ValuesRequest,
     settings: Settings,
     options: Options | None = None,
+    check: Callable[[StationsResult], None] | None = None,
 ) -> ValuesResult:
-    """Get values based on request."""
+    """Get values based on request.
+
+    `check` is given the stations selected before any value is downloaded, and refuses the request by raising:
+    the limits of the REST API are applied there (GH-3065).
+    """
     stations_ = get_stations(
         api=api,
         request=request,
@@ -1625,6 +1620,8 @@ def get_values(
         settings=settings,
         options=options,
     )
+    if check is not None:
+        check(stations_)
 
     # TODO: Add stream-based processing here.
     # a `ValueError` from the values -- a provider refusing a request it cannot serve as phrased
@@ -1650,9 +1647,12 @@ def get_interpolate(
     request: InterpolationRequest,
     settings: Settings,
     options: Options | None = None,
+    check: Callable[[TimeseriesRequest], None] | None = None,
 ) -> InterpolatedValuesResult:
-    """Get interpolated values based on request."""
+    """Get interpolated values based on request. `check` is given the request before any value is downloaded."""
     r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings, options=options)
+    if check is not None:
+        check(r)
 
     if request.latitude is not None and request.longitude is not None:
         values_ = r.interpolate((request.latitude, request.longitude), elevation=request.elevation)
@@ -1675,9 +1675,12 @@ def get_summarize(
     request: SummaryRequest,
     settings: Settings,
     options: Options | None = None,
+    check: Callable[[TimeseriesRequest], None] | None = None,
 ) -> SummarizedValuesResult:
-    """Get summarized values based on request."""
+    """Get summarized values based on request. `check` is given the request before any value is downloaded."""
     r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings, options=options)
+    if check is not None:
+        check(r)
 
     if request.latitude is not None and request.longitude is not None:
         values_ = r.summarize((request.latitude, request.longitude), elevation=request.elevation)
@@ -1695,8 +1698,8 @@ def get_summarize(
     return values_
 
 
-class StripesMetadata(BaseModel):
-    """Metadata for climate stripes data."""
+class StripesSeries(BaseModel):
+    """What a series of climate stripes is of: the station, the parameter and the unit of its values."""
 
     model_config = {"extra": "forbid"}
 
@@ -1710,11 +1713,11 @@ class StripesMetadata(BaseModel):
 
 
 class StripesData(BaseModel):
-    """Climate stripes data with metadata and values."""
+    """Climate stripes data: what the series is of, and its values."""
 
     model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
 
-    metadata: StripesMetadata
+    series: StripesSeries
     df: pl.DataFrame
 
 
@@ -1936,7 +1939,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     from wetterdienst.core.util import _values_unit  # noqa: PLC0415
 
     (parameter_model,) = stations.parameters
-    metadata = StripesMetadata(
+    series = StripesSeries(
         station=station,
         resolution=parameter_model.dataset.resolution.name,
         dataset=parameter_model.dataset.name,
@@ -1948,7 +1951,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         ),
     )
 
-    return StripesData(metadata=metadata, df=df)
+    return StripesData(series=series, df=df)
 
 
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
@@ -1967,7 +1970,7 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
     stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
-    station_dict = stripes_data.metadata.station
+    station_dict = stripes_data.series.station
     cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
 
     df_without_nulls = df.drop_nulls("value")

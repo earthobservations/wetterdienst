@@ -30,6 +30,7 @@ from wetterdienst.model.result import (
     StationsFilter,
     StationsResult,
     _License,
+    _metadata_of,
     _Producer,
     _Provider,
     describe_producer,
@@ -292,7 +293,7 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **stations.get_metadata(),
+        **_metadata_of(stations),
         request=ResolvedRequest(
             provider=provider.lower(),
             network=network.lower(),
@@ -397,7 +398,7 @@ def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> Respon
     """Build the block of the values of climate stripes (`/api/stripes/values`), which are DWD observation's."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
-    stripes = data.metadata
+    stripes = data.series
     return _block_without_result(
         DwdObservationRequest,
         ResolvedRequest(

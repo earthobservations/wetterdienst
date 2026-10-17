@@ -27,8 +27,8 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from wetterdienst.exceptions import NoInternetError
-from wetterdienst.util.network import CREDENTIAL_REJECTED_STATUSES, post_file, raise_if_credential_rejected
+from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.util.network import CREDENTIAL_REJECTED_STATUSES, as_outage, post_file, raise_if_credential_rejected
 
 if TYPE_CHECKING:
     from pydantic import SecretStr
@@ -88,9 +88,11 @@ def get_ceda_token(settings: Settings) -> str | None:
 
     A cached token is reused while it is still valid; otherwise a fresh one is minted from the
     credentials and cached. Returns None (rather than raising) if no credentials are configured or
-    the exchange fails in a way that says nothing of the credentials, so callers can surface a clear
-    "not authenticated" data gap instead of a hard crash. Raises `NoInternetError` if CEDA cannot be
-    reached, and `CredentialRejectedError` if CEDA refuses the username and password (HTTP 401 or 403).
+    CEDA answers the exchange with something that is no token and says nothing of the credentials, so
+    callers can surface a clear "not authenticated" data gap instead of a hard crash. Raises
+    `NoInternetError` if CEDA cannot be reached, `DownloadError` if it did not answer (a timeout, a
+    dropped connection, a 5xx, a TLS failure; GH-3022), and `CredentialRejectedError` if it refuses the
+    username and password (HTTP 401 or 403).
     """
     credentials = settings.auth.ceda
     if not credentials:
@@ -124,9 +126,15 @@ def get_ceda_token(settings: Settings) -> str | None:
         # page, see GH-3018
         raise_if_credential_rejected(file, "CEDA", "CEDA", "username and password")
         if isinstance(file.content, Exception):
-            # said out loud whichever way it failed, and once every three days at that: an
-            # intercepted TLS handshake and a refusing server both arrive here, and every one of
-            # them ends as an empty Met Office result the user would otherwise have no account of.
+            # CEDA that did not answer -- a timeout, a dropped connection, a body cut short, a 5xx, a
+            # TLS failure -- is an outage, and not a missing token: every request of this provider
+            # starts here, and one that went on would end as an empty Met Office result (GH-3022)
+            failure = as_outage(file.content, _TOKEN_URL)
+            if isinstance(failure, DownloadError):
+                raise failure
+            # said out loud whichever way it failed, and once every three days at that: CEDA that
+            # answered with a refusal other than of the credentials ends as an empty Met Office
+            # result the user would otherwise have no account of.
             # The reason is named rather than the account blamed.
             log.warning(f"Failed to obtain CEDA access token: {file.content}")
             return None

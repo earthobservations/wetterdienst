@@ -12,6 +12,7 @@ feature per timestamp -- see https://www.geo.be/catalog/details/RMI_AWS_WFS.
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
@@ -21,7 +22,13 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import OutOfRange, clear_sentinels, join_quality_flags, unpivot_with_raw
+from wetterdienst.model.quality_flags import (
+    NoReading,
+    OutOfRange,
+    clear_sentinels,
+    join_quality_flags,
+    unpivot_with_raw,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.rmi.observation.metadata import RmiObservationMetadata
@@ -107,6 +114,23 @@ _RANGES: dict[str, dict[str, tuple[float, float]]] = {
         "temp_max": _AIR_TEMPERATURE,
         "temp_min": _AIR_TEMPERATURE,
     },
+}
+
+# The periods (first and last day, both included, UTC) in which the `sun_duration` of a station is no reading, though
+# it lies inside the range, and the source does not say so: its `validated` flag for sunshine is false on 7,720 of the
+# 8,134 days of 6477 (read 2026-10-17). Station 6477 (GH-3031):
+# - 2016-04-30 to 2017-05-31 (397 days, 470 to 1,440 minutes a day) the sunshine follows the length of the day in
+#   steps of ten minutes whatever the weather: 980 minutes on each day of 2016-06-06 to 2016-07-05 and on 2016-12-22,
+#   910 on 2016-05-10 with a mean radiation of 93.6 W/m2, 1,440 on 13 days from 2016-12-23. The 10-minute values of
+#   2016-12-24 are 10 in all 144 intervals and the hourly ones 60 in all 24 hours;
+# - 2015-04-25 to 2015-08-19 (117 days) and 2017-06-02 to 2017-09-19 (110 days) every day reads 0 in summer, as every
+#   hour of 2015-06-15 and 2017-07-15 and every 10 minutes of 2017-07-15 from 10:00 to 14:00 does: it did not measure.
+_NO_SUNSHINE: dict[str, tuple[tuple[dt.date, dt.date], ...]] = {
+    "6477": (
+        (dt.date(2015, 4, 25), dt.date(2015, 8, 19)),
+        (dt.date(2016, 4, 30), dt.date(2017, 5, 31)),
+        (dt.date(2017, 6, 2), dt.date(2017, 9, 19)),
+    ),
 }
 
 _STATION_ENDPOINT = (
@@ -265,8 +289,25 @@ class RmiObservationValues(TimeseriesValues):
         # a value outside the range of its attribute is nulled, and its text goes with the row as `raw`
         ranges = _RANGES[dataset.resolution.name]
         for name in param_names:
+            rules: list[NoReading | OutOfRange] = []
+            if name == "sun_duration" and station_id in _NO_SUNSHINE:
+                stamp = _parse_utc_z(pl.col("timestamp"))
+                rules.append(
+                    NoReading(
+                        where=pl.any_horizontal(
+                            (stamp >= pl.lit(dt.datetime.combine(first, dt.time(), tzinfo=dt.UTC)))
+                            & (
+                                stamp
+                                < pl.lit(dt.datetime.combine(last + dt.timedelta(days=1), dt.time(), tzinfo=dt.UTC))
+                            )
+                            for first, last in _NO_SUNSHINE[station_id]
+                        )
+                    )
+                )
             if name in ranges:
-                df = clear_sentinels(df, [name], OutOfRange(*ranges[name]))
+                rules.append(OutOfRange(*ranges[name]))
+            if rules:
+                df = clear_sentinels(df, [name], *rules)
         values = unpivot_with_raw(df, index=["timestamp"], on=param_names, variable_name="parameter")
         # Attach the per-parameter validation flag from qc_flags as the quality flag. A row without a value is
         # dropped, but not one whose value was nulled: that carries what it was.
