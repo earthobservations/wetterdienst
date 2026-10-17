@@ -7,12 +7,34 @@
 
 ```{toctree}
 :hidden:
+:caption: Get started
 
-data/index.md
+usage/quickstart.md
+usage/concepts.md
+usage/troubleshooting.md
+```
+
+```{toctree}
+:hidden:
+:caption: Use
+
 usage/index.md
+data/index.md
+```
+
+```{toctree}
+:hidden:
+:caption: Reference
+
 library/index.md
-license.md
-contribution/index.md
-known_issues.md
 changelog.md
+known_issues.md
+```
+
+```{toctree}
+:hidden:
+:caption: Project
+
+contribution/index.md
+license.md
 ```

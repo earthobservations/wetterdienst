@@ -9,7 +9,8 @@ kernelspec:
 ## Introduction
 
 The API offers access to different data products. They are outlined in more detail within the
-[data](../data/overview.md) chapter.
+[data](../data/overview.md) chapter, and the words (provider, network, dataset, resolution, period) are in
+[Concepts](concepts.md).
 Please also check out complete examples about how to use the API in the
 [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) folder. In order to explore all
 features interactively, you might want to try the [cli](cli.md). For managing general settings and the options of a
@@ -607,93 +608,10 @@ values.df_stations
 
 #### Quality flags
 
-Every reading has one string column, `quality_flags` (in the wide shape `<parameter>_quality_flags`),
-holding the flags its source publishes for it. It is null where the source gives none, which is the
-case for every provider not listed below. Interpolated and summarized results have no such column, as
-they are made of several stations' readings. The sources call the field by many names (DWD `QN`,
-MIDAS `MESQL`, ECCC `Flag`, SMHI `Kvalitet`, GHCN `QFLAG`, NWS `qualityControl`, Frost `qualityCode`, Hubeau
-`code_qualification_obs`, Météo-France `Q<parameter>`) and the meaning of a code differs from provider to
-provider, so a code from one says nothing about one from another; none is a scale of better and worse
-unless the table says so.
-
-- A source with one flag: its plain code as the source writes it, only trimmed (`T`, `Good`, `3`).
-- A source with several kinds of flag: the ordinary quality flag first as a plain code, then every other
-  kind as `kind:code`, comma-separated, in a fixed order per provider (`G,measurement:T,source:7`,
-  `3,element:E`). A blank flag is left out, so a plain token is always the quality flag, and
-  `measurement:T` alone is a reading whose quality flag is blank.
-- A value the provider maps from a missing-value sentinel carries the text the source wrote for it as the
-  last token, `raw:<text>`, after the quality flag and the other kinds (`3,raw:-999`, `raw:-99.0`,
-  `raw:NaN`). The value is null, or what the source documents the code to stand for (`0.0` for a
-  precipitation of `-1.0`), and the text stays beside it. It is the cell as the source writes it, `-999.0`
-  where the source writes that; where the value comes as a JSON number the text is the one the provider
-  declares. The long shape drops the rows without a value by default, so the token shows with
-  `drop_nulls=False` or in the wide shape; a filter on a null `quality_flags` as "no flag" meets
-  these rows then.
-- A value outside the physical range of its parameter that is no code (4021 degrees for a daily
-  maximum, 17,802 mm for a month of rain) is treated the same way where the table below names the
-  provider: null, with `raw:<number>` as the last token, the number as short as it can be written
-  (`raw:4021`, `raw:110.26`). The ranges are generous and, for the rain and the sunshine of a span,
-  grow with the resolution (what is no reading of a minute is one of a day), so a value that is only odd
-  stays.
-- `str.split(",")` takes the tokens apart; where a numeric code was used before, cast it:
-  `pl.col("quality_flags").cast(pl.Int64, strict=False)`; a code that is no number (IMGW's `Z`) and a
-  value with several tokens become null, so take the first token of a code that can be followed by
-  `raw:` or a further kind: `pl.col("quality_flags").str.split(",").list.first().cast(pl.Int64, strict=False)`. The sentinel of a reading is
-  `pl.col("quality_flags").str.extract(r"raw:([^,]*)$")`.
-
-The table lists the plain codes and the further kinds; the `raw:` tokens are in the second table below it.
-
-| Provider | codes in `quality_flags` |
-| --- | --- |
-| DWD observation | `QN`, the quality control level of the file's row: `1` only formal control, `2` controlled with individually defined criteria, `3` automatic control and correction, `5` historic, subjective procedures, `7` second control done, before correction, `8` quality control outside routine, `9` not all parameters corrected, `10` quality control finished (data up to 1980 reach `5` at best; 10 minutes data `1` to `3`). A larger number is a more thorough check. Hourly `sun` adds `zone:woz` for a stamp of a period in the station's local true solar time, not UTC (`10,zone:woz`). Hourly `temperature_air` adds `zone:mez` for a stamp that was MEZ, UTC+1, in a period DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" and is returned shifted to UTC (`3,zone:mez`). `DwdObservationRequest.describe_fields` prints the table of a dataset |
-| DWD derived | hourly `radiation_global` and `sunshine_duration` (DUETT, `QN_952`): `500` DUETT data without station and satellite data, `501` on station data only, `502` on satellite data only, `503` on station and satellite data; the other derived datasets: null |
-| DWD phenology | `Qualitaetsniveau`: `1` formal check only, `7` checked in routine but uncorrected, `10` checked and corrected |
-| DWD road | the station's own verdict, from `qualityInformationAwsData`, or this library's: `1` suspect, `0` checked and not found suspect, null unknown ([details](../data/provider/dwd/road/15_minutes.md)) |
-| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null (apart from `raw:`) |
-| Met Office observation | the MIDAS `*_q` flag `MESQL`, a five digit compound code, written by the file as an integer so that its leading zeros are missing (`2576` is `02576`; `str.zfill(5)` restores them) (marker, estimate, status, query, level: [QC flags](https://dap.ceda.ac.uk/badc/ukmo-midas/metadata/doc/QC_J_flags.html)); not a scale |
-| RMI | the validation of the value in `qc_flags`: `1` validated, `0` not validated |
-| IMGW meteorology | the status column beside the value: `8` no measurement (value null), `9` the phenomenon did not occur (value 0), `Z` a collective total (`o_d` only); `11` is this library's own, for a day absent from a month that is present (`daily/precipitation`, value 0). Blank status is null |
-| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere, Météo-France synop | null (apart from `raw:`) |
-| DMI | `qcStatus`: `manual` quality controlled by DMI's climatologists, `none` not controlled; then `validity:true` or `validity:false`, whether the climatologists consider the value valid ("Invalid data is generally not correct"; mostly Greenland) |
-| Hubeau (Eaufrance) | `code_qualification_obs`: `0` neutre, `4` faible, `8` forte, `12` douteuse, `16` non qualifiée, `20` bonne, `30` estimée |
-| MET Norway Frost | `qualityCode`: `0` controlled and found O.K., `1` controlled and corrected or interpolated, `2` slightly uncertain, not controlled, `4` slightly uncertain, not corrected, `5` very uncertain, not corrected, `6` very uncertain, model data, `7` erroneous, not corrected |
-| ECCC | the `*_FLAG` letter of the value: `M` missing, `E` estimated, `T` trace, ... (null for monthly) |
-| EA hydrology | the reading's `quality`: `Good`, `Estimated`, `Suspect`, `Unchecked`, `Missing`; then `completeness:Complete` or `completeness:Incomplete`, whether the value is based on complete data (`Good,completeness:Complete`). Only daily readings carry it, and not all of them; a reading without one has the quality alone |
-| Météo-France observation | the `Q<parameter>` code: `9` filtered, `0` protected, `1` validated, `2` doubtful |
-| NOAA GHCN daily | `QFLAG,measurement:MFLAG,source:SFLAG` of the value's attributes: the check it failed (`X` bounds, `G` gap, ...), how the value was made (`T` trace, ...) and where it came from (`0` U.S. Cooperative Summary of the Day, ...), as in the GHCN-Daily `readme.txt` |
-| NOAA GHCN hourly (GHCNh) | `QUALITY,measurement:MEASUREMENT,source:SOURCE`: the `<element>_Quality_Code` of the value as the file writes it, case included (`q` and `Q` differ), kept for a suspect or erroneous value too, then its `<element>_Measurement_Code` (how the value was made, by element and by source as Table 2 of the documentation lists it: `N` a normal and `C` a calm wind, `D` a derived relative humidity or wet bulb, `0` to `8` the tendency of the 3-hour pressure change, `T` or `2` a trace of precipitation, `1` and `2` of a snow depth, ...) and its `<element>_Source_Code` (the data source, `335`, `223`, ... as `ghcnh-source-list.pdf` lists it); a code the file leaves blank, or writes `Null` (sources 245 and 367), is left out, so `4,source:335` has no measurement code. The meaning of the quality code (and of the measurement code) depends on the element's source, as Table 3 of the [GHCNh documentation](https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf) lists it. Sources 313, 314, 315, 322, 335, 343, 344, 346: `0` passed gross limits, `1` passed all checks, `2` suspect, `3` erroneous, `4` to `7` the same four from an NCEI data source, `9` passed gross limits if the element is present; sources 220, 221, 222, 223, 347, 348: `0` not checked, `1` good, `2` suspect, `3` erroneous, `4` calculated, `5` removed. Sources 345 and 382 have codes of their own, and some sources have codes Table 3 does not list (`0` and `1` of source 401). A letter is mostly a check of the integration run on temperature, dew point, station and sea level pressure, wind direction and wind speed (`c` climatological outlier, `s` spike, `f` frequent value, `o` odd cluster, ...); on a derived humidity or wet bulb `f` is a suspect input and `o` a relative humidity out of range; `A`, `P`, `U` and the `q` of source 382 are legacy letters |
-| CHMI | daily, 10 minutes, hourly: `QUALITY`, then `element:FLAG`: `0` good, `1` suspect, `2` poor, `3` estimated, `4` missing, `5` unknown (`meta4.csv`), and the letter of the element's own table (`meta3.csv`: SRA `T` an amount too small to measure, ...). Monthly and annual (no `QUALITY`, no `FLAG`): `interrupted:I`, the value is computed although daily values of the period are missing (`FLAG_INTERRUPTED`); `repeat:*` (`FLAG_REPEAT`, a `MAX` or `MIN` reached on more than one day) is read too but sits on `MAX`/`MIN` rows only, which no monthly or annual parameter is, so it does not show today. CHMI documents neither flag; the meaning is read from the files against their daily files |
-| NWS | the MADIS `qualityControl` flag: `Z`, `C`, `S`, `V`, `X`, `Q`, `G`, `B`, `T` |
-| SMHI | the `Kvalitet` code: `G` approved, `Y` suspect or aggregated |
-
-##### Sentinels in `quality_flags`
-
-| Provider | `raw:` text (value) |
-| --- | --- |
-| DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null) |
-| DWD derived | `-999` and `-9999` (null) |
-| DWD mosmix, dmo | `-` for a value the run does not have (null) |
-| DWD poi | `---`, and any text that is no number (null) |
-| DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
-| AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
-| DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
-| FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
-| Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
-| IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
-| IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
-| KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount`, a trace (0.0) |
-| Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
-| MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
-| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
-| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
-| RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
-| NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
-
-The other providers write their missing values as an empty field, a JSON null or a status that the plain code
-already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
-missing value. CHMI, MeteoSwiss, SMHI, DWD phenology and the real-time values of AEMET read a text that is no
-number as null without a token; none was found in their files, and DWD observation does the same for a letter
-outside `P` and `I` in a measurement method.
+Every reading has one string column, `quality_flags` (in the wide shape `<parameter>_quality_flags`), with the
+flags its source publishes for it, null where the source gives none. What a code means differs from provider to
+provider, so a code from one says nothing about one from another. The tokens, the codes of each provider and the
+sentinels that are kept as `raw:<text>` are on the [quality flags](../data/quality-flags.md) page.
 
 ### Results
 
@@ -898,155 +816,16 @@ df
 
 ### Interpolation and summary at an elevation
 
-Air temperature falls with height -- about 0.65 K per 100 m, a dew point about 0.2 -- so stations
-at different altitudes say different things about the same weather. Interpolating them as they come
-fits that vertical difference as though it were horizontal: around Garmisch the stations within
-40 km span 630 m to 2956 m, which is 15 K of it.
-
-Give the point an ``elevation`` in metres and each station's readings are brought to it first:
-
-```python
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=[("daily", "kl", "temperature_air_mean_2m")],
-    start="2022-01-01",
-    end="2022-01-05",
-)
-request.interpolate(latlon=(47.48, 11.06), elevation=1500)   # on the mountain
-request.interpolate(latlon=(47.48, 11.06), elevation=200)    # in the valley
-```
-
-``summarize`` takes the same argument, where it matters more still: a summary answers with one
-station's reading rather than a blend, so nothing softens the difference in altitude.
-
-``interpolate_by_station_id`` and ``summarize_by_station_id`` answer at the named station's own
-altitude unless told another one, that being the one case where the elevation is known without
-being given. For the reading uncorrected, pass the station's coordinates to ``interpolate``.
-
-A station whose own elevation the provider does not report cannot be placed against the elevation
-asked for, so it is left out rather than contributing at its own altitude while its neighbours are
-moved. Some providers report no station elevations at all, in which case an elevation leaves nothing
-to interpolate from for the quantities that depend on it.
-
-Left out, nothing is corrected. The elevation cannot be derived from the stations themselves: an
-elevation taken from the same linear interpolation cancels out of the correction exactly, leaving
-the result unchanged, so it has to come from the caller.
+`request.interpolate(latlon=..., elevation=1500)` and `summarize` take an `elevation` in metres, which brings each
+station's readings to the height of the point first (air temperature falls about 0.65 K per 100 m). What is
+corrected, which stations are left out and when a request is refused are in
+[Interpolation & Summary](interpolation.md#elevation).
 
 ### Export
 
-Data can be exported to [SQLite](https://www.sqlite.org/), [DuckDB](https://duckdb.org/docs/sql/introduction),
-[InfluxDB](https://github.com/influxdata/influxdb), [CrateDB](https://github.com/crate/crate) and more targets.
-A target is identified by a connection string.
-
-Examples:
-
-- sqlite:///dwd.sqlite?table=weather
-- duckdb:///dwd.duckdb?table=weather
-- influxdb://localhost/?database=dwd&table=weather
-- crate://localhost/?database=dwd&table=weather
-
-File targets are identified by their extension:
-
-- file:///path/to/dwd.csv
-- file:///path/to/dwd.json
-- file:///path/to/dwd.jsonl
-- file:///path/to/dwd.xlsx
-- file:///path/to/dwd.parquet
-- file:///path/to/dwd.feather
-- file:///path/to/dwd.zarr
-- file:///path/to/dwd.nc
-
-CSV and spreadsheets are written the way ``to_csv`` returns them, with timestamps as ISO strings
-and a list of station ids as one comma-separated field. JSON and JSON Lines hold the same records
-with the list kept as a list, JSON having arrays of its own, rather than the response envelope
-``to_json`` wraps them in. Zarr and NetCDF go through xarray, grouped by the datasets the frame holds;
-NetCDF writes its timestamps as CF units, Zarr as the nanoseconds since the epoch it reads back.
-
-```python
-from wetterdienst import Settings
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air"),
-    start="2019-01-01",
-    end="2020-01-01",
-)
-stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values().to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
-```
-
-The previous example uses a batch approach meaning each station is written one by one. The first station is written
-with the `if_exists` given and every station after it with `append`, so the sink has to accept `append` — which is why
-this form passes it explicitly rather than taking the `fail` that `TimeseriesValues.to_target` defaults to.
-
-You could also first collect all data and then write it at once:
-
-```python
-from wetterdienst import Settings
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air"),
-    start="2019-01-01",
-    end="2020-01-01",
-)
-stations = request.filter_by_station_id(station_id=[1048, 1050])
-stations.values().all().to_target("influxdb://localhost/?database=dwd&table=weather")
-```
-
-You could also iterate over the stations and write them one by one:
-
-```python
-from wetterdienst import Settings
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air"),
-    start="2019-01-01",
-    end="2020-01-01",
-)
-stations = request.filter_by_station_id(station_id=[1048, 1050])
-for station in stations.values().query():
-    station.to_target("influxdb://localhost/?database=dwd&table=weather", if_exists="append")
-```
-
-The argument `if_exists` supports the following modes:
-
-- `fail`: Raise an error if the table/file already exists.
-- `replace`: Drop the table/file before inserting new values.
-- `append`: Insert new values to the existing table (not supported by files).
-- `skip`: Do nothing if the table/file already exists.
-
-`replace` is the default on a result — `StationsResult`, `ValuesResult`, anything carrying a frame.
-`TimeseriesValues.to_target`, the batch form above, defaults to `fail` instead and then writes
-every station after the first with `append`, because there it is one table being filled station by
-station rather than one frame being written.
-
-InfluxDB takes `replace` and `append`, which do the same thing there: every write is points, and a
-point carrying the timestamp and tags another already has replaces that one, so `replace` does not
-clear what is already in the measurement. `fail` and `skip` are refused, because both turn on
-whether the measurement exists and this sink never asks.
-
-An append into a database matches columns by name rather than by position, so a frame carrying a
-column the table does not have is refused instead of being filed under whatever heading sat in that
-position. A frame that is a *subset* of the table's columns is accepted, with nulls for the rest.
-
-Every refusal — a mode the sink does not do, a target that already holds data under `fail`, or a
-format or protocol nothing here writes — raises `ExportRefusedError` (from `wetterdienst.exceptions`),
-whose message is the whole of what there is to know. A package a sink needs that is not installed
-(DuckDB, SQLAlchemy, xarray) raises `MissingDependencyError`, an `ImportError` naming the extra
-that installs it. Anything else out of `to_target` is a defect or an environment problem and keeps
-its own class and traceback.
-
-The CLI takes the same argument as `--if-exists`, which is what a scheduled acquisition needs —
-see [Scheduling](scheduling.md):
-
-```bash
-wetterdienst values --provider=dwd --network=observation \
-    --parameters=daily/kl/temperature_air_mean_2m --periods=recent --stations=01048 \
-    --target="duckdb:////var/lib/wetterdienst/obs.duckdb?table=weather" --if-exists=append
-```
+A result writes itself to a file (CSV, JSON, Excel, Parquet, Feather, Zarr, NetCDF) or a database (SQLite, DuckDB,
+PostgreSQL, MySQL, CrateDB, InfluxDB) with `to_target(target)`, and `TimeseriesValues.to_target` does it station by
+station. The targets, the `if_exists` modes and the errors are on the [Export](export.md) page.
 
 ## Errors
 
@@ -1155,25 +934,7 @@ Or similarly with the cli:
 
 ## FSSPEC
 
-FSSPEC is used for flexible file caching. It relies on the two libraries requests and aiohttp. Aiohttp is used for
-asynchronous requests and may swallow some errors related to proxies, ssl or similar. Use the
-setting `fsspec_client_kwargs` (environment variable `WD_FSSPEC_CLIENT_KWARGS`) to pass your very own client kwargs
-to fsspec, which are merged into the default ones (see [Settings](settings.md)) e.g.
-
-```{code-cell}
----
-mystnb:
-  number_source_lines: true
----
-from wetterdienst import Settings
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-
-settings = Settings(fsspec_client_kwargs={"trust_env": True})  # use proxy from environment variables
-
-request = DwdObservationRequest(
-    parameters=("hourly", "temperature_air"),
-    settings=settings
-)
-stations = request.filter_by_station_id(station_id=[1048])
-stations
-```
+The downloads go through fsspec, which relies on aiohttp for asynchronous requests, and aiohttp may swallow errors
+about a proxy or SSL. How to pass your own client arguments (a proxy from the environment, a timeout, headers) and a
+certificate bundle is in [Settings](settings.md#python): `fsspec_client_kwargs` (`WD_FSSPEC_CLIENT_KWARGS`) and
+`use_certifi`.

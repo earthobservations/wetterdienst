@@ -153,17 +153,29 @@ wetterdienst values --provider=dwd --network=observation --parameters=daily/kl -
 ```
 
 More in [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and in the
-[usage](https://wetterdienst.readthedocs.io/en/latest/usage/) chapter.
+[quickstart](https://wetterdienst.readthedocs.io/en/latest/usage/quickstart.html).
 
-## Links
+## Where to start
 
-- App: [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
-- Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io/)
-  ([usage](https://wetterdienst.readthedocs.io/en/latest/usage/),
-  [contribution](https://wetterdienst.readthedocs.io/en/latest/contribution/),
-  [changelog](https://wetterdienst.readthedocs.io/en/latest/changelog.html))
-- [Examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and
-  [benchmarks](https://github.com/earthobservations/wetterdienst/tree/main/benchmarks)
+Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io/en/latest/)
+
+- **Install and make a first call** (Python, command line, REST API, assistant, app):
+  [Quickstart](https://wetterdienst.readthedocs.io/en/latest/usage/quickstart.html), and
+  [Concepts](https://wetterdienst.readthedocs.io/en/latest/usage/concepts.html) for the words.
+- **Python**: [Python API](https://wetterdienst.readthedocs.io/en/latest/usage/python-api.html),
+  [examples](https://github.com/earthobservations/wetterdienst/tree/main/examples) and
+  [benchmarks](https://github.com/earthobservations/wetterdienst/tree/main/benchmarks).
+- **Command line**: [command line interface](https://wetterdienst.readthedocs.io/en/latest/usage/cli.html).
+- **REST API and MCP**: [REST API](https://wetterdienst.readthedocs.io/en/latest/usage/restapi.html),
+  [MCP server](https://wetterdienst.readthedocs.io/en/latest/usage/mcp.html).
+- **App**: [wetterdienst.eobs.org](https://wetterdienst.eobs.org/), and
+  [how to run your own](https://wetterdienst.readthedocs.io/en/latest/usage/app.html).
+- **The data**: [providers, parameters and licences](https://wetterdienst.readthedocs.io/en/latest/data/index.html),
+  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html).
+- **Something fails**: [troubleshooting](https://wetterdienst.readthedocs.io/en/latest/usage/troubleshooting.html)
+  and [known issues](https://wetterdienst.readthedocs.io/en/latest/known_issues.html).
+- **Contribute**: [contribution guide](https://wetterdienst.readthedocs.io/en/latest/contribution/),
+  [changelog](https://wetterdienst.readthedocs.io/en/latest/changelog.html).
 
 ## What we stand for
 

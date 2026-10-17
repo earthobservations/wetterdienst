@@ -1,7 +1,8 @@
 # Known Issues
 
 Besides the officially listed issues on the wetterdienst repository, there are other issues regarding
-running wetterdienst listed below that may be environment specific and are not likely fixable on our side.
+running wetterdienst listed below that may be environment specific and are not likely fixable on our side. What an
+error of the library means, whatever the machine, is in [Troubleshooting](usage/troubleshooting.md).
 
 ## Cache runs stale
 

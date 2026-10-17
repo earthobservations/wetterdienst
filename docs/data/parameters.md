@@ -62,7 +62,7 @@ What the library does enforce is another thing and is not this column. A source 
 outside every range (`-999`); the provider's reader maps it to null and keeps the text the source wrote in the
 `quality_flags` of the reading (`raw:-999`). Where a source also has values no instrument can produce (4021 degrees
 for a daily maximum), its reader nulls those too, with a range per provider and resolution that is generous, since it
-is there to catch a sentinel and not a record. Both are told in [Quality flags](../usage/python-api.md#quality-flags).
+is there to catch a sentinel and not a record. Both are told in [Quality flags](quality-flags.md).
 
 ## Glossary
 

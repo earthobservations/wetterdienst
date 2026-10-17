@@ -1704,3 +1704,27 @@ def test_docs_formatter_table_gives_the_keywords_of_each_formatter() -> None:
                     wrong.append(f"{cls.__name__}.{method}({', '.join(keywords)}): the page lists {shown}")
     assert len(rows) == 7, "the table of formatters changed shape"
     assert not wrong, "\n".join(wrong)
+
+
+def test_docs_mcp_page_lists_every_tool() -> None:
+    """Test that the table of tools on the MCP page names the tools the server has, and no other."""
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import _TOOL_NAMES  # noqa: PLC0415
+
+    text = (DOCS / "usage" / "mcp.md").read_text(encoding="utf8")
+    _, _, rest = text.partition("| Tool | REST route | What it is for |")
+    rows = list(takewhile(lambda line: line.startswith("|"), rest.splitlines()[2:]))
+    listed = {name for row in rows for name in re.findall(r"`(\w+)`", row.strip().strip("|").split("|")[0])}
+    assert listed == set(_TOOL_NAMES.values())
+
+
+def test_docs_quickstart_lists_every_extra() -> None:
+    """Test that the table of extras of the quickstart names each extra `pyproject.toml` declares, and no other."""
+    extras = set(
+        tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf8"))["project"]["optional-dependencies"]
+    )
+    text = (DOCS / "usage" / "quickstart.md").read_text(encoding="utf8")
+    _, _, rest = text.partition("| Extra | What it adds |")
+    rows = list(takewhile(lambda line: line.startswith("|"), rest.splitlines()[2:]))
+    listed = {name for row in rows for name in re.findall(r"`(\w+)`", row.strip().strip("|").split("|")[0])}
+    assert listed == extras
