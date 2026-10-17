@@ -243,21 +243,32 @@ def _read_envelope(file: File) -> dict | Exception:
     return envelope
 
 
-def _as_outage(failure: Exception, url: str) -> Exception:
+def _as_outage(failure: Exception, url: str, status: int | None = None) -> Exception:
     """Return a failure of a request as the `DownloadError` or `NoInternetError` it is, if AEMET did not answer.
 
     AEMET does not answer when the download timed out, was dropped or cut short, or came back as a
     5xx (`as_outage`), and when it says so in the envelope of an HTTP 200: an `estado` of 500 or
-    more, which is how it reports its own faults (GH-2965). Any other failure is an answer and is
-    returned as it was: a 404, whether of the request or as `estado` 404 ("no data for these
-    criteria"), a refused key, a 429 that outlasted the retries, a body that is no envelope.
+    more, which is how it reports its own faults (GH-2965). Nor does it when it refuses the rate, an
+    `estado` of 429 or an HTTP 429 that outlasted the retries (GH-2989): the data of that request was
+    not handed out, which a chunk skipped as "no data" would read as. Each is the `DownloadError`
+    that names the file, with the failure as its `__cause__`: an `_AemetEnvelopeError` whose `status`
+    is the `estado`, or the HTTP error. Any other failure is an answer and is returned as it was: a
+    404, whether of the request or as `estado` 404 ("no data for these criteria"), a refused key, a
+    body that is no envelope.
+
+    `status` is the HTTP status of the download the failure came from, which a failure that is no
+    `ClientResponseError` (a file that was not found) does not carry.
     """
-    if (
-        isinstance(failure, _AemetEnvelopeError)
-        and isinstance(failure.status, int)
-        and failure.status >= HTTPStatus.INTERNAL_SERVER_ERROR
+    estado = failure.status if isinstance(failure, _AemetEnvelopeError) else status
+    if isinstance(estado, int) and (
+        estado == HTTPStatus.TOO_MANY_REQUESTS
+        or (isinstance(failure, _AemetEnvelopeError) and estado >= HTTPStatus.INTERNAL_SERVER_ERROR)
     ):
-        error = DownloadError(_without_url_secrets(url), f"AEMET answered estado {failure.status}: {failure}")
+        kind = "estado" if isinstance(failure, _AemetEnvelopeError) else "HTTP"
+        reason = f"AEMET answered {kind} {estado}"
+        if estado == HTTPStatus.TOO_MANY_REQUESTS:
+            reason += ", the rate limit"
+        error = DownloadError(_without_url_secrets(url), f"{reason}: {failure}")
         error.__cause__ = failure
         return error
     return as_outage(failure, url)
@@ -307,7 +318,8 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     A failure is returned, not raised (see `_read_envelope` for the one that says the key is refused).
     The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
     One that is no answer -- a timeout, a dropped connection, a body cut short, a 5xx, an `estado`
-    of 500 or more -- is returned as the `DownloadError` that names the file, and a failed connection
+    of 500 or more, a rate limit that outlasted the retries (HTTP 429 or `estado` 429, GH-2989) -- is
+    returned as the `DownloadError` that names the file, and a failed connection
     as the `NoInternetError` (`_as_outage`); the readers of values raise those (GH-2965). A refusal of
     the key is asked once more before it is returned, AEMET answering a 401 to a key that it accepts on
     the next request (GH-3022).
@@ -330,14 +342,14 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        return _as_outage(envelope, file.url)
+        return _as_outage(envelope, file.url, file.status)
     if not isinstance(envelope.get("datos"), str):
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return Exception("AEMET answered with an envelope without a link to the data")
     datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
     if isinstance(datos_file.content, Exception):
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        return _as_outage(datos_file.content, datos_file.url)
+        return _as_outage(datos_file.content, datos_file.url, datos_file.status)
     payload = datos_file.content.read()
     if not _is_json_array(payload):
         # a maintenance page or an error object answered with a 200: neither the body nor the link
@@ -513,8 +525,9 @@ class AemetObservationValues(TimeseriesValues):
             # station would meet again (GH-3018)
             _raise_if_unanswered(payload)
             if isinstance(payload, Exception):
-                # AEMET answered, and the answer is no data for this chunk (a 404) or a rate limit
-                # that outlasted the retries: this chunk is missing from the result.
+                # AEMET answered, and the answer is no data for this chunk (a 404): this chunk is
+                # missing from the result. A rate limit that outlasted the retries is no answer
+                # and was raised above (GH-2989).
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
