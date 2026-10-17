@@ -14,8 +14,7 @@ vi.mock('@duckdb/duckdb-wasm', async () => {
   const { nodeDuckDB } = await import('../../duckdb-node')
   const db = await nodeDuckDB()
   return {
-    getJsDelivrBundles: () => ({}),
-    selectBundle: async () => ({ mainModule: '', mainWorker: '' }),
+    getPlatformFeatures: async () => ({ wasmExceptions: true }),
     ConsoleLogger: class {},
     AsyncDuckDB: class {
       async instantiate() {}
@@ -34,8 +33,6 @@ vi.mock('@duckdb/duckdb-wasm', async () => {
   }
 })
 vi.stubGlobal('Worker', class {})
-vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:duckdb')
-vi.spyOn(URL, 'revokeObjectURL').mockReturnValue()
 
 const data = [{ station_id: '01048', resolution: 'daily', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', timestamp: '2020-01-01T00:00:00.000000+00:00', value: 1.5, quality_flags: '10' }]
 

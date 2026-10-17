@@ -10,6 +10,10 @@ async function loadConfig() {
   return (await import('../../nuxt.config')).default as any
 }
 
+function policyOf(config: any): Record<string, string[]> {
+  return config.security.headers.contentSecurityPolicy
+}
+
 describe('security headers', () => {
   beforeEach(() => {
     vi.stubGlobal('defineNuxtConfig', (config: any) => config)
@@ -37,5 +41,79 @@ describe('security headers', () => {
     const imgSrc = config.security?.headers?.contentSecurityPolicy?.['img-src'] ?? []
 
     expect(imgSrc).toContain('https://*.tile.openstreetmap.org')
+  })
+
+  it('allows no CDN: the DuckDB-wasm and Swagger UI files are the app\'s own (GH-3094)', async () => {
+    const config = await loadConfig()
+    const policy = policyOf(config)
+
+    const everything = Object.values(policy).flat().join(' ')
+    expect(everything).not.toContain('jsdelivr')
+    expect(policy['worker-src']).toEqual(['\'self\''])
+    expect(policy['script-src']).not.toContain('blob:')
+  })
+
+  it('allows no evaluation of strings, and WebAssembly only for DuckDB\'s module', async () => {
+    const config = await loadConfig()
+    const scripts = policyOf(config)['script-src']!
+
+    expect(scripts).not.toContain('\'unsafe-eval\'')
+    expect(scripts).toContain('\'wasm-unsafe-eval\'')
+  })
+
+  it('lets the browser call its own origin, not the backend whose address is read when the app is built', async () => {
+    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://backend.internal:3000/api')
+    const config = await loadConfig()
+    const connect = policyOf(config)['connect-src']!
+
+    expect(connect).toContain('\'self\'')
+    expect(connect.join(' ')).not.toContain('backend.internal')
+    vi.unstubAllEnvs()
+  })
+
+  it('leaves the rate limit and CORS to the app\'s own middleware, not to nuxt-security\'s fixed, wildcard defaults (GH-3093, GH-3095)', async () => {
+    const config = await loadConfig()
+
+    expect(config.security?.rateLimiter).toBe(false)
+    expect(config.security?.corsHandler).toBe(false)
+    expect(config.runtimeConfig.corsAllowedOrigins).toBe('')
+  })
+})
+
+describe('the assets under a page with a COEP', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  it('say it too: a browser refuses a worker script without it, and DuckDB\'s is one (GH-3094)', async () => {
+    vi.stubGlobal('defineNuxtConfig', (config: any) => config)
+    const config = await loadConfig()
+
+    expect(config.routeRules['/_nuxt/**'].headers['Cross-Origin-Embedder-Policy']).toBe('credentialless')
+  })
+})
+
+describe('the rate limit in the runtime config', () => {
+  beforeEach(() => {
+    vi.stubGlobal('defineNuxtConfig', (config: any) => config)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('is on, at 300 requests in 300 seconds, counting the address of the connection', async () => {
+    vi.stubEnv('WD_E2E', '')
+    const { rateLimit } = (await loadConfig()).runtimeConfig
+
+    expect(rateLimit).toEqual({ enabled: true, tokens: 300, windowSeconds: 300, clientIpHeader: '' })
+  })
+
+  it('is off in the e2e suite\'s own build, and nowhere else', async () => {
+    vi.stubEnv('WD_E2E', '1')
+    expect((await loadConfig()).runtimeConfig.rateLimit.enabled).toBe(false)
   })
 })

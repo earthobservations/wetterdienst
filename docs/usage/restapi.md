@@ -30,7 +30,7 @@ The REST API is complemented by a modern web app built with Nuxt.js, providing a
 
 ### Access
 
-Visit [wetterdienst.eobs.org](https://wetterdienst.eobs.org) to use the web interface.
+Visit [wetterdienst.eobs.org](https://wetterdienst.eobs.org) to use the web interface. To run one, see [Web app](app.md).
 
 The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
 carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
@@ -710,7 +710,9 @@ in the table.
 
 A 502, 503 or 504 carries `Retry-After`, 30 seconds: the request was valid and the same one can succeed once the
 provider is back (or, after a timeout, with what the server has cached by then). The server limits no rate, so
-there is no 429; a proxy in front of it may.
+there is no 429; a proxy in front of it may, and the web app's own server does (a problem of the kind
+`urn:wetterdienst:problem:rate-limited` with `Retry-After`, see [Web app](app.md#rate-limit)). The app's problems are
+not in the table.
 
 The library's exceptions are answered by their class in the hierarchy of
 `wetterdienst.exceptions` (a `RequestError` is a 400, a `NotFoundError` a 404, a

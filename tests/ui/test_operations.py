@@ -105,10 +105,13 @@ def _lines(response: Any) -> list[dict[str, Any]]:  # noqa: ANN401
 def test_every_kind_is_documented_and_answered_with_a_status_of_its_own() -> None:
     """The table, the enumeration and the docs list the same kinds; each is answered with a status from the table."""
     docs = (Path(__file__).parents[2] / "docs" / "usage" / "restapi.md").read_text(encoding="utf-8")
-    # the web app's proxy answers one kind of its own when it cannot reach the backend, which the backend cannot
-    documented = set(re.findall(r"`urn:wetterdienst:problem:([a-z-]+)`", docs)) - {"backend-unreachable"}
+    # the web app answers kinds of its own, which the backend cannot: when it cannot reach the backend, and when
+    # a client is over its rate limit
+    app_kinds = {"backend-unreachable", "rate-limited"}
+    documented = set(re.findall(r"`urn:wetterdienst:problem:([a-z-]+)`", docs)) - app_kinds
 
-    assert "urn:wetterdienst:problem:backend-unreachable" in docs
+    for app_kind in app_kinds:
+        assert f"urn:wetterdienst:problem:{app_kind}" in docs, app_kind
     assert set(PROBLEMS) == set(ProblemKind)
     assert documented == {kind.value for kind in ProblemKind}
     for kind, spec in PROBLEMS.items():

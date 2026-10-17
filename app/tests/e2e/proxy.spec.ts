@@ -103,13 +103,30 @@ test.describe('API proxy', () => {
   })
 })
 
+test.describe('CORS', () => {
+  // GH-3095: the app answered `access-control-allow-origin: *` on everything, so any web page could read the API
+  // through it. Without `NUXT_CORS_ALLOWED_ORIGINS` it answers no page of another origin.
+  for (const path of ['/api/coverage', '/', '/docs']) {
+    test(`answers no access-control-allow-origin on ${path}, to a page of another origin or to none`, async ({ request }) => {
+      for (const headers of [{}, { origin: 'https://some-page.example' }]) {
+        const response = await request.get(path, { headers, timeout: REQUEST_TIMEOUT })
+        expect(response.ok()).toBeTruthy()
+        expect(response.headers()['access-control-allow-origin']).toBeUndefined()
+      }
+    })
+  }
+})
+
 test.describe('OpenAPI proxy', () => {
-  test('serves the backend Swagger UI on this origin', async ({ request }) => {
+  test('serves Swagger UI on this origin, from the app\'s own files', async ({ request }) => {
     const response = await request.get('/docs')
 
     expect(response.status()).toBe(200)
     // the app's own shell answers with a Nuxt document, so assert on what only Swagger sends
-    expect(await response.text()).toContain('swagger-ui')
+    const page = await response.text()
+    expect(page).toContain('swagger-ui')
+    expect(page).not.toContain('jsdelivr')
+    expect((await request.get('/_swagger-ui/swagger-ui-bundle.js')).status()).toBe(200)
   })
 
   test('serves the schema Swagger UI fetches', async ({ request }) => {

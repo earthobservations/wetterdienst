@@ -5,17 +5,23 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import QueryPanel from '~/components/QueryPanel.vue'
 
-// the panel's DuckDB, answered by DuckDB-wasm's Node build rather than the browser's bundles, which
-// load from a CDN into a worker
+// the panel's DuckDB, answered by DuckDB-wasm's Node build rather than the browser's bundle, which
+// runs in a worker
+// what the browser can do, which a test changes
+const browser = vi.hoisted(() => ({ features: async () => ({ wasmExceptions: true }) }))
+// the files the panel starts DuckDB from, which Vite turns into URLs of the app (`?url`); the Node build has no use for them
+const started = vi.hoisted(() => ({ workers: [] as unknown[], modules: [] as unknown[] }))
 vi.mock('@duckdb/duckdb-wasm', async () => {
   const { nodeDuckDB } = await import('../../duckdb-node')
   const db = await nodeDuckDB()
   return {
-    getJsDelivrBundles: () => ({}),
-    selectBundle: async () => ({ mainModule: '', mainWorker: '' }),
+    getPlatformFeatures: async () => browser.features(),
     ConsoleLogger: class {},
     AsyncDuckDB: class {
-      async instantiate() {}
+      async instantiate(...args: unknown[]) {
+        started.modules.push(...args)
+      }
+
       async connect() {
         const conn = db.connect()
         return {
@@ -32,9 +38,11 @@ vi.mock('@duckdb/duckdb-wasm', async () => {
 })
 
 // the worker the panel starts for the browser's bundle, which the Node build has no use for
-vi.stubGlobal('Worker', class {})
-vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:duckdb')
-vi.spyOn(URL, 'revokeObjectURL').mockReturnValue()
+vi.stubGlobal('Worker', class {
+  constructor(url: unknown) {
+    started.workers.push(url)
+  }
+})
 
 const data: Value[] = [{
   station_id: '01048',
@@ -208,6 +216,25 @@ async function editNow(wrapper: Awaited<ReturnType<typeof queryMode>>, sql: stri
 }
 
 const creates = (statements: string[]) => statements.filter(sql => sql.startsWith('CREATE TABLE'))
+
+describe('queryPanel DuckDB files', () => {
+  it('starts DuckDB from files of the app itself, a worker from its URL and no script made on the spot', async () => {
+    const blob = vi.spyOn(URL, 'createObjectURL')
+    unwatched.push(() => blob.mockRestore())
+    started.workers.length = 0
+    started.modules.length = 0
+    await transform('SELECT * FROM data LIMIT 1')
+
+    expect(started.workers).toHaveLength(1)
+    expect(started.modules).toHaveLength(1)
+    // paths of the app's origin, not a CDN's: Vite publishes the files under `/_nuxt/` and these are their URLs
+    const urls = [started.workers[0], started.modules[0]].map(url => new URL(String(url), 'https://app.example'))
+    expect(urls.map(url => url.origin)).toEqual(['https://app.example', 'https://app.example'])
+    expect(urls[0]!.pathname).toMatch(/duckdb-browser-eh\.worker.*\.js$/)
+    expect(urls[1]!.pathname).toMatch(/duckdb-eh.*\.wasm$/)
+    expect(blob).not.toHaveBeenCalled()
+  })
+})
 
 describe('queryPanel table load', () => {
   it('offers no second run while the first starts DuckDB and loads the table', async () => {
@@ -461,36 +488,44 @@ describe('queryPanel unmounted', () => {
 })
 
 describe('queryPanel failed start or load', () => {
-  it('revokes the worker\'s script when the worker cannot be started', async () => {
-    // a Worker refused, by a CSP that blocks blob: workers, left the script's URL behind
+  it('says why when the worker cannot be started', async () => {
+    // a Worker refused, as by a policy that does not allow the script
     vi.stubGlobal('Worker', class {
       constructor() {
         throw new Error('blocked')
       }
     })
-    unwatched.push(() => vi.stubGlobal('Worker', class {}))
-    vi.mocked(URL.createObjectURL).mockClear()
-    vi.mocked(URL.revokeObjectURL).mockClear()
+    unwatched.push(() => vi.stubGlobal('Worker', class {
+      constructor(url: unknown) {
+        started.workers.push(url)
+      }
+    }))
     const wrapper = await queryMode()
     await runButton(wrapper).trigger('click')
-    // and why
     await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database: blocked'))
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:duckdb')
+  })
+
+  it('says so when the browser lacks WebAssembly exception handling, which the only build the app serves needs', async () => {
+    const features = browser.features
+    browser.features = async () => ({ wasmExceptions: false })
+    unwatched.push(() => {
+      browser.features = features
+    })
+    started.workers.length = 0
+    const wrapper = await queryMode()
+    await runButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database: this browser lacks WebAssembly exception handling'))
+    expect(started.workers).toEqual([])
   })
 
   it('starts DuckDB again for the next run after its start failed, ending the database that failed', async () => {
     const instantiate = vi.spyOn(AsyncDuckDB.prototype, 'instantiate').mockRejectedValueOnce(new Error('lost'))
     const terminate = vi.spyOn(AsyncDuckDB.prototype, 'terminate')
     unwatched.push(() => instantiate.mockRestore(), () => terminate.mockRestore())
-    vi.mocked(URL.createObjectURL).mockClear()
-    vi.mocked(URL.revokeObjectURL).mockClear()
     const wrapper = await queryMode()
     await runButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Failed to initialize database'))
     expect(terminate).toHaveBeenCalledTimes(1)
-    // nor the worker's script
-    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1)
     await vi.waitFor(() => expect(runButton(wrapper).attributes('disabled')).toBeUndefined())
     // the syntax check leaves it to the run, rather than start it again at every pause in typing
     await editNow(wrapper, 'SELECT * FROM data LIMIT 10')
