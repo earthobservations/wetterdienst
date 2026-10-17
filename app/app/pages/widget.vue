@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
+import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
-import { describeApiError, describeFetchError } from '~/utils/api-error'
+import { describeFetchError } from '~/utils/api-error'
 import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
+import { backendFailure, describeRequestError } from '~/utils/request-error'
 
 const MOSMIX = {
   provider: 'dwd',
@@ -27,18 +29,9 @@ watchEffect(() => {
 const station = ref<Station | null>(null)
 const values = ref<any[]>([])
 const pending = ref(false)
-const error = ref<string | null>(null)
-
-/**
- * Describe a failed answer of the backend: its reason when its body gives one, its status text when not;
- * any other body, such as a proxy's error page, is left out.
- */
-function describeBackendError(status: number, statusText: string, body: unknown): string {
-  const detail = describeApiError(body)
-  return detail
-    ? t('common.backendErrorDetail', { status, detail })
-    : [t('common.backendError', { status }), statusText].filter(Boolean).join(' ')
-}
+// why the request failed, as data: the message is written at render, in the language of the moment
+const failure = ref<RequestError | null>(null)
+const error = computed(() => failure.value ? describeRequestError(failure.value, t) : null)
 
 async function loadStation(id: string) {
   try {
@@ -54,21 +47,21 @@ async function loadStation(id: string) {
     station.value = (res.stations ?? [])[0] ?? null
     // the backend answers a station id it does not know with no station, not with a failure
     if (!station.value)
-      error.value = t('widget.stationNotFound')
+      failure.value = { kind: 'stationNotFound' }
   }
   catch (e: any) {
     // a failed lookup says nothing of whether the station exists: told by the backend's answer, or by
     // the error itself where none came
     const response: Response | undefined = e?.response
-    error.value = response
-      ? describeBackendError(response.status, response.statusText, e.data)
-      : describeFetchError(e)
+    failure.value = response
+      ? backendFailure(response.status, response.statusText, e.data)
+      : { kind: 'text', text: describeFetchError(e) }
   }
 }
 
 async function fetchValues(s: Station) {
   pending.value = true
-  error.value = null
+  failure.value = null
   values.value = []
   const params = new URLSearchParams({
     provider: MOSMIX.provider,
@@ -80,14 +73,14 @@ async function fetchValues(s: Station) {
   try {
     const res = await fetch(`/api/values?${params}`)
     if (!res.ok) {
-      error.value = describeBackendError(res.status, res.statusText, await res.json().catch(() => null))
+      failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
       return
     }
     const json = await res.json()
     values.value = json.values ?? []
   }
   catch (e: any) {
-    error.value = e?.message ?? t('common.requestFailed')
+    failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
   }
   finally {
     pending.value = false

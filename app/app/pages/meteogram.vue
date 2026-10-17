@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
+import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
-import { describeApiError } from '~/utils/api-error'
 import { METEOGRAM_VALUES_SETTINGS } from '~/utils/meteogram'
+import { backendFailure, describeRequestError } from '~/utils/request-error'
 
 const { MapStations, notLoaded: mapNotLoaded } = useMapStations()
 
@@ -26,7 +27,9 @@ const showAbout = ref(false)
 const selectedStation = ref<Station | null>(null)
 const values = ref<any[]>([])
 const pending = ref(false)
-const error = ref<string | null>(null)
+// why the request failed, as data: the message is written at render, in the language of the moment
+const failure = ref<RequestError | null>(null)
+const error = computed(() => failure.value ? describeRequestError(failure.value, t) : null)
 
 // '' = latest (auto), iso string = a specific run
 const selectedIssue = ref<string>('')
@@ -111,7 +114,7 @@ function onMapSelectedStations(val: Station[]) {
 
 async function fetchMeteogram(station: Station) {
   pending.value = true
-  error.value = null
+  failure.value = null
   values.value = []
 
   const rawParams: Record<string, string> = {
@@ -128,19 +131,14 @@ async function fetchMeteogram(station: Station) {
   try {
     const res = await fetch(`/api/values?${params}`)
     if (!res.ok) {
-      // the backend's reason when its body gives one, its status text when not; any other body, such as a
-      // proxy's error page, is left out
-      const detail = describeApiError(await res.json().catch(() => null))
-      error.value = detail
-        ? t('common.backendErrorDetail', { status: res.status, detail })
-        : [t('common.backendError', { status: res.status }), res.statusText].filter(Boolean).join(' ')
+      failure.value = backendFailure(res.status, res.statusText, await res.json().catch(() => null))
       return
     }
     const json = await res.json()
     values.value = json.values ?? []
   }
   catch (e: any) {
-    error.value = e?.message ?? t('common.requestFailed')
+    failure.value = e?.message ? { kind: 'text', text: e.message } : { kind: 'requestFailed' }
   }
   finally {
     pending.value = false
@@ -162,7 +160,7 @@ watch(selectedStation, (station) => {
   }
   else {
     values.value = []
-    error.value = null
+    failure.value = null
     availableIssues.value = []
     // A rejected navigation (e.g. superseded by a subsequent replace() before
     // this one resolves) would otherwise be an unhandled promise rejection.

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatNumber, plotlySeparators, withData } from '../../app/utils/format'
+import { formatDate, formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
 
 describe('date formatting utilities', () => {
   it('formats date with microseconds', () => {
@@ -172,5 +172,51 @@ describe('a language the browser has no data for', () => {
     withoutLuxembourgish()
     expect(withData('fr-FR', Intl.DateTimeFormat.supportedLocalesOf)).toBe('fr-FR')
     expect(withData('en', Intl.NumberFormat.supportedLocalesOf)).toBe('en')
+  })
+})
+
+// Thursday the 15th of October 2026, as the languages of the app's locales write it (nuxt.config.ts)
+describe('weekdays and the hover heading in the language', () => {
+  const thursday = DateTime.fromISO('2026-10-15')
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it.each([
+    ['en-GB', 'Thu', '%a %d/%m %H:%M'],
+    ['de-DE', 'Do', '%a %d.%m. %H:%M'],
+    ['fr-FR', 'jeu.', '%a %d/%m %H:%M'],
+    ['es-ES', 'jue', '%a %d/%m %H:%M'],
+    ['it-IT', 'gio', '%a %d/%m %H:%M'],
+    ['pl-PL', 'czw.', '%a %d.%m %H:%M'],
+    ['nl-NL', 'do', '%a %d-%m %H:%M'],
+    ['cs-CZ', 'čt', '%a %d. %m. %H:%M'],
+    ['da-DK', 'tors.', '%a %d.%m %H:%M'],
+    ['lb-LU', 'Don', '%a %d.%m. %H:%M'],
+  ])('writes %s as %s with the heading format %s', (language, weekday, hoverformat) => {
+    expect(weekdayShort(thursday, language)).toBe(weekday)
+    expect(plotlyHoverFormat(language)).toBe(hoverformat)
+    const { format } = plotlyDateLocale(language)
+    // Sunday first, as Plotly has it
+    expect(format.shortDays[4]).toBe(weekday)
+    expect(format.shortDays).toHaveLength(7)
+    expect(format.days).toHaveLength(7)
+    expect(format.months).toHaveLength(12)
+    expect(format.shortMonths).toHaveLength(12)
+  })
+
+  it('writes Luxembourgish as German where the browser has no data for it', () => {
+    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockReturnValue([])
+    expect(weekdayShort(thursday, 'lb-LU')).toBe('Do')
+    expect(plotlyDateLocale('lb-LU').format.shortDays[4]).toBe('Do')
+    expect(plotlyHoverFormat('lb-LU')).toBe('%a %d.%m. %H:%M')
+  })
+
+  it('names the days from Sunday and the months from January', () => {
+    const { format } = plotlyDateLocale('de-DE')
+    expect(format.days[0]).toBe('Sonntag')
+    expect(format.days[6]).toBe('Samstag')
+    expect(format.months[0]).toBe('Januar')
+    expect(format.months[9]).toBe('Oktober')
   })
 })
