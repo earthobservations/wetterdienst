@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-17
+
 ### Changed
 
 - `[Languages]` Hamburgisch (`de-hh`) is Low German (Plattdüütsch) throughout, where its menus and
@@ -1224,7 +1226,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.22.0...HEAD
+[0.22.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...app-v0.22.0
 [0.21.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...app-v0.21.0
 [0.20.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...app-v0.20.0
 [0.19.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.18.1...app-v0.19.0
