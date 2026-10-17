@@ -1348,10 +1348,14 @@ def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
       with the failure as its ``__cause__``, as ``File.raise_if_exception`` raises them for a download
       (GH-2460). ``timed_out`` finds a timeout under it, so the REST API answers a 504 for it.
 
-    Not an ``ssl.SSLError`` nor a ``FileNotFoundError``, which are asked for once and raised as they
-    are, and not a programming error. They are raised outside the ``except`` blocks below, so that the
-    aiohttp error is no ``__context__`` of what is raised: it holds the connection key, which renders
-    the password of a proxy named in ``HTTPS_PROXY``.
+    A TLS failure -- a certificate that does not verify, a handshake that fails -- is asked for once and
+    is a ``DownloadError`` too, with the bare ``ssl.SSLError`` as its ``__cause__``, as it is for a
+    download (GH-3099); the REST API answers a 502 for it, not a 500.
+
+    Not a ``FileNotFoundError``, which is asked for once and raised as it is, and not a programming
+    error. What is raised is raised outside the ``except`` blocks below, so that the aiohttp error is
+    no ``__context__`` of it: it holds the connection key, which renders the password of a proxy named
+    in ``HTTPS_PROXY``.
     """
     offline: ClientConnectorError | None = None
     failed: Exception | None = None
@@ -1366,6 +1370,10 @@ def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
                 return list_once()
     except ClientConnectorError as e:
         offline = e
+    except ssl.SSLError as e:
+        # the listings raise the bare error under a ``ClientSSLError``; an ``ssl.SSLError`` that
+        # fsspec lets out as it is takes the same way
+        failed = e
     except Exception as e:
         if not (_worth_retrying_listing(e) or isinstance(e, ClientResponseError)):
             raise
@@ -1399,12 +1407,12 @@ def list_remote_files_fsspec(
         NoInternetError: If no connection could be made after three attempts (no network, a DNS
             failure, a refusing host), naming the URL, the connection error as its ``__cause__``.
             A directory that is not there is an answer, `[]`; being offline is not (GH-2640).
-        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
-            attempt: asking again would meet the same certificate.
         DownloadError: If the server answered badly: a connection reset or dropped, a timeout, a
             broken body, or an HTTP error status other than 404, naming the URL, the failure as its
             ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked for three
-            times before it is raised; a 4xx once.
+            times before it is raised; a 4xx once. So is a certificate that does not verify or a TLS
+            handshake that fails, with the ``ssl.SSLError`` as its ``__cause__``, at the first
+            attempt: asking again would meet the same certificate (GH-3099).
 
     """
     return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
@@ -1480,11 +1488,10 @@ def list_remote_directory_fsspec(
         A list of fsspec detail dicts (with "name" and "type" keys, among others) for each entry.
 
     Raises:
-        ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
-            attempt: asking again would meet the same certificate.
         NoInternetError: If no connection could be made after three attempts, as for
             ``list_remote_files_fsspec`` (GH-2640).
-        DownloadError: If the server answered badly, as for ``list_remote_files_fsspec`` (GH-3004).
+        DownloadError: If the server answered badly or a TLS check failed, as for
+            ``list_remote_files_fsspec`` (GH-3004, GH-3099).
         FileNotFoundError: If the directory is not there. Unlike ``list_remote_files_fsspec``, this
             does not return no entries. A missing directory is asked for once.
 
