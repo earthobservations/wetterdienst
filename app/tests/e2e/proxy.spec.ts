@@ -12,6 +12,13 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
 const REQUEST_TIMEOUT = 90_000
 const LARGE_PAYLOAD_TIMEOUT = 240_000
 
+// Every answer of the data routes says when it was made (`metadata.retrieved_at`, GH-2561), so two requests
+// for the same data never give the same bytes. The proxy has to pass the body on as it is; the time is
+// taken out of both sides before they are compared.
+function withoutRetrievalTime(text: string): string {
+  return text.replace(/"retrieved_at":\s*"[^"]*"/g, '"retrieved_at": ""')
+}
+
 test.describe('API proxy', () => {
   test('forwards a JSON response unchanged', async ({ request }) => {
     const viaProxy = await request.get('/api/coverage', { timeout: REQUEST_TIMEOUT })
@@ -60,7 +67,7 @@ test.describe('API proxy', () => {
 
     // A dropped repeat would silently return one station instead of two, so compare the payloads
     // rather than just the status.
-    expect(await viaProxy.json()).toEqual(await direct.json())
+    expect(withoutRetrievalTime(await viaProxy.text())).toBe(withoutRetrievalTime(await direct.text()))
   })
 
   test('streams a large payload without truncating it', async ({ request }) => {
@@ -80,7 +87,7 @@ test.describe('API proxy', () => {
     const proxied = await viaProxy.body()
     const expected = await direct.body()
     expect(proxied.byteLength).toBe(expected.byteLength)
-    expect(proxied.equals(expected)).toBe(true)
+    expect(withoutRetrievalTime(proxied.toString('utf8'))).toBe(withoutRetrievalTime(expected.toString('utf8')))
   })
 })
 
