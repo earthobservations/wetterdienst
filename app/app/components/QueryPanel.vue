@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { RecordBatch } from 'apache-arrow'
 import type { Value } from '#shared/types/api'
+// The files of DuckDB-wasm's build with exception handling (every browser since 2022 has it), which Vite
+// publishes under `/_nuxt/` with the app. The build without it is another 39 MB for browsers nobody has, and the
+// one with threads needs a page that is cross-origin isolated.
+import duckdbWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url'
+import duckdbWasmUrl from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url'
 import { plainRows } from '~/utils/arrow-rows'
 import { validateColumns, validateQuery } from '~/utils/query-validator'
 import { field } from '~/utils/values-export'
@@ -105,25 +110,16 @@ async function startDuckDB() {
   try {
     const duckdb = await import('@duckdb/duckdb-wasm')
 
-    const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles()
+    // The browser has to run the build with exception handling, the only one the app serves (below)
+    if (!(await duckdb.getPlatformFeatures()).wasmExceptions)
+      throw new Error('this browser lacks WebAssembly exception handling')
 
-    // Select a bundle based on browser checks
-    const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES)
-
-    const worker_url = URL.createObjectURL(
-      new Blob([`importScripts("${bundle.mainWorker!}");`], { type: 'text/javascript' }),
-    )
-
-    try {
-      // Instantiate the asynchronous version of DuckDB-wasm
-      const worker = new Worker(worker_url)
-      const logger = new duckdb.ConsoleLogger()
-      database = new duckdb.AsyncDuckDB(logger, worker)
-      await database.instantiate(bundle.mainModule, bundle.pthreadWorker)
-    }
-    finally {
-      URL.revokeObjectURL(worker_url)
-    }
+    // The worker and the module are the app's own files (GH-3094), no longer a CDN's: the worker runs as a
+    // script of this origin. Being the same origin, it starts from its URL, with no blob and no `importScripts`.
+    const worker = new Worker(duckdbWorkerUrl)
+    const logger = new duckdb.ConsoleLogger()
+    database = new duckdb.AsyncDuckDB(logger, worker)
+    await database.instantiate(duckdbWasmUrl)
 
     conn = await database.connect()
     db = database

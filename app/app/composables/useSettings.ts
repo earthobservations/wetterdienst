@@ -1,6 +1,11 @@
 import type { RemovableRef } from '@vueuse/core'
 import { z } from 'zod'
 
+// Zod compiles a faster parser of an object with `new Function`, and finds out whether it may by trying it. The
+// app's Content Security Policy has no `'unsafe-eval'` (GH-3094), so the try is a violation that the browser
+// reports, though Zod catches it and parses without. The settings are a few fields: no parser to speed up.
+z.config({ jitless: true })
+
 /**
  * Persistent, app-wide user settings.
  *

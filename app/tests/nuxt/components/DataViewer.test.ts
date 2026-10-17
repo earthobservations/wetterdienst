@@ -16,8 +16,7 @@ import QueryPanel from '~/components/QueryPanel.vue'
 // which the check of an edited query reads
 const duckdb = vi.hoisted(() => ({ answer: async (_sql: string): Promise<Record<string, unknown>[]> => [] }))
 vi.mock('@duckdb/duckdb-wasm', () => ({
-  getJsDelivrBundles: () => ({}),
-  selectBundle: async () => ({ mainWorker: 'worker.js', mainModule: 'duckdb.wasm', pthreadWorker: null }),
+  getPlatformFeatures: async () => ({ wasmExceptions: true }),
   ConsoleLogger: class {},
   AsyncDuckDB: class {
     async instantiate() {}
@@ -702,10 +701,8 @@ describe('dataViewer query panel', () => {
   it('keeps the rows a newer Fetch put in the table when a query started before it answers', async () => {
     // the query's result, of the station fetched before, replaced them
     registerEndpoint('/api/values', event => ({ values: rows(3, String(getQuery(event).stations)) }))
-    // the worker DuckDB is started in, from a script made on the spot
+    // the worker DuckDB is started in
     vi.stubGlobal('Worker', class {})
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:worker')
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const hold = gate()
     let asked = false
     duckdb.answer = async () => {
