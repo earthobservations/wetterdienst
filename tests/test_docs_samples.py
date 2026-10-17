@@ -183,7 +183,10 @@ def _commands(code: str) -> Iterator[tuple[str, list[str]]]:
         except ValueError:
             continue
         for position, word in enumerate(tokens):
-            if word == "wetterdienst" and position + 1 < len(tokens):
+            # the program, first on a line (or by its path), or after the image a `docker run` starts it in
+            first = position == 0 and word.rsplit("/", 1)[-1] == "wetterdienst"
+            in_image = word == "wetterdienst" and position > 0 and tokens[position - 1].startswith("ghcr.io/")
+            if (first or in_image) and position + 1 < len(tokens):
                 yield line, tokens[position + 1 :]
                 break
 
@@ -422,7 +425,7 @@ def test_the_mcp_samples_name_the_path_the_app_serves() -> None:
     if path is None:
         pytest.skip("the [mcp] extra is not installed")
     configuration = next(
-        _loads(sample) for sample in _json_blocks(DOCS / "usage" / "restapi.md") if '"mcpServers"' in sample.code
+        _loads(sample) for sample in _json_blocks(DOCS / "usage" / "mcp.md") if '"mcpServers"' in sample.code
     )
     assert configuration["mcpServers"]["wetterdienst"]["url"].endswith(path)
 
@@ -488,7 +491,7 @@ def test_the_sentences_the_pages_quote_are_the_ones_the_library_writes() -> None
 
 #: blocks that are not run, by page and a piece of their code, with the reason
 NOT_RUN: dict[tuple[str, str], str] = {
-    ("docs/usage/python-api.md", "influxdb://"): "writes to an InfluxDB that is not there",
+    ("docs/usage/export.md", "influxdb://"): "writes to an InfluxDB that is not there",
     (
         "docs/usage/python-api.md",
         "from wetterdienst import RequestError, UpstreamError",

@@ -6,8 +6,9 @@ kernelspec:
 
 # Quickstart
 
-This page takes you from a fresh install to your first weather time series in a few minutes.
-For the full feature set, continue with the [Python API](python-api.md) chapter.
+This page takes you from a fresh install to your first weather time series in a few minutes, from Python, from the
+command line, from the REST API, from an assistant and from the app. New to the words? Read [Concepts](concepts.md)
+first, it is one page. For the full feature set, continue with the [Python API](python-api.md) chapter.
 
 ## Installation
 
@@ -17,12 +18,31 @@ Wetterdienst is available on PyPI and requires Python 3.11 or newer:
 pip install wetterdienst
 ```
 
-The base install keeps dependencies light. Optional features live behind
-[extras](../index.md#setup) — for example the interpolation feature or exporting to databases:
+The base install keeps dependencies light. What goes beyond the library and the command line is behind an extra,
+installed in brackets, in quotes so that the shell leaves them alone:
 
 ```bash
 pip install "wetterdienst[interpolation,export]"
 ```
+
+| Extra | What it adds |
+| --- | --- |
+| `restapi` | the REST API, `wetterdienst restapi` |
+| `mcp` | the [MCP server](mcp.md), served by the REST API (brings `restapi`) |
+| `interpolation` | `interpolate` and `summarize` for a point, see [Interpolation & Summary](interpolation.md) |
+| `sql` | SQL filters on a result (`filtered_by_sql`, `--sql`), by DuckDB |
+| `export` | files (Zarr, NetCDF, Excel) and SQL databases as export targets, see [Export](export.md) |
+| `duckdb`, `postgresql`, `mysql`, `cratedb`, `influxdb` | the one database of that name as an export target, without the rest of `export` |
+| `excel` | Excel (`.xlsx`) as an export target |
+| `plotting` | charts and images of a result (`to_plot`, `to_image`) and the climate stripes images |
+| `knmi` | the KNMI observations, which come as NetCDF |
+| `radar` | the DWD radar products that are HDF5 or NetCDF |
+| `radarplus` | the packages that radar data is worked with (wradlib, xradar), as in the radar examples |
+| `bufr`, `eccodes` | decoding BUFR, which DWD road weather and some radar products are (`bufr` brings the reader, `eccodes` only the library) |
+| `pdf` | reading the field descriptions of DWD's PDF documents (`describe_fields`) |
+
+Check the installation with `wetterdienst --help`. The [Docker image](docker.md) ships with most of them. A request that
+needs an extra that is not installed fails with a `MissingDependencyError` that names it.
 
 ## Your first request
 
@@ -74,12 +94,43 @@ wetterdienst values --provider dwd --network observation \
   --parameters daily/climate_summary/temperature_air_mean_2m --periods recent --stations 1048
 ```
 
+## The same request from the REST API
+
+Start the API (it needs the `restapi` extra) and ask it, here with [httpie](https://github.com/httpie/cli) (`curl`
+works as well, with the query in the URL):
+
+```bash
+wetterdienst restapi
+```
+
+```bash
+http localhost:7890/api/values provider==dwd network==observation parameters==daily/climate_summary/temperature_air_mean_2m periods==recent stations==1048
+```
+
+The answer is JSON with the values and a `metadata` block that says where the data comes from, under which licence and
+with which credit line. The interactive reference of every endpoint is at <http://localhost:7890/docs>. A hosted
+instance is at [wetterdienst.eobs.org](https://wetterdienst.eobs.org). See [REST API](restapi.md).
+
+## From an assistant or the app
+
+An assistant that speaks the [Model Context Protocol](mcp.md) reads the same data as tools: add
+`https://wetterdienst.eobs.org/mcp/v1` as a server and ask in words how warm it was somewhere. No account is needed. And
+the [web app](app.md) at [wetterdienst.eobs.org](https://wetterdienst.eobs.org) is the same data on a map, with
+forecasts and climate stripes, for anyone who would rather click.
+
+## If something fails
+
+Most failures say what to change; [Troubleshooting](troubleshooting.md) lists what each means: a missing extra, a
+provider that needs a key, a provider that is down, an answer that is empty.
+
 ## Where to go next
 
-- [Python API](python-api.md) — the full request/stations/values workflow, filtering,
-  formatting, SQL and export.
-- [Python Examples](python-examples.md) — ready-to-run snippets per provider and network.
-- [Data / Overview](../data/overview.md) — every supported provider and what it offers.
-- [Interpolation & Summary](interpolation.md) — derive a series for an arbitrary location.
-- [Climate Stripes](stripes.md) — generate warming-stripes visualizations.
-- [Settings and options](settings.md) — units, caching, proxies and interpolation knobs.
+- **Python**: [Concepts](concepts.md), then the [Python API](python-api.md) (requests, stations, values, formats),
+  [Python Examples](python-examples.md) per provider, [Units](units.md), [Settings and options](settings.md),
+  [Interpolation & Summary](interpolation.md) for a point between stations, [Export](export.md) to files and databases.
+- **Command line**: the [command line interface](cli.md), [Scheduling](scheduling.md) a recurring acquisition.
+- **REST and MCP**: the [REST API](restapi.md), the [MCP server](mcp.md), [Docker](docker.md).
+- **App**: the [web app](app.md), including how to run your own.
+- **The data**: [Data](../data/index.md) for every provider and parameter, the [parameter glossary](../data/parameters.md)
+  and what the [quality flags](../data/quality-flags.md) mean. DWD [weather alerts](../data/provider/dwd/alerts/index.md),
+  [Climate Stripes](stripes.md), [Station history](station_history.md).

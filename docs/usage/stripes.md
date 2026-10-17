@@ -39,14 +39,8 @@ wetterdienst stripes stations --kind temperature
 wetterdienst stripes stations --kind precipitation --active true --format csv
 ```
 
-Options:
-
-| option      | description                                          | default |
-|-------------|------------------------------------------------------|---------|
-| `--kind`    | `temperature` or `precipitation` (required)          | —       |
-| `--active`  | only include stations that are still reporting       | `true`  |
-| `--format`  | output format, one of `json`, `geojson`, `csv`       | `json`  |
-| `--pretty`  | pretty-print the output                              | `false` |
+Its options are `--kind` (required), `--active` (default `true`), `--format` (`json`, `geojson` or `csv`) and
+`--pretty`; the [command line reference](cli.md) has them with their defaults.
 
 ### Values
 
@@ -62,22 +56,9 @@ wetterdienst stripes values --kind precipitation --name Hohenpeissenberg \
   --start-year 1900 --end-year 2020 --format svg
 ```
 
-Options:
-
-| option                     | description                                                    | default |
-|----------------------------|----------------------------------------------------------------|---------|
-| `--kind`                   | `temperature` or `precipitation` (required)                    | —       |
-| `--station`                | station id to plot                                             | —       |
-| `--name`                   | station name to plot (fuzzy match)                             | —       |
-| `--start-year`             | first year to include                                         | —       |
-| `--end-year`               | last year to include                                          | —       |
-| `--name-threshold`         | similarity threshold (0–1) for `--name` matching             | `0.80`  |
-| `--show-title`             | draw the station name as a title                             | `true`  |
-| `--show-years`             | draw the first and last year as axis labels                  | `true`  |
-| `--show-data-availability` | draw a marker for the data availability                      | `true`  |
-| `--format`                 | image format, one of `png`, `jpg`, `svg`, `pdf`              | `png`   |
-| `--dpi`                    | image resolution in dots per inch                            | `300`   |
-| `--target`                 | write the image to this file instead of stdout               | —       |
+The options are `--kind` (required), `--station` or `--name` (with `--name-threshold`), `--start-year`, `--end-year`,
+`--show-title`, `--show-years`, `--show-data-availability`, `--format` (`png`, `jpg`, `svg` or `pdf`), `--dpi` and
+`--target`; the [command line reference](cli.md) has them with their defaults. The image needs the `plotting` extra.
 
 ## REST API
 
