@@ -36,7 +36,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-#: the routes the timeout holds for: the API, not the index, the health check or the MCP transport
+#: the routes the timeout holds for: the API, not the index, the health check or the MCP transport (`/mcp/v1` and its
+#: `/mcp` alias), which holds a session open; the tools call the API in process, so their requests are held to it
 _TIMED_PREFIX = "/api/"
 
 

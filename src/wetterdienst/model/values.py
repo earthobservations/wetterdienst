@@ -61,8 +61,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     """
 
     sr: StationsResult
-    stations_counter: int = 0
-    stations_collected: list[str] = field(default_factory=list)
     unit_converter: UnitConverter = field(default_factory=UnitConverter)
 
     def __post_init__(self) -> None:
@@ -142,15 +140,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
     def query(self) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station."""
-        # reset station stations_counter
-        self.stations_counter = 0
-        self.stations_collected = []
+        # the stations that returned values, which `filter_by_rank` counts its slots in
+        stations_collected = 0
         # mapping of original to humanized parameter names is always the same
         hpm: dict[str, str] = {}
         if self.sr.options.humanize:
             hpm = self._create_humanized_parameters_mapping()
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
-            if self.stations_counter == self.sr.rank:
+            if stations_collected == self.sr.rank:
                 break
             station_id = cast("str", station_id)
             if self._begins_after_window(df_station_meta):
@@ -190,8 +187,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 else ["resolution", "dataset", "timestamp"]
             )
             df = df.sort(sort_columns)
-            self.stations_counter += 1
-            self.stations_collected.append(station_id)
+            stations_collected += 1
             yield ValuesResult(stations=self.sr, df=df)
 
     def _begins_after_window(self, df_station_meta: pl.DataFrame) -> bool:

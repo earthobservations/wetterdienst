@@ -59,7 +59,7 @@
     "/api/v1/version": {
       "get": {
         "summary": "Version",
-        "description": "Get version information, and whether this instance serves an MCP endpoint.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no `/mcp` route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question.",
+        "description": "Get version information, and whether this instance serves an MCP endpoint.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.",
         "operationId": "version_api_version_get",
         "responses": {
           "200": {
@@ -570,6 +570,79 @@
                     ]
                   },
                   "title": "Response Coverage Api Coverage Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers": {
+      "get": {
+        "summary": "Providers",
+        "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, its country (`country_code`\nis the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states\nnone) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,\nwhether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters\neach has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the\nparameters of a network, and `auth` checks whether its credentials are accepted.",
+        "operationId": "providers_api_providers_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this provider, e.g. 'dwd'. Without it, every provider.",
+              "title": "Provider"
+            },
+            "description": "Only this provider, e.g. 'dwd'. Without it, every provider."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          },
+          {
+            "name": "debug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Enable debug logging.",
+              "default": false,
+              "title": "Debug"
+            },
+            "description": "Enable debug logging."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvidersAnswer"
                 }
               }
             }
@@ -1374,7 +1447,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/_IssuesWithMetadataDict"
+                }
               }
             }
           },
@@ -3390,7 +3465,20 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_StationsWithMetadataDict"
+                    },
+                    {
+                      "$ref": "#/components/schemas/_StationsWithMetadataOgcFeatureCollection"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Stripes Stations Api Stripes Stations Get"
+                }
               }
             }
           },
@@ -3560,7 +3648,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_StripesValuesWithMetadataDict"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Stripes Values Api Stripes Values Get"
+                }
               }
             }
           },
@@ -3957,7 +4055,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/_HistoryWithMetadataDict"
+                }
               }
             }
           },
@@ -4136,7 +4236,20 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_AlertsWithMetadataDict"
+                    },
+                    {
+                      "$ref": "#/components/schemas/_AlertsWithMetadataOgcFeatureCollection"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Alerts Api Alerts Get"
+                }
               }
             }
           },
@@ -4197,17 +4310,80 @@
         "title": "AuthAnswer",
         "description": "Whether the credentials of a provider and network are present and accepted."
       },
+      "CatalogueCounts": {
+        "properties": {
+          "providers": {
+            "type": "integer",
+            "title": "Providers"
+          },
+          "networks": {
+            "type": "integer",
+            "title": "Networks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "providers",
+          "networks"
+        ],
+        "title": "CatalogueCounts",
+        "description": "How much a catalogue of the library holds."
+      },
+      "CatalogueMetadata": {
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "title": "Api Version"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "title": "Retrieved At",
+            "description": "When this answer was made, in UTC."
+          },
+          "producer": {
+            "$ref": "#/components/schemas/_Producer"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/CatalogueCounts"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`: a network that cannot be imported on this server is left out and told here."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "api_version",
+          "schema_version",
+          "retrieved_at",
+          "producer",
+          "counts",
+          "warnings"
+        ],
+        "title": "CatalogueMetadata",
+        "description": "The `metadata` block of an answer that is about the library and no provider's data (`/api/providers`).\n\nThe members the block of every answer has that need no provider or request: the versions, the time, the producer\nand the warnings. The terms of each provider are in the answer, one for every provider it lists."
+      },
       "Counts": {
         "properties": {
           "stations": {
             "type": "integer",
             "title": "Stations",
-            "description": "The stations in the answer."
+            "description": "The stations in the answer; 0 for one that is not about stations."
           },
           "rows": {
             "type": "integer",
             "title": "Rows",
-            "description": "The rows of `values` (one per timestamp in the wide shape, one per value in the long one), the stations listed, or the histories."
+            "description": "The rows of `values` (one per timestamp in the wide shape, one per value in the long one), the stations listed, the histories, the issues or the alerts."
           }
         },
         "additionalProperties": false,
@@ -4671,6 +4847,38 @@
         "title": "InterpolationSettings",
         "description": "The settings of `/api/interpolate`."
       },
+      "LicenseModel": {
+        "properties": {
+          "spdx_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spdx Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spdx_id",
+          "name",
+          "url"
+        ],
+        "title": "LicenseModel",
+        "description": "The terms a provider publishes its data under, as the provider states them (GH-2561).\n\n`spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the\nprovider offers two (`CC-BY-4.0 OR NLOD-2.0`); null where the terms have no SPDX identifier,\nwhich is then told by `name` and `url` alone. `url` is a page of the licence or of the provider's\nown terms, whichever states them."
+      },
       "ParameterInfo": {
         "properties": {
           "resolution": {
@@ -4727,6 +4935,207 @@
         "title": "ParameterInfo",
         "description": "One parameter of the answer, with the unit its values are in."
       },
+      "Provider": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "The name a request calls it by, `dwd`."
+          },
+          "name_local": {
+            "type": "string",
+            "title": "Name Local"
+          },
+          "name_english": {
+            "type": "string",
+            "title": "Name English"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "country_code": {
+            "type": "string",
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 code of the country, or `ZZ` for a multinational one."
+          },
+          "license": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The terms the provider publishes its data under; null where it states none."
+          },
+          "attribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution",
+            "description": "The credit line a user of the data has to give; null where the provider states none or asks for none."
+          },
+          "networks": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderNetwork"
+            },
+            "type": "array",
+            "title": "Networks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "name_local",
+          "name_english",
+          "country",
+          "country_code",
+          "license",
+          "attribution",
+          "networks"
+        ],
+        "title": "Provider",
+        "description": "A provider of data, and the networks it offers."
+      },
+      "ProviderDataset": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "parameters": {
+            "type": "integer",
+            "title": "Parameters",
+            "description": "How many parameters the dataset has, which `/api/coverage` lists."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "parameters"
+        ],
+        "title": "ProviderDataset",
+        "description": "A dataset of a resolution."
+      },
+      "ProviderNetwork": {
+        "properties": {
+          "network": {
+            "type": "string",
+            "title": "Network"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "forecast",
+              "derived",
+              "radar",
+              "alerts"
+            ],
+            "title": "Kind",
+            "description": "`observation`, `forecast` or `derived` for a network with stations and values; `radar` and `alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list."
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Where the provider publishes the data of the network."
+          },
+          "copyright": {
+            "type": "string",
+            "title": "Copyright"
+          },
+          "auth": {
+            "type": "boolean",
+            "title": "Auth",
+            "description": "Whether the network needs credentials; `/api/auth` tells whether they are accepted."
+          },
+          "date_required": {
+            "type": "boolean",
+            "title": "Date Required",
+            "description": "Whether a request for a dataset of the network has to give a date."
+          },
+          "parameters": {
+            "type": "integer",
+            "title": "Parameters",
+            "description": "How many parameters the network has in all of its datasets."
+          },
+          "resolutions": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderResolution"
+            },
+            "type": "array",
+            "title": "Resolutions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "network",
+          "kind",
+          "url",
+          "copyright",
+          "auth",
+          "date_required",
+          "parameters",
+          "resolutions"
+        ],
+        "title": "ProviderNetwork",
+        "description": "A network of a provider, with what it offers."
+      },
+      "ProviderResolution": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderDataset"
+            },
+            "type": "array",
+            "title": "Datasets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "datasets"
+        ],
+        "title": "ProviderResolution",
+        "description": "A resolution of a network."
+      },
+      "ProvidersAnswer": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/CatalogueMetadata"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "type": "array",
+            "title": "Providers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metadata",
+          "providers"
+        ],
+        "title": "ProvidersAnswer",
+        "description": "The answer of `/api/providers`."
+      },
       "Quality": {
         "properties": {
           "column": {
@@ -4747,15 +5156,105 @@
             "type": "array",
             "title": "Source Flags",
             "description": "The quality flags the datasets read publish, which the first token of `quality_flags` is the code of."
+          },
+          "legend": {
+            "items": {
+              "$ref": "#/components/schemas/QualityKind"
+            },
+            "type": "array",
+            "title": "Legend",
+            "description": "What the tokens of `quality_flags` mean for this network, in the order of the column: the source's own flag, its further kinds, and `raw` last. Empty for a network whose readings carry no flag."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "source_flags"
+          "source_flags",
+          "legend"
         ],
         "title": "Quality",
         "description": "What the `quality_flags` of a reading holds."
+      },
+      "QualityCode": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "meaning"
+        ],
+        "title": "QualityCode",
+        "description": "One code of a flag, as the source writes it, and what the source says it means."
+      },
+      "QualityKind": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "The prefix of the token, `zone` for `zone:mez`; null for the source's own quality flag, which has none and comes first."
+          },
+          "written": {
+            "type": "string",
+            "title": "Written",
+            "description": "How a token of this kind reads in the column, `raw:<text>`."
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning"
+          },
+          "codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QualityCode"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codes",
+            "description": "The codes of the flag, where they are a closed set the source documents; null for a flag whose codes the source tells itself, which `meaning` names, or are not a set (the text a value was written with)."
+          },
+          "documentation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation",
+            "description": "Where the source documents the flag, if it does."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "written",
+          "meaning"
+        ],
+        "title": "QualityKind",
+        "description": "One kind of token in the `quality_flags` of a network."
       },
       "ResolvedRequest": {
         "properties": {
@@ -4808,7 +5307,15 @@
             "description": "End of the window applied, in UTC; null for no window."
           },
           "stations": {
-            "$ref": "#/components/schemas/StationsSelected"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StationsSelected"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stations the answer is about; null for one that is not about stations, the warnings of `dwd/alerts`."
           }
         },
         "additionalProperties": false,
@@ -5036,6 +5543,114 @@
         ],
         "title": "StationsSelected",
         "description": "The stations an answer is about."
+      },
+      "StripesValuesMetadata": {
+        "properties": {
+          "station": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Station"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "api_version": {
+            "type": "string",
+            "title": "Api Version"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "title": "Retrieved At",
+            "description": "When this answer was made, in UTC."
+          },
+          "provider": {
+            "$ref": "#/components/schemas/_Provider",
+            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
+          },
+          "producer": {
+            "$ref": "#/components/schemas/_Producer"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ResolvedRequest"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/Counts"
+          },
+          "crs": {
+            "$ref": "#/components/schemas/Crs"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`."
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ParameterInfo"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters",
+            "description": "With `with_metadata` only."
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `with_metadata` only."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "station",
+          "resolution",
+          "dataset",
+          "parameter",
+          "unit",
+          "api_version",
+          "schema_version",
+          "retrieved_at",
+          "provider",
+          "producer",
+          "request",
+          "counts",
+          "crs",
+          "warnings"
+        ],
+        "title": "StripesValuesMetadata",
+        "description": "The `metadata` of `/api/stripes/values`: the block of every answer, and what the stripes are of.\n\n`station`, `resolution`, `dataset`, `parameter` and `unit` are what this member held before it was the block."
       },
       "SummarySettings": {
         "properties": {
@@ -5294,6 +5909,106 @@
         "title": "ValuesSettings",
         "description": "The settings of `/api/values`."
       },
+      "_AlertsWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot"
+          },
+          "alerts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "snapshot",
+          "alerts"
+        ],
+        "title": "_AlertsWithMetadataDict"
+      },
+      "_AlertsWithMetadataOgcFeatureCollection": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "FeatureCollection",
+            "title": "Type"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot"
+          },
+          "features": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "metadata",
+          "snapshot",
+          "features"
+        ],
+        "title": "_AlertsWithMetadataOgcFeatureCollection"
+      },
+      "_HistoryWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/_Station"
+            },
+            "type": "array",
+            "title": "Stations"
+          },
+          "histories": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Histories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "histories"
+        ],
+        "title": "_HistoryWithMetadataDict"
+      },
       "_InterpolatedOrSummarizedOgcFeatureProperties": {
         "properties": {
           "id": {
@@ -5489,6 +6204,26 @@
           "metadata"
         ],
         "title": "_InterpolatedValuesWithSettingsOgcFeatureCollection"
+      },
+      "_IssuesWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "issues"
+        ],
+        "title": "_IssuesWithMetadataDict"
       },
       "_License": {
         "properties": {
@@ -5915,6 +6650,58 @@
           "metadata"
         ],
         "title": "_StationsWithMetadataOgcFeatureCollection"
+      },
+      "_StripesValue": {
+        "properties": {
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "value"
+        ],
+        "title": "_StripesValue"
+      },
+      "_StripesValuesWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/StripesValuesMetadata"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/_StripesValue"
+            },
+            "type": "array",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "values"
+        ],
+        "title": "_StripesValuesWithMetadataDict"
       },
       "_SummarizedValuesItemDict": {
         "properties": {

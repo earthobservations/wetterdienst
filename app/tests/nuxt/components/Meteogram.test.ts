@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 
@@ -358,6 +358,8 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
   afterEach(async () => {
     wrapper?.unmount()
     wrapper = undefined
+    // the URL back to none, which the next test's chart would read its compact view from
+    await useRouter().replace({ query: {} })
     await (harness?.vm as any)?.setLocale('en')
     harness?.unmount()
     harness = undefined
@@ -377,6 +379,16 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...day, ...rain] })
     await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+  }
+
+  // The compact view, which the Meteogram also writes to the URL (`?compact=true`) with a navigation of
+  // the router. That navigation runs on after the test, and a test that ends before it has finished
+  // leaves it to the teardown of the test's document, where its `history` is gone (GH-3064): wait for
+  // the URL.
+  async function showCompact() {
+    ;(wrapper!.vm as any).compact = true
+    await wrapper!.vm.$nextTick()
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.compact).toBe('true'))
   }
 
   // the mock takes no arguments in its type, so its call is read as Plotly's (element, traces, layout)
@@ -408,6 +420,63 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(layout.annotations.some(annotation => annotation.text.replace(/<\/?b>/g, '').endsWith(` ${expected}`))).toBe(true)
   })
 
+  // Thursday the 15th: the weekday of the chart's day labels and of the compact view's day cards, and
+  // the Plotly language of the hover heading, which Plotly writes itself (GH-3051). The code is the
+  // app's, the language the tag it stands for (nuxt.config.ts)
+  const thursdays = [
+    ['en', 'en-GB', 'Thu', '%a %d/%m %H:%M'],
+    ['de', 'de-DE', 'Do', '%a %d.%m. %H:%M'],
+    ['de-hh', 'de-DE', 'Do', '%a %d.%m. %H:%M'],
+    ['fr', 'fr-FR', 'jeu.', '%a %d/%m %H:%M'],
+    ['es', 'es-ES', 'jue', '%a %d/%m %H:%M'],
+    ['it', 'it-IT', 'gio', '%a %d/%m %H:%M'],
+    ['nl', 'nl-NL', 'do', '%a %d-%m %H:%M'],
+    ['pl', 'pl-PL', 'czw.', '%a %d.%m %H:%M'],
+    ['cs', 'cs-CZ', 'čt', '%a %d. %m. %H:%M'],
+    ['da', 'da-DK', 'tors.', '%a %d.%m %H:%M'],
+    ['lb', 'lb-LU', 'Don', '%a %d.%m. %H:%M'],
+  ] as const
+
+  it.each(thursdays)('names the weekday of the day labels in %s (%s) %s', async (code, _language, weekday) => {
+    await inLanguage(code)
+    await showMeteogram()
+    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }]
+    expect(layout.annotations.some(annotation => annotation.text.startsWith(`<b>${weekday}</b>`))).toBe(true)
+  })
+
+  // Chrome has no data for Luxembourgish and would write the system's language (GH-2971): German is written
+  it('names the weekday of the day labels in German where the browser has no data for Luxembourgish', async () => {
+    const supported = Intl.DateTimeFormat.supportedLocalesOf.bind(Intl.DateTimeFormat)
+    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
+      supported(languages, options).filter(language => !String(language).startsWith('lb')))
+    onTestFinished(() => {
+      vi.restoreAllMocks()
+    })
+    await inLanguage('lb')
+    await showMeteogram()
+    const [, , layout, config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }, { locales: Record<string, { format: { shortDays: string[] } }> }]
+    expect(layout.annotations.some(annotation => annotation.text.startsWith('<b>Do</b>'))).toBe(true)
+    expect(config.locales['lb-LU']!.format.shortDays[4]).toBe('Do')
+  })
+
+  it.each(thursdays)('names the weekday of the day cards in %s (%s) %s', async (code, _language, weekday) => {
+    await inLanguage(code)
+    await showMeteogram()
+    await showCompact()
+    const cards = [...document.body.querySelectorAll('div')].filter(div => div.childElementCount === 0).map(div => div.textContent?.trim())
+    expect(cards).toContain(weekday)
+  })
+
+  it.each(thursdays)('gives Plotly the language of the hover heading in %s (%s)', async (code, language, weekday, hoverformat) => {
+    await inLanguage(code)
+    await showMeteogram()
+    const [, , layout, config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { xaxis: { hoverformat: string } }, { locale: string, locales: Record<string, { format: { shortDays: string[] } }> }]
+    expect(layout.xaxis.hoverformat).toBe(hoverformat)
+    expect(config.locale).toBe(language)
+    // Sunday first, as Plotly has it
+    expect(config.locales[language]!.format.shortDays[4]).toBe(weekday)
+  })
+
   it('draws the chart again in the language it is switched to', async () => {
     await showMeteogram()
     expect(layoutDrawn().separators).toBe('.,')
@@ -428,8 +497,7 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
   ])('writes the day of the compact view in %s as %s', async (language, expected) => {
     await inLanguage(language)
     await showMeteogram()
-    ;(wrapper!.vm as any).compact = true
-    await wrapper!.vm.$nextTick()
+    await showCompact()
 
     // the card's date is a text of its own, a line below the weekday
     const dates = [...document.body.querySelectorAll('div')].filter(div => div.childElementCount === 0).map(div => div.textContent?.trim())

@@ -31,7 +31,14 @@ from wetterdienst.model.metadata import NetworkKind, ParameterSearch
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
-from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary, resolve_network
+from wetterdienst.ui.core import (
+    StripesData,
+    StripesImageRequest,
+    StripesMetadata,
+    _FormatField,
+    get_glossary,
+    resolve_network,
+)
 from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
@@ -2407,12 +2414,13 @@ def test_request_models_have_field_descriptions() -> None:
 
 
 def test_mcp_endpoint_mounted() -> None:
-    """The /mcp endpoint is mounted when the optional fastmcp extra is installed."""
+    """The /mcp/v1 endpoint and its alias /mcp are mounted when the optional fastmcp extra is installed."""
     pytest.importorskip("fastmcp")
     from wetterdienst.ui import restapi  # noqa: PLC0415
 
     assert restapi.mcp_enabled is True
     paths = [getattr(route, "path", None) for route in restapi.app.routes]
+    assert "/mcp/v1" in paths
     assert "/mcp" in paths
 
 
@@ -2426,11 +2434,11 @@ def test_mcp_index_link() -> None:
     if not restapi.mcp_enabled:
         pytest.skip("fastmcp not installed")
     response = TestClient(restapi.app).get("/")
-    assert "/mcp" in response.text
+    assert "/mcp/v1" in response.text
 
 
 def test_mcp_initialize_handshake() -> None:
-    """The /mcp endpoint speaks MCP: an initialize request returns an event-stream response."""
+    """The /mcp/v1 endpoint speaks MCP: an initialize request returns an event-stream response."""
     pytest.importorskip("fastmcp")
     from fastapi.testclient import TestClient  # noqa: PLC0415
 
@@ -2450,7 +2458,7 @@ def test_mcp_initialize_handshake() -> None:
     }
     # the session manager runs in the app lifespan, so drive the client as a context manager
     with TestClient(restapi.app) as client:
-        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+        response = client.post("/mcp/v1", json=body, headers={"Accept": "application/json, text/event-stream"})
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
 
@@ -4328,9 +4336,14 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
         {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None], "value": [9.5, None]},
         schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
     )
-    monkeypatch.setattr(
-        restapi, "_get_stripes_data", lambda _request: SimpleNamespace(df=df, metadata=SimpleNamespace(model_dump=dict))
+    stripes = StripesMetadata(
+        station={"station_id": "01048"},
+        resolution="annual",
+        dataset="climate_summary",
+        parameter="temperature_air_mean_2m",
+        unit="degree_celsius",
     )
+    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(metadata=stripes, df=df))
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
@@ -5251,7 +5264,7 @@ def test_issues_dwd_swsmos(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
     response = client.get("/api/issues", params={"provider": "dwd", "network": "swsmos", "station": "A006"})
 
     assert response.status_code == 200
-    assert response.json() == {"issues": ["2026-10-04T06:00:00.000000+00:00"]}
+    assert response.json()["issues"] == ["2026-10-04T06:00:00.000000+00:00"]
 
 
 def test_values_dwd_swsmos_issue_not_held_is_the_callers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -6594,7 +6607,8 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
             result = await mcp_client.call_tool("stripes_values", {"kind": "temperature", "station": "01048"})
         return json.loads(result.content[0].text)
 
-    data = asyncio.run(_call())
+    # the tool's answer is the endpoint's, as its output schema (a JSON object or text) has it wrapped
+    data = asyncio.run(_call())["result"]
     assert data["metadata"]["unit"] == "degree_fahrenheit"
     assert [item["value"] for item in data["values"]] == [33.8, 35.6]
 

@@ -19,7 +19,7 @@ import threading
 import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import platformdirs
 from pydantic import (
@@ -622,18 +622,43 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
-    def __init__(self, /, **values: Any) -> None:  # noqa: ANN401
-        """Build the settings, taking the removed ``ts_*`` settings that are given as the options they became (GH-2639).
+    if TYPE_CHECKING:
+        # What a type checker reads as the constructor: the fields as keyword-only arguments, so that a
+        # misspelt setting or a value of the wrong type is reported where it is written (GH-3042).
+        # `BaseSettings.__init__` takes `**values: Any`, which hides them; the one below does the work.
+        # `tests/test_settings.py` holds this signature to `Settings.model_fields`. A field takes what its
+        # validator coerces to it, and the removed ``ts_*`` settings are left out.
+        def __init__(
+            self,
+            /,
+            *,
+            cache_disable: bool = ...,
+            cache_dir: str | Path = ...,
+            fsspec_client_kwargs: Mapping[str, Any] = ...,
+            auth: Auth | Mapping[str, Any] = ...,
+            use_certifi: bool = ...,
+            read_bufr: bool = ...,
+            restapi_sql: bool = ...,
+            restapi_max_stations: int = ...,
+            restapi_max_rows: int = ...,
+            restapi_max_stream_rows: int = ...,
+            restapi_timeout: float = ...,
+        ) -> None:
+            """Build the settings from the fields, which the environment and `.env` fill where they are not given."""
+    else:
 
-        They are no fields of the settings any more, and the environment's ``WD_TS_*`` is `Options`'
-        to read, so this is only what a caller wrote out: ``Settings(ts_shape="wide")``. They are
-        removed from the input before the settings validate it, so that they are not refused as
-        settings that do not exist. Taken here and not by a validator, which would turn an error of
-        a default (the cache directory) into one of the validation.
-        """
-        removed = {name: values.pop(name) for name in tuple(values) if name in _REMOVED_SETTINGS}
-        super().__init__(**values)
-        self._take_removed_ts_settings(removed)
+        def __init__(self, /, **values: Any) -> None:  # noqa: ANN401
+            """Build the settings, taking the removed ``ts_*`` settings given as the options they became (GH-2639).
+
+            They are no fields of the settings any more, and the environment's ``WD_TS_*`` is `Options`'
+            to read, so this is only what a caller wrote out: ``Settings(ts_shape="wide")``. They are
+            removed from the input before the settings validate it, so that they are not refused as
+            settings that do not exist. Taken here and not by a validator, which would turn an error of
+            a default (the cache directory) into one of the validation.
+            """
+            removed = {name: values.pop(name) for name in tuple(values) if name in _REMOVED_SETTINGS}
+            super().__init__(**values)
+            self._take_removed_ts_settings(removed)
 
     @classmethod
     def model_validate(cls, obj: Any, **kwargs: Any) -> Self:  # noqa: ANN401

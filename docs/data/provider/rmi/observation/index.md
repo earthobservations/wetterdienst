@@ -30,6 +30,28 @@ minutes of sunshine (63.86, 373 and 1,282 minutes among them). The next highest 
 stays. The long shape drops the rows without a value by default, so the token shows with
 `drop_nulls=False`.
 
+## Sunshine of station 6477 (GH-3031)
+
+The `sun_duration` of station 6477 is null, with the source's value as `raw:<value>` in `quality_flags`
+(`0,raw:980`), in three periods of every resolution (10-minute, hourly, daily), because the sensor
+was stuck or dead and the values lie inside every range. The source does not say so: its `validated`
+flag for sunshine is false on 7,720 of the 8,134 days of the daily layer (2004-06-30 to 2026-10-16,
+read 2026-10-17), so `quality_flags` `0` tells nothing here.
+
+- From 2016-04-30 to 2017-05-31 (397 days, 470 to 1,440 minutes) the daily sunshine follows the length
+  of the day in steps of ten minutes, whatever the weather: 980 minutes on each day from 2016-06-06 to
+  2016-07-05 and again on 2016-12-22, 910 minutes on 2016-05-10 with a mean radiation of 93.6 W/m2.
+  Thirteen of these days read exactly 1,440 minutes, a full day of sunshine in December (2016-12-23
+  to 2017-01-01, 2017-01-06, 2017-02-18 and 2017-02-19). The 10-minute values of 2016-12-24 are all
+  10 (144 of 144) and the hourly ones all 60. The longest day of Belgium is 998 minutes at 51.5 degrees
+  north (with refraction), so a range alone would reach the 1,440 minutes and not the 980.
+- From 2015-04-25 to 2015-08-19 (117 days) and from 2017-06-02 to 2017-09-19 (110 days) every day
+  reads 0 minutes, in summer: the sensor did not measure (all 24 hours of 2015-06-15 and 2017-07-15
+  read 0, and so do the 10-minute values of 2017-07-15 from 10:00 to 14:00).
+
+The periods are a list in the reader (`_NO_SUNSHINE`), read off the layers on 2026-10-17; the rest of
+the station's series, and the other stations, are not touched. Other sensors of 6477 were not checked.
+
 ## License
 
 Data is © RMI (Royal Meteorological Institute of Belgium) and licensed under

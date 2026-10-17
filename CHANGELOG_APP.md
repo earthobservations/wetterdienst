@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[API page/Home]` The MCP client configuration and the home link name the pinned endpoint
+  `/mcp/v1`, as the backend reports it in `/api/version` (`mcp_path`), so a client set up from here
+  does not move with the next version. A backend that does not report it is still given `/mcp`
+  (GH-3074)
+
+### Fixed
+
+- `[Meteogram]` The weekday and the date of the hover heading, and the weekday of the day labels
+  and day cards, are written in the language of the page (`Do 15.10.`, `jeu. 15/10`), where the
+  hover said "Thu" and `dd.mm` in every language, and Luxembourgish labels fell back to the
+  system's language in Chrome (GH-3051)
+- `[Meteogram/Widget]` A failure shown while the language is switched is written in the new
+  language at once, where it kept the language it was made in. The status text after "Backend
+  error 502" is the server's own and stays English (GH-3052)
+
 ## [0.22.0] - 2026-10-17
 
 ### Changed

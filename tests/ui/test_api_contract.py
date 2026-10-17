@@ -134,6 +134,13 @@ def test_the_version_reports_the_api_version(client: TestClient, prefix: str) ->
     assert isinstance(body["mcp_enabled"], bool)
 
 
+def _untimed(body: Any) -> Any:  # noqa: ANN401
+    """Give an answer without the time its `metadata` says it was made at, which no two requests share."""
+    if isinstance(body, dict) and isinstance(body.get("metadata"), dict):
+        return {**body, "metadata": {**body["metadata"], "retrieved_at": ""}}
+    return body
+
+
 def test_every_documented_route_is_served_under_the_alias_too(client: TestClient) -> None:
     """Each path OpenAPI lists under `/api/v1` is answered under `/api` alike: one definition of a version.
 
@@ -152,7 +159,7 @@ def test_every_documented_route_is_served_under_the_alias_too(client: TestClient
         versioned, alias = client.get(path), client.get(path.replace("/api/v1/", "/api/", 1))
         assert alias.status_code == versioned.status_code, path
         assert alias.status_code not in (404, 405), path
-        assert _without_ids(alias.json()) == _without_ids(versioned.json()), path
+        assert _without_ids(_untimed(alias.json())) == _without_ids(_untimed(versioned.json())), path
 
 
 @pytest.mark.parametrize("path", ["/version", "/glossary?parameter=temperature_air_mean_2m", "/coverage"])
@@ -219,6 +226,7 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
             "history",
             "interpolate",
             "issues",
+            "providers",
             "stations",
             "stripes_image",
             "stripes_stations",
@@ -227,6 +235,21 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
             "values",
         ]
     )
+
+
+@pytest.mark.parametrize("prefix", PREFIXES)
+def test_the_providers_catalogue_has_a_request_id_and_refuses_with_a_problem(client: TestClient, prefix: str) -> None:
+    """The catalogue has no row or station limit, but it is an endpoint of the API like the others (GH-3065, GH-2565).
+
+    It answers with an `X-Request-ID` and the headers of a catalogue, and an unknown provider is the problem
+    of any other 404, with the id in its body.
+    """
+    answer = client.get(f"{prefix}/providers", params={"provider": "dwd"})
+
+    assert answer.status_code == 200, answer.text
+    assert answer.headers["X-Request-ID"]
+    assert answer.headers["X-Wetterdienst-API-Version"]
+    _is_a_problem(client.get(f"{prefix}/providers", params={"provider": "nowhere"}), 404, "not-found")
 
 
 def test_an_unknown_version_is_a_404_problem(client: TestClient) -> None:

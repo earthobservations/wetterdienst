@@ -15,6 +15,7 @@ _KnmiObservationMetadataSpec = {
     "name_english": "Royal Netherlands Meteorological Institute",
     "name_local": "Koninklijk Nederlands Meteorologisch Instituut",
     "country": "Netherlands",
+    "country_code": "NL",
     "copyright": "© KNMI",
     "license": CC_BY_4_0,
     "attribution": "© KNMI",

@@ -42,6 +42,7 @@ _MetnoFrostMetadataSpec = {
     "name_english": "Norwegian Meteorological Institute",
     "name_local": "Meteorologisk institutt",
     "country": "Norway",
+    "country_code": "NO",
     "copyright": "© Norwegian Meteorological Institute (MET Norway)",
     "license": LicenseModel(
         spdx_id="CC-BY-4.0 OR NLOD-2.0",

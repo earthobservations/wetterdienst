@@ -11,6 +11,7 @@ _GeosphereObservationMetadataSpec = {
     "name_english": "Geosphere Austria",
     "name_local": "Geosphere Österreich",
     "country": "Austria",
+    "country_code": "AT",
     "copyright": "© ZAMG, Observations",
     "license": CC_BY_4_0,
     "attribution": "GeoSphere Austria",

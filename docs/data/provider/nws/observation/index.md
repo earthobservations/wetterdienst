@@ -67,9 +67,9 @@ station-hour twice (GH-2857):
 The kept observation is stamped with the full hour, 15:00 for the METAR of 14:54, as DWD and ECCC
 stamp their hourly readings. DWD's instant readings are those of about ten minutes before the stamp
 ([time zones and reference times](../../../time_reference.md)), the same kind of reading as a METAR
-filed at :51 to :54. The minute of the report is not kept, and `noaa/ghcn` hourly, which keeps
-every report with its own minute and thins only its precipitation to one report for each UTC hour,
-is another thing (GH-2841, GH-3000). A full-hour
+filed at :51 to :54. The minute of the report is not kept, as in `noaa/ghcn` hourly, which takes
+the reading of each parameter nearest to the full hour rather than a whole report (GH-3000).
+A full-hour
 stamp is what `interpolate` and `summarize` join on, and a stamp at :54 would count for nothing
 there; `skip_empty` counts by the truncated hour, and a day of KDEN with its own minutes came to 23
 of 25 hours, below its default threshold of 0.95. A missing or late METAR shows as a SPECI or a
