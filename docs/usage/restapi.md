@@ -8,29 +8,16 @@ wetterdienst restapi
 
 There's also a hosted version at [wetterdienst.eobs.org](https://wetterdienst.eobs.org).
 
+The REST API is the backend of the [web app](app.md) and of the [MCP server](mcp.md), and the command line renders
+through the same functions, so what is said here holds for all four. [Troubleshooting](troubleshooting.md) says what
+the failures mean.
+
 ## Web App
 
-The REST API is complemented by a modern web app built with Nuxt.js, providing an interactive interface for exploring weather data.
+The [web app](app.md) is a client of this API, with a map-based explorer, forecasts, climate stripes, the providers
+and a glossary; its page says what is in it and how to run it.
 
-### Features
-
-- **Interactive Explorer**: Browse and query weather data with an intuitive UI
-  - Map-based station selection with search and filtering
-  - Parameter selection across multiple providers and networks
-  - Real-time data visualization with tables and charts
-  - Date range selection for historical data
-- **Comprehensive Settings**: Full access to all backend API parameters
-  - General: Humanize parameters, unit conversion, custom unit targets
-  - Values mode: Data shape (long/wide), skip empty stations, drop nulls
-  - Interpolation mode: Station distances, nearby station distance, gain thresholds
-- **Climate Stripes**: Visual representation of temperature trends
-- **Providers**: What each data provider is: its country, licence and credit line, and the networks, resolutions and datasets it offers
-- **Customization**: Primary color themes and dark mode support
-- **Export**: Download data in CSV, JSON, or GeoJSON formats
-
-### Access
-
-Visit [wetterdienst.eobs.org](https://wetterdienst.eobs.org) to use the web interface. To run one, see [Web app](app.md).
+## What every endpoint shares
 
 The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
 carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
@@ -437,6 +424,23 @@ http localhost:7890/api/issues provider==dwd network==dmo station==10147
 http localhost:7890/api/issues provider==dwd network==swsmos station==A006
 ```
 
+### History
+
+The changes of a station (DWD observation only, see [Station history](station_history.md)):
+
+```bash
+http localhost:7890/api/history provider==dwd network==observation parameters==daily/kl stations==1048 sections==name,geography
+```
+
+### Alerts
+
+The weather warnings of DWD that are active now, or at a time of the last 48 hours (see
+[Alerts](../data/provider/dwd/alerts/index.md)):
+
+```bash
+http localhost:7890/api/alerts granularity==district language==de format==geojson
+```
+
 ### Values
 
 `timestamp` covers everything it names: `2020-08-01` is that whole day -- all 24 readings of it for
@@ -464,7 +468,7 @@ http localhost:7890/api/values provider==dwd network==observation parameters==da
 http localhost:7890/api/values provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m stations==01001
 ```
 
-### SQL filters
+## SQL filters
 
 `sql` (stations and values: which stations) and `sql_values` (values, interpolate and summarize:
 which rows of the result) take a SQL WHERE clause, run by DuckDB on the server. A server refuses
@@ -479,14 +483,14 @@ for as long as it likes on that thread; and allocate memory DuckDB's limit does 
 one very long string. The limits hold per request, not for the server as a whole. Enable it only
 for clients you trust with that.
 
-### Image size
+## Image size
 
 A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
 the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
-### Limits
+## Limits
 
 A request that would return more than the server allows is refused with a 400 before anything is
 downloaded, as a problem of the kind `limit-exceeded`. It names the limit, its value and what the request comes
@@ -534,7 +538,7 @@ the rows: a year of 1-minute readings of one parameter is 525,600 of them, a cen
 
 An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`.
 
-### Streaming
+## Streaming
 
 `stations` and `values` answer `format=ndjson` and `format=csv` as the answer is built, station by station,
 instead of holding it: the memory of the server does not grow with the answer, and the client reads the first
@@ -569,7 +573,7 @@ failure after the response began cuts the connection, as CSV cannot say it; the 
 second lists the stations of the whole answer, which a stream never holds. `format=csv` with `sql_values` is
 sent as one body, as it was, and is held to `rows`.
 
-### Timeout
+## Timeout
 
 A request has to be answered within a timeout, `WD_RESTAPI_TIMEOUT` (`restapi_timeout`, in seconds), 60 by
 default, `0` for none. It holds for the routes under `/api` until the response begins; one that has not by then is a
@@ -620,7 +624,7 @@ or a container, sets the variable to its names, or listens on `0.0.0.0` and sets
 under. A server started otherwise (`uvicorn wetterdienst.ui.restapi:app`) answers to every host unless the variable is
 set.
 
-### Errors
+## Errors
 
 Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
 problem, served as `application/problem+json`, whatever its status: a 400, a 404, a 422, a 500 or
@@ -729,79 +733,7 @@ that no endpoint handled is the 500 sentence there too, not its own message.
 
 ## MCP endpoint
 
-The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)
-(MCP) endpoint at `/mcp/v1`, so LLM agents can call the data endpoints (coverage, auth, stations,
-values, interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the
-streamable-HTTP transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own
-routes and running in the same process.
-
-The generated tools are made agent-friendly so even small models use them correctly: a workflow
-`instructions` block (find a station, then query its values) is attached to the server, the tools
-get clean names (`values` rather than `values_api_values_get`), and the non-data endpoints
-(index, health, ...) are hidden.
-
-Install the optional extra to enable it:
-
-```bash
-pip install wetterdienst[mcp]
-wetterdienst restapi
-```
-
-The endpoint then lives next to the HTTP API, on the backend:
-
-```
-http://localhost:7890/mcp/v1
-```
-
-Point any MCP client (streamable HTTP) at that URL — for example:
-
-```json
-{
-  "mcpServers": {
-    "wetterdienst": {
-      "url": "http://localhost:7890/mcp/v1"
-    }
-  }
-}
-```
-
-### Stateless
-
-The endpoint keeps no session. The tools hold no state: each is a request to the REST API, so the server does not
-create a session at `initialize`, sends no `mcp-session-id` header and has nothing to expire, and a request needs no
-earlier one: `tools/list` and `tools/call` work without an `initialize`. A request that carries an `mcp-session-id`
-is served as one without. The two requests that belong to a session are answered with a 405, as the specification
-lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a
-stream of messages from the server, of which a server of tools has none). A tool's answer is one body and is not
-streamed: the long answers are the ones that `format=ndjson` and `csv` stream on the REST API.
-
-### Versioning
-
-The endpoint is versioned like the REST API, and the tools mirror the routes of the same version 1:1
-(the tool `values` is `/api/v1/values`). `/mcp/v1` is the endpoint to configure: it stays what it
-is. `/mcp` is an alias of the current version, the same endpoint behind a second path with the same
-tools, as `/api` is for `/api/v1`. It is not deprecated, and it moves with the
-next version, so a client that must not move with it is configured with `/mcp/v1`.
-
-A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1`
-keeps serving the tools as they were for at least two minor releases, announced in the changelog.
-Until `/mcp/v2` exists, it is a 404. A new tool, an optional argument and a new field in an
-answer are not breaking and come to `/mcp/v1` as they come to the REST API. The `instructions` and
-the descriptions of the tools are written for agents and are improved without a new version.
-
-Without the `[mcp]` extra installed, the REST API behaves exactly as before and the MCP paths are
-simply absent. `GET /api/version` says which of the two an instance is, and where the endpoint is
-(`mcp_enabled`, `mcp_path` and `mcp_alias_path`, see [Versioning](#versioning)): `mcp_path` and `mcp_alias_path`
-are `null` where `mcp_enabled` is `false`. The app reads these
-before offering an MCP client configuration, so an instance installed without the extra is never
-advertised as having an endpoint it does not serve.
-
-### Hosted instance
-
-The `[mcp]` extra is included in the backend Docker image, and the app proxies `/mcp/v1` (and `/mcp`) through
-to the backend (preserving the streamable-HTTP POST/SSE transport), so the hosted app serves the MCP
-endpoint on its own origin:
-
-```
-https://wetterdienst.eobs.org/mcp/v1
-```
+The REST API can serve a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) endpoint at `/mcp/v1`
+(`/mcp` is an alias of the current version), so that LLM agents can call the data endpoints as tools. It needs the
+`[mcp]` extra; without it the MCP paths are absent and `GET /api/version` says so (`mcp_enabled`). How to use the
+hosted endpoint, how to run your own, the tools and the versioning are on the [MCP server](mcp.md) page.

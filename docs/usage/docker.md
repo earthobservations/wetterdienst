@@ -41,7 +41,9 @@ The image listens on port 7890 when it is started without a command, as `wetterd
 outside Docker, so `docker run --publish=7890:7890 ghcr.io/earthobservations/wetterdienst` serves the API.
 Images up to 0.158.0 listened on 3000 instead: a deployment that mapped `3000:3000` has to map
 `3000:7890` to keep its host port (or move to `7890:7890`), and a health check or proxy that asks the
-container for port 3000 asks for 7890.
+container for port 3000 asks for 7890. The [MCP server](mcp.md) is served next to it, at `/mcp/v1`.
+
+The app has an image of its own, `ghcr.io/earthobservations/wetterdienst-app`, see [Web app](app.md#run-your-own).
 
 ## Docker Compose
 
