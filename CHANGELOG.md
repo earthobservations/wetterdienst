@@ -16,6 +16,28 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst stripes image` writes the climate stripes image, named as `/api/stripes/image` and
+  the MCP tool `stripes_image` are. `stripes values`, which wrote the image while REST's
+  `stripes/values` answers the yearly data, still writes it, with a deprecation notice on stderr
+  (stdout stays the image alone); use `stripes image` for the image (GH-3035)
+
+### Changed
+
+- **Breaking**: `aemet/observation`: a rate limit that outlasts the retries (an HTTP 429 or an
+  `estado` of 429 in the envelope) raises a `DownloadError` naming the file, the 429 as its
+  `__cause__`; the REST API answers a 502. It was logged and the chunk skipped, so a rate-limited
+  request returned a partial or empty result as if AEMET had no data. Catch `DownloadError` (or
+  `UpstreamError`) to keep going, and retry later (GH-2989)
+- **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
+  every provider that lists) whose connection is reset or dropped, whose body stops arriving, that
+  times out or that is refused with an HTTP status raises a `DownloadError` naming the URL, with
+  the aiohttp error as its `__cause__`, not the raw aiohttp error (REST: 500, now 502 or 504). A
+  code that caught `aiohttp.ClientError`, `OSError` or `TimeoutError` around a listing catches
+  `DownloadError` (or `UpstreamError`) now; a connection that cannot be made stays the
+  `NoInternetError` (GH-3004)
+
 ### Fixed
 
 - `dwd/observation` `hourly/urban_wind` `wind_direction`: a 0 is null, with `raw:0` as the last
@@ -28,6 +50,23 @@ Types of changes:
   lists 1002 stamps of 1999-08-04 to 1999-12-31 twice, a reading and a `-999` placeholder, and 74
   readings were lost (about 1000 when a second period is requested, which orders the rows by their
   values first). Two rows with a value, or two without, are settled as before (GH-2996)
+- A query value that JSON has no number for (`distance=1e999`, `skip_threshold=nan`) or a JSON
+  mapping nested thousands of levels deep (`unit_targets`, the station distances) is a 422 problem,
+  as any malformed value is, instead of a 500. What an `errors` entry repeats as `input` is cut off
+  below 16 levels of nesting (GH-3085)
+- `dwd/mosmix` and `dwd/dmo` no longer send an HTTP HEAD for a run the cache holds: the size
+  for the progress bar is read from the cached file, so a cached run is read with no request
+  at all (GH-3003)
+
+### Security
+
+- `/api/issues`, the MCP tool `issues` and `wetterdienst issues` refuse a `station` that is not an
+  id (letters, digits, `_`, `-` and, after the first character, `.`, up to 32 characters) with a
+  422 problem, or a usage error on the command line. It was put into the path of the directory DWD
+  is asked to list as it came, so `..` listed other directories of `opendata.dwd.de` (GH-3084)
+- `/api/providers` no longer puts the text of an `ImportError` into the `warnings` of its answer,
+  which could name a path of the server: it names the network and, for a missing module, the module.
+  The text is in the server log (GH-3086)
 
 ## [0.158.0] - 2026-10-17
 

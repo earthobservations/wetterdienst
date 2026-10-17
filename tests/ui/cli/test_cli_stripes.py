@@ -23,27 +23,29 @@ def test_cli_stripes() -> None:
     commands = dedent(
         """
         Commands:
+          image     Create the climate stripes image for a specific station.
           stations  List stations for climate stripes.
-          values    Create climate stripes for a specific station.
+          values    Create the climate stripes image for a specific station.
+                    (DEPRECATED: Use `stripes image`, which writes the image.)
         """,
     )
     assert commands in result.output
 
 
 @pytest.mark.remote
-def test_stripes_values_default() -> None:
+def test_stripes_image_default() -> None:
     """Test the summarize command with default parameters."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048"])
     assert result.exit_code == 0
     assert result.stdout
 
 
 @pytest.mark.remote
-def test_stripes_values_name() -> None:
+def test_stripes_image_name() -> None:
     """Test the summarize command with name."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--name=Dresden-Klotzsche"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--name=Dresden-Klotzsche"])
     assert result.exit_code == 0
     assert result.stdout
 
@@ -57,7 +59,7 @@ def test_stripes_values_name() -> None:
         {"show_data_availability": "false"},
     ],
 )
-def test_stripes_values_non_defaults(params: dict) -> None:
+def test_stripes_image_non_defaults(params: dict) -> None:
     """Test the summarize command with non-default parameters."""
     params = {
         "station": "01048",
@@ -67,17 +69,17 @@ def test_stripes_values_non_defaults(params: dict) -> None:
     } | params
     params = [f"--{k.replace('_', '-')}={v}" for k, v in params.items()]
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", *params])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", *params])
     assert result.exit_code == 0
     assert result.stdout
 
 
-def test_stripes_values_start_year_ge_end_year() -> None:
+def test_stripes_image_start_year_ge_end_year() -> None:
     """Test an end year not after the start year is a usage error, before anything is fetched."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["stripes", "values", "--kind=precipitation", "--station=1048", "--start-year=2020", "--end-year=2019"],
+        ["stripes", "image", "--kind=precipitation", "--station=1048", "--start-year=2020", "--end-year=2019"],
     )
     assert result.exit_code == 2
     assert (
@@ -86,12 +88,12 @@ def test_stripes_values_start_year_ge_end_year() -> None:
     )
 
 
-def test_stripes_values_wrong_name_threshold() -> None:
+def test_stripes_image_wrong_name_threshold() -> None:
     """Test a name threshold above 1 is a usage error, before anything is fetched."""
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["stripes", "values", "--kind=precipitation", "--station=1048", "--name-threshold=1.01"],
+        ["stripes", "image", "--kind=precipitation", "--station=1048", "--name-threshold=1.01"],
     )
     assert result.exit_code == 2
     assert "Error: Invalid value for '--name-threshold': Input should be less than or equal to 1 (got 1.01).\n" in (
@@ -100,13 +102,13 @@ def test_stripes_values_wrong_name_threshold() -> None:
 
 
 @pytest.mark.remote
-def test_stripes_values_target(tmp_path: Path) -> None:
+def test_stripes_image_target(tmp_path: Path) -> None:
     """Test the summarize command with target."""
     target = Path("foobar.png")
     if not IS_WINDOWS:
         target = tmp_path / "foobar.png"
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 0
     assert target.exists()
     assert not result.stdout
@@ -115,11 +117,11 @@ def test_stripes_values_target(tmp_path: Path) -> None:
 
 
 @pytest.mark.remote
-def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
+def test_stripes_image_target_not_matching_format(tmp_path: Path) -> None:
     """Test the summarize command with wrong target format."""
     target = tmp_path / "foobar.jpg"
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 2
     assert "Error: Invalid value for --target: must have extension '.png'" in result.stderr
 
@@ -128,12 +130,12 @@ def test_stripes_values_target_not_matching_format(tmp_path: Path) -> None:
 def test_climate_stripes_target_wrong_dpi() -> None:
     """Test the summarize command with wrong DPI."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--dpi=0"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048", "--dpi=0"])
     assert result.exit_code == 2
     assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stderr
 
 
-def test_stripes_values_target_in_missing_directory_is_a_readable_error(
+def test_stripes_image_target_in_missing_directory_is_a_readable_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -146,7 +148,7 @@ def test_stripes_values_target_in_missing_directory_is_a_readable_error(
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _Figure())
     target = tmp_path / "missing" / "stripes.png"
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 1
     assert "Usage:" not in result.output
     assert "Error: Could not write --target: " in result.output
@@ -154,7 +156,7 @@ def test_stripes_values_target_in_missing_directory_is_a_readable_error(
     assert not target.exists()
 
 
-def test_stripes_values_target_naming_a_directory_is_a_usage_error(
+def test_stripes_image_target_naming_a_directory_is_a_usage_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -167,7 +169,7 @@ def test_stripes_values_target_naming_a_directory_is_a_usage_error(
     target = tmp_path / "stripes.png"
     target.mkdir()
     runner = CliRunner()
-    result = runner.invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"])
+    result = runner.invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048", f"--target={target}"])
     assert result.exit_code == 2
     assert "Invalid value for '--target'" in result.output
     assert "is a directory" in result.output
@@ -190,7 +192,7 @@ class _StubFigure:
         pytest.param("pdf", "stripes.pdf", id="pdf"),
     ],
 )
-def test_stripes_values_target_with_the_format_suffix_is_written(
+def test_stripes_image_target_with_the_format_suffix_is_written(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     fmt: str,
@@ -202,7 +204,7 @@ def test_stripes_values_target_with_the_format_suffix_is_written(
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["stripes", "values", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
+        ["stripes", "image", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
     )
     assert result.exit_code == 0, result.output
     assert target.read_bytes() == fmt.lower().encode()
@@ -219,7 +221,7 @@ def test_stripes_values_target_with_the_format_suffix_is_written(
         pytest.param("svg", "stripes.svg.png", "'.svg'", id="last-suffix-counts"),
     ],
 )
-def test_stripes_values_target_without_the_format_suffix_is_refused(
+def test_stripes_image_target_without_the_format_suffix_is_refused(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     fmt: str,
@@ -236,7 +238,7 @@ def test_stripes_values_target_without_the_format_suffix_is_refused(
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["stripes", "values", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
+        ["stripes", "image", "--kind=precipitation", "--station=1048", f"--format={fmt}", f"--target={target}"],
     )
     assert result.exit_code == 2
     assert f"Error: Invalid value for --target: must have extension {expected}\n" in result.output
@@ -250,24 +252,24 @@ def test_stripes_values_target_without_the_format_suffix_is_refused(
         pytest.param(NotEnoughDataError("At least two years with data are required"), id="years"),
     ],
 )
-def test_stripes_values_tells_a_refusal_in_one_line(
+def test_stripes_image_tells_a_refusal_in_one_line(
     refusal: Exception, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test `stripes values` reports a request the caller can rephrase as a usage error, exit 2 (GH-2426)."""
+    """Test `stripes image` reports a request the caller can rephrase as a usage error, exit 2 (GH-2426)."""
 
     def plot(_request: object) -> None:
         raise refusal
 
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", plot)
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature", "--station=99999"])
+        result = CliRunner().invoke(cli, ["stripes", "image", "--kind=temperature", "--station=99999"])
 
     assert result.exit_code == 2, result.output
     assert result.stderr.endswith(f"\n\nError: {refusal}\n")
     assert not caplog.records
 
 
-def test_stripes_values_keeps_the_traceback_for_an_upstream_failure(
+def test_stripes_image_keeps_the_traceback_for_an_upstream_failure(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Test an upstream failure is logged with its traceback and exits 1, unlike a refusal (GH-2426)."""
@@ -278,7 +280,7 @@ def test_stripes_values_keeps_the_traceback_for_an_upstream_failure(
 
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", plot)
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature", "--station=1048"])
+        result = CliRunner().invoke(cli, ["stripes", "image", "--kind=temperature", "--station=1048"])
 
     assert result.exit_code == 1, result.output
     assert "Usage:" not in result.output
@@ -295,7 +297,7 @@ def test_stripes_values_keeps_the_traceback_for_an_upstream_failure(
         pytest.param("s3://bucket/stripes", id="no-suffix"),
     ],
 )
-def test_stripes_values_target_with_a_uri_scheme_is_refused_before_plotting(
+def test_stripes_image_target_with_a_uri_scheme_is_refused_before_plotting(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     target: str,
@@ -308,29 +310,29 @@ def test_stripes_values_target_with_a_uri_scheme_is_refused_before_plotting(
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", _plot_stripes)
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(
-        cli, ["stripes", "values", "--kind=precipitation", "--station=1048", f"--target={target}"]
+        cli, ["stripes", "image", "--kind=precipitation", "--station=1048", f"--target={target}"]
     )
     assert result.exit_code == 2, result.output
     assert "Invalid value for --target: only a local path is supported here, not a URI.\n" in result.output
     assert list(tmp_path.iterdir()) == []
 
 
-def test_stripes_values_empty_target_is_refused_not_written_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stripes_image_empty_target_is_refused_not_written_to_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test an empty --target is refused as a path without the format's suffix, not read as no target."""
 
     def _plot_stripes(_request: object) -> None:
         pytest.fail("plotted although --target is empty")
 
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", _plot_stripes)
-    result = CliRunner().invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--target="])
+    result = CliRunner().invoke(cli, ["stripes", "image", "--kind=precipitation", "--station=1048", "--target="])
     assert result.exit_code == 2, result.output
     assert "Invalid value for --target: must have extension '.png'\n" in result.output
 
 
-def test_stripes_values_without_kaleido_is_one_logged_line(
+def test_stripes_image_without_kaleido_is_one_logged_line(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test `stripes values` without Kaleido says what to install, exit 1, and not a traceback (GH-2667).
+    """Test `stripes image` without Kaleido says what to install, exit 1, and not a traceback (GH-2667).
 
     Plotly raises a `RuntimeError` from `to_image`, which ended the command in a traceback.
     """
@@ -338,7 +340,7 @@ def test_stripes_values_without_kaleido_is_one_logged_line(
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _StubFigure())
 
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature", "--station=01048"])
+        result = CliRunner().invoke(cli, ["stripes", "image", "--kind=temperature", "--station=01048"])
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
@@ -348,3 +350,24 @@ def test_stripes_values_without_kaleido_is_one_logged_line(
     )
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [message]
     assert all(record.exc_info is None for record in caplog.records)
+
+
+def test_stripes_values_is_the_deprecated_name_of_the_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`stripes values` still writes the image, and says on stderr that `stripes image` is its name (GH-3035).
+
+    Its stdout is the image alone, so that a script that redirects it keeps a valid file.
+    """
+    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _StubFigure())
+    args = ["--kind=precipitation", "--station=1048", "--format=svg"]
+    old = CliRunner().invoke(cli, ["stripes", "values", *args])
+    new = CliRunner().invoke(cli, ["stripes", "image", *args])
+
+    assert old.exit_code == 0, old.output
+    assert old.stdout_bytes == new.stdout_bytes == b"svg"
+    assert "'values' is deprecated" in old.stderr
+    assert "stripes image" in old.stderr
+    assert "deprecated" not in new.stderr
+    # the old name takes the options of the new one, and refuses what it refuses
+    refused = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature"])
+    assert refused.exit_code == 2
+    assert "Missing option: one of '--station' or '--name'." in refused.output

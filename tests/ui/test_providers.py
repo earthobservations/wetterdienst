@@ -244,3 +244,30 @@ def test_a_network_that_cannot_be_imported_is_left_out_and_told(
     assert "road" not in {network["network"] for network in body["providers"][0]["networks"]}
     assert [warning["code"] for warning in body["metadata"]["warnings"]] == ["network-not-importable"]
     assert "dwd/road" in body["metadata"]["warnings"][0]["message"]
+
+
+def test_the_warning_of_a_network_that_cannot_be_imported_leaves_the_path_of_the_server_out(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The text of an `ImportError` can name a path of the server, which stays in the log (GH-3086)."""
+    real = Wetterdienst.resolve
+
+    def broken(provider: str, network: str) -> Any:  # noqa: ANN401
+        if (provider, network) == ("dwd", "road"):
+            msg = "cannot import name 'x' from 'y' (/srv/secret/site-packages/y/__init__.py)"
+            raise ImportError(msg)
+        if (provider, network) == ("dwd", "mosmix"):
+            msg = "No module named 'pdbufr'"
+            raise ModuleNotFoundError(msg, name="pdbufr")
+        return real(provider, network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", broken)
+
+    body = client.get("/api/providers", params={"provider": "dwd"}).json()
+
+    messages = [warning["message"] for warning in body["metadata"]["warnings"]]
+    assert len(messages) == 2
+    assert "/srv/secret" not in " ".join(messages)
+    assert any("dwd/road" in message for message in messages)
+    # a module that is missing is named, as that is for the caller to tell the operator
+    assert any("dwd/mosmix" in message and "'pdbufr'" in message for message in messages)

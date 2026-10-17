@@ -1,6 +1,6 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { createServer } from 'node:http'
+import { createServer, request as httpRequest } from 'node:http'
 import { createRequire } from 'node:module'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -29,8 +29,28 @@ function backend(request: IncomingMessage, response: ServerResponse): void {
     response.end(JSON.stringify({ type: 'urn:wetterdienst:problem:request-timeout', title: 'Gateway Timeout', status: 504, detail: 'Too slow.', request_id: 'backend-own-id' }))
     return
   }
+  if (!request.url?.startsWith('/api')) {
+    // beside the API, as the backend's own `/health` and `/docs` are
+    response.writeHead(200, { ...headers, 'content-type': 'application/json' })
+    response.end(JSON.stringify({ outside: request.url }))
+    return
+  }
   response.writeHead(200, { ...headers, 'content-type': 'application/json' })
-  response.end(JSON.stringify({ received: request.headers }))
+  response.end(JSON.stringify({ received: request.headers, url: request.url }))
+}
+
+// A request with the path as the client wrote it: `fetch` normalises `..` before it sends anything
+function rawGet(base: string, path: string): Promise<{ status: number, body: string }> {
+  return new Promise((resolve, reject) => {
+    const { port } = new URL(base)
+    httpRequest({ host: '127.0.0.1', port, path, method: 'GET' }, (response) => {
+      let body = ''
+      response.on('data', (chunk) => {
+        body += chunk
+      })
+      response.on('end', () => resolve({ status: response.statusCode ?? 0, body }))
+    }).on('error', reject).end()
+  })
 }
 
 const servers: Server[] = []
@@ -107,6 +127,39 @@ describe('the /api proxy and the answer of the backend', () => {
     const response = await fetch(`${app}/api/anything`)
 
     expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f]{32}$/)
+  })
+})
+
+describe('the /api proxy and the path of the client', () => {
+  it.each([
+    '/api/../health',
+    '/api/%2e%2e/health',
+    '/api/%2E%2E/health',
+    '/api/./../health',
+    '/api/stations/../../health',
+  ])('does not leave apiBase for %s, and answers it a 404 problem without asking the backend', async (path) => {
+    config.apiBase = backendBase
+    const { status, body } = await rawGet(app, path)
+
+    expect(status).toBe(404)
+    expect(JSON.parse(body).type).toBe('urn:wetterdienst:problem:not-found')
+    expect(body).not.toContain('outside')
+  })
+
+  it('keeps a path that stays under apiBase, however it gets there', async () => {
+    config.apiBase = backendBase
+    const { status, body } = await rawGet(app, '/api/stations/../values?parameters=daily%2Fkl')
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).url).toBe('/api/values?parameters=daily%2Fkl')
+  })
+
+  it('takes an encoded slash as a character of a segment, not as one that could leave apiBase', async () => {
+    config.apiBase = backendBase
+    const { status, body } = await rawGet(app, '/api/..%2fhealth')
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).url).toMatch(/^\/api\/\.\.%2fhealth/i)
   })
 })
 
