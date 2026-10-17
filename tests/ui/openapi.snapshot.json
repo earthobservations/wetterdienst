@@ -347,6 +347,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 1000000,
               "minimum": 0,
               "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
               "default": 3,
@@ -972,6 +973,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 1000000,
                   "minimum": 1
                 },
                 {
@@ -1695,6 +1697,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 1000000,
                   "minimum": 1
                 },
                 {
@@ -2564,6 +2567,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 1000000,
               "minimum": 0,
               "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
               "default": 3,
@@ -3135,6 +3139,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 1000000,
               "minimum": 0,
               "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
               "default": 3,
@@ -7167,7 +7172,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",

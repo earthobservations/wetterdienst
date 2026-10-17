@@ -512,14 +512,20 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 The host sets them with the settings of the same names (`restapi_max_stations`, ...; see [Settings](settings.md)),
 and `0` switches a limit off. They hold for the REST API and the MCP tools; the library and the command line have
 none. The default of 100 stations is the number `request.stations.ids` of the `metadata` block lists.
-`GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`
-and the `timeout` in seconds), so a client can size its requests before one is refused.
+`GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`,
+the `timeout` in seconds and `max_concurrent`), so a client can size its requests before one is refused.
 
 The stations are counted from the selection, which the server holds already. The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
 of its record, within the `timestamp` of the request, times the parameters asked for (once for each timestamp in the
-wide `shape`). A station whose record is not published, as in the forecast networks, is not counted, and
-`drop_nulls` or a station with less data than its record makes the answer smaller. For `interpolate` and
+wide `shape`). A station whose record is not published is counted from an assumed start, so that a request without a
+`timestamp` is held to the limit as well. That concerns the datasets that need no date and whose station list publishes
+no record (the phenology of DWD is one; a network that requires a date has the window of the request). The start is
+assumed from the periods of the dataset: 1 January 1950 for one with historical data, which is before the oldest
+archive of this kind that the library reads (IMGW's begins in 1951), two years before the end for recent data and two
+days for current data. A forecast has no record to assume and is not counted:
+its answer is bounded by the horizon of the model. `drop_nulls` or a station with less data than its record makes
+the answer smaller. For `interpolate` and
 `summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
 the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.
 
@@ -569,14 +575,54 @@ between two of its chunks, and a chunk that takes longer ends the stream with an
 connection is cut).
 
 The work already begun is not cancelled, so what the request had downloaded is cached, and the same request
-made again after the `Retry-After` is likely to succeed. A reverse proxy in front of the server has a timeout of its
+made again after the `Retry-After` is likely to succeed. The request keeps its place in the
+[limit on requests served at once](#concurrency) until that work is done. A reverse proxy in front of the server has a timeout of its
 own, usually 60 seconds too; set this one below it for the answer to be this problem.
+
+### Concurrency
+
+A server works on a limited number of requests at once, `WD_RESTAPI_MAX_CONCURRENT` (`restapi_max_concurrent`), 32 by
+default, `0` for no limit. A request under `/api` past it is not started but answered with a 503 problem of the
+kind `server-busy` and `Retry-After`, and a client retries it after that time. `/health` and the index page are
+not counted. A tool of the MCP endpoint makes its request to the API in process and is counted as one request there.
+
+A request keeps its place until the work of its handler is done, not until its answer is sent: the work of a
+request that timed out goes on in its thread (see [Timeout](#timeout)), so the limit bounds the threads of the
+server, which the timeout alone does not. The default leaves the rest of the 40 threads of the pool to the routes
+that are not counted. Set it to what the host can take, and put a rate limit in front of the server; a cap is no
+protection against a client that sends requests faster than they are answered, it only keeps them from piling up.
+
+### Allowed hosts
+
+The REST API and the MCP endpoint answer to every `Host` by default, which is what a server behind a proxy or on a
+public name wants. `WD_RESTAPI_ALLOWED_HOSTS` (`restapi_allowed_hosts`) is a comma-separated list of the names the
+server answers to; a request with another `Host` is a 400 problem of the kind `host-not-allowed`, and so is a
+request to the MCP endpoint (`/mcp/v1`, `/mcp`) with an `Origin` that names a host that is not listed
+(`origin-not-allowed`; a request without an `Origin`, as a client of an agent makes it, is not checked).
+
+```bash
+WD_RESTAPI_ALLOWED_HOSTS=weather.example.org,*.internal.example.org wetterdienst restapi --listen 0.0.0.0:7890
+```
+
+An entry is a name without a scheme or a path, compared without regard to case: `localhost` lets `localhost:7890` and
+`localhost:3000` in, `localhost:7890` only the first; an IPv6 address is written in brackets (`[::1]`);
+`*.example.org` stands for every name below `example.org`, not `example.org` itself. The `Origin` is compared by its
+host in the same way. The probe of `/health` is not checked.
+
+`wetterdienst restapi` sets the list for its own process to `localhost,127.0.0.1,[::1]` (and the host it was given)
+when `--listen` is a loopback address, which is the default, `127.0.0.1:7890`, and the setting is not given. A page of
+another site, whose name a DNS server re-points at `127.0.0.1` (DNS rebinding), reaches a local server with its own
+name in `Host`, and is refused. A local server that is reached by another name, through a tunnel, a port mapping
+or a container, sets the variable to its names, or listens on `0.0.0.0` and sets it to the names it is served
+under. A server started otherwise (`uvicorn wetterdienst.ui.restapi:app`) answers to every host unless the variable is
+set.
 
 ### Errors
 
 Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
 problem, served as `application/problem+json`, whatever its status: a 400, a 404, a 422, a 500 or
-the 404 of a path that does not exist. The MCP endpoint (`/mcp/v1`) answers its own errors as JSON-RPC.
+the 404 of a path that does not exist. The MCP endpoint (`/mcp/v1`) answers its own errors as JSON-RPC, but for the `Host` and `Origin` check, which is a problem
+as well (see [Allowed hosts](#allowed-hosts)).
 
 ```json
 {
@@ -609,14 +655,14 @@ entry for each invalid parameter, where `loc` names it:
 
 | Status | When |
 | --- | --- |
-| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range |
+| 400 | the request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have (the whole request is refused, and `detail` names each unknown one), a point out of range, a `Host` or an MCP `Origin` the server does not answer to ([Allowed hosts](#allowed-hosts)) |
 | 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
 | 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 502 | the data provider failed or sent an answer the server cannot read: a download that was refused or cut short, a file in a layout it does not expect; the request was valid and can be retried |
-| 503 | the server could not reach the data provider (no network connection); the request was valid and can be retried, the body says so and does not name the provider's address |
+| 503 | the server could not reach the data provider (no network connection), or it is working on as many requests as it allows ([Concurrency](#concurrency)); the request was valid and can be retried, the body says so and does not name the provider's address |
 | 504 | the data provider did not answer in time; the request was valid and can be retried |
 | 500 | the server's own error, a defect: the body names the exception's type and nothing else, the cause is in the server log |
 
@@ -633,6 +679,8 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
 | `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
+| `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
+| `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |
 | `urn:wetterdienst:problem:sql-disabled` | 403 | The request carries a `sql` or `sql_values` filter and the server does not enable them. |
 | `urn:wetterdienst:problem:not-found` | 404 | What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path. |
 | `urn:wetterdienst:problem:unknown-network` | 404 | The provider and network are not served, or have no stations or values to request. |
@@ -643,6 +691,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:credential-rejected` | 501 | The provider rejected the credential of the server. |
 | `urn:wetterdienst:problem:not-configured` | 501 | The server is not configured to serve the request. |
 | `urn:wetterdienst:problem:upstream-failed` | 502 | The data provider failed or sent an answer the server cannot read. The request was valid; retry it. |
+| `urn:wetterdienst:problem:server-busy` | 503 | The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`. |
 | `urn:wetterdienst:problem:upstream-unreachable` | 503 | The server could not reach the data provider (no connection). The request was valid; retry it. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
@@ -711,12 +760,22 @@ Point any MCP client (streamable HTTP) at that URL — for example:
 }
 ```
 
+### Stateless
+
+The endpoint keeps no session. The tools hold no state: each is a request to the REST API, so the server does not
+create a session at `initialize`, sends no `mcp-session-id` header and has nothing to expire, and a request needs no
+earlier one: `tools/list` and `tools/call` work without an `initialize`. A request that carries an `mcp-session-id`
+is served as one without. The two requests that belong to a session are answered with a 405, as the specification
+lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a
+stream of messages from the server, of which a server of tools has none). A tool's answer is one body and is not
+streamed: the long answers are the ones that `format=ndjson` and `csv` stream on the REST API.
+
 ### Versioning
 
 The endpoint is versioned like the REST API, and the tools mirror the routes of the same version 1:1
 (the tool `values` is `/api/v1/values`). `/mcp/v1` is the endpoint to configure: it stays what it
 is. `/mcp` is an alias of the current version, the same endpoint behind a second path with the same
-tools and the same sessions, as `/api` is for `/api/v1`. It is not deprecated, and it moves with the
+tools, as `/api` is for `/api/v1`. It is not deprecated, and it moves with the
 next version, so a client that must not move with it is configured with `/mcp/v1`.
 
 A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1`
