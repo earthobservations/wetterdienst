@@ -9,6 +9,7 @@ import itertools
 import json
 import logging
 import math
+import os
 import re
 from dataclasses import replace
 from textwrap import dedent
@@ -160,6 +161,7 @@ from wetterdienst.ui.streaming import (
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
@@ -2119,8 +2121,9 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     the MCP transport stays in lockstep with the HTTP API, with a workflow ``instructions``
     block and clean tool names layered on for agent usability. ``/mcp/v1`` is the endpoint of the
     contract version, and ``/mcp`` is an alias of the current one, as ``/api`` is of ``/api/v1``.
-    Both paths are routes to the one endpoint, so they share the session manager and its sessions
-    and the server is built once, and a tool answers alike on either (GH-3074). The MCP
+    Both paths are routes to the one endpoint, so they share the session manager and
+    the server is built once, and a tool answers alike on either (GH-3074). The endpoint is stateless (GH-3088):
+    every request stands alone, no session is created or kept, and a request needs no `initialize` before it. The MCP
     streamable-http session manager runs via the sub-app's lifespan, which is *composed* with
     ``rest_app``'s existing lifespan here (not replaced), so any current or future app
     startup/shutdown still runs; the existing REST routes keep working with or without the
@@ -2136,7 +2139,8 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
 
         from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-        mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX)
+        # stateless: the tools hold no session state, so no session is kept (GH-3088)
+        mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX, stateless_http=True)
     except ModuleNotFoundError as exc:
         # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no MCP route.
         # Said out loud, because an instance missing /mcp for want of a dependency otherwise looks
@@ -2176,6 +2180,29 @@ app.include_router(router, prefix=API_PREFIX)
 mcp_enabled = _mount_mcp(app)
 
 
+ALLOWED_HOSTS_VARIABLE = "WD_RESTAPI_ALLOWED_HOSTS"
+
+
+def _answer_to_loopback_names_only(listen_host: str) -> None:
+    """Have a server on the loopback interface answer to its loopback names alone, unless told otherwise (GH-3087).
+
+    A web page that a hostile DNS name re-points at `127.0.0.1` reaches a local server with its own name in `Host`.
+    Done for this process through its environment, which a reloaded worker inherits, and only where the setting is
+    not given: a server on a loopback address that is reached through a tunnel or a port mapping lists its names.
+    """
+    try:
+        if Settings().restapi_allowed_hosts:
+            return
+    except Exception:  # noqa: BLE001
+        # a malformed setting is refused as the server starts, naming the variable
+        return
+    os.environ[ALLOWED_HOSTS_VARIABLE] = ",".join(loopback_allowed_hosts(listen_host))
+    log.info(
+        f"Listening on the loopback interface: answering to the hosts {os.environ[ALLOWED_HOSTS_VARIABLE]} only. "
+        f"Set {ALLOWED_HOSTS_VARIABLE} to reach the server by another name."
+    )
+
+
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
     run = import_optional("uvicorn.main", "The REST API", extra="restapi").run
@@ -2185,7 +2212,8 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if listen_address is None:
         listen_address = "127.0.0.1:7890"
 
-    host, port = listen_address.split(":")
-    port = int(port)
+    host, port = split_listen_address(listen_address)
+    if is_loopback(host):
+        _answer_to_loopback_names_only(host)
 
     run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload or False)

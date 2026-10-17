@@ -134,10 +134,14 @@ _LongitudeField = Annotated[
     float | None,
     Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
 ]
+#: the largest count a request may name (`rank`, `num_additional_stations`): more than any network has stations, and
+#: far below what a fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
+MAX_COUNT = 1_000_000
 _RankField = Annotated[
     int | None,
     Field(
         ge=1,
+        le=MAX_COUNT,
         description="With latitude/longitude, the N closest stations; with name, at most N matches (default "
         f"{DEFAULT_NAME_RANK_LISTING} for `stations`, which lists candidates, and {DEFAULT_NAME_RANK} for "
         "`values`, the best match, as the library's `filter_by_name`).",
@@ -333,6 +337,7 @@ _NumAdditionalStationsField = Annotated[
     int,
     Field(
         ge=0,
+        le=MAX_COUNT,
         description="Number of additional nearby stations to consider for interpolation. "
         "Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
     ),
