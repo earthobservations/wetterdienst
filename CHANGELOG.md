@@ -16,6 +16,9 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.159.0] - 2026-10-18
+
+
 ### Added
 
 - `wetterdienst stripes image` writes the climate stripes image, named as `/api/stripes/image` and
@@ -5759,7 +5762,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.158.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.159.0...HEAD
+[0.159.0]: https://github.com/earthobservations/wetterdienst/compare/v0.158.0...v0.159.0
 [0.158.0]: https://github.com/earthobservations/wetterdienst/compare/v0.157.0...v0.158.0
 [0.157.0]: https://github.com/earthobservations/wetterdienst/compare/v0.156.0...v0.157.0
 [0.156.0]: https://github.com/earthobservations/wetterdienst/compare/v0.155.0...v0.156.0

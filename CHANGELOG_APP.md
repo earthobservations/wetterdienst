@@ -16,6 +16,9 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-18
+
+
 ### Changed
 
 - **Breaking**: the app looks for the backend at `http://localhost:7890/api` by default, where
@@ -25,6 +28,21 @@ Types of changes:
 - The home page states the number of parameters the backend counts (`/api/providers`,
   `metadata.counts.parameters`), not a number it was written with, which no longer held: it shows
   a placeholder until the backend has answered and a dash where it did not (GH-3105)
+- **Breaking for deployments that relied on the old limit** `[Rate limit]` The rate limit counts
+  what costs something, 300 requests per client in 5 minutes for `/api/values`, `stations`,
+  `interpolate`, `summarize`, `stripes`, `history` and the rest of `/api` but the catalogue, and
+  `/mcp`, and leaves the pages, `/docs` and the catalogue routes (`version`, `settings`,
+  `providers`, `coverage`, `glossary`, `auth`, `health`) out. It was one bucket of 150 requests
+  in 5 minutes for every page and call. A 429 is a problem
+  (`urn:wetterdienst:problem:rate-limited`) with `Retry-After`, and counted answers carry
+  `X-RateLimit-*`. Set `NUXT_RATE_LIMIT_TOKENS`, `NUXT_RATE_LIMIT_WINDOW_SECONDS` or
+  `NUXT_RATE_LIMIT_ENABLED=false` at run time (GH-3093)
+- **Breaking behind a reverse proxy** `[Rate limit]` The client is the address of the connection,
+  not the leftmost `X-Forwarded-For`, which any client could write: behind a proxy all users share
+  one count until `NUXT_RATE_LIMIT_CLIENT_IP_HEADER` names the header the proxy sets (read from
+  its end). See `docs/usage/app.md` (GH-3093)
+- `[Build]` The install drops `@scarf/scarf` (`.pnpmfile.cjs`), the analytics package that
+  `swagger-ui-dist` depends on, whose postinstall reported every install (GH-3094)
 
 ### Security
 
@@ -55,24 +73,6 @@ Types of changes:
   with a policy of its own. The SQL panel needs a browser with WebAssembly exception handling
   (every one since 2022), and the build is about a minute longer for the compression of the
   module (GH-3094)
-
-### Changed
-
-- **Breaking for deployments that relied on the old limit** `[Rate limit]` The rate limit counts
-  what costs something, 300 requests per client in 5 minutes for `/api/values`, `stations`,
-  `interpolate`, `summarize`, `stripes`, `history` and the rest of `/api` but the catalogue, and
-  `/mcp`, and leaves the pages, `/docs` and the catalogue routes (`version`, `settings`,
-  `providers`, `coverage`, `glossary`, `auth`, `health`) out. It was one bucket of 150 requests
-  in 5 minutes for every page and call. A 429 is a problem
-  (`urn:wetterdienst:problem:rate-limited`) with `Retry-After`, and counted answers carry
-  `X-RateLimit-*`. Set `NUXT_RATE_LIMIT_TOKENS`, `NUXT_RATE_LIMIT_WINDOW_SECONDS` or
-  `NUXT_RATE_LIMIT_ENABLED=false` at run time (GH-3093)
-- **Breaking behind a reverse proxy** `[Rate limit]` The client is the address of the connection,
-  not the leftmost `X-Forwarded-For`, which any client could write: behind a proxy all users share
-  one count until `NUXT_RATE_LIMIT_CLIENT_IP_HEADER` names the header the proxy sets (read from
-  its end). See `docs/usage/app.md` (GH-3093)
-- `[Build]` The install drops `@scarf/scarf` (`.pnpmfile.cjs`), the analytics package that
-  `swagger-ui-dist` depends on, whose postinstall reported every install (GH-3094)
 
 ## [0.23.0] - 2026-10-17
 
@@ -1329,7 +1329,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.23.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.24.0...HEAD
+[0.24.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.23.0...app-v0.24.0
 [0.23.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.22.0...app-v0.23.0
 [0.22.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...app-v0.22.0
 [0.21.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...app-v0.21.0
