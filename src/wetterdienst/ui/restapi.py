@@ -336,10 +336,33 @@ def _describe_validation_errors(errors: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+#: how deep the input a validation error repeats is kept
+_ERROR_INPUT_DEPTH = 16
+
+
+def _writable(value: Any, depth: int = _ERROR_INPUT_DEPTH) -> Any:  # noqa: ANN401
+    """Make an entry of a validation error one a response can write: no `inf`, no `nan`, no endless nesting.
+
+    An entry holds the `input` it refused, which is whatever the query carried. JSON has no number for `1e999`, so the
+    body of the 422 could not be written, and a mapping of thousands of levels, which a query of a few kilobytes
+    makes, exhausted the stack of the encoder: the caller was answered a 500 for a request that was only malformed
+    (GH-3085). A float JSON has no number for is written as its text, what is nested deeper than `depth` as `...`.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, (dict, list, tuple)):
+        if depth <= 0:
+            return "..."
+        if isinstance(value, dict):
+            return {key: _writable(item, depth - 1) for key, item in value.items()}
+        return [_writable(item, depth - 1) for item in value]
+    return value
+
+
 @app.exception_handler(RequestValidationError)
 async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Answer a request that fails validation with a 422 problem, its entries under `errors`."""
-    errors = jsonable_encoder(exc.errors())
+    errors = jsonable_encoder(_writable(exc.errors()))
     return _problem_response(request, 422, _describe_validation_errors(errors), errors=errors)
 
 

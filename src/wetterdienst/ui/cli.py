@@ -1549,7 +1549,8 @@ def issues_cmd(
     begin_response()
 
     api = get_api(provider=provider, network=network)
-    request = IssuesRequest.model_validate(
+    request = _validate_request(
+        IssuesRequest,
         {
             "provider": provider,
             "network": network,

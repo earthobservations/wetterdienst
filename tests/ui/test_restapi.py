@@ -29,6 +29,7 @@ from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.metadata import NetworkKind, ParameterSearch
 from wetterdienst.options import Options
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import (
@@ -2324,6 +2325,77 @@ def test_issues_unknown_provider(client: TestClient) -> None:
         params={"provider": "unknown", "network": "unknown", "station": "00011"},
     )
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize("station", ["..", "../..", "../../x", "a/b", "a%2Fb", "\x00", "", ".hidden", "a" * 33])
+def test_issues_refuses_a_station_that_is_no_id_before_asking_dwd(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, station: str
+) -> None:
+    """The station is a segment of the path DWD is asked to list, so one that is no id is a 422 (GH-3084)."""
+    asked: list[str] = []
+    monkeypatch.setattr(
+        DwdMosmixRequest, "available_issues", classmethod(lambda _cls, station_id, _settings: asked.append(station_id))
+    )
+
+    response = client.get("/api/issues", params={"provider": "dwd", "network": "mosmix", "station": station})
+
+    assert response.status_code == 422
+    assert response.json()["type"] == "urn:wetterdienst:problem:invalid-parameters"
+    assert "station" in response.json()["detail"]
+    assert asked == []
+
+
+@pytest.mark.parametrize("station", ["10147", "A006", "P0051", "XYZ-1", "a.b"])
+def test_issues_takes_the_ids_of_the_stations(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, station: str
+) -> None:
+    """An id of the listings is passed on as it is (GH-3084)."""
+    asked: list[str] = []
+
+    def available_issues(_cls: type, station_id: str, _settings: object) -> list[dt.datetime]:
+        asked.append(station_id)
+        return []
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", classmethod(available_issues))
+
+    response = client.get("/api/issues", params={"provider": "dwd", "network": "mosmix", "station": station})
+
+    assert response.status_code == 200
+    assert asked == [station]
+
+
+@pytest.mark.parametrize(
+    ("path", "params"),
+    [
+        ("/api/settings", {"unit_targets": "1e999"}),
+        ("/api/settings", {"unit_targets": "-1e999"}),
+        ("/api/settings", {"interpolation_station_distance": "1e999"}),
+        ("/api/settings", {"summary_station_distance": "-1e999"}),
+        ("/api/settings", {"skip_threshold": "nan"}),
+        ("/api/settings", {"skip_threshold": "inf"}),
+    ],
+)
+def test_a_value_json_has_no_number_for_is_a_422_that_can_be_written(
+    client: TestClient, path: str, params: dict[str, str]
+) -> None:
+    """The problem repeats the `input` it refused, and `inf` and `nan` are written as text, not a 500 (GH-3085)."""
+    response = client.get(path, params=params)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["type"] == "urn:wetterdienst:problem:invalid-parameters"
+    assert body["errors"][0]["loc"][0] == "query"
+
+
+@pytest.mark.parametrize("depth", [3000, 10_000])
+def test_a_mapping_nested_deeper_than_python_reads_is_a_422(client: TestClient, depth: int) -> None:
+    """A query of thousands of opening braces is no mapping, and was the RecursionError of a 500 (GH-3085)."""
+    deep = "[" * depth + "]" * depth
+
+    response = client.get("/api/settings", params={"unit_targets": deep})
+
+    assert response.status_code == 422
+    assert response.json()["type"] == "urn:wetterdienst:problem:invalid-parameters"
 
 
 @pytest.mark.remote
