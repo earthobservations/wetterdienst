@@ -78,7 +78,7 @@ anything built on them. It also lists every dataset and parameter per provider.
   CrateDB, InfluxDB and DuckDB
 - Command line client, REST API and a public Docker image
 - MCP (Model Context Protocol) endpoint, so LLM agents can query the data as tools
-- Web app with map-based explorer, forecasts, climate stripes and a glossary, at
+- Web app with map-based explorer, forecasts, climate stripes, a glossary and an overview of the providers, at
   [wetterdienst.eobs.org](https://wetterdienst.eobs.org/)
 
 ## Setup

@@ -123,6 +123,18 @@ test.describe('the app can name what the backend serves', () => {
     expect(stale, 'app labels for datasets no network serves').toEqual([])
   })
 
+  test('the providers page can draw every provider it is served', async ({ request }) => {
+    const response = await request.get(`${BACKEND_URL}/api/providers`, SLOW)
+    expect(response.ok(), 'the backend did not serve /api/providers').toBeTruthy()
+    const { providers } = await response.json() as { providers: Array<{ provider: string, country_code: string }> }
+    const coverage = await (await request.get(`${BACKEND_URL}/api/coverage`, SLOW)).json() as Record<string, unknown>
+
+    expect(providers.map(provider => provider.provider).sort(), 'the providers the registry has').toEqual(Object.keys(coverage).sort())
+    // a flag is drawn from two capital letters (ZZ is the globe of a provider of several countries)
+    const odd = providers.filter(provider => !/^[A-Z]{2}$/.test(provider.country_code)).map(provider => provider.provider)
+    expect(odd, 'providers whose country_code is no ISO 3166-1 alpha-2 code').toEqual([])
+  })
+
   test('the home page lists every provider', async ({ request }) => {
     const response = await request.get(`${BACKEND_URL}/api/coverage`, SLOW)
     expect(response.ok(), 'the backend did not serve /api/coverage').toBeTruthy()

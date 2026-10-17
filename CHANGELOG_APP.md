@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Providers]` A Providers page, in the navigation and linked from the home page, says what each
+  of the backend's providers is: name in English and in its own language, country with its flag,
+  the licence (linked, with its SPDX identifier) and the credit line to give, with a button to copy
+  it, and for each network its kind, source, whether it needs credentials, and its resolutions and
+  datasets. The list filters by name, country or code and by kind of data, and a provider's page
+  opens the explorer on one of its networks. It reads `GET /api/providers`, so it needs backend
+  0.158.0 or newer (GH-2565). The Providers texts are in all eleven languages; the Polish, Czech,
+  Luxembourgish and Low German ones are not natively reviewed
+
 ### Changed
 
 - `[API page/Home]` The MCP client configuration and the home link name the pinned endpoint

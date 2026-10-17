@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test'
 // page is when it scrolls sideways.
 //
 // The pages need no data to lay out their chrome, so this reads the home, explorer, stripes,
-// meteogram, history, glossary, settings, API, about, support and impressum pages as they come.
+// meteogram, history, glossary, providers, settings, API, about, support and impressum pages as they come.
 //
 // The app server rate-limits by client address (nuxt-security: 150 requests per 5 minutes, and its
 // own /api proxy counts), which the rest of the suite stays well under and 44 page loads of this one
@@ -18,7 +18,7 @@ import { expect, test } from '@playwright/test'
 // and measured at both widths.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/settings', '/api', '/about', '/support', '/impressum']
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
   { name: 'phone', width: 320, height: 844 },
