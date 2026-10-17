@@ -19,7 +19,7 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Iterator, MutableMapping
+from collections.abc import Callable, Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -1332,6 +1332,54 @@ def _bare_tls_failure(error: ClientSSLError) -> OSError:
 _LISTING_ATTEMPTS = 3
 
 
+_T = TypeVar("_T")
+
+
+def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
+    """Attempt a listing as often as the policy says, and raise what is left as the error it is.
+
+    The one place both listings go through (GH-3004). A failure the retry asks again for is raised once
+    the attempts are used up:
+
+    - a connection that could not be made (``ClientConnectorError``) is a ``NoInternetError``, naming
+      the URL (GH-2640);
+    - one the server cut or never finished -- a reset, a dropped connection, a body that stopped
+      arriving, a timeout, a 5xx -- and an HTTP error status are a ``DownloadError`` naming the URL,
+      with the failure as its ``__cause__``, as ``File.raise_if_exception`` raises them for a download
+      (GH-2460). ``timed_out`` finds a timeout under it, so the REST API answers a 504 for it.
+
+    Not an ``ssl.SSLError`` nor a ``FileNotFoundError``, which are asked for once and raised as they
+    are, and not a programming error. They are raised outside the ``except`` blocks below, so that the
+    aiohttp error is no ``__context__`` of what is raised: it holds the connection key, which renders
+    the password of a proxy named in ``HTTPS_PROXY``.
+    """
+    offline: ClientConnectorError | None = None
+    failed: Exception | None = None
+    try:
+        # a retry context rather than a `stamina.retry` decorator: the decorator hands the call's
+        # arguments to stamina's retry hook, which attaches them to its log record as
+        # `extra["stamina.kwargs"]` -- the live `Settings`, proxy password included, for a handler that
+        # serialises a pydantic object by its fields (GH-2904). A context has no arguments to hand over.
+        # The same policy as before: stamina's default time budget, `_LISTING_ATTEMPTS` attempts.
+        for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
+            with attempt:
+                return list_once()
+    except ClientConnectorError as e:
+        offline = e
+    except Exception as e:
+        if not (_worth_retrying_listing(e) or isinstance(e, ClientResponseError)):
+            raise
+        failed = e
+    if offline is not None:
+        raise _no_internet_error(url, offline)
+    if failed is not None:
+        failure = _download_error(failed, url)
+        failure.__cause__ = failed.with_traceback(None)
+        raise failure
+    msg = "unreachable"
+    raise AssertionError(msg)
+
+
 def list_remote_files_fsspec(
     url: str, settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
 ) -> list[str]:
@@ -1353,29 +1401,13 @@ def list_remote_files_fsspec(
             A directory that is not there is an answer, `[]`; being offline is not (GH-2640).
         ssl.SSLError: If a certificate does not verify or a TLS handshake fails, at the first
             attempt: asking again would meet the same certificate.
-        Exception: If the listing could not be read for another reason: an ``OSError`` such as a
-            connection reset, or an HTTP error status other than 404. A failed connection, a
-            timeout, a broken body or a 5xx is asked for three times before it is raised; a TLS
-            failure, a 4xx or anything else once.
+        DownloadError: If the server answered badly: a connection reset or dropped, a timeout, a
+            broken body, or an HTTP error status other than 404, naming the URL, the failure as its
+            ``__cause__`` (GH-3004). A reset, a timeout, a broken body or a 5xx is asked for three
+            times before it is raised; a 4xx once.
 
     """
-    offline: ClientConnectorError | None = None
-    try:
-        # a retry context rather than a `stamina.retry` decorator: the decorator hands the call's
-        # arguments to stamina's retry hook, which attaches them to its log record as
-        # `extra["stamina.kwargs"]` -- the live `Settings`, proxy password included, for a handler that
-        # serialises a pydantic object by its fields (GH-2904). A context has no arguments to hand over.
-        # The same policy as before: stamina's default time budget, `_LISTING_ATTEMPTS` attempts.
-        for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
-            with attempt:
-                return _list_files_once(url, settings, cache_expiry)
-    except ClientConnectorError as e:
-        offline = e
-    if offline is not None:
-        # raised outside the `except`, so that the aiohttp error is not its `__context__`
-        raise _no_internet_error(url, offline)
-    msg = "unreachable"
-    raise AssertionError(msg)
+    return _list_with_retries(lambda: _list_files_once(url, settings, cache_expiry), url)
 
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
@@ -1452,27 +1484,12 @@ def list_remote_directory_fsspec(
             attempt: asking again would meet the same certificate.
         NoInternetError: If no connection could be made after three attempts, as for
             ``list_remote_files_fsspec`` (GH-2640).
-        Exception: If the listing could not be read for another reason: a missing directory
-            (``FileNotFoundError``) or an HTTP error status. Unlike ``list_remote_files_fsspec``,
-            none of these returns no entries. A failed connection, a timeout, a broken body or a
-            5xx is asked for three times before it is raised; a TLS failure, a 4xx, a missing
-            directory or anything else once.
+        DownloadError: If the server answered badly, as for ``list_remote_files_fsspec`` (GH-3004).
+        FileNotFoundError: If the directory is not there. Unlike ``list_remote_files_fsspec``, this
+            does not return no entries. A missing directory is asked for once.
 
     """
-    offline: ClientConnectorError | None = None
-    try:
-        # a retry context, as in `list_remote_files_fsspec`, so that the settings stay out of stamina's
-        # log record (GH-2904)
-        for attempt in stamina.retry_context(on=_worth_retrying_listing, attempts=_LISTING_ATTEMPTS):
-            with attempt:
-                return _list_directory_once(url, settings, cache_expiry)
-    except ClientConnectorError as e:
-        offline = e
-    if offline is not None:
-        # raised outside the `except`, so that the aiohttp error is not its `__context__`
-        raise _no_internet_error(url, offline)
-    msg = "unreachable"
-    raise AssertionError(msg)
+    return _list_with_retries(lambda: _list_directory_once(url, settings, cache_expiry), url)
 
 
 def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[dict]:
