@@ -21,6 +21,8 @@ from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
+    from io import IOBase
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -44,6 +46,15 @@ _CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("winddirection"))
 # an empty `rawMessage`, and are reports all the same (SLP, tenths of a degree). Read into a struct, a key the endpoint
 # leaves out is a null struct.
 _REPORT_MARKER = "precipitationlasthour"
+# The endpoint answers at most 500 observations to a request, newest first, and names the rest in `pagination.next`, a
+# cursor URL that carries the stamp of the oldest row returned and walks backwards: KBOS, a window of 5 days (read
+# 2026-10-17), pages of 500 rows from 2026-10-17T13:50 to 2026-10-15T21:10, to 2026-10-14T04:50, to 2026-10-12T12:50 and
+# to 2026-10-10T20:05, then 81 rows to 2026-10-10T13:20, the end of the week it keeps. Each page ends where the next
+# begins, five minutes later in the past. A page that holds fewer rows than the limit is the last one though it names a
+# `next` as well, and a window of three hours, 34 rows, does: that cursor alone walks out of the window (500 rows older
+# than its `start`), where the cursor with the `start` of the window answers with none. The `start` is honoured with a
+# cursor, an `end` is not (GH-2994).
+_PAGE_SIZE = 500
 # a report belongs to the full hour it is nearest to, so an hour reaches half an hour to either side of its full hour
 _HALF_HOUR = dt.timedelta(minutes=30)
 
@@ -213,7 +224,7 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         """Address the observations of a station, narrowed to the window the request asked for.
 
         Asked for nothing in particular the endpoint answers with its whole retention, which is a
-        rolling week of some 180 readings -- close to a megabyte to answer for a single day. It
+        rolling week of some 2,000 readings -- 2 MB for each page of 500, to answer for a single day. It
         clips a window to what it still holds rather than refusing one that reaches further back,
         so naming the request's own window costs nothing and returns the same readings. The window is
         widened by half an hour on both sides, the reach of an hour's reports, so that which report an
@@ -222,45 +233,52 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
 
         A request carries no dates unless it is made to: `date_required` is enforced at the CLI and
         the REST API but not in the Python API, and without them there is no window to name.
+
+        The endpoint answers 500 observations at most, and the limit is named so that a page shorter than it
+        can be taken for the last one (GH-2994).
         """
         url = self._endpoint.format(station_id=station_id)
         if not self.sr.start or not self.sr.end:
-            return url
+            return f"{url}?{urlencode({'limit': _PAGE_SIZE})}"
         query = urlencode(
             {
-                "start": (self.sr.start - _HALF_HOUR).strftime(self._date_format),
+                "start": self._window_start().strftime(self._date_format),
                 "end": (self.sr.end + _HALF_HOUR).strftime(self._date_format),
+                "limit": _PAGE_SIZE,
             },
         )
         return f"{url}?{query}"
 
-    def _collect_station_parameter_or_dataset(
-        self,
-        station_id: str,
-        parameter_or_dataset: DatasetModel,
-    ) -> pl.DataFrame:
-        settings = cast("Settings", self.sr.request.settings)
-        url = self._build_url(station_id)
-        log.info(f"acquiring data from {url}")
-        file = download_file(
-            url=url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        file.raise_if_exception()
-        # narrows the type; `raise_if_exception` has raised for any failed download
-        if isinstance(file.content, Exception):
-            return pl.DataFrame()
+    def _window_start(self) -> dt.datetime:
+        """Give the first instant the endpoint is asked for, half an hour before the request's own."""
+        return cast("dt.datetime", self.sr.start) - _HALF_HOUR
+
+    def _next_page(self, next_url: str | None, oldest: dt.datetime | None) -> str | None:
+        """Give the address of the page that follows, None if the window has been read to its start.
+
+        The cursor URL does not carry the window, so the `start` is named again: without it the endpoint walks on
+        beyond the window to the end of its week (GH-2994).
+        """
+        if not next_url:
+            return None
+        if not self.sr.start or not self.sr.end:
+            return next_url
+        if oldest is not None and oldest <= self._window_start():
+            return None
+        query = urlencode({"start": self._window_start().strftime(self._date_format)})
+        return f"{next_url}&{query}"
+
+    @staticmethod
+    def _read_page(content: IOBase) -> tuple[pl.DataFrame, str | None]:
+        """Read a page of observations, and the address of the next page that the endpoint names, if it names one."""
         # Every quantity is read as a float: the endpoint types `value` as a number, and polars truncates a
         # float read into an integer field -- 0.8 mm of rain reads as 0. Gust, station pressure, visibility and
         # precipitation carry fractions; the direction was whole degrees in 2406 of 2406 readings of KBOS, KDEN,
         # KSEA, KMIA and KORD (2026-10-13), which nothing promises (GH-2849).
         df = pl.read_json(
-            file.content,
+            content,
             schema={
+                "pagination": pl.Struct({"next": pl.String}),
                 "features": pl.List(
                     pl.Struct(
                         {
@@ -290,12 +308,49 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
                 ),
             },
         )
+        next_url = df.select(pl.col("pagination").struct.field("next")).item() if df.height else None
         df = df.explode("features", empty_as_null=True)
         df = df.select(pl.col("features").struct.field("properties"))
         df = df.select(pl.col("properties").struct.unnest())
         df = df.rename(str.lower)
         df = df.rename(mapping={"station": "station_id"})
         df = df.with_columns(pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%z"))
+        # a page without observations explodes to one null row, which is no observation
+        df = df.filter(pl.col("timestamp").is_not_null())
+        return df, next_url
+
+    def _collect_station_parameter_or_dataset(
+        self,
+        station_id: str,
+        parameter_or_dataset: DatasetModel,
+    ) -> pl.DataFrame:
+        settings = cast("Settings", self.sr.request.settings)
+        pages = []
+        url: str | None = self._build_url(station_id)
+        read: set[str] = set()
+        # the endpoint answers 500 observations at most, newest first, and names the rest in `pagination.next`:
+        # follow it until a page is short, the window has been read to its start, or the cursor repeats (GH-2994)
+        while url and url not in read:
+            read.add(url)
+            log.info(f"acquiring data from {url}")
+            file = download_file(
+                url=url,
+                cache_dir=settings.cache_dir,
+                ttl=CacheExpiry.FIVE_MINUTES,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
+            file.raise_if_exception()
+            # narrows the type; `raise_if_exception` has raised for any failed download
+            if isinstance(file.content, Exception):
+                return pl.DataFrame()
+            page, next_url = self._read_page(file.content)
+            pages.append(page)
+            if page.height < _PAGE_SIZE:
+                break
+            url = self._next_page(next_url, cast("dt.datetime", page.get_column("timestamp").min()))
+        df = pl.concat(pages)
         df = _one_report_per_hour(df)
         df = df.unpivot(
             index=["station_id", "timestamp"],
