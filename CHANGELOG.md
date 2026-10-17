@@ -51,23 +51,17 @@ Types of changes:
   cancelled but left to end with its answer dropped, and it counts as being served until it has
   (see `WD_RESTAPI_MAX_CONCURRENT`). `GET /api/version` reports `limits.max_concurrent` (GH-3089)
 
-### Security
-
-- `wetterdienst restapi` started on a loopback `--listen` (`127.0.0.1`, `::1`, `localhost`, the
-  default `127.0.0.1:7890`) answers to the loopback names only: another `Host` is a 400 problem of
-  the kind `host-not-allowed`, and an MCP request with another `Origin` is `origin-not-allowed`, so
-  a web page cannot reach a local server by DNS rebinding. A local server that is reached by another
-  name sets `WD_RESTAPI_ALLOWED_HOSTS` (comma-separated names, a port optional, `*.example.org`) to
-  its names; a server on any other address, or started otherwise, answers to every host unless it
-  is set (GH-3087)
-- At most `WD_RESTAPI_MAX_CONCURRENT` requests under `/api` (32 by default, 0 for no limit) are
-  served at once; one past it is a 503 problem of the kind `server-busy` with `Retry-After`. A
-  request keeps its place until its handler is done, also after the 504 of the timeout, so the cap
-  bounds the threads that requests leave running. Raise it for a host that is meant to serve more
-  (GH-3089)
-
 ### Fixed
 
+- `nws/observation` follows the pages of the endpoint (`pagination.next`) until the window has been
+  read: a window of more than 500 observations, about 40 hours at a station's 12 an hour, came
+  back as its newest 500 with no warning. The last 5 days of KBOS are 121 hourly rows now, not
+  about 40. A window costs one request per 500 observations (a week is five), a request without
+  dates reads the endpoint's whole week (GH-2994)
+- The warning for a parameter a dataset does not have no longer offers the direction of the mean wind
+  for the direction of a gust, nor the reverse: `meteofrance/observation` `hourly/core`
+  `wind_direction_gust_max`, no longer served (GH-2836), no longer suggests
+  `wind_direction_last_10min` (GH-3009)
 - `eccc/observation` lists a station for `monthly` only if the station list flags a monthly
   summary (`HAS_MONTHLY_SUMMARY` is `Y`), no longer all 8435 stations: the 108 whose flag is `N` or
   empty have no monthly row, so `filter_by_rank`, `filter_by_distance`, `interpolate` and
@@ -94,6 +88,18 @@ Types of changes:
 
 ### Security
 
+- `wetterdienst restapi` started on a loopback `--listen` (`127.0.0.1`, `::1`, `localhost`, the
+  default `127.0.0.1:7890`) answers to the loopback names only: another `Host` is a 400 problem of
+  the kind `host-not-allowed`, and an MCP request with another `Origin` is `origin-not-allowed`, so
+  a web page cannot reach a local server by DNS rebinding. A local server that is reached by another
+  name sets `WD_RESTAPI_ALLOWED_HOSTS` (comma-separated names, a port optional, `*.example.org`) to
+  its names; a server on any other address, or started otherwise, answers to every host unless it
+  is set (GH-3087)
+- At most `WD_RESTAPI_MAX_CONCURRENT` requests under `/api` (32 by default, 0 for no limit) are
+  served at once; one past it is a 503 problem of the kind `server-busy` with `Retry-After`. A
+  request keeps its place until its handler is done, also after the 504 of the timeout, so the cap
+  bounds the threads that requests leave running. Raise it for a host that is meant to serve more
+  (GH-3089)
 - `/api/issues`, the MCP tool `issues` and `wetterdienst issues` refuse a `station` that is not an
   id (letters, digits, `_`, `-` and, after the first character, `.`, up to 32 characters) with a
   422 problem, or a usage error on the command line. It was put into the path of the directory DWD
