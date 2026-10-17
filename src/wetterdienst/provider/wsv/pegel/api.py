@@ -251,6 +251,7 @@ _WsvPegelMetadataSpec = {
     "name_english": "Federal Waterways and Shipping Administration",
     "name_local": "Wasserstraßen- und Schifffahrtsverwaltung des Bundes",
     "country": "Germany",
+    "country_code": "DE",
     "copyright": "© Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), Pegelonline",
     "license": LicenseModel(
         spdx_id="DL-DE-ZERO-2.0",

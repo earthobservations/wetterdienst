@@ -207,6 +207,196 @@ def test_a_history_answer_has_the_block(client: TestClient, monkeypatch: pytest.
     assert body["metadata"]["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
 
 
+# --- the routes that answered without it (GH-3059) ---------------------------------------------------
+
+_SWSMOS_RUN = "swsmos_20261004060000_opendata.csv.bz2"
+
+
+def _swsmos_lists_one_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for DWD's directory of SWSMOS runs."""
+    from wetterdienst.provider.dwd.swsmos import api  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_SWSMOS_RUN}"])  # noqa: SLF001
+
+
+def _no_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for a DWD snapshot that holds no warning."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts.api import _SCHEMA, DwdWeatherAlertResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts.metadata import (  # noqa: PLC0415
+        DwdWeatherAlertGranularity,
+        DwdWeatherAlertLanguage,
+    )
+
+    result = DwdWeatherAlertResult(
+        pl.DataFrame(schema=_SCHEMA), DwdWeatherAlertGranularity.COMMUNITY, DwdWeatherAlertLanguage.ENGLISH
+    )
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: result)
+
+
+def test_the_issues_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The runs of a forecast are about one station of a network, whose terms the answer names."""
+    _swsmos_lists_one_run(monkeypatch)
+
+    response = client.get("/api/issues", params={"provider": "dwd", "network": "swsmos", "station": "A006"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert list(body) == ["metadata", "issues"]
+    metadata = body["metadata"]
+    assert set(metadata) == ALWAYS
+    assert metadata["request"] == {
+        "provider": "dwd",
+        "network": "swsmos",
+        "parameters": [],
+        "periods": [],
+        "start": None,
+        "end": None,
+        "stations": {"filter": "by_station_id", "count": 1, "ids": ["A006"]},
+    }
+    assert metadata["counts"] == {"stations": 1, "rows": 1}
+    assert metadata["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+    assert metadata["provider"]["copyright"].endswith("SWSMOS road weather forecast")
+    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+
+
+def test_the_issues_on_the_command_line_are_the_ones_of_rest(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same request gives the same answer on both surfaces, but for the time it was made at."""
+    _swsmos_lists_one_run(monkeypatch)
+    given = {"provider": "dwd", "network": "swsmos", "station": "A006"}
+
+    rest = client.get("/api/issues", params=given).json()
+    result = CliRunner().invoke(cli, ["issues", *(f"--{key}={value}" for key, value in given.items())])
+
+    assert result.exit_code == 0, result.output
+    command_line = json.loads(result.stdout)
+    for answer in (rest, command_line):
+        answer["metadata"]["retrieved_at"] = ""
+    assert command_line == rest
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
+def test_the_alerts_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
+    """A warning is about no station: its block says so, names DWD's terms, and a CSV answer has them in headers."""
+    _no_alerts(monkeypatch)
+
+    response = client.get("/api/alerts", params={"format": fmt})
+
+    assert response.status_code == 200, response.text
+    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+    assert response.headers["X-Wetterdienst-Rows"] == "0"
+    if fmt == "csv":
+        return
+    body = response.json()
+    metadata = body["metadata"]
+    assert set(metadata) == ALWAYS
+    assert metadata["request"]["stations"] is None
+    assert (metadata["request"]["provider"], metadata["request"]["network"]) == ("dwd", "alerts")
+    assert metadata["counts"] == {"stations": 0, "rows": 0}
+    assert metadata["provider"]["url"] == "https://opendata.dwd.de/weather/alerts/cap"
+    assert metadata["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+    if fmt == "geojson":
+        # a foreign member of the collection (RFC 7946 6.1), the type first
+        assert list(body) == ["type", "metadata", "snapshot", "features"]
+    else:
+        assert list(body) == ["metadata", "snapshot", "alerts"]
+
+
+def test_the_alerts_on_the_command_line_are_the_ones_of_rest(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The command line writes the block into the JSON as REST does."""
+    _no_alerts(monkeypatch)
+
+    rest = client.get("/api/alerts").json()
+    result = CliRunner().invoke(cli, ["alerts"])
+
+    assert result.exit_code == 0, result.output
+    command_line = json.loads(result.stdout)
+    for answer in (rest, command_line):
+        answer["metadata"]["retrieved_at"] = ""
+    assert command_line == rest
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_stripes_stations_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The listing has the block of every answer, which holds what its old `{provider, producer}` did."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    response = client.get("/api/stripes/stations", params={"kind": "temperature", "active": "false"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert list(body) == ["metadata", "stations"]
+    assert set(body["metadata"]) == ALWAYS
+    assert body["metadata"]["counts"] == {"stations": 1, "rows": 1}
+    assert body["metadata"]["provider"]["name_english"] == "German Weather Service"
+    assert body["metadata"]["producer"]["name"] == "wetterdienst"
+    assert response.headers["X-Wetterdienst-Stations"] == "1"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_stripes_values_have_the_block_and_keep_what_their_metadata_held(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`station`, `resolution`, `dataset`, `parameter` and `unit` stay where they were, beside the block."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+
+    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
+
+    assert response.status_code == 200, response.text
+    metadata = response.json()["metadata"]
+    assert set(metadata) == ALWAYS | {"station", "resolution", "dataset", "parameter", "unit"}
+    assert metadata["unit"] == "degree_celsius"
+    assert metadata["station"]["station_id"] == "01048"
+    assert metadata["request"]["parameters"] == ["annual/climate_summary/temperature_air_mean_2m"]
+    assert metadata["request"]["stations"] == {"filter": "by_station_id", "count": 1, "ids": ["01048"]}
+    assert metadata["counts"] == {"stations": 1, "rows": 2}
+    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/history", "/issues", "/alerts", "/stripes/stations", "/stripes/values"],
+)
+def test_the_openapi_document_describes_the_answer_of_each_route_with_the_block(client: TestClient, path: str) -> None:
+    """The document says what each of these answers, the block included, which MCP checks a tool's answer against."""
+    document = client.get("/openapi.json").json()
+    schema = document["paths"][f"/api/v1{path}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+
+    def refs(node: Any) -> set[str]:  # noqa: ANN401
+        if isinstance(node, dict):
+            found = {node["$ref"].rsplit("/", 1)[-1]} if "$ref" in node else set()
+            return found.union(*(refs(value) for value in node.values()))
+        if isinstance(node, list):
+            return set().union(*(refs(value) for value in node))
+        return set()
+
+    schemas = document["components"]["schemas"]
+    # follow the references one level: the answer's own models name `ResponseMetadata` in their members
+    named = refs(schema)
+    named |= set().union(*(refs(schemas[name]) for name in list(named)))
+    assert named & {"ResponseMetadata", "StripesValuesMetadata"}, schema
+
+
+def test_a_history_answer_is_what_its_model_describes(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The answer reads back through the model the document describes it by."""
+    from pydantic import TypeAdapter  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: _stations_without_histories())
+
+    response = client.get("/api/history", params={**_OBSERVATION, "stations": "02564"})
+
+    assert response.status_code == 200, response.text
+    TypeAdapter(restapi._HistoryWithMetadataDict).validate_python(response.json())  # noqa: SLF001
+
+
 # --- the warnings -----------------------------------------------------------------------------
 
 

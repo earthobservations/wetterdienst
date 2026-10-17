@@ -622,6 +622,7 @@ _SURFACES = {
     core.AuthRequest: (("about", "auth"), "/api/auth", "auth"),
     core.CoverageRequest: (("about", "coverage"), "/api/coverage", "coverage"),
     core.GlossaryRequest: (("about", "glossary"), "/api/glossary", "glossary"),
+    core.ProvidersRequest: (("about", "providers"), "/api/providers", "providers"),
     core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
     # the command writes the image, the data of the stripes has no command of its own
     core.StripesImageRequest: (("stripes", "values"), "/api/stripes/image", "stripes_image"),
@@ -642,6 +643,7 @@ _CLI_ONLY_OF = {
 }
 _REST_ONLY_OF = {
     core.CoverageRequest: {"pretty": "the command line always indents"},
+    core.ProvidersRequest: {"pretty": "the command line always indents"},
 }
 _NO_COMMAND = {
     core.StripesValuesRequest: "the data of the stripes has no command: `stripes values` writes the image",

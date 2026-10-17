@@ -11,6 +11,7 @@ _MeteoswissObservationMetadataSpec = {
     "name_english": "MeteoSwiss",
     "name_local": "MétéoSuisse",
     "country": "Switzerland",
+    "country_code": "CH",
     "copyright": "© MeteoSwiss (Federal Office of Meteorology and Climatology), CC BY 4.0",
     "license": CC_BY_4_0,
     "attribution": "© MeteoSwiss (Federal Office of Meteorology and Climatology)",

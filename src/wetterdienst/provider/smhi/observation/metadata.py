@@ -15,6 +15,7 @@ _SmhiObservationMetadataSpec = {
     "name_english": "Swedish Meteorological and Hydrological Institute",
     "name_local": "Sveriges meteorologiska och hydrologiska institut",
     "country": "Sweden",
+    "country_code": "SE",
     "copyright": "© SMHI",
     "license": CC_BY_4_0,
     "attribution": "© SMHI",
