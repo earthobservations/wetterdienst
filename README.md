@@ -11,12 +11,12 @@
 
 [![CI status](https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/earthobservations/wetterdienst/actions?workflow=Tests)
 [![Documentation status](https://readthedocs.org/projects/wetterdienst/badge/?version=latest)](https://wetterdienst.readthedocs.io/en/latest/?badge=latest)
-[![Code coverage](https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg)](https://codecov.io/gh/earthobservations/wetterdienst)
+[![Code coverage](https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg)](https://app.codecov.io/gh/earthobservations/wetterdienst)
 [![PyPI version](https://img.shields.io/pypi/v/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
 [![Conda version](https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg)](https://anaconda.org/conda-forge/wetterdienst)
-[![Python version compatibility](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.python.org/pypi/wetterdienst/)
+[![Python version compatibility](https://img.shields.io/pypi/pyversions/wetterdienst.svg)](https://pypi.org/project/wetterdienst/)
 [![Project license](https://img.shields.io/github/license/earthobservations/wetterdienst)](https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md)
-[![PyPI downloads](https://static.pepy.tech/personalized-badge/wetterdienst?period=month&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20downloads/month)](https://pepy.tech/project/wetterdienst)
+[![PyPI downloads](https://static.pepy.tech/personalized-badge/wetterdienst?period=month&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20downloads/month)](https://pepy.tech/projects/wetterdienst)
 [![Citation reference](https://zenodo.org/badge/DOI/10.5281/zenodo.3960624.svg)](https://doi.org/10.5281/zenodo.3960624)
 
 > [!WARNING]
@@ -71,7 +71,7 @@ anything built on them. It also lists every dataset and parameter per provider.
 
 - Stations, values and station history (metadata changes) through one request model
 - Find stations by name, id, distance from a point, bounding box or rank
-- Request by `parameters`, `periods`, `start`, `end`; tune the rest through `Settings`
+- Request by `parameters`, `periods`, `start`, `end`; `Options` say how values come back, `Settings` configure the host
 - Unit conversion, interpolation and summarization for a point between stations
 - DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
 - SQL queries over results, export to CSV/JSON/Excel/Parquet/Zarr and to SQLite, PostgreSQL,
@@ -85,7 +85,7 @@ anything built on them. It also lists every dataset and parameter per provider.
 
 ```bash
 pip install wetterdienst           # from PyPI
-pip install wetterdienst[export]   # with an extra
+pip install "wetterdienst[export]" # with an extra
 pip install git+https://github.com/earthobservations/wetterdienst  # most recent
 ```
 

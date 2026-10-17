@@ -748,6 +748,26 @@ full explanation, supported parameters, settings, CLI and REST usage.
 
 ### Format
 
+A result renders itself in the formats below. The arguments are keyword-only and the ones in the table: a keyword a
+method does not take is a `TypeError`. `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives
+each format those it takes, which is what the command line, the REST API and the MCP tools do.
+
+| Method | `StationsResult` | `ValuesResult`, `InterpolatedValuesResult`, `SummarizedValuesResult` | `HistoryResult` |
+| --- | --- | --- | --- |
+| `to_dict` | `with_metadata` | `with_metadata`, `with_stations` | `with_metadata`, `with_stations`, `sections` |
+| `to_json` | `with_metadata`, `indent` | `with_metadata`, `with_stations`, `indent` | `with_metadata`, `with_stations`, `sections`, `indent` |
+| `to_geojson` | `with_metadata`, `indent` | `with_metadata`, `indent` | none |
+| `to_ogc_feature_collection` | `with_metadata` | `with_metadata` | none |
+| `to_csv` | `**kwargs` of polars' `write_csv` | the same | none |
+| `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side` | the same | none |
+| `to_plot` | none | none | none |
+
+`indent` defaults to 4 (`True` is 4, `False` or `None` writes the JSON on one line); `with_metadata` and `with_stations` default to `False`.
+`to_dict` and `to_ogc_feature_collection` return dictionaries typed as `StationsDict`, `ValuesDict`,
+`InterpolatedValuesDict`, `SummarizedValuesDict` and `HistoryDict`, and the `...OgcFeatureCollection` of each, which
+are importable from `wetterdienst.model.result` to annotate a function that takes or returns one. The block that
+`with_metadata` adds is a `ResultMetadata`. `to_target` writes to a file or a database, see [Export](#export).
+
 #### To Dict
 
 ```{code-cell}
