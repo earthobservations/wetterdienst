@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- A `..` in the path of a request to `/api` no longer leaves the backend's `/api`: the proxy
+  resolves the URL before it fetches it and answers a 404 problem for one that is not under
+  `apiBase`, where `/api/../health` reached the backend's `/health` (GH-3092)
+- The production image runs the server as the unprivileged `node` user instead of root, as the
+  backend image does. A volume or file the server writes to has to be writable by uid 1000, but
+  the server writes nothing (GH-3091)
+
 ## [0.23.0] - 2026-10-17
 
 ### Added
