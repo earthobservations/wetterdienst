@@ -86,9 +86,9 @@ wetterdienst alerts --format=geojson --target=file://alerts.geojson
 ## REST API
 
 ```bash
-wetterdienst restapi --listen 0.0.0.0:3000
+wetterdienst restapi
 ```
 
 ```bash
-curl "http://localhost:3000/api/alerts?granularity=community&format=geojson"
+curl "http://localhost:7890/api/alerts?granularity=community&format=geojson"
 ```

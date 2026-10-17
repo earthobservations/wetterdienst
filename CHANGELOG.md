@@ -85,6 +85,12 @@ Types of changes:
   at all (GH-3003)
 - A `rank` or `num_additional_stations` that no integer holds (`rank=99999999999999999999`) was a
   500 `OverflowError`; it is a 422 now, as one above 1,000,000 is (GH-3101)
+- Docs that stated something the code does not do are corrected: the metadata example of the
+  contribution guide named none of the provider fields (`name_short`, `country_code`, `license`,
+  ...) that `build_metadata_model` requires, so it raised; the `limit-exceeded` problem of the REST
+  API page lacked the `instance` and `request_id` every problem has; the interpolation example
+  gave kelvin where the default is °C; the DWD alerts page started the API on port 3000, not the
+  default 7890. The pages' code samples are now run by tests (GH-2621)
 
 ### Security
 
