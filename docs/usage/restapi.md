@@ -652,6 +652,12 @@ is also the `X-Request-ID` header of every response, error or not: the client's 
 digits and `._~-`, up to 128 characters), else one the server makes. Quote it when reporting a failure; the server
 logs it with a failure of its own (a 5xx).
 
+The web app's own `/api` proxy passes the backend's answers on as they are, the problem, `X-Request-ID` and
+`Retry-After` included, and sends on the `X-Request-ID` of the client. When it cannot reach the backend there is no
+answer to pass on, and it answers a problem of its own, a 502 of the kind `urn:wetterdienst:problem:backend-unreachable`
+with `instance`, `request_id`, `X-Request-ID` and `Retry-After` as above. The backend cannot answer that kind, so it is not
+in the table.
+
 A 502, 503 or 504 carries `Retry-After`, 30 seconds: the request was valid and the same one can succeed once the
 provider is back (or, after a timeout, with what the server has cached by then). The server limits no rate, so
 there is no 429; a proxy in front of it may.
