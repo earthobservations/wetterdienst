@@ -24,6 +24,40 @@ Types of changes:
 - The production image runs the server as the unprivileged `node` user instead of root, as the
   backend image does. A volume or file the server writes to has to be writable by uid 1000, but
   the server writes nothing (GH-3091)
+- **Breaking for a page of another origin that reads the app** `[CORS]` The app no longer answers
+  `access-control-allow-origin: *` on every response, so only its own pages can read it. Set
+  `NUXT_CORS_ALLOWED_ORIGINS` to the origins that may (comma separated; `*` is the old behaviour),
+  at run time. Without it, such a page gets a CORS error (GH-3095)
+- `[Proxy]` The `/mcp` proxy no longer sends the client's `cookie`, `authorization` or any other
+  header to the backend but the session, protocol version, resumption point, content type, accept
+  and request id of the transport, and drops the backend's `server`, `set-cookie` and `alt-svc`
+  as `/api` does (GH-3095)
+- `[CSP]` DuckDB-wasm (the SQL panel, about 35 MB, 5 MB over the wire) and Swagger UI (`/docs`) are
+  served by the app, not loaded from jsdelivr without a hash, and the Content Security Policy
+  allows no CDN and no `'unsafe-eval'` any more (`'wasm-unsafe-eval'` stays, for DuckDB's module).
+  The browser calls only its own origin: `connect-src` no longer holds the backend's address
+  that the build read. `/docs` is the app's own page of Swagger UI (it was the backend's, proxied)
+  with a policy of its own. The SQL panel needs a browser with WebAssembly exception handling
+  (every one since 2022), and the build is about a minute longer for the compression of the
+  module (GH-3094)
+
+### Changed
+
+- **Breaking for deployments that relied on the old limit** `[Rate limit]` The rate limit counts
+  what costs something, 300 requests per client in 5 minutes for `/api/values`, `stations`,
+  `interpolate`, `summarize`, `stripes`, `history` and the rest of `/api` but the catalogue, and
+  `/mcp`, and leaves the pages, `/docs` and the catalogue routes (`version`, `settings`,
+  `providers`, `coverage`, `glossary`, `auth`, `health`) out. It was one bucket of 150 requests
+  in 5 minutes for every page and call. A 429 is a problem
+  (`urn:wetterdienst:problem:rate-limited`) with `Retry-After`, and counted answers carry
+  `X-RateLimit-*`. Set `NUXT_RATE_LIMIT_TOKENS`, `NUXT_RATE_LIMIT_WINDOW_SECONDS` or
+  `NUXT_RATE_LIMIT_ENABLED=false` at run time (GH-3093)
+- **Breaking behind a reverse proxy** `[Rate limit]` The client is the address of the connection,
+  not the leftmost `X-Forwarded-For`, which any client could write: behind a proxy all users share
+  one count until `NUXT_RATE_LIMIT_CLIENT_IP_HEADER` names the header the proxy sets (read from
+  its end). See `docs/usage/app.md` (GH-3093)
+- `[Build]` The install drops `@scarf/scarf` (`.pnpmfile.cjs`), the analytics package that
+  `swagger-ui-dist` depends on, whose postinstall reported every install (GH-3094)
 
 ## [0.23.0] - 2026-10-17
 
