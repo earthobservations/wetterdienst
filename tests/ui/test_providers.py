@@ -43,7 +43,9 @@ def _untimed(body: dict[str, Any]) -> dict[str, Any]:
     return {**body, "metadata": {**body["metadata"], "retrieved_at": ""}}
 
 
-@pytest.mark.parametrize("field", ["name_english", "name_local", "country", "country_code", "license", "attribution"])
+@pytest.mark.parametrize(
+    "field", ["name_short", "name_english", "name_local", "country", "country_code", "license", "attribution"]
+)
 def test_the_networks_of_a_provider_agree_on_what_the_provider_is(field: str) -> None:
     """A provider is described once, by its first network, so the others must say the same of it."""
     declared: dict[str, set[str]] = {}
@@ -113,6 +115,7 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
         assert provider.license == metadata.license
         assert provider.attribution == metadata.attribution
         assert (provider.country, provider.country_code) == (metadata.country, metadata.country_code)
+        assert provider.name_short == metadata.name_short
     dwd = next(provider for provider in answer.providers if provider.provider == "dwd")
     assert dwd.license is not None
     assert dwd.license.spdx_id == "CC-BY-4.0"

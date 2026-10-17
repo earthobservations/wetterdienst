@@ -72,6 +72,7 @@ class Provider(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: str = Field(description="The name a request calls it by, `dwd`.")
+    name_short: str = Field(description="The short name to write beside a flag, `DWD`.")
     name_local: str
     name_english: str
     country: str
@@ -173,6 +174,7 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
         providers.append(
             Provider(
                 provider=name,
+                name_short=first.name_short,
                 name_local=first.name_local,
                 name_english=first.name_english,
                 country=first.country,

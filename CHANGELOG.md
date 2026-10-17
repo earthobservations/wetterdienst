@@ -33,8 +33,8 @@ Types of changes:
   `SummarizedValuesOgcFeatureCollection`, `HistoryDict` and `Metadata`, importable from
   `wetterdienst.model.result` instead of the underscored classes they are aliases of (GH-3046)
 - `GET /api/providers`, `wetterdienst about providers` and the MCP tool `providers` say what each
-  provider is: names, country (`country_code`, ISO 3166-1 alpha-2), `license`, `attribution`, and
-  its networks with their kind, source URL, whether they need credentials and the resolutions and
+  provider is: names (`name_short`, English, local), country (`country_code`, ISO 3166-1 alpha-2),
+  `license`, `attribution`, and its networks with their kind, source URL, whether they need credentials and the resolutions and
   datasets they offer. Nothing is downloaded or probed. A network declaration has to give
   `country_code` now, null for a provider of several countries (GH-2565)
 - With `with_metadata=true`, `metadata.quality.legend` says what each kind of `quality_flags` token

@@ -4921,6 +4921,11 @@
             "title": "Provider",
             "description": "The name a request calls it by, `dwd`."
           },
+          "name_short": {
+            "type": "string",
+            "title": "Name Short",
+            "description": "The short name to write beside a flag, `DWD`."
+          },
           "name_local": {
             "type": "string",
             "title": "Name Local"
@@ -4980,6 +4985,7 @@
         "type": "object",
         "required": [
           "provider",
+          "name_short",
           "name_local",
           "name_english",
           "country",
