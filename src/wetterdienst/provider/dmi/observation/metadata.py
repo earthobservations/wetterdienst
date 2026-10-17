@@ -145,6 +145,7 @@ _DmiObservationMetadataSpec = {
     "name_english": "Danish Meteorological Institute",
     "name_local": "Danmarks Meteorologiske Institut",
     "country": "Denmark",
+    "country_code": "DK",
     "copyright": "© DMI (Danish Meteorological Institute), CC BY 4.0",
     # "DMI's Open Data are distributed under the Creative Commons License CC BY 4.0", on DMI's terms of use
     "license": LicenseModel(

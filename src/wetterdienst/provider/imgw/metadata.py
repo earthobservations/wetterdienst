@@ -9,6 +9,7 @@ _METADATA = {
     "name_english": "Institute of Meteorology and Water Management",
     "name_local": "Instytut Meteorologii i Gospodarki Wodnej",
     "country": "Poland",
+    "country_code": "PL",
     "copyright": "© IMGW, Observations",
     # no SPDX licence: the terms are IMGW-PIB's own ("Regulamin udostępniania danych"), printed on the portal. They
     # make the data free for private use and, by § 3 and § 5, for any purpose only where they are "dane o wysokiej

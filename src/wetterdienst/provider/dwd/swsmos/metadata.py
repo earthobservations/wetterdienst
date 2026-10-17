@@ -31,6 +31,7 @@ _DwdSwsmosMetadataSpec = {
     "name_english": "German Weather Service",
     "name_local": "Deutscher Wetterdienst",
     "country": "Germany",
+    "country_code": "DE",
     "copyright": "© Deutscher Wetterdienst (DWD), SWSMOS road weather forecast",
     "license": _METADATA["license"],
     "attribution": _METADATA["attribution"],

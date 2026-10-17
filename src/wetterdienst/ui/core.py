@@ -1097,6 +1097,19 @@ class CoverageRequest(_RefusesRenamedParameters):
         return _read_items(v)
 
 
+class ProvidersRequest(_RefusesRenamedParameters):
+    """Request model for describing the providers."""
+
+    model_config = {"extra": "forbid"}
+
+    provider: Annotated[
+        str | None,
+        Field(description="Only this provider, e.g. 'dwd'. Without it, every provider."),
+    ] = None
+    pretty: _PrettyField = False
+    debug: _DebugField = False
+
+
 class GlossaryRequest(_RefusesRenamedParameters):
     """Request model for looking up the canonical parameters."""
 

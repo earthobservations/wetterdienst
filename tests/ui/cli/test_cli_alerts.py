@@ -5,10 +5,20 @@
 import json
 from pathlib import Path
 
+import polars as pl
 import pytest
 from click.testing import CliRunner
 
+from wetterdienst.provider.dwd.alerts.api import _SCHEMA, DwdWeatherAlertResult
+from wetterdienst.provider.dwd.alerts.metadata import DwdWeatherAlertGranularity, DwdWeatherAlertLanguage
 from wetterdienst.ui.cli import cli
+
+
+def _no_alerts() -> DwdWeatherAlertResult:
+    """Make the result of a snapshot that holds no warning."""
+    return DwdWeatherAlertResult(
+        pl.DataFrame(schema=_SCHEMA), DwdWeatherAlertGranularity.COMMUNITY, DwdWeatherAlertLanguage.ENGLISH
+    )
 
 
 def test_cli_alerts_help() -> None:
@@ -182,11 +192,7 @@ def test_cli_alerts_unwritable_target_is_a_readable_error(monkeypatch: pytest.Mo
     """Test a --target that cannot be written is a runtime error naming the option, not a traceback."""
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    class _Result:
-        def to_format(self, _fmt: str, *, indent: bool) -> str:  # noqa: ARG002
-            return "{}"
-
-    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: _Result())
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: _no_alerts())
     target = tmp_path / "missing" / "alerts.json"
     runner = CliRunner()
     result = runner.invoke(cli, ["alerts", f"--target=file://{target}"])
@@ -201,15 +207,13 @@ def test_cli_alerts_percent_encoded_file_uri_target(monkeypatch: pytest.MonkeyPa
     """Test a `file://` URI as `Path.as_uri()` gives it, `%20` for a space, writes to the path it names (GH-2454)."""
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    class _Result:
-        def to_format(self, _fmt: str, *, indent: bool) -> str:  # noqa: ARG002
-            return "{}"
-
-    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: _Result())
+    monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: _no_alerts())
     directory = tmp_path / "my data"
     directory.mkdir()
     target = directory / "alerts.json"
     result = CliRunner().invoke(cli, ["alerts", f"--target={target.as_uri()}"])
     assert result.exit_code == 0, result.output
-    assert target.read_text(encoding="utf-8") == "{}"
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written["alerts"] == []
+    assert written["metadata"]["request"]["network"] == "alerts"
     assert not (tmp_path / "my%20data").exists()
