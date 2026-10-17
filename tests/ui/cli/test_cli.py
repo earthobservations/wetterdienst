@@ -502,13 +502,13 @@ def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> No
     one run's rows. This walks the command tree rather than naming the four commands, because the
     gap was a command gaining `--target` without the option that says what a second run does.
 
-    Three commands are excluded because their `--target` never reaches a sink: `alerts` and
-    `history` write text with `Path.write_text`, and `stripes values` writes an image with
-    `fig.write_image`. There is nothing for them to ask what to do with an existing target.
+    Four commands are excluded because their `--target` never reaches a sink: `alerts` and
+    `history` write text with `Path.write_text`, and `stripes image` and its old name `stripes values` write an
+    image with `fig.write_image`. There is nothing for them to ask what to do with an existing target.
     """
     import click  # noqa: PLC0415
 
-    writes_directly = {"alerts", "history", "stripes values"}
+    writes_directly = {"alerts", "history", "stripes image", "stripes values"}
 
     def walk(command: click.Command, path: tuple[str, ...] = ()) -> list[tuple[str, click.Command]]:
         here = (*path, command.name)
@@ -614,9 +614,9 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
         # an empty value, e.g. from an unset shell variable, selects nothing
         (["radar", "--odim-code="], f"Error: {_RADAR_ONE_OF}\n"),
         (["radar", "--country-name="], f"Error: {_RADAR_ONE_OF}\n"),
-        (["stripes", "values", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
+        (["stripes", "image", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
         (
-            ["stripes", "values", "--kind=temperature", "--station=1048", "--name=Dresden"],
+            ["stripes", "image", "--kind=temperature", "--station=1048", "--name=Dresden"],
             (
                 "Error: Options '--station' and '--name' cannot be used together, "
                 "give exactly one of '--station' or '--name'.\n"
@@ -1013,7 +1013,7 @@ def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.Mo
         pytest.param(["interpolate", *_POINT_ARGS], id="interpolate"),
         pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
         pytest.param(["stripes", "stations", "--kind=temperature"], id="stripes-stations"),
-        pytest.param(["stripes", "values", "--kind=temperature", "--station=1048"], id="stripes-values"),
+        pytest.param(["stripes", "image", "--kind=temperature", "--station=1048"], id="stripes-image"),
         pytest.param(["alerts"], id="alerts"),
     ],
 )
