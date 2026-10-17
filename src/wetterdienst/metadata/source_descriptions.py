@@ -973,9 +973,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "urban_wind", "windrichtung"): (
             "Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the "
             "average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other "
-            "urban stations have their own sensor heights). The source's 0 comes with a wind speed of 0.1 to 0.8 m/s, "
-            "never 0, and DWD does not say whether it is a calm or north, so it is returned as 0, unlike the calm of "
-            "`10_minutes/urban_wind`."
+            "urban stations have their own sensor heights). The source's 0 comes with a wind speed above 0 and with "
+            "six 10-minute directions spread over the compass, so it is neither a calm nor north (written 360) and "
+            "is null."
         ),
         ("hourly", "visibility", "v_vv"): "Visibility range.",
         ("hourly", "visibility", "v_vv_i"): (
