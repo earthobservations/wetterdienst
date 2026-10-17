@@ -323,7 +323,13 @@ class StationsResult(ExportMixin):
         return self.df.get_column("station_id")
 
     def get_metadata(self) -> _Metadata:
-        """Get metadata for the provider and producer."""
+        """Get the ``metadata`` block that the formats carry under ``with_metadata=True``.
+
+        It is the ``{"provider": {...}, "producer": {...}}`` block of `to_dict`, `to_json` and the other
+        formats, the shape the REST API and the command line answer with. The provider's part is
+        ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info().to_dict()`` and
+        the library's DOI; a caller who wants the typed provider metadata reads ``request.metadata``.
+        """
         from wetterdienst import Info  # noqa: PLC0415
 
         info = Info()
@@ -1506,3 +1512,37 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
             msg = f"Invalid format: {fmt}"
             raise KeyError(msg)
         return img
+
+
+# The dictionaries the results return, under names a caller can import to annotate a function that takes
+# or returns one (GH-3046). The classes keep their leading underscore: the REST API's OpenAPI components
+# are named after them, and `/api/v1` freezes those names.
+Metadata = _Metadata
+StationsDict = _StationsDict
+StationsOgcFeatureCollection = _StationsOgcFeatureCollection
+ValuesDict = _ValuesDict
+ValuesOgcFeatureCollection = _ValuesOgcFeatureCollection
+InterpolatedValuesDict = _InterpolatedValuesDict
+InterpolatedValuesOgcFeatureCollection = _InterpolatedValuesOgcFeatureCollection
+SummarizedValuesDict = _SummarizedValuesDict
+SummarizedValuesOgcFeatureCollection = _SummarizedValuesOgcFeatureCollection
+HistoryDict = _HistoryDict
+
+__all__ = [
+    "HistoryDict",
+    "HistoryResult",
+    "InterpolatedValuesDict",
+    "InterpolatedValuesOgcFeatureCollection",
+    "InterpolatedValuesResult",
+    "Metadata",
+    "StationsDict",
+    "StationsFilter",
+    "StationsOgcFeatureCollection",
+    "StationsResult",
+    "SummarizedValuesDict",
+    "SummarizedValuesOgcFeatureCollection",
+    "SummarizedValuesResult",
+    "ValuesDict",
+    "ValuesOgcFeatureCollection",
+    "ValuesResult",
+]

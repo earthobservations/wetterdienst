@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `Settings(...)` is checked by `ty`, mypy and pyright field by field: a misspelt setting
+  (`Settings(cache_dsable=True)`) or a value of the wrong type is reported where it is written, not
+  as a `ValidationError` at run time. Nothing changes at run time (GH-3042)
+- The dictionaries that the results return have public names to annotate a function with:
+  `StationsDict`, `StationsOgcFeatureCollection`, `ValuesDict`, `ValuesOgcFeatureCollection`,
+  `InterpolatedValuesDict`, `InterpolatedValuesOgcFeatureCollection`, `SummarizedValuesDict`,
+  `SummarizedValuesOgcFeatureCollection`, `HistoryDict` and `Metadata`, importable from
+  `wetterdienst.model.result` instead of the underscored classes they are aliases of (GH-3046)
+
+### Removed
+
+- **Breaking**: `TimeseriesValues` no longer has the attributes `stations_counter` and
+  `stations_collected`, nor takes them as constructor arguments. `query()` kept them for nobody; the
+  stations a query returned are in the `station_id` column of the results (GH-3037)
+
 ## [0.157.0] - 2026-10-17
 
 ### Added
