@@ -10,7 +10,8 @@ RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
 # ─── deps: install node_modules ───────────────────────────────────────────────
 FROM base AS deps
 
-COPY app/package.json app/pnpm-lock.yaml app/pnpm-workspace.yaml ./
+# .pnpmfile.cjs changes what the lockfile resolves (GH-3094), so the install needs it too
+COPY app/package.json app/pnpm-lock.yaml app/pnpm-workspace.yaml app/.pnpmfile.cjs ./
 
 RUN pnpm i
 
@@ -32,6 +33,8 @@ COPY app/app ./app
 COPY app/i18n ./i18n
 COPY app/public ./public
 COPY app/server ./server
+# the module that publishes Swagger UI's two files under /_swagger-ui/ (GH-3094)
+COPY app/modules ./modules
 # Seven components import from `shared/`. Every one of those is an `import type`, which the
 # transpiler strips before resolving, so the build survives without it -- until the first value
 # exported from there turns one of them into a real import and the image stops building.
