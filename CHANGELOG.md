@@ -36,6 +36,11 @@ Types of changes:
   the full-hour grid. The minute of a report is not returned; read the GHCNh file for it. The
   precipitation of source 412 (`FM94_1`) stays, marked `source:412`; it does not agree with the
   station's gauge, see the provider page (GH-3000, GH-3016)
+- `rmi/observation` `sun_duration` of station 6477 is null, with the source's value as `raw:<value>`
+  in `quality_flags`, from 2016-04-30 to 2017-05-31 (a stuck sensor, 13 days of exactly 1,440
+  minutes among them) and in two summers of zeros (2015-04-25 to 2015-08-19, 2017-06-02 to
+  2017-09-19), in all three resolutions; they were returned as readings. See the provider page
+  (GH-3031)
 
 ### Removed
 

@@ -1210,7 +1210,9 @@ def _dmi_annual(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # `aws:aws_1day` of station 6414 (read 2026-10-15): 2003-08-05 is a day of readings, on 2003-08-06 the mean is
     # 110.26 and the maximum 4021 degrees, which no thermometer read, and `validated` is false for both (GH-2797). The
-    # other attributes are left out, the reader taking what it maps
+    # other attributes are left out, the reader taking what it maps. Station 6477, 2016-12-24 (read 2026-10-17): the
+    # sunshine reads 1,440 minutes, a full day in December, inside every range, from a sensor that was stuck from
+    # 2016-04-30 to 2017-05-31 (GH-3031), `validated` false; the stub serves it for the station of the rest
     day = {
         "temp_avg": 24.03,
         "temp_max": 31.6,
@@ -1231,15 +1233,26 @@ def _rmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.D
             }
         },
     ]
-    serve(monkeypatch, rmi_api, {"aws:aws_1day": json.dumps({"numberMatched": 2, "features": features}).encode()})
+    features.append(
+        {
+            "properties": {
+                "timestamp": "2016-12-24T00:00:00Z",
+                "temp_avg": 7.0,
+                "sun_duration": 1440,
+                "qc_flags": json.dumps({"validated": {"TEMP_AVG": False, "SUN_DURATION": False}}),
+            }
+        }
+    )
+    body = json.dumps({"numberMatched": len(features), "features": features}).encode()
+    serve(monkeypatch, rmi_api, {"aws:aws_1day": body})
     request = RmiObservationRequest(
         parameters=[("daily", "data")],
         start=_day(2003, 8, 5),
-        end=_day(2003, 8, 7),
+        end=_day(2016, 12, 25),
         settings=_settings(),
         options=_options(drop_nulls),
     )
-    return stations_result(request, "daily", "data", "6414").values().all().df
+    return stations_result(request, "daily", "data", "6477").values().all().df
 
 
 def _imgw_hydrology(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1508,7 +1521,11 @@ STUBS = [
         _rmi_daily,
         reading=("temperature_air_min_2m", 16.84),
         sentinels=(("temperature_air_mean_2m", 110.26), ("temperature_air_max_2m", 4021.0)),
-        tokens=(("temperature_air_mean_2m", "110.26", None), ("temperature_air_max_2m", "4021", None)),
+        tokens=(
+            ("temperature_air_mean_2m", "110.26", None),
+            ("temperature_air_max_2m", "4021", None),
+            ("sunshine_duration", "1440", None),
+        ),
     ),
     ValueStub(
         "imgw/hydrology daily/hydrology",
