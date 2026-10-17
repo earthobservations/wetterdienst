@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/observation` `hourly/urban_wind` `wind_direction`: a 0 is null, with `raw:0` as the last
+  token of `quality_flags`, no longer returned as a bearing. The 1,288 zeros come at 0.1 to
+  1.6 m/s, never 0, and in the 410 of those hours with the six 10-minute values at hand the
+  directions are spread over the compass (1 of the 2,460 is 0), so it is neither a calm nor
+  north, which the file writes as 360. DWD has not been asked (GH-2809)
+- `dwd/observation`: of a stamp that a file lists twice, a row with a value in some parameter wins
+  over one with none, where the first row was kept: `10_minutes/precipitation` of station 03086
+  lists 1002 stamps of 1999-08-04 to 1999-12-31 twice, a reading and a `-999` placeholder, and 74
+  readings were lost (about 1000 when a second period is requested, which orders the rows by their
+  values first). Two rows with a value, or two without, are settled as before (GH-2996)
+
 ## [0.158.0] - 2026-10-17
 
 ### Added
