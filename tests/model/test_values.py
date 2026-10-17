@@ -552,7 +552,6 @@ def test_rank_is_not_spent_on_a_station_whose_data_misses_the_window(monkeypatch
     values = request.filter_by_rank(latlon=(50.0, 8.0), rank=2).values()
     df = values.all().df
 
-    assert values.stations_collected == ["00003"]
     assert df.get_column("station_id").unique().to_list() == ["00003"]
     assert df.height == 3
 

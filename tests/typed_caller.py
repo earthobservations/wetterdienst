@@ -33,9 +33,19 @@ from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution, DatasetModel, MetadataModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
+    HistoryDict,
+    InterpolatedValuesDict,
+    InterpolatedValuesOgcFeatureCollection,
     InterpolatedValuesResult,
+    Metadata,
+    StationsDict,
+    StationsOgcFeatureCollection,
     StationsResult,
+    SummarizedValuesDict,
+    SummarizedValuesOgcFeatureCollection,
     SummarizedValuesResult,
+    ValuesDict,
+    ValuesOgcFeatureCollection,
     ValuesResult,
 )
 from wetterdienst.model.values import TimeseriesValues
@@ -46,6 +56,13 @@ from wetterdienst.provider.dwd.radar import DwdRadarValues
 
 # settings (the host's) and options (the request's) are accepted as the model or as a dict of its fields
 settings = Settings(cache_disable=True)
+Settings(cache_dir="cache", auth={"knmi": "api-key"}, fsspec_client_kwargs={"trust_env": True})
+Settings(**settings.model_dump())
+
+# the fields of the settings are checked by name and by type, as those of the options are
+Settings(cache_dsable=True)  # ty: ignore[unknown-argument]
+Settings(cache_disable="yes")  # ty: ignore[invalid-argument-type]
+Options(shap="wide")  # ty: ignore[unknown-argument]
 request = DwdObservationRequest(
     parameters=[("daily", "climate_summary", "precipitation_amount")],
     start="2002-08-11",
@@ -97,6 +114,19 @@ assert_type(stations.to_geojson(with_metadata=True, indent=2), str)
 assert_type(stations.to_dict()["stations"][0]["station_id"], str)
 assert_type(stations.to_ogc_feature_collection()["data"]["type"], Literal["FeatureCollection"])
 
+# the dictionaries of the results are importable by name, to annotate a function that takes or returns one
+assert_type(stations.to_dict(), StationsDict)
+assert_type(stations.to_ogc_feature_collection(), StationsOgcFeatureCollection)
+assert_type(stations.get_metadata(), Metadata)
+
+
+def station_ids(document: StationsDict) -> list[str]:
+    """Read the ids of a stations document, as a caller's own function would."""
+    return [station["station_id"] for station in document["stations"]]
+
+
+assert_type(station_ids(stations.to_dict()), list[str])
+
 # a typo in the argument of a formatter is an error where it is made, not a different document
 stations.to_geojson(with_metdata=True)  # ty: ignore[unknown-argument]
 stations.to_ogc_feature_collection(with_metdata=True)  # ty: ignore[unknown-argument]
@@ -112,6 +142,8 @@ assert_type(values.df_stations, pl.DataFrame)
 assert_type(values.to_json(with_metadata=True), str)
 assert_type(values.to_csv(), str)
 values.to_dict(with_stations=True)["values"]
+assert_type(values.to_dict(), ValuesDict)
+assert_type(values.to_ogc_feature_collection(), ValuesOgcFeatureCollection)
 assert_type(values.to_ogc_feature_collection()["data"]["type"], Literal["FeatureCollection"])
 assert_type(values.filtered_by_date("2002-08"), ValuesResult)
 assert_type(values.filtered_by_sql("value > 1"), ValuesResult)
@@ -124,15 +156,20 @@ for chunk in values_request.query():
 assert_type(stations.history(), TimeseriesHistory)
 assert_type(stations.history().to_json(), str)
 assert_type(stations.history().to_dict()["histories"], list[dict[str, Any]])
+assert_type(stations.history().to_dict(), HistoryDict)
 
 # a point between stations
 interpolated = request.interpolate(latlon=(50.7, 13.7))
 assert_type(interpolated, InterpolatedValuesResult)
 assert_type(interpolated.df, pl.DataFrame)
 assert_type(interpolated.to_dict()["values"][0]["taken_station_ids"], list[str])
+assert_type(interpolated.to_dict(), InterpolatedValuesDict)
+assert_type(interpolated.to_ogc_feature_collection(), InterpolatedValuesOgcFeatureCollection)
 summarized = request.summarize(latlon=(50.7, 13.7))
 assert_type(summarized, SummarizedValuesResult)
 assert_type(summarized.to_dict()["values"][0]["distance"], float | None)
+assert_type(summarized.to_dict(), SummarizedValuesDict)
+assert_type(summarized.to_ogc_feature_collection(), SummarizedValuesOgcFeatureCollection)
 
 # a forecast, whose request takes an issue
 mosmix = DwdMosmixRequest(parameters="hourly/small", issue="latest")
