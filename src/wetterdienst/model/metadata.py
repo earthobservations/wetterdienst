@@ -204,6 +204,9 @@ _QUANTITY_TOKENS = 2
 _ERROR_PREFIX = ("error", "absolute")
 # how close two such tokens have to be to count as one spelled wrongly ("sped", "realtive")
 _TOKEN_CUTOFF = 0.75
+# the token that makes a name the gust of a quantity, whatever the quantity tokens before it: `wind_direction_gust_max`
+# is the direction of the gust, `wind_direction_last_10min` that of the mean wind (GH-3009)
+_GUST_TOKEN = "gust"  # noqa: S105
 
 
 def _same_token(a: str, b: str) -> bool:
@@ -227,7 +230,8 @@ def _keeps_the_quantity(item: str, candidate: str) -> bool:
     than to anything else a dataset without the dew point holds, and the air temperature is no dew
     point (GH-2924). So a guess is offered only where the tokens that name the quantity agree. What
     follows them, the statistic and the level, is not compared: `temperature_air_max_0_05m` may still
-    be answered with the minimum.
+    be answered with the minimum. The gust is the exception: it is compared wherever it stands, as the direction
+    of a gust is no direction of the wind (GH-3009).
 
     A name of one token (`rsk`, a source's own code, or `pressure`) has no quantity tokens to compare, and a missing
     underscore (`windspeed`) is a typo of the whole name, not of a token.
@@ -241,7 +245,15 @@ def _keeps_the_quantity(item: str, candidate: str) -> bool:
     if len(item_tokens) == 1 or len(candidate_tokens) == 1:
         return True
     leading = zip(item_tokens[:_QUANTITY_TOKENS], candidate_tokens[:_QUANTITY_TOKENS], strict=False)
-    return all(_same_token(a, b) for a, b in leading)
+    if not all(_same_token(a, b) for a, b in leading):
+        return False
+    # the quantity tokens agree (`wind_direction`), but the direction of a gust is not that of the mean wind
+    return _names_a_gust(item_tokens) == _names_a_gust(candidate_tokens)
+
+
+def _names_a_gust(tokens: list[str]) -> bool:
+    """Say whether a name is the gust of a quantity, up to a misspelled token."""
+    return any(_same_token(token, _GUST_TOKEN) for token in tokens)
 
 
 def _not_found(kind: str, item: str, models: Iterable[_NamedModel], dataset: DatasetModel | None = None) -> str:

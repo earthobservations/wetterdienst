@@ -24,6 +24,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
+from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata
 from wetterdienst.provider.metno.frost.api import MetnoFrostMetadata
@@ -361,6 +362,9 @@ def test_a_name_a_dataset_lacks_is_answered_with_the_name_it_has(
         (DwdMosmixMetadata, "hourly/small/error_absolute_temperature_air_mean_2m"),
         # `error_absolute_` is the error of a quantity, not the quantity: the wind speed is no wind gust
         (DwdMosmixMetadata, "hourly/large/error_absolute_wind_gust_max"),
+        # GH-3009: the direction of the hour's gust is no direction of the mean wind (`wind_direction_last_10min`, DD),
+        # which is all that is left of it since the hourly DXY is no longer served (GH-2836)
+        (MeteoFranceObservationMetadata, "hourly/core/wind_direction_gust_max"),
     ],
 )
 def test_a_name_of_another_quantity_is_not_guessed_at(
@@ -386,6 +390,8 @@ def test_a_name_of_another_quantity_is_not_guessed_at(
         # a missing underscore is a typo of the whole name
         ("daily/kl/windspeed", "wind_speed"),
         ("daily/kl/wind_gustmax", "wind_gust_max"),
+        # a misspelled gust is still a gust
+        ("daily/kl/wind_gsut_max", "wind_gust_max"),
         ("daily/kl/temperatureair_mean_2m", "temperature_air_mean_2m"),
     ],
 )

@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `nws/observation` follows the pages of the endpoint (`pagination.next`) until the window has been
+  read: a window of more than 500 observations, about 40 hours at a station's 12 an hour, came
+  back as its newest 500 with no warning. The last 5 days of KBOS are 121 hourly rows now, not
+  about 40. A window costs one request per 500 observations (a week is five), a request without
+  dates reads the endpoint's whole week (GH-2994)
+- The warning for a parameter a dataset does not have no longer offers the direction of the mean wind
+  for the direction of a gust, nor the reverse: `meteofrance/observation` `hourly/core`
+  `wind_direction_gust_max`, no longer served (GH-2836), no longer suggests
+  `wind_direction_last_10min` (GH-3009)
+
 ## [0.158.0] - 2026-10-17
 
 ### Added
