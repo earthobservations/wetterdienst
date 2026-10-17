@@ -651,8 +651,9 @@ _CALM_WIND_FILES = {
         [("220", None), (None, "0"), ("360", None), ("0", None), ("0", None)],
     ),
     # the urban hourly file (13667, stundenwerte_wind_13667_akt.zip, read 2026-10-15): a 0 comes beside 0.1 to 0.8 m/s
-    # and never beside 0, and DWD's sheet says nothing of it, so it is left as the source writes it (GH-2809). Not
-    # a calm rule: the 0 stays 0 with no raw text, and a speed of 0 (made up, no file has one) does not change that
+    # and never beside 0, in hours whose six 10 minute directions are spread over the compass (13667 on 2025-04-12
+    # 04:00: 50, 110, 250, 260, 100, 80 degrees), so it is no calm and no north, which the file writes as 360 (GH-2809).
+    # Every 0 is null whatever the speed, and a speed of 0 (made up, no file has one) does not change that
     "hourly/urban_wind": (
         DwdObservationMetadata.hourly.urban_wind,
         "STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; WINDGESCHWINDIGKEIT; WINDRICHTUNG; eor",
@@ -663,7 +664,7 @@ _CALM_WIND_FILES = {
             "     13667;   2018092302;    2;0;  0.00;  0;eor",
         ],
         "windrichtung",
-        [("0", None), ("0", None), ("360", None), ("0", None)],
+        [(None, "0"), (None, "0"), ("360", None), (None, "0")],
     ),
 }
 
@@ -673,7 +674,8 @@ def test_parse_dwd_data_nulls_the_wind_direction_0_of_a_calm_and_keeps_the_text(
     """Test that a direction of 0 DWD writes for a calm is null with `0` as its raw text, and 360 stays (GH-2805).
 
     Where the sheet gives the column a code or a rose without a 0 (hourly wind and wind_synop, subdaily wind) every 0
-    is null; in the 10 minute files 0 is also a bearing, so only a 0 beside a speed of exactly 0 is.
+    is null, and so is every 0 of the hourly urban wind (GH-2809); in the 10 minute files 0 is also a bearing, so
+    only a 0 beside a speed of exactly 0 is.
     """
     dataset, header, rows, column, expected = _CALM_WIND_FILES[name]
     file = File(url="", content=BytesIO(("\n".join([header, *rows]) + "\n").encode("utf8")), status=200)

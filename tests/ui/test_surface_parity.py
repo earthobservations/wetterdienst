@@ -624,8 +624,8 @@ _SURFACES = {
     core.GlossaryRequest: (("about", "glossary"), "/api/glossary", "glossary"),
     core.ProvidersRequest: (("about", "providers"), "/api/providers", "providers"),
     core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
-    # the command writes the image, the data of the stripes has no command of its own
-    core.StripesImageRequest: (("stripes", "values"), "/api/stripes/image", "stripes_image"),
+    # the data of the stripes has no command of its own yet (GH-3035)
+    core.StripesImageRequest: (("stripes", "image"), "/api/stripes/image", "stripes_image"),
     core.StripesValuesRequest: (None, "/api/stripes/values", "stripes_values"),
     core.SettingsRequest: (None, "/api/settings", None),
 }
@@ -646,7 +646,9 @@ _REST_ONLY_OF = {
     core.ProvidersRequest: {"pretty": "the command line always indents"},
 }
 _NO_COMMAND = {
-    core.StripesValuesRequest: "the data of the stripes has no command: `stripes values` writes the image",
+    core.StripesValuesRequest: (
+        "the data of the stripes has no command yet: `stripes values` is the deprecated name of the image (GH-3035)"
+    ),
     core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
 }
 
