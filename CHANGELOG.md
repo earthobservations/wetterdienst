@@ -40,6 +40,27 @@ Types of changes:
 - With `with_metadata=true`, `metadata.quality.legend` says what each kind of `quality_flags` token
   means for the network read (`zone:`, `validity:`, `raw:`, ...), with the codes where the source
   documents a closed set (GH-3060)
+- The REST API and the MCP tools refuse a request that would return more than the server allows,
+  with a 400 problem of the kind `limit-exceeded` before anything is downloaded: it names the
+  `limit`, its `maximum` and what the request comes to (`requested`), and how to narrow it. The
+  limits are the stations of one `values` or `history` request (100), the estimated rows of an
+  answer sent as one body (500,000) and of a streamed one (10,000,000), set with
+  `WD_RESTAPI_MAX_STATIONS`, `WD_RESTAPI_MAX_ROWS` and `WD_RESTAPI_MAX_STREAM_ROWS`; 0 is no limit
+  (GH-3065)
+- `stations` and `values` answer `format=ndjson`, and their `format=csv` is streamed too, station
+  by station instead of held in memory. NDJSON is the `metadata` block, a line for each row and an
+  `end` line with the counts and every warning, or an `error` line if a later station fails; the
+  CSV carries the block in its headers. `wetterdienst stations` and `values` take
+  `--format=ndjson` and write the same lines (GH-3065)
+- A request is held to one timeout, `WD_RESTAPI_TIMEOUT` (60 seconds, 0 for none): the 504 problem
+  `request-timeout` with `Retry-After` if it is not answered by then. A stream is held to it
+  between two chunks. What was fetched is cached for the retry (GH-3065)
+- Every problem has a `type` of its own, `urn:wetterdienst:problem:<kind>` (listed in the REST API
+  docs), an `instance` and a `request_id`, and every response an `X-Request-ID` header, the
+  client's own if it sends a plain one. A 502, 503 or 504 carries `Retry-After`. A response to a
+  request that uses something deprecated carries `Deprecation`, `Sunset` and `Link`; the
+  `use_nearby_station_distance` of `summarize` is the one use, and the policy is in the docs
+  (GH-3065)
 
 ### Changed
 
@@ -76,6 +97,17 @@ Types of changes:
   minutes among them) and in two summers of zeros (2015-04-25 to 2015-08-19, 2017-06-02 to
   2017-09-19), in all three resolutions; they were returned as readings. See the provider page
   (GH-3031)
+- **Breaking**: `values` refuses more than 100 stations (`all=true` on a network of more), and any
+  answer over the row limits above, with the 400 `limit-exceeded`. Request fewer stations or a
+  shorter `timestamp`, use `format=ndjson` or `csv` for a long answer, or raise the limits on your
+  own server with the settings above (GH-3065)
+- **Breaking**: the `type` of a problem was always `about:blank`; it names the kind of error now,
+  `urn:wetterdienst:problem:<kind>`. Branch on it instead of on the text of `detail` (GH-3065)
+- **Breaking**: a network without station history (`/api/history`) and an `/api/issues` for a
+  network that lists none answer 501, where they answered 404 and 400: a `NotImplementedError` is
+  now decided by `failure_status` like every other failure (GH-3065)
+- The CSV of `stations` and `values` is sent in chunks, the same bytes as before, and without the
+  `X-Wetterdienst-Rows` header, which the rows are not known for as the headers go out (GH-3065)
 
 ### Removed
 
