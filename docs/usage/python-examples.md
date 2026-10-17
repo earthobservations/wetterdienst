@@ -122,7 +122,7 @@ df = stations.df
 df
 ```
 
-Get data for MOSMIX-LARGE:
+Get stations for MOSMIX-LARGE:
 
 ```{code-cell}
 ---

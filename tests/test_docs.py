@@ -1558,3 +1558,149 @@ def test_the_documentation_resolves_a_network_with_resolve() -> None:
         if re.search(r"\bWetterdienst\((?:provider=|[\"'])", line)
     ]
     assert not errors, "\n".join(errors)
+
+
+def _parse_default(cell: str) -> object:
+    """Read the default a settings table writes (`True`, `0.95`, `"long"`, `{}`), or `...` where it is prose."""
+    cell = cell.strip()
+    if cell in {"True", "False"}:
+        return cell == "True"
+    if cell == "{}":
+        return {}
+    if re.fullmatch(r"-?\d+", cell):
+        return int(cell)
+    if re.fullmatch(r"-?\d+\.\d+", cell):
+        return float(cell)
+    if re.fullmatch(r'"[^"]*"', cell):
+        return cell.strip('"')
+    return ...
+
+
+def _table_defaults(text: str, heading: str) -> dict[str, object]:
+    """Give the default column of the first table after ``heading``, by the name in its first column."""
+    _, _, rest = text.partition(heading)
+    defaults: dict[str, object] = {}
+    for line in rest.splitlines():
+        if line.startswith("|"):
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if cells[0] and cells[0] != "name" and not set(cells[0]) <= {"-", ":"}:
+                defaults[cells[0]] = _parse_default(cells[-1])
+        elif defaults:
+            break
+    return defaults
+
+
+def test_docs_settings_defaults_are_the_models() -> None:
+    """Test that the default of every setting and option the tables of `settings.md` give is the model's default."""
+    from wetterdienst.options import Options  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    text = (DOCS / "usage" / "settings.md").read_text(encoding="utf8")
+    wrong = []
+    checked = 0
+    for heading, model in (
+        ("The following settings are available:", Settings),
+        ("The following options are available:", Options),
+    ):
+        for name, shown in _table_defaults(text, heading).items():
+            if shown is ...:
+                continue
+            checked += 1
+            field = model.model_fields[name]
+            actual = field.get_default(call_default_factory=True) if field.default_factory else field.default
+            # `1` and `1.0` are the one number, `True` and `1` are not
+            if shown != actual or isinstance(shown, bool) is not isinstance(actual, bool):
+                wrong.append(f"{model.__name__}.{name}: the page says {shown!r}, the model {actual!r}")
+    assert checked >= 20, "the tables no longer give defaults a test can read"
+    assert not wrong, "\n".join(wrong)
+
+
+def test_docs_restapi_limits_table_gives_the_defaults_of_the_settings() -> None:
+    """Test that the limits table of the REST page names the setting of each limit and its default."""
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    text = (DOCS / "usage" / "restapi.md").read_text(encoding="utf8")
+    _, _, rest = text.partition("| `limit` | Setting | Default | What it bounds |")
+    rows = [line for line in rest.splitlines()[1:] if line.startswith("|") and not line.startswith("| ---")][:3]
+    assert len(rows) == 3
+    for row in rows:
+        _, variable, default, _ = (cell.strip() for cell in row.strip().strip("|").split("|", maxsplit=3))
+        name = variable.strip("`").removeprefix("WD_").lower()
+        assert int(default.replace(",", "")) == getattr(Settings(), name), name
+
+
+#: how `data/overview.md` names each provider of the registry
+_OVERVIEW_NAMES = {
+    "aemet": "AEMET",
+    "chmi": "CHMI",
+    "dmi": "DMI",
+    "dwd": "DWD",
+    "ea": "EA",
+    "eaufrance": "Eaufrance",
+    "eccc": "ECCC",
+    "fmi": "FMI",
+    "geosphere": "Geosphere",
+    "imgw": "IMGW",
+    "ipma": "IPMA",
+    "knmi": "KNMI",
+    "lhmt": "LHMT",
+    "meteofrance": "Météo-France",
+    "meteoswiss": "MeteoSwiss",
+    "metno": "MET Norway",
+    "metoffice": "Met Office",
+    "noaa": "NOAA",
+    "nws": "NWS",
+    "rmi": "RMI",
+    "smhi": "SMHI",
+    "wsv": "WSV",
+}
+
+
+def test_docs_overview_names_every_provider() -> None:
+    """Test that `data/overview.md` has an entry for each provider of the registry, and for each DWD network."""
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    coverage = Wetterdienst.discover()
+    text = (DOCS / "data" / "overview.md").read_text(encoding="utf8")
+    assert set(_OVERVIEW_NAMES) == set(coverage), "a provider was added or removed: name it here and in the overview"
+    assert not [name for name in _OVERVIEW_NAMES.values() if f"- {name} (" not in text and f"- {name}\n" not in text]
+    lowered = text.lower()
+    dwd = [network for network in coverage["dwd"] if not re.search(rf"\b{network}\b", lowered)]
+    assert not dwd, f"the overview does not name the DWD networks {dwd}"
+
+
+def test_docs_formatter_table_gives_the_keywords_of_each_formatter() -> None:
+    """Test that the table of formatters on the Python API page is the keywords the results' methods take."""
+    import inspect  # noqa: PLC0415
+
+    from wetterdienst.model import result  # noqa: PLC0415
+
+    text = (DOCS / "usage" / "python-api.md").read_text(encoding="utf8")
+    _, _, rest = text.partition("| Method | `StationsResult` |")
+    rows = list(takewhile(lambda line: line.startswith("|"), rest.splitlines()[2:]))
+    groups = (
+        (1, [result.StationsResult]),
+        (2, [result.ValuesResult, result.InterpolatedValuesResult, result.SummarizedValuesResult]),
+        (3, [result.HistoryResult]),
+    )
+    wrong = []
+    for row in rows:
+        cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+        method = cells[0].strip("`")
+        for column, classes in groups:
+            shown = cells[column]
+            documented = None if shown == "none" else shown
+            for cls in classes:
+                function = getattr(cls, method, None)
+                if function is None:
+                    if shown != "none":
+                        wrong.append(f"{cls.__name__} has no {method}, the page lists {shown}")
+                    continue
+                keywords = [name for name in inspect.signature(function).parameters if name != "self"]
+                if any(name == "kwargs" for name in keywords):
+                    continue  # open arguments: `to_csv`, `to_image`, which the page words
+                listed = [] if documented is None else re.findall(r"`(\w+)`", shown)
+                if keywords != listed:
+                    wrong.append(f"{cls.__name__}.{method}({', '.join(keywords)}): the page lists {shown}")
+    assert len(rows) == 7, "the table of formatters changed shape"
+    assert not wrong, "\n".join(wrong)
