@@ -154,28 +154,133 @@ def test_the_tool_surface_is_the_same_at_both_paths(app: FastAPI) -> None:
 
 
 @pytest.mark.parametrize("path", MCP_PATHS)
-def test_the_session_of_a_streamable_http_client_is_kept_at_either_path(app: FastAPI, path: str) -> None:
-    """The first request opens a session whose id the next ones carry; the end of it is a DELETE, at the same path."""
+def test_the_endpoint_is_stateless_at_either_path(app: FastAPI, path: str) -> None:
+    """No session is created, and a list of the tools and a call work without an `initialize` (GH-3088)."""
     initialize = {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "initialize",
         "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
     }
+    call = {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {"name": "glossary", "arguments": {"limit": 1}},
+    }
     with TestClient(app) as client:
         response = client.post(path, json=initialize, headers=HEADERS)
         assert response.status_code == 200
-        session = {**HEADERS, "mcp-session-id": response.headers["mcp-session-id"]}
-        client.post(path, json={"jsonrpc": "2.0", "method": "notifications/initialized"}, headers=session)
-        listed = client.post(path, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, headers=session)
-        assert listed.status_code == 200
-        assert "stations" in listed.text
-        assert client.delete(path, headers=session).status_code == 200
-        # the session is gone
-        assert (
-            client.post(path, json={"jsonrpc": "2.0", "id": 3, "method": "tools/list"}, headers=session).status_code
-            == 404
+        assert "mcp-session-id" not in response.headers
+        for given in (HEADERS, {**HEADERS, "mcp-session-id": "left-over-from-a-server-that-kept-one"}):
+            listed = client.post(path, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, headers=given)
+            assert listed.status_code == 200
+            assert "stations" in listed.text
+            called = client.post(path, json=call, headers=given)
+            assert called.status_code == 200
+            assert "chloride_concentration" in called.text
+        # there is no session to end, or a stream of the server's messages to open
+        assert client.delete(path, headers={**HEADERS, "mcp-session-id": "x"}).status_code == 405
+        assert client.get(path, headers={"Accept": "text/event-stream"}).status_code == 405
+
+
+def _sdk_client_run(app: FastAPI, connections: int) -> list[tuple[list[str], str]]:
+    """Connect `connections` times with the client of the official `mcp` package, which `fastmcp` builds on.
+
+    Each connection: the handshake, the list of the tools and a call of one, ending the session on closing as the
+    client does. In one run of the app's lifespan, as it ends the client the tools send their requests with.
+    """
+    import httpx2  # noqa: PLC0415
+    from mcp import ClientSession  # noqa: PLC0415
+    from mcp.client.streamable_http import streamable_http_client  # noqa: PLC0415
+
+    async def one() -> tuple[list[str], str]:
+        http_client = httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=app), headers={"Accept": "application/json, text/event-stream"}
         )
+        async with (
+            http_client,
+            streamable_http_client(f"http://testserver{MCP_PREFIX}", http_client=http_client) as streams,
+            ClientSession(streams[0], streams[1]) as session,
+        ):
+            await session.initialize()
+            names = [tool.name for tool in (await session.list_tools()).tools]
+            result = await session.call_tool(
+                "stations", {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": True}
+            )
+            return names, result.content[0].text  # ty: ignore[unresolved-attribute]
+
+    async def run() -> list[tuple[list[str], str]]:
+        async with app.router.lifespan_context(app):
+            return [await one() for _ in range(connections)]
+
+    return asyncio.run(run())
+
+
+@pytest.mark.usefixtures("stations")
+def test_the_official_sdk_client_works_against_the_stateless_endpoint(app: FastAPI) -> None:
+    """The client of the `mcp` package: a handshake, a tool list and a call, no session, and none kept (GH-3088)."""
+    answers = _sdk_client_run(app, connections=3)
+
+    for names, text in answers:
+        assert {"coverage", "stations", "values"} <= set(names)
+        assert "01048" in text
+        assert "01975" in text
+    manager = next(
+        route.endpoint.session_manager for route in app.router.routes if getattr(route, "path", "") == MCP_PREFIX
+    )
+    assert manager.stateless is True
+    assert not manager._server_instances  # noqa: SLF001
+
+
+_INITIALIZE = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
+}
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_the_origin_of_a_page_is_checked_against_the_allowed_hosts(
+    app: FastAPI, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """A page of another origin cannot use the endpoint; a client without an `Origin` and a local page can (GH-3087)."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
+    local = {**HEADERS, "Host": "localhost:7890"}
+    with TestClient(app) as client:
+        refused = client.post(path, json=_INITIALIZE, headers={**local, "Origin": "https://evil.example"})
+        assert refused.status_code == 400
+        assert refused.json()["type"] == "urn:wetterdienst:problem:origin-not-allowed"
+        # a null origin (a sandboxed page) is no listed host either
+        assert client.post(path, json=_INITIALIZE, headers={**local, "Origin": "null"}).status_code == 400
+        # a rebinding page: its name in `Host`, and its own origin
+        rebound = client.post(
+            path, json=_INITIALIZE, headers={**HEADERS, "Host": "evil.example", "Origin": "http://evil.example"}
+        )
+        assert rebound.json()["type"] == "urn:wetterdienst:problem:host-not-allowed"
+        # the app on localhost, another port, and a client that sends none
+        for origin in ({"Origin": "http://localhost:4000"}, {"Origin": "http://[::1]:4000"}, {}):
+            assert client.post(path, json=_INITIALIZE, headers={**local, **origin}).status_code == 200, origin
+
+
+def test_the_origin_is_not_checked_where_any_host_is_allowed(app: FastAPI) -> None:
+    """By default, as before: a server behind a proxy takes the `Origin` of the page that its clients come from."""
+    with TestClient(app) as client:
+        response = client.post(MCP_PREFIX, json=_INITIALIZE, headers={**HEADERS, "Origin": "https://evil.example"})
+    assert response.status_code == 200
+
+
+@pytest.mark.usefixtures("stations")
+def test_the_tools_work_when_the_hosts_are_restricted(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A tool's request to the REST app is made in process, with a `Host` of its own, and is not refused for it."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "testserver")
+    arguments = {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": True}
+
+    names, answer = _call(app, [MCP_PREFIX], "stations", arguments)[MCP_PREFIX]
+
+    assert "stations" in names
+    assert [station["station_id"] for station in answer["stations"]] == ["01048", "01975"]
 
 
 def test_the_version_reports_where_the_endpoint_is() -> None:

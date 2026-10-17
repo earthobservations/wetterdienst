@@ -404,6 +404,19 @@ def _dwd_10_minutes_urban_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool
     return _dwd_observation(monkeypatch, "10_minutes", "urban_wind", product, "15818", year=2025, drop_nulls=drop_nulls)
 
 
+def _dwd_hourly_urban_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # climate_urban/hourly/wind/recent/stundenwerte_wind_13667_akt.zip, read 2026-10-12 (the Berlin television tower,
+    # 368 m): 1,288 zeros in 295,005 hours, none beside a speed of 0 and, in the 410 hours with the six 10 minute
+    # values at hand, no sign of a calm or of north: the six directions are spread over the compass (13667, 2025-04-12
+    # 04:00 UTC: 50, 110, 250, 260, 100 and 80 degrees). North is 360 (2018-09-23 01:00) (GH-2809)
+    product = (
+        "STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; WINDGESCHWINDIGKEIT; WINDRICHTUNG; eor\n"
+        "     13667;   2018061722;    2;0;  0.50;  0;eor\n"
+        "     13667;   2018092301;    2;0;  0.40;360;eor\n"
+    )
+    return _dwd_observation(monkeypatch, "hourly", "urban_wind", product, "13667", year=2018, drop_nulls=drop_nulls)
+
+
 def _dwd_10_minutes_urban_solar(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # climate_urban/10_minutes/solar/recent/10minutenwerte_SD_STADT_00399_akt.zip, read 2026-10-14: the sheet of the
     # parameter says "Minute", the values are fractions of an hour -- 0.17 (10/60 rounded) in 1257 rows, never more,
@@ -1376,6 +1389,13 @@ STUBS = [
     ValueStub(
         "dwd/observation 10_minutes/urban_wind",
         _dwd_10_minutes_urban_wind,
+        reading=("wind_direction", 360.0),
+        sentinels=(("wind_direction", 0.0),),
+        tokens=(("wind_direction", "0", None),),
+    ),
+    ValueStub(
+        "dwd/observation hourly/urban_wind",
+        _dwd_hourly_urban_wind,
         reading=("wind_direction", 360.0),
         sentinels=(("wind_direction", 0.0),),
         tokens=(("wind_direction", "0", None),),

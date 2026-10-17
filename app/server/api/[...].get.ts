@@ -38,10 +38,29 @@ export default defineEventHandler(async (event): Promise<unknown> => {
 
   const params = buildSearchParams(query)
   const queryString = params.toString()
-  const url = `${apiBase}${path}${queryString ? `?${queryString}` : ''}`
   // The client's own request id, if it sent one, goes on to the backend, which answers with it and logs
   // its failures by it. Only that header: `sendProxy` forwards none of the client's others (cookies included).
   const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
+
+  // The proxy's contract is everything under `apiBase`. The path is the client's, and a URL is normalised when it
+  // is fetched: `/api/../health` is the backend's `/health`, and `%2e%2e` is `..` as well. So the URL is
+  // resolved here, and one that does not stay under `apiBase` is a 404 and is not fetched.
+  const target = new URL(`${apiBase}${path}${queryString ? `?${queryString}` : ''}`)
+  const base = new URL(apiBase).pathname.replace(/\/$/, '')
+  if (target.pathname !== base && !target.pathname.startsWith(`${base}/`)) {
+    setResponseStatus(event, 404)
+    setResponseHeader(event, 'content-type', 'application/problem+json')
+    setResponseHeader(event, 'x-request-id', requestId)
+    return {
+      type: 'urn:wetterdienst:problem:not-found',
+      title: 'Not Found',
+      status: 404,
+      detail: 'Not Found',
+      instance: `urn:wetterdienst:request:${requestId}`,
+      request_id: requestId,
+    } satisfies ApiErrorResponse
+  }
+  const url = target.href
 
   try {
     // Stream the upstream response straight through to the client. `$fetch` used to buffer the

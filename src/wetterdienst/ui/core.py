@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import re
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
@@ -134,10 +135,14 @@ _LongitudeField = Annotated[
     float | None,
     Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
 ]
+#: the largest count a request may name (`rank`, `num_additional_stations`): more than any network has stations, and
+#: far below what a fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
+MAX_COUNT = 1_000_000
 _RankField = Annotated[
     int | None,
     Field(
         ge=1,
+        le=MAX_COUNT,
         description="With latitude/longitude, the N closest stations; with name, at most N matches (default "
         f"{DEFAULT_NAME_RANK_LISTING} for `stations`, which lists candidates, and {DEFAULT_NAME_RANK} for "
         "`values`, the best match, as the library's `filter_by_name`).",
@@ -333,6 +338,7 @@ _NumAdditionalStationsField = Annotated[
     int,
     Field(
         ge=0,
+        le=MAX_COUNT,
         description="Number of additional nearby stations to consider for interpolation. "
         "Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
     ),
@@ -348,6 +354,19 @@ def _read_items(value: str | list | None) -> list[str] | None:
     items = [value] if isinstance(value, str) else (value or [])
     ids = [station for item in items for station in read_list(item, separator=",") if station]
     return ids or None
+
+
+def _load_json(text: str) -> Any:  # noqa: ANN401
+    """Read a mapping a query gives as JSON, refusing one nested deeper than Python reads as a plain value error.
+
+    A few thousand opening braces in a query is enough to exhaust the recursion limit, and the `RecursionError` is
+    no `ValueError`, so it was the 500 of a request that is only malformed (GH-3085).
+    """
+    try:
+        return json.loads(text)
+    except RecursionError:
+        msg = "the JSON is nested too deeply"
+        raise ValueError(msg) from None
 
 
 def join_names(names: Sequence[str], last: str = "and") -> str:
@@ -759,7 +778,7 @@ class ValuesRequest(_RefusesRenamedParameters):
             return None
         if isinstance(v, dict):
             return v
-        return json.loads(v)
+        return _load_json(v)
 
     @model_validator(mode="after")
     def check_station_selection(self) -> ValuesRequest:
@@ -835,7 +854,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
             return None
         if isinstance(v, dict):
             return v
-        return json.loads(v)
+        return _load_json(v)
 
     interpolation_station_distance: _InterpolationStationDistanceField = None
     interpolation_station_distance_homogeneous: _StationDistanceHomogeneousField = None
@@ -849,7 +868,7 @@ class InterpolationRequest(_RefusesRenamedParameters):
             return None
         if isinstance(v, dict):
             return v
-        return json.loads(v)
+        return _load_json(v)
 
     use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
     min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
@@ -939,7 +958,7 @@ class SummaryRequest(_RefusesRenamedParameters):
         """Validate unit targets."""
         if not v:
             return None
-        return json.loads(v)
+        return _load_json(v)
 
     summary_station_distance: _SummaryStationDistanceField = None
     summary_station_distance_homogeneous: _StationDistanceHomogeneousField = None
@@ -953,7 +972,7 @@ class SummaryRequest(_RefusesRenamedParameters):
             return None
         if isinstance(v, dict):
             return v
-        return json.loads(v)
+        return _load_json(v)
 
     min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
     num_additional_stations: _NumAdditionalStationsField = 3
@@ -1016,7 +1035,11 @@ class SettingsRequest(BaseModel):
             return None
         if isinstance(v, dict):
             return v
-        return json.loads(v)
+        return _load_json(v)
+
+
+#: what a station id of the MOSMIX, DMO and SWSMOS listings looks like: a path segment, never `.` or `..`
+_ISSUE_STATION = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9_.-]{0,31}")
 
 
 class IssuesRequest(_RefusesRenamedParameters):
@@ -1044,6 +1067,21 @@ class IssuesRequest(_RefusesRenamedParameters):
         ),
     ] = None
     debug: _DebugField = False
+
+    @field_validator("station")
+    @classmethod
+    def check_station_is_an_id(cls, v: str) -> str:
+        """Refuse a station that is not an id, as it becomes a segment of the path DWD is asked for (GH-3084).
+
+        Unlike the stations of the data requests, which are looked up in the network's list, this one is not
+        checked against anything before it is put into the URL of a directory listing: a `/` or `..` in it would
+        list another directory of the provider, and a NUL make DWD answer a 400. An id is letters, digits, `_`, `-`
+        and, after the first character, `.`. The schema of the parameter is left as it was.
+        """
+        if not _ISSUE_STATION.fullmatch(v):
+            msg = "station is not a station id (letters, digits, '_', '-' and '.', at most 32 characters)"
+            raise ValueError(msg)
+        return v
 
 
 # the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary` and `/api/alerts`, and of

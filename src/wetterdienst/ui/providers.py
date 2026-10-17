@@ -119,10 +119,15 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
             )
         metadata = Wetterdienst.resolve(provider, network).metadata
     except ImportError as e:
+        # the text of an `ImportError` is the library's: `cannot import name 'x' from 'y' (/path/to/y/__init__.py)`
+        # names a path of the server, which a caller of the API has no use for (GH-3086). The log has all of it, the
+        # answer the module that is missing
+        log.info(f"{provider}/{network} cannot be imported: {e}")
+        missing = f": the module '{e.name}' is missing" if isinstance(e, ModuleNotFoundError) and e.name else ""
         warn_response(
             log,
             "network-not-importable",
-            f"{provider}/{network} is left out of the providers, it cannot be imported on this server: {e}",
+            f"{provider}/{network} is left out of the providers, it cannot be imported on this server{missing}",
         )
         return None
     resolutions = [

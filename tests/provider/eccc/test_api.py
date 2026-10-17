@@ -263,6 +263,7 @@ _TORONTO_STATION = {
     "DLY_LAST_DATE": "2026-10-08 00:00:00",
     "MLY_FIRST_DATE": None,
     "MLY_LAST_DATE": None,
+    "HAS_MONTHLY_SUMMARY": "Y",
 }
 
 
@@ -619,6 +620,7 @@ _STATION_14 = {
     "DLY_LAST_DATE": "1996-11-30 00:00:00",
     "MLY_FIRST_DATE": "1984-01-01 00:00:00",
     "MLY_LAST_DATE": "1996-11-01 00:00:00",
+    "HAS_MONTHLY_SUMMARY": "Y",
 }
 
 
@@ -712,6 +714,7 @@ _WHITE_ROCK_STATION = {
     "DLY_LAST_DATE": "2026-10-11 00:00:00",
     "MLY_FIRST_DATE": "1929-01-01 00:00:00",
     "MLY_LAST_DATE": "2007-02-01 00:00:00",
+    "HAS_MONTHLY_SUMMARY": "Y",
 }
 # the first and last row of each collection of White Rock, as the API sorts them
 _WHITE_ROCK_ROWS = {
@@ -861,7 +864,7 @@ def test_eccc_a_collection_without_dates_is_not_listed_and_not_asked_for_anythin
     In the live list the first date is null for a station that has no value in either collection (read 2026-10-15; the
     numbers are in ``_LISTED_BY_FIRST_DATE``), where it was listed with null dates (GH-2747) and a dated request
     asked for its years. The monthly dates are null for 763 stations that have monthly values (36 of 40 drawn
-    did), so monthly is always listed and asked for.
+    did), so monthly is listed by its flag, which is ``Y`` here (GH-3006), and asked for.
     """
     station = _WHITE_ROCK_STATION | dict.fromkeys(
         ("HLY_FIRST_DATE", "HLY_LAST_DATE", "DLY_FIRST_DATE", "DLY_LAST_DATE", "MLY_FIRST_DATE", "MLY_LAST_DATE")
@@ -876,6 +879,38 @@ def test_eccc_a_collection_without_dates_is_not_listed_and_not_asked_for_anythin
     years, edges = _years_requested(monkeypatch, options_convert_units_false, station)
     assert years == {"climate-monthly": list(range(1929, 2027))}
     assert sorted(edges) == ["climate-monthly:-LOCAL_DATE", "climate-monthly:LOCAL_DATE"]
+
+
+@pytest.mark.parametrize(
+    ("flag", "monthly_dates", "listed"),
+    [
+        # 763 stations of the list have no monthly date and monthly rows: the flag decides, not the dates (GH-3006)
+        ("Y", None, True),
+        ("Y", "1984-01-01 00:00:00", True),
+        # 95 stations flagged N and 13 with no flag at all, 108 in all, have no monthly row (read 2026-10-17)
+        ("N", None, False),
+        (None, None, False),
+    ],
+)
+def test_eccc_a_station_is_listed_for_monthly_only_if_it_has_a_monthly_summary(
+    monkeypatch: pytest.MonkeyPatch,
+    options_convert_units_false: Options,
+    flag: str | None,
+    monthly_dates: str | None,
+    listed: bool,  # noqa: FBT001
+) -> None:
+    """Test that HAS_MONTHLY_SUMMARY decides whether a station is listed for monthly (GH-3006).
+
+    ALERT A (7559) is ``N`` and ``climate-monthly?STN_ID=7559`` has no row; the station stays listed for the other
+    resolutions its dates give it.
+    """
+    station = _STATION_14 | {
+        "HAS_MONTHLY_SUMMARY": flag,
+        "MLY_FIRST_DATE": monthly_dates,
+        "MLY_LAST_DATE": monthly_dates,
+    }
+    request = _stations_of(monkeypatch, options_convert_units_false, [station]).all()
+    assert sorted(request.df.get_column("resolution").to_list()) == (["daily", "monthly"] if listed else ["daily"])
 
 
 @pytest.mark.parametrize(

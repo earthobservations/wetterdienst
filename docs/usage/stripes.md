@@ -25,7 +25,9 @@ offers an interactive Climate Stripes view.
 
 ## Command Line Interface
 
-The `stripes` command group has two subcommands: `stations` and `values`.
+The `stripes` command group has two subcommands: `stations` and `image`. The command line has no
+command for the yearly values the REST API answers at `/api/stripes/values`; `stripes values`, which
+wrote the image, is deprecated and writes it still, with a notice on stderr.
 
 ### Stations
 
@@ -48,17 +50,17 @@ Options:
 | `--format`  | output format, one of `json`, `geojson`, `csv`       | `json`  |
 | `--pretty`  | pretty-print the output                              | `false` |
 
-### Values
+### Image
 
 Render the stripes image for a single station, selected either by `--station` (station id)
 or by `--name` (fuzzy name match):
 
 ```bash
 # Temperature stripes for station 1048 (Dresden-Klotzsche) written to a PNG file.
-wetterdienst stripes values --kind temperature --station 1048 --target dresden.png
+wetterdienst stripes image --kind temperature --station 1048 --target dresden.png
 
 # Precipitation stripes selected by name, restricted to a year range, as SVG to stdout.
-wetterdienst stripes values --kind precipitation --name Hohenpeissenberg \
+wetterdienst stripes image --kind precipitation --name Hohenpeissenberg \
   --start-year 1900 --end-year 2020 --format svg
 ```
 
