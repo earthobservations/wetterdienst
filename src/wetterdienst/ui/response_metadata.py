@@ -30,6 +30,7 @@ from wetterdienst.model.result import (
     StationsFilter,
     StationsResult,
     _License,
+    _metadata_of,
     _Producer,
     _Provider,
     describe_producer,
@@ -292,7 +293,7 @@ def result_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **stations.get_metadata(),
+        **_metadata_of(stations),
         request=ResolvedRequest(
             provider=provider.lower(),
             network=network.lower(),

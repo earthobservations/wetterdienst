@@ -30,7 +30,7 @@ Types of changes:
 - The dictionaries that the results return have public names to annotate a function with:
   `StationsDict`, `StationsOgcFeatureCollection`, `ValuesDict`, `ValuesOgcFeatureCollection`,
   `InterpolatedValuesDict`, `InterpolatedValuesOgcFeatureCollection`, `SummarizedValuesDict`,
-  `SummarizedValuesOgcFeatureCollection`, `HistoryDict` and `Metadata`, importable from
+  `SummarizedValuesOgcFeatureCollection`, `HistoryDict` and `ResultMetadata`, importable from
   `wetterdienst.model.result` instead of the underscored classes they are aliases of (GH-3046)
 - `GET /api/providers`, `wetterdienst about providers` and the MCP tool `providers` say what each
   provider is: names (`name_short`, English, local), country (`country_code`, ISO 3166-1 alpha-2),
@@ -75,6 +75,17 @@ Types of changes:
 
 ### Changed
 
+- Results compare by what they hold: `result == other` is true for two results of the same class
+  whose frames have the same columns, dtypes and values in the same order and whose other fields
+  (the request, the point of an interpolation) are equal. It raised polars' "truth value of a
+  DataFrame is ambiguous" before. A result stays unhashable (GH-3037)
+- AEMET asks again once when it answers a 401 (or an `estado` of 401) to the key, which it
+  accepts on the next request, and raises `CredentialRejectedError` only when it refuses it twice
+  (GH-3022)
+- **Breaking**: a `metoffice/observation` token exchange with CEDA that does not answer (a timeout,
+  a dropped connection, a 5xx, a TLS failure) raises `DownloadError`, where it was a warning and
+  an empty result. Catch `DownloadError` (or `UpstreamError`) where you relied on the empty frame
+  (GH-3022)
 - **Breaking**: `noaa/ghcn` `hourly` returns one reading for each parameter and full hour, the one
   nearest to the hour (a parameter a SPECI lacks is read from the report that has it), stamped with
   the hour: the METAR of 14:53 is 15:00. It returned every report of the file under its own minute,
@@ -110,6 +121,10 @@ Types of changes:
   it was read by nothing): `--use-nearby-station-distance` of `wetterdienst summarize` is an unknown
   option, and the REST API (a 422) and the MCP tool refuse the parameter. Leave it out; a summary
   takes the nearest station with data. `interpolate` keeps its own (GH-3077)
+- **Breaking**: `StationsResult.get_metadata()` is gone: it was the `metadata` block of the REST,
+  CLI and MCP formats, which a result writes under `with_metadata=True` in `to_dict`, `to_json` and
+  `to_geojson`. Read those, or `request.metadata` (a `MetadataModel`, with the licence at
+  `request.metadata.license`) for the provider and `Info().to_dict()` for the library (GH-3047)
 - **Breaking**: `TimeseriesValues` no longer has the attributes `stations_counter` and
   `stations_collected`, nor takes them as constructor arguments. `query()` kept them for nobody; the
   stations a query returned are in the `station_id` column of the results (GH-3037)
