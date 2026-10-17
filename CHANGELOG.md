@@ -37,9 +37,35 @@ Types of changes:
   code that caught `aiohttp.ClientError`, `OSError` or `TimeoutError` around a listing catches
   `DownloadError` (or `UpstreamError`) now; a connection that cannot be made stays the
   `NoInternetError` (GH-3004)
+- **Breaking**: the MCP endpoint (`/mcp/v1`, `/mcp`) is stateless. It creates no session, sends no
+  `mcp-session-id` and needs no `initialize` before `tools/list` or `tools/call`; `DELETE` and the
+  `GET` that opens a server stream answer 405. A client that sends a session id is served as one
+  without. The tools held no session state, so nothing else changes; a client that depended on
+  being given a session id has to stop (GH-3088)
+- **Breaking**: the rows of `values` are estimated for a station whose record the provider does not
+  publish too, so that `WD_RESTAPI_MAX_ROWS` holds for a request without a `timestamp`: from 1950
+  for a dataset with historical data, two years back for recent data and two days for current data.
+  Such a request used to be counted as no rows and can be a 400 `limit-exceeded` now: give a
+  `timestamp` or use `format=ndjson` or `csv`. Forecasts are not counted (GH-3089)
+- A request that has not been answered within `WD_RESTAPI_TIMEOUT` is no longer
+  cancelled but left to end with its answer dropped, and it counts as being served until it has
+  (see `WD_RESTAPI_MAX_CONCURRENT`). `GET /api/version` reports `limits.max_concurrent` (GH-3089)
 
 ### Fixed
 
+- `nws/observation` follows the pages of the endpoint (`pagination.next`) until the window has been
+  read: a window of more than 500 observations, about 40 hours at a station's 12 an hour, came
+  back as its newest 500 with no warning. The last 5 days of KBOS are 121 hourly rows now, not
+  about 40. A window costs one request per 500 observations (a week is five), a request without
+  dates reads the endpoint's whole week (GH-2994)
+- The warning for a parameter a dataset does not have no longer offers the direction of the mean wind
+  for the direction of a gust, nor the reverse: `meteofrance/observation` `hourly/core`
+  `wind_direction_gust_max`, no longer served (GH-2836), no longer suggests
+  `wind_direction_last_10min` (GH-3009)
+- `eccc/observation` lists a station for `monthly` only if the station list flags a monthly
+  summary (`HAS_MONTHLY_SUMMARY` is `Y`), no longer all 8435 stations: the 108 whose flag is `N` or
+  empty have no monthly row, so `filter_by_rank`, `filter_by_distance`, `interpolate` and
+  `summarize` for monthly no longer pick them. Hourly and daily are unchanged (GH-3006)
 - `dwd/observation` `hourly/urban_wind` `wind_direction`: a 0 is null, with `raw:0` as the last
   token of `quality_flags`, no longer returned as a bearing. The 1,288 zeros come at 0.1 to
   1.6 m/s, never 0, and in the 410 of those hours with the six 10-minute values at hand the
@@ -57,9 +83,23 @@ Types of changes:
 - `dwd/mosmix` and `dwd/dmo` no longer send an HTTP HEAD for a run the cache holds: the size
   for the progress bar is read from the cached file, so a cached run is read with no request
   at all (GH-3003)
+- A `rank` or `num_additional_stations` that no integer holds (`rank=99999999999999999999`) was a
+  500 `OverflowError`; it is a 422 now, as one above 1,000,000 is (GH-3101)
 
 ### Security
 
+- `wetterdienst restapi` started on a loopback `--listen` (`127.0.0.1`, `::1`, `localhost`, the
+  default `127.0.0.1:7890`) answers to the loopback names only: another `Host` is a 400 problem of
+  the kind `host-not-allowed`, and an MCP request with another `Origin` is `origin-not-allowed`, so
+  a web page cannot reach a local server by DNS rebinding. A local server that is reached by another
+  name sets `WD_RESTAPI_ALLOWED_HOSTS` (comma-separated names, a port optional, `*.example.org`) to
+  its names; a server on any other address, or started otherwise, answers to every host unless it
+  is set (GH-3087)
+- At most `WD_RESTAPI_MAX_CONCURRENT` requests under `/api` (32 by default, 0 for no limit) are
+  served at once; one past it is a 503 problem of the kind `server-busy` with `Retry-After`. A
+  request keeps its place until its handler is done, also after the 504 of the timeout, so the cap
+  bounds the threads that requests leave running. Raise it for a host that is meant to serve more
+  (GH-3089)
 - `/api/issues`, the MCP tool `issues` and `wetterdienst issues` refuse a `station` that is not an
   id (letters, digits, `_`, `-` and, after the first character, `.`, up to 32 characters) with a
   422 problem, or a usage error on the command line. It was put into the path of the directory DWD

@@ -19,7 +19,7 @@ import threading
 import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Annotated, Any, Self
 
 import platformdirs
 from pydantic import (
@@ -31,7 +31,7 @@ from pydantic import (
     ValidationError,
     field_validator,
 )
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
+from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
 
 from wetterdienst.options import (
     Options,
@@ -39,6 +39,7 @@ from wetterdienst.options import (
     _quiet,
     options_from_mapping,
 )
+from wetterdienst.util.hosts import normalize_host
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,10 @@ RESTAPI_MAX_ROWS = 500_000
 RESTAPI_MAX_STREAM_ROWS = 10_000_000
 #: seconds a request may take before its answer begins; a reverse proxy usually gives up after 60
 RESTAPI_TIMEOUT = 60.0
+#: the requests under `/api` a server works on at once (GH-3089). Each holds a thread of the pool (40 by default)
+#: until its handler is done, also after a timeout answered it, so the cap bounds the threads; it leaves the
+#: rest of the pool to the routes it does not count, such as `/health`
+RESTAPI_MAX_CONCURRENT = 32
 
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
@@ -601,6 +606,13 @@ class Settings(BaseSettings):
     # seconds a request may take until its answer begins (and a streamed answer between two of its chunks),
     # else a 504; the work already begun is not cancelled. 0 switches the timeout off
     restapi_timeout: float = Field(default=RESTAPI_TIMEOUT, ge=0, allow_inf_nan=False)
+    # the requests under `/api` served at once (GH-3089), counted until the handler is done, else a 503 with
+    # `Retry-After`. 0 switches the cap off
+    restapi_max_concurrent: int = Field(default=RESTAPI_MAX_CONCURRENT, ge=0)
+    # the `Host` names the REST API and the MCP endpoint answer to (GH-3087), a comma-separated list; any other `Host`
+    # is a 400. Empty: any, which is what a server behind a proxy wants. `wetterdienst restapi` with a loopback
+    # `--listen` sets it to the loopback names for its own process unless it is given
+    restapi_allowed_hosts: Annotated[tuple[str, ...], NoDecode] = Field(default=())
     #: what the removed ``ts_*`` settings were given or assigned as, laid over the options of the
     #: environment. `None` until one is: a request then takes the options of the environment alone
     _ts_options: Options | None = PrivateAttr(default=None)
@@ -643,6 +655,8 @@ class Settings(BaseSettings):
             restapi_max_rows: int = ...,
             restapi_max_stream_rows: int = ...,
             restapi_timeout: float = ...,
+            restapi_max_concurrent: int = ...,
+            restapi_allowed_hosts: str | list[str] | tuple[str, ...] = ...,
         ) -> None:
             """Build the settings from the fields, which the environment and `.env` fill where they are not given."""
     else:
@@ -729,6 +743,21 @@ class Settings(BaseSettings):
         refuse.
         """
         return _merge_fsspec_client_kwargs(dict(value)) if isinstance(value, Mapping) else value
+
+    @field_validator("restapi_allowed_hosts", mode="before")
+    @classmethod
+    def read_allowed_hosts(cls, value: object) -> object:
+        """Read the allowed hosts from a comma-separated string or a list, each normalised or refused (GH-3087).
+
+        The environment gives the text `localhost,127.0.0.1`; a list is what a caller of the constructor writes.
+        A blank item (a trailing comma) selects nothing.
+        """
+        if isinstance(value, str):
+            value = value.split(",")
+        if isinstance(value, (list, tuple, set, frozenset)):
+            items = (item for item in value if not isinstance(item, str) or item.strip())
+            return tuple(dict.fromkeys(normalize_host(item) if isinstance(item, str) else item for item in items))
+        return value
 
     def model_post_init(self, _context: object, /) -> None:
         """Log what the settings were built with, once, as they are built.

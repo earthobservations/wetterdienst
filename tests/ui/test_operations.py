@@ -8,10 +8,12 @@ app's routes, middleware and handlers with a client.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import json
 import os
 import re
+import threading
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -29,6 +31,7 @@ from tests.ui.test_restapi import (
     _values_result_of_shape,
 )
 from wetterdienst import Options, Settings, exceptions
+from wetterdienst.settings import check_settings
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.ui.deprecation import Deprecation, deprecated_route, deprecation_headers, mark_deprecated
@@ -68,10 +71,17 @@ def client() -> TestClient:
     return TestClient(restapi.app, raise_server_exceptions=False)
 
 
-def _selection_of(n: int, *, start: dt.datetime | None = None, end: dt.datetime | None = None) -> pl.DataFrame:
-    """Give the selection of `n` stations of the daily climate summary, with the record they bound it by."""
+def _selection_of(
+    n: int, *, start: dt.datetime | None = None, end: dt.datetime | None = None, unbounded: bool = False
+) -> pl.DataFrame:
+    """Give the selection of `n` stations of the daily climate summary, with the record they bound it by.
+
+    A month of 2020 unless the record is given; `unbounded` leaves it out, as a provider that publishes none does.
+    """
     base = _values_result_of_shape("long").stations.df.filter(pl.col("dataset") == "climate_summary")
     frame = pl.concat([base.with_columns(pl.lit(f"{i:05d}").alias("station_id")) for i in range(n)])
+    if start is None and not unbounded:
+        start, end = dt.datetime(2020, 1, 1, tzinfo=dt.UTC), dt.datetime(2020, 1, 31, tzinfo=dt.UTC)
     if start is not None:
         frame = frame.with_columns(
             pl.lit(start, pl.Datetime("us", "UTC")).alias("start_timestamp"),
@@ -265,11 +275,48 @@ def test_the_rows_are_estimated_from_the_record_the_window_and_the_parameters() 
         df=_selection_of(1, start=dt.datetime(2020, 1, 6, tzinfo=dt.UTC), end=dt.datetime(2021, 1, 1, tzinfo=dt.UTC)),
     )
     assert estimate_rows(late) == 5 * 2
-    # a station whose record is not published, in a request with no window, is not counted
-    unbounded = replace(base, request=DwdObservationRequest(parameters=parameters), df=_selection_of(2))
-    assert estimate_rows(unbounded) == 0
+    # a station whose record is not published, in a request with no window, is counted from where the periods of
+    # its dataset (historical and recent) put the start of a record: 1 January 1950, to now
+    # (the end of the record is known here, so that the count does not move with the day)
+    ended = _selection_of(2, unbounded=True).with_columns(
+        pl.lit(None, pl.Datetime("us", "UTC")).alias("start_timestamp"),
+        pl.lit(dt.datetime(2020, 12, 31, tzinfo=dt.UTC), pl.Datetime("us", "UTC")).alias("end_timestamp"),
+    )
+    unbounded = replace(base, request=DwdObservationRequest(parameters=parameters), df=ended)
+    days = (dt.date(2020, 12, 31) - dt.date(1950, 1, 1)).days + 1
+    assert estimate_rows(unbounded) == 2 * days * 2
+    # given a start, the window holds, as for a station with a record
+    windowed = replace(unbounded, request=request)
+    assert estimate_rows(windowed) == 2 * 10 * 2
     assert estimate_point_rows(request.parameters, request.start, request.end) == 10 * 2
     assert estimate_point_rows(request.parameters, None, None) == 0
+
+
+def test_the_start_of_an_unpublished_record_is_assumed_from_the_periods_of_the_dataset() -> None:
+    """Historical data from 1950, recent data two years and current data two days back, a forecast has none."""
+    from wetterdienst.metadata.period import Period  # noqa: PLC0415
+    from wetterdienst.ui.limits import _assumed_start  # noqa: PLC0415
+
+    end = dt.datetime(2024, 6, 1, tzinfo=dt.UTC)
+
+    assert _assumed_start([Period.HISTORICAL, Period.RECENT], end) == dt.datetime(1950, 1, 1, tzinfo=dt.UTC)
+    assert _assumed_start([Period.RECENT, Period.NOW], end) == dt.datetime(2022, 6, 1, tzinfo=dt.UTC)
+    assert _assumed_start([Period.NOW], end) == dt.datetime(2024, 5, 30, tzinfo=dt.UTC)
+    assert _assumed_start([Period.FUTURE], end) is None
+
+
+def test_a_request_for_a_provider_without_record_bounds_is_held_to_the_row_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without a `timestamp`, stations that publish no record are no longer free of the row limit (GH-3089)."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "1000")
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")], stations_df=_selection_of(1, unbounded=True))
+
+    response = client.get("/api/v1/values", params=_STATIONS)
+
+    assert response.status_code == 400
+    assert response.json()["type"] == "urn:wetterdienst:problem:limit-exceeded"
+    assert response.json()["limit"] == "rows"
 
 
 def test_an_answer_of_too_many_rows_is_refused_and_told_to_stream(
@@ -719,3 +766,326 @@ def test_a_deprecated_parameter_answers_the_headers_and_is_a_warning() -> None:
     assert [w["code"] for w in used.json()["warnings"]] == ["deprecated-parameter"]
     assert "Deprecation" not in unused.headers
     assert unused.json() == {"warnings": []}
+
+
+# --- the cap on requests served at once ---------------------------------------------------------------------------
+
+
+def _async_client() -> Any:  # noqa: ANN401
+    """Give a client that runs the app in the loop of the test, so that requests are in flight together."""
+    import httpx2  # noqa: PLC0415
+
+    return httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=restapi.app, raise_app_exceptions=False), base_url="http://testserver"
+    )
+
+
+def _blocking_values(monkeypatch: pytest.MonkeyPatch) -> tuple[threading.Event, list[str]]:
+    """Make `values` wait in its thread until the test lets it go, and return the event and the ids that ended."""
+    release, ended = threading.Event(), []
+
+    def blocked(**_kwargs: object) -> None:
+        release.wait(10)
+        ended.append("done")
+        msg = "released"
+        raise exceptions.RequestError(msg)
+
+    monkeypatch.setattr(restapi, "get_values", blocked)
+    return release, ended
+
+
+def test_the_cap_is_a_setting_with_a_documented_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """32 requests by default, `WD_RESTAPI_MAX_CONCURRENT` sets it and 0 switches it off; it is reported by version."""
+    assert Settings().restapi_max_concurrent == 32
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "5")
+    assert Settings().restapi_max_concurrent == 5
+    assert restapi.limits_of(Settings()).max_concurrent == 5
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "-1")
+    with pytest.raises(ValueError, match="restapi_max_concurrent"):
+        Settings()
+
+
+def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With two requests being served, the third is not started: a `server-busy` problem with `Retry-After`."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "2")
+    release, _ended = _blocking_values(monkeypatch)
+
+    async def run() -> tuple[list[Any], Any, Any, Any]:
+        async with _async_client() as client:
+            first = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(2)]
+            await asyncio.sleep(0.3)
+            busy = await client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "busy-1"})
+            # what is not counted is served: the health check, the index
+            health = await client.get("/health")
+            index = await client.get("/")
+            release.set()
+            return await asyncio.gather(*first), busy, health, index
+
+    try:
+        served, busy, health, index = asyncio.run(run())
+    finally:
+        release.set()
+
+    assert busy.status_code == 503
+    assert busy.json()["type"] == "urn:wetterdienst:problem:server-busy"
+    assert busy.json()["request_id"] == "busy-1"
+    assert busy.headers["Retry-After"] == "30"
+    assert "2 requests" in busy.json()["detail"]
+    assert (health.status_code, index.status_code) == (200, 200)
+    assert [response.status_code for response in served] == [400, 400]
+
+
+def test_a_cap_of_zero_is_no_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """0 switches the cap off: more requests than the default cap are all served."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "0")
+    release, _ended = _blocking_values(monkeypatch)
+
+    async def run() -> list[int]:
+        async with _async_client() as client:
+            requests = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(40)]
+            await asyncio.sleep(0.5)
+            release.set()
+            return [response.status_code for response in await asyncio.gather(*requests)]
+
+    try:
+        statuses = asyncio.run(run())
+    finally:
+        release.set()
+
+    assert statuses == [400] * 40
+
+
+def test_a_request_that_timed_out_keeps_its_place_until_its_thread_is_done(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 504 is sent at the timeout, and the cap still counts the request: the thread it left running is its own."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.2")
+    release, ended = _blocking_values(monkeypatch)
+
+    async def run() -> tuple[int, int, list[str], int]:
+        async with _async_client() as client:
+            timed_out = await client.get("/api/v1/values", params=_VALUES)
+            # the answer is out, and the thread is still running
+            refused = await client.get("/api/v1/values", params=_VALUES)
+            still_running = list(ended)
+            release.set()
+            # the thread ends, and the place is free again: the next request is served (and refused by the stub)
+            for _ in range(50):
+                await asyncio.sleep(0.1)
+                served = await client.get("/api/v1/values", params=_VALUES)
+                if served.status_code != 503:
+                    break
+            return timed_out.status_code, refused.status_code, still_running, served.status_code
+
+    try:
+        timed_out, refused, still_running, served = asyncio.run(run())
+    finally:
+        release.set()
+
+    assert (timed_out, refused) == (504, 503)
+    assert still_running == []
+    assert served == 400
+
+
+def test_a_request_that_fails_after_its_timeout_gives_its_place_back(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The failure of the dropped request is logged as a server error, and the next request is served."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.2")
+
+    def late(**_kwargs: object) -> None:
+        time.sleep(0.5)
+        raise RuntimeError
+
+    monkeypatch.setattr(restapi, "get_values", late)
+
+    async def run() -> tuple[int, int]:
+        async with _async_client() as client:
+            first = await client.get("/api/v1/values", params=_VALUES)
+            await asyncio.sleep(0.8)
+            monkeypatch.setattr(
+                restapi, "get_values", lambda **_kwargs: (_ for _ in ()).throw(exceptions.RequestError("x"))
+            )
+            return first.status_code, (await client.get("/api/v1/values", params=_VALUES)).status_code
+
+    with caplog.at_level("WARNING"):
+        assert asyncio.run(run()) == (504, 400)
+
+    assert "failed with a 500: internal-error" in caplog.text
+
+
+def test_a_request_in_time_gives_its_place_back(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Many requests one after the other are served with a cap of one."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
+    _stub_result(monkeypatch, "/api/values")
+
+    assert [client.get("/api/v1/values", params=_VALUES).status_code for _ in range(5)] == [200] * 5
+
+
+# --- the allowed hosts --------------------------------------------------------------------------------------------
+
+
+def test_every_host_is_answered_to_by_default(client: TestClient) -> None:
+    """Without `WD_RESTAPI_ALLOWED_HOSTS`, the server behaves as it did: a name it was not given is served."""
+    assert Settings().restapi_allowed_hosts == ()
+    assert client.get("/api/version", headers={"Host": "evil.example"}).status_code == 200
+    assert (
+        client.get("/api/version", headers={"Host": "evil.example", "Origin": "https://evil.example"}).status_code
+        == 200
+    )
+
+
+def test_the_allowed_hosts_are_a_comma_separated_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The variable is a list with commas; the names are normalised, and a malformed entry names the variable."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "Localhost, 127.0.0.1 ,[::1],*.example.org:8080,,")
+    assert Settings().restapi_allowed_hosts == ("localhost", "127.0.0.1", "[::1]", "*.example.org:8080")
+    assert Settings(restapi_allowed_hosts=["a.example", "A.example"]).restapi_allowed_hosts == ("a.example",)
+
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost,http://example.org")
+    with pytest.raises(ValueError, match="restapi_allowed_hosts"):
+        Settings()
+    assert any(line.startswith("WD_RESTAPI_ALLOWED_HOSTS is invalid") for line in check_settings())
+
+
+def test_a_host_that_is_not_listed_is_a_400_problem(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A rebinding page reaches the server with its own name in `Host`; every route refuses it, but the health check."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
+
+    for path in ("/api/version", "/api/v1/version", "/api/v1/coverage", "/", "/robots.txt", "/mcp/v1"):
+        refused = client.get(path, headers={"Host": "rebind.evil.example:7890", "X-Request-ID": "host-1"})
+        assert refused.status_code == 400, path
+        body = refused.json()
+        assert body["type"] == "urn:wetterdienst:problem:host-not-allowed"
+        assert body["request_id"] == "host-1"
+        assert "rebind.evil.example" not in refused.text
+        assert refused.headers["content-type"].startswith("application/problem+json")
+    for host in ("localhost", "localhost:7890", "LOCALHOST:3000", "127.0.0.1:7890", "[::1]:7890"):
+        assert client.get("/api/version", headers={"Host": host}).status_code == 200, host
+    assert client.get("/health", headers={"Host": "service.internal"}).status_code == 200
+
+
+def test_an_unlisted_host_is_refused_before_anything_is_fetched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The handler is not called for a request the host check refused."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost")
+    called = []
+    monkeypatch.setattr(restapi, "get_values", lambda **_kwargs: called.append(1))
+
+    response = client.get("/api/v1/values", params=_VALUES, headers={"Host": "evil.example"})
+
+    assert response.status_code == 400
+    assert called == []
+
+
+def _serve_on(listen: str, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Run `start_service` with a stand-in for uvicorn, which takes the request a server would and says what it got."""
+    seen: dict[str, Any] = {}
+
+    class _Uvicorn:
+        @staticmethod
+        def run(**kwargs: Any) -> None:  # noqa: ANN401
+            seen.update(kwargs)
+            client = TestClient(restapi.app)
+            for name, host in (
+                ("rebound", "rebind.evil.example"),
+                ("local", "localhost:7890"),
+                ("ip", "127.0.0.1:7890"),
+            ):
+                seen[name] = client.get("/api/version", headers={"Host": host}).status_code
+
+    monkeypatch.setattr(restapi, "import_optional", lambda *_args, **_kwargs: _Uvicorn)
+    monkeypatch.setattr(restapi, "setup_logging", lambda: None)
+    restapi.start_service(listen)
+    return seen
+
+
+@pytest.mark.parametrize("listen", ["127.0.0.1:7890", "localhost:7890", "[::1]:7890", "::1:7890"])
+def test_a_server_started_on_the_loopback_refuses_a_rebinding_host(
+    listen: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`wetterdienst restapi` on a loopback `--listen` answers to the loopback names only, for that process."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "")  # restored afterwards: start_service sets the variable
+
+    seen = _serve_on(listen, monkeypatch)
+
+    assert (seen["rebound"], seen["local"], seen["ip"]) == (400, 200, 200)
+    assert seen["port"] == 7890
+    assert os.environ["WD_RESTAPI_ALLOWED_HOSTS"].split(",")[:3] == ["localhost", "127.0.0.1", "[::1]"]
+
+
+def test_a_server_started_without_a_listen_address_is_on_the_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The default `--listen` is `127.0.0.1:7890`."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "")
+    monkeypatch.setattr(
+        restapi, "import_optional", lambda *_args, **_kwargs: type("U", (), {"run": staticmethod(lambda **_k: None)})
+    )
+    monkeypatch.setattr(restapi, "setup_logging", lambda: None)
+
+    restapi.start_service()
+
+    assert os.environ["WD_RESTAPI_ALLOWED_HOSTS"] == "localhost,127.0.0.1,[::1]"
+
+
+@pytest.mark.parametrize("listen", ["0.0.0.0:7890", "192.168.1.2:7890", "[::]:7890"])
+def test_a_server_not_on_the_loopback_answers_to_any_host(listen: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A hosted server behaves as before: no list is set."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "")
+
+    seen = _serve_on(listen, monkeypatch)
+
+    assert seen["rebound"] == 200
+    assert os.environ["WD_RESTAPI_ALLOWED_HOSTS"] == ""
+
+
+def test_a_list_that_is_given_is_not_replaced_on_the_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A local server reached through a tunnel lists its own names, and `start_service` leaves them."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "tunnel.example.org")
+
+    seen = _serve_on("127.0.0.1:7890", monkeypatch)
+
+    assert os.environ["WD_RESTAPI_ALLOWED_HOSTS"] == "tunnel.example.org"
+    assert (seen["local"], seen["ip"]) == (400, 400)
+
+
+def test_a_malformed_listen_address_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listen address that is not `host:port` is a value error that says so, as before it was a bare unpack error."""
+    monkeypatch.setattr(restapi, "import_optional", lambda *_args, **_kwargs: type("U", (), {"run": None}))
+    monkeypatch.setattr(restapi, "setup_logging", lambda: None)
+
+    with pytest.raises(ValueError, match="listen address"):
+        restapi.start_service("7890")
+
+
+# --- a count that no integer holds --------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "name"),
+    [("stations", "rank"), ("values", "rank"), ("interpolate", "num_additional_stations")],
+)
+def test_a_count_no_integer_holds_is_a_422_not_an_overflow(client: TestClient, path: str, name: str) -> None:
+    """`rank=99999999999999999999` was a 500 `OverflowError`; a number the library cannot represent is malformed."""
+    params = {**_OBSERVATION, "latitude": 50, "longitude": 10, name: "99999999999999999999"}
+    if path == "interpolate":
+        params["timestamp"] = "2020-01-01/2020-01-03"
+
+    response = client.get(f"/api/v1/{path}", params=params)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["type"] == "urn:wetterdienst:problem:invalid-parameters"
+    assert body["errors"][0]["loc"] == ["query", name]
+    assert body["errors"][0]["type"] == "less_than_equal"
+    assert "1000000" in body["detail"]
+
+
+def test_a_count_at_the_bound_is_accepted(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The bound is inclusive: a `rank` of 1,000,000 passes validation (the limit on stations then applies)."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "2")
+    _stub_stream(monkeypatch, [], stations_df=_selection_of(3))
+
+    response = client.get("/api/v1/values", params={**_OBSERVATION, "latitude": 50, "longitude": 10, "rank": 1_000_000})
+
+    assert response.status_code == 400
+    assert response.json()["type"] == "urn:wetterdienst:problem:limit-exceeded"

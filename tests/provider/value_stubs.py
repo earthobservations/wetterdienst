@@ -1123,7 +1123,13 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         observation("14:54", 0, 0, report=True),
         observation("15:00", 0, 0, report=False),
     ]
-    serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
+    # the endpoint names a cursor on the oldest row in every page, the last one too (GH-2994); a page of four rows is
+    # short, and the walk ends with it
+    cursor = "eyJzIjoiMjAyNi0xMC0xMlQxMjo1NDowMCswMDowMCJ9"
+    pagination = {"next": f"https://api.weather.gov/stations/KBOS/observations?cursor={cursor}"}
+    serve(
+        monkeypatch, nws_api, {"/observations": json.dumps({"features": features, "pagination": pagination}).encode()}
+    )
     request = NwsObservationRequest(
         parameters=[("hourly", "data")],
         start=_day(2026, 10, 12),
