@@ -386,6 +386,15 @@ def test_issues_unsupported_provider() -> None:
     )
 
 
+def test_issues_refuses_a_station_that_is_no_id_as_a_usage_error() -> None:
+    """The station is a segment of the path DWD is asked to list: one that is no id is a usage error (GH-3084)."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=../.."])
+    assert result.exit_code == 2, result.output
+    assert "not a station id" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_cli_glossary() -> None:
     """Test that the glossary reports what a parameter measures and its returned unit."""
     runner = CliRunner()

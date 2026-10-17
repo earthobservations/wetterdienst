@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `/api/issues`, the MCP tool `issues` and `wetterdienst issues` refuse a `station` that is not an
+  id (letters, digits, `_`, `-` and, after the first character, `.`, up to 32 characters) with a
+  422 problem, or a usage error on the command line. It was put into the path of the directory DWD
+  is asked to list as it came, so `..` listed other directories of `opendata.dwd.de` (GH-3084)
+- `/api/providers` no longer puts the text of an `ImportError` into the `warnings` of its answer,
+  which could name a path of the server: it names the network and, for a missing module, the module.
+  The text is in the server log (GH-3086)
+
+### Fixed
+
+- A query value that JSON has no number for (`distance=1e999`, `skip_threshold=nan`) or a JSON
+  mapping nested thousands of levels deep (`unit_targets`, the station distances) is a 422 problem,
+  as any malformed value is, instead of a 500. What an `errors` entry repeats as `input` is cut off
+  below 16 levels of nesting (GH-3085)
+
 ## [0.158.0] - 2026-10-17
 
 ### Added
