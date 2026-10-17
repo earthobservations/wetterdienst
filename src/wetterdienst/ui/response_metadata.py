@@ -24,7 +24,7 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, Field
 
 from wetterdienst.model.metadata import is_quality_flag
-from wetterdienst.model.result import StationsFilter, StationsResult, _License, _Producer, _Provider
+from wetterdienst.model.result import StationsFilter, StationsResult, _License, _metadata_of, _Producer, _Provider
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.response_warnings import ResponseWarning, recorded_warnings
@@ -217,7 +217,7 @@ def response_metadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=format_timestamp(dt.datetime.now(dt.UTC)),
-        **stations.get_metadata(),
+        **_metadata_of(stations),
         request=ResolvedRequest(
             provider=request.provider.lower(),
             network=request.network.lower(),
