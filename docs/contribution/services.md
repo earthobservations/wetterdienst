@@ -13,10 +13,17 @@ experience goes. We'll give examples based on the `DwdObservationRequest` implem
 The basis for the implementation of a new service is the extensive metadata model. The metadata model is a layered
 abstraction of inheritance looking roughly like resolutions -> datasets -> parameters which means that the uppermost
 layer is the resolution, which contains one or more datasets, which in turn contain one or more parameters. The
-following example reflects this structure for the `MINUTE_1` dataset `PRECIPITATION` of `DwdObservationRequest`.
+following example reflects this structure for the `precipitation` dataset of the `1_minute` resolution of
+`DwdObservationRequest`.
 
 ```python
+from wetterdienst.model.metadata import build_metadata_model
+from wetterdienst.provider.dwd.metadata import _METADATA
+
 _DwdObservationMetadataSpec = {
+    **_METADATA,  # what the provider is, shared by its networks, see below
+    "kind": "observation",
+    "timezone": "Europe/Berlin",
     "resolutions": [
         {
             "name": "1_minute",
@@ -62,6 +69,15 @@ _DwdObservationMetadataSpec = {
 }
 DwdObservationMetadata = build_metadata_model(_DwdObservationMetadataSpec, "DwdObservationMetadata")
 ```
+
+The fields above `resolutions` say what the provider is, and none can be left out: `name_short`,
+`name_english`, `name_local`, `country`, `country_code` (the ISO 3166-1 alpha-2 code, or `None` for a provider of
+several countries), `copyright`, `license` (a `LicenseModel`, or `None` where the provider states no terms),
+`attribution` (the credit line, or `None`), `url`, `kind`, `timezone` and, for a network that needs credentials,
+`auth`. A provider with several networks declares them once in a `_METADATA` dict of its own (DWD's is
+`provider/dwd/metadata.py`) and spreads it into each network's spec, as above. They are what the REST API's
+[`metadata` block](../usage/restapi.md#response-metadata) and the [providers](../usage/restapi.md#providers)
+listing report, so a provider that omits one fails validation instead of answering a null.
 
 The dict has a name of its own and the public name is bound to the model alone, which is what a type checker
 reads (mypy takes the first assignment of a name for its type).
@@ -164,6 +180,13 @@ responsible for acquiring the data later on. The implementation is based on `Tim
 Attributes:
 
 ```python
+from dataclasses import dataclass
+
+from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.provider.dwd.observation.api import DwdObservationHistory, DwdObservationValues
+
+
 @dataclass
 class DwdObservationRequest(TimeseriesRequest):
     metadata = DwdObservationMetadata  # the metadata model of Step 1

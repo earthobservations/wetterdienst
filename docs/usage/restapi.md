@@ -497,6 +497,8 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
   "title": "Bad Request",
   "status": 400,
   "detail": "This request reads 1284 stations, more than the 100 this server allows for one request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller `distance` or bounding box. Request the rest in further calls.",
+  "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+  "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
   "limit": "stations",
   "maximum": 100,
   "requested": 1284
@@ -726,13 +728,9 @@ answer are not breaking and come to `/mcp/v1` as they come to the REST API. The 
 the descriptions of the tools are written for agents and are improved without a new version.
 
 Without the `[mcp]` extra installed, the REST API behaves exactly as before and the MCP paths are
-simply absent. `GET /api/version` says which of the two an instance is, and where the endpoint is:
-
-```json
-{"version": "0.157.0", "api_version": "1", "mcp_enabled": true, "mcp_path": "/mcp/v1", "mcp_alias_path": "/mcp", "limits": {...}}
-```
-
-`mcp_path` and `mcp_alias_path` are `null` where `mcp_enabled` is `false`. The app reads these
+simply absent. `GET /api/version` says which of the two an instance is, and where the endpoint is
+(`mcp_enabled`, `mcp_path` and `mcp_alias_path`, see [Versioning](#versioning)): `mcp_path` and `mcp_alias_path`
+are `null` where `mcp_enabled` is `false`. The app reads these
 before offering an MCP client configuration, so an instance installed without the extra is never
 advertised as having an endpoint it does not serve.
 
