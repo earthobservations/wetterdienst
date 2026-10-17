@@ -1,6 +1,7 @@
 import * as process from 'node:process'
 
 import tailwindcss from '@tailwindcss/vite'
+import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -81,6 +82,22 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // The rate limit of the server (`server/middleware/rate-limit.ts`, GH-3093). Every key is set at run time,
+    // by `NUXT_RATE_LIMIT_<KEY>` (see docs/usage/app.md): the limit and its window, which count the requests
+    // that cost something (not the pages or the catalogue routes), and the header to read a client's address
+    // from, which is none: the address of the connection, the only one a client cannot choose.
+    rateLimit: {
+      // the e2e suite is one client, and a run went over the limit: the last tests were answered 429, which
+      // ones depending on how fast the runner was. The suite's own build and server switch the limit off
+      // (`WD_E2E`, set by playwright.config.ts); no other build does.
+      enabled: process.env.WD_E2E !== '1',
+      tokens: RATE_LIMIT_DEFAULTS.tokens,
+      windowSeconds: RATE_LIMIT_DEFAULTS.windowSeconds,
+      clientIpHeader: '',
+    },
+    // The origins whose pages may read the app's answers, a list separated by commas (`NUXT_CORS_ALLOWED_ORIGINS`):
+    // none, so only the app's own page does (GH-3095). `server/middleware/cors.ts`.
+    corsAllowedOrigins: '',
     public: {
       // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
       apiBase: 'http://localhost:7890/api',
@@ -128,23 +145,30 @@ export default defineNuxtConfig({
   },
 
   security: {
-    // nuxt-security limits every route to 150 requests per IP in five minutes (a 429 after that). The e2e suite
-    // is one client, and a run went over the limit: the last tests were answered 429, which ones depending on how
-    // fast the runner was. The suite's own build and server switch the limit off (`WD_E2E`, set by
-    // playwright.config.ts); no other build does.
-    rateLimiter: process.env.WD_E2E === '1' ? false : undefined,
+    // Both are the app's own middleware, because nuxt-security's are fixed when the app is built, count every
+    // route in one bucket, trust the leftmost `X-Forwarded-For` and answer `access-control-allow-origin: *`
+    // (`server/middleware/rate-limit.ts` and `cors.ts`, GH-3093 and GH-3095).
+    rateLimiter: false,
+    corsHandler: false,
     headers: {
       // nuxt-security defaults this to 'no-referrer', which strips the Referer
       // header. OpenStreetMap's tile servers reject refererless requests
       // ("Access denied, referer required"), so send the origin cross-origin.
       referrerPolicy: 'strict-origin-when-cross-origin',
       contentSecurityPolicy: {
+        // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
+        // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by
+        // the server's proxies, and the icons come from `/_nuxt_icon` (GH-3111).
+        // No `'unsafe-eval'`: nothing evaluates a string (Plotly, Leaflet, Vue and the i18n messages run under
+        // this policy; Zod probed it, see `useSettings.ts`). `'wasm-unsafe-eval'` is for DuckDB's module, which
+        // the worker compiles: Chrome gives a worker the policy of its script, which has none, but a browser
+        // that gives it the page's needs it, and it allows WebAssembly, no string.
         'default-src': ['\'self\''],
-        'connect-src': ['\'self\'', new URL(process.env.NUXT_PUBLIC_API_BASE || 'http://0.0.0.0:7890/api').origin, 'https://cdn.jsdelivr.net'],
+        'connect-src': ['\'self\''],
         'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com'],
-        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://cdn.jsdelivr.net', 'blob:'],
-        'worker-src': ['\'self\'', 'blob:', 'https://cdn.jsdelivr.net'],
-        'child-src': ['\'self\'', 'blob:'],
+        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'wasm-unsafe-eval\''],
+        'worker-src': ['\'self\''],
+        'child-src': ['\'self\''],
         'style-src': ['\'self\'', '\'unsafe-inline\''],
         'font-src': ['\'self\'', 'https:', 'data:'],
         'base-uri': ['\'none\''],
@@ -153,6 +177,14 @@ export default defineNuxtConfig({
         'object-src': ['\'none\''],
       },
     },
+  },
+
+  routeRules: {
+    // The page is sent with `Cross-Origin-Embedder-Policy: credentialless` (nuxt-security), and a browser then
+    // refuses a worker whose script comes without one (`ERR_BLOCKED_BY_RESPONSE`). DuckDB-wasm's worker is a file
+    // of the app now (GH-3094), a blob of the page's own before, which took the page's policy. nuxt-security sets
+    // it for the page only, so the assets say it themselves.
+    '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
   },
 
   nitro: {

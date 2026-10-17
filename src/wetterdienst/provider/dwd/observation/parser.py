@@ -191,10 +191,16 @@ WIND_DIRECTION_PARAMETERS = (
 #   stations (read 2026-10-13): 20 zeros in the recent files and 51 in the historical ones (they overlap in 2025),
 #   every one beside a speed of 0.00, and every 10 minutes with a speed of 0.00 has the 0 (15818 on 2025-04-28: 220 at
 #   0.10 m/s at 18:20, 0 at 0.00 at 18:30, 200 at 0.20 at 18:40). The sheet of the dataset answers 404, so it follows
-#   the rule of 10 minute wind. The hourly urban_wind WINDRICHTUNG is not covered, and is deliberately left as the
-#   source writes it: its 1,288 zeros in 295,005 hours (read 2026-10-12) never come beside a speed of 0 (the minimum
-#   speed is 0.1 m/s), mostly at 0.2 to 0.4 m/s, 11 hours at 1 m/s or more, and DWD's sheet says nothing of a 0, so
-#   whether it is a calm or north is not known.
+#   the rule of 10 minute wind.
+# - hourly urban_wind WINDRICHTUNG (GH-2809) has 1,288 zeros in 295,005 hours (read 2026-10-12), never beside a speed
+#   of 0 (the minimum speed is 0.1 m/s; mostly 0.2 to 0.4, 11 hours at 1 m/s or more), and the sheet says only that
+#   the hour is "the average of the six 10min intervals measured in the previous hour" and that -999 is missing. The
+#   10 minute values of the same hours (the five stations with recent 10 minute files, read 2026-10-17: 410 of the
+#   zero hours have all six) say what the 0 is: the six directions are spread over the compass (the circular mean is
+#   within 30 degrees of north in 45 of the 410, 11 %, where a uniform one would be 17 %), only 1 of the 2,460 10
+#   minute directions is 0 and every speed is above 0 (0.1 to 1.3 m/s). A 0 is neither a calm nor north, which the
+#   hourly file writes as 360 (4,280 times), and no rule of the six values that gives the 0 was found: 811 hours of a
+#   scatter as wide have a direction. So every 0 is null, with its text. DWD has not been asked.
 CALM_WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
     (
@@ -203,6 +209,11 @@ CALM_WIND_DIRECTION_PARAMETERS = (
         None,
     ),
     (DwdObservationMetadata.subdaily.wind, DwdObservationMetadata.subdaily.wind.wind_direction.name_original, None),
+    (
+        DwdObservationMetadata.hourly.urban_wind,
+        DwdObservationMetadata.hourly.urban_wind.wind_direction.name_original,
+        None,
+    ),
     (
         DwdObservationMetadata.minute_10.wind,
         DwdObservationMetadata.minute_10.wind.wind_direction.name_original,

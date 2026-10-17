@@ -940,8 +940,10 @@ def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
     # `collections/climate-stations/items` (2026-10-15), five of the 8435 features trimmed to the properties the reader
     # reads, with the dates of the collections as published (Chemainus and Carway have no hourly collection, Alert A no
-    # daily and no monthly one, Gladman Point no monthly one). A station is listed for hourly and daily only if the list
-    # gives its collection a first date, and with the dates of that collection (GH-2867). `LATITUDE` and `LONGITUDE`
+    # daily and no monthly one, Gladman Point no monthly dates). A station is listed for hourly and daily only if the
+    # list gives its collection a first date, and with the dates of that collection (GH-2867), and for monthly only if
+    # `HAS_MONTHLY_SUMMARY` is `Y` (GH-3006): Alert A has `N`, Gladman Point `Y` with no monthly date, as 763 stations
+    # do (monthly rows nonetheless). `LATITUDE` and `LONGITUDE`
     # are packed degrees, minutes and seconds (`485500000` is 48 deg 55'), while the geometry of the feature is decimal
     # degrees (GH-2942); `ELEVATION` is text, and null for a station without one
     keys = ("FIRST", "LAST", "HLY_FIRST", "HLY_LAST", "DLY_FIRST", "DLY_LAST", "MLY_FIRST", "MLY_LAST")
@@ -955,6 +957,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
         elevation: str | None,
         dates: tuple[str | None, ...],
         geometry: list[float],
+        monthly_summary: str = "Y",
     ) -> dict[str, Any]:
         return {
             "type": "Feature",
@@ -967,6 +970,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
                 "TIMEZONE": zone,
                 "ELEVATION": elevation,
                 **{f"{key}_DATE": date for key, date in zip(keys, dates, strict=True)},
+                "HAS_MONTHLY_SUMMARY": monthly_summary,
             },
             "geometry": {"type": "Point", "coordinates": geometry},
         }
@@ -1025,6 +1029,7 @@ def _eccc(monkeypatch: pytest.MonkeyPatch, resolution: str) -> pl.DataFrame:
                     *(None, None, None, None),
                 ),
                 [-62.28333333333333, 82.51666666666667],
+                monthly_summary="N",
             ),
             feature(
                 10904,
@@ -1051,6 +1056,10 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 
 def _eccc_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _eccc(monkeypatch, "daily")
+
+
+def _eccc_monthly(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    return _eccc(monkeypatch, "monthly")
 
 
 FMI_ANTARCTICA = Accepted(
@@ -1502,6 +1511,7 @@ STUBS = [
         _eccc_daily,
         expected={"52": {"start_timestamp": dt.datetime(1957, 10, 1, tzinfo=dt.UTC)}},
     ),
+    Stub("eccc/observation monthly/data", _eccc_monthly),
     Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
     Stub("dwd/poi hourly/data", _dwd_poi, (DWD_NAMES,)),
     Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),

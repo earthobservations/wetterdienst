@@ -1047,8 +1047,8 @@ def test_dwd_10_minutes_historical_stamps_listed_twice_keep_the_row_that_is_not_
     to 199912312350 UTC. The 1-minute file of December 1999 has rain at 00:19 and 00:46 MEZ of 2000-01-01, which
     the 10 minute stamps 00:20 and 00:50 carry (0.1 mm) and no row of 23:xx MEZ does. The copy comes first at 23:20
     and second at 23:50, so neither the first nor the last row can be kept; at 23:40 the two rows are the same.
-    A stamp listed twice elsewhere (22:40 MEZ here, a placeholder first, as in the file of station 03086) is left
-    as it was.
+    A stamp listed twice elsewhere (22:40 MEZ here, a placeholder first, as in the file of station 03086) is settled
+    on the row that has a value (GH-2996).
     """
     before = (
         "STATIONS_ID;MESS_DATUM;  QN;RWS_DAU_10;RWS_10;RWS_IND_10\n"
@@ -1097,8 +1097,75 @@ def test_dwd_10_minutes_historical_stamps_listed_twice_keep_the_row_that_is_not_
     ]
     assert amount.get_column("timestamp").to_list() == expected_timestamps
     assert index.get_column("timestamp").to_list() == expected_timestamps
-    assert amount.get_column("value").to_list() == [None] + [0.0] * 9 + [0.1, 0.0, 0.0, 0.1, 0.0]
-    assert index.get_column("value").to_list() == [None] + [0.0] * 5 + [3.0] * 4 + [1.0, 3.0, 3.0, 1.0, 1.0]
+    assert amount.get_column("value").to_list() == [0.0] * 10 + [0.1, 0.0, 0.0, 0.1, 0.0]
+    assert index.get_column("value").to_list() == [0.0] * 6 + [3.0] * 4 + [1.0, 3.0, 3.0, 1.0, 1.0]
+
+
+@pytest.mark.parametrize("with_recent", [False, True])
+def test_dwd_10_minutes_historical_stamp_listed_twice_with_a_placeholder_keeps_the_row_with_a_value(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, *, with_recent: bool
+) -> None:
+    """Test that a placeholder row, whichever comes first, loses to the row of its stamp that has a value (GH-2996).
+
+    The file of station 03086 for 1996 to 1999 (read 2026-10-15, 182,928 rows) lists every stamp from 199908041000
+    to 199912312350 twice: one row is the reading, the other a placeholder with `-999` in RWS_10 and an empty
+    RWS_IND_10. The reading comes first at 920 of the 1002 stamps, the placeholder at 74 and the 8 others hold two
+    readings or two placeholders. The first row was kept, so the 74 lost their value; with a second period the rows
+    are ordered by their values before the first is taken, and about 1000 did.
+    """
+    historical = (
+        "STATIONS_ID;MESS_DATUM;  QN;RWS_DAU_10;RWS_10;RWS_IND_10\n"
+        "        3086;199908040950;    1;-999;   0.00; 0\n"
+        "        3086;199908041000;    1;-999;   0.00; 0\n"
+        "        3086;199908041000;    1;-999;   -999;\n"
+        "        3086;199908041010;    1;-999;   -999;\n"
+        "        3086;199908041010;    1;-999;   0.20; 1\n"
+        "        3086;199908041020;    1;-999;   -999;\n"
+        "        3086;199908041020;    1;-999;   -999;\n"
+        "        3086;199908041030;    1;-999;   0.00; 0\n"
+        "        3086;199908041030;    1;-999;   0.00; 0\n"
+    )
+    recent = (
+        "STATIONS_ID;MESS_DATUM;  QN;RWS_DAU_10;RWS_10;RWS_IND_10;eor\n"
+        "        3086;202610010000;    3;   10;   0.10;   1;eor\n"
+    )
+    files = {"10minutenwerte_nieder_03086_19960701_19991231_hist.zip": historical}
+    if with_recent:
+        files["10minutenwerte_nieder_03086_akt.zip"] = recent
+    monkeypatch.setattr(DwdObservationValues, "_get_historical_date_ranges", lambda *_, **__: None)
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda _station, _dataset, period, *_, **__: pl.Series(
+            [name for name in files if period == (Period.RECENT if "akt" in name else Period.HISTORICAL)],
+            dtype=pl.String,
+        ),
+    )
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "download_climate_observations_data",
+        lambda remote_files, *_, **__: [
+            File(url=f"https://example.invalid/{name}", content=BytesIO(files[name].encode("latin-1")), status=200)
+            for name in remote_files
+        ],
+    )
+    request = DwdObservationRequest(
+        parameters=[("10_minutes", "precipitation", "precipitation_amount")],
+        periods={Period.HISTORICAL, Period.RECENT} if with_recent else {Period.HISTORICAL},
+        start=dt.datetime(1999, 8, 4, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1999, 8, 5, tzinfo=ZoneInfo("UTC")),
+        settings=default_settings,
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, "10_minutes", "precipitation", "03086").values().all().df.sort("timestamp")
+    # 08:50 to 09:30 UTC are the stamps 09:50 to 10:30 MEZ
+    assert df.get_column("timestamp").to_list() == [
+        dt.datetime(1999, 8, 4, 8, 50, tzinfo=ZoneInfo("UTC")),
+        *[dt.datetime(1999, 8, 4, 9, minute, tzinfo=ZoneInfo("UTC")) for minute in (0, 10, 20, 30)],
+    ]
+    # a lone reading, the reading first (09:00), the placeholder first (09:10), two placeholders (09:20, no value),
+    # two readings (09:30)
+    assert df.get_column("value").to_list() == [0.0, 0.0, 0.2, None, 0.0]
 
 
 def test_dwd_5_minutes_historical_row_after_the_last_day_of_the_december_1999_file_is_dropped(

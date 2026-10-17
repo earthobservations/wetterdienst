@@ -11,6 +11,7 @@ station_history.md
 stripes.md
 cli.md
 restapi.md
+app.md
 docker.md
 scheduling.md
 settings.md

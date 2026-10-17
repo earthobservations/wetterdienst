@@ -11,11 +11,7 @@ import { expect, test } from '@playwright/test'
 // The pages need no data to lay out their chrome, so this reads the home, explorer, stripes,
 // meteogram, history, glossary, providers, settings, API, about, support and impressum pages as they come.
 //
-// The app server rate-limits by client address (nuxt-security: 150 requests per 5 minutes, and its
-// own /api proxy counts), which the rest of the suite stays well under and 44 page loads of this one
-// would not: the tests after it got "429 Too Many Requests" pages. So each language loads its pages
-// as a client of its own (`x-forwarded-for`, which the limiter reads), and each page is loaded once
-// and measured at both widths.
+// Each page is loaded once and measured at both widths.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs'] as const
 const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum']
@@ -51,11 +47,8 @@ function offendersOf(page: Page) {
   }, SELECTOR)
 }
 
-LONG_LANGUAGES.forEach((language, index) => {
+LONG_LANGUAGES.forEach((language) => {
   test.describe(`${language}`, () => {
-    // 203.0.113.0/24 is documentation address space (RFC 5737)
-    test.use({ extraHTTPHeaders: { 'x-forwarded-for': `203.0.113.${index + 10}` } })
-
     for (const path of PAGES) {
       test(`${path} fits at ${VIEWPORTS.map(viewport => `${viewport.width}px`).join(' and ')}`, async ({ page, context, baseURL }) => {
         await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])

@@ -184,7 +184,13 @@ def test_version(client: TestClient) -> None:
     data = response.json()
     assert data["version"] == __version__
     assert data["mcp_enabled"] is restapi.mcp_enabled
-    assert data["limits"] == {"max_stations": 100, "max_rows": 500_000, "max_stream_rows": 10_000_000, "timeout": 60.0}
+    assert data["limits"] == {
+        "max_stations": 100,
+        "max_rows": 500_000,
+        "max_stream_rows": 10_000_000,
+        "timeout": 60.0,
+        "max_concurrent": 32,
+    }
 
 
 def test_version_reports_the_limits_the_server_holds(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -196,7 +202,7 @@ def test_version_reports_the_limits_the_server_holds(client: TestClient, monkeyp
 
     limits = client.get("/api/v1/version").json()["limits"]
 
-    assert limits == {"max_stations": 7, "max_rows": 0, "max_stream_rows": 123, "timeout": 2.5}
+    assert limits == {"max_stations": 7, "max_rows": 0, "max_stream_rows": 123, "timeout": 2.5, "max_concurrent": 32}
 
 
 @pytest.mark.remote

@@ -76,6 +76,8 @@ The following settings are available:
 | restapi_max_rows     | the most rows (estimated) of an answer the REST API sends as one body, else a 400; 0 for no limit | 500000 |
 | restapi_max_stream_rows | the most rows (estimated) of a streamed answer (`format=ndjson`, `format=csv`), else a 400; 0 for no limit | 10000000 |
 | restapi_timeout      | seconds a REST API request may take until its answer begins (a stream: between two chunks), else a 504; 0 for none, see [Timeout](restapi.md#timeout) | 60 |
+| restapi_max_concurrent | the most requests under `/api` the server works on at once, counted until their work is done, else a 503 with `Retry-After`; 0 for no limit, see [Concurrency](restapi.md#concurrency) | 32 |
+| restapi_allowed_hosts | comma-separated `Host` names the REST API and the MCP endpoint answer to, else a 400; empty for any. `wetterdienst restapi` on a loopback `--listen` sets the loopback names for its process, see [Allowed hosts](restapi.md#allowed-hosts) | none |
 
 ### Python
 

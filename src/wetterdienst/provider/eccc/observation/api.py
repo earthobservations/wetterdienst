@@ -84,12 +84,20 @@ _COLLECTION_DATE_COLUMN_NAMES = tuple(column for columns in _COLLECTION_DATE_COL
 #: hourly collection, and an allow-list of ids would be a table of ECCC's mistakes in the library (GH-2867). Such a
 #: station is not listed for the resolution, where it was listed with null dates (GH-2747) and a dated request
 #: asked for its years.
-#: Monthly is not here: MLY_FIRST_DATE is null for 763 stations that have monthly rows.
+#: Monthly is not here: MLY_FIRST_DATE is null for 763 stations that have monthly rows, and the flag decides
+#: (``_HAS_MONTHLY_SUMMARY``).
 #: The dates do not bound the rows of a station that has them: they follow the temperature and not every series.
 #: 6813 has HLY_FIRST_DATE 1995-02-16 and 7088 hours of wind from 1994, 27174 has 2013-12-10 and hourly precipitation
 #: from 2007, and 5006 has DLY_LAST_DATE 1957-10-31 and daily minimum temperatures in 1961, so the years come from the
 #: rows (``_edge_year``), not from these dates (GH-2820, GH-2864).
 _LISTED_BY_FIRST_DATE = (Resolution.HOURLY, Resolution.DAILY)
+
+#: The column of the station list that says whether a station has monthly rows, ``Y``, ``N`` or null. All 108 stations
+#: of the list whose flag is not ``Y`` (95 ``N``, 13 null) have no row in ``climate-monthly`` (``resulttype=hits`` of
+#: ``STN_ID=``, read 2026-10-17), where ``MLY_FIRST_DATE`` is null for 871 stations, 763 of which have monthly rows. A
+#: station is listed for monthly only if the flag is ``Y``; the 763 ``Y`` stations without monthly dates stay listed
+#: (GH-3006).
+_HAS_MONTHLY_SUMMARY = "HAS_MONTHLY_SUMMARY"
 
 
 def _localize(value: dt.datetime | None, timezone: str | None) -> dt.datetime | None:
@@ -461,6 +469,7 @@ class EcccObservationRequest(TimeseriesRequest):
                                         "FIRST_DATE": pl.String,
                                         "LAST_DATE": pl.String,
                                         **dict.fromkeys(_COLLECTION_DATE_COLUMN_NAMES, pl.String),
+                                        _HAS_MONTHLY_SUMMARY: pl.String,
                                     }
                                 ),
                             }
@@ -496,6 +505,10 @@ class EcccObservationRequest(TimeseriesRequest):
                 pl.col("features").struct.field("properties").struct.field(column).alias(column.lower())
                 for column in _COLLECTION_DATE_COLUMN_NAMES
             ),
+            pl.col("features")
+            .struct.field("properties")
+            .struct.field(_HAS_MONTHLY_SUMMARY)
+            .alias(_HAS_MONTHLY_SUMMARY.lower()),
         )
         # parse the dates as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
@@ -514,22 +527,23 @@ class EcccObservationRequest(TimeseriesRequest):
             if isinstance(parameter, ParameterModel)
         }
         collection_columns = [column.lower() for column in _COLLECTION_DATE_COLUMN_NAMES]
+        not_carried = [*collection_columns, _HAS_MONTHLY_SUMMARY.lower()]
         data = []
         # for each combination of resolution and dataset create a new DataFrame with the columns
         for resolution, dataset in resolutions_and_datasets:
             first, last = (column.lower() for column in _COLLECTION_DATE_COLUMNS[Resolution(resolution)])
-            # a station is listed for a resolution whose first date the list gives it (GH-2867)
-            listed = (
-                df_raw.filter(pl.col(first).is_not_null())
-                if Resolution(resolution) in _LISTED_BY_FIRST_DATE
-                else df_raw
-            )
+            # a station is listed for hourly or daily if the list gives that collection a first date (GH-2867), and for
+            # monthly if it flags a monthly summary (GH-3006)
+            if Resolution(resolution) in _LISTED_BY_FIRST_DATE:
+                listed = df_raw.filter(pl.col(first).is_not_null())
+            else:
+                listed = df_raw.filter(pl.col(_HAS_MONTHLY_SUMMARY.lower()) == "Y")
             data.append(
                 self._stamp_bounds(
                     listed.with_columns(
                         pl.col(first).alias("start_timestamp"),
                         pl.col(last).alias("end_timestamp"),
-                    ).select(pl.all().exclude(collection_columns)),
+                    ).select(pl.all().exclude(not_carried)),
                     resolution=Resolution(resolution),
                 ).with_columns(
                     pl.lit(resolution, pl.String).alias("resolution"),

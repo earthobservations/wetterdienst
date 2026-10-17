@@ -11,6 +11,8 @@ overrides:
   semver: ^7.8.2
   undici-types: ^6.21.0
 
+pnpmfileChecksum: sha256-eOBVNmvcMoiVp9g1TzpR9Nm5dKAaFfeQ/N2WhsdDwJw=
+
 importers:
 
   .:
@@ -63,6 +65,9 @@ importers:
       suncalc:
         specifier: ^2.1.0
         version: 2.1.0
+      swagger-ui-dist:
+        specifier: ^5.33.2
+        version: 5.33.2
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -6150,6 +6155,9 @@ packages:
     resolution: {integrity: sha512-bkxnTg1kSU0guhIBmibA6UUhrQmPVA1XsQLN+ylCd+UWzbnLkySOcXpyk1mrl05f+pcaCx2eHb+sp6BgMZWX+Q==}
     engines: {node: '>=16'}
     hasBin: true
+
+  swagger-ui-dist@5.33.2:
+    resolution: {integrity: sha512-MyrWX06zkJRYPnIau8Qj8F6KfzS+Qj8D9AR36vCWkkC9ts1r1DYF84apgCvZBzO2Wzm7G7loCd5VS+4JLWoyLQ==}
 
   synckit@0.11.13:
     resolution: {integrity: sha512-eNRKgb3z66Yp3D2CixVujOUvXLFUTij/zVnV8KRyvFdQwpz7I5DS8UfRkTeLzb64u+dkzDSdelE24izu+zSSUg==}
@@ -13799,6 +13807,8 @@ snapshots:
       csso: 5.0.5
       picocolors: 1.1.1
       sax: 1.6.1
+
+  swagger-ui-dist@5.33.2: {}
 
   synckit@0.11.13:
     dependencies:
