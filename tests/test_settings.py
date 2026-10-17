@@ -1661,6 +1661,7 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
     import stamina  # noqa: PLC0415
     from aiohttp import ClientOSError  # noqa: PLC0415
 
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
     from wetterdienst.util.network import (  # noqa: PLC0415
         HTTPFileSystem,
         list_remote_directory_fsspec,
@@ -1684,7 +1685,7 @@ def test_a_retried_listing_does_not_log_the_credentials_in_the_settings(
         with (
             stamina.set_testing(True, attempts=2),
             caplog.at_level(logging.DEBUG, logger="stamina"),
-            pytest.raises(ClientOSError, match="boom"),
+            pytest.raises(DownloadError, match="boom"),
         ):
             call()
 
@@ -1728,6 +1729,7 @@ def test_a_retried_listing_puts_no_settings_object_into_stamina_s_log_record(
     import stamina  # noqa: PLC0415
     from aiohttp import ClientOSError  # noqa: PLC0415
 
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
     from wetterdienst.util.network import (  # noqa: PLC0415
         HTTPFileSystem,
         list_remote_directory_fsspec,
@@ -1755,7 +1757,7 @@ def test_a_retried_listing_puts_no_settings_object_into_stamina_s_log_record(
         with (
             stamina.set_testing(True, attempts=2),
             caplog.at_level(logging.DEBUG, logger="stamina"),
-            pytest.raises(ClientOSError, match="boom"),
+            pytest.raises(DownloadError, match="boom"),
         ):
             call()
 

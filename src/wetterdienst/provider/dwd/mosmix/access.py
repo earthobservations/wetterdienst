@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -43,6 +44,20 @@ log = logging.getLogger(__name__)
 
 # how the file writes a value it does not have, in the list of values of an element
 MISSING_VALUE = "-"
+
+
+def _local_size(response: BinaryIO) -> int | None:
+    """Give the size of a file held on disk, else None.
+
+    What the caching filesystem opens is the cached copy, fetched whole by then: its size is on the disk and
+    asking the server for it (an HTTP HEAD, even for a run the cache holds) kept a cached run from being
+    served offline (GH-3003). A stream of an uncached filesystem has no file descriptor.
+    """
+    try:
+        return os.fstat(response.fileno()).st_size
+    except (AttributeError, OSError, ValueError):
+        # `io.UnsupportedOperation` is an `OSError` and a `ValueError` both
+        return None
 
 
 class KMLReader:
@@ -123,12 +138,14 @@ class KMLReader:
         # `__context__`
         if failure is not None:
             raise failure
-        try:
-            total = dwdfs.size(url)
-        except ClientConnectorError:
-            # a HEAD is made even for a run the cache holds, which has been opened by now: the size
-            # only sizes the progress bar
-            total = None
+        # the size only sizes the progress bar
+        total = _local_size(response)
+        if total is None:
+            # a stream that is not held on disk (the cache is disabled) knows its size from a HEAD only
+            try:
+                total = dwdfs.size(url)
+            except ClientConnectorError:
+                total = None
 
         buffer = BytesIO()
 

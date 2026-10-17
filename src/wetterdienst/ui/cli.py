@@ -829,15 +829,15 @@ ALERTS_EXAMPLES = r"""
 
 STRIPES_EXAMPLES = r"""
     # warming stripes for a station, by id or by name
-    wetterdienst stripes values --kind=temperature --station=1048 > warming_stripes.png
-    wetterdienst stripes values --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
+    wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
+    wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
 
     # for the years 2000 to 2020
-    wetterdienst stripes values --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
+    wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
         > warming_stripes.png
 
     # precipitation stripes, to a file
-    wetterdienst stripes values --kind=precipitation --station=1048 --target=precipitation_stripes.png
+    wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
 """
 
 
@@ -2383,7 +2383,7 @@ def stripes_stations(
     _echo(render_stripes_stations(stations, request, metadata))
 
 
-@stripes.command("values", epilog=_examples(STRIPES_EXAMPLES))
+@stripes.command("image", epilog=_examples(STRIPES_EXAMPLES))
 @click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
 @click.option("--station", type=click.STRING, help="Station id, instead of --name.")
 @click.option("--name", type=click.STRING, help="Station name, matched fuzzily, instead of --station.")
@@ -2408,7 +2408,7 @@ def stripes_stations(
     help="Write the image to this local file instead of stdout.",
 )
 @debug_opt
-def stripes_values(
+def stripes_image(
     kind: Literal["temperature", "precipitation"],
     station: str,
     name: str,
@@ -2423,7 +2423,7 @@ def stripes_values(
     target: str | None,
     debug: bool,  # noqa: FBT001
 ) -> None:
-    """Create climate stripes for a specific station.
+    """Create the climate stripes image for a specific station.
 
     Select the station with exactly one of --station or --name.
     """
@@ -2486,6 +2486,21 @@ def stripes_values(
         return
 
     click.echo(image, nl=False)
+
+
+# `stripes values` wrote the image, while `/api/stripes/values` and the tool `stripes_values` answer the data of
+# the stripes. The image has its own command now, named as its endpoint and tool are (GH-3035); the old name still
+# writes it, and says so, until it is decided whether it is to answer the data
+stripes.add_command(
+    _Command(
+        "values",
+        callback=stripes_image.callback,
+        params=stripes_image.params,
+        help=stripes_image.help,
+        epilog=stripes_image.epilog,
+        deprecated="Use `stripes image`, which writes the image.",
+    )
+)
 
 
 if __name__ == "__main__":

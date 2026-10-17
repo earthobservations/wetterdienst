@@ -16,8 +16,27 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst stripes image` writes the climate stripes image, named as `/api/stripes/image` and
+  the MCP tool `stripes_image` are. `stripes values`, which wrote the image while REST's
+  `stripes/values` answers the yearly data, still writes it, with a deprecation notice on stderr
+  (stdout stays the image alone); use `stripes image` for the image (GH-3035)
+
 ### Changed
 
+- **Breaking**: `aemet/observation`: a rate limit that outlasts the retries (an HTTP 429 or an
+  `estado` of 429 in the envelope) raises a `DownloadError` naming the file, the 429 as its
+  `__cause__`; the REST API answers a 502. It was logged and the chunk skipped, so a rate-limited
+  request returned a partial or empty result as if AEMET had no data. Catch `DownloadError` (or
+  `UpstreamError`) to keep going, and retry later (GH-2989)
+- **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
+  every provider that lists) whose connection is reset or dropped, whose body stops arriving, that
+  times out or that is refused with an HTTP status raises a `DownloadError` naming the URL, with
+  the aiohttp error as its `__cause__`, not the raw aiohttp error (REST: 500, now 502 or 504). A
+  code that caught `aiohttp.ClientError`, `OSError` or `TimeoutError` around a listing catches
+  `DownloadError` (or `UpstreamError`) now; a connection that cannot be made stays the
+  `NoInternetError` (GH-3004)
 - **Breaking**: the MCP endpoint (`/mcp/v1`, `/mcp`) is stateless. It creates no session, sends no
   `mcp-session-id` and needs no `initialize` before `tools/list` or `tools/call`; `DELETE` and the
   `GET` that opens a server stream answer 405. A client that sends a session id is served as one
@@ -49,6 +68,9 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/mosmix` and `dwd/dmo` no longer send an HTTP HEAD for a run the cache holds: the size
+  for the progress bar is read from the cached file, so a cached run is read with no request
+  at all (GH-3003)
 - A `rank` or `num_additional_stations` that no integer holds (`rank=99999999999999999999`) was a
   500 `OverflowError`; it is a 422 now, as one above 1,000,000 is (GH-3101)
 
