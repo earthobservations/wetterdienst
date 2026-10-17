@@ -242,7 +242,9 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     assert quality_by_parameter[names[1]] == "0"
 
 
-def _collect_wide(resolution_name: str, rows: list[dict], qc: dict[str, bool] | None = None) -> pl.DataFrame:
+def _collect_wide(
+    resolution_name: str, rows: list[dict], qc: dict[str, bool] | None = None, station: str = "6414"
+) -> pl.DataFrame:
     """Read wide features as the WFS serves them for the resolution of a dataset through the reader of RMI."""
     resolution = next(
         resolution for resolution in rmi_api.RmiObservationRequest.metadata if resolution.name == resolution_name
@@ -261,7 +263,7 @@ def _collect_wide(resolution_name: str, rows: list[dict], qc: dict[str, bool] | 
         end=dt.datetime(2003, 10, 9, tzinfo=UTC),
     )
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
-    return values._collect_station_parameter_or_dataset("6414", dataset)  # noqa: SLF001
+    return values._collect_station_parameter_or_dataset(station, dataset)  # noqa: SLF001
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
@@ -289,6 +291,56 @@ def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what
         ("wind_gusts_speed", "2003-10-09"): (None, "0,raw:81.5"),
         ("wind_gusts_speed", "2002-12-30"): (51.05, "0"),
     }
+
+
+def test_collect_nulls_the_sunshine_of_6477_in_the_periods_of_its_stuck_and_dead_sensor() -> None:
+    """The sunshine of 6477 is no reading from 2016-04-30 to 2017-05-31 and in two summers of zeros (GH-3031).
+
+    Rows of `aws:aws_1day` of station 6477 (read 2026-10-17): 2016-04-29 reads 533 minutes, the day before the
+    sensor sticks, and 2017-06-01 338.67, its last day; 2016-05-10 reads 910 minutes with a mean radiation of
+    93.6 W/m2, 2016-12-22 980 minutes, 2016-12-24 1,440 (the 10-minute values of that day are 10 in all 144
+    intervals). 2015-04-24 (260.09) and 2015-08-20 (284.5) bound the first summer of zeros, 2015-06-15 and 2017-07-15
+    read 0.0 on days of summer. Other stations and attributes are left alone. The source's `validated` flag for
+    sunshine is false on 7,720 of the 8,134 days of the station, so it is false on all of these.
+    """
+    qc = {"SUN_DURATION": False, "SHORT_WAVE_FROM_SKY_AVG": False}
+    rows = [
+        {"timestamp": "2016-04-29T00:00:00Z", "sun_duration": 533.0, "short_wave_from_sky_avg": 34.13},
+        {"timestamp": "2016-04-30T00:00:00Z", "sun_duration": 890.0, "short_wave_from_sky_avg": 99.73},
+        {"timestamp": "2016-05-10T00:00:00Z", "sun_duration": 910.0, "short_wave_from_sky_avg": 93.6},
+        {"timestamp": "2016-12-22T00:00:00Z", "sun_duration": 980.0},
+        {"timestamp": "2016-12-24T00:00:00Z", "sun_duration": 1440.0, "short_wave_from_sky_avg": 24.03},
+        {"timestamp": "2017-05-31T00:00:00Z", "sun_duration": 970.0},
+        {"timestamp": "2017-06-01T00:00:00Z", "sun_duration": 338.67},
+        {"timestamp": "2015-06-15T00:00:00Z", "sun_duration": 0.0},
+        {"timestamp": "2017-07-15T00:00:00Z", "sun_duration": 0.0},
+        {"timestamp": "2015-04-24T00:00:00Z", "sun_duration": 260.09},
+        {"timestamp": "2015-08-20T00:00:00Z", "sun_duration": 284.5},
+    ]
+    df = _collect_wide("daily", rows, qc, station="6477")
+    sunshine = {
+        row["timestamp"].date().isoformat(): (row["value"], row["quality_flags"])
+        for row in df.filter(pl.col("parameter") == "sun_duration").iter_rows(named=True)
+    }
+    assert sunshine == {
+        "2016-04-29": (533.0, "0"),
+        "2016-04-30": (None, "0,raw:890"),
+        "2016-05-10": (None, "0,raw:910"),
+        "2016-12-22": (None, "0,raw:980"),
+        "2016-12-24": (None, "0,raw:1440"),
+        "2017-05-31": (None, "0,raw:970"),
+        "2017-06-01": (338.67, "0"),
+        "2015-06-15": (None, "0,raw:0"),
+        "2017-07-15": (None, "0,raw:0"),
+        "2015-04-24": (260.09, "0"),
+        "2015-08-20": (284.5, "0"),
+    }
+    # the radiation of the same days is a reading
+    radiation = df.filter(pl.col("parameter") == "short_wave_from_sky_avg").get_column("value").drop_nulls()
+    assert sorted(radiation.to_list()) == [24.03, 34.13, 93.6, 99.73]
+    # another station keeps the same numbers
+    other = _collect_wide("daily", rows[2:3], qc, station="6447")
+    assert other.filter(pl.col("parameter") == "sun_duration").get_column("value").to_list() == [910.0]
 
 
 @pytest.mark.parametrize(
