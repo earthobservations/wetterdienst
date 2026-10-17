@@ -13,29 +13,38 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - Historical (last ~300 years), recent (500 days to yesterday), now (yesterday up to last hour)
         - Every minute to yearly resolution
         - Time series of stations in Germany
-        - see the [rdwd](https://bookdown.org/brry/rdwd/) pages for an interactive map and table of available datasets
+        - see the [rdwd](https://brry.github.io/rdwd/) pages for an interactive map and table of available datasets
     - Mosmix - statistical optimized scalar forecasts extracted from weather models
         - Point forecast
-        - 5649 stations worldwide
+        - more than 5000 stations worldwide
         - Both MOSMIX-L and MOSMIX-S is supported
         - `small` (MOSMIX-S): 40 parameters, `large` (MOSMIX-L): 114
     - DMO - timeseries extracted from weather models
         - Point forecast
-        - `icon`: 5894 stations worldwide, 23 parameters
-        - `icon_eu`: the 3688 stations it is published for, 19 parameters
+        - `icon`: more than 5000 stations worldwide, 23 parameters
+        - `icon_eu`: the stations it is published for, about 3700, 19 parameters
     - Road
         - Historical weather observations of German highway stations
     - SWSMOS
         - road weather forecast (Straßenwetter-MOS) for ~1800 German road weather stations
         - hourly, out to +167 hours; air/dew/road-surface temperature, precipitation, road condition
+    - POI
+        - current weather reports, the observed counterpart to MOSMIX
+        - hourly, roughly the last day, for the MOSMIX stations that report
     - Phenology
         - observed plant development dates from the phenological network, reaching back to 1925
         - annual resolution; 110 plant datasets across the annual and immediate reporter groups
+    - Derived
+        - heating and cooling degree days, the climate correction factor, radiation and sunshine duration, soil data
+        - hourly, daily and monthly resolution, for stations in Germany
     - Radar
         - 17 locations in Germany
         - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
         - Radolan: calibrated radar precipitation
         - Radvor: radar precipitation forecast
+    - Alerts
+        - the public weather warnings (CAP), all currently active ones, by community or district
+        - a rolling window of about 48 hours of snapshots, no archive
 - AEMET (Agencia Estatal de Meteorología / State Meteorological Agency / Spain)
     - Observation
         - climatological data from the Spanish station network

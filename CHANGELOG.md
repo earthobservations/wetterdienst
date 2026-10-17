@@ -24,6 +24,13 @@ Types of changes:
   API page lacked the `instance` and `request_id` every problem has; the interpolation example
   gave kelvin where the default is °C; the DWD alerts page started the API on port 3000, not the
   default 7890. The pages' code samples are now run by tests (GH-2621)
+- More docs that stated what the code does not do: the station history page promised snapshots at a
+  date and lifecycle events (a history has five sections, `name`, `parameter`, `device`,
+  `geography` and `missing_data`, and only DWD observation has one, the others raise
+  `NotImplementedError` or answer 501), the data overview and DWD pages gave station counts that
+  have drifted ("more than 5000" now) and left out the DWD networks `poi`, `derived` and `alerts`,
+  and the README said the rest is tuned through `Settings`, which is `Options` for a request.
+  The Python API page lists the keywords of every formatter (GH-2621)
 
 ## [0.158.0] - 2026-10-17
 

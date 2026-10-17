@@ -1,15 +1,22 @@
 # Station history
 
-This section documents the station history feature implemented in the project.
+A station changes over its lifetime: it is renamed, changes operator, moves, gets other instruments, and has
+periods in which a parameter is missing. The station history is what the provider publishes of that, and it is
+the place to look when a series has a jump that the weather does not explain.
 
 ## Overview
 
-Wetterdienst includes station history retrieval and metadata versioning. The feature provides:
-
-- Historical station snapshots: retrieve station metadata as it was at a given date or over a date range.
-- Lifecycle events: query events such as created, updated, decommissioned for stations.
-- API and request support: available via the Python API and the REST API (when restapi extras are enabled).
-- Caching: history responses are cached to improve repeat query performance.
+- **Sections.** A history has five: `name` (the station's and its operator's names, each with the span it was in
+  use), `parameter` (what was measured, with unit and source), `device` (instruments, their height and
+  measurement method), `geography` (position and elevation over time) and `missing_data` (a summary and the
+  periods without a value). Every record of a section gives its span as `valid_from` and `valid_to`.
+- **Which providers.** Only DWD observation publishes one (`DwdObservationRequest`); another network answers a
+  request for it with a `NotImplementedError` (`History not implemented for ...`), and the REST API with a 501 of
+  the kind `not-implemented`.
+- **How it comes.** One history for each station and dataset: DWD publishes its station metadata per dataset,
+  so a request for several datasets gives up to one history per station and dataset.
+- **No snapshots.** The history is what the provider lists today. It cannot be asked for "the station as it was
+  on a date"; to find the entry that applies on a date, filter a section by its `valid_from` and `valid_to`.
 
 ## Python usage
 
@@ -21,7 +28,7 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 settings = Settings()
 
-# Get history snapshots for station 1048 between 2010-01-01 and 2020-01-01
+# the history of station 1048, one history for each dataset the request names
 request = DwdObservationRequest(
     parameters=[("daily", "kl")],
     settings=settings
@@ -86,10 +93,11 @@ where sections can be a set of "name", "device", "geography", "parameter", "miss
 As on the command line, each history gives its station's `station_id` and the `resolution` and
 `dataset` it belongs to, whichever sections are asked for.
 
-The response returns JSON with station metadata snapshots and lifecycle events.
+The answer is JSON with the `metadata` block of the [REST API](restapi.md#response-metadata) and a list `histories`
+with one entry for each station and dataset.
 
 ## Notes
 
-- Station history relies on provider-specific metadata; availability and granularity may vary by provider.
-- Use caching cautiously if station metadata is updated frequently; cache invalidation follows the usual cache TTL
-  semantics.
+- Station history relies on provider-specific metadata; where a provider publishes none the request is refused, see
+  above.
+- The responses are cached like any other download, see [Settings](settings.md) for the cache.
