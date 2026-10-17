@@ -54,6 +54,11 @@ COPY --from=build /app/.output/ ./
 ENV HOST=0.0.0.0
 ENV PORT=4000
 
+# Run unprivileged, as the backend image does (GH-2770): the server parses what a client sends and proxies it to
+# the backend. It writes nothing (the rate limiter keeps its store in memory) and listens above 1024, so it needs
+# no more than to read the files above, which `COPY` made world-readable (GH-3091). `node` is in the base image.
+USER node
+
 EXPOSE 4000
 
 CMD ["node", "/app/server/index.mjs"]

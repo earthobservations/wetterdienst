@@ -18,6 +18,12 @@ Types of changes:
 
 ### Security
 
+- A `..` in the path of a request to `/api` no longer leaves the backend's `/api`: the proxy
+  resolves the URL before it fetches it and answers a 404 problem for one that is not under
+  `apiBase`, where `/api/../health` reached the backend's `/health` (GH-3092)
+- The production image runs the server as the unprivileged `node` user instead of root, as the
+  backend image does. A volume or file the server writes to has to be writable by uid 1000, but
+  the server writes nothing (GH-3091)
 - **Breaking for a page of another origin that reads the app** `[CORS]` The app no longer answers
   `access-control-allow-origin: *` on every response, so only its own pages can read it. Set
   `NUXT_CORS_ALLOWED_ORIGINS` to the origins that may (comma separated; `*` is the old behaviour),

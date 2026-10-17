@@ -37,6 +37,33 @@ metadata = DwdObservationMetadata.model_dump_json(indent=2)
 print(metadata)
 ```
 
+## Reading the provider tables
+
+The parameter tables of the provider pages have five columns:
+
+| Column | What it is |
+| --- | --- |
+| name | the canonical name, linked to the glossary below |
+| original name | the provider's own name of the field, accepted wherever the canonical name is |
+| description | what the field is, in the provider's words where it has them |
+| unit | the unit the provider publishes the value in; `-` is dimensionless. The values come back in the unit of the quantity's target (see [Units](../usage/units.md)) unless conversion is switched off |
+| constraints | the range the quantity has by its definition, see below |
+
+**`constraints` is information for the reader, not a rule the library applies.** It is prose: nothing in the model
+holds it, so a value outside it is not removed, flagged or refused, and a test can only hold the cells to one
+grammar: `-` where none is stated, bounds as `>=lo` and `<=hi` joined by a comma (`>=0,<=100` for a percentage), and a
+set of admissible codes as `∈ {0, 1, 2}`.
+
+Read `>=0` as "by definition non-negative", not as "every value of this provider is". A reading can lie outside the
+definition where the instrument or the water does it: the discharge of a tidal river runs backwards, and a snow gauge
+reads a few centimetres below its zero (MeteoSwiss' gauge at station PLF reads -1 to -5 cm in 11 % of its hours).
+
+What the library does enforce is another thing and is not this column. A source writes a missing value as a number
+outside every range (`-999`); the provider's reader maps it to null and keeps the text the source wrote in the
+`quality_flags` of the reading (`raw:-999`). Where a source also has values no instrument can produce (4021 degrees
+for a daily maximum), its reader nulls those too, with a range per provider and resolution that is generous, since it
+is there to catch a sentinel and not a record. Both are told in [Quality flags](../usage/python-api.md#quality-flags).
+
 ## Glossary
 
 The unit type is a property of the parameter itself and decides which unit values are returned in;
