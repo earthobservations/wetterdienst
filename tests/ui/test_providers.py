@@ -15,7 +15,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from wetterdienst import Wetterdienst
-from wetterdienst.model.metadata import MULTINATIONAL, MetadataModel
+from wetterdienst.model.metadata import MetadataModel
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.ui.providers import get_providers
@@ -43,7 +43,9 @@ def _untimed(body: dict[str, Any]) -> dict[str, Any]:
     return {**body, "metadata": {**body["metadata"], "retrieved_at": ""}}
 
 
-@pytest.mark.parametrize("field", ["name_english", "name_local", "country", "country_code", "license", "attribution"])
+@pytest.mark.parametrize(
+    "field", ["name_short", "name_english", "name_local", "country", "country_code", "license", "attribution"]
+)
 def test_the_networks_of_a_provider_agree_on_what_the_provider_is(field: str) -> None:
     """A provider is described once, by its first network, so the others must say the same of it."""
     declared: dict[str, set[str]] = {}
@@ -55,20 +57,34 @@ def test_the_networks_of_a_provider_agree_on_what_the_provider_is(field: str) ->
 def test_a_country_has_one_code_and_a_code_one_country() -> None:
     """`country_code` is two capital letters, and the pairs of the registry are one to one."""
     pairs = {(metadata.country, metadata.country_code) for _, _, metadata in _timeseries_metadata()}
-    assert all(len(code) == 2 and code.isupper() for _, code in pairs)
+    assert all(code is not None and len(code) == 2 and code.isupper() for _, code in pairs)
     assert len({country for country, _ in pairs}) == len(pairs) == len({code for _, code in pairs})
-    assert MULTINATIONAL not in {code for _, code in pairs}, "a registered provider names the country it belongs to"
 
 
-@pytest.mark.parametrize(("code", "valid"), [("ZZ", True), ("DE", True), ("de", False), ("DEU", False), ("", False)])
-def test_the_country_code_is_an_alpha_2_code_or_the_multinational_marker(code: str, *, valid: bool) -> None:
-    """A malformed code is refused when the declaration is built, not found in an answer."""
+@pytest.mark.parametrize(
+    ("code", "valid"),
+    [(None, True), ("DE", True), ("ZZ", True), ("de", False), ("DEU", False), ("", False)],
+)
+def test_the_country_code_is_an_alpha_2_code_or_null_for_several_countries(code: str | None, *, valid: bool) -> None:
+    """A malformed code is refused when the declaration is built, not found in an answer; null is the multinational."""
     declared = _timeseries_metadata()[0][2].model_dump()
     if valid:
         assert MetadataModel.model_validate({**declared, "country_code": code}).country_code == code
     else:
         with pytest.raises(ValueError, match="ISO 3166-1 alpha-2"):
             MetadataModel.model_validate({**declared, "country_code": code})
+
+
+def test_a_provider_of_several_countries_has_a_null_country_code(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No registered provider is multinational yet, so one is stood in for: the answer says null, not a marker."""
+    monkeypatch.setattr(Wetterdienst.resolve("dwd", "observation").metadata, "country_code", None)
+
+    body = client.get("/api/v1/providers", params={"provider": "dwd"}).json()
+
+    assert body["providers"][0]["provider"] == "dwd"
+    assert body["providers"][0]["country_code"] is None
 
 
 def test_the_providers_are_the_registry_and_sorted_by_name(client: TestClient) -> None:
@@ -99,6 +115,7 @@ def test_a_provider_carries_the_terms_its_metadata_declares() -> None:
         assert provider.license == metadata.license
         assert provider.attribution == metadata.attribution
         assert (provider.country, provider.country_code) == (metadata.country, metadata.country_code)
+        assert provider.name_short == metadata.name_short
     dwd = next(provider for provider in answer.providers if provider.provider == "dwd")
     assert dwd.license is not None
     assert dwd.license.spdx_id == "CC-BY-4.0"

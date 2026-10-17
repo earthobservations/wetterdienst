@@ -88,10 +88,10 @@ const supporters = computed(() => [
 const devEntries = computed(() => [
   { key: 'pypi', label: 'pip install wetterdienst', icon: 'i-simple-icons-python', to: 'https://pypi.org/project/wetterdienst/', title: undefined },
   // this instance's own endpoints rather than the page that describes them: /docs is the backend's
-  // Swagger UI, proxied onto this origin, and /mcp is the endpoint itself. Both are served by
+  // Swagger UI, proxied onto this origin, and /mcp/v1 is the endpoint itself. Both are served by
   // nitro rather than by the Vue router, so they need a full navigation, not a client-side one.
   { key: 'api', label: 'REST API', icon: 'i-lucide-code', to: '/docs', title: undefined },
-  { key: 'mcp', label: 'MCP', icon: 'i-lucide-bot', to: '/mcp', title: t('home.devMcpHint') },
+  { key: 'mcp', label: 'MCP', icon: 'i-lucide-bot', to: '/mcp/v1', title: t('home.devMcpHint') },
 ])
 
 // What the project stands for. Shared with the footer, which shows the same four as icons.

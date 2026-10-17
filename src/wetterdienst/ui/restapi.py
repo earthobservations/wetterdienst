@@ -4,13 +4,15 @@
 
 from __future__ import annotations
 
+import contextvars
+import itertools
 import json
 import logging
 import math
 import re
-from http import HTTPStatus
+from dataclasses import replace
 from textwrap import dedent
-from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, cast
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
@@ -45,6 +47,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
+    ValuesResult,
     _InterpolatedValuesDictBody,
     _InterpolatedValuesOgcFeatureCollectionBody,
     _Station,
@@ -58,7 +61,6 @@ from wetterdienst.model.result import (
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
-    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     AlertsRequest,
     AuthAnswer,
     AuthRequest,
@@ -72,6 +74,7 @@ from wetterdienst.ui.core import (
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
+    StripesSeries,
     StripesStationsRequest,
     StripesValuesRequest,
     SummaryRequest,
@@ -95,15 +98,39 @@ from wetterdienst.ui.core import (
     resolve_network,
     set_logging_level,
 )
+from wetterdienst.ui.limits import (
+    Limits,
+    check_rows,
+    check_station_count,
+    estimate_point_rows,
+    estimate_rows,
+    limits_of,
+    selected_station_count,
+)
 from wetterdienst.ui.mcp import is_tool_request
+from wetterdienst.ui.middleware import RequestContextMiddleware, request_timeout, timeout_detail
+from wetterdienst.ui.problems import (
+    PROBLEM_MEDIA_TYPE,
+    PROBLEMS,
+    ProblemError,
+    ProblemKind,
+    current_request_id,
+    kind_of,
+    problem_body,
+    problem_response,
+    status_phrase,
+)
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
 from wetterdienst.ui.render import (
     InterpolationSettings,
-    StripesValuesMetadata,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
     _AppliedSettings,
+    ndjson_end,
+    ndjson_head,
+    ndjson_line,
+    ndjson_refusal,
     render,
     render_alerts,
     render_history,
@@ -122,19 +149,30 @@ from wetterdienst.ui.response_metadata import (
     result_metadata,
     stripes_metadata,
 )
+from wetterdienst.ui.streaming import (
+    NDJSON_MEDIA_TYPE,
+    STREAM_FORMATS,
+    csv_stream,
+    frames_in_batches,
+    ndjson_stream,
+    stream_response,
+)
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.response_warnings import begin_response, warn_response
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Mapping
+    import datetime as dt
+    from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 
     from fastapi.routing import APIRoute
+    from starlette.responses import StreamingResponse
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from wetterdienst.api import StandaloneRequest
-    from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
+    from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.result import InterpolatedValuesResult, StationsResult, SummarizedValuesResult
 
 info = Info()
 
@@ -150,6 +188,11 @@ app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_too
 API_PREFIX = f"/api/v{API_VERSION}"
 #: the same routes without the version, an alias of the current version: not deprecated, and not in OpenAPI
 API_ALIAS_PREFIX = "/api"
+#: where the MCP endpoint of the current version is served; the tools mirror the routes of `API_PREFIX` 1:1,
+#: so the two share a version (GH-3074)
+MCP_PREFIX = f"/mcp/v{API_VERSION}"
+#: the same endpoint without the version, an alias of the current version, as `API_ALIAS_PREFIX` is for the routes
+MCP_ALIAS_PREFIX = "/mcp"
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -175,10 +218,10 @@ class _RefuseInvalidSettings:
 
     Checked as the server starts the app's lifespan, so it holds whatever starts it --
     `wetterdienst restapi`, `uvicorn wetterdienst.ui.restapi:app` -- unless the lifespan is turned
-    off, and covers `/mcp`, which is served by this app. A failure in the app's own lifespan would
-    reach the server as Starlette's formatted traceback; answering the startup here gives the log
-    the variables and what is wrong with them, a line each, without the values, and the server
-    exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
+    off, and covers `/mcp/v1` and its alias `/mcp`, which are served by this app. A failure in the
+    app's own lifespan would reach the server as Starlette's formatted traceback; answering the
+    startup here gives the log the variables and what is wrong with them, a line each, without the
+    values, and the server exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
     stays, and starts a worker again on the next change to a source file.
     """
 
@@ -205,9 +248,12 @@ class _RefuseInvalidSettings:
 
 
 app.add_middleware(_RefuseInvalidSettings)
+# the request id, the timeout and the deprecation headers of every request (GH-3065); added after the check of the
+# settings, so it is the outer of the two
+app.add_middleware(RequestContextMiddleware)
 
 # Set to True at the bottom of this module when the optional ``[mcp]`` extra (fastmcp) is installed
-# and an MCP endpoint has been mounted onto ``app`` at ``/mcp``. Read by the index page.
+# and an MCP endpoint has been mounted onto ``app`` at ``MCP_PREFIX`` and ``MCP_ALIAS_PREFIX``. Read by the index page.
 mcp_enabled = False
 
 log = logging.getLogger(__name__)
@@ -229,49 +275,40 @@ REQUEST_EXAMPLES = {
 }
 
 
-#: the media type of every error body, RFC 9457
-PROBLEM_MEDIA_TYPE = "application/problem+json"
-
-
 def _problem_response(
     request: Request,
     status_code: int,
     detail: str,
+    kind: ProblemKind | None = None,
     *,
     errors: list[Any] | None = None,
+    extra: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
-    """Answer a failure with the one error body of this API, an RFC 9457 problem (GH-2634).
+    """Answer a failure with the one error body of this API, an RFC 9457 problem (GH-2634, GH-3065).
 
-    `{"type": "about:blank", "title": <the status' phrase>, "status": <int>, "detail": <str>}`, as
-    the RFC has a problem with no meaning beyond its status. `detail` is always text, the whole
-    reason, one line for each thing wrong where a request is wrong in several; a client that only
-    wants a sentence reads that. `errors` is added where a request failed validation: the list of
-    pydantic's entries, each with the `loc` of its parameter, as `detail` was for such a request
-    until then, and what a client that wants the invalid fields reads.
+    `{"type": "urn:wetterdienst:problem:<kind>", "title": <the status' phrase>, "status": <int>, "detail": <str>,
+    "instance": <the request>, "request_id": <the id>}` (`ui.problems`). `detail` is always text, the whole
+    reason, one line for each thing wrong where a request is wrong in several; a client that only wants a sentence
+    reads that. `errors` is added where a request failed validation: the list of pydantic's entries, each with the
+    `loc` of its parameter. `extra` holds the members a kind has beyond these, such as the `limit` of
+    `limit-exceeded`. A 502, 503 or 504 carries `Retry-After`, and every problem `X-Request-ID`.
 
-    An MCP tool's request is answered with the text alone, as a JSON string: FastMCP puts the body
-    of a failed call into the tool error as Python writes it, and a dict would read as its repr.
+    An MCP tool's request is answered with the text alone, as a JSON string (`problem_response`).
     """
-    if is_tool_request(request.scope):
-        return JSONResponse(detail, status_code=status_code, headers=headers)
-    problem: dict[str, Any] = {
-        "type": "about:blank",
-        "title": _status_phrase(status_code),
-        "status": status_code,
-        "detail": detail,
-    }
-    if errors:
-        problem["errors"] = errors
-    return JSONResponse(problem, status_code=status_code, headers=headers, media_type=PROBLEM_MEDIA_TYPE)
+    return problem_response(request.scope, status_code, detail, kind, errors=errors, extra=extra, headers=headers)
 
 
-def _status_phrase(status_code: int) -> str:
-    """Give the phrase of a status, as RFC 9457 asks of the `title` of a problem with no type of its own."""
-    try:
-        return HTTPStatus(status_code).phrase
-    except ValueError:
-        return "Error"
+def _problem_of(request: Request, error: StarletteHTTPException) -> JSONResponse:
+    """Answer with the problem an `HTTPException` is, the kind and the members it was raised with."""
+    return _problem_response(
+        request,
+        error.status_code,
+        str(error.detail),
+        kind_of(error),
+        extra=getattr(error, "extra", None),
+        headers=error.headers,
+    )
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -279,8 +316,9 @@ async def _http_exception_handler(request: Request, exc: StarletteHTTPException)
     """Answer an `HTTPException`, and Starlette's own for an unknown path or a method not allowed, as a problem."""
     if not is_body_allowed_for_status_code(exc.status_code):
         return Response(status_code=exc.status_code, headers=exc.headers)
-    detail = exc.detail if isinstance(exc.detail, str) else _status_phrase(exc.status_code)
-    return _problem_response(request, exc.status_code, detail, headers=exc.headers)
+    if not isinstance(exc.detail, str):
+        exc = StarletteHTTPException(exc.status_code, status_phrase(exc.status_code), exc.headers)
+    return _problem_of(request, exc)
 
 
 def _describe_validation_errors(errors: list[dict[str, Any]]) -> str:
@@ -315,7 +353,7 @@ async def _wetterdienst_error_handler(request: Request, exc: WetterdienstError) 
     them, such as while a result is rendered, and gives it the status `failure_status` gives it.
     """
     error = _failure(exc, _NoRequestModel(), f"serve {request.url.path}")
-    return _problem_response(request, error.status_code, error.detail)
+    return _problem_of(request, error)
 
 
 @app.exception_handler(Exception)
@@ -326,7 +364,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
     did when the answer was its plain-text one.
     """
     error = _server_error(exc)
-    return _problem_response(request, error.status_code, error.detail)
+    return _problem_of(request, error)
 
 
 def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> HTTPException:
@@ -352,7 +390,7 @@ def _dependency_missing_on_the_server(e: MissingDependencyError, what: str) -> H
             "This server lacks an optional dependency that the request needs. The request was valid; "
             "ask whoever runs this instance to install it."
         )
-    return HTTPException(status_code=501, detail=detail)
+    return ProblemError(501, detail, ProblemKind.DEPENDENCY_MISSING)
 
 
 @app.exception_handler(MissingDependencyError)
@@ -363,7 +401,7 @@ async def _missing_dependency_handler(request: Request, exc: MissingDependencyEr
     such as rendering an image after the values were collected.
     """
     error = _dependency_missing_on_the_server(exc, f"serve {request.url.path}")
-    return _problem_response(request, error.status_code, error.detail)
+    return _problem_of(request, error)
 
 
 def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseModel, what: str) -> HTTPException:
@@ -383,13 +421,14 @@ def _credential_missing_on_the_server(e: CredentialMissingError, request: BaseMo
     log.warning(f"Failed to {what}, no credential is configured for the provider: {e}")
     provider, network = getattr(request, "provider", None), getattr(request, "network", None)
     of = f" for {provider}/{network}" if provider and network else ""
-    return HTTPException(
-        status_code=501,
-        detail=(
+    return ProblemError(
+        501,
+        (
             f"This server has no credential{of}, which the provider requires, so it cannot serve the "
             f"request. {app.url_path_for('coverage')} tells whether a provider is "
             "configured; otherwise ask whoever runs this instance."
         ),
+        ProblemKind.CREDENTIAL_MISSING,
     )
 
 
@@ -407,13 +446,14 @@ def _credential_rejected_on_the_server(e: CredentialRejectedError, request: Base
     log.error(f"Failed to {what}, the provider rejected the credential of this server: {e}")
     provider, network = getattr(request, "provider", None), getattr(request, "network", None)
     of = f" for {provider}/{network}" if provider and network else ""
-    return HTTPException(
-        status_code=501,
-        detail=(
+    return ProblemError(
+        501,
+        (
             f"The provider rejected the credential of this server{of}, so it cannot serve the "
             f"request. {app.url_path_for('auth')} tells whether the credential is accepted; "
             "otherwise ask whoever runs this instance."
         ),
+        ProblemKind.CREDENTIAL_REJECTED,
     )
 
 
@@ -433,13 +473,14 @@ def _refuse_sql_unless_enabled(
     """
     given = [name for name in ("sql", "sql_values") if getattr(request, name, None)]
     if given and not Settings().restapi_sql:
-        raise HTTPException(
-            status_code=403,
-            detail=(
+        raise ProblemError(
+            403,
+            (
                 f"SQL filtering is disabled on this server, so {' and '.join(given)} cannot be used. "
                 "Whoever runs this instance can enable it with the setting restapi_sql "
                 "(environment variable WD_RESTAPI_SQL=true); otherwise filter the response yourself."
             ),
+            ProblemKind.SQL_DISABLED,
         )
 
 
@@ -470,7 +511,7 @@ def _refuse_oversized_image(
     rendered = ((width or _DEFAULT_IMAGE_WIDTH) * scale, (height or _DEFAULT_IMAGE_HEIGHT) * scale)
     if max(rendered) > _MAX_IMAGE_SIDE:
         error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
-        raise HTTPException(status_code=400, detail=f"{error} Lower {lower}.")
+        raise ProblemError(400, f"{error} Lower {lower}.", ProblemKind.IMAGE_TOO_LARGE)
 
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
@@ -487,7 +528,12 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
     300 px tall for each, and before the browser is started.
     """
     log.info(f"Refused {request.url.path}: {exc}")
-    return _problem_response(request, 400, f"{exc} Lower scale, give a smaller height, or ask for fewer parameters.")
+    return _problem_response(
+        request,
+        400,
+        f"{exc} Lower scale, give a smaller height, or ask for fewer parameters.",
+        ProblemKind.IMAGE_TOO_LARGE,
+    )
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
@@ -599,7 +645,8 @@ class _StripesValue(TypedDict):
 
 
 class _StripesValuesWithMetadataDict(TypedDict):
-    metadata: StripesValuesMetadata
+    metadata: ResponseMetadata
+    series: StripesSeries
     values: list[_StripesValue]
 
 
@@ -716,7 +763,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
-                    {"<li>MCP endpoint (streamable HTTP): <code>/mcp</code></li>" if mcp_enabled else ""}
+                    {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -771,18 +818,35 @@ def health() -> JSONResponse:
 
 @router.get("/version")
 def version() -> JSONResponse:
-    """Get version information, and whether this instance serves an MCP endpoint.
+    """Get version information, what this instance serves, and the limits it holds requests to.
 
     `api_version` is the version of the REST API contract the routes are served under
     (`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.
 
     `mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at
     the bottom of this module, after the routes are declared. It is reported here because the
-    endpoint is optional -- an instance installed without the `[mcp]` extra has no `/mcp` route --
+    endpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --
     and a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP
-    transport means opening a session rather than asking a question.
+    transport means opening a session rather than asking a question. When it is enabled,
+    `mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and
+    `mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`
+    otherwise.
+
+    `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
+    and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
+    `csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind
+    `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
-    return JSONResponse(content={"version": __version__, "api_version": API_VERSION, "mcp_enabled": mcp_enabled})
+    return JSONResponse(
+        content={
+            "version": __version__,
+            "api_version": API_VERSION,
+            "mcp_enabled": mcp_enabled,
+            "mcp_path": MCP_PREFIX if mcp_enabled else None,
+            "mcp_alias_path": MCP_ALIAS_PREFIX if mcp_enabled else None,
+            "limits": limits_of(Settings()).model_dump(),
+        },
+    )
 
 
 # each endpoint's settings, by the request it takes them from
@@ -835,37 +899,83 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     return Response(content=content.model_dump_json(), media_type="application/json")
 
 
+#: the routes whose answers can be a limit's 400 or the timeout's 504 (GH-3065)
+_LIMITED_ROUTES = ("stations", "values", "interpolate", "summarize", "history")
+
+_RETRY_AFTER_HEADER = {
+    "Retry-After": {
+        "description": "Seconds after which the same request may be made again.",
+        "schema": {"type": "integer"},
+    }
+}
+
+
 def _declare_problem_schema(schema: dict[str, Any]) -> None:
     """Describe the error body in the schema: the 422 of each operation is the `Problem` of `_problem_response`.
 
     FastAPI documents the 422 it adds to every operation with a query as `HTTPValidationError`,
     `{"detail": [ValidationError]}`, which this API no longer answers: its `detail` is text and the
-    entries are under `errors`. Changed in place, and the same when it runs again.
+    entries are under `errors`. Changed in place, and the same when it runs again. The data routes also list the
+    400 of a limit and the 502, 503 and 504 of a provider that fails or a request that takes too long (GH-3065).
     """
     schemas = schema.setdefault("components", {}).setdefault("schemas", {})
     schemas.pop("HTTPValidationError", None)
+    kinds = ", ".join(f"`{kind.value}`" for kind in PROBLEMS)
     schemas["Problem"] = {
         "title": "Problem",
         "description": "An error, as RFC 9457 describes it (`application/problem+json`).",
         "type": "object",
         "properties": {
-            "type": {"type": "string", "default": "about:blank", "description": "Always `about:blank` for now."},
+            "type": {
+                "type": "string",
+                "description": f"`urn:wetterdienst:problem:<kind>`, the kind being one of {kinds}. A client "
+                "branches on it; the docs list when each is answered.",
+            },
             "title": {"type": "string", "description": "The phrase of the status."},
             "status": {"type": "integer", "description": "The HTTP status."},
             "detail": {"type": "string", "description": "The reason, one line for each thing wrong in a request."},
+            "instance": {
+                "type": "string",
+                "description": "`urn:wetterdienst:request:<id>`: the request this problem answers.",
+            },
+            "request_id": {"type": "string", "description": "The id of the request, also sent as `X-Request-ID`."},
             "errors": {
                 "type": "array",
                 "items": {"$ref": "#/components/schemas/ValidationError"},
                 "description": "The invalid parameters, each with the `loc` of its parameter, of a 422.",
             },
+            "limit": {
+                "type": "string",
+                "enum": ["stations", "rows", "stream_rows"],
+                "description": "Of `limit-exceeded`: the limit the request passes.",
+            },
+            "maximum": {"type": "integer", "description": "Of `limit-exceeded`: the value of that limit."},
+            "requested": {
+                "type": "integer",
+                "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows).",
+            },
         },
-        "required": ["type", "title", "status", "detail"],
+        "required": ["type", "title", "status", "detail", "instance", "request_id"],
     }
-    for path in schema.get("paths", {}).values():
-        for operation in path.values():
-            response = operation.get("responses", {}).get("422")
-            if response is not None:
-                response["content"] = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
+    problem = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
+    for path, item in schema.get("paths", {}).items():
+        limited = path.removeprefix(API_PREFIX).strip("/") in _LIMITED_ROUTES
+        for operation in item.values():
+            responses = operation.get("responses", {})
+            if (response := responses.get("422")) is not None:
+                response["content"] = problem
+            if not limited:
+                continue
+            responses["400"] = {
+                "description": "The request is refused, or passes a limit of the server.",
+                "content": problem,
+            }
+            for status, text in (
+                (502, "The data provider failed."),
+                (503, "The server could not reach the data provider."),
+                (504, "The data provider, or the server's own request timeout, did not answer in time."),
+            ):
+                responses[str(status)] = {"description": text, "content": problem, "headers": _RETRY_AFTER_HEADER}
 
 
 def _declare_list_parameters(schema: dict[str, Any]) -> None:
@@ -964,18 +1074,23 @@ def _openapi() -> dict[str, Any]:
 app.openapi = _openapi  # ty: ignore[invalid-assignment]
 
 
-# OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
-# Desktop must receive a 404 here to conclude "no authorization server" and connect anonymously;
-# a 200 (e.g. from a catch-all serving HTML) makes them attempt -- and fail -- Dynamic Client
-# Registration. FastAPI already 404s unknown paths (including the resource-specific sub-paths like
-# `.../oauth-protected-resource/mcp`), but declaring these explicitly documents the no-auth contract
-# and keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
+# OAuth discovery endpoints. The MCP server (`/mcp/v1`, and `/mcp` as its alias) is open (no auth),
+# so MCP clients such as Claude Desktop must receive a 404 here to conclude "no authorization
+# server" and connect anonymously; a 200 (e.g. from a catch-all serving HTML) makes them attempt --
+# and fail -- Dynamic Client Registration. FastAPI already 404s unknown paths (including the
+# resource-specific sub-paths like `.../oauth-protected-resource/mcp/v1`, which RFC 9728 derives
+# from the endpoint's path), but declaring these explicitly documents the no-auth contract and
+# keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
 # `include_in_schema=False` keeps them out of the OpenAPI schema so they do not become MCP tools.
-@app.get("/.well-known/oauth-authorization-server", include_in_schema=False)
-@app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
 def oauth_metadata_not_found() -> None:
-    """Return 404 for OAuth discovery so the open `/mcp` server is treated as no-auth."""
+    """Return 404 for OAuth discovery so the open MCP server is treated as no-auth."""
     raise HTTPException(status_code=404, detail="Not Found")
+
+
+for _discovery in ("oauth-authorization-server", "oauth-protected-resource"):
+    # the bare document, then the one for each MCP endpoint, as a client derives it from the URL it was given
+    for _resource in ("", MCP_PREFIX, MCP_ALIAS_PREFIX):
+        app.get(f"/.well-known/{_discovery}{_resource}", include_in_schema=False)(oauth_metadata_not_found)
 
 
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -993,9 +1108,8 @@ def _resolve_listed_network(provider: str, network: str, what: str) -> type[Time
     except MissingDependencyError as e:
         raise _dependency_missing_on_the_server(e, f"{what} {provider}/{network}") from e
     except ApiNotFoundError as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Choose provider and network from {app.url_path_for('coverage')}",
+        raise ProblemError(
+            404, f"Choose provider and network from {app.url_path_for('coverage')}", ProblemKind.UNKNOWN_NETWORK
         ) from e
 
 
@@ -1161,10 +1275,185 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
     except ApiNotFoundError as e:
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
-        raise HTTPException(status_code=404, detail=msg) from e
+        raise ProblemError(404, msg, ProblemKind.UNKNOWN_NETWORK) from e
     except NotImplementedError as e:
-        log.info(f"Refused a request for station history: {e}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        # a network without station history: the server does not implement it, as `failure_status` says (GH-3065)
+        raise _failure(e, _NoRequestModel(), "serve the station history") from e
+
+
+#: the media types `format=csv` and `format=ndjson` of `stations` and `values` are sent as, which are streamed
+_STREAM_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {
+        "content": {
+            NDJSON_MEDIA_TYPE: {
+                "schema": {"type": "string"},
+                "example": '{"metadata":{...}}\n{"station_id":"01048","...":"..."}\n{"end":{"counts":{}}}\n',
+            },
+            "text/csv": {"schema": {"type": "string"}},
+        }
+    }
+}
+
+
+def _check_values_limits(stations: StationsResult, limits: Limits, *, streamed: bool) -> None:
+    """Refuse a values request that reads too many stations or would return too many rows, before any download.
+
+    Counted from the selection of stations, which the server holds already; the rows are an estimate and an upper
+    bound (`ui.limits`).
+    """
+    check_station_count(selected_station_count(stations), limits)
+    if limits.max_stream_rows if streamed else limits.max_rows:
+        check_rows(estimate_rows(stations), limits, streamed=streamed)
+
+
+def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
+    """Give the check of `interpolate` and `summarize`: the readings of the window, for each parameter, at one point."""
+
+    def check(request: TimeseriesRequest) -> None:
+        if limits.max_rows:
+            rows = estimate_point_rows(
+                cast("Sequence[ParameterModel]", request.parameters),
+                cast("dt.datetime | None", request.start),
+                cast("dt.datetime | None", request.end),
+            )
+            check_rows(rows, limits, streamed=False)
+
+    return check
+
+
+def _is_streamed(request: ValuesRequest) -> bool:
+    """Tell whether a values request is answered as a stream: ndjson, and csv unless `sql_values` filters the whole.
+
+    A `sql_values` clause filters the answer as a frame, which a stream never holds, so csv with one is the answer
+    in one body as it was before; ndjson is refused with it (and with `with_stations`).
+    """
+    if request.format == "ndjson":
+        if (refusal := ndjson_refusal(request)) is not None:
+            raise ProblemError(400, refusal)
+        return True
+    return request.format == "csv" and not request.sql_values
+
+
+def _stream_headers(metadata: ResponseMetadata) -> dict[str, str]:
+    """Give the headers of a stream: those of the `metadata` block, but the rows, which are not known as it begins."""
+    return {name: value for name, value in response_headers(metadata).items() if name != "X-Wetterdienst-Rows"}
+
+
+def _stream_failure(request: BaseModel, what: str) -> Callable[[Exception], dict[str, Any]]:
+    """Give what turns an exception after a stream began into its problem: logged and told as any failure is."""
+    request_id = current_request_id() or ""
+
+    def fail(e: Exception) -> dict[str, Any]:
+        error = _failure(e, request, what)
+        return problem_body(
+            error.status_code, str(error.detail), kind_of(error), request_id, extra=getattr(error, "extra", None)
+        )
+
+    return fail
+
+
+def _stream_response(
+    chunks: Iterator[bytes], media_type: str, metadata: ResponseMetadata, *, ndjson: bool
+) -> StreamingResponse:
+    """Answer with the chunks of a stream, ending it with the error of a timeout where the format can say it."""
+    request_id = current_request_id() or ""
+    seconds = request_timeout()
+
+    def on_timeout() -> bytes | None:
+        log.warning(f"Request {request_id} timed out after {seconds:g} seconds while it was streamed.")
+        if not ndjson:
+            return None
+        problem = problem_body(504, timeout_detail(seconds or 0), ProblemKind.REQUEST_TIMEOUT, request_id)
+        return ndjson_line({"error": problem})
+
+    return stream_response(
+        chunks,
+        media_type,
+        _stream_headers(metadata),
+        context=contextvars.copy_context(),
+        timeout=seconds,
+        on_timeout=on_timeout,
+    )
+
+
+def _stream_end(stations: int, rows: int) -> dict[str, Any]:
+    """Give the `end` line of a stream: what was sent, and every warning raised while it was."""
+    return ndjson_end(stations, rows, recorded_warnings())
+
+
+def _stream_stations(
+    stations: StationsResult, request: StationsRequest, metadata: ResponseMetadata
+) -> StreamingResponse:
+    """Stream a listing of stations, a batch of rows at a time (`ui.streaming`)."""
+    frames = frames_in_batches(stations.df)
+    if request.format == "ndjson":
+        chunks = ndjson_stream(
+            ndjson_head(metadata),
+            frames,
+            lambda df: cast("list[dict[str, Any]]", replace(stations, df=df).to_dict()["stations"]),
+            _stream_end,
+            _stream_failure(request, "stream stations"),
+        )
+        return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
+    failure = _stream_failure(request, "stream stations")
+    chunks = csv_stream(
+        frames,
+        lambda df, header: replace(stations, df=df).to_csv(include_header=header),
+        lambda: stations.df,
+        failure,
+    )
+    return _stream_response(chunks, "text/csv", metadata, ndjson=False)
+
+
+def _stream_values(
+    api: type[TimeseriesRequest],
+    request: ValuesRequest,
+    settings: Settings,
+    options: Options,
+    limits: Limits,
+) -> StreamingResponse:
+    """Stream the values of the stations of a request, one station at a time (`ui.streaming`).
+
+    The stations are selected and the limits checked as for the other formats. The first station is read before the
+    response begins, so that a failure on it has its status; one on a later station comes as the last line of
+    NDJSON, and cuts a CSV.
+    """
+    try:
+        stations = get_stations(
+            api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
+        )
+        _check_values_limits(stations, limits, streamed=True)
+        reader = stations.values()
+        results = reader.query()
+        first = next(results, None)
+    except (AssertionError, HTTPException):
+        raise
+    except Exception as e:
+        raise _failure(e, request, "get values") from e
+    results = itertools.chain([first], results) if first is not None else iter(())
+    # the block as far as it is known before the first reading: the stations selected, no rows yet
+    preview = limit_stations_to_rank(stations)
+    metadata = response_metadata(preview, request, rows=0)
+    frames = (result.df for result in results)
+    failure = _stream_failure(request, "stream values")
+
+    if request.format == "ndjson":
+        settings_ = _applied_settings(ValuesSettings, options) if request.with_metadata else None
+        chunks = ndjson_stream(
+            ndjson_head(metadata, settings_),
+            frames,
+            lambda df: cast("list[dict[str, Any]]", ValuesResult._to_dict(df)),  # noqa: SLF001
+            _stream_end,
+            failure,
+        )
+        return _stream_response(chunks, NDJSON_MEDIA_TYPE, metadata, ndjson=True)
+    chunks = csv_stream(
+        frames,
+        lambda df, header: ValuesResult(stations=stations, df=df).to_csv(include_header=header),
+        reader._empty_values_df,  # noqa: SLF001
+        failure,
+    )
+    return _stream_response(chunks, "text/csv", metadata, ndjson=False)
 
 
 # response models for the different formats are
@@ -1174,6 +1463,7 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
 @router.get(
     "/stations",
     response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
+    responses=_STREAM_RESPONSES,
 )
 def stations(
     request: Annotated[StationsRequest, Query()],
@@ -1221,7 +1511,12 @@ def stations(
     # lazily during value collection, and a plain listing returns just the N closest asked for
     stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
+    streamed = request.format in STREAM_FORMATS
+    check_rows(stations_.df.height, limits_of(settings), streamed=streamed)
+
     metadata = response_metadata(stations_, request)
+    if streamed:
+        return _stream_stations(stations_, request, metadata)
     content = render_stations(stations_, request, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
 
     return _answer(content, request.format, metadata)
@@ -1243,14 +1538,12 @@ def issues(
     except ApiNotFoundError as e:
         msg = f"{e} Use {app.url_path_for('coverage')} to discover available providers and networks."
         log.info(f"Refused a provider and network without an API for the request: {msg}")
-        raise HTTPException(status_code=404, detail=msg) from e
+        raise ProblemError(404, msg, ProblemKind.UNKNOWN_NETWORK) from e
 
     # outside the handler below, as for `/api/stations`
     settings = Settings()
     try:
         issue_list = get_issues(api=api, request=request, settings=settings)
-    except NotImplementedError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise _failure(e, request, "get issues") from e
 
@@ -1265,6 +1558,7 @@ def issues(
 @router.get(
     "/values",
     response_model=_ValuesWithSettingsDict | _ValuesWithSettingsOgcFeatureCollection | str,
+    responses=_STREAM_RESPONSES,
 )
 def values(
     request: Annotated[ValuesRequest, Query()],
@@ -1303,8 +1597,11 @@ def values(
     settings = Settings()
     # a unit target given for a quantity or unit the converter has none for is the request's 400
     options = _request_options(request, http_request.query_params.keys(), ValuesSettings)
+    limits = limits_of(settings)
 
-    values_ = _values(api=api, request=request, settings=settings, options=options)
+    if _is_streamed(request):
+        return _stream_values(api, request, settings, options, limits)
+    values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
@@ -1409,7 +1706,10 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     else:
         log.error(f"Failed to {what}.", exc_info=e)
     detail = {503: _UPSTREAM_UNREACHABLE, 504: _UPSTREAM_TIMED_OUT}.get(status, _UPSTREAM_FAILED)
-    return HTTPException(status_code=status, detail=detail)
+    kind = {503: ProblemKind.UPSTREAM_UNREACHABLE, 504: ProblemKind.UPSTREAM_TIMEOUT}.get(
+        status, ProblemKind.UPSTREAM_FAILED
+    )
+    return ProblemError(status, detail, kind)
 
 
 def _server_error(e: Exception) -> HTTPException:
@@ -1424,9 +1724,10 @@ def _server_error(e: Exception) -> HTTPException:
     Only a defect is this. A provider that failed is a 502, 503 or 504 (`_upstream_failure`), a lack
     of this deployment a 501.
     """
-    return HTTPException(
-        status_code=500,
-        detail=f"Internal server error ({type(e).__name__}). The cause is in the server log.",
+    return ProblemError(
+        500,
+        f"Internal server error ({type(e).__name__}). The cause is in the server log.",
+        ProblemKind.INTERNAL_ERROR,
     )
 
 
@@ -1447,18 +1748,28 @@ def _configuration_missing_on_the_server(e: ConfigurationError, what: str) -> HT
     to the log, as it does for a missing dependency or credential (`_dependency_missing_on_the_server`).
     """
     log.error(f"Failed to {what}, this deployment is not configured to serve it: {e}")
-    return HTTPException(
-        status_code=501,
-        detail="This server is not configured to serve the request. The request was valid; "
-        "ask whoever runs this instance.",
+    return ProblemError(
+        501,
+        "This server is not configured to serve the request. The request was valid; ask whoever runs this instance.",
+        ProblemKind.NOT_CONFIGURED,
     )
+
+
+def _not_implemented(e: Exception, what: str) -> HTTPException:
+    """Report what this server does not implement, a `NotImplementedError`, as a 501 (`failure_status`, GH-3065).
+
+    The library raises it, with a sentence for the caller, where a network has no station history or no issues to
+    list: neither is the caller's mistake and neither is missing from the deployment, the server does not do it.
+    """
+    log.info(f"Failed to {what}: {e}")
+    return ProblemError(501, str(e) or "This server does not implement what the request asks for.")
 
 
 def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     """Answer a failure that is not the request's own by its place in the hierarchy (`failure_status`).
 
-    A credential or an optional dependency the server lacks is a 501 (the more specific answers say
-    which); a provider that failed is a 502, 503 or 504; anything else is a logged traceback and a
+    A credential or an optional dependency the server lacks, and what it does not implement, is a 501 (the more
+    specific answers say which); a provider that failed is a 502, 503 or 504; anything else is a logged traceback and a
     500 that does not repeat the exception's text (`_server_error`).
     """
     if isinstance(e, MissingDependencyError):
@@ -1471,6 +1782,8 @@ def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPExc
         return _configuration_missing_on_the_server(e, what)
     if isinstance(e, UpstreamError):
         return _upstream_failure(e, what)
+    if failure_status(e) == 501:
+        return _not_implemented(e, what)
     log.error(f"Failed to {what}.", exc_info=e)
     return _server_error(e)
 
@@ -1496,6 +1809,7 @@ def _values(
     request: ValuesRequest,
     settings: Settings,
     options: Options,
+    limits: Limits,
 ) -> ValuesResult:
     """Collect values, telling the caller which failures are theirs to fix.
 
@@ -1504,10 +1818,16 @@ def _values(
     which also assembles a response format, a target and a set of kwargs -- is not where it belongs.
     """
     try:
-        return get_values(api=api, request=request, settings=settings, options=options)
-    except AssertionError:
+        return get_values(
+            api=api,
+            request=request,
+            settings=settings,
+            options=options,
+            check=lambda stations_: _check_values_limits(stations_, limits, streamed=False),
+        )
+    except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
-        # as a 500, not the caller's to fix
+        # as a 500, not the caller's to fix; and a limit that refused the request, which is its 400
         raise
     except Exception as e:
         raise _failure(e, request, "get values") from e
@@ -1520,6 +1840,7 @@ def _geo_values(
     settings: Settings,
     options: Options,
     what: str,
+    limits: Limits,
 ) -> InterpolatedValuesResult | SummarizedValuesResult:
     """Run an interpolation or a summary, telling the caller which failures are theirs to fix.
 
@@ -1534,10 +1855,10 @@ def _geo_values(
     decisions in both places, so they are made here rather than twice over.
     """
     try:
-        return get(api=api, request=request, settings=settings, options=options)
-    except AssertionError:
+        return get(api=api, request=request, settings=settings, options=options, check=_geo_limit_check(limits))
+    except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
-        # as a 500, not the caller's to fix
+        # as a 500, not the caller's to fix; and a limit that refused the request, which is its 400
         raise
     except Exception as e:
         raise _failure(e, request, what) from e
@@ -1577,7 +1898,7 @@ def interpolate(
     settings = Settings()
     options = _geo_options(request, http_request.query_params.keys(), "interpolation")
 
-    values_ = _geo_values(get_interpolate, api, request, settings, options, "interpolate")
+    values_ = _geo_values(get_interpolate, api, request, settings, options, "interpolate", limits_of(settings))
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
@@ -1612,13 +1933,6 @@ def summarize(
     begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
-    # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
-    if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
-        warn_response(
-            log,
-            "deprecated-parameter",
-            f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
-        )
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1626,7 +1940,7 @@ def summarize(
     settings = Settings()
     options = _geo_options(request, http_request.query_params.keys(), "summary")
 
-    values_ = _geo_values(get_summarize, api, request, settings, options, "summarize")
+    values_ = _geo_values(get_summarize, api, request, settings, options, "summarize", limits_of(settings))
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, SummarySettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
@@ -1663,9 +1977,10 @@ def stripes_stations(
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
-    """Get climate stripes data values with timestamps and metadata.
+    """Get climate stripes data values with timestamps, and the series they are of.
 
-    The JSON metadata names the unit of the values in `unit`, e.g. "degree_celsius". The server's
+    The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
+    "degree_celsius"; `metadata` is the block every answer has. The server's
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
     for: the target of the quantity where the values are converted, the source's unit where not.
     """
@@ -1745,6 +2060,7 @@ def history(
         raise
     except Exception as e:
         raise _failure(e, request, "get stations for history") from e
+    check_station_count(selected_station_count(stations_), limits_of(settings))
 
     try:
         history_provider = stations_.history()
@@ -1797,44 +2113,57 @@ def alerts(
 
 
 def _mount_mcp(rest_app: FastAPI) -> bool:
-    """Mount an MCP endpoint at ``/mcp`` onto ``rest_app``, if the optional ``[mcp]`` extra is present.
+    """Mount the MCP endpoint at ``/mcp/v1`` and its alias ``/mcp`` onto ``rest_app``, if ``[mcp]`` is installed.
 
     The MCP server (see :mod:`wetterdienst.ui.mcp`) is generated from the REST API's own routes, so
-    the ``/mcp`` transport stays in lockstep with the HTTP API, with a workflow ``instructions``
-    block and clean tool names layered on for agent usability. The MCP streamable-http session
-    manager runs via the sub-app's lifespan, which is *composed* with ``rest_app``'s existing
-    lifespan here (not replaced), so any current or future app startup/shutdown still runs; the
-    existing REST routes keep working with or without the lifespan running.
+    the MCP transport stays in lockstep with the HTTP API, with a workflow ``instructions``
+    block and clean tool names layered on for agent usability. ``/mcp/v1`` is the endpoint of the
+    contract version, and ``/mcp`` is an alias of the current one, as ``/api`` is of ``/api/v1``.
+    Both paths are routes to the one endpoint, so they share the session manager and its sessions
+    and the server is built once, and a tool answers alike on either (GH-3074). The MCP
+    streamable-http session manager runs via the sub-app's lifespan, which is *composed* with
+    ``rest_app``'s existing lifespan here (not replaced), so any current or future app
+    startup/shutdown still runs; the existing REST routes keep working with or without the
+    lifespan running.
 
     Returns ``True`` when the endpoint was mounted, ``False`` when the optional ``[mcp]`` extra is not
-    installed or the MCP server could not be built (so the ``/mcp`` route is strictly optional and a
+    installed or the MCP server could not be built (so the MCP routes are strictly optional and a
     build error never takes down the plain REST API).
     """
     try:
         from fastmcp.utilities.lifespan import combine_lifespans  # noqa: PLC0415
+        from starlette.routing import Route  # noqa: PLC0415
 
         from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-        mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
+        mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX)
     except ModuleNotFoundError as exc:
-        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no /mcp route.
+        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no MCP route.
         # Said out loud, because an instance missing /mcp for want of a dependency otherwise looks
         # exactly like one that was never meant to have it.
-        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without /mcp", exc.name)
+        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without it", exc.name)
         return False
     except Exception:
-        # never let an MCP build/version error take down the whole REST API; degrade to no /mcp
-        log.exception("Failed to build the MCP endpoint; continuing without /mcp")
+        # never let an MCP build/version error take down the whole REST API; degrade to no MCP route
+        log.exception("Failed to build the MCP endpoint; continuing without it")
         return False
 
-    # Add the /mcp route(s) to the existing app and compose the MCP session-manager lifespan with the
+    # Add the MCP route(s) to the existing app and compose the MCP session-manager lifespan with the
     # app's existing lifespan (rather than replacing it, which would drop any app startup/shutdown).
-    rest_app.router.routes.extend(mcp_app.router.routes)
+    # The alias is a second route to the pinned route's own endpoint: not a second `http_app`, whose
+    # lifespan would start a second session manager and enter the server's lifespan a second time
+    mcp_routes = list(mcp_app.router.routes)
+    rest_app.router.routes.extend(mcp_routes)
+    rest_app.router.routes.extend(
+        Route(MCP_ALIAS_PREFIX, endpoint=route.endpoint, methods=sorted(route.methods) if route.methods else None)
+        for route in mcp_routes
+        if isinstance(route, Route) and route.path == MCP_PREFIX
+    )
     rest_app.router.lifespan_context = combine_lifespans(
         rest_app.router.lifespan_context,
         mcp_app.router.lifespan_context,
     )
-    log.info("MCP endpoint mounted at /mcp")
+    log.info("MCP endpoint mounted at %s, and %s as its alias", MCP_PREFIX, MCP_ALIAS_PREFIX)
     return True
 
 

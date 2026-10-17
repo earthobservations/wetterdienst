@@ -473,10 +473,9 @@ wetterdienst summarize \
   --summary-station-distance-heterogeneous 15
 ```
 
-Its `--use-nearby-station-distance`, and the `use_nearby_station_distance` of `/api/summarize` and
-the MCP `summarize` tool, are deprecated and will be removed in a future release. They have no
-effect: a summary takes the nearest station with data anyway, so there is nothing for them to
-decide.
+A summary takes the nearest station with data anyway, so it has no `use-nearby-station-distance`
+option: that of interpolation is the only one, and `summarize` refuses it as an unknown option or
+parameter.
 
 An option that is left out keeps whatever the environment and the defaults say, so a radius set
 through `WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS` is not overwritten by the command. The

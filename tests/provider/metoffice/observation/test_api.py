@@ -3,11 +3,16 @@
 """Tests for Met Office (MIDAS Open) observation provider."""
 
 import datetime as dt
+import ssl
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientPayloadError, ClientResponseError, ClientSSLError, ServerDisconnectedError
+from fsspec.exceptions import FSTimeoutError
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequest
 from wetterdienst.provider.metoffice.observation.parser import (
     parse_station_metadata,
@@ -412,6 +417,41 @@ def test_ceda_token_exchange_that_failed_otherwise_still_returns_none(monkeypatc
 
     monkeypatch.setattr(download, "post_file", _fake_post)
     assert download.get_ceda_token(Settings(auth={"ceda": "user:pass"})) is None
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(FSTimeoutError(), id="timeout"),
+        pytest.param(ServerDisconnectedError(), id="dropped connection"),
+        pytest.param(ClientPayloadError("body cut short"), id="cut body"),
+        pytest.param(ClientResponseError(request_info=MagicMock(), history=(), status=503), id="503"),
+        pytest.param(ClientSSLError(MagicMock(), ssl.SSLError("certificate verify failed")), id="tls"),
+    ],
+)
+def test_ceda_token_exchange_that_did_not_answer_raises_a_download_error(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    """A CEDA that times out, drops the connection, answers 5xx or fails TLS is an outage, no missing token (GH-3022).
+
+    It was a warning and `None`, and the Met Office request that followed ended as an empty result. The
+    URL named is the token API's, and the failure is the `__cause__`; nothing is cached.
+    """
+    from wetterdienst.provider.metoffice.observation import download  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    download._TOKEN_CACHE.clear()  # noqa: SLF001
+
+    def _fake_post(*_args: object, **_kwargs: object) -> File:
+        return File(url=download._TOKEN_URL, content=failure, status=503)  # noqa: SLF001
+
+    monkeypatch.setattr(download, "post_file", _fake_post)
+    with pytest.raises(DownloadError) as raised:
+        download.get_ceda_token(Settings(auth={"ceda": "user:pass"}))
+    assert raised.value.url == download._TOKEN_URL  # noqa: SLF001
+    assert raised.value.__cause__ is failure
+    assert not download._TOKEN_CACHE  # noqa: SLF001
 
 
 @pytest.mark.parametrize("status", [401, 403])

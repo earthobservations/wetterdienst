@@ -115,7 +115,7 @@ export function providers(): Provider[] {
       name_local: 'EUMETNET',
       name_english: 'EUMETNET',
       country: 'Europe',
-      country_code: 'ZZ',
+      country_code: null,
       license: null,
       attribution: null,
       networks: [

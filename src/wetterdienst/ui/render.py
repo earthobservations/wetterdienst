@@ -18,12 +18,13 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold  # noqa: TC001, needed at runtime by pydantic
-from wetterdienst.ui.core import StripesMetadata
 from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
 from wetterdienst.util.datetime import format_timestamp
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping, Sequence
+
+    import polars as pl
 
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
         SummaryRequest,
         ValuesRequest,
     )
+    from wetterdienst.util.response_warnings import ResponseWarning
 
     _Request: TypeAlias = (
         StationsRequest
@@ -128,8 +130,7 @@ class _GeoSettings(_AppliedSettings):
 class InterpolationSettings(_GeoSettings):
     """The settings of `/api/interpolate`."""
 
-    # not read for a summary, which has nothing for it to decide: its field is only accepted there,
-    # and deprecated (GH-2333), so a summary neither passes nor reports it
+    # a summary has no such field: it takes the nearest station with data, so there is nothing for it to decide
     use_nearby_station_distance: _Unbounded | None = Field(validation_alias="geo_use_nearby_station_distance")
     interpolation_station_distance: dict[str, _Unbounded] = Field(
         validation_alias="geo_station_distance",
@@ -234,6 +235,56 @@ def _json_answer(
     return json.dumps(answer, indent=4 if request.pretty else None, ensure_ascii=fmt == "json")
 
 
+def ndjson_line(value: Mapping[str, Any]) -> bytes:
+    """Write one line of an NDJSON answer: compact JSON, UTF-8, a newline."""
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode() + b"\n"
+
+
+def ndjson_head(metadata: ResponseMetadata, settings: _AppliedSettings | None = None) -> dict[str, Any]:
+    """Give the first line of an NDJSON answer: the `metadata` block, and the `settings` beside it if there are any."""
+    head: dict[str, Any] = {"metadata": metadata_to_dict(metadata)}
+    if settings is not None:
+        head["settings"] = json.loads(settings.model_dump_json())
+    return head
+
+
+def ndjson_end(stations: int, rows: int, warnings: Sequence[ResponseWarning]) -> dict[str, Any]:
+    """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way."""
+    return {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+
+
+def ndjson_refusal(request: StationsRequest | ValuesRequest) -> str | None:
+    """Say why a request cannot be answered as NDJSON, None where it can.
+
+    `sql_values` filters the whole answer as a frame, which a stream never holds, and `with_stations` lists the
+    stations of the whole answer, which a stream does not know before its end.
+    """
+    if getattr(request, "sql_values", None):
+        return (
+            "sql_values filters the whole answer, which NDJSON never holds. Use format=json, geojson or csv, or leave "
+            "sql_values out and filter the lines."
+        )
+    if getattr(request, "with_stations", False):
+        return (
+            "with_stations lists the stations of the whole answer, which NDJSON does not know before its end. Use "
+            "format=json or geojson, or ask format=ndjson of stations for them."
+        )
+    return None
+
+
+def _render_ndjson(
+    rows: Sequence[Mapping[str, Any]],
+    frame: pl.DataFrame,
+    metadata: ResponseMetadata,
+    settings: _AppliedSettings | None,
+) -> str:
+    """Write a whole answer as NDJSON, as the REST API streams it: the head, a line for each row, the end."""
+    stations = frame.get_column("station_id").n_unique() if "station_id" in frame.columns else 0
+    lines = [ndjson_line(ndjson_head(metadata, settings)), *(ndjson_line(row) for row in rows)]
+    lines.append(ndjson_line({"end": ndjson_end(stations, len(rows), metadata.warnings)}))
+    return b"".join(lines).decode()
+
+
 def render_stations(
     result: StationsResult,
     request: StationsRequest,
@@ -245,6 +296,9 @@ def render_stations(
 
     `metadata` is the block, where the caller has built it to put the same in the headers.
     """
+    if request.format == "ndjson":
+        metadata = metadata or response_metadata(result, request)
+        return _render_ndjson(result.to_dict()["stations"], result.df, metadata, None)
     if request.format not in ("json", "geojson"):
         return result.to_format(**render_kwargs(request, max_side=max_side))
     metadata = metadata or response_metadata(result, request)
@@ -267,6 +321,10 @@ def render(
     rest is written as `to_json` and `to_geojson` write it. `metadata` is the block, where the caller has
     built it to put the same in the headers.
     """
+    if request.format == "ndjson":
+        metadata = metadata or response_metadata(result, request)
+        settings = _applied_settings(applied, options) if request.with_metadata else None
+        return _render_ndjson(result.to_dict()["values"], result.df, metadata, settings)
     if request.format not in ("json", "geojson"):
         kwargs: dict[str, Any] = {**render_kwargs(request, max_side=max_side), "with_stations": request.with_stations}
         return result.to_format(**kwargs)
@@ -323,16 +381,8 @@ def render_stripes_stations(result: StationsResult, request: StripesStationsRequ
     return _json_answer(dict(data), request, metadata)
 
 
-class StripesValuesMetadata(ResponseMetadata, StripesMetadata):
-    """The `metadata` of `/api/stripes/values`: the block of every answer, and what the stripes are of.
-
-    `station`, `resolution`, `dataset`, `parameter` and `unit` are what this member held before it was the block.
-    """
-
-
 def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
-    """Write the values of climate stripes as JSON, the `metadata` block holding what the stripes are of too."""
-    block = StripesValuesMetadata.model_validate({**metadata.model_dump(), **data.metadata.model_dump()})
+    """Write the values of climate stripes as JSON: the `metadata` block, the `series` they are of, and the `values`."""
     values = [
         {
             "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
@@ -340,4 +390,5 @@ def render_stripes_values(data: StripesData, request: StripesValuesRequest, meta
         }
         for row in data.df.select("timestamp", "value").iter_rows(named=True)
     ]
-    return json.dumps({"metadata": metadata_to_dict(block), "values": values}, indent=4 if request.pretty else None)
+    answer = {"metadata": metadata_to_dict(metadata), "series": data.series.model_dump(), "values": values}
+    return json.dumps(answer, indent=4 if request.pretty else None)

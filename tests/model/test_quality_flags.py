@@ -8,6 +8,7 @@ import polars as pl
 import pytest
 
 from wetterdienst.model.quality_flags import (
+    NoReading,
     OutOfRange,
     Sentinel,
     clear_sentinels,
@@ -246,3 +247,13 @@ def test_a_wide_column_outside_its_range_goes_through_the_unpivot_with_its_text(
     long = unpivot_with_raw(df, index=["at"]).sort("parameter", "at")
     assert long.get_column("value").to_list() == [1013.2, 5.0, None, 17.5]
     assert long.get_column("raw").to_list() == [None, None, "4021", None]
+
+
+def test_a_period_that_is_no_reading_nulls_what_it_selects_and_keeps_the_value() -> None:
+    """Test that `NoReading` nulls every number its `where` selects, whatever it is, and not a blank (GH-3031)."""
+    cleaned, raw = null_sentinels(pl.col("v"), NoReading(pl.col("stuck")), text=False)
+    out = pl.DataFrame(
+        {"stuck": [True, True, False, True], "v": [0.0, 980.0, 980.0, None]},
+    ).select(cleaned.alias("cleaned"), raw.alias("raw"))
+    assert out.get_column("cleaned").to_list() == [None, None, 980.0, None]
+    assert out.get_column("raw").to_list() == ["0", "980", None, None]

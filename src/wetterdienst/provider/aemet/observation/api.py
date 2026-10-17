@@ -308,7 +308,9 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     The "datos" URL is pre-signed and takes no key, so a refusal of it says nothing about the key.
     One that is no answer -- a timeout, a dropped connection, a body cut short, a 5xx, an `estado`
     of 500 or more -- is returned as the `DownloadError` that names the file, and a failed connection
-    as the `NoInternetError` (`_as_outage`); the readers of values raise those (GH-2965).
+    as the `NoInternetError` (`_as_outage`); the readers of values raise those (GH-2965). A refusal of
+    the key is asked once more before it is returned, AEMET answering a 401 to a key that it accepts on
+    the next request (GH-3022).
 
     Nothing that failed stays in the cache (see `_drop_cached_body`): not an envelope that is a
     failure, not a "datos" body that is no JSON array, and not the envelope of a "datos" link that
@@ -318,6 +320,14 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     client_kwargs = _client_kwargs(settings)
     file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
     envelope = _read_envelope(file)
+    if isinstance(envelope, AemetKeyRejectedError):
+        # AEMET answers a 401 to a key it accepts on the next request, so the key is called refused
+        # only when it refuses it twice (GH-3022). The first answer is dropped from the cache, so
+        # that the second is a request and not the cached refusal
+        _drop_cached_body(file, settings, ttl, client_kwargs)
+        log.warning(f"AEMET refused the API key for {file.url}: {envelope}; asking once more")
+        file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
+        envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return _as_outage(envelope, file.url)

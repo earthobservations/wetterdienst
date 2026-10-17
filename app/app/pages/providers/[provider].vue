@@ -80,7 +80,7 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
             {{ provider.name_local }}
           </p>
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {{ provider.country_code === MULTINATIONAL ? t('providers.multinational') : provider.country }}
+            {{ provider.country_code === null ? t('providers.multinational') : provider.country }}
             ·
             <code>{{ provider.provider }}</code>
           </p>

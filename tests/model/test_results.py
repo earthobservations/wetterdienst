@@ -262,7 +262,6 @@ def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -
     assert _public(StationsResult) == [
         "end",
         "filtered_by_sql",
-        "get_metadata",
         "history",
         "options",
         "parameters",
@@ -410,7 +409,7 @@ def test_the_dictionaries_of_the_results_are_importable_by_a_public_name() -> No
     public names are the same classes, so the components are the ones `/api/v1` freezes.
     """
     names = {
-        "Metadata": "_Metadata",
+        "ResultMetadata": "_Metadata",
         "StationsDict": "_StationsDict",
         "StationsOgcFeatureCollection": "_StationsOgcFeatureCollection",
         "ValuesDict": "_ValuesDict",
@@ -432,3 +431,99 @@ def test_the_dictionaries_of_the_results_are_importable_by_a_public_name() -> No
         "SummarizedValuesResult",
         "ValuesResult",
     ]
+
+
+# ----- equality (GH-3037): a result is equal to another of its class that holds the same, and is unhashable
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized", "history"])
+def test_results_that_hold_the_same_are_equal(name: str) -> None:
+    """Two results built apart, of equal frames, compare equal: the generated `__eq__` raised on the frames."""
+    first, second = _every_result()[name], _every_result()[name]
+    assert first is not second
+    assert first == second
+    assert not first != second  # noqa: SIM202
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized", "history"])
+def test_a_result_is_unhashable(name: str) -> None:
+    """It holds frames, which are unhashable, so it is no key and no member of a set (the same on all five)."""
+    result = _every_result()[name]
+    assert type(result).__hash__ is None
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(result)
+
+
+@pytest.mark.parametrize(
+    ("name", "other"),
+    [
+        pytest.param("values", lambda result: ValuesResult(stations=result.stations, df=result.df.head(2)), id="rows"),
+        pytest.param(
+            "values",
+            lambda result: ValuesResult(stations=result.stations, df=result.df.with_columns(pl.col("value") + 1)),
+            id="values",
+        ),
+        pytest.param(
+            "values",
+            lambda result: ValuesResult(stations=result.stations, df=result.df.reverse()),
+            id="row-order",
+        ),
+        pytest.param(
+            "values",
+            lambda result: ValuesResult(
+                stations=result.stations, df=result.df.with_columns(pl.col("value").cast(pl.Float32))
+            ),
+            id="dtype",
+        ),
+        pytest.param(
+            "values",
+            lambda result: ValuesResult(stations=result.stations.filtered_by_sql("station_id = '01048'"), df=result.df),
+            id="stations",
+        ),
+        pytest.param(
+            "stations",
+            lambda result: dataclasses.replace(result, stations_filter=StationsFilter.ALL),
+            id="stations-filter",
+        ),
+        pytest.param("stations", lambda result: dataclasses.replace(result, rank=3), id="rank"),
+        pytest.param(
+            "stations",
+            lambda result: dataclasses.replace(result, df_all=result.df_all.head(1)),
+            id="df-all",
+        ),
+        pytest.param(
+            "stations",
+            lambda result: dataclasses.replace(
+                result, request=DwdObservationRequest(parameters="daily/kl", settings=Settings(cache_disable=True))
+            ),
+            id="request",
+        ),
+        pytest.param("interpolated", lambda result: dataclasses.replace(result, latlon=(51.0, 14.0)), id="latlon"),
+        pytest.param("summarized", lambda result: dataclasses.replace(result, elevation=200.0), id="elevation"),
+    ],
+)
+def test_results_that_differ_in_a_field_are_unequal(name: str, other: object) -> None:
+    """Every field counts: rows, order, values, dtypes, the stations, the request and the point."""
+    result = _every_result()[name]
+    assert result == _every_result()[name]
+    assert result != other(result)  # ty: ignore[call-non-callable]
+
+
+def test_results_of_different_classes_are_unequal_even_when_they_hold_the_same() -> None:
+    """The same stations and frame in a values, an interpolated and a summarized result are three results."""
+    results = _every_result()
+    assert results["interpolated"] != results["summarized"]
+    assert results["values"] != results["interpolated"]
+    assert results["values"] != results["stations"]
+    assert results["values"] != 1
+    # `NotImplemented` and not False, so that the other side gets to answer
+    assert results["values"].__eq__(results["stations"]) is NotImplemented
+
+
+def test_nulls_and_nans_in_a_frame_do_not_make_a_result_unequal_to_itself() -> None:
+    """A null equals a null and a NaN a NaN, as in `DataFrame.equals`: a result with gaps equals its twin."""
+    frame = _values_frame().with_columns(
+        value=pl.Series([None, float("nan"), 3.0], dtype=pl.Float64),
+    )
+    first = ValuesResult(stations=_stations(), df=frame)
+    assert first == ValuesResult(stations=_stations(), df=frame.clone())

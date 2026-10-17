@@ -27,6 +27,13 @@ Types of changes:
   0.158.0 or newer (GH-2565). The Providers texts are in all eleven languages; the Polish, Czech,
   Luxembourgish and Low German ones are not natively reviewed
 
+### Changed
+
+- `[API page/Home]` The MCP client configuration and the home link name the pinned endpoint
+  `/mcp/v1`, as the backend reports it in `/api/version` (`mcp_path`), so a client set up from here
+  does not move with the next version. A backend that does not report it is still given `/mcp`
+  (GH-3074)
+
 ### Fixed
 
 - `[Meteogram]` The weekday and the date of the hover heading, and the weekday of the day labels

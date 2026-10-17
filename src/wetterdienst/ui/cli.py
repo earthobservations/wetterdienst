@@ -38,7 +38,6 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     RENAMED_REQUEST_PARAMETERS,
-    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
@@ -72,6 +71,7 @@ from wetterdienst.ui.render import (
     InterpolationSettings,
     SummarySettings,
     ValuesSettings,
+    ndjson_refusal,
     render,
     render_alerts,
     render_history,
@@ -292,6 +292,17 @@ format_opt = click.option(
     default="json",
     help="Output format: json, geojson or csv for data, html, png, jpg, webp, svg or pdf for a chart. Default: json",
 )
+# of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
+stream_format_opt = click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(
+        ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False
+    ),
+    default="json",
+    help="Output format: json, geojson, csv or ndjson (the metadata, a line for each row, then the end) for data, "
+    "html, png, jpg, webp, svg or pdf for a chart. Default: json",
+)
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
 height_opt = click.option("--height", type=click.IntRange(min=1), help="Height of a rendered chart in pixels.")
@@ -383,13 +394,6 @@ num_additional_stations_opt = click.option(
     help=(
         "Number of additional nearby stations to consider. Default: WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3"
     ),
-)
-# accepted by `summarize` still, so that an invocation giving it is warned rather than refused (GH-2333)
-summary_use_nearby_station_distance_opt = click.option(
-    "--use-nearby-station-distance",
-    type=click.FLOAT,
-    default=1,
-    deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
 )
 
 
@@ -793,7 +797,7 @@ AUTH_EXAMPLES = r"""
 """
 
 RESTAPI_EXAMPLES = r"""
-    # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp
+    # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp/v1 (and /mcp)
     wetterdienst restapi
 
     # listen on every interface, and reload on source changes
@@ -1391,7 +1395,7 @@ def fields(
 @right_opt
 @top_opt
 @sql_opt
-@format_opt
+@stream_format_opt
 @width_opt
 @height_opt
 @scale_opt
@@ -1747,7 +1751,7 @@ def history(
     default=True,
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
-@format_opt
+@stream_format_opt
 @width_opt
 @height_opt
 @scale_opt
@@ -1850,6 +1854,8 @@ def values(
     )
     set_logging_level(debug=debug)
     begin_response()
+    if request.format == "ndjson" and (refusal := ndjson_refusal(request)) is not None:
+        raise click.UsageError(refusal)
 
     api = get_timeseries_api(request.provider, request.network)
 
@@ -2045,7 +2051,6 @@ def interpolate(
 @station_distance_opts("summary")
 @min_gain_of_value_pairs_opt
 @num_additional_stations_opt
-@summary_use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
@@ -2071,7 +2076,6 @@ def summarize(
     summary_station_distance_heterogeneous: float | None,
     min_gain_of_value_pairs: float,
     num_additional_stations: int,
-    use_nearby_station_distance: float,
     timestamp: str,
     start: str,
     end: str,
@@ -2116,7 +2120,6 @@ def summarize(
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
             "min_gain_of_value_pairs": min_gain_of_value_pairs,
             "num_additional_stations": num_additional_stations,
-            "use_nearby_station_distance": use_nearby_station_distance,
             "timestamp": timestamp_resolved,
             "issue": issue,
             "station": station,

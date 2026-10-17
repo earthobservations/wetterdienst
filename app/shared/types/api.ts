@@ -469,8 +469,8 @@ export interface Provider {
   name_local: string
   name_english: string
   country: string
-  /** ISO 3166-1 alpha-2, or `ZZ` for a provider of several countries */
-  country_code: string
+  /** ISO 3166-1 alpha-2; null for a provider of several countries */
+  country_code: string | null
   /** Null where the provider states no terms */
   license: ProviderLicense | null
   /** The credit line to give; null where the provider states none or asks for none */

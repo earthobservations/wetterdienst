@@ -14,7 +14,7 @@ from textwrap import dedent
 
 import click
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from pydantic import ValidationError
 
 from wetterdienst import Settings, Wetterdienst
@@ -810,7 +810,8 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
             "--convert-units=true",
             f"--{kind}-station-distance-homogeneous=40",
             f"--{kind}-station-distance-heterogeneous=20",
-            "--use-nearby-station-distance=0.5",
+            # a summary has no such option, it takes the nearest station with data
+            *(["--use-nearby-station-distance=0.5"] if command == "interpolate" else []),
         ],
         env,
     )
@@ -818,7 +819,6 @@ def test_cli_estimate_leaves_a_setting_no_option_was_given_for_to_the_environmen
     assert options.convert_units is True
     assert options.geo_station_distance_homogeneous == 40
     assert options.geo_station_distance_heterogeneous == 20
-    # `summarize` accepts the option and reads nothing from it, which it says it does (GH-2333)
     assert options.geo_use_nearby_station_distance == (0.5 if command == "interpolate" else 0)
 
 
@@ -969,27 +969,22 @@ def test_cli_refuses_unknown_unit_targets_unit(monkeypatch: pytest.MonkeyPatch, 
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_cli_summarize_warns_that_use_nearby_station_distance_is_deprecated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`summarize --use-nearby-station-distance` is accepted, said to have no effect, and has none.
+def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`summarize` has no `--use-nearby-station-distance`, which no summary read (GH-3077); `interpolate` has it."""
 
-    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333).
-    Left out, the command says nothing about it, and `interpolate`, which does read it, neither.
-    """
-    warning = "DeprecationWarning: The option 'use_nearby_station_distance' is deprecated. It has no effect"
-
-    def run(args: list[str]) -> str:
+    def run(args: list[str]) -> Result:
         def take(_get: object, *, options: Options, **_kwargs: object) -> None:
             raise _SettingsTaken(options)
 
         monkeypatch.setattr("wetterdienst.ui.cli._collect_or_exit", take)
-        result = CliRunner().invoke(cli, args, env={})
-        assert isinstance(result.exception, _SettingsTaken), result.output
-        assert result.exception.args[0].geo_use_nearby_station_distance == (0.5 if args[0] == "interpolate" else 1.0)
-        return result.stderr
+        return CliRunner().invoke(cli, args, env={})
 
-    assert warning in run(["summarize", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
-    assert "use_nearby_station_distance" not in run(["summarize", *_POINT_ARGS])
-    assert "use_nearby_station_distance" not in run(["interpolate", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
+    refused = run(["summarize", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
+    assert refused.exit_code == 2, refused.output
+    assert "No such option '--use-nearby-station-distance'" in refused.output
+    taken = run(["interpolate", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
+    assert isinstance(taken.exception, _SettingsTaken), taken.output
+    assert taken.exception.args[0].geo_use_nearby_station_distance == 0.5
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")

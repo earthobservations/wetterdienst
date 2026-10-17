@@ -37,7 +37,7 @@ from wetterdienst.model.result import (
     InterpolatedValuesDict,
     InterpolatedValuesOgcFeatureCollection,
     InterpolatedValuesResult,
-    Metadata,
+    ResultMetadata,
     StationsDict,
     StationsOgcFeatureCollection,
     StationsResult,
@@ -117,7 +117,7 @@ assert_type(stations.to_ogc_feature_collection()["data"]["type"], Literal["Featu
 # the dictionaries of the results are importable by name, to annotate a function that takes or returns one
 assert_type(stations.to_dict(), StationsDict)
 assert_type(stations.to_ogc_feature_collection(), StationsOgcFeatureCollection)
-assert_type(stations.get_metadata(), Metadata)
+assert_type(stations.to_dict(with_metadata=True)["metadata"], ResultMetadata)
 
 
 def station_ids(document: StationsDict) -> list[str]:
