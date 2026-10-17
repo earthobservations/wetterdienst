@@ -18,7 +18,7 @@ pip install wetterdienst
 ```
 
 The base install keeps dependencies light. Optional features live behind
-[extras](docker.md) — for example the interpolation feature or exporting to databases:
+[extras](../index.md#setup) — for example the interpolation feature or exporting to databases:
 
 ```bash
 pip install "wetterdienst[interpolation,export]"
