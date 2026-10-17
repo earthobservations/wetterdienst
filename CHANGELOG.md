@@ -16,6 +16,28 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wetterdienst stripes image` writes the climate stripes image, named as `/api/stripes/image` and
+  the MCP tool `stripes_image` are. `stripes values`, which wrote the image while REST's
+  `stripes/values` answers the yearly data, still writes it, with a deprecation notice on stderr
+  (stdout stays the image alone); use `stripes image` for the image (GH-3035)
+
+### Fixed
+
+- `aemet/observation`: a rate limit that outlasts the retries (an HTTP 429 or an `estado` of 429
+  in the envelope) is raised as a `DownloadError` naming the file, with the 429 as its `__cause__`
+  and the REST API answers a 502. It was logged and the chunk skipped, so a rate-limited request
+  returned a partial or empty result as if AEMET had no data (GH-2989)
+- A remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so every provider
+  that lists) whose connection is reset or dropped, whose body stops arriving, that times out or
+  that is refused with an HTTP status raises a `DownloadError` naming the URL, with the aiohttp
+  error as its `__cause__`, where it raised the raw aiohttp error (REST: 500, now 502 or 504). A
+  connection that cannot be made stays the `NoInternetError` (GH-3004)
+- `dwd/mosmix` and `dwd/dmo` no longer send an HTTP HEAD for a run the cache holds: the size
+  for the progress bar is read from the cached file, so a cached run is read with no request
+  at all (GH-3003)
+
 ## [0.158.0] - 2026-10-17
 
 ### Added
