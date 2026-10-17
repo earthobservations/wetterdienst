@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `Settings(...)` is checked by `ty`, mypy and pyright field by field: a misspelt setting
+  (`Settings(cache_dsable=True)`) or a value of the wrong type is reported where it is written, not
+  as a `ValidationError` at run time. Nothing changes at run time (GH-3042)
+- The dictionaries that the results return have public names to annotate a function with:
+  `StationsDict`, `StationsOgcFeatureCollection`, `ValuesDict`, `ValuesOgcFeatureCollection`,
+  `InterpolatedValuesDict`, `InterpolatedValuesOgcFeatureCollection`, `SummarizedValuesDict`,
+  `SummarizedValuesOgcFeatureCollection`, `HistoryDict` and `Metadata`, importable from
+  `wetterdienst.model.result` instead of the underscored classes they are aliases of (GH-3046)
+
 ### Changed
 
 - **Breaking**: `noaa/ghcn` `hourly` returns one reading for each parameter and full hour, the one
@@ -25,6 +36,12 @@ Types of changes:
   the full-hour grid. The minute of a report is not returned; read the GHCNh file for it. The
   precipitation of source 412 (`FM94_1`) stays, marked `source:412`; it does not agree with the
   station's gauge, see the provider page (GH-3000, GH-3016)
+
+### Removed
+
+- **Breaking**: `TimeseriesValues` no longer has the attributes `stations_counter` and
+  `stations_collected`, nor takes them as constructor arguments. `query()` kept them for nobody; the
+  stations a query returned are in the `station_id` column of the results (GH-3037)
 
 ## [0.157.0] - 2026-10-17
 

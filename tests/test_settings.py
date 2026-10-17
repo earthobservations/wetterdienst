@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.#
 """Tests for settings."""
 
+import ast
 import atexit
 import collections
 import dataclasses
@@ -14,6 +15,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any, get_args, get_origin
 from unittest import mock
 
 import platformdirs
@@ -24,6 +26,7 @@ from pydantic import SecretStr, ValidationError
 from pydantic_settings import SettingsError
 from yarl import URL
 
+import wetterdienst.settings
 from wetterdienst.settings import (
     Auth,
     Settings,
@@ -1795,3 +1798,52 @@ def test_settings_render_masks_what_is_not_a_known_safe_value(client_kwargs: dic
     assert "QSECRET" not in rendered
     assert "123456789" not in rendered
     assert json.loads(rendered)["fsspec_client_kwargs"]["timeout"] == 7
+
+
+def _type_checking_signature() -> ast.arguments:
+    """Return the arguments of the `__init__` that `Settings` shows a type checker (`if TYPE_CHECKING:`)."""
+    module = ast.parse(Path(wetterdienst.settings.__file__).read_text(encoding="utf8"))
+    cls = next(node for node in module.body if isinstance(node, ast.ClassDef) and node.name == "Settings")
+    guard = next(
+        node
+        for node in cls.body
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING"
+    )
+    init = next(node for node in guard.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
+    return init.args
+
+
+def _takes(argument: Any, annotation: Any) -> bool:  # noqa: ANN401
+    """Whether an argument of this type takes what a field annotated so holds (`dict[str, Any]` is a `Mapping`)."""
+    if argument == annotation:
+        return True
+    origin, held = get_origin(argument), get_origin(annotation)
+    return (
+        origin is not None
+        and held is not None
+        and issubclass(held, origin)
+        and get_args(argument) == get_args(annotation)
+    )
+
+
+def test_the_constructor_a_type_checker_reads_has_the_fields_of_the_settings() -> None:
+    """The stub of `Settings.__init__` is the fields as keyword-only arguments, by name and by type (GH-3042).
+
+    `BaseSettings.__init__` takes `**values: Any`, which hides the fields from a type checker, so the
+    class shows it a signature of its own under `TYPE_CHECKING`. It cannot be read at runtime, so this
+    reads the source, and holds it to `Settings.model_fields` so that a field added to the settings cannot
+    be left out of it. An argument takes the type of its field or a union that has it as a member (a path
+    may be given as text, `auth` as a mapping).
+    """
+    args = _type_checking_signature()
+    namespace = vars(wetterdienst.settings)
+    stub = {arg.arg: eval(ast.unparse(arg.annotation), namespace) for arg in args.kwonlyargs}  # noqa: S307
+
+    assert [arg.arg for arg in args.posonlyargs] == ["self"]
+    assert args.args == []
+    assert args.vararg is None
+    assert args.kwarg is None
+    assert all(default is not None for default in args.kw_defaults), "an argument without a default is required"
+    assert set(stub) == set(Settings.model_fields)
+    for name, field in Settings.model_fields.items():
+        assert any(_takes(member, field.annotation) for member in (stub[name], *get_args(stub[name]))), name

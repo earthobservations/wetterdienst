@@ -347,7 +347,7 @@ class DwdSwsmosValues(TimeseriesValues):
         object that produced it, so without that second clear a request for one station's forecast
         handed back a result pinning the whole network's parsed run for as long as the caller kept
         it. Neither clear makes this re-entrant: two interleaved walks over one values object would
-        tread on each other's run, as they already do on `stations_counter`.
+        tread on each other's run.
         """
         self._run_frame_cache = None
         try:

@@ -11,6 +11,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
+from wetterdienst.model import result as result_module
 from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.result import (
     HistoryResult,
@@ -400,3 +401,34 @@ def test_to_format_gives_an_image_the_arguments_of_an_image(name: str, monkeypat
     }
     assert result.to_format("PNG", **everything) == "image"  # ty: ignore[unresolved-attribute]
     assert given == {"fmt": "png", "width": 3, "height": 4, "scale": 1.5, "max_side": 9}
+
+
+def test_the_dictionaries_of_the_results_are_importable_by_a_public_name() -> None:
+    """A caller annotates a function with `StationsDict` and the like, the classes the formats return (GH-3046).
+
+    The classes keep their private names, which the REST API publishes as OpenAPI components; the
+    public names are the same classes, so the components are the ones `/api/v1` freezes.
+    """
+    names = {
+        "Metadata": "_Metadata",
+        "StationsDict": "_StationsDict",
+        "StationsOgcFeatureCollection": "_StationsOgcFeatureCollection",
+        "ValuesDict": "_ValuesDict",
+        "ValuesOgcFeatureCollection": "_ValuesOgcFeatureCollection",
+        "InterpolatedValuesDict": "_InterpolatedValuesDict",
+        "InterpolatedValuesOgcFeatureCollection": "_InterpolatedValuesOgcFeatureCollection",
+        "SummarizedValuesDict": "_SummarizedValuesDict",
+        "SummarizedValuesOgcFeatureCollection": "_SummarizedValuesOgcFeatureCollection",
+        "HistoryDict": "_HistoryDict",
+    }
+    for public, private in names.items():
+        assert getattr(result_module, public) is getattr(result_module, private), public
+        assert public in result_module.__all__
+    assert sorted(set(result_module.__all__) - set(names)) == [
+        "HistoryResult",
+        "InterpolatedValuesResult",
+        "StationsFilter",
+        "StationsResult",
+        "SummarizedValuesResult",
+        "ValuesResult",
+    ]
