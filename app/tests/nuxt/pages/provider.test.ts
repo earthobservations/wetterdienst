@@ -129,7 +129,7 @@ describe('provider Page', () => {
   it('says so for a provider there is none of, and leads back to the list', async () => {
     const wrapper = await mountProvider('nowhere')
 
-    expect(wrapper.text()).toContain('There is no provider called "nowhere".')
+    expect(wrapper.text()).toContain('There is no provider called “nowhere”.')
     expect(hrefs(wrapper)).toContain('/providers')
   })
 
