@@ -54,11 +54,12 @@ const providersLoading = computed(() => providersPending.value && !providerList.
 const PLACEHOLDER_WIDTHS = ['w-14', 'w-24', 'w-20', 'w-28', 'w-16', 'w-24', 'w-20']
 const placeholders = Array.from({ length: 22 }, (_, index) => PLACEHOLDER_WIDTHS[index % PLACEHOLDER_WIDTHS.length])
 
-// Headline numbers: the providers are the backend's count; the 514 canonical parameters of
-// `metadata/parameter_table.py` are written out, and `tests/unit/i18n-parity.test.ts` holds the glossary to them.
+// Headline numbers: the providers and the parameters are the backend's counts (`GET /api/providers`, the
+// `metadata.counts`), so neither is written out here to drift from the library; a number that has not come
+// is null, and the tile holds its place until the request has answered.
 const stats = computed(() => [
   { key: 'providers', value: providerList.value ? String(providerList.value.metadata.counts.providers) : null, label: t('home.statProviders') },
-  { key: 'parameters', value: '514', label: t('home.statParameters') },
+  { key: 'parameters', value: providerList.value ? String(providerList.value.metadata.counts.parameters) : null, label: t('home.statParameters') },
   { key: 'resolutions', value: '1 min – 1 a', label: t('home.statResolutions') },
   { key: 'price', value: '0 €', label: t('home.statPrice') },
 ])
@@ -155,7 +156,7 @@ const dataKinds = computed(() => [
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <UCard v-for="stat in stats" :key="stat.key" :ui="{ body: 'text-center py-4' }">
-        <!-- the number of providers is the backend's: its place is held until it has answered (h-8 is the
+        <!-- the numbers of providers and parameters are the backend's: its place is held until it has answered (h-8 is the
              line of text-2xl), and it is a dash where the request failed -->
         <div class="text-2xl font-bold text-primary-600 dark:text-primary-500">
           <div v-if="stat.value === null && providersLoading" class="h-8 w-10 mx-auto rounded-md bg-elevated animate-pulse" aria-hidden="true" />

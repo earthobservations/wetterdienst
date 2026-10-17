@@ -4303,13 +4303,19 @@
           "networks": {
             "type": "integer",
             "title": "Networks"
+          },
+          "parameters": {
+            "type": "integer",
+            "title": "Parameters",
+            "description": "How many different parameters (canonical names) the networks listed declare, counted once however many networks, resolutions and datasets carry one."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "providers",
-          "networks"
+          "networks",
+          "parameters"
         ],
         "title": "CatalogueCounts",
         "description": "How much a catalogue of the library holds."

@@ -170,6 +170,7 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
     else:
         names = list(Wetterdienst.registry)
     providers: list[Provider] = []
+    parameters: set[str] = set()
     for name in names:
         networks = [described for network in Wetterdienst.registry[name] if (described := _network(name, network))]
         declared = [metadata for _, metadata in networks if metadata is not None]
@@ -189,8 +190,20 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
                 networks=[network for network, _ in networks],
             )
         )
+        parameters.update(
+            parameter.name
+            for _, metadata in networks
+            if metadata is not None
+            for resolution in metadata
+            for dataset in resolution
+            for parameter in dataset
+        )
     providers.sort(key=lambda p: p.name_english.casefold())
     return ProvidersAnswer(
-        metadata=catalogue_metadata(providers=len(providers), networks=sum(len(p.networks) for p in providers)),
+        metadata=catalogue_metadata(
+            providers=len(providers),
+            networks=sum(len(p.networks) for p in providers),
+            parameters=len(parameters),
+        ),
         providers=providers,
     )

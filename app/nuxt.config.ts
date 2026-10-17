@@ -62,6 +62,20 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // The icons come from this app's own server (GH-3111): the three sets are installed (`@iconify-json/*`) and
+  // the server bundle serves them. `provider` is set because @nuxt/icon picks `iconify`, which asks
+  // api.iconify.design for every icon, whenever `ssr` is false, as it is here. `localApiEndpoint` is outside
+  // `/api`, which the app proxies to the backend. `fallbackToApi: false` keeps a name that no set has from
+  // being asked of the third party: it is an icon missing, not a request.
+  icon: {
+    provider: 'server',
+    serverBundle: {
+      collections: ['lucide', 'heroicons', 'simple-icons'],
+    },
+    localApiEndpoint: '/_nuxt_icon',
+    fallbackToApi: false,
+  },
+
   devServer: {
     host: '0.0.0.0',
     port: 4000,
@@ -86,7 +100,7 @@ export default defineNuxtConfig({
     corsAllowedOrigins: '',
     public: {
       // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
-      apiBase: 'http://localhost:3000/api',
+      apiBase: 'http://localhost:7890/api',
     },
   },
 
@@ -144,15 +158,15 @@ export default defineNuxtConfig({
       contentSecurityPolicy: {
         // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
         // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by
-        // the server's proxies. Iconify is the exception, for the icons (GH-3111).
+        // the server's proxies, and the icons come from `/_nuxt_icon` (GH-3111).
         // No `'unsafe-eval'`: nothing evaluates a string (Plotly, Leaflet, Vue and the i18n messages run under
         // this policy; Zod probed it, see `useSettings.ts`). `'wasm-unsafe-eval'` is for DuckDB's module, which
         // the worker compiles: Chrome gives a worker the policy of its script, which has none, but a browser
         // that gives it the page's needs it, and it allows WebAssembly, no string.
         'default-src': ['\'self\''],
-        'connect-src': ['\'self\'', 'https://api.iconify.design', 'https://code.iconify.design'],
-        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com', 'https://api.iconify.design', 'https://code.iconify.design'],
-        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'wasm-unsafe-eval\'', 'https://api.iconify.design'],
+        'connect-src': ['\'self\''],
+        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com'],
+        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'wasm-unsafe-eval\''],
         'worker-src': ['\'self\''],
         'child-src': ['\'self\''],
         'style-src': ['\'self\'', '\'unsafe-inline\''],

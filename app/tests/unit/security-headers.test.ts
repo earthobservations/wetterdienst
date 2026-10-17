@@ -62,7 +62,7 @@ describe('security headers', () => {
   })
 
   it('lets the browser call its own origin, not the backend whose address is read when the app is built', async () => {
-    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://backend.internal:3000/api')
+    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://backend.internal:7890/api')
     const config = await loadConfig()
     const connect = policyOf(config)['connect-src']!
 

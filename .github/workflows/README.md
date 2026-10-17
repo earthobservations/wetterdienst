@@ -69,7 +69,7 @@ workflow whose filter spans both sides of the repository.
 **E2E Test Flow:**
 1. Install Node.js, pnpm, and Playwright with Firefox
 2. Setup Python and install backend with uv
-3. Start backend API server on port 3000
+3. Start backend API server on port 7890
 4. Run E2E tests against live backend
 5. Upload test artifacts (Playwright report)
 6. Cleanup backend process

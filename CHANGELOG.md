@@ -22,9 +22,16 @@ Types of changes:
   the MCP tool `stripes_image` are. `stripes values`, which wrote the image while REST's
   `stripes/values` answers the yearly data, still writes it, with a deprecation notice on stderr
   (stdout stays the image alone); use `stripes image` for the image (GH-3035)
+- `/api/providers` counts the different parameters its networks declare in
+  `metadata.counts.parameters`, beside `providers` and `networks`; the app's home page
+  states that number instead of one it was written with (GH-3105)
 
 ### Changed
 
+- **Breaking**: the Docker image listens on 7890 by default (`EXPOSE` and the `CMD` of both stages),
+  as `wetterdienst restapi` does outside Docker, and `compose.yml` publishes 7890 and reaches the
+  backend there; it was 3000. A deployment that maps `3000:3000` or asks the container for port 3000
+  maps `3000:7890` (or `7890:7890`) now, or starts it with `--listen 0.0.0.0:3000` (GH-3106)
 - **Breaking**: `aemet/observation`: a rate limit that outlasts the retries (an HTTP 429 or an
   `estado` of 429 in the envelope) raises a `DownloadError` naming the file, the 429 as its
   `__cause__`; the REST API answers a 502. It was logged and the chunk skipped, so a rate-limited

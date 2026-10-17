@@ -221,7 +221,8 @@ warnings of `alerts`), and `counts.rows` counts what it lists: the issues, the a
 `stripes/values` says what its values are of in a `series` member next to `metadata` (the `station`,
 `resolution`, `dataset`, `parameter` and `unit` of the values), not in the block. `providers` has a
 smaller block, with the `api_version`, `schema_version`, `retrieved_at`, `producer`, `warnings` and the counts of
-providers and networks: its answer is about the library, and the terms are those of each provider it lists.
+providers, networks and the different parameters they declare: its answer is about the library, and
+the terms are those of each provider it lists.
 
 `with_metadata=true` adds two more members to the block:
 
