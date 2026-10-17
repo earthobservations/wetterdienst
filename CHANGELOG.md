@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.158.0] - 2026-10-17
+
 ### Added
 
 - The MCP endpoint is versioned like the REST API: `/mcp/v1` is the endpoint to configure, and
@@ -72,8 +74,6 @@ Types of changes:
   are in the OpenAPI document with a response model now; the MCP tools `alerts` and `stripes_*`,
   whose model is a union with text for CSV, answer `{"result": ...}` as `stations` does; read
   the answer from `result` (GH-3059)
-
-### Changed
 
 - Results compare by what they hold: `result == other` is true for two results of the same class
   whose frames have the same columns, dtypes and values in the same order and whose other fields
@@ -5647,7 +5647,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.157.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.158.0...HEAD
+[0.158.0]: https://github.com/earthobservations/wetterdienst/compare/v0.157.0...v0.158.0
 [0.157.0]: https://github.com/earthobservations/wetterdienst/compare/v0.156.0...v0.157.0
 [0.156.0]: https://github.com/earthobservations/wetterdienst/compare/v0.155.0...v0.156.0
 [0.155.0]: https://github.com/earthobservations/wetterdienst/compare/v0.154.0...v0.155.0

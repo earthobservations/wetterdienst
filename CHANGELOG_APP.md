@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-17
+
 ### Added
 
 - `[Providers]` A Providers page, in the navigation and linked from the home page, says what each
@@ -1269,7 +1271,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.22.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.23.0...HEAD
+[0.23.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.22.0...app-v0.23.0
 [0.22.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...app-v0.22.0
 [0.21.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.20.0...app-v0.21.0
 [0.20.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.19.0...app-v0.20.0
