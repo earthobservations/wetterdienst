@@ -49,6 +49,7 @@ from yarl import URL
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
+from wetterdienst.ui.core import timed_out
 from wetterdienst.util import network
 from wetterdienst.util.network import (
     _BLOB_CACHE_DIR,
@@ -1107,8 +1108,9 @@ def test_a_directory_that_could_not_be_read_is_not_an_answer(
 
     monkeypatch.setattr(HTTPFileSystem, "find", find)
 
-    with pytest.raises(ClientOSError):
+    with pytest.raises(DownloadError) as raised:
         list_remote_files_fsspec("https://example.com/blip/", Settings(cache_dir=tmp_path))
+    assert isinstance(raised.value.__cause__, ClientOSError)
 
     # the kwarg is the whole of it: with the default `on_error="omit"` the walk inside fsspec
     # catches this and returns nothing, so neither the retry nor the caller ever learns of it
@@ -3665,14 +3667,17 @@ def test_a_listing_refused_by_a_proxy_keeps_its_proxy_authorization_header_out_o
     with (
         stamina.set_testing(True, attempts=2),
         caplog.at_level(logging.DEBUG, logger="stamina"),
-        pytest.raises(ClientResponseError) as raised,
+        pytest.raises(DownloadError) as raised,
     ):
         function(target, settings)
 
     # the proxy was sent the credential, so there was something to scrub
     assert any(secret in request for request in received)
-    assert raised.value.status == 502
-    assert raised.value.request_info.headers["Proxy-Authorization"] == "<redacted>"
+    # the proxy's refusal is the cause of the `DownloadError` that names the URL (GH-3004)
+    refusal = raised.value.__cause__
+    assert isinstance(refusal, ClientResponseError)
+    assert refusal.status == 502
+    assert refusal.request_info.headers["Proxy-Authorization"] == "<redacted>"
     retried = [record for record in caplog.records if record.name == "stamina"]
     assert retried, "stamina logged nothing, so this test would pass for the wrong reason"
     logged = "".join(record.getMessage() + str(record.__dict__) for record in caplog.records)
@@ -4138,10 +4143,43 @@ def test_a_listing_still_asks_the_full_number_of_times_for_a_failed_connection(
     monkeypatch.setattr(HTTPFileSystem, "find", fail)
     monkeypatch.setattr(HTTPFileSystem, "ls", fail)
 
-    with stamina.set_testing(True, attempts=3), pytest.raises(type(error)):
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
         function("https://example.com/blip/", Settings(cache_dir=tmp_path))
 
     assert len(attempts) == 3
+    # the server cut an established connection: not "no internet", and the failure is the cause (GH-3004)
+    assert not isinstance(raised.value, NoInternetError)
+    assert raised.value.__cause__ is error
+    assert raised.value.url == "https://example.com/blip/"
+    assert raised.value.__context__ is None
+    assert timed_out(raised.value) is isinstance(error, TimeoutError)
+
+
+@pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])
+def test_a_listing_a_server_refused_is_a_download_error_without_the_key_of_its_url(
+    function: Callable[..., object],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """An HTTP error status is the server answering badly: a `DownloadError`, asked once, naming the URL (GH-3004)."""
+    attempts = []
+    refusal = _response_error("https://example.com/dir/", 403)
+
+    def fail(_self: object, url: str, **_kwargs: object) -> list:
+        attempts.append(url)
+        raise refusal
+
+    monkeypatch.setattr(HTTPFileSystem, "find", fail)
+    monkeypatch.setattr(HTTPFileSystem, "ls", fail)
+
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
+        function("https://user:pw@example.com/dir/?key=secret", Settings(cache_dir=tmp_path))
+
+    assert len(attempts) == 1
+    assert raised.value.url == "https://***@example.com/dir/"
+    assert "secret" not in str(raised.value)
+    assert raised.value.__cause__ is not None
+    assert getattr(raised.value.__cause__, "status", None) == 403
 
 
 def test_a_listing_asks_once_for_a_failure_no_second_attempt_can_mend(
