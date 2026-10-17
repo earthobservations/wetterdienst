@@ -1066,6 +1066,7 @@
                 "json",
                 "geojson",
                 "csv",
+                "ndjson",
                 "html",
                 "png",
                 "jpg",
@@ -1074,11 +1075,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -1181,6 +1182,17 @@
                   ],
                   "title": "Response Stations Api Stations Get"
                 }
+              },
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "{\"metadata\":{...}}\n{\"station_id\":\"01048\",\"...\":\"...\"}\n{\"end\":{\"counts\":{}}}\n"
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -1190,6 +1202,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -1705,6 +1781,7 @@
                 "json",
                 "geojson",
                 "csv",
+                "ndjson",
                 "html",
                 "png",
                 "jpg",
@@ -1713,11 +1790,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -1972,6 +2049,17 @@
                   ],
                   "title": "Response Values Api Values Get"
                 }
+              },
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "{\"metadata\":{...}}\n{\"station_id\":\"01048\",\"...\":\"...\"}\n{\"end\":{\"counts\":{}}}\n"
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -1981,6 +2069,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -2501,6 +2653,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -3029,6 +3245,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -3687,6 +3967,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -6112,8 +6456,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "default": "about:blank",
-            "description": "Always `about:blank` for now."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -6127,19 +6470,46 @@
             "type": "string",
             "description": "The reason, one line for each thing wrong in a request."
           },
+          "instance": {
+            "type": "string",
+            "description": "`urn:wetterdienst:request:<id>`: the request this problem answers."
+          },
+          "request_id": {
+            "type": "string",
+            "description": "The id of the request, also sent as `X-Request-ID`."
+          },
           "errors": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
             "description": "The invalid parameters, each with the `loc` of its parameter, of a 422."
+          },
+          "limit": {
+            "type": "string",
+            "enum": [
+              "stations",
+              "rows",
+              "stream_rows"
+            ],
+            "description": "Of `limit-exceeded`: the limit the request passes."
+          },
+          "maximum": {
+            "type": "integer",
+            "description": "Of `limit-exceeded`: the value of that limit."
+          },
+          "requested": {
+            "type": "integer",
+            "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows)."
           }
         },
         "required": [
           "type",
           "title",
           "status",
-          "detail"
+          "detail",
+          "instance",
+          "request_id"
         ]
       }
     }

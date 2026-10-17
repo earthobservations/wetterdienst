@@ -42,6 +42,19 @@ from wetterdienst.options import (
 
 log = logging.getLogger(__name__)
 
+#: the REST API's limits and timeout, by default (GH-3065); a host sets them with the `WD_RESTAPI_*` settings.
+#: The stations one `values` or `history` request may read: the number `request.stations.ids` of the `metadata`
+#: block lists
+RESTAPI_MAX_STATIONS = 100
+#: the rows one answer sent as a single body (json, geojson, an image) may have: a row of the long JSON is about
+#: 200 bytes, so about 100 MB, which the server builds in memory before it sends it. A century of daily readings
+#: is 36,500 rows a parameter
+RESTAPI_MAX_ROWS = 500_000
+#: the rows of an answer streamed (ndjson, csv), which is held one station at a time: bounded by the time it takes
+RESTAPI_MAX_STREAM_ROWS = 10_000_000
+#: seconds a request may take before its answer begins; a reverse proxy usually gives up after 60
+RESTAPI_TIMEOUT = 60.0
+
 #: what pydantic renders a secret as, and so what a credential looks like after a JSON round-trip
 _MASK = "*" * 10
 
@@ -579,6 +592,15 @@ class Settings(BaseSettings):
     # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
     # the library and the CLI, whose caller is the host's own user, are not gated
     restapi_sql: bool = Field(default=False)
+    # the limits of the REST API and the MCP tools (GH-3065): a request that would pass one is refused before
+    # anything is downloaded, with a 400 that says which and how to narrow the request. 0 switches a limit off.
+    # The library and the CLI, whose caller is the host's own user, have none
+    restapi_max_stations: int = Field(default=RESTAPI_MAX_STATIONS, ge=0)
+    restapi_max_rows: int = Field(default=RESTAPI_MAX_ROWS, ge=0)
+    restapi_max_stream_rows: int = Field(default=RESTAPI_MAX_STREAM_ROWS, ge=0)
+    # seconds a request may take until its answer begins (and a streamed answer between two of its chunks),
+    # else a 504; the work already begun is not cancelled. 0 switches the timeout off
+    restapi_timeout: float = Field(default=RESTAPI_TIMEOUT, ge=0, allow_inf_nan=False)
     #: what the removed ``ts_*`` settings were given or assigned as, laid over the options of the
     #: environment. `None` until one is: a request then takes the options of the environment alone
     _ts_options: Options | None = PrivateAttr(default=None)

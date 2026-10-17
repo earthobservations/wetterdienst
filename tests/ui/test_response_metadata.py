@@ -276,10 +276,9 @@ def test_a_csv_answer_carries_the_block_in_headers(
     assert headers["X-Wetterdienst-License"] == "CC-BY-4.0"
     assert unquote(headers["X-Wetterdienst-Attribution"]) == "Source: Deutscher Wetterdienst"
     assert unquote(headers["X-Wetterdienst-Provider"]) == "German Weather Service"
-    assert (headers["X-Wetterdienst-Stations"], headers["X-Wetterdienst-Rows"]) == (
-        "1",
-        "1" if endpoint != "/api/values" else "2",
-    )
+    assert headers["X-Wetterdienst-Stations"] == "1"
+    # the csv of values is streamed, whose rows are not known as the headers go out
+    assert headers.get("X-Wetterdienst-Rows") == (None if endpoint == "/api/values" else "1")
     assert headers["Link"] == '<https://creativecommons.org/licenses/by/4.0/>; rel="license"'
     assert "X-Wetterdienst-Warnings" not in headers
 

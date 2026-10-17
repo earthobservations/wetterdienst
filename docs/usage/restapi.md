@@ -88,6 +88,25 @@ not exist (`/api/v2/...`) is a 404.
 The operation ids of the OpenAPI document (`values_api_values_get`) and the names of the MCP tools
 (`values`) do not carry the version.
 
+### Deprecation
+
+What is deprecated keeps working for at least two minor releases of wetterdienst before it is removed, and
+a removal is announced in the changelog under `Deprecated` when it is deprecated. Meanwhile:
+
+- the OpenAPI document marks the endpoint or the parameter `deprecated`;
+- every response to a request that uses it carries a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745)),
+  `@` and the unix time of the day it was deprecated, for instance `Deprecation: @1791158400`;
+- where a day is set from which it may stop working, `Sunset` ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594))
+  says it as an HTTP date, and a `Link` with `rel="deprecation"` points to where the replacement is told;
+- for a parameter, the `metadata` block of the answer has a `deprecated-parameter` warning.
+
+A response that uses several deprecated things says the earliest of each date. A client that logs the
+`Deprecation` header of the answers it gets is told before anything is removed.
+
+Deprecated today: the `use_nearby_station_distance` parameter of `summarize` (since 0.140.0, no removal date set).
+The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
+for an endpoint, `mark_deprecated(...)` in the handler that reads a parameter.
+
 ## Response metadata
 
 The JSON answer of `stations`, `values`, `interpolate`, `summarize` and `history` has a `metadata`
@@ -420,6 +439,91 @@ the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the 
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
+### Limits
+
+A request that would return more than the server allows is refused with a 400 before anything is
+downloaded, as a problem of the kind `limit-exceeded`. It names the limit, its value and what the request comes
+to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
+
+```json
+{
+  "type": "urn:wetterdienst:problem:limit-exceeded",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "This request reads 1284 stations, more than the 100 this server allows for one request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller `distance` or bounding box. Request the rest in further calls.",
+  "limit": "stations",
+  "maximum": 100,
+  "requested": 1284
+}
+```
+
+| `limit` | Setting | Default | What it bounds |
+| --- | --- | --- | --- |
+| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many |
+| `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations` |
+| `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values` |
+
+The host sets them with the settings of the same names (`restapi_max_stations`, ...; see [Settings](settings.md)),
+and `0` switches a limit off. They hold for the REST API and the MCP tools; the library and the command line have
+none. The default of 100 stations is the number `request.stations.ids` of the `metadata` block lists.
+
+The stations are counted from the selection, which the server holds already. The rows of `values` are an
+estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
+of its record, within the `timestamp` of the request, times the parameters asked for (once for each timestamp in the
+wide `shape`). A station whose record is not published, as in the forecast networks, is not counted, and
+`drop_nulls` or a station with less data than its record makes the answer smaller. For `interpolate` and
+`summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
+the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.
+
+An answer over `rows` that fits `stream_rows` is told to use `format=ndjson` or `format=csv`.
+
+### Streaming
+
+`stations` and `values` answer `format=ndjson` and `format=csv` as the answer is built, station by station,
+instead of holding it: the memory of the server does not grow with the answer, and the client reads the first
+rows while the later stations are still downloaded. `json` and `geojson` are one body, as before.
+
+```bash
+http --stream localhost:7890/api/values provider==dwd network==observation parameters==daily/kl stations==1048,4411 timestamp==2020 format==ndjson
+```
+
+**NDJSON** (`application/x-ndjson`) is one JSON object on a line, UTF-8:
+
+1. `{"metadata": {...}}`: the `metadata` block (with `with_metadata`, the `settings` beside it in the same line).
+   It is the block as known before the first reading: `counts.stations` is the stations selected (at most `rank`
+   of them), `counts.rows` is 0, and `warnings` are those raised so far.
+2. One line for each row: an item of the `values` (or `stations`) of the JSON answer.
+3. `{"end": {"counts": {"stations": n, "rows": n}, "warnings": [...]}}`: what was sent, and every warning, those of
+   the stations read after the first line too.
+
+A stream without its `end` line was cut short. A failure after the response began cannot change its status
+(the first station is read before, so a failure on it still has its own status); it is the last line instead,
+`{"error": {<problem>}}`, the problem as an error would have been answered, with no `end`. `metadata`, `end` and
+`error` are the keys of the lines that are not rows. The command line writes the same lines
+(`wetterdienst values --format=ndjson`), all at once.
+
+**CSV** is the CSV of the answer, with the header row once, sent in chunks. A CSV has no place for the block, so
+it is in the headers: `X-Wetterdienst-API-Version`, `-Schema-Version`, `-Retrieved-At`, `-Provider`, `-License`,
+`-Attribution`, `-Stations` (the stations selected), and `Link: <licence>; rel="license"`. They go out before the
+first row, so `X-Wetterdienst-Rows` is left out, and `X-Wetterdienst-Warnings` has only what was raised by then. A
+failure after the response began cuts the connection, as CSV cannot say it; the server logs it.
+
+`ndjson` refuses `sql_values` and `with_stations` (a 400): the first filters the answer as a whole frame and the
+second lists the stations of the whole answer, which a stream never holds. `format=csv` with `sql_values` is
+sent as one body, as it was, and is held to `rows`.
+
+### Timeout
+
+A request has to be answered within a timeout, `WD_RESTAPI_TIMEOUT` (`restapi_timeout`, in seconds), 60 by
+default, `0` for none. It holds for the routes under `/api` until the response begins; one that has not by then is a
+504 problem of the kind `request-timeout` with `Retry-After`. A stream may run for longer: the timeout holds
+between two of its chunks, and a chunk that takes longer ends the stream with an `error` line of that kind (CSV: the
+connection is cut).
+
+The work already begun is not cancelled, so what the request had downloaded is cached, and the same request
+made again after the `Retry-After` is likely to succeed. A reverse proxy in front of the server has a timeout of its
+own, usually 60 seconds too; set this one below it for the answer to be this problem.
+
 ### Errors
 
 Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
@@ -428,10 +532,12 @@ the 404 of a path that does not exist. The `/mcp` endpoint answers its own error
 
 ```json
 {
-  "type": "about:blank",
+  "type": "urn:wetterdienst:problem:request-refused",
   "title": "Bad Request",
   "status": 400,
-  "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so 'provider' and 'network' must be given with them."
+  "detail": "'resolutions' and 'datasets' narrow the coverage of one provider and network, so 'provider' and 'network' must be given with them.",
+  "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+  "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11"
 }
 ```
 
@@ -441,10 +547,12 @@ entry for each invalid parameter, where `loc` names it:
 
 ```json
 {
-  "type": "about:blank",
+  "type": "urn:wetterdienst:problem:invalid-parameters",
   "title": "Unprocessable Content",
   "status": 422,
   "detail": "limit: Input should be greater than or equal to 1",
+  "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+  "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
   "errors": [
     {"type": "greater_than_equal", "loc": ["query", "limit"], "msg": "Input should be greater than or equal to 1", "input": "0", "ctx": {"ge": 1}}
   ]
@@ -464,9 +572,42 @@ entry for each invalid parameter, where `loc` names it:
 | 504 | the data provider did not answer in time; the request was valid and can be retried |
 | 500 | the server's own error, a defect: the body names the exception's type and nothing else, the cause is in the server log |
 
-Read `status` for what happened and `detail` for a sentence to show; the wording of `detail` is not
-part of the contract, and `type` is `about:blank` until the errors have codes of their own. A client
-that read `detail` as the list of a 422 reads `errors` now.
+Read `type` for what kind of error it is, `status` for what happened and `detail` for a sentence to show; the
+wording of `detail` is not part of the contract, the `type` is. A client that read `detail` as the list of a 422
+reads `errors` now.
+
+`type` is `urn:wetterdienst:problem:<kind>`: a name for the kind of error, not an address to fetch. The kinds
+are these, and a kind keeps its status:
+
+| Type | Status | When |
+| --- | --- | --- |
+| `urn:wetterdienst:problem:invalid-parameters` | 422 | A query parameter is unknown, malformed or invalid, or a selection that needs exactly one of several does not. `errors` has an entry for each invalid parameter. |
+| `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
+| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it. |
+| `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
+| `urn:wetterdienst:problem:sql-disabled` | 403 | The request carries a `sql` or `sql_values` filter and the server does not enable them. |
+| `urn:wetterdienst:problem:not-found` | 404 | What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path. |
+| `urn:wetterdienst:problem:unknown-network` | 404 | The provider and network are not served, or have no stations or values to request. |
+| `urn:wetterdienst:problem:method-not-allowed` | 405 | The method is not allowed for the path. |
+| `urn:wetterdienst:problem:not-implemented` | 501 | The server does not implement what the request asks for, such as the station history of a network. |
+| `urn:wetterdienst:problem:dependency-missing` | 501 | The server lacks an optional package the request needs. Whoever runs it has to install it. |
+| `urn:wetterdienst:problem:credential-missing` | 501 | The provider needs a credential and the server has none. |
+| `urn:wetterdienst:problem:credential-rejected` | 501 | The provider rejected the credential of the server. |
+| `urn:wetterdienst:problem:not-configured` | 501 | The server is not configured to serve the request. |
+| `urn:wetterdienst:problem:upstream-failed` | 502 | The data provider failed or sent an answer the server cannot read. The request was valid; retry it. |
+| `urn:wetterdienst:problem:upstream-unreachable` | 503 | The server could not reach the data provider (no connection). The request was valid; retry it. |
+| `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
+| `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
+| `urn:wetterdienst:problem:internal-error` | 500 | The server's own error, a defect. The cause is in the server log. |
+
+Every problem has `instance`, `urn:wetterdienst:request:<id>`, and `request_id`, the id of the request. The id
+is also the `X-Request-ID` header of every response, error or not: the client's own where it sends one (letters,
+digits and `._~-`, up to 128 characters), else one the server makes. Quote it when reporting a failure; the server
+logs it with a failure of its own (a 5xx).
+
+A 502, 503 or 504 carries `Retry-After`, 30 seconds: the request was valid and the same one can succeed once the
+provider is back (or, after a timeout, with what the server has cached by then). The server limits no rate, so
+there is no 429; a proxy in front of it may.
 
 The library's exceptions are answered by their class in the hierarchy of
 `wetterdienst.exceptions` (a `RequestError` is a 400, a `NotFoundError` a 404, a

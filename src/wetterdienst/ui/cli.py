@@ -69,6 +69,7 @@ from wetterdienst.ui.render import (
     InterpolationSettings,
     SummarySettings,
     ValuesSettings,
+    ndjson_refusal,
     render,
     render_history,
     render_stations,
@@ -284,6 +285,17 @@ format_opt = click.option(
     type=click.Choice(["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False),
     default="json",
     help="Output format: json, geojson or csv for data, html, png, jpg, webp, svg or pdf for a chart. Default: json",
+)
+# of `stations` and `values`, whose csv is streamed by the REST API and which have ndjson (GH-3065)
+stream_format_opt = click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(
+        ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"], case_sensitive=False
+    ),
+    default="json",
+    help="Output format: json, geojson, csv or ndjson (the metadata, a line for each row, then the end) for data, "
+    "html, png, jpg, webp, svg or pdf for a chart. Default: json",
 )
 # the size of a chart, for --format of html, png, jpg, webp, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
@@ -1358,7 +1370,7 @@ def fields(
 @right_opt
 @top_opt
 @sql_opt
-@format_opt
+@stream_format_opt
 @width_opt
 @height_opt
 @scale_opt
@@ -1713,7 +1725,7 @@ def history(
     default=True,
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
-@format_opt
+@stream_format_opt
 @width_opt
 @height_opt
 @scale_opt
@@ -1816,6 +1828,8 @@ def values(
     )
     set_logging_level(debug=debug)
     begin_response()
+    if request.format == "ndjson" and (refusal := ndjson_refusal(request)) is not None:
+        raise click.UsageError(refusal)
 
     api = get_timeseries_api(request.provider, request.network)
 
