@@ -174,7 +174,8 @@ def test_api_hourly_precipitation_is_the_total_of_the_report_that_closes_the_hou
     `SYMT` row of 11.4 mm, the METAR of 12:53 5.6 mm: the routine minute is that of the month, as LAX reports at :00
     until June 1996 and at :50 to :54 after. 2022-03-29 is made up: 01:20
     and 01:40 hold SPECI only (the last one is the hour's), 02:53 a METAR with the missing value -9999, which is the
-    hour's, and 02:10 a SPECI of 1.0 mm whose amount does not stand in for it. The other elements keep every report.
+    hour's, and 02:10 a SPECI of 1.0 mm whose amount does not stand in for it. The other elements keep one reading for
+    each full hour (GH-3000), the 22 rows of the temperature being 11.
     """
     from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
@@ -241,23 +242,184 @@ def test_api_hourly_precipitation_is_the_total_of_the_report_that_closes_the_hou
     ).filter_by_station_id("USW00023174")
     df = request.values().all().df.sort("timestamp")
     precipitation = df.filter(pl.col("parameter").eq("precipitation_amount_since_last_routine_report"))
-    # one report an hour, with the minute of the report: the METAR, no SPECI after it, and the last SPECI of an hour
-    # without a METAR; the -9999 of the METAR closing 02:00 is no value and the SPECI before it is not the hour's
+    # one report an hour: the METAR, no SPECI after it, and the last SPECI of an hour without a METAR; the -9999 of
+    # the METAR closing 02:00 is no value and the SPECI before it is not the hour's. The reading is stamped with the
+    # full hour its report is nearest to (GH-3000): the METAR of 17:53 closes the hour 17 and is stamped 18:00
     assert [
         (f"{ts:%y-%m-%dT%H:%M}", value) for ts, value in precipitation.select("timestamp", "value").iter_rows()
     ] == [
-        ("96-10-30T11:53", 0.0),
-        ("96-10-30T12:53", 5.6),
-        ("22-03-28T17:53", 12.4),
-        ("22-03-28T18:53", 2.8),
-        ("22-03-29T01:40", 0.5),
-        ("22-11-02T07:53", 0.8),
+        ("96-10-30T12:00", 0.0),
+        ("96-10-30T13:00", 5.6),
+        ("22-03-28T18:00", 12.4),
+        ("22-03-28T19:00", 2.8),
+        ("22-03-29T02:00", 0.5),
+        ("22-11-02T08:00", 0.8),
         # the routine minute of the month is :53, whatever is filed after it, the 21.6 mm of 23:00 included
-        ("26-09-18T21:53", 0.0),
-        ("26-09-18T22:53", 0.0),
-        ("26-09-18T23:53", 21.6),
+        ("26-09-18T22:00", 0.0),
+        ("26-09-18T23:00", 0.0),
+        ("26-09-19T00:00", 21.6),
     ]
-    assert df.filter(pl.col("parameter").eq("temperature_air_2m")).height == len(rows)
+    # the other elements keep one reading for each full hour too, the nearest to it (the SPECI of 17:57, not the METAR)
+    temperature = df.filter(pl.col("parameter").eq("temperature_air_2m"))
+    assert temperature.height == temperature.get_column("timestamp").n_unique() == 11
+    assert temperature.get_column("timestamp").dt.minute().unique().to_list() == [0]
+
+
+def test_api_hourly_has_one_reading_for_each_parameter_and_full_hour_stamped_with_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The file holds every report of a station, `hourly` one reading for each full hour, stamped with it (GH-3000).
+
+    Rows of GHCNh_USW00003017_2026.psv (Denver, by-year file, read 2026-10-17), 2026-09-18 20:53 to 2026-09-19 00:05.
+    The routine METAR is at :53 (source 413), and at the synoptic hour 21:00 a SYNOP (`FM12`, source 412) beside it.
+    The SPECI and the further `FM15` reports of 22:21, 22:47 and 22:59 and of 23:34 and 23:59 come between, the ones
+    at :59 without a sea level pressure. The 5-minute rows (source 343) hold the 5-minute precipitation and no element
+    that is read; two are in the stub. The temperature of an hour is the reading nearest to the full hour, and the sea
+    level pressure that of the nearest report that has one: 22:59 reads 17.8 degrees, the METAR of 22:53 the 1013.7.
+    The reading is stamped with the full hour it is nearest to, 22:59 with 23:00.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"USW00003017,39.8466,-104.6562,1647.2,CO,DENVER INTERNATIONAL AIRPORT,,,72565,KDEN,US\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]] + ["precipitation_5_minute"]
+
+    def report(temperature: str, report_type: str, source: str, pressure: str | None = None) -> dict[str, str]:
+        row = {
+            "temperature": temperature,
+            "temperature_Report_Type": report_type,
+            "temperature_Source_Code": source,
+        }
+        if pressure is not None:
+            row |= {
+                "sea_level_pressure": pressure,
+                "sea_level_pressure_Report_Type": report_type,
+                "sea_level_pressure_Source_Code": source,
+            }
+        return row
+
+    five_minutes = {"precipitation_5_minute": "0.0", "precipitation_5_minute_Source_Code": "343"}
+    rows = [
+        ("2026-09-18T20:53:00", report("28.3", "FM15", "413", "1011.5")),
+        ("2026-09-18T21:00:00", report("28.3", "FM12", "412") | five_minutes),
+        ("2026-09-18T21:05:00", five_minutes),
+        ("2026-09-18T21:53:00", report("28.3", "FM15", "413", "1011.0")),
+        ("2026-09-18T22:00:00", five_minutes),
+        ("2026-09-18T22:21:00", report("26.1", "FM16", "413")),
+        ("2026-09-18T22:47:00", report("22.0", "FM15", "413")),
+        ("2026-09-18T22:53:00", report("17.8", "FM15", "413", "1013.7")),
+        ("2026-09-18T22:59:00", report("17.8", "FM15", "413")),
+        ("2026-09-18T23:34:00", report("15.6", "FM16", "413")),
+        ("2026-09-18T23:53:00", report("16.7", "FM15", "413", "1015.5")),
+        ("2026-09-18T23:59:00", report("16.7", "FM15", "413")),
+        ("2026-09-19T00:05:00", {"precipitation_5_minute": "0.0", "precipitation_5_minute_Source_Code": "343"}),
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_USW00003017": ghcnh_psv("USW00003017", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", "temperature_air_2m"), ("hourly", "data", "pressure_air_sea_level")],
+        start=dt.datetime(2026, 9, 18, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2026, 9, 20, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+    ).filter_by_station_id("USW00003017")
+    df = request.values().all().df.sort("parameter", "timestamp")
+
+    def column(parameter: str) -> list[tuple[str, float, str | None]]:
+        frame = df.filter(pl.col("parameter").eq(parameter))
+        return [
+            (f"{ts:%d-%H:%M}", value, flags)
+            for ts, value, flags in frame.select("timestamp", "value", "quality_flags").iter_rows()
+        ]
+
+    # 21:00 is the SYNOP, which is on the hour, not the METAR of 20:53; 22:00 the METAR of 21:53 (the 22:00 row is a
+    # 5-minute row without a temperature); 23:00 the report of 22:59 and not the SPECI of 22:21 or the one of 22:47;
+    # 00:00 that of 23:59, not the SPECI of 23:34 nor the METAR of 23:53
+    assert column("temperature_air_2m") == [
+        ("18-21:00", 28.3, "source:412"),
+        ("18-22:00", 28.3, "source:413"),
+        ("18-23:00", 17.8, "source:413"),
+        ("19-00:00", 16.7, "source:413"),
+    ]
+    # the reports of :59 carry no sea level pressure, so the hours 23:00 and 00:00 read the METARs of :53
+    assert column("pressure_air_sea_level") == [
+        ("18-21:00", 1011.5, "source:413"),
+        ("18-22:00", 1011.0, "source:413"),
+        ("18-23:00", 1013.7, "source:413"),
+        ("19-00:00", 1015.5, "source:413"),
+    ]
+
+
+def test_api_hourly_precipitation_of_source_412_is_kept_and_says_its_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The `FM94_1` precipitation of source 412 is returned beside the METAR's, flagged by its source (GH-3016).
+
+    Rows of GHCNh_USW00003017_2026.psv (Denver, by-year file, read 2026-10-17), 2026-04-02 UTC. Source 412 ("SYNOP/FM12
+    or BUFR Surface Land Observations decoded by NOAA/NCEI", 2026 ongoing) files the precipitation of the METAR rows
+    of 02:53, 05:53, 08:53, ... (every third hour, `FM94_1`, station `WMO-72565`) in place of the METAR's own (source
+    413, `ICAO-KDEN`, which the rows before hold): 2.0 mm at 05:53 and 13.0 mm at 11:53. The documentation gives no
+    period for them. The station's own gauge does not agree with them: the GHCN-daily PRCP of USW00003017 is 0.0 for
+    2026-04-02 to 2026-04-04, and of the 95 non-zero amounts of source 412 at Denver in 2026, 46 lie in a window of
+    three days of which the daily total is 0.0 on each (Chicago O'Hare 25 of 63, Boston 4 of 33, read the same day).
+    They are no amount of the hour, and no 3- or 6-hour total that can be told from the file. They are returned as the
+    file gives them, and the source code is the only mark of them; whether to null them is open.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"USW00003017,39.8466,-104.6562,1647.2,CO,DENVER INTERNATIONAL AIRPORT,,,72565,KDEN,US\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+
+    def amount(value: str, source: str, report_type: str, measurement: str | None = None) -> dict[str, str]:
+        row = {
+            "precipitation": value,
+            "precipitation_Report_Type": report_type,
+            "precipitation_Source_Code": source,
+        }
+        if measurement is not None:
+            row["precipitation_Measurement_Code"] = measurement
+        return row
+
+    rows = [
+        ("2026-04-02T00:53:00", amount("2.0", "413", "FM15")),
+        ("2026-04-02T01:53:00", amount("0.0", "413", "FM15", "T")),
+        ("2026-04-02T02:53:00", amount("0.0", "412", "FM94_1", "T")),
+        ("2026-04-02T05:53:00", amount("2.0", "412", "FM94_1")),
+        ("2026-04-02T11:53:00", amount("13.0", "412", "FM94_1")),
+    ]
+    serve(
+        monkeypatch,
+        api,
+        {"ghcnh-station-list": stations, "GHCNh_USW00003017": ghcnh_psv("USW00003017", columns, rows)},
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data", "precipitation_amount_since_last_routine_report")],
+        start=dt.datetime(2026, 4, 2, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(2026, 4, 3, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+    ).filter_by_station_id("USW00003017")
+    df = request.values().all().df.sort("timestamp")
+    assert [
+        (f"{ts:%H:%M}", value, flags)
+        for ts, value, flags in df.select("timestamp", "value", "quality_flags").iter_rows()
+    ] == [
+        ("01:00", 2.0, "source:413"),
+        ("02:00", 0.0, "measurement:T,source:413"),
+        ("03:00", 0.0, "measurement:T,source:412"),
+        ("06:00", 2.0, "source:412"),
+        ("12:00", 13.0, "source:412"),
+    ]
 
 
 def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_wrote(
@@ -427,9 +589,10 @@ def test_api_hourly_quality_code_is_the_plain_flag_and_the_value_stays(monkeypat
     assert got["ACM00078861", "wind_speed", "1988-01-27 11:00"] == (4.1, None)
     # the sentinel keeps its text after the code, as the last token
     assert got["ACM00078861", "wind_direction", "1942-01-17 02:00"] == (None, "1,raw:999")
-    assert got["USW00026451", "wind_speed", "2016-09-04 06:53"] == (4.4, "U")
-    assert got["USW00026451", "wind_direction", "2016-09-04 06:53"] == (160.0, "U")
-    assert got["USW00026451", "wind_speed", "2006-05-08 08:53"] == (4.0, "P")
+    # the readings of :53 are stamped with the full hour they are nearest to (GH-3000)
+    assert got["USW00026451", "wind_speed", "2016-09-04 07:00"] == (4.4, "U")
+    assert got["USW00026451", "wind_direction", "2016-09-04 07:00"] == (160.0, "U")
+    assert got["USW00026451", "wind_speed", "2006-05-08 09:00"] == (4.0, "P")
 
 
 def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -439,12 +602,12 @@ def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeyp
     code reads differently by source (Table 3 of ghcnh_DOCUMENTATION.pdf): Anchorage (GHCNh_USW00026451_por.psv)
     writes `4` for
     "Passed gross limits check, NCEI" of a temperature of source 335 (1953-11-01 10:00) and "Calculated" of source 223
-    (1997-01-31 11:50), and ASN00086282 is source 401 with a `0` that Table 3 does not list (1970-06-30 23:00). The
-    measurement code is a trace of precipitation `T` (Anchorage 1996-07-08 19:00, with the quality code `5` of source
-    335) and the tendency `7` of the 3-hour pressure change, "a decrease" (Antigua 1942-09-01 06:00, -1.4 hPa). Antigua
-    1942-01-17 02:00 reads a wind direction of 999 and a speed of 0.0, both with the measurement code C, the quality
-    code 1 and source 220: the text of the sentinel stays the last token. CAMU0019904 writes the text `Null` for a code
-    it has none of (source 245), which is no code.
+    (1997-01-31 11:50, stamped 12:00), and ASN00086282 is source 401 with a `0` that Table 3 does not list (1970-06-30
+    23:00). The measurement code is a trace of precipitation `T` (Anchorage 1996-07-08 19:00, with the quality code `5`
+    of source 335) and the tendency `7` of the 3-hour pressure change, "a decrease" (Antigua 1942-09-01 06:00, -1.4
+    hPa). Antigua 1942-01-17 02:00 reads a wind direction of 999 and a speed of 0.0, both with the measurement code C,
+    the quality code 1 and source 220: the text of the sentinel stays the last token. CAMU0019904 writes the text
+    `Null` for a code it has none of (source 245), which is no code.
     """
     from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
@@ -517,7 +680,7 @@ def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeyp
     }
     # the quality code means "passed gross limits" for source 335 and "calculated" for source 223: the source says which
     assert got["USW00026451", "temperature_air_2m", "1953-11-01 10:00"] == (-12.2, "4,source:335")
-    assert got["USW00026451", "temperature_air_2m", "1997-01-31 11:50"] == (0.4, "4,source:223")
+    assert got["USW00026451", "temperature_air_2m", "1997-01-31 12:00"] == (0.4, "4,source:223")
     assert got["ASN00086282", "temperature_air_2m", "1970-06-30 23:00"] == (10.4, "0,source:401")
     # the measurement code is the trace of a precipitation of 0.0 and the tendency of a pressure change
     assert got["USW00026451", "precipitation_amount_since_last_routine_report", "1996-07-08 19:00"] == (
