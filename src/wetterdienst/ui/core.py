@@ -321,24 +321,6 @@ _UseNearbyStationDistanceField = Annotated[
         "Default: the server's WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else 1.",
     ),
 ]
-# what the CLI, the REST API and the MCP tool tell a caller who gives `use_nearby_station_distance`
-# to a summary (GH-2333)
-SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED = (
-    "It has no effect on a summary, which takes the nearest station with data anyway, and will be "
-    "removed in a future release. Leave it out."
-)
-# accepted still, so that a request giving it is not refused, and read by nothing. The schema marks
-# it deprecated; the CLI warns the caller who gives it, the REST API only logs it.
-# Defaults to `None`, not 1.0: FastAPI hands a query model every default as if given, so only `None`
-# says it was not
-_SummaryUseNearbyStationDistanceField = Annotated[
-    float | None,
-    Field(
-        ge=0,
-        deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
-        description=f"Deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
-    ),
-]
 _MinGainOfValuePairsField = Annotated[
     float,
     Field(
@@ -973,7 +955,6 @@ class SummaryRequest(_RefusesRenamedParameters):
             return v
         return json.loads(v)
 
-    use_nearby_station_distance: _SummaryUseNearbyStationDistanceField = None
     min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
     num_additional_stations: _NumAdditionalStationsField = 3
     format: _FormatField = "json"
@@ -1001,8 +982,6 @@ class SettingsRequest(BaseModel):
 
     Each is the field of the request that takes it, so it is read as that request reads it; one
     the interpolation and the summary request both take is one field here, given to both.
-    `use_nearby_station_distance` is the interpolation request's: the summary request's is
-    deprecated, and read by nothing.
     """
 
     model_config = {"extra": "forbid"}
@@ -1719,8 +1698,8 @@ def get_summarize(
     return values_
 
 
-class StripesMetadata(BaseModel):
-    """Metadata for climate stripes data."""
+class StripesSeries(BaseModel):
+    """What a series of climate stripes is of: the station, the parameter and the unit of its values."""
 
     model_config = {"extra": "forbid"}
 
@@ -1734,11 +1713,11 @@ class StripesMetadata(BaseModel):
 
 
 class StripesData(BaseModel):
-    """Climate stripes data with metadata and values."""
+    """Climate stripes data: what the series is of, and its values."""
 
     model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
 
-    metadata: StripesMetadata
+    series: StripesSeries
     df: pl.DataFrame
 
 
@@ -1960,7 +1939,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     from wetterdienst.core.util import _values_unit  # noqa: PLC0415
 
     (parameter_model,) = stations.parameters
-    metadata = StripesMetadata(
+    series = StripesSeries(
         station=station,
         resolution=parameter_model.dataset.resolution.name,
         dataset=parameter_model.dataset.name,
@@ -1972,7 +1951,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         ),
     )
 
-    return StripesData(metadata=metadata, df=df)
+    return StripesData(series=series, df=df)
 
 
 def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
@@ -1991,7 +1970,7 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
     stripes_data = _get_stripes_data(stripes)
 
     df = stripes_data.df
-    station_dict = stripes_data.metadata.station
+    station_dict = stripes_data.series.station
     cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
 
     df_without_nulls = df.drop_nulls("value")

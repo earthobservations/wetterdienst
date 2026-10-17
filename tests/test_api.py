@@ -1306,7 +1306,7 @@ def test_a_parameter_nothing_describes_reads_the_canonical_description() -> None
             "name_english": "Test",
             "name_local": "Test",
             "country": "Nowhere",
-            "country_code": "ZZ",
+            "country_code": None,
             "copyright": "-",
             "license": None,
             "attribution": None,

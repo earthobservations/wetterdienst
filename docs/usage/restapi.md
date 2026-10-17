@@ -84,9 +84,13 @@ examples on this page and the web app use the alias.
   "api_version": "1",
   "mcp_enabled": true,
   "mcp_path": "/mcp/v1",
-  "mcp_alias_path": "/mcp"
+  "mcp_alias_path": "/mcp",
+  "limits": {"max_stations": 100, "max_rows": 500000, "max_stream_rows": 10000000, "timeout": 60.0}
 }
 ```
+
+`limits` are those the instance holds requests to (see [Limits](#limits)), so a client can size its
+requests before it is refused; 0 means the instance sets none.
 
 `api_version` is raised with a change a client has to follow. A path under a version that does
 not exist (`/api/v2/...`) is a 404.
@@ -110,8 +114,7 @@ a removal is announced in the changelog under `Deprecated` when it is deprecated
 A response that uses several deprecated things says the earliest of each date. A client that logs the
 `Deprecation` header of the answers it gets is told before anything is removed.
 
-Deprecated today: the `use_nearby_station_distance` parameter of `summarize` (since 0.140.0, no removal date set).
-The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
+Nothing is deprecated today. The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
 for an endpoint, `mark_deprecated(...)` in the handler that reads a parameter.
 
 ## Response metadata
@@ -206,15 +209,16 @@ what the answer is missing:
   (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
-  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker) and `deprecated-parameter`. Codes are added as more are told; a client reads the
-  ones it knows.
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker) and
+  `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
+  more are told; a client reads the ones it knows.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
 Where the answer is not about stations, `request.stations` is `null` and `counts.stations` is `0` (the
 warnings of `alerts`), and `counts.rows` counts what it lists: the issues, the alerts. The `metadata` of
-`stripes/values` also keeps the members it had before it was this block (`station`, `resolution`, `dataset`,
-`parameter` and `unit`), so a client reading the unit from it still finds it there. `providers` has a
+`stripes/values` says what its values are of in a `series` member next to `metadata` (the `station`,
+`resolution`, `dataset`, `parameter` and `unit` of the values), not in the block. `providers` has a
 smaller block, with the `api_version`, `schema_version`, `retrieved_at`, `producer`, `warnings` and the counts of
 providers and networks: its answer is about the library, and the terms are those of each provider it lists.
 
@@ -343,7 +347,7 @@ ask the same question and give the same answer.
 ### Providers
 
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
-by, its country (`country_code` is the ISO 3166-1 alpha-2 code, `ZZ` for a provider of several countries), the
+by (`name_short` for a chip beside a flag, `name_english`, `name_local`), its country (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
 (`attribution`), and its networks with their `kind`, source `url`, whether they need credentials (`auth`) and
 the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
@@ -507,6 +511,8 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 The host sets them with the settings of the same names (`restapi_max_stations`, ...; see [Settings](settings.md)),
 and `0` switches a limit off. They hold for the REST API and the MCP tools; the library and the command line have
 none. The default of 100 stations is the number `request.stations.ids` of the `metadata` block lists.
+`GET /api/version` reports the values of the instance as `limits` (`max_stations`, `max_rows`, `max_stream_rows`
+and the `timeout` in seconds), so a client can size its requests before one is refused.
 
 The stations are counted from the selection, which the server holds already. The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
@@ -646,6 +652,12 @@ is also the `X-Request-ID` header of every response, error or not: the client's 
 digits and `._~-`, up to 128 characters), else one the server makes. Quote it when reporting a failure; the server
 logs it with a failure of its own (a 5xx).
 
+The web app's own `/api` proxy passes the backend's answers on as they are, the problem, `X-Request-ID` and
+`Retry-After` included, and sends on the `X-Request-ID` of the client. When it cannot reach the backend there is no
+answer to pass on, and it answers a problem of its own, a 502 of the kind `urn:wetterdienst:problem:backend-unreachable`
+with `instance`, `request_id`, `X-Request-ID` and `Retry-After` as above. The backend cannot answer that kind, so it is not
+in the table.
+
 A 502, 503 or 504 carries `Retry-After`, 30 seconds: the request was valid and the same one can succeed once the
 provider is back (or, after a timeout, with what the server has cached by then). The server limits no rate, so
 there is no 429; a proxy in front of it may.
@@ -716,7 +728,7 @@ Without the `[mcp]` extra installed, the REST API behaves exactly as before and 
 simply absent. `GET /api/version` says which of the two an instance is, and where the endpoint is:
 
 ```json
-{"version": "0.157.0", "api_version": "1", "mcp_enabled": true, "mcp_path": "/mcp/v1", "mcp_alias_path": "/mcp"}
+{"version": "0.157.0", "api_version": "1", "mcp_enabled": true, "mcp_path": "/mcp/v1", "mcp_alias_path": "/mcp", "limits": {...}}
 ```
 
 `mcp_path` and `mcp_alias_path` are `null` where `mcp_enabled` is `false`. The app reads these

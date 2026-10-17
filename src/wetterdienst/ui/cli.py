@@ -38,7 +38,6 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
     RENAMED_REQUEST_PARAMETERS,
-    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
@@ -395,13 +394,6 @@ num_additional_stations_opt = click.option(
     help=(
         "Number of additional nearby stations to consider. Default: WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3"
     ),
-)
-# accepted by `summarize` still, so that an invocation giving it is warned rather than refused (GH-2333)
-summary_use_nearby_station_distance_opt = click.option(
-    "--use-nearby-station-distance",
-    type=click.FLOAT,
-    default=1,
-    deprecated=SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
 )
 
 
@@ -2059,7 +2051,6 @@ def interpolate(
 @station_distance_opts("summary")
 @min_gain_of_value_pairs_opt
 @num_additional_stations_opt
-@summary_use_nearby_station_distance_opt
 @sql_values_opt
 @convert_units_opt
 @unit_targets_opt
@@ -2085,7 +2076,6 @@ def summarize(
     summary_station_distance_heterogeneous: float | None,
     min_gain_of_value_pairs: float,
     num_additional_stations: int,
-    use_nearby_station_distance: float,
     timestamp: str,
     start: str,
     end: str,
@@ -2130,7 +2120,6 @@ def summarize(
             "summary_station_distance_heterogeneous": summary_station_distance_heterogeneous,
             "min_gain_of_value_pairs": min_gain_of_value_pairs,
             "num_additional_stations": num_additional_stations,
-            "use_nearby_station_distance": use_nearby_station_distance,
             "timestamp": timestamp_resolved,
             "issue": issue,
             "station": station,

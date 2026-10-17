@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold  # noqa: TC001, needed at runtime by pydantic
-from wetterdienst.ui.core import StripesMetadata
 from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
 from wetterdienst.util.datetime import format_timestamp
 
@@ -131,8 +130,7 @@ class _GeoSettings(_AppliedSettings):
 class InterpolationSettings(_GeoSettings):
     """The settings of `/api/interpolate`."""
 
-    # not read for a summary, which has nothing for it to decide: its field is only accepted there,
-    # and deprecated (GH-2333), so a summary neither passes nor reports it
+    # a summary has no such field: it takes the nearest station with data, so there is nothing for it to decide
     use_nearby_station_distance: _Unbounded | None = Field(validation_alias="geo_use_nearby_station_distance")
     interpolation_station_distance: dict[str, _Unbounded] = Field(
         validation_alias="geo_station_distance",
@@ -383,16 +381,8 @@ def render_stripes_stations(result: StationsResult, request: StripesStationsRequ
     return _json_answer(dict(data), request, metadata)
 
 
-class StripesValuesMetadata(ResponseMetadata, StripesMetadata):
-    """The `metadata` of `/api/stripes/values`: the block of every answer, and what the stripes are of.
-
-    `station`, `resolution`, `dataset`, `parameter` and `unit` are what this member held before it was the block.
-    """
-
-
 def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
-    """Write the values of climate stripes as JSON, the `metadata` block holding what the stripes are of too."""
-    block = StripesValuesMetadata.model_validate({**metadata.model_dump(), **data.metadata.model_dump()})
+    """Write the values of climate stripes as JSON: the `metadata` block, the `series` they are of, and the `values`."""
     values = [
         {
             "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
@@ -400,4 +390,5 @@ def render_stripes_values(data: StripesData, request: StripesValuesRequest, meta
         }
         for row in data.df.select("timestamp", "value").iter_rows(named=True)
     ]
-    return json.dumps({"metadata": metadata_to_dict(block), "values": values}, indent=4 if request.pretty else None)
+    answer = {"metadata": metadata_to_dict(metadata), "series": data.series.model_dump(), "values": values}
+    return json.dumps(answer, indent=4 if request.pretty else None)

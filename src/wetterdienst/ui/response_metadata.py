@@ -398,7 +398,7 @@ def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> Respon
     """Build the block of the values of climate stripes (`/api/stripes/values`), which are DWD observation's."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
-    stripes = data.metadata
+    stripes = data.series
     return _block_without_result(
         DwdObservationRequest,
         ResolvedRequest(

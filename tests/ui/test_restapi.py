@@ -34,7 +34,7 @@ from wetterdienst.ui import restapi
 from wetterdienst.ui.core import (
     StripesData,
     StripesImageRequest,
-    StripesMetadata,
+    StripesSeries,
     _FormatField,
     get_glossary,
     resolve_network,
@@ -169,6 +169,7 @@ def test_health(client: TestClient) -> None:
     assert response.json() == {"status": "OK"}
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_version(client: TestClient) -> None:
     """Test that the version endpoint reports the version and whether MCP is served.
 
@@ -182,6 +183,19 @@ def test_version(client: TestClient) -> None:
     data = response.json()
     assert data["version"] == __version__
     assert data["mcp_enabled"] is restapi.mcp_enabled
+    assert data["limits"] == {"max_stations": 100, "max_rows": 500_000, "max_stream_rows": 10_000_000, "timeout": 60.0}
+
+
+def test_version_reports_the_limits_the_server_holds(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The limits of the instance are those of its settings, 0 meaning none, so a client can size its requests."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "7")
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "0")
+    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "123")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "2.5")
+
+    limits = client.get("/api/v1/version").json()["limits"]
+
+    assert limits == {"max_stations": 7, "max_rows": 0, "max_stream_rows": 123, "timeout": 2.5}
 
 
 @pytest.mark.remote
@@ -1808,10 +1822,10 @@ def test_stripes_values_default(client: TestClient) -> None:
     data = response.json()
     assert "metadata" in data
     assert "values" in data
-    assert data["metadata"]["station"]["station_id"] == "01048"
-    assert data["metadata"]["resolution"] == "annual"
-    assert data["metadata"]["dataset"] == "climate_summary"
-    assert data["metadata"]["parameter"] == "temperature_air_mean_2m"
+    assert data["series"]["station"]["station_id"] == "01048"
+    assert data["series"]["resolution"] == "annual"
+    assert data["series"]["dataset"] == "climate_summary"
+    assert data["series"]["parameter"] == "temperature_air_mean_2m"
     assert len(data["values"]) > 0
     assert all("timestamp" in v and "value" in v for v in data["values"])
 
@@ -4336,14 +4350,14 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
         {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None], "value": [9.5, None]},
         schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
     )
-    stripes = StripesMetadata(
+    stripes = StripesSeries(
         station={"station_id": "01048"},
         resolution="annual",
         dataset="climate_summary",
         parameter="temperature_air_mean_2m",
         unit="degree_celsius",
     )
-    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(metadata=stripes, df=df))
+    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
@@ -4854,26 +4868,23 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     _is_an_unhandled_500(response)
 
 
-def test_summarize_use_nearby_station_distance_is_deprecated(
+def test_summarize_has_no_use_nearby_station_distance(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     tmp_path: pathlib.Path,
 ) -> None:
-    """`/api/summarize` accepts `use_nearby_station_distance`, says it is deprecated, and reads nothing from it.
+    """`/api/summarize` has no `use_nearby_station_distance`, which no summary read (GH-3077); `/api/interpolate` has.
 
-    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333). The
-    schema marks it deprecated, which the MCP tool's schema is built from, and a request giving it is
-    logged. `/api/interpolate` reads it still.
+    It was deprecated since 0.140.0 (GH-2333) and set a setting no summary reads, so it is gone from the document
+    (and with it from the MCP tool's schema) and a request giving it is refused like any unknown parameter.
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    parameters = app.openapi()["paths"]["/api/v1/summarize"]["get"]["parameters"]
-    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
-    assert field["deprecated"] is True
-    parameters = app.openapi()["paths"]["/api/v1/interpolate"]["get"]["parameters"]
-    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
-    assert "deprecated" not in field
+    def names(path: str) -> set[str]:
+        return {parameter["name"] for parameter in app.openapi()["paths"][path]["get"]["parameters"]}
+
+    assert "use_nearby_station_distance" not in names("/api/v1/summarize")
+    assert "use_nearby_station_distance" in names("/api/v1/interpolate")
 
     taken: list[Options] = []
 
@@ -4889,23 +4900,18 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "3")
     monkeypatch.chdir(tmp_path)
     params = {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}
+
+    refused = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
     # each answered by the stub's failure, a 500, so each reached the entry point with its settings
-    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
-        response = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
-    _is_a_500_naming_only(response, "ValueError", hides="taken")
-    assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
-    caplog.clear()
-    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
-        responses = [
-            client.get("/api/summarize", params=params),
-            client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
-        ]
-    assert [response.status_code for response in responses] == [500, 500]
-    # the warnings only: the stub's failures are logged with their tracebacks as errors
-    assert not [
-        record for record in caplog.records if record.levelno == logging.WARNING and record.name == restapi.log.name
+    responses = [
+        client.get("/api/summarize", params=params),
+        client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
     ]
-    assert [options.geo_use_nearby_station_distance for options in taken] == [3.0, 3.0, 0.5]
+
+    assert refused.status_code == 422, refused.text
+    assert "use_nearby_station_distance" in refused.text
+    assert [response.status_code for response in responses] == [500, 500]
+    assert [options.geo_use_nearby_station_distance for options in taken] == [3.0, 0.5]
 
 
 @pytest.fixture
@@ -5040,7 +5046,8 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
             "convert_units": "true",
             f"{kind}_station_distance_homogeneous": "40",
             f"{kind}_station_distance_heterogeneous": "20",
-            "use_nearby_station_distance": "1",
+            # a summary has none, it reads none: the server's stays
+            **({"use_nearby_station_distance": "1"} if kind == "interpolation" else {}),
             "min_gain_of_value_pairs": "0.1",
             "num_additional_stations": "3",
         },
@@ -5049,7 +5056,6 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
     assert options.convert_units is True
     assert options.geo_station_distance_homogeneous == 40
     assert options.geo_station_distance_heterogeneous == 20
-    # a summary does not pass it on, as it reads none (GH-2333): the server's stays
     assert options.geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
     assert options.geo_min_gain_of_value_pairs == 0.1
     assert options.geo_num_additional_stations == 3
@@ -5327,7 +5333,7 @@ _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
 }
 _REPORTED_SETTINGS = {
     "values": _REPORTED_VALUES_SETTINGS,
-    # a summary reads none, its field being deprecated (GH-2333)
+    # a summary has none
     "interpolate": _REPORTED_GEO_SETTINGS
     | {
         "use_nearby_station_distance",
@@ -5942,7 +5948,6 @@ _SETTINGS_PARAMETERS = [
         "5",
         {"interpolate": {"interpolation_station_distance_heterogeneous"}},
     ),
-    # the summary's is deprecated, and read by nothing (GH-2333)
     ("use_nearby_station_distance", "3", {"interpolate": {"use_nearby_station_distance"}}),
     ("summary_station_distance", '{"temperature_air_mean_2m": 5}', {"summarize": {"summary_station_distance"}}),
     ("summary_station_distance_homogeneous", "10", {"summarize": {"summary_station_distance_homogeneous"}}),
@@ -5983,8 +5988,7 @@ def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> Non
     """`/api/settings` takes the settings query parameters of the three data endpoints, as they declare them (GH-2383).
 
     Each is the parameter of every endpoint that takes it, its description and schema included, so
-    the OpenAPI says what a parameter does to the endpoints taking it. The summary's deprecated
-    `use_nearby_station_distance`, which sets no setting, is not among them.
+    the OpenAPI says what a parameter does to the endpoints taking it.
     """
     paths = restapi.app.openapi()["paths"]
     taken = {parameter["name"]: parameter for parameter in paths["/api/v1/settings"]["get"]["parameters"]}
@@ -6290,7 +6294,6 @@ def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypat
         ("/api/v1/interpolate", "interpolation_station_distance"),
         ("/api/v1/interpolate", "interpolation_station_distance_homogeneous"),
         ("/api/v1/summarize", "summary_station_distance"),
-        ("/api/v1/summarize", "use_nearby_station_distance"),
         ("/api/v1/settings", "unit_targets"),
     ):
         assert "default" not in parameters[path][name]["schema"], (path, name)
@@ -6580,10 +6583,10 @@ def test_stripes_values_name_the_unit_the_server_converts_to(
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["metadata"]["unit"] == unit
+    assert data["series"]["unit"] == unit
     assert [item["value"] for item in data["values"]] == expected
     # named by the parameter the unit is taken from
-    assert (data["metadata"]["resolution"], data["metadata"]["dataset"], data["metadata"]["parameter"]) == {
+    assert (data["series"]["resolution"], data["series"]["dataset"], data["series"]["parameter"]) == {
         "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
         "precipitation": ("annual", "precipitation_more", "precipitation_amount"),
     }[kind]
@@ -6609,7 +6612,7 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
 
     # the tool's answer is the endpoint's, as its output schema (a JSON object or text) has it wrapped
     data = asyncio.run(_call())["result"]
-    assert data["metadata"]["unit"] == "degree_fahrenheit"
+    assert data["series"]["unit"] == "degree_fahrenheit"
     assert [item["value"] for item in data["values"]] == [33.8, 35.6]
 
 

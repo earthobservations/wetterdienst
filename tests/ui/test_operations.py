@@ -24,7 +24,6 @@ from fastapi.testclient import TestClient
 
 from tests.ui.test_restapi import (
     _OBSERVATION,
-    _station_of,
     _stub_result,
     _stub_stream,
     _values_result_of_shape,
@@ -32,12 +31,12 @@ from tests.ui.test_restapi import (
 from wetterdienst import Options, Settings, exceptions
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.ui.deprecation import Deprecation, deprecated_route, deprecation_headers
+from wetterdienst.ui.deprecation import Deprecation, deprecated_route, deprecation_headers, mark_deprecated
 from wetterdienst.ui.limits import estimate_point_rows, estimate_rows
 from wetterdienst.ui.middleware import RequestContextMiddleware
 from wetterdienst.ui.problems import PROBLEMS, ProblemKind, request_id_from
 from wetterdienst.ui.render import ValuesSettings, render
-from wetterdienst.util.response_warnings import _COUNTED, _RECORDED, warn_response
+from wetterdienst.util.response_warnings import _COUNTED, _RECORDED, begin_response, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -96,8 +95,10 @@ def _lines(response: Any) -> list[dict[str, Any]]:  # noqa: ANN401
 def test_every_kind_is_documented_and_answered_with_a_status_of_its_own() -> None:
     """The table, the enumeration and the docs list the same kinds; each is answered with a status from the table."""
     docs = (Path(__file__).parents[2] / "docs" / "usage" / "restapi.md").read_text(encoding="utf-8")
-    documented = set(re.findall(r"`urn:wetterdienst:problem:([a-z-]+)`", docs))
+    # the web app's proxy answers one kind of its own when it cannot reach the backend, which the backend cannot
+    documented = set(re.findall(r"`urn:wetterdienst:problem:([a-z-]+)`", docs)) - {"backend-unreachable"}
 
+    assert "urn:wetterdienst:problem:backend-unreachable" in docs
     assert set(PROBLEMS) == set(ProblemKind)
     assert documented == {kind.value for kind in ProblemKind}
     for kind, spec in PROBLEMS.items():
@@ -658,7 +659,10 @@ def test_the_headers_of_a_deprecation_follow_the_rfcs() -> None:
 
 
 def test_a_deprecated_route_is_marked_in_openapi_and_answers_the_headers() -> None:
-    """The helper marks the route `deprecated` in OpenAPI, and every response to it carries the headers."""
+    """The helper marks the route `deprecated` in OpenAPI, and every response to it carries the headers.
+
+    Nothing real is deprecated at the moment (GH-3077), so a synthetic route stands in for one.
+    """
     app = FastAPI()
     app.add_middleware(RequestContextMiddleware)
     deprecation = Deprecation(since=dt.date(2026, 10, 5), sunset=dt.date(2027, 4, 1))
@@ -683,19 +687,32 @@ def test_a_deprecated_route_is_marked_in_openapi_and_answers_the_headers() -> No
     assert "deprecated" not in paths["/new"]["get"]
 
 
-def test_a_deprecated_parameter_answers_the_headers(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`use_nearby_station_distance` of `summarize`, deprecated since 0.140.0, is told in the headers when used."""
-    _stub_result(monkeypatch, "/api/summarize")
-    params = {**_OBSERVATION, _station_of("/api/summarize"): "01048", "timestamp": "2026-01-01"}
+def test_a_deprecated_parameter_answers_the_headers_and_is_a_warning() -> None:
+    """A handler that reads a deprecated parameter marks it: the headers, and the `deprecated-parameter` warning.
 
-    used = client.get("/api/v1/summarize", params={**params, "use_nearby_station_distance": "5"})
-    unused = client.get("/api/v1/summarize", params=params)
+    Nothing real is deprecated at the moment (`summarize`'s `use_nearby_station_distance` was removed, GH-3077), so
+    the helper that marks a parameter is exercised by a synthetic route, as the one for an endpoint is above.
+    """
+    app = FastAPI()
+    app.add_middleware(RequestContextMiddleware)
+    deprecation = Deprecation(since=dt.date(2026, 10, 5), link="https://docs.example/old")
+
+    @app.get("/thing")
+    def thing(old: float | None = None) -> dict[str, Any]:
+        begin_response()
+        if old is not None:
+            warn_response(restapi.log, "deprecated-parameter", "old is deprecated. Leave it out.")
+            mark_deprecated(deprecation)
+        return {"warnings": list(_RECORDED.get() or [])}
+
+    client = TestClient(app)
+    used = client.get("/thing", params={"old": "5"})
+    unused = client.get("/thing")
 
     assert used.status_code == 200, used.text
     assert used.headers["Deprecation"] == "@1791158400"
     assert "Sunset" not in used.headers
+    assert used.headers["Link"] == '<https://docs.example/old>; rel="deprecation"'
+    assert [w["code"] for w in used.json()["warnings"]] == ["deprecated-parameter"]
     assert "Deprecation" not in unused.headers
-    # the licence's Link is kept beside the deprecation's
-    links = used.headers.get_list("link")
-    assert any('rel="license"' in link for link in links)
-    assert any('rel="deprecation"' in link for link in links)
+    assert unused.json() == {"warnings": []}

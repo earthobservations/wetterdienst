@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import contextvars
-import datetime as dt
 import itertools
 import json
 import logging
@@ -62,7 +61,6 @@ from wetterdienst.model.result import (
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
 from wetterdienst.ui.core import (
-    SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED,
     AlertsRequest,
     AuthAnswer,
     AuthRequest,
@@ -76,6 +74,7 @@ from wetterdienst.ui.core import (
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
+    StripesSeries,
     StripesStationsRequest,
     StripesValuesRequest,
     SummaryRequest,
@@ -99,7 +98,6 @@ from wetterdienst.ui.core import (
     resolve_network,
     set_logging_level,
 )
-from wetterdienst.ui.deprecation import Deprecation, mark_deprecated
 from wetterdienst.ui.limits import (
     Limits,
     check_rows,
@@ -125,7 +123,6 @@ from wetterdienst.ui.problems import (
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
 from wetterdienst.ui.render import (
     InterpolationSettings,
-    StripesValuesMetadata,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -163,9 +160,10 @@ from wetterdienst.ui.streaming import (
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
-from wetterdienst.util.response_warnings import begin_response, recorded_warnings, warn_response
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
+    import datetime as dt
     from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 
     from fastapi.routing import APIRoute
@@ -195,12 +193,6 @@ API_ALIAS_PREFIX = "/api"
 MCP_PREFIX = f"/mcp/v{API_VERSION}"
 #: the same endpoint without the version, an alias of the current version, as `API_ALIAS_PREFIX` is for the routes
 MCP_ALIAS_PREFIX = "/mcp"
-
-
-#: `summarize`'s `use_nearby_station_distance`, deprecated since 0.140.0 (GH-2333): no date is set for its removal yet
-USE_NEARBY_STATION_DISTANCE_DEPRECATION = Deprecation(
-    since=dt.date(2026, 10, 5), link=f"{info.documentation}/en/latest/usage/restapi.html#deprecation"
-)
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -653,7 +645,8 @@ class _StripesValue(TypedDict):
 
 
 class _StripesValuesWithMetadataDict(TypedDict):
-    metadata: StripesValuesMetadata
+    metadata: ResponseMetadata
+    series: StripesSeries
     values: list[_StripesValue]
 
 
@@ -825,7 +818,7 @@ def health() -> JSONResponse:
 
 @router.get("/version")
 def version() -> JSONResponse:
-    """Get version information, and whether this instance serves an MCP endpoint.
+    """Get version information, what this instance serves, and the limits it holds requests to.
 
     `api_version` is the version of the REST API contract the routes are served under
     (`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.
@@ -838,6 +831,11 @@ def version() -> JSONResponse:
     `mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and
     `mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`
     otherwise.
+
+    `limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`
+    and `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or
+    `csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind
+    `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
     return JSONResponse(
         content={
@@ -846,6 +844,7 @@ def version() -> JSONResponse:
             "mcp_enabled": mcp_enabled,
             "mcp_path": MCP_PREFIX if mcp_enabled else None,
             "mcp_alias_path": MCP_ALIAS_PREFIX if mcp_enabled else None,
+            "limits": limits_of(Settings()).model_dump(),
         },
     )
 
@@ -1934,14 +1933,6 @@ def summarize(
     begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
-    # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
-    if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
-        warn_response(
-            log,
-            "deprecated-parameter",
-            f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
-        )
-        mark_deprecated(USE_NEARBY_STATION_DISTANCE_DEPRECATION)
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1986,9 +1977,10 @@ def stripes_stations(
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
-    """Get climate stripes data values with timestamps and metadata.
+    """Get climate stripes data values with timestamps, and the series they are of.
 
-    The JSON metadata names the unit of the values in `unit`, e.g. "degree_celsius". The server's
+    The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
+    "degree_celsius"; `metadata` is the block every answer has. The server's
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
     for: the target of the quantity where the values are converted, the source's unit where not.
     """
