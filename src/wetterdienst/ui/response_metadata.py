@@ -23,23 +23,35 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import is_quality_flag
-from wetterdienst.model.result import StationsFilter, StationsResult, _License, _Producer, _Provider
+from wetterdienst.model.quality_legend import QualityKind, quality_legend
+from wetterdienst.model.result import (
+    StationsFilter,
+    StationsResult,
+    _License,
+    _Producer,
+    _Provider,
+    describe_producer,
+    describe_provider,
+)
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.response_warnings import ResponseWarning, recorded_warnings
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable, Mapping, Sequence
 
-    from wetterdienst.metadata.period import Period
     from wetterdienst.model.metadata import ParameterModel
-    from wetterdienst.model.result import _ValuesResult
+    from wetterdienst.model.result import _ProviderTerms, _ValuesResult
     from wetterdienst.options import Options
     from wetterdienst.ui.core import (
         HistoryRequest,
         InterpolationRequest,
+        IssuesRequest,
         StationsRequest,
+        StripesData,
+        StripesValuesRequest,
         SummaryRequest,
         ValuesRequest,
     )
@@ -88,7 +100,10 @@ class ResolvedRequest(BaseModel):
     periods: list[str] = Field(description="The periods read, oldest first.")
     start: str | None = Field(description="Start of the window applied, in UTC; null for no window.")
     end: str | None = Field(description="End of the window applied, in UTC; null for no window.")
-    stations: StationsSelected
+    stations: StationsSelected | None = Field(
+        description="The stations the answer is about; null for one that is not about stations, the warnings of "
+        "`dwd/alerts`.",
+    )
 
 
 class Counts(BaseModel):
@@ -96,10 +111,10 @@ class Counts(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    stations: int = Field(description="The stations in the answer.")
+    stations: int = Field(description="The stations in the answer; 0 for one that is not about stations.")
     rows: int = Field(
         description="The rows of `values` (one per timestamp in the wide shape, one per value in the long "
-        "one), the stations listed, or the histories.",
+        "one), the stations listed, the histories, the issues or the alerts.",
     )
 
 
@@ -155,6 +170,39 @@ class Quality(BaseModel):
         description="The quality flags the datasets read publish, which the first token of `quality_flags` is "
         "the code of.",
     )
+    legend: list[QualityKind] = Field(
+        description="What the tokens of `quality_flags` mean for this network, in the order of the column: the "
+        "source's own flag, its further kinds, and `raw` last. Empty for a network whose readings carry no flag.",
+    )
+
+
+class CatalogueCounts(BaseModel):
+    """How much a catalogue of the library holds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    providers: int
+    networks: int
+
+
+class CatalogueMetadata(BaseModel):
+    """The `metadata` block of an answer that is about the library and no provider's data (`/api/providers`).
+
+    The members the block of every answer has that need no provider or request: the versions, the time, the producer
+    and the warnings. The terms of each provider are in the answer, one for every provider it lists.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    api_version: str
+    schema_version: str
+    retrieved_at: str = Field(description="When this answer was made, in UTC.")
+    producer: _Producer
+    counts: CatalogueCounts
+    warnings: list[ResponseWarning] = Field(
+        description="What the answer is missing but did not fail on, each with a stable `code` and a `message`: a "
+        "network that cannot be imported on this server is left out and told here.",
+    )
 
 
 class ResponseMetadata(BaseModel):
@@ -191,6 +239,11 @@ def _unit_symbol(parameter: ParameterModel, options: Options, converter: UnitCon
     return converter.get_unit(parameter.unit, parameter.unit_type).symbol
 
 
+def _retrieved_at() -> str:
+    """Write the time an answer is made at."""
+    return format_timestamp(dt.datetime.now(dt.UTC))
+
+
 def _unique(values: Any) -> list[str]:  # noqa: ANN401
     """Keep the first occurrence of each value, in order."""
     return list(dict.fromkeys(str(value) for value in values))
@@ -208,6 +261,28 @@ def response_metadata(
     `heavy` adds the units and the quality legend, and is what `with_metadata` of the request asks for
     by default. `rows` is given where the answer holds something other than the rows of the result's frame.
     """
+    return result_metadata(
+        result,
+        provider=request.provider,
+        network=request.network,
+        heavy=request.with_metadata if heavy is None else heavy,
+        rows=rows,
+    )
+
+
+def result_metadata(
+    result: StationsResult | _ValuesResult[Any, Any],
+    *,
+    provider: str,
+    network: str,
+    heavy: bool,
+    rows: int | None = None,
+) -> ResponseMetadata:
+    """Build the block of an answer made from `result` when the request does not name the provider and network.
+
+    The climate stripes are DWD's and their request says which stripes, not where from. `response_metadata` is this
+    for the requests that name them.
+    """
     stations = result if isinstance(result, StationsResult) else result.stations
     frame = result.df if isinstance(result, StationsResult) else result.df_stations
     ids = _unique(frame.get_column("station_id")) if "station_id" in frame.columns else []
@@ -216,11 +291,11 @@ def response_metadata(
     block = ResponseMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
-        retrieved_at=format_timestamp(dt.datetime.now(dt.UTC)),
+        retrieved_at=_retrieved_at(),
         **stations.get_metadata(),
         request=ResolvedRequest(
-            provider=request.provider.lower(),
-            network=request.network.lower(),
+            provider=provider.lower(),
+            network=network.lower(),
             parameters=_unique(f"{p.dataset.resolution.name}/{p.dataset.name}/{p.name}" for p in parameters),
             periods=[period.value for period in sorted(cast("Iterable[Period]", stations.request.periods or ()))],
             start=format_timestamp(stations.start) if stations.start else None,
@@ -235,7 +310,7 @@ def response_metadata(
         crs=Crs(),
         warnings=recorded_warnings(),
     )
-    if request.with_metadata if heavy is None else heavy:
+    if heavy:
         converter = UnitConverter()
         converter.update_targets(options.unit_targets)
         block.parameters = [
@@ -251,6 +326,7 @@ def response_metadata(
             for p in parameters
         ]
         block.quality = Quality(
+            legend=quality_legend(provider, network),
             source_flags=[
                 SourceQualityFlag(
                     resolution=dataset.resolution.name,
@@ -264,6 +340,94 @@ def response_metadata(
             ],
         )
     return block
+
+
+def catalogue_metadata(*, providers: int, networks: int) -> CatalogueMetadata:
+    """Build the block of an answer about the library's providers."""
+    return CatalogueMetadata(
+        api_version=API_VERSION,
+        schema_version=SCHEMA_VERSION,
+        retrieved_at=_retrieved_at(),
+        producer=describe_producer(),
+        counts=CatalogueCounts(providers=providers, networks=networks),
+        warnings=recorded_warnings(),
+    )
+
+
+def _provider_terms(api: object) -> _ProviderTerms:
+    """Give what a network says of its provider: its metadata model, or the `terms` of a standalone network."""
+    metadata = getattr(api, "metadata", None)
+    # a standalone network has no `metadata` and declares its `terms`, which the checker cannot know of `object`
+    return metadata if metadata is not None else api.terms  # ty: ignore[unresolved-attribute]
+
+
+def _block_without_result(api: object, request: ResolvedRequest, *, stations: int, rows: int) -> ResponseMetadata:
+    """Build the block of an answer that is made from no stations result: the provider's terms and the request."""
+    return ResponseMetadata(
+        api_version=API_VERSION,
+        schema_version=SCHEMA_VERSION,
+        retrieved_at=_retrieved_at(),
+        **describe_provider(_provider_terms(api)),
+        request=request,
+        counts=Counts(stations=stations, rows=rows),
+        crs=Crs(),
+        warnings=recorded_warnings(),
+    )
+
+
+def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) -> ResponseMetadata:
+    """Build the block of a list of the issue times of one station's forecast runs (`/api/issues`)."""
+    return _block_without_result(
+        api,
+        ResolvedRequest(
+            provider=request.provider.lower(),
+            network=request.network.lower(),
+            parameters=[],
+            periods=[],
+            start=None,
+            end=None,
+            stations=StationsSelected(filter=StationsFilter.BY_STATION_ID.value, count=1, ids=[request.station]),
+        ),
+        stations=1,
+        rows=len(issues),
+    )
+
+
+def stripes_metadata(data: StripesData, request: StripesValuesRequest) -> ResponseMetadata:
+    """Build the block of the values of climate stripes (`/api/stripes/values`), which are DWD observation's."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    stripes = data.metadata
+    return _block_without_result(
+        DwdObservationRequest,
+        ResolvedRequest(
+            provider="dwd",
+            network="observation",
+            parameters=[f"{stripes.resolution}/{stripes.dataset}/{stripes.parameter}"],
+            periods=[Period.HISTORICAL.value],
+            start=None,
+            end=None,
+            stations=StationsSelected(
+                filter=(StationsFilter.BY_STATION_ID if request.station else StationsFilter.BY_NAME).value,
+                count=1,
+                ids=[str(stripes.station["station_id"])],
+            ),
+        ),
+        stations=1,
+        rows=data.df.height,
+    )
+
+
+def alerts_metadata(api: object, alerts: int) -> ResponseMetadata:
+    """Build the block of the warnings of `dwd/alerts` (`/api/alerts`), which are about no stations."""
+    return _block_without_result(
+        api,
+        ResolvedRequest(
+            provider="dwd", network="alerts", parameters=[], periods=[], start=None, end=None, stations=None
+        ),
+        stations=0,
+        rows=alerts,
+    )
 
 
 def metadata_to_dict(metadata: ResponseMetadata) -> dict[str, Any]:
@@ -297,6 +461,18 @@ def response_headers(metadata: ResponseMetadata) -> Mapping[str, str]:
         headers["Link"] = f'<{license_["url"]}>; rel="license"'
     if provider["attribution"]:
         headers["X-Wetterdienst-Attribution"] = _header_text(provider["attribution"])
+    if metadata.warnings:
+        headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
+    return headers
+
+
+def catalogue_headers(metadata: CatalogueMetadata) -> Mapping[str, str]:
+    """Give the headers that say the same as the block of an answer about the library, for a client that reads none."""
+    headers = {
+        "X-Wetterdienst-API-Version": metadata.api_version,
+        "X-Wetterdienst-Schema-Version": metadata.schema_version,
+        "X-Wetterdienst-Retrieved-At": metadata.retrieved_at,
+    }
     if metadata.warnings:
         headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
     return headers

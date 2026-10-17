@@ -32,6 +32,7 @@ from wetterdienst.exceptions import (
     RequestError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import ProviderTerms
 from wetterdienst.provider.dwd.alerts.metadata import (
     DWD_ALERTS_BASE_URL,
     DwdWeatherAlertGranularity,
@@ -199,6 +200,19 @@ class DwdWeatherAlertRequest:
         "kind": "alerts",
         "url": DWD_ALERTS_BASE_URL,
     }
+
+    # who published the products and under which terms, which an answer about them names as a network with a
+    # metadata model does through its `MetadataModel` (GH-3059)
+    terms: ClassVar = ProviderTerms(
+        name_local=_METADATA["name_local"],
+        name_english=_METADATA["name_english"],
+        country=_METADATA["country"],
+        country_code=_METADATA["country_code"],
+        copyright="© Deutscher Wetterdienst (DWD), weather warnings (CAP)",
+        license=_METADATA["license"],
+        attribution=_METADATA["attribution"],
+        url=DWD_ALERTS_BASE_URL,
+    )
 
     def __init__(
         self,

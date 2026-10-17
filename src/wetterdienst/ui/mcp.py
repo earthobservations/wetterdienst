@@ -102,7 +102,9 @@ plain-language "summary". `history` is different again: it returns a station's *
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
-does this provider have".
+does this provider have". `providers` answers what a provider *is* -- its country, the licence its data \
+is published under and the credit line to give, and what its networks offer -- and is the tool for \
+"may I reuse this data" and "which providers cover this country".
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
@@ -177,6 +179,7 @@ _TOOL_NAMES = {
     "auth_api_auth_get": "auth",
     "coverage_api_coverage_get": "coverage",
     "glossary_api_glossary_get": "glossary",
+    "providers_api_providers_get": "providers",
     "stations_api_stations_get": "stations",
     "values_api_values_get": "values",
     "interpolate_api_interpolate_get": "interpolate",

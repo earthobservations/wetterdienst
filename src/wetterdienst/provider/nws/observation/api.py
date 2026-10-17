@@ -52,6 +52,7 @@ _NwsObservationMetadataSpec = {
     "name_english": "NOAA National Weather Service",
     "name_local": "NOAA National Weather Service",
     "country": "United States Of America",
+    "country_code": "US",
     "copyright": "© NOAA NWS (National Weather Service), Observations",
     "license": LicenseModel(
         spdx_id=None,

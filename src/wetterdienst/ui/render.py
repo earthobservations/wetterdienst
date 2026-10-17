@@ -11,14 +11,16 @@ module imports no web framework, so the command line can without the `restapi` e
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold  # noqa: TC001, needed at runtime by pydantic
-from wetterdienst.ui.response_metadata import ResponseMetadata, metadata_to_dict, response_metadata
+from wetterdienst.ui.core import StripesMetadata
+from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
+from wetterdienst.util.datetime import format_timestamp
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,12 +33,25 @@ if TYPE_CHECKING:
         ValuesResult,
     )
     from wetterdienst.options import Options
+    from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
     from wetterdienst.ui.core import (
         HistoryRequest,
         InterpolationRequest,
         StationsRequest,
+        StripesData,
+        StripesStationsRequest,
+        StripesValuesRequest,
         SummaryRequest,
         ValuesRequest,
+    )
+
+    _Request: TypeAlias = (
+        StationsRequest
+        | ValuesRequest
+        | InterpolationRequest
+        | SummaryRequest
+        | HistoryRequest
+        | StripesStationsRequest
     )
 
 
@@ -203,7 +218,7 @@ def render_kwargs(
 
 def _json_answer(
     data: dict[str, Any],
-    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
+    request: _Request,
     metadata: ResponseMetadata,
     settings: _AppliedSettings | None = None,
 ) -> str:
@@ -275,3 +290,54 @@ def render_history(
     answer = history.to_dict(with_metadata=False, with_stations=request.with_stations, sections=request.sections)
     metadata = metadata or response_metadata(stations, request, rows=len(answer["histories"]))
     return _json_answer(dict(answer), request, metadata), metadata
+
+
+def render_issues(issues: list[str], metadata: ResponseMetadata, *, pretty: bool = False) -> str:
+    """Write the issue times of a forecast network as JSON: `{"metadata": ..., "issues": [...]}`."""
+    answer = {"metadata": metadata_to_dict(metadata), "issues": issues}
+    return json.dumps(answer, indent=4 if pretty else None)
+
+
+def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+    """Write the warnings in the format asked for, the JSON formats with the `metadata` block, which is given back too.
+
+    A GeoJSON `FeatureCollection` holds the block as a foreign member (RFC 7946 6.1) next to its `snapshot`; CSV has no
+    place for it, so a CSV answer carries it in the headers alone (`response_headers`).
+    """
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    metadata = alerts_metadata(DwdWeatherAlertRequest, result.df.height)
+    if fmt == "csv":
+        return result.to_csv(), metadata
+    data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
+    head = {"type": data.pop("type")} if fmt == "geojson" else {}
+    answer = {**head, "metadata": metadata_to_dict(metadata), **data}
+    return json.dumps(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_stripes_stations(result: StationsResult, request: StripesStationsRequest, metadata: ResponseMetadata) -> str:
+    """Write the stations climate stripes are made for in the format asked for, the JSON formats with the block."""
+    if request.format == "csv":
+        return result.to_csv()
+    data = result.to_dict() if request.format == "json" else result.to_ogc_feature_collection()
+    return _json_answer(dict(data), request, metadata)
+
+
+class StripesValuesMetadata(ResponseMetadata, StripesMetadata):
+    """The `metadata` of `/api/stripes/values`: the block of every answer, and what the stripes are of.
+
+    `station`, `resolution`, `dataset`, `parameter` and `unit` are what this member held before it was the block.
+    """
+
+
+def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
+    """Write the values of climate stripes as JSON, the `metadata` block holding what the stripes are of too."""
+    block = StripesValuesMetadata.model_validate({**metadata.model_dump(), **data.metadata.model_dump()})
+    values = [
+        {
+            "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
+            "value": row["value"],
+        }
+        for row in data.df.select("timestamp", "value").iter_rows(named=True)
+    ]
+    return json.dumps({"metadata": metadata_to_dict(block), "values": values}, indent=4 if request.pretty else None)

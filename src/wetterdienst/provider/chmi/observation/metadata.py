@@ -86,6 +86,7 @@ _ChmiObservationMetadataSpec = {
     "name_english": "Czech Hydrometeorological Institute",
     "name_local": "Český hydrometeorologický ústav",
     "country": "Czechia",
+    "country_code": "CZ",
     "copyright": "© Czech Hydrometeorological Institute (CHMI)",
     # "Otevřená data ČHMÚ můžete využívat bezplatně při respektování licence Creative Commons BY 4.0."
     # (https://www.chmi.cz/-/jak-mohu-použít-otevřená-data-čhmú-), and each distribution in the national open

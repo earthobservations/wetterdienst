@@ -296,6 +296,7 @@ _HubeauMetadataSpec = {
     "name_english": "Eaufrance",
     "name_local": "Eaufrance",
     "country": "France",
+    "country_code": "FR",
     "copyright": "© Eaufrance",
     "license": ETALAB_2_0,
     "attribution": "Eaufrance",

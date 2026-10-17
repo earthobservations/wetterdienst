@@ -148,6 +148,7 @@ _RmiObservationMetadataSpec = {
     "name_english": "Royal Meteorological Institute of Belgium",
     "name_local": "Koninklijk Meteorologisch Instituut / Institut Royal Météorologique",
     "country": "Belgium",
+    "country_code": "BE",
     "copyright": "© RMI (Royal Meteorological Institute of Belgium), CC BY 4.0",
     "license": CC_BY_4_0,
     "attribution": "© RMI (Royal Meteorological Institute of Belgium)",

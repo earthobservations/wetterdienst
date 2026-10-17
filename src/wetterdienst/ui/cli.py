@@ -42,8 +42,10 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
+    ProvidersRequest,
     StationsRequest,
     StripesImageRequest,
+    StripesStationsRequest,
     SummaryRequest,
     ValuesRequest,
     _get_stripes_stations,
@@ -65,14 +67,19 @@ from wetterdienst.ui.core import (
     resolve_network,
     set_logging_level,
 )
+from wetterdienst.ui.providers import get_providers
 from wetterdienst.ui.render import (
     InterpolationSettings,
     SummarySettings,
     ValuesSettings,
     render,
+    render_alerts,
     render_history,
+    render_issues,
     render_stations,
+    render_stripes_stations,
 )
+from wetterdienst.ui.response_metadata import issues_metadata, result_metadata
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.response_warnings import begin_response
@@ -1198,6 +1205,32 @@ def coverage(
     print(json.dumps(cov, indent=2))  # noqa: T201
 
 
+@about.command("providers")
+@click.option("--provider", type=click.STRING, help="Only this provider. Without it, every provider. Example: dwd")
+@debug_opt
+def providers(
+    provider: str,
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+
+    Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms it publishes
+    its data under (`license`, null where it states none), the credit line to give (`attribution`), and its
+    networks with their `kind`, source `url`, whether they need credentials and the resolutions and datasets they
+    offer. Nothing is downloaded and no credential is read. `about coverage` lists the parameters of a network.
+    """
+    set_logging_level(debug=debug)
+    begin_response()
+
+    request = ProvidersRequest.model_validate({"provider": provider, "debug": debug})
+    try:
+        answer = get_providers(request.provider)
+    except ApiNotFoundError as e:
+        msg = f"{e} List them with: wetterdienst about providers"
+        raise click.UsageError(msg) from e
+    print(answer.model_dump_json(indent=2))  # noqa: T201
+
+
 @about.command("auth", epilog=_examples(AUTH_EXAMPLES))
 @provider_opt
 @network_opt
@@ -1509,6 +1542,7 @@ def issues_cmd(
     accepts.
     """
     set_logging_level(debug=debug)
+    begin_response()
 
     api = get_api(provider=provider, network=network)
     request = IssuesRequest.model_validate(
@@ -1535,7 +1569,7 @@ def issues_cmd(
         log.exception("Failed to get issues.")
         sys.exit(1)
 
-    print(json.dumps({"issues": issue_list}, indent=2))  # noqa: T201
+    _echo(render_issues(issue_list, issues_metadata(api, request, issue_list), pretty=True))
 
 
 @cli.command("history", epilog=_examples(HISTORY_EXAMPLES))
@@ -2262,6 +2296,7 @@ def alerts(
     alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
     """
     set_logging_level(debug=debug)
+    begin_response()
 
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
@@ -2292,7 +2327,7 @@ def alerts(
         log.exception("Failed to acquire weather alerts")
         raise click.ClickException(str(e)) from e
 
-    output = result.to_format(fmt, indent=pretty)
+    output, _ = render_alerts(result, fmt, pretty=pretty)
 
     if target:
         path = file_target_path(target)
@@ -2333,15 +2368,16 @@ def stripes_stations(
 ) -> None:
     """List stations for climate stripes."""
     set_logging_level(debug=debug)
+    begin_response()
     if kind not in ["temperature", "precipitation"]:
         msg = f"Invalid kind '{kind}'"
         raise click.ClickException(msg)
 
     stations = _get_stripes_stations(kind=kind, active=active)
 
-    output = stations.to_format(fmt, indent=pretty)
-
-    print(output)  # noqa: T201
+    request = StripesStationsRequest.model_validate({"kind": kind, "active": active, "format": fmt, "pretty": pretty})
+    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
+    _echo(render_stripes_stations(stations, request, metadata))
 
 
 @stripes.command("values", epilog=_examples(STRIPES_EXAMPLES))
