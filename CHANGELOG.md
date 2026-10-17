@@ -45,6 +45,16 @@ Types of changes:
   whose model is a union with text for CSV, answer `{"result": ...}` as `stations` does; read
   the answer from `result` (GH-3059)
 
+### Changed
+
+- **Breaking**: `noaa/ghcn` `hourly` returns one reading for each parameter and full hour, the one
+  nearest to the hour (a parameter a SPECI lacks is read from the report that has it), stamped with
+  the hour: the METAR of 14:53 is 15:00. It returned every report of the file under its own minute,
+  up to seven an hour at Denver, which `interpolate`, `summarize` and `skip_empty` could not find on
+  the full-hour grid. The minute of a report is not returned; read the GHCNh file for it. The
+  precipitation of source 412 (`FM94_1`) stays, marked `source:412`; it does not agree with the
+  station's gauge, see the provider page (GH-3000, GH-3016)
+
 ### Removed
 
 - **Breaking**: `TimeseriesValues` no longer has the attributes `stations_counter` and

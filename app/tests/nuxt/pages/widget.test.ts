@@ -1,8 +1,9 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
-import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import WidgetPage from '~/pages/widget.vue'
+import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
 
 // the page's $fetch, passed through to the real one unless a test makes it fail where nothing answered,
 // which no endpoint can do
@@ -316,5 +317,82 @@ describe('widget Page failures in the active language', () => {
     const refused = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
     onTestFinished(() => refused.unmount())
     await vi.waitFor(() => expect((refused.vm as any).error).toBe(withStatus))
+  })
+})
+
+// the failure on show is written again in the language switched to, not kept in the one it was made in (GH-3052)
+describe('widget Page failure after a language switch', () => {
+  const messages = (code: string) => messagesOf(code, 'common')
+  const station = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+
+  let harness: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  const setLocale = (code: string) => (harness!.vm as any).setLocale(code)
+
+  beforeEach(async () => {
+    globalThis.fetch = vi.fn()
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await setLocale('en')
+  })
+
+  afterEach(async () => {
+    await setLocale('en')
+    harness?.unmount()
+    harness = undefined
+  })
+
+  // the page shows the failure in English, the language is switched, and the same failure is shown again
+  async function failedThenSwitched(code: string, answer: () => Promise<Response>) {
+    vi.mocked(globalThis.fetch).mockImplementation(answer)
+    const wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=00001' })
+    onTestFinished(() => wrapper.unmount())
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.error).not.toBeNull())
+    const before = vm.error
+    await setLocale(code)
+    await vi.waitFor(() => expect(wrapper.text()).toContain(vm.error))
+    return { before, after: vm.error as string, requests: vi.mocked(globalThis.fetch).mock.calls.length }
+  }
+
+  it.each(OTHER_LANGUAGES)('writes the failure of a request with no message in %s', async (code) => {
+    const { before, after, requests } = await failedThenSwitched(code, async () => Promise.reject(Object.assign(new Error('aborted'), { message: '' })))
+    expect(before).toBe(messages('en').requestFailed)
+    expect(after).toBe(messages(code).requestFailed)
+    expect(after).not.toBe(before)
+    // the message was translated, not asked for again
+    expect(requests).toBe(1)
+  })
+
+  it.each(OTHER_LANGUAGES)('writes the backend\'s error with its reason in %s', async (code) => {
+    const { before, after } = await failedThenSwitched(code, async () =>
+      new Response(JSON.stringify({ detail: 'No forecast' }), { status: 404, statusText: 'Not Found' }))
+    expect(before).toBe('Backend error 404: No forecast')
+    expect(after).toBe(fill(messages(code).backendErrorDetail!, { status: '404', detail: 'No forecast' }))
+    expect(after).not.toBe(before)
+  })
+
+  it.each(OTHER_LANGUAGES)('writes the backend\'s error with its status in %s, the status text as the server wrote it', async (code) => {
+    const { before, after } = await failedThenSwitched(code, async () =>
+      new Response('<html>proxy page</html>', { status: 502, statusText: 'Bad Gateway' }))
+    expect(before).toBe('Backend error 502 Bad Gateway')
+    expect(after).toBe(`${fill(messages(code).backendError!, { status: '502' })} Bad Gateway`)
+    expect(after).not.toBe(before)
+  })
+
+  it.each(OTHER_LANGUAGES)('writes the failure of a station lookup that found no station in %s', async (code) => {
+    registerEndpoint('/api/stations', () => ({ stations: [] }))
+    const { before, after } = await failedThenSwitched(code, async () => new Response('{}'))
+    expect(before).toBe('Station not found')
+    expect(after).toBe(messagesOf(code, 'widget').stationNotFound)
+    expect(after).not.toBe(before)
+  })
+
+  it('leaves a message of the browser\'s own as it is', async () => {
+    const { before, after } = await failedThenSwitched('de', async () => Promise.reject(new TypeError('Failed to fetch')))
+    expect(before).toBe('Failed to fetch')
+    expect(after).toBe('Failed to fetch')
   })
 })
