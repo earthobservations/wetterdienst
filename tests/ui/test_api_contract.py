@@ -41,6 +41,13 @@ def client() -> TestClient:
     return TestClient(restapi.app, raise_server_exceptions=False)
 
 
+def _without_ids(body: Any) -> Any:  # noqa: ANN401
+    """Leave out the members that name the request, which differ between two requests to one path."""
+    if isinstance(body, dict):
+        return {key: value for key, value in body.items() if key not in ("instance", "request_id")}
+    return body
+
+
 def _raising(error: BaseException) -> Callable[..., None]:
     def raises(**_kwargs: object) -> None:
         raise error
@@ -59,33 +66,55 @@ def _timeout() -> exceptions.DownloadError:
 
 
 # every status of the contract, by a real exception of the library: the reader raising it, the status
-# the route answers, and the title of RFC 9457's `title`
+# the route answers, and the kind of problem it is (the last part of its `type`, GH-3065)
 STATUS_TABLE = [
-    pytest.param(exceptions.RequestError("the request cannot be served"), 400, id="400-request"),
-    pytest.param(exceptions.InvalidParameterError("unknown parameter"), 400, id="400-invalid-parameter"),
-    pytest.param(OverflowError("date value out of range"), 400, id="400-overflow"),
-    pytest.param(exceptions.StationNotFoundError("no such station"), 404, id="404-station"),
-    pytest.param(exceptions.ProviderNotFoundError("no such provider"), 404, id="404-provider"),
-    pytest.param(exceptions.CredentialMissingError("set WD_AUTH__X"), 501, id="501-credential-missing"),
-    pytest.param(exceptions.CredentialRejectedError("WD_AUTH__X was rejected"), 501, id="501-credential-rejected"),
-    pytest.param(exceptions.MissingDependencyError("pip install x"), 501, id="501-dependency"),
-    pytest.param(exceptions.ConfigurationError("not set up"), 501, id="501-configuration"),
-    pytest.param(_download_error(), 502, id="502-download"),
-    pytest.param(exceptions.MetaFileFormatError("not the layout"), 502, id="502-format"),
-    pytest.param(exceptions.NoInternetError("No internet: could not reach https://x"), 503, id="503-no-internet"),
-    pytest.param(_timeout(), 504, id="504-timeout"),
-    pytest.param(RuntimeError("/srv/secret/path"), 500, id="500-bug"),
-    pytest.param(exceptions.WetterdienstError("unplaced"), 500, id="500-unplaced"),
+    pytest.param(exceptions.RequestError("the request cannot be served"), 400, "request-refused", id="400-request"),
+    pytest.param(
+        exceptions.InvalidParameterError("unknown parameter"), 400, "request-refused", id="400-invalid-parameter"
+    ),
+    pytest.param(OverflowError("date value out of range"), 400, "request-refused", id="400-overflow"),
+    pytest.param(exceptions.StationNotFoundError("no such station"), 404, "not-found", id="404-station"),
+    pytest.param(exceptions.ProviderNotFoundError("no such provider"), 404, "not-found", id="404-provider"),
+    pytest.param(
+        exceptions.CredentialMissingError("set WD_AUTH__X"), 501, "credential-missing", id="501-credential-missing"
+    ),
+    pytest.param(
+        exceptions.CredentialRejectedError("WD_AUTH__X was rejected"),
+        501,
+        "credential-rejected",
+        id="501-credential-rejected",
+    ),
+    pytest.param(exceptions.MissingDependencyError("pip install x"), 501, "dependency-missing", id="501-dependency"),
+    pytest.param(exceptions.ConfigurationError("not set up"), 501, "not-configured", id="501-configuration"),
+    pytest.param(
+        NotImplementedError("History not implemented for X"), 501, "not-implemented", id="501-not-implemented"
+    ),
+    pytest.param(_download_error(), 502, "upstream-failed", id="502-download"),
+    pytest.param(exceptions.MetaFileFormatError("not the layout"), 502, "upstream-failed", id="502-format"),
+    pytest.param(
+        exceptions.NoInternetError("No internet: could not reach https://x"),
+        503,
+        "upstream-unreachable",
+        id="503-no-internet",
+    ),
+    pytest.param(_timeout(), 504, "upstream-timeout", id="504-timeout"),
+    pytest.param(RuntimeError("/srv/secret/path"), 500, "internal-error", id="500-bug"),
+    pytest.param(exceptions.WetterdienstError("unplaced"), 500, "internal-error", id="500-unplaced"),
 ]
 
 
-def _is_a_problem(response: Any, status: int) -> dict[str, Any]:  # noqa: ANN401
-    """Assert the body RFC 9457 describes and return it."""
+def _is_a_problem(response: Any, status: int, kind: str | None = None) -> dict[str, Any]:  # noqa: ANN401
+    """Assert the body RFC 9457 describes and return it, of the `kind` where one is given."""
     assert response.status_code == status, response.text
     assert response.headers["content-type"] == "application/problem+json"
     body = response.json()
-    assert {"type", "title", "status", "detail"} <= set(body)
-    assert body["type"] == "about:blank"
+    assert {"type", "title", "status", "detail", "instance", "request_id"} <= set(body)
+    assert body["type"].startswith("urn:wetterdienst:problem:")
+    if kind is not None:
+        assert body["type"] == f"urn:wetterdienst:problem:{kind}"
+    assert body["instance"] == f"urn:wetterdienst:request:{body['request_id']}"
+    assert response.headers["X-Request-ID"] == body["request_id"]
+    assert ("Retry-After" in response.headers) == (status in (502, 503, 504))
     assert body["status"] == status
     assert body["title"] == HTTPStatus(status).phrase
     assert isinstance(body["detail"], str)
@@ -130,7 +159,7 @@ def test_every_documented_route_is_served_under_the_alias_too(client: TestClient
         versioned, alias = client.get(path), client.get(path.replace("/api/v1/", "/api/", 1))
         assert alias.status_code == versioned.status_code, path
         assert alias.status_code not in (404, 405), path
-        assert _untimed(alias.json()) == _untimed(versioned.json()), path
+        assert _without_ids(_untimed(alias.json())) == _without_ids(_untimed(versioned.json())), path
 
 
 @pytest.mark.parametrize("path", ["/version", "/glossary?parameter=temperature_air_mean_2m", "/coverage"])
@@ -147,7 +176,7 @@ def test_the_errors_are_the_same_under_both_prefixes(client: TestClient) -> None
     answers = [client.get(f"{prefix}/glossary", params={"limit": 0}) for prefix in PREFIXES]
 
     assert [answer.status_code for answer in answers] == [422, 422]
-    assert answers[0].json() == answers[1].json()
+    assert _without_ids(answers[0].json()) == _without_ids(answers[1].json())
 
 
 def test_the_openapi_document_describes_the_versioned_routes_alone(client: TestClient) -> None:
@@ -208,6 +237,21 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
     )
 
 
+@pytest.mark.parametrize("prefix", PREFIXES)
+def test_the_providers_catalogue_has_a_request_id_and_refuses_with_a_problem(client: TestClient, prefix: str) -> None:
+    """The catalogue has no row or station limit, but it is an endpoint of the API like the others (GH-3065, GH-2565).
+
+    It answers with an `X-Request-ID` and the headers of a catalogue, and an unknown provider is the problem
+    of any other 404, with the id in its body.
+    """
+    answer = client.get(f"{prefix}/providers", params={"provider": "dwd"})
+
+    assert answer.status_code == 200, answer.text
+    assert answer.headers["X-Request-ID"]
+    assert answer.headers["X-Wetterdienst-API-Version"]
+    _is_a_problem(client.get(f"{prefix}/providers", params={"provider": "nowhere"}), 404, "not-found")
+
+
 def test_an_unknown_version_is_a_404_problem(client: TestClient) -> None:
     """A version that does not exist is not served as the current one."""
     _is_a_problem(client.get("/api/v2/version"), 404)
@@ -217,16 +261,18 @@ def test_an_unknown_version_is_a_404_problem(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("prefix", PREFIXES)
-@pytest.mark.parametrize(("error", "status"), STATUS_TABLE)
+@pytest.mark.parametrize(("error", "status", "kind"), STATUS_TABLE)
 def test_a_failure_is_answered_with_the_status_of_its_place_in_the_hierarchy(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, error: BaseException, status: int
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, prefix: str, error: BaseException, status: int, kind: str
 ) -> None:
     """Every status of the contract, by a real exception raised where the values are read, under both prefixes."""
     monkeypatch.setattr("wetterdienst.ui.restapi.get_values", _raising(error))
 
-    body = _is_a_problem(client.get(f"{prefix}/values", params=_VALUES), status)
+    body = _is_a_problem(client.get(f"{prefix}/values", params=_VALUES), status, kind)
 
-    if status in (400, 404):
+    if status in (400, 404, 501) and isinstance(error, NotImplementedError):
+        assert body["detail"] == str(error)
+    elif status in (400, 404):
         # the caller's to act on, so the sentence is the exception's
         assert body["detail"] == str(error)
     else:

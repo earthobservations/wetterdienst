@@ -23,7 +23,9 @@ from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata,
 from wetterdienst.util.datetime import format_timestamp
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping, Sequence
+
+    import polars as pl
 
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
@@ -44,6 +46,7 @@ if TYPE_CHECKING:
         SummaryRequest,
         ValuesRequest,
     )
+    from wetterdienst.util.response_warnings import ResponseWarning
 
     _Request: TypeAlias = (
         StationsRequest
@@ -234,6 +237,56 @@ def _json_answer(
     return json.dumps(answer, indent=4 if request.pretty else None, ensure_ascii=fmt == "json")
 
 
+def ndjson_line(value: Mapping[str, Any]) -> bytes:
+    """Write one line of an NDJSON answer: compact JSON, UTF-8, a newline."""
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode() + b"\n"
+
+
+def ndjson_head(metadata: ResponseMetadata, settings: _AppliedSettings | None = None) -> dict[str, Any]:
+    """Give the first line of an NDJSON answer: the `metadata` block, and the `settings` beside it if there are any."""
+    head: dict[str, Any] = {"metadata": metadata_to_dict(metadata)}
+    if settings is not None:
+        head["settings"] = json.loads(settings.model_dump_json())
+    return head
+
+
+def ndjson_end(stations: int, rows: int, warnings: Sequence[ResponseWarning]) -> dict[str, Any]:
+    """Give the content of the last line of an NDJSON answer: what was sent, and every warning raised on the way."""
+    return {"counts": {"stations": stations, "rows": rows}, "warnings": list(warnings)}
+
+
+def ndjson_refusal(request: StationsRequest | ValuesRequest) -> str | None:
+    """Say why a request cannot be answered as NDJSON, None where it can.
+
+    `sql_values` filters the whole answer as a frame, which a stream never holds, and `with_stations` lists the
+    stations of the whole answer, which a stream does not know before its end.
+    """
+    if getattr(request, "sql_values", None):
+        return (
+            "sql_values filters the whole answer, which NDJSON never holds. Use format=json, geojson or csv, or leave "
+            "sql_values out and filter the lines."
+        )
+    if getattr(request, "with_stations", False):
+        return (
+            "with_stations lists the stations of the whole answer, which NDJSON does not know before its end. Use "
+            "format=json or geojson, or ask format=ndjson of stations for them."
+        )
+    return None
+
+
+def _render_ndjson(
+    rows: Sequence[Mapping[str, Any]],
+    frame: pl.DataFrame,
+    metadata: ResponseMetadata,
+    settings: _AppliedSettings | None,
+) -> str:
+    """Write a whole answer as NDJSON, as the REST API streams it: the head, a line for each row, the end."""
+    stations = frame.get_column("station_id").n_unique() if "station_id" in frame.columns else 0
+    lines = [ndjson_line(ndjson_head(metadata, settings)), *(ndjson_line(row) for row in rows)]
+    lines.append(ndjson_line({"end": ndjson_end(stations, len(rows), metadata.warnings)}))
+    return b"".join(lines).decode()
+
+
 def render_stations(
     result: StationsResult,
     request: StationsRequest,
@@ -245,6 +298,9 @@ def render_stations(
 
     `metadata` is the block, where the caller has built it to put the same in the headers.
     """
+    if request.format == "ndjson":
+        metadata = metadata or response_metadata(result, request)
+        return _render_ndjson(result.to_dict()["stations"], result.df, metadata, None)
     if request.format not in ("json", "geojson"):
         return result.to_format(**render_kwargs(request, max_side=max_side))
     metadata = metadata or response_metadata(result, request)
@@ -267,6 +323,10 @@ def render(
     rest is written as `to_json` and `to_geojson` write it. `metadata` is the block, where the caller has
     built it to put the same in the headers.
     """
+    if request.format == "ndjson":
+        metadata = metadata or response_metadata(result, request)
+        settings = _applied_settings(applied, options) if request.with_metadata else None
+        return _render_ndjson(result.to_dict()["values"], result.df, metadata, settings)
     if request.format not in ("json", "geojson"):
         kwargs: dict[str, Any] = {**render_kwargs(request, max_side=max_side), "with_stations": request.with_stations}
         return result.to_format(**kwargs)
