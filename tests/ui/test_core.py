@@ -10,6 +10,7 @@ import polars as pl
 import pytest
 from pydantic import ValidationError
 
+from wetterdienst.exceptions import ApiNotFoundError
 from wetterdienst.ui import core
 from wetterdienst.ui.core import (
     HistoryRequest,
@@ -22,6 +23,7 @@ from wetterdienst.ui.core import (
     _get_stripes_data,
     get_interpolate,
     get_summarize,
+    resolve_network,
 )
 
 _BASE = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
@@ -825,3 +827,22 @@ def test_a_refusal_is_told_by_its_class_and_not_by_the_class_it_also_is() -> Non
     assert not core._is_caller_refusal(CredentialMissingError("x"), request)  # noqa: SLF001
     # and so is a rejected one, though it is a `PermissionError`
     assert not core._is_caller_refusal(CredentialRejectedError("x"), request)  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    ("provider", "network", "name"),
+    [
+        ("dwd", "observation", "DwdObservationRequest"),
+        ("dwd", "radar", "DwdRadarValues"),
+        ("dwd", "alerts", "DwdWeatherAlertRequest"),
+    ],
+)
+def test_resolve_network_gives_the_class_of_either_kind_of_network(provider: str, network: str, name: str) -> None:
+    """The surfaces take a standalone network by name too: `coverage`, `auth` and `issues` answer for it (GH-3045)."""
+    assert resolve_network(provider, network).__name__ == name
+
+
+def test_resolve_network_refuses_a_network_that_does_not_exist() -> None:
+    """A network that is not in the registry is the `ApiNotFoundError` the surfaces answer with a 404 (GH-3045)."""
+    with pytest.raises(ApiNotFoundError, match=r"No API available for provider foo and network bar\."):
+        resolve_network("foo", "bar")

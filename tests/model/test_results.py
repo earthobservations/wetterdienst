@@ -245,7 +245,7 @@ _VALUES_SURFACE = [
 
 
 def test_the_fields_of_the_results_are_the_ones_the_library_promises() -> None:
-    """What each of the five results holds, in the order its constructor takes it."""
+    """What each of the five results holds, in the order it is declared (a constructor takes them by keyword)."""
     fields = {cls.__name__: [field.name for field in dataclasses.fields(cls)] for cls in _RESULTS}
     assert fields == {
         "StationsResult": ["df", "request", "df_all", "stations_filter", "rank"],
@@ -329,3 +329,74 @@ def test_a_values_result_with_no_station_column_names_no_stations() -> None:
     result = ValuesResult(stations=_stations(), df=pl.DataFrame())
     assert result.df_stations.is_empty()
     assert result.df_stations.columns == _stations().df.columns
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized", "history"])
+def test_a_result_is_constructed_by_keyword_only(name: str) -> None:
+    """The order the fields come in is no part of the constructor, so a positional call is refused (GH-3044)."""
+    result = _every_result()[name]
+    fields = {field.name: getattr(result, field.name) for field in dataclasses.fields(result)}  # ty: ignore[invalid-argument-type]
+    with pytest.raises(TypeError, match="positional argument"):
+        type(result)(*fields.values())
+    rebuilt = type(result)(**fields)
+    assert all(getattr(rebuilt, name) is value for name, value in fields.items())
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+@pytest.mark.parametrize("method", ["to_dict", "to_json", "to_geojson", "to_ogc_feature_collection", "to_plot"])
+def test_a_formatter_takes_no_argument_it_does_not_know(name: str, method: str) -> None:
+    """A typo in `with_metadata` is an error where it is made, not a silently different document (GH-3043)."""
+    result = _every_result()[name]
+    parameters = inspect.signature(getattr(result, method)).parameters
+    assert not any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values())
+    with pytest.raises(TypeError, match="unexpected keyword argument 'with_metdata'"):
+        getattr(result, method)(with_metdata=True)
+
+
+def test_to_image_refuses_a_keyword_the_image_does_not_take() -> None:
+    """`to_image` passes its keywords on to the image: `fmt`, `width`, `height`, `scale`, `max_side` (GH-3043)."""
+    with pytest.raises(TypeError, match="unexpected keyword argument 'wdith'"):
+        _stations().to_image(fmt="html", wdith=3)  # ty: ignore[unknown-argument]
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+def test_to_format_gives_a_formatter_the_arguments_it_takes(name: str) -> None:
+    """The one set of arguments the command line, the REST API and MCP build is cut down to each format (GH-3043)."""
+    result = _every_result()[name]
+    everything = {"with_metadata": True, "indent": 2, "with_stations": True, "width": 3, "height": 4, "scale": 1.0}
+    assert result.to_format("json", **everything) == result.to_json(  # ty: ignore[unresolved-attribute]
+        with_metadata=True, indent=2, **({"with_stations": True} if name != "stations" else {})
+    )
+    assert result.to_format("geojson", **everything) == result.to_geojson(with_metadata=True, indent=2)  # ty: ignore[unresolved-attribute]
+    assert result.to_format("csv", **everything) == result.to_csv()  # ty: ignore[unresolved-attribute]
+
+
+@pytest.mark.parametrize("name", ["stations", "values", "interpolated", "summarized"])
+def test_to_format_gives_an_image_the_arguments_of_an_image(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A chart is not given the `indent` or `with_metadata` of the JSON formats (GH-3043)."""
+    result = _every_result()[name]
+    given: dict[str, object] = {}
+
+    def image(
+        _self: object,
+        fmt: str,
+        width: int | None = None,
+        height: int | None = None,
+        scale: float | None = None,
+        max_side: int | None = None,
+    ) -> str:
+        given.update(fmt=fmt, width=width, height=height, scale=scale, max_side=max_side)
+        return "image"
+
+    monkeypatch.setattr(type(result), "_to_image", image)
+    everything = {
+        "with_metadata": True,
+        "indent": 2,
+        "with_stations": True,
+        "width": 3,
+        "height": 4,
+        "scale": 1.5,
+        "max_side": 9,
+    }
+    assert result.to_format("PNG", **everything) == "image"  # ty: ignore[unresolved-attribute]
+    assert given == {"fmt": "png", "width": 3, "height": 4, "scale": 1.5, "max_side": 9}

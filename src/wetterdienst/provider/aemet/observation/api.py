@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import stamina
 
-from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialMissingError, CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -30,7 +30,14 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings, reveal
-from wetterdienst.util.network import PROBE_TIMEOUT, _without_url_secrets, as_outage, download_file, drop_cached_file
+from wetterdienst.util.network import (
+    PROBE_TIMEOUT,
+    _without_url_secrets,
+    as_outage,
+    credential_rejected,
+    download_file,
+    drop_cached_file,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -256,6 +263,25 @@ def _as_outage(failure: Exception, url: str) -> Exception:
     return as_outage(failure, url)
 
 
+def _key_rejected() -> CredentialRejectedError:
+    """Say that AEMET refuses the API key (GH-3018)."""
+    return credential_rejected("AEMET", "AEMET", "API key")
+
+
+def _raise_if_unanswered(payload: bytes | Exception) -> None:
+    """Raise what `_fetch_datos` returned if it is not an answer to the request, or a refusal of the key.
+
+    A connection that could not be made (`NoInternetError`), an AEMET that did not answer
+    (`DownloadError`, GH-2965) and an API key that AEMET refuses (`CredentialRejectedError`, GH-3018): a
+    request that goes on past any of them reads as a station without data, or as a network without
+    stations. What AEMET did answer is left to the caller, which skips the chunk.
+    """
+    if isinstance(payload, (NoInternetError, DownloadError)):
+        raise payload
+    if isinstance(payload, AemetKeyRejectedError):
+        raise _key_rejected()
+
+
 def _drop_cached_body(file: File, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
     """Drop what `download_file` cached for a download whose body is no good, so that the next request asks again.
 
@@ -428,8 +454,7 @@ class AemetObservationValues(TimeseriesValues):
 
         url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
-        if isinstance(payload, (NoInternetError, DownloadError)):
-            raise payload
+        _raise_if_unanswered(payload)
         if isinstance(payload, Exception):
             log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
             return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
@@ -470,16 +495,16 @@ class AemetObservationValues(TimeseriesValues):
                 end_date=chunk_end.strftime("%Y-%m-%dT%H:%M:%SUTC"),
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
-            if isinstance(payload, (NoInternetError, DownloadError)):
-                # offline, every remaining chunk (and station) would fail the same way: the request
-                # ends here, with the error, rather than with the chunks read (GH-2620, GH-2640).
-                # The same for an AEMET that did not answer -- a timeout, a dropped connection, a
-                # 5xx: a range read in part is not an answer, and an empty one would read as a
-                # station without data (GH-2965)
-                raise payload
+            # offline, every remaining chunk (and station) would fail the same way: the request
+            # ends here, with the error, rather than with the chunks read (GH-2620, GH-2640).
+            # The same for an AEMET that did not answer -- a timeout, a dropped connection, a
+            # 5xx: a range read in part is not an answer, and an empty one would read as a
+            # station without data (GH-2965). And for a key it refuses, which every chunk and
+            # station would meet again (GH-3018)
+            _raise_if_unanswered(payload)
             if isinstance(payload, Exception):
-                # AEMET answered, and the answer is no data for this chunk (a 404), a refused key
-                # or a rate limit that outlasted the retries: this chunk is missing from the result.
+                # AEMET answered, and the answer is no data for this chunk (a 404) or a rate limit
+                # that outlasted the retries: this chunk is missing from the result.
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
@@ -543,8 +568,7 @@ class AemetObservationValues(TimeseriesValues):
                 end_year=end_year,
             )
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
-            if isinstance(payload, (NoInternetError, DownloadError)):
-                raise payload
+            _raise_if_unanswered(payload)
             if isinstance(payload, Exception):
                 log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
                 continue
@@ -624,9 +648,9 @@ class AemetObservationRequest(TimeseriesRequest):
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         payload = _fetch_datos(self._endpoint, settings, CacheExpiry.METAINDEX)
-        if isinstance(payload, NoInternetError):
-            # an unreachable AEMET is no network without stations (GH-2640)
-            raise payload
+        # an unreachable AEMET is no network without stations (GH-2640), nor is one that does not answer
+        # (GH-3022) or refuses the key (GH-3018)
+        _raise_if_unanswered(payload)
         if isinstance(payload, Exception):
             log.warning(f"Failed to fetch AEMET stations: {payload}")
             return pl.LazyFrame()

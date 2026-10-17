@@ -237,6 +237,13 @@ learnt on one holds on the others:
 - **A boolean is `true`, `1`, `yes`, `on`, `t` or `y`, or one of their opposites**, in any case, on
   every surface; nothing else is one. On the command line a boolean option given without a value is
   on (`--pretty`, `--all`), and `--pretty=false` says it outright.
+- **A parameter an endpoint ignores is not an option of the command or an argument of the tool.**
+  `stations` takes `lead_time` and `issue` and ignores them: the stations of a forecast network are
+  the same for every run, which is chosen for `values`. A value that does not parse is still
+  refused. REST keeps accepting them, as it always has, so that no caller gets a 422, and the
+  OpenAPI document says in their descriptions that they are ignored; `wetterdienst stations` and the `stations` tool
+  do not take them, and `--lead-time` and `--issue` are options of `values`, `interpolate` and
+  `summarize`.
 - **The stations are named by exactly one of** `all`, `stations`, `name`, a point (`latitude` and
   `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
   `sql`. None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`

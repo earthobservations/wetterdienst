@@ -13,6 +13,7 @@ naming / date stepping, the NetCDF parser, the retry loop, and the auth guard.
 import datetime as dt
 import json
 import logging
+import ssl
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -25,7 +26,7 @@ from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedE
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
-from wetterdienst.exceptions import DownloadError, MissingDependencyError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, MissingDependencyError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation.api import (
@@ -478,6 +479,89 @@ def _response_error(status: int) -> ClientResponseError:
     return ClientResponseError(request_info=MagicMock(), history=(), status=status)
 
 
+def _serve_station_requests(
+    monkeypatch: pytest.MonkeyPatch, *, listing: File | None = None, resolve: File | None = None
+) -> None:
+    """Serve the request for the latest file of a dataset as `listing`, and the one for its link as `resolve`."""
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        if "/files?maxKeys=1" in url:
+            if listing is not None:
+                return File(url=url, content=listing.content, status=listing.status)
+            body = BytesIO(json.dumps({"files": [{"filename": "latest.nc"}]}).encode())
+            return File(url=url, content=body, status=200)
+        assert url.endswith("/latest.nc/url")
+        assert resolve is not None
+        return File(url=url, content=resolve.content, status=resolve.status)
+
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._download_with_retry", download)
+
+
+def _stations() -> pl.DataFrame:
+    request = _request([("daily", "data", "temperature_air_mean_2m")], dt.datetime(2020, 1, 1, tzinfo=UTC), None)
+    return request.all().df
+
+
+def _failed(failure: Exception, status: int) -> File:
+    return File(url="https://api.dataplatform.knmi.nl/x", content=failure, status=status)
+
+
+@pytest.mark.parametrize("where", ["listing", "resolve"])
+@pytest.mark.parametrize(
+    ("failure", "status"),
+    [
+        pytest.param(FSTimeoutError(), 408, id="timeout"),
+        pytest.param(ServerDisconnectedError(), 500, id="dropped connection"),
+        pytest.param(ClientPayloadError("body cut short"), 500, id="cut body"),
+        pytest.param(_response_error(503), 503, id="503"),
+        pytest.param(ssl.SSLCertVerificationError("certificate verify failed"), 500, id="tls"),
+    ],
+)
+def test_knmi_station_list_raises_a_download_error_for_a_request_that_did_not_answer(
+    monkeypatch: pytest.MonkeyPatch, where: str, failure: Exception, status: int
+) -> None:
+    """An outage of the latest-file lookup or of its link is no network without stations (GH-3022)."""
+    failed = _failed(failure, status)
+    _serve_station_requests(monkeypatch, listing=failed if where == "listing" else None, resolve=failed)
+    with pytest.raises(DownloadError) as raised:
+        _stations()
+    assert raised.value.__cause__ is failure
+    assert raised.value.url.endswith("/files" if where == "listing" else "/files/latest.nc/url")
+    assert "?" not in raised.value.url
+
+
+@pytest.mark.parametrize("where", ["listing", "resolve"])
+@pytest.mark.parametrize("status", [401, 403])
+def test_knmi_station_list_raises_credential_rejected_error_for_a_refused_key(
+    monkeypatch: pytest.MonkeyPatch, where: str, status: int
+) -> None:
+    """A key KNMI refuses for the station list is raised, not read as a network without stations (GH-3018)."""
+    failed = _failed(_response_error(status), status)
+    _serve_station_requests(monkeypatch, listing=failed if where == "listing" else None, resolve=failed)
+    with pytest.raises(CredentialRejectedError, match=f"HTTP {status}"):
+        _stations()
+
+
+@pytest.mark.parametrize("where", ["listing", "resolve"])
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(FileNotFoundError("not published"), id="404"),
+        pytest.param(_response_error(429), id="429"),
+    ],
+)
+def test_knmi_station_list_keeps_the_empty_result_for_an_answer(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, where: str, answer: Exception
+) -> None:
+    """A 404 or a 429 for the station list is KNMI answering: no stations, warned about, as before."""
+    status = 404 if isinstance(answer, FileNotFoundError) else 429
+    failed = _failed(answer, status)
+    _serve_station_requests(monkeypatch, listing=failed if where == "listing" else None, resolve=failed)
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.knmi"):
+        assert _stations().is_empty()
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 1
+
+
 def _serve_knmi(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -597,7 +681,7 @@ def test_knmi_values_raise_no_internet_error_as_before(monkeypatch: pytest.Monke
         pytest.param(FileNotFoundError("not published"), id="404"),
         pytest.param(_response_error(404), id="404 as a response error"),
         pytest.param(_response_error(429), id="429"),
-        pytest.param(_response_error(403), id="403"),
+        pytest.param(_response_error(400), id="400"),
     ],
 )
 def test_knmi_values_skip_a_file_that_is_an_answer(
@@ -610,6 +694,32 @@ def test_knmi_values_skip_a_file_that_is_an_answer(
     assert df.is_empty()
     assert len(asked) == 2
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 2
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_knmi_values_skip_a_file_whose_download_link_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture, status: int
+) -> None:
+    """The link KNMI hands out is pre-signed and takes no key: its 401 or 403 says nothing of the key (GH-3018)."""
+    asked = _serve_knmi(monkeypatch, tmp_path, _response_error(status), at="download")
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.knmi"):
+        df = _daily_values(days=2)
+    assert df.is_empty()
+    assert len(asked) == 2
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 2
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_knmi_values_raise_credential_rejected_error_for_a_refused_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: int
+) -> None:
+    """A key KNMI refuses ends the request at the first file, naming the setting and not the key (GH-3018)."""
+    asked = _serve_knmi(monkeypatch, tmp_path, _response_error(status))
+    with pytest.raises(CredentialRejectedError, match=f"HTTP {status}") as raised:
+        _daily_values(days=3)
+    assert "WD_AUTH__KNMI" in str(raised.value)
+    assert "dummy-key-for-test" not in f"{raised.value!s}{raised.value!r}"
+    assert len(asked) == 1  # the next day is not asked for
 
 
 def test_knmi_values_skip_a_missing_day_and_keep_the_others(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -794,10 +794,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Forecast lead time for DWD DMO ('short' or 'long'); ignored for other networks.",
+              "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused.",
               "title": "Lead Time"
             },
-            "description": "Forecast lead time for DWD DMO ('short' or 'long'); ignored for other networks."
+            "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused."
           },
           {
             "name": "issue",
@@ -812,10 +812,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run.",
+              "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused.",
               "title": "Issue"
             },
-            "description": "Model-run issue time for DWD MOSMIX/DMO/SWSMOS (ISO 8601); defaults to the latest run."
+            "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused."
           },
           {
             "name": "all",

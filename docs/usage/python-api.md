@@ -35,11 +35,11 @@ Each network says what it is: `name_short`, `country`, `url` and `kind`, where `
 `derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
 (`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
-`Wetterdienst.is_valid(Wetterdienst("aemet", "observation"))` asks for one network. The fields are
+`Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. The fields are
 described with the [REST API](restapi.md#coverage), which lists the same.
 
-To load any of the available APIs pass the provider and the network of data to the
-wetterdienst api factory:
+To load the request class of a timeseries network pass the provider and the network of data to
+`Wetterdienst.resolve`:
 
 ```{code-cell}
 ---
@@ -48,8 +48,28 @@ mystnb:
 ---
 from wetterdienst import Wetterdienst
 
-Wetterdienst(provider="dwd", network="observation")
+Wetterdienst.resolve(provider="dwd", network="observation")
 ```
+
+`resolve` is for the networks that have stations and values. The two that have not, `dwd/radar` and
+`dwd/alerts` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
+point of their own, `Wetterdienst.resolve_standalone`, and `resolve` refuses them with an
+`ApiNotFoundError` that says so. Both are typed: `resolve` gives a `type[TimeseriesRequest]`, and
+`resolve_standalone("dwd", "radar")` the `DwdRadarValues` class. The classes can also be imported, which is
+what the examples do.
+
+```{code-cell}
+---
+mystnb:
+  number_source_lines: true
+---
+from wetterdienst import Wetterdienst
+
+Wetterdienst.resolve_standalone(provider="dwd", network="radar")
+```
+
+`Wetterdienst(provider, network)` is deprecated: it warns, and returns the class as it always did, but it
+constructs no `Wetterdienst`, and a type checker cannot tell which kind of class it returns.
 
 ## Request arguments
 
@@ -226,7 +246,7 @@ to discover available parameters based on the given filter arguments. Names matc
 network does not have is a ``MetadataNotFoundError`` listing the ones it has, not an empty answer;
 a dataset is looked for in the resolutions asked for, so ``resolutions="daily", datasets="dew_point"``
 refuses a dataset that exists only at ``hourly``. ``Wetterdienst.get_network_names("foo")`` raises the
-``ApiNotFoundError`` that ``Wetterdienst("foo", "bar")`` raises for a provider that does not exist.
+``ApiNotFoundError`` that ``Wetterdienst.resolve("foo", "bar")`` raises for a provider that does not exist.
 
 ### Stations
 
@@ -699,6 +719,14 @@ What a request answers is a result, and the results are what a caller reads:
   the stations, their request and the frame alive, but not the reader. `df_stations` names the stations that have values.
 - Every result but the history one has `to_dict`, `to_json`, `to_ogc_feature_collection`, `to_geojson`,
   `to_csv`, `to_format`, `to_target`, `to_plot` and `to_image`; they are documented below.
+- **The formats take the arguments they have, and no others.** `to_json`, `to_geojson`,
+  `to_ogc_feature_collection` and `to_plot` raise a `TypeError` for a keyword they do not know, so a typo such as
+  `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
+  keywords on (`to_csv` to polars' `write_csv`, `to_image` to the image: `fmt`, `width`, `height`, `scale` and
+  `max_side`). `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives each format those
+  it takes (CSV none), which is what the command line, the REST API and MCP rely on.
+- **A result is built by the library, and by keyword.** The constructors take keyword arguments only
+  (`ValuesResult(stations=..., df=...)`); a positional call raises a `TypeError`.
 
 ```{note}
 **Migrating from 0.155.0 or earlier.** The names a result had are refused with an error that says what

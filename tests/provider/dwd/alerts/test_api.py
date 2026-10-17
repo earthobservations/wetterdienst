@@ -36,7 +36,7 @@ UTC = ZoneInfo("UTC")
 
 def test_registry_resolves_dwd_alerts() -> None:
     """Verify the provider is registered and resolvable via the Wetterdienst factory."""
-    assert Wetterdienst("dwd", "alerts") is DwdWeatherAlertRequest
+    assert Wetterdienst.resolve_standalone("dwd", "alerts") is DwdWeatherAlertRequest
 
 
 def test_url_community_english_default() -> None:

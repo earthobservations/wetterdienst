@@ -261,13 +261,16 @@ def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_discovered(mon
     assert df["timestamp"].to_list() == [START, END]
 
 
-@pytest.mark.parametrize("status", [401, 403, 500])
+@pytest.mark.parametrize("status", [400, 429])
 def test_metno_frost_values_failure_is_warned_about(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     status: int,
 ) -> None:
-    """Test that a failed values request other than a 404 or 412 is logged, not taken for no data."""
+    """Test that a values request Frost refused, other than a 404 or 412, is logged, not taken for no data.
+
+    A refusal of the client ID (401, 403) and an outage are raised instead (GH-3018, GH-3022).
+    """
     values, seen = _values(monkeypatch, lambda url: _failed(url, status))
     with caplog.at_level("WARNING", logger=LOGGER):
         df = values.all().df
@@ -281,14 +284,14 @@ def test_metno_frost_values_single_parameter_failure_is_warned_about(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test that the single-parameter request warns for a failure other than a 404 or 412 as well."""
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 500))
+    """Test that the single-parameter request warns for a refusal other than a 404 or 412 as well."""
+    values, seen = _values(monkeypatch, lambda url: _failed(url, 429))
     parameter = values.sr.parameters[0]
     with caplog.at_level("WARNING", logger=LOGGER):
         df = values._collect_single_parameter("SN18700", parameter, START, END, values.sr.settings, {})  # noqa: SLF001
     assert df.is_empty()
     assert [record.getMessage() for record in caplog.records if record.name == LOGGER] == [
-        f"Failed to download {seen[-1]}: upstream answered 500",
+        f"Failed to download {seen[-1]}: upstream answered 429",
     ]
 
 
@@ -311,7 +314,7 @@ def test_metno_frost_values_discovered_series_failure_is_warned_about(
     def observations(url: str) -> File:
         if "availableTimeSeries" in url:
             return _ok(url, AVAILABLE)
-        return _failed(url, 404 if "timeseriesids=" not in url else 500)
+        return _failed(url, 404 if "timeseriesids=" not in url else 429)
 
     values, _seen = _values(monkeypatch, observations)
     with caplog.at_level("WARNING", logger=LOGGER):
@@ -320,7 +323,7 @@ def test_metno_frost_values_discovered_series_failure_is_warned_about(
     warned = [record.getMessage() for record in caplog.records if record.name == LOGGER]
     assert len(warned) == 1
     assert all(
-        message.startswith("Failed to download ") and message.endswith(": upstream answered 500") for message in warned
+        message.startswith("Failed to download ") and message.endswith(": upstream answered 429") for message in warned
     )
     assert all("timeseriesids=" in message for message in warned)
 
@@ -330,7 +333,7 @@ def test_metno_frost_values_discovery_failure_is_warned_about(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that a failed request for the available time series is warned about, not taken for no data."""
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 404 if "availableTimeSeries" not in url else 500))
+    values, seen = _values(monkeypatch, lambda url: _failed(url, 404 if "availableTimeSeries" not in url else 429))
     with caplog.at_level("WARNING", logger=LOGGER):
         df = values.all().df
     assert df.is_empty()

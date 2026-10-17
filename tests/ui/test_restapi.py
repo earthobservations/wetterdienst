@@ -31,7 +31,7 @@ from wetterdienst.model.metadata import NetworkKind, ParameterSearch
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import restapi
-from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary
+from wetterdienst.ui.core import StripesImageRequest, _FormatField, get_glossary, resolve_network
 from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
@@ -1423,7 +1423,7 @@ def test_get_stations_request_mosmix_issue_is_forwarded() -> None:
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import ValuesRequest, _get_stations_request  # noqa: PLC0415
 
-    api = Wetterdienst("dwd", "mosmix")
+    api = Wetterdienst.resolve("dwd", "mosmix")
     settings = Settings()
     request = ValuesRequest(
         provider="dwd",
@@ -1448,7 +1448,7 @@ def test_get_stations_request_mosmix_no_issue_defaults_to_latest() -> None:
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import ValuesRequest, _get_stations_request  # noqa: PLC0415
 
-    api = Wetterdienst("dwd", "mosmix")
+    api = Wetterdienst.resolve("dwd", "mosmix")
     settings = Settings()
     request = ValuesRequest(
         provider="dwd",
@@ -1472,7 +1472,7 @@ def test_get_stations_request_date_required_dataset_does_not_raise_for_stations_
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
 
-    api = Wetterdienst("metno", "frost")
+    api = Wetterdienst.resolve("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
     request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], all=True)
 
@@ -1496,7 +1496,7 @@ def test_get_stations_request_date_covers_the_span_it_names() -> None:
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import ValuesRequest, _get_stations_request  # noqa: PLC0415
 
-    api = Wetterdienst("dwd", "observation")
+    api = Wetterdienst.resolve("dwd", "observation")
     settings = Settings()
 
     def window(timestamp: str) -> tuple[dt.datetime, dt.datetime]:
@@ -1544,7 +1544,7 @@ def test_get_stations_request_passes_periods_to_every_provider() -> None:
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
 
-    api = Wetterdienst("metno", "frost")
+    api = Wetterdienst.resolve("metno", "frost")
     settings = Settings(auth={"metno_frost": "fake-client-id"})
     request = StationsRequest(provider="metno", network="frost", parameters=["hourly/data"], periods="recent", all=True)
 
@@ -1565,7 +1565,7 @@ def test_get_stations_request_periods_on_a_single_period_dataset() -> None:
     from wetterdienst.settings import Settings  # noqa: PLC0415
     from wetterdienst.ui.core import StationsRequest, _get_stations_request  # noqa: PLC0415
 
-    api = Wetterdienst("dwd", "derived")
+    api = Wetterdienst.resolve("dwd", "derived")
     settings = Settings()
     request = StationsRequest(
         provider="dwd",
@@ -8168,7 +8168,7 @@ def test_coverage_of_a_network_matches_its_model(provider: str, network: str) ->
     The models forbid other keys, so a key added to or renamed in `discover()` fails here, which
     is the check the app's hand-written coverage types had no way to get.
     """
-    api = Wetterdienst(provider, network)
+    api = resolve_network(provider, network)
     if not hasattr(api, "discover"):
         # a standalone network (dwd/radar, dwd/alerts) has no metadata model; the route answers it a 404
         pytest.skip(f"{provider}/{network} has no coverage")
@@ -8196,7 +8196,7 @@ def test_coverage_of_a_network_is_sent_as_discover_builds_it(
     params: dict[str, str],
 ) -> None:
     """The response model describes the answer without changing a byte of it (GH-2090)."""
-    expected = Wetterdienst(provider, network).discover(
+    expected = resolve_network(provider, network).discover(
         resolutions=params.get("resolutions"),
         datasets=params.get("datasets"),
     )
@@ -8245,7 +8245,7 @@ def test_coverage_of_a_resolution_or_dataset_that_does_not_exist_is_a_404(
 
 def test_coverage_model_refuses_a_key_discover_does_not_have() -> None:
     """A key `discover()` gains, or loses, is a validation error, not silently accepted (GH-2090)."""
-    discovered = Wetterdienst("dwd", "observation").discover(resolutions="daily", datasets="climate_summary")
+    discovered = Wetterdienst.resolve("dwd", "observation").discover(resolutions="daily", datasets="climate_summary")
     adapter = TypeAdapter(restapi.CoverageResolutions)
     adapter.validate_python(discovered)
     parameter = discovered["daily"]["datasets"]["climate_summary"]["parameters"][0]
@@ -8298,7 +8298,7 @@ def test_mcp_coverage_tool_returns_the_coverage_unwrapped() -> None:
 
     every, one = asyncio.run(_call())
     assert every == json.loads(json.dumps(Wetterdienst.discover()))
-    assert one == json.loads(json.dumps(Wetterdienst("dwd", "observation").discover(resolutions="daily")))
+    assert one == json.loads(json.dumps(Wetterdienst.resolve("dwd", "observation").discover(resolutions="daily")))
 
 
 @pytest.mark.parametrize(
