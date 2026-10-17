@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `eccc/observation` lists a station for `monthly` only if the station list flags a monthly
+  summary (`HAS_MONTHLY_SUMMARY` is `Y`), no longer all 8435 stations: the 108 whose flag is `N` or
+  empty have no monthly row, so `filter_by_rank`, `filter_by_distance`, `interpolate` and
+  `summarize` for monthly no longer pick them. Hourly and daily are unchanged (GH-3006)
+
 ## [0.158.0] - 2026-10-17
 
 ### Added
