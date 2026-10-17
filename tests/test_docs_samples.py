@@ -175,6 +175,10 @@ def _shell_lines(code: str) -> list[str]:
     return lines
 
 
+#: an image reference of the registry the project publishes to: the host is the start of it, then the path and tag
+_GHCR_IMAGE = re.compile(r"ghcr\.io/[\w.-]+/[\w.-]+(?::[\w.-]+)?")
+
+
 def _commands(code: str) -> Iterator[tuple[str, list[str]]]:
     """Give each ``wetterdienst`` invocation of a block as (the line, the arguments after the program)."""
     for line in _shell_lines(code):
@@ -185,7 +189,9 @@ def _commands(code: str) -> Iterator[tuple[str, list[str]]]:
         for position, word in enumerate(tokens):
             # the program, first on a line (or by its path), or after the image a `docker run` starts it in
             first = position == 0 and word.rsplit("/", 1)[-1] == "wetterdienst"
-            in_image = word == "wetterdienst" and position > 0 and tokens[position - 1].startswith("ghcr.io/")
+            in_image = (
+                word == "wetterdienst" and position > 0 and _GHCR_IMAGE.fullmatch(tokens[position - 1]) is not None
+            )
             if (first or in_image) and position + 1 < len(tokens):
                 yield line, tokens[position + 1 :]
                 break
