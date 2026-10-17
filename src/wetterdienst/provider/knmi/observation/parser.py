@@ -35,8 +35,19 @@ _FILL_VALUE = "NaN"
 # KNMI encodes "trace precipitation" (measured but below the 0.05mm resolution) as a
 # literal -1 rather than a small positive value or a missing-value flag -- treated as
 # effectively zero here rather than surfaced as a physically-nonsensical negative amount.
-_TRACE_PRECIPITATION_PARAMETERS = ("RH",)
+# The sunshine duration SQ has the same code: "(-1 for <0.05 hour)" in the header of the hourly and the daily export
+# (https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, .../daggegevens; the daily one holds 246 of them for the
+# stations 260, 240, 344, 235, 270 and 310 since 1960, read 2026-10-18), which was -3600 s once the hour was
+# converted, see GH-3123
+_TRACE_PRECIPITATION_PARAMETERS = ("RH", "SQ")
 _TRACE = "-1"
+
+# the hourly cloud cover N and the daily mean NG are octants, "9=sky invisible" (the same headers: "9=bovenlucht
+# onzichtbaar"), which is no cover and was 1.125 once converted: 941 of the 87,696 hours of the stations 260, 240 and
+# 344 from 2015 to 2024. The 10-minute `n` (lowercase) is a different variable that the text export does not carry, so
+# whether it holds a 9 is not known
+_CLOUD_COVER_CODE_PARAMETERS = ("N", "NG")
+_SKY_INVISIBLE = "9"
 
 # the hourly wind direction DD is a bearing "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (KNMI's
 # description of the variable): the two codes are no direction. The 10-minute `dd` (lowercase) is a different variable,
@@ -95,13 +106,14 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
             rows.append({"timestamp": moment, "parameter": parameter, "value": value})
     # KNMI's _FillValue for a missing observation is NaN; emit null (not NaN) so the framework's drop_nulls
     # handling treats it as missing and to_json stays valid. The -1 of a trace of precipitation is 0.0, and the 0 (calm)
-    # and 990 (variable) of the hourly wind direction are no bearing, so null (GH-2850). All keep what the file held as
-    # the `raw` token of `quality_flags` (GH-2759)
+    # and 990 (variable) of the hourly wind direction are no bearing, so null (GH-2850), as is the 9 of the cloud cover
+    # (GH-3123). All keep what the file held as the `raw` token of `quality_flags` (GH-2759)
     value, raw = null_sentinels(
         pl.col("value"),
         Sentinel(_FILL_VALUE),
         Sentinel(_TRACE, where=pl.col("parameter").is_in(_TRACE_PRECIPITATION_PARAMETERS), to=0.0),
         Sentinel(_CALM, _VARIABLE, where=pl.col("parameter").is_in(_WIND_DIRECTION_CODE_PARAMETERS)),
+        Sentinel(_SKY_INVISIBLE, where=pl.col("parameter").is_in(_CLOUD_COVER_CODE_PARAMETERS)),
         text=False,
     )
     return pl.DataFrame(rows, schema=_ROW_SCHEMA, orient="row").select(

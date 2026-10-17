@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `knmi/observation`: the sunshine duration `SQ` of KNMI's `-1` ("less than 0.05 hour") is 0.0, with
+  `raw:-1` in `quality_flags`, where the `-1` came back as -3600 s, and the `9` of the hourly cloud
+  cover `N` and the daily `NG`, a sky that is invisible, is null, where it came back as a cloud
+  cover of 1.125 (GH-3123)
+
 ## [0.159.0] - 2026-10-18
 
 
