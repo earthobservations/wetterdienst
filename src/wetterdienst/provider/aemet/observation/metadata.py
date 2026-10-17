@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, build_metadata_model
 
 # Monthly and annual values come from the same AEMET endpoint (mensualesanuales) and share
 # the same field names — the response is split by resolution based on the "fecha" suffix
@@ -64,6 +64,12 @@ _AemetObservationMetadataSpec = {
     "name_local": "Agencia Estatal de Meteorología",
     "country": "Spain",
     "copyright": "© AEMET",
+    "license": LicenseModel(
+        spdx_id=None,
+        name="AEMET legal notice, conditions for the reuse of information",
+        url="https://www.aemet.es/en/nota_legal",
+    ),
+    "attribution": "Source: AEMET",
     "url": "https://opendata.aemet.es/",
     "kind": "observation",
     "timezone": "Europe/Madrid",

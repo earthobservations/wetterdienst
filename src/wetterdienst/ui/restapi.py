@@ -42,14 +42,14 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageNetwork, CoverageResolution
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
-    _InterpolatedValuesDict,
-    _InterpolatedValuesOgcFeatureCollection,
-    _StationsDict,
-    _StationsOgcFeatureCollection,
-    _SummarizedValuesDict,
-    _SummarizedValuesOgcFeatureCollection,
-    _ValuesDict,
-    _ValuesOgcFeatureCollection,
+    _InterpolatedValuesDictBody,
+    _InterpolatedValuesOgcFeatureCollectionBody,
+    _StationsDictBody,
+    _StationsOgcFeatureCollectionBody,
+    _SummarizedValuesDictBody,
+    _SummarizedValuesOgcFeatureCollectionBody,
+    _ValuesDictBody,
+    _ValuesOgcFeatureCollectionBody,
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
@@ -98,11 +98,14 @@ from wetterdienst.ui.render import (
     _applied_settings,
     _AppliedSettings,
     render,
+    render_history,
     render_stations,
 )
+from wetterdienst.ui.response_metadata import API_VERSION, ResponseMetadata, response_headers, response_metadata
 from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.response_warnings import begin_response, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping
@@ -123,8 +126,6 @@ info = Info()
 # in-process request to this app is left out, see `is_tool_request` (GH-2432)
 app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_tool_request})
 
-#: the version of the REST API contract, reported by `/api/version` as `api_version`
-API_VERSION = "1"
 #: where the current version is served; OpenAPI documents this prefix (GH-2561)
 API_PREFIX = f"/api/v{API_VERSION}"
 #: the same routes without the version, an alias of the current version: not deprecated, and not in OpenAPI
@@ -482,6 +483,19 @@ _MEDIA_TYPES = {
 }
 
 
+def _answer(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> Response:
+    """Send a rendered answer with the headers that say what its `metadata` block says, in the one format or the other.
+
+    A JSON or GeoJSON answer holds the block in its body and carries the headers too, so that a proxy or a
+    client that reads no body knows the licence, the credit line and the warnings of what it passes on.
+    """
+    return Response(
+        content=content,
+        media_type=_MEDIA_TYPES.get(fmt, "application/json"),
+        headers=dict(response_headers(metadata)),
+    )
+
+
 class ServerSettings(BaseModel):
     """What each endpoint takes for a setting a request leaves out."""
 
@@ -492,29 +506,43 @@ class ServerSettings(BaseModel):
     summarize: SummarySettings
 
 
-# what the JSON formats of the three endpoints answer with: their results' own, and, with
-# `with_metadata`, the settings they were got with (GH-2359)
-class _ValuesWithSettingsDict(_ValuesDict):
+# what the JSON formats of the data endpoints answer with: the `metadata` block, which is always there, and,
+# with `with_metadata`, the settings they were got with for the three that have settings (GH-2359, GH-2561)
+class _StationsWithMetadataDict(_StationsDictBody):
+    metadata: ResponseMetadata
+
+
+class _StationsWithMetadataOgcFeatureCollection(_StationsOgcFeatureCollectionBody):
+    metadata: ResponseMetadata
+
+
+class _ValuesWithSettingsDict(_ValuesDictBody):
+    metadata: ResponseMetadata
     settings: NotRequired[ValuesSettings]
 
 
-class _ValuesWithSettingsOgcFeatureCollection(_ValuesOgcFeatureCollection):
+class _ValuesWithSettingsOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
+    metadata: ResponseMetadata
     settings: NotRequired[ValuesSettings]
 
 
-class _InterpolatedValuesWithSettingsDict(_InterpolatedValuesDict):
+class _InterpolatedValuesWithSettingsDict(_InterpolatedValuesDictBody):
+    metadata: ResponseMetadata
     settings: NotRequired[InterpolationSettings]
 
 
-class _InterpolatedValuesWithSettingsOgcFeatureCollection(_InterpolatedValuesOgcFeatureCollection):
+class _InterpolatedValuesWithSettingsOgcFeatureCollection(_InterpolatedValuesOgcFeatureCollectionBody):
+    metadata: ResponseMetadata
     settings: NotRequired[InterpolationSettings]
 
 
-class _SummarizedValuesWithSettingsDict(_SummarizedValuesDict):
+class _SummarizedValuesWithSettingsDict(_SummarizedValuesDictBody):
+    metadata: ResponseMetadata
     settings: NotRequired[SummarySettings]
 
 
-class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeatureCollection):
+class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectionBody):
+    metadata: ResponseMetadata
     settings: NotRequired[SummarySettings]
 
 
@@ -1053,12 +1081,12 @@ def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -
 
 
 # response models for the different formats are
-# - _StationsDict for json
-# - _StationsOgcFeatureCollection for geojson
+# - _StationsWithMetadataDict for json
+# - _StationsWithMetadataOgcFeatureCollection for geojson
 # - str for csv
 @router.get(
     "/stations",
-    response_model=_StationsDict | _StationsOgcFeatureCollection | str,
+    response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
 )
 def stations(
     request: Annotated[StationsRequest, Query()],
@@ -1075,9 +1103,10 @@ def stations(
     A `timestamp`, a date or an interval as for `values`, lists only the stations whose record
     overlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`
     the network has no station for is left out of the list, which is then empty or shorter, and
-    named in a warning in the server's log; an empty list is a 200, not an error.
+    named in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
@@ -1105,11 +1134,10 @@ def stations(
     # lazily during value collection, and a plain listing returns just the N closest asked for
     stations_ = limit_stations_to_rank(limit_stations_to_window(stations_))
 
-    content = render_stations(stations_, request, max_side=_MAX_IMAGE_SIDE)
+    metadata = response_metadata(stations_, request)
+    content = render_stations(stations_, request, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
 
-    media_type = _MEDIA_TYPES.get(request.format, "application/json")
-
-    return Response(content=content, media_type=media_type)
+    return _answer(content, request.format, metadata)
 
 
 @router.get("/issues")
@@ -1175,6 +1203,7 @@ def values(
     re-request in other formats.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
@@ -1188,11 +1217,10 @@ def values(
 
     values_ = _values(api=api, request=request, settings=settings, options=options)
 
-    content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE)
+    metadata = response_metadata(values_, request)
+    content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
 
-    media_type = _MEDIA_TYPES.get(request.format, "application/json")
-
-    return Response(content=content, media_type=media_type)
+    return _answer(content, request.format, metadata)
 
 
 def _request_options(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Options:
@@ -1450,6 +1478,7 @@ def interpolate(
     network, parameters and a `timestamp`.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
 
@@ -1461,11 +1490,10 @@ def interpolate(
 
     values_ = _geo_values(get_interpolate, api, request, settings, options, "interpolate")
 
-    content = render(values_, request, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE)
+    metadata = response_metadata(values_, request)
+    content = render(values_, request, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
 
-    media_type = _MEDIA_TYPES.get(request.format, "application/json")
-
-    return Response(content=content, media_type=media_type)
+    return _answer(content, request.format, metadata)
 
 
 # response models for the different formats are
@@ -1492,11 +1520,16 @@ def summarize(
     `timestamp`.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
     # dumped rather than read: reading a deprecated field warns of itself, a DeprecationWarning nobody sees
     if request.model_dump(include={"use_nearby_station_distance"})["use_nearby_station_distance"] is not None:
-        log.warning(f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}")
+        warn_response(
+            log,
+            "deprecated-parameter",
+            f"use_nearby_station_distance is deprecated. {SUMMARY_USE_NEARBY_STATION_DISTANCE_DEPRECATED}",
+        )
 
     api = _get_timeseries_api(request.provider, request.network)
 
@@ -1506,11 +1539,10 @@ def summarize(
 
     values_ = _geo_values(get_summarize, api, request, settings, options, "summarize")
 
-    content = render(values_, request, SummarySettings, options, max_side=_MAX_IMAGE_SIDE)
+    metadata = response_metadata(values_, request)
+    content = render(values_, request, SummarySettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
 
-    media_type = _MEDIA_TYPES.get(request.format, "application/json")
-
-    return Response(content=content, media_type=media_type)
+    return _answer(content, request.format, metadata)
 
 
 @router.get("/stripes/stations")
@@ -1614,6 +1646,7 @@ def history(
     network, parameters and either `stations` ids or all=true.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
 
     api = _get_timeseries_api(request.provider, request.network, history=True)
 
@@ -1641,15 +1674,10 @@ def history(
         raise _logged_server_error(e, "acquire history provider") from e
 
     try:
-        content = history_provider.to_json(
-            with_metadata=request.with_metadata,
-            with_stations=request.with_stations,
-            sections=request.sections,
-            indent=4 if request.pretty else None,
-        )
+        content, metadata = render_history(stations_, history_provider, request)
     except Exception as e:
         raise _logged_server_error(e, "collect station history") from e
-    return Response(content=content, media_type="application/json")
+    return _answer(content, "json", metadata)
 
 
 @router.get("/alerts")

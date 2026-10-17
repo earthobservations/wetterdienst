@@ -15,6 +15,7 @@ from wetterdienst.exceptions import NoStationsWithElevationError
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.resolution import Frequency
 from wetterdienst.model.metadata import ParameterModel
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -460,7 +461,9 @@ def report_elevation_exclusions(
     if answered or not took_nothing:
         # only where something was answered is there a rest of the result to stand
         stands = "; the rest of the result stands" if answered else ""
-        log.warning(
+        warn_response(
+            log,
+            "elevation-unknown",
             f"leaving out the stations of unknown elevation leaves nothing that can answer {listing} "
             f"at {elevation} m{stands}",
         )
@@ -470,7 +473,9 @@ def report_elevation_exclusions(
     kept_some = [param_key for param_key in emptied if param_key in param_dict]
     if kept_some:
         listing = ", ".join("/".join(param_key) for param_key in kept_some)
-        log.warning(
+        warn_response(
+            log,
+            "elevation-unknown",
             f"leaving out the stations of unknown elevation leaves nothing that can answer {listing} at {elevation} m",
         )
     listing = ", ".join("/".join(param_key) for param_key in took_nothing)

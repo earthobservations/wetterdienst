@@ -183,13 +183,19 @@ _SqlValuesField = Annotated[
         "and MCP server refuse it with a 403 unless they run with WD_RESTAPI_SQL=true."
     ),
 ]
-_WithMetadataField = Annotated[bool, Field(description="Include the provider-metadata block in the output.")]
+_WithMetadataField = Annotated[
+    bool,
+    Field(
+        description="Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the "
+        "JSON or GeoJSON, which is always there."
+    ),
+]
 # of the values, interpolate and summarize requests, whose JSON formats report their settings with it
 _WithMetadataSettingsField = Annotated[
     bool,
     Field(
-        description="Include the provider-metadata block in the output, and with it, in JSON or GeoJSON, a "
-        "`settings` block with the settings the result was got with."
+        description="Add the unit of every parameter and what `quality_flags` holds to the `metadata` block of the "
+        "JSON or GeoJSON, which is always there, and a `settings` block with the settings the result was got with."
     ),
 ]
 _WithStationsField = Annotated[bool, Field(description="Include the queried stations' metadata block in the output.")]

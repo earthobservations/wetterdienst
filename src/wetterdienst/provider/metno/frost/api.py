@@ -15,7 +15,7 @@ from aiohttp import encode_basic_auth
 
 from wetterdienst.exceptions import CredentialMissingError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ParameterModel, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -43,6 +43,12 @@ _MetnoFrostMetadataSpec = {
     "name_local": "Meteorologisk institutt",
     "country": "Norway",
     "copyright": "© Norwegian Meteorological Institute (MET Norway)",
+    "license": LicenseModel(
+        spdx_id="CC-BY-4.0 OR NLOD-2.0",
+        name="Creative Commons Attribution 4.0 International, or Norwegian Licence for Open Government Data 2.0",
+        url="https://api.met.no/doc/License",
+    ),
+    "attribution": "Data from MET Norway",
     "url": "https://frost.met.no",
     "kind": "observation",
     "timezone": "Europe/Oslo",

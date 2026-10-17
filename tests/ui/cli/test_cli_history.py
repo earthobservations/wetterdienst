@@ -2,6 +2,7 @@
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
@@ -12,6 +13,7 @@ from dirty_equals import IsApprox, IsStr
 from wetterdienst.model.history import TimeseriesHistory
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui.cli import cli
 
 
@@ -180,21 +182,36 @@ def test_history_no_station_selection() -> None:
     assert "Error: Missing option: one of '--all' or '--stations'." in result.output
 
 
+class _NoHistories:
+    """What `history()` of the stations hands out when no station has a history."""
+
+    sr = None
+    to_dict = TimeseriesHistory.to_dict
+
+    def query(self) -> list:
+        return []
+
+
+@dataclass(frozen=True)
+class _StationsWithoutHistories(StationsResult):
+    def history(self) -> _NoHistories:  # ty: ignore[invalid-method-override]
+        return _NoHistories()
+
+
+def _stations_without_histories() -> StationsResult:
+    """Make the stations of a real request, whose `metadata` block is built, with no history to collect."""
+    df = pl.DataFrame({"station_id": ["02564"]})
+    return _StationsWithoutHistories(
+        request=DwdObservationRequest(parameters=[("daily", "climate_summary")]),
+        df=df,
+        df_all=df,
+        stations_filter=StationsFilter.BY_STATION_ID,
+    )
+
+
 def _unwritable_history_target(monkeypatch: pytest.MonkeyPatch, target: Path) -> Result:
     """Run history for one station with the fetch stubbed out, writing to `target`."""
-
-    class _History:
-        sr = None
-        to_json = TimeseriesHistory.to_json
-
-        def query(self) -> list:
-            return []
-
-    class _Stations:
-        def history(self) -> _History:
-            return _History()
-
-    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _stations_without_histories())
     runner = CliRunner()
     return runner.invoke(
         cli,
@@ -239,19 +256,7 @@ def test_history_target_naming_a_directory_is_a_readable_error(
 
 def _history_to_target(monkeypatch: pytest.MonkeyPatch, target: str) -> Result:
     """Run history for one station with the fetch stubbed out to no histories, writing to `target`."""
-
-    class _History:
-        sr = None
-        to_json = TimeseriesHistory.to_json
-
-        def query(self) -> list:
-            return []
-
-    class _Stations:
-        def history(self) -> _History:
-            return _History()
-
-    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _Stations())
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: _stations_without_histories())
     return CliRunner().invoke(
         cli,
         [
@@ -270,7 +275,7 @@ def test_history_target_relative_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_p
     monkeypatch.chdir(tmp_path)
     result = _history_to_target(monkeypatch, "file://history.json")
     assert result.exit_code == 0, result.output
-    assert json.loads((tmp_path / "history.json").read_text()) == {"histories": []}
+    assert json.loads((tmp_path / "history.json").read_text())["histories"] == []
     # not a file inside a directory `file:`, which is where the unstripped URI pointed
     assert not (tmp_path / "file:").exists()
 
@@ -280,7 +285,7 @@ def test_history_target_absolute_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_p
     target = tmp_path / "history.json"
     result = _history_to_target(monkeypatch, f"file://{target}")
     assert result.exit_code == 0, result.output
-    assert json.loads(target.read_text()) == {"histories": []}
+    assert json.loads(target.read_text())["histories"] == []
 
 
 def test_history_target_is_written_as_utf8(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -401,5 +406,5 @@ def test_history_target_percent_encoded_file_uri(monkeypatch: pytest.MonkeyPatch
     target = directory / "history.json"
     result = _history_to_target(monkeypatch, target.as_uri())
     assert result.exit_code == 0, result.output
-    assert json.loads(target.read_text()) == {"histories": []}
+    assert json.loads(target.read_text())["histories"] == []
     assert not (tmp_path / "my%20data").exists()

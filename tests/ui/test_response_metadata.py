@@ -1,0 +1,367 @@
+# Copyright (C) 2018-2025, earthobservations developers.
+# Distributed under the MIT License. See LICENSE for more info.
+"""The `metadata` block every JSON answer of the data routes carries, and the headers of the rest (GH-2561).
+
+Offline: the results are the stubs of the REST tests, so the whole of the answer is rendered by the
+routes and nothing but the readers is stood in for.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+from dataclasses import replace
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
+
+import pytest
+from click.testing import CliRunner
+from fastapi.testclient import TestClient
+
+from tests.ui.cli.test_cli_history import _stations_without_histories
+from tests.ui.test_restapi import _OBSERVATION, _station_of, _stub_result, _values_result_of_shape
+from wetterdienst import Options, Wetterdienst
+from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.ui import restapi
+from wetterdienst.ui.cli import cli
+from wetterdienst.ui.response_metadata import API_VERSION, SCHEMA_VERSION, response_metadata
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings, warn_response
+
+if TYPE_CHECKING:
+    import pathlib
+
+LOG = logging.getLogger(__name__)
+#: the members of the block that every answer has, whatever was asked for
+ALWAYS = {
+    "api_version",
+    "schema_version",
+    "retrieved_at",
+    "provider",
+    "producer",
+    "request",
+    "counts",
+    "crs",
+    "warnings",
+}
+ENDPOINTS = ["/api/values", "/api/interpolate", "/api/summarize"]
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Keep the WD_* variables and the `.env` of whoever runs the tests out of the settings."""
+    begin_response()
+    for name in list(os.environ):
+        if name.upper().startswith("WD_") and name.upper() != "WD_CACHE_DIR":
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture
+def client() -> TestClient:
+    """Make a client of the app."""
+    return TestClient(restapi.app, raise_server_exceptions=False)
+
+
+def _params(endpoint: str, **extra: str) -> dict[str, str]:
+    params = {**_OBSERVATION, _station_of(endpoint): "01048", **extra}
+    if endpoint != "/api/values":
+        params["timestamp"] = "2026-01-01"
+    return params
+
+
+# --- the block ------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+@pytest.mark.parametrize("fmt", ["json", "geojson"])
+def test_every_json_answer_has_the_block(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, fmt: str
+) -> None:
+    """The block is there without `with_metadata`, with what the answer is of and where it comes from."""
+    _stub_result(monkeypatch, endpoint)
+
+    response = client.get(endpoint, params=_params(endpoint, format=fmt))
+
+    assert response.status_code == 200, response.text
+    metadata = response.json()["metadata"]
+    assert set(metadata) == ALWAYS
+    assert (metadata["api_version"], metadata["schema_version"]) == (API_VERSION, SCHEMA_VERSION)
+    assert metadata["retrieved_at"].endswith("+00:00")
+    assert metadata["provider"]["license"] == {
+        "spdx_id": "CC-BY-4.0",
+        "name": "Creative Commons Attribution 4.0 International",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+    }
+    assert metadata["provider"]["attribution"] == "Source: Deutscher Wetterdienst"
+    assert metadata["crs"] == {
+        "code": "EPSG:4326",
+        "name": "WGS 84",
+        "axis_order": "longitude, latitude",
+        "elevation": "metres above mean sea level",
+    }
+    assert metadata["warnings"] == []
+
+
+def test_the_request_is_told_as_it_was_resolved(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`daily/climate_summary` is the list of parameters it means, and the stations are the ones selected."""
+    _stub_result(monkeypatch, "/api/values")
+
+    metadata = client.get("/api/values", params=_params("/api/values")).json()["metadata"]
+
+    request = metadata["request"]
+    assert (request["provider"], request["network"]) == ("dwd", "observation")
+    assert "daily/climate_summary/temperature_air_mean_2m" in request["parameters"]
+    assert len(request["parameters"]) > 1
+    assert request["periods"] == ["historical", "recent"]
+    assert (request["start"], request["end"]) == (None, None)
+    assert request["stations"] == {"filter": "all", "ids": ["01048"]}
+    assert metadata["counts"] == {"stations": 1, "rows": 2}
+
+
+def test_the_heavy_parts_are_with_metadata_alone(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`with_metadata` adds the unit of every parameter and what `quality_flags` holds, and the settings."""
+    _stub_result(monkeypatch, "/api/values")
+
+    light = client.get("/api/values", params=_params("/api/values")).json()
+    heavy = client.get("/api/values", params=_params("/api/values", with_metadata="true")).json()
+
+    assert set(light["metadata"]) == ALWAYS
+    assert set(heavy["metadata"]) == ALWAYS | {"parameters", "quality"}
+    assert "settings" not in light
+    assert "settings" in heavy
+    temperature = next(p for p in heavy["metadata"]["parameters"] if p["name"] == "temperature_air_mean_2m")
+    assert temperature["quantity"] == "temperature"
+    assert temperature["unit"] == "°C"
+    assert temperature["name_original"] == "tmk"
+    assert heavy["metadata"]["quality"]["column"] == "quality_flags"
+    assert {flag["name_original"] for flag in heavy["metadata"]["quality"]["source_flags"]} >= {"qn_3", "qn_4"}
+    # the rest of the block is the same
+    assert {k: v for k, v in heavy["metadata"].items() if k in ALWAYS - {"retrieved_at"}} == {
+        k: v for k, v in light["metadata"].items() if k != "retrieved_at"
+    }
+
+
+@pytest.mark.parametrize(("convert_units", "unit"), [(True, "s"), (False, "h")])
+def test_the_unit_is_the_sources_where_nothing_is_converted(*, convert_units: bool, unit: str) -> None:
+    """The unit named is the target of the quantity, or, with `convert_units` off, the one the source publishes."""
+    request = DwdObservationRequest(
+        parameters=[("daily", "climate_summary", "sunshine_duration")], options=Options(convert_units=convert_units)
+    )
+    stations = replace(_values_result_of_shape("long").stations, request=request)
+
+    metadata = response_metadata(stations, SimpleNamespace(provider="dwd", network="observation", with_metadata=True))
+
+    assert [(p.name, p.unit) for p in metadata.parameters or []] == [("sunshine_duration", unit)]
+
+
+def test_a_stations_answer_has_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The listing says how the stations were selected and how many there are."""
+    stations = _values_result_of_shape("long").stations
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
+
+    response = client.get("/api/stations", params={**_OBSERVATION, "stations": "01048"})
+
+    assert response.status_code == 200, response.text
+    metadata = response.json()["metadata"]
+    assert set(metadata) == ALWAYS
+    assert metadata["request"]["stations"] == {"filter": "all", "ids": ["01048"]}
+    assert metadata["counts"] == {"stations": 1, "rows": 2}
+
+
+def test_a_history_answer_has_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The history of a station is an answer of the data routes too."""
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: _stations_without_histories())
+
+    response = client.get("/api/history", params={**_OBSERVATION, "stations": "02564"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert list(body) == ["metadata", "histories"]
+    assert body["metadata"]["counts"] == {"stations": 1, "rows": 0}
+    assert body["metadata"]["provider"]["license"]["spdx_id"] == "CC-BY-4.0"
+
+
+# --- the warnings -----------------------------------------------------------------------------
+
+
+def test_a_warning_is_logged_and_recorded_for_the_request_being_served(caplog: pytest.LogCaptureFixture) -> None:
+    """The line stays in the log, and the answer of the request carries it by its code."""
+    begin_response()
+    with caplog.at_level(logging.INFO):
+        warn_response(LOG, "some-code", "something was left out", level=logging.INFO)
+        warn_response(LOG, "some-code", "something was left out", level=logging.INFO)
+        warn_response(LOG, "other-code", "something else")
+
+    assert "something was left out" in caplog.text
+    assert recorded_warnings() == [
+        {"code": "some-code", "message": "something was left out"},
+        {"code": "other-code", "message": "something else"},
+    ]
+
+
+def test_a_request_starts_without_the_warnings_of_the_one_before(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Warnings belong to the request that raised them."""
+    _stub_result(monkeypatch, "/api/values")
+    stations = _values_result_of_shape("long").stations
+
+    def lookup(**_kwargs: object) -> object:
+        warn_response(LOG, "left-out", "an id was left out")
+        return stations
+
+    # a stations request raises one; a values request after it must not carry it
+    monkeypatch.setattr(restapi, "get_stations", lookup)
+    listed = client.get("/api/stations", params={**_OBSERVATION, "stations": "01048"}).json()
+    values = client.get("/api/values", params=_params("/api/values")).json()
+
+    assert [warning["code"] for warning in listed["metadata"]["warnings"]] == ["left-out"]
+    assert values["metadata"]["warnings"] == []
+
+
+def test_a_deprecated_parameter_is_a_warning(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deprecated parameter that was used is told in the answer, not only in the server's log."""
+    _stub_result(monkeypatch, "/api/summarize")
+
+    response = client.get("/api/summarize", params=_params("/api/summarize", use_nearby_station_distance="5"))
+
+    assert response.status_code == 200, response.text
+    assert [w["code"] for w in response.json()["metadata"]["warnings"]] == ["deprecated-parameter"]
+
+
+# --- the headers ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+def test_a_csv_answer_carries_the_block_in_headers(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str
+) -> None:
+    """A CSV has no place in its body for the licence and the credit line, so they are headers and a `Link`."""
+    _stub_result(monkeypatch, endpoint)
+
+    response = client.get(endpoint, params=_params(endpoint, format="csv"))
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
+    headers = response.headers
+    assert headers["X-Wetterdienst-API-Version"] == API_VERSION
+    assert headers["X-Wetterdienst-Schema-Version"] == SCHEMA_VERSION
+    assert headers["X-Wetterdienst-Retrieved-At"].endswith("+00:00")
+    assert headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+    assert unquote(headers["X-Wetterdienst-Attribution"]) == "Source: Deutscher Wetterdienst"
+    assert unquote(headers["X-Wetterdienst-Provider"]) == "German Weather Service"
+    assert (headers["X-Wetterdienst-Stations"], headers["X-Wetterdienst-Rows"]) == (
+        "1",
+        "1" if endpoint != "/api/values" else "2",
+    )
+    assert headers["Link"] == '<https://creativecommons.org/licenses/by/4.0/>; rel="license"'
+    assert "X-Wetterdienst-Warnings" not in headers
+
+
+def test_the_headers_are_on_a_json_answer_too(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A proxy that reads no body knows what the answer says of its licence and warnings."""
+    _stub_result(monkeypatch, "/api/values")
+
+    response = client.get("/api/values", params=_params("/api/values"))
+
+    assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+    assert response.headers["X-Wetterdienst-Retrieved-At"] == response.json()["metadata"]["retrieved_at"]
+
+
+def test_a_text_beyond_ascii_in_a_header_is_percent_encoded() -> None:
+    """A credit line may carry more than ASCII (Météo-France); a header can not, and a client unquotes it."""
+    from wetterdienst.ui.response_metadata import response_headers  # noqa: PLC0415
+
+    metadata = restapi.response_metadata(
+        _values_result_of_shape("long").stations, restapi.ValuesRequest(**_OBSERVATION, stations="01048")
+    )
+    metadata.provider["attribution"] = "© Météo-France"
+
+    attribution = response_headers(metadata)["X-Wetterdienst-Attribution"]
+
+    assert attribution.isascii()
+    assert unquote(attribution) == "© Météo-France"
+
+
+# --- the command line -------------------------------------------------------------------------
+
+
+def test_the_command_line_prints_the_block_without_with_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The block is on stdout whether or not `--with-metadata` is on; the heavy parts are with it."""
+    from wetterdienst.ui import cli as cli_module  # noqa: PLC0415
+
+    _stub_result(monkeypatch, "/api/values")
+    monkeypatch.setattr(cli_module, "get_values", restapi.get_values)
+
+    def run(*flags: str) -> dict[str, Any]:
+        result = CliRunner().invoke(
+            cli, ["values", *(f"--{k}={v}" for k, v in {**_OBSERVATION, "stations": "01048"}.items()), *flags]
+        )
+        assert result.exit_code == 0, result.output
+        return json.loads(result.stdout)
+
+    light, heavy = run(), run("--with-metadata")
+
+    assert set(light["metadata"]) == ALWAYS
+    assert set(heavy["metadata"]) == ALWAYS | {"parameters", "quality"}
+    assert "settings" in heavy
+    assert "settings" not in light
+
+
+# --- the licence of every provider ------------------------------------------------------------
+
+#: the networks whose provider states no terms of use anywhere this could be read, with where it was looked. A new
+#: provider declares its licence, or is named here with the reason (`"license": None` in its metadata).
+LICENSE_NOT_STATED = {
+    ("chmi", "observation"): "opendata.chmi.cz is a directory listing and its description of the data (PDF) names none",
+    ("imgw", "hydrology"): "dane.imgw.pl names the Polish open-data act as the legal basis, and no licence",
+    ("imgw", "meteorology"): "dane.imgw.pl names the Polish open-data act as the legal basis, and no licence",
+    ("ipma", "observation"): "api.ipma.pt and the site's notice name no licence for the API",
+    ("noaa", "ghcn"): "the NCEI product page and the ISO metadata name a citation, not a licence",
+}
+
+
+def _timeseries_networks() -> list[tuple[str, str]]:
+    return [
+        (provider, network)
+        for provider, networks in Wetterdienst.discover().items()
+        for network, listed in networks.items()
+        if listed["kind"] in {"observation", "forecast", "derived"}
+    ]
+
+
+@pytest.mark.parametrize(("provider", "network"), _timeseries_networks())
+def test_every_network_declares_its_licence_or_says_why_not(provider: str, network: str) -> None:
+    """A provider's licence and credit line are data of its metadata, never left out by forgetting."""
+    metadata = Wetterdienst(provider, network).metadata
+
+    if (provider, network) in LICENSE_NOT_STATED:
+        assert metadata.license is None, f"{provider}/{network} states a licence now: drop it from LICENSE_NOT_STATED"
+        return
+    assert metadata.license is not None, f"{provider}/{network} declares no licence"
+    assert metadata.license.url.startswith("https://")
+    assert metadata.license.name
+    if metadata.license.spdx_id:
+        assert " " not in metadata.license.spdx_id.replace(" OR ", "").replace(" AND ", "")
+
+
+def test_the_licence_of_a_network_is_in_its_answer_even_where_it_is_null(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Where a provider states none the answer says `null` rather than leaving the member out."""
+    stated = DwdObservationRequest.metadata
+    monkeypatch.setattr(
+        DwdObservationRequest, "metadata", stated.model_copy(update={"license": None, "attribution": None})
+    )
+    _stub_result(monkeypatch, "/api/values")
+
+    response = client.get("/api/values", params=_params("/api/values"))
+
+    assert response.status_code == 200, response.text
+    provider = response.json()["metadata"]["provider"]
+    assert provider["license"] is None
+    assert provider["attribution"] is None
+    assert "X-Wetterdienst-License" not in response.headers
+    assert "Link" not in response.headers

@@ -8,7 +8,7 @@ request URL, e.g. ".../parameter/1/station/...".
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 _SmhiObservationMetadataSpec = {
     "name_short": "SMHI",
@@ -16,6 +16,8 @@ _SmhiObservationMetadataSpec = {
     "name_local": "Sveriges meteorologiska och hydrologiska institut",
     "country": "Sweden",
     "copyright": "© SMHI",
+    "license": CC_BY_4_0,
+    "attribution": "© SMHI",
     "url": "https://www.smhi.se/data/utforskaren-oppna-data",
     "kind": "observation",
     "timezone": "Europe/Stockholm",

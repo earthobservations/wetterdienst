@@ -8,5 +8,7 @@ _METADATA = {
     "name_local": "Instytut Meteorologii i Gospodarki Wodnej",
     "country": "Poland",
     "copyright": "© IMGW, Observations",
+    "license": None,
+    "attribution": None,
     "url": "https://imgw.pl/",
 }

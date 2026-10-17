@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, DatasetModel, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, DatasetModel, LicenseModel, build_metadata_model
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -53,6 +53,12 @@ _NwsObservationMetadataSpec = {
     "name_local": "NOAA National Weather Service",
     "country": "United States Of America",
     "copyright": "© NOAA NWS (National Weather Service), Observations",
+    "license": LicenseModel(
+        spdx_id=None,
+        name="Open data, free to use for any purpose (NWS API documentation)",
+        url="https://www.weather.gov/documentation/services-web-api",
+    ),
+    "attribution": None,
     "url": "https://api.weather.gov/",
     "kind": "observation",
     "timezone": "America/New_York",

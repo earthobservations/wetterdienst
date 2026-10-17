@@ -55,6 +55,14 @@ class StationsFilter(Enum):
 
 
 # return types of StationsResult output formats
+class _License(TypedDict):
+    """Type definition for the terms a provider publishes its data under."""
+
+    spdx_id: str | None
+    name: str
+    url: str
+
+
 class _Provider(TypedDict):
     """Type definition for provider metadata."""
 
@@ -63,6 +71,9 @@ class _Provider(TypedDict):
     country: str
     copyright: str
     url: str
+    # null where the provider states no terms, or asks for no credit
+    license: _License | None
+    attribution: str | None
 
 
 class _Producer(TypedDict):
@@ -101,11 +112,16 @@ class _Station(TypedDict):
     region: str | None
 
 
-class _StationsDict(TypedDict):
+class _StationsDictBody(TypedDict):
+    """The members of `_StationsDict` other than `metadata`."""
+
+    stations: list[_Station]
+
+
+class _StationsDict(_StationsDictBody):
     """Type definition for dictionary of stations."""
 
     metadata: NotRequired[_Metadata]
-    stations: list[_Station]
 
 
 # open to extra keys: a feature also carries the station columns its provider declares beyond these,
@@ -147,11 +163,16 @@ class _StationsOgcFeatureCollectionData(TypedDict):
     features: list[_StationsOgcFeature]
 
 
-class _StationsOgcFeatureCollection(TypedDict):
+class _StationsOgcFeatureCollectionBody(TypedDict):
+    """The members of `_StationsOgcFeatureCollection` other than `metadata`."""
+
+    data: _StationsOgcFeatureCollectionData
+
+
+class _StationsOgcFeatureCollection(_StationsOgcFeatureCollectionBody):
     """Type definition for OGC feature collection of stations."""
 
     metadata: NotRequired[_Metadata]
-    data: _StationsOgcFeatureCollectionData
 
 
 class _CalledMethod:
@@ -311,6 +332,7 @@ class StationsResult(ExportMixin):
         country = self.request.metadata.country
         copyright_ = self.request.metadata.copyright
         url = self.request.metadata.url
+        license_ = self.request.metadata.license
         return {
             "provider": {
                 "name_local": name_local,
@@ -318,6 +340,8 @@ class StationsResult(ExportMixin):
                 "country": country,
                 "copyright": copyright_,
                 "url": url,
+                "license": cast("_License", license_.model_dump()) if license_ else None,
+                "attribution": self.request.metadata.attribution,
             },
             "producer": {
                 "name": info.name,
@@ -577,13 +601,18 @@ class _ValuesWideOgcItemDict(TypedDict, extra_items=float | str | None):
     timestamp: str
 
 
-class _ValuesDict(TypedDict):
-    """Type definition for dictionary of values."""
+class _ValuesDictBody(TypedDict):
+    """The members of `_ValuesDict` other than `metadata`."""
 
-    metadata: NotRequired[_Metadata]
     stations: NotRequired[list[_Station]]
     # one item per value in the long shape, one row per timestamp in the wide one
     values: list[_ValuesItemDict] | list[_ValuesWideItemDict]
+
+
+class _ValuesDict(_ValuesDictBody):
+    """Type definition for dictionary of values."""
+
+    metadata: NotRequired[_Metadata]
 
 
 # What differs between the values results is what a row and the whole dictionary look like: an
@@ -722,11 +751,16 @@ class _ValuesOgcFeatureCollectionData(TypedDict):
     features: list[_ValuesOgcFeature]
 
 
-class _ValuesOgcFeatureCollection(TypedDict):
+class _ValuesOgcFeatureCollectionBody(TypedDict):
+    """The members of `_ValuesOgcFeatureCollection` other than `metadata`."""
+
+    data: _ValuesOgcFeatureCollectionData
+
+
+class _ValuesOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
     """Type definition for OGC feature collection of values."""
 
     metadata: NotRequired[_Metadata]
-    data: _ValuesOgcFeatureCollectionData
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1102,12 +1136,17 @@ class _InterpolatedValuesItemDict(TypedDict):
     taken_station_ids: list[str]
 
 
-class _InterpolatedValuesDict(TypedDict):
+class _InterpolatedValuesDictBody(TypedDict):
+    """The members of `_InterpolatedValuesDict` other than `metadata`."""
+
+    stations: NotRequired[list[_Station]]
+    values: list[_InterpolatedValuesItemDict]
+
+
+class _InterpolatedValuesDict(_InterpolatedValuesDictBody):
     """Type definition for dictionary of interpolated values."""
 
     metadata: NotRequired[_Metadata]
-    stations: NotRequired[list[_Station]]
-    values: list[_InterpolatedValuesItemDict]
 
 
 class _InterpolatedValuesOgcFeature(TypedDict):
@@ -1127,11 +1166,16 @@ class _InterpolatedValuesOgcFeatureCollectionData(TypedDict):
     features: list[_InterpolatedValuesOgcFeature]
 
 
-class _InterpolatedValuesOgcFeatureCollection(TypedDict):
+class _InterpolatedValuesOgcFeatureCollectionBody(TypedDict):
+    """The members of `_InterpolatedValuesOgcFeatureCollection` other than `metadata`."""
+
+    data: _InterpolatedValuesOgcFeatureCollectionData
+
+
+class _InterpolatedValuesOgcFeatureCollection(_InterpolatedValuesOgcFeatureCollectionBody):
     """Type definition for OGC feature collection of interpolated values."""
 
     metadata: NotRequired[_Metadata]
-    data: _InterpolatedValuesOgcFeatureCollectionData
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1285,12 +1329,17 @@ class _SummarizedValuesItemDict(TypedDict):
     taken_station_id: str | None
 
 
-class _SummarizedValuesDict(TypedDict):
+class _SummarizedValuesDictBody(TypedDict):
+    """The members of `_SummarizedValuesDict` other than `metadata`."""
+
+    stations: NotRequired[list[_Station]]
+    values: list[_SummarizedValuesItemDict]
+
+
+class _SummarizedValuesDict(_SummarizedValuesDictBody):
     """Format summarized values as dictionary."""
 
     metadata: NotRequired[_Metadata]
-    stations: NotRequired[list[_Station]]
-    values: list[_SummarizedValuesItemDict]
 
 
 class _SummarizedValuesOgcFeature(TypedDict):
@@ -1310,11 +1359,16 @@ class _SummarizedValuesOgcFeatureCollectionData(TypedDict):
     features: list[_SummarizedValuesOgcFeature]
 
 
-class _SummarizedValuesOgcFeatureCollection(TypedDict):
+class _SummarizedValuesOgcFeatureCollectionBody(TypedDict):
+    """The members of `_SummarizedValuesOgcFeatureCollection` other than `metadata`."""
+
+    data: _SummarizedValuesOgcFeatureCollectionData
+
+
+class _SummarizedValuesOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectionBody):
     """Format summarized values as OGC feature collection."""
 
     metadata: NotRequired[_Metadata]
-    data: _SummarizedValuesOgcFeatureCollectionData
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, ETALAB_2_0, build_metadata_model
 
 _MeteoFranceSynopMetadataSpec = {
     "name_short": "Météo-France",
@@ -12,6 +12,8 @@ _MeteoFranceSynopMetadataSpec = {
     "name_local": "Météo-France",
     "country": "France",
     "copyright": "© Météo-France, Etalab Open License 2.0",
+    "license": ETALAB_2_0,
+    "attribution": "© Météo-France",
     "url": "https://meteo.data.gouv.fr/",
     "kind": "observation",
     "timezone": "Europe/Paris",

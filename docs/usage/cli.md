@@ -12,7 +12,8 @@ exits 0 with the sentence on stderr, as the REST API answers such a request with
 `--stations` ids leaves out an id the network has no station for and says so in a warning. A boolean
 option is the same everywhere: bare, as `--pretty`, or as `--pretty=true` and `--pretty=false`. The command line
 and the [REST API](restapi.md) render a result through the same function, so the same request gives the
-same output, a `settings` block with `--with-metadata` included.
+same output, the `metadata` block of the [response metadata](restapi.md#response-metadata) and a
+`settings` block with `--with-metadata` included.
 
 An option is spelled as the REST query parameter and the MCP argument of the same request, with hyphens
 for underscores (`--name-threshold` is `name_threshold`), and a list is plural and comma-separated

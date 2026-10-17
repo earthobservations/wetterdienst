@@ -25,6 +25,8 @@ _IpmaObservationMetadataSpec = {
     "name_local": "Instituto Português do Mar e da Atmosfera",
     "country": "Portugal",
     "copyright": "© IPMA (Instituto Português do Mar e da Atmosfera)",
+    "license": None,
+    "attribution": None,
     "url": "https://api.ipma.pt/",
     "kind": "observation",
     "timezone": "Europe/Lisbon",

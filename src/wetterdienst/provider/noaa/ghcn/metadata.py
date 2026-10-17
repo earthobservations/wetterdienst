@@ -11,6 +11,9 @@ _NoaaGhcnMetadataSpec = {
     "name_local": "National Oceanic And Atmospheric Administration",
     "country": "United States Of America",
     "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
+    "license": None,
+    # NCEI asks for a citation of each product (GHCN-Daily, GHCN-Hourly), and this network serves both
+    "attribution": "NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network",
     "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
     "kind": "observation",
     "timezone": "America/New_York",

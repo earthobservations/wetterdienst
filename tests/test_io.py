@@ -28,6 +28,7 @@ from wetterdienst import Options, Settings
 from wetterdienst.exceptions import ExportRefusedError, MissingDependencyError
 from wetterdienst.io.export import ExportMixin
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.metadata import CC_BY_4_0
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     InterpolatedValuesResult,
@@ -115,6 +116,8 @@ def stations_mock() -> TimeseriesRequest:
         country = "Germany"
         copyright = "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)"
         url = "https://opendata.dwd.de/climate_environment/CDC/"
+        license = CC_BY_4_0
+        attribution = "Source: Deutscher Wetterdienst"
 
     class StationsMock:
         metadata = MetadataMock

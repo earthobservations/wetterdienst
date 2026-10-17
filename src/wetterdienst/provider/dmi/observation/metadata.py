@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 # DMI's climateData `stationValue` collection returns every available parameter for a
 # station/resolution/date-range in a single request, so each resolution is modelled as one
@@ -146,6 +146,8 @@ _DmiObservationMetadataSpec = {
     "name_local": "Danmarks Meteorologiske Institut",
     "country": "Denmark",
     "copyright": "© DMI (Danish Meteorological Institute), CC BY 4.0",
+    "license": CC_BY_4_0,
+    "attribution": "© DMI (Danish Meteorological Institute)",
     "url": "https://opendatadocs.dmi.govcloud.dk/",
     "kind": "observation",
     "timezone": "Europe/Copenhagen",

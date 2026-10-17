@@ -18,10 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.ui.response_metadata import ResponseMetadata, metadata_to_dict, response_metadata
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
         StationsResult,
@@ -29,7 +31,13 @@ if TYPE_CHECKING:
         ValuesResult,
     )
     from wetterdienst.options import Options
-    from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
+    from wetterdienst.ui.core import (
+        HistoryRequest,
+        InterpolationRequest,
+        StationsRequest,
+        SummaryRequest,
+        ValuesRequest,
+    )
 
 
 #: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
@@ -193,14 +201,40 @@ def render_kwargs(
     return kwargs
 
 
+def _json_answer(
+    data: dict[str, Any],
+    request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest,
+    metadata: ResponseMetadata,
+    settings: _AppliedSettings | None = None,
+) -> str:
+    """Write the JSON of an answer: its `metadata` block, the `settings` they were got with, then the rest.
+
+    The block is always there; the heavy parts of it, and the settings, are what `with_metadata` adds.
+    """
+    answer: dict[str, Any] = {"metadata": metadata_to_dict(metadata)}
+    if settings is not None:
+        answer["settings"] = json.loads(settings.model_dump_json())
+    answer.update(data)
+    fmt = getattr(request, "format", "json")
+    return json.dumps(answer, indent=4 if request.pretty else None, ensure_ascii=fmt == "json")
+
+
 def render_stations(
     result: StationsResult,
     request: StationsRequest,
     *,
     max_side: int | None = None,
+    metadata: ResponseMetadata | None = None,
 ) -> str | bytes:
-    """Write a stations listing in the format the request names."""
-    return result.to_format(**render_kwargs(request, max_side=max_side))
+    """Write a stations listing in the format the request names, the JSON formats with the `metadata` block.
+
+    `metadata` is the block, where the caller has built it to put the same in the headers.
+    """
+    if request.format not in ("json", "geojson"):
+        return result.to_format(**render_kwargs(request, max_side=max_side))
+    metadata = metadata or response_metadata(result, request)
+    data = result.to_dict() if request.format == "json" else result.to_ogc_feature_collection()
+    return _json_answer(dict(data), request, metadata)
 
 
 def render(
@@ -210,19 +244,34 @@ def render(
     options: Options,
     *,
     max_side: int | None = None,
+    metadata: ResponseMetadata | None = None,
 ) -> str | bytes:
-    """Render a result in the format the request names, the JSON formats with the settings `applied`.
+    """Render a result in the format the request names, the JSON formats with the `metadata` block.
 
-    The settings go next to the metadata, with `with_metadata` alone, and the rest is written as
-    `to_json` and `to_geojson` write it.
+    With `with_metadata` the block holds its heavy parts too and the settings `applied` go next to it. The
+    rest is written as `to_json` and `to_geojson` write it. `metadata` is the block, where the caller has
+    built it to put the same in the headers.
     """
-    kwargs: dict[str, Any] = {**render_kwargs(request, max_side=max_side), "with_stations": request.with_stations}
-    if not request.with_metadata or request.format not in ("json", "geojson"):
+    if request.format not in ("json", "geojson"):
+        kwargs: dict[str, Any] = {**render_kwargs(request, max_side=max_side), "with_stations": request.with_stations}
         return result.to_format(**kwargs)
+    metadata = metadata or response_metadata(result, request)
     if request.format == "json":
-        data: dict[str, Any] = dict(result.to_dict(with_metadata=True, with_stations=request.with_stations))
+        data: dict[str, Any] = dict(result.to_dict(with_stations=request.with_stations))
     else:
-        data = dict(result.to_ogc_feature_collection(with_metadata=True))
-    report = json.loads(_applied_settings(applied, options).model_dump_json())
-    data = {"metadata": data.pop("metadata"), "settings": report, **data}
-    return json.dumps(data, indent=4 if request.pretty else None, ensure_ascii=request.format == "json")
+        data = dict(result.to_ogc_feature_collection())
+    settings = _applied_settings(applied, options) if request.with_metadata else None
+    return _json_answer(data, request, metadata, settings)
+
+
+def render_history(
+    stations: StationsResult,
+    history: TimeseriesHistory,
+    request: HistoryRequest,
+    *,
+    metadata: ResponseMetadata | None = None,
+) -> tuple[str, ResponseMetadata]:
+    """Collect the history of the stations and write it as JSON with the `metadata` block, which is given back too."""
+    answer = history.to_dict(with_metadata=False, with_stations=request.with_stations, sections=request.sections)
+    metadata = metadata or response_metadata(stations, request, rows=len(answer["histories"]))
+    return _json_answer(dict(answer), request, metadata), metadata

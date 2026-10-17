@@ -41,6 +41,7 @@ and they are ``weather_past`` and ``weather_secondary_past``.
 from __future__ import annotations
 
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.provider.dwd.metadata import _METADATA
 
 _TEMPERATURE = {"unit": "degree_celsius"}
 _PRECIPITATION = {"unit": "millimeter"}
@@ -53,6 +54,8 @@ _DwdPoiMetadataSpec = {
     "name_local": "Deutscher Wetterdienst",
     "country": "Germany",
     "copyright": "© Deutscher Wetterdienst (DWD), POI weather reports",
+    "license": _METADATA["license"],
+    "attribution": _METADATA["attribution"],
     "url": "https://opendata.dwd.de/weather/weather_reports/poi/",
     "kind": "observation",
     "timezone": "Europe/Berlin",

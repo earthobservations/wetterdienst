@@ -473,6 +473,39 @@ class ResolutionModel(BaseModel):
         return iter(self.datasets)
 
 
+class LicenseModel(BaseModel):
+    """The terms a provider publishes its data under, as the provider states them (GH-2561).
+
+    `spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the
+    provider offers two (`CC-BY-4.0 OR NLOD-2.0`); null where the terms have no SPDX identifier,
+    which is then told by `name` and `url` alone. `url` is a page of the licence or of the provider's
+    own terms, whichever states them.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    spdx_id: str | None
+    name: str
+    url: str
+
+
+CC_BY_4_0 = LicenseModel(
+    spdx_id="CC-BY-4.0",
+    name="Creative Commons Attribution 4.0 International",
+    url="https://creativecommons.org/licenses/by/4.0/",
+)
+OGL_UK_3_0 = LicenseModel(
+    spdx_id="OGL-UK-3.0",
+    name="UK Open Government Licence v3.0",
+    url="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+)
+ETALAB_2_0 = LicenseModel(
+    spdx_id="etalab-2.0",
+    name="Etalab Open License 2.0",
+    url="https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+)
+
+
 class MetadataModel(BaseModel):
     """Metadata model for a provider."""
 
@@ -488,6 +521,12 @@ class MetadataModel(BaseModel):
     name_local: str
     country: str
     copyright: str
+    #: the terms the provider publishes its data under; null where it states none (the declaration says so
+    #: by writing `"license": None`, so that a new provider cannot leave the question out)
+    license: LicenseModel | None
+    #: the credit line a user of the data has to give: the provider's own wording where it states one, else
+    #: its name as the rights holder; null where the provider states none or asks for none
+    attribution: str | None
     url: str
     kind: TimeseriesKind
     timezone: TimeZoneName

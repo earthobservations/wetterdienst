@@ -335,6 +335,9 @@ coverage = [
     "coverage:parallel",
     "coverage:cflakes",
 ]
+# the OpenAPI document as committed (tests/ui/openapi.snapshot.json), which a test holds the served one to: run after a
+# change to the contract, and read the diff
+"openapi:snapshot" = "uv run python -m tests.ui.openapi_snapshot"
 typecheck = "uv run ty check src/wetterdienst"
 # what a caller's checker makes of the wheel: builds it, installs it into clean environments and checks
 # `tests/typed_caller.py` against it, which `typecheck` (the checkout, read as first-party code) cannot say

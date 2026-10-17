@@ -17,6 +17,7 @@ from typing_extensions import TypeVar
 
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
+from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
 from wetterdienst.model.result import StationsResult, ValuesResult
 from wetterdienst.model.schema import (
     LONG_SCHEMA,
@@ -27,6 +28,12 @@ from wetterdienst.model.schema import (
 )
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.util.logging import TqdmToLogger
+from wetterdienst.util.response_warnings import (
+    MISSING_VALUE_MARKER,
+    MISSING_VALUE_MARKER_MESSAGE,
+    count_response_warning,
+    warn_response,
+)
 from wetterdienst.util.url import redact_password
 
 if TYPE_CHECKING:
@@ -161,9 +168,12 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             if self.sr.options.skip_empty:
                 percentage = self._get_actual_percentage(df=df)
                 if percentage < self.sr.options.skip_threshold:
-                    log.info(
+                    warn_response(
+                        log,
+                        "station-skipped",
                         f"station {station_id} is skipped as percentage of actual values ({percentage}) "
                         f"is below threshold ({self.sr.options.skip_threshold}).",
+                        level=logging.INFO,
                     )
                     continue
             if self.sr.options.humanize:
@@ -303,6 +313,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
         df = df.unique(subset=["resolution", "dataset", "parameter", "timestamp"], maintain_order=True)
+        if QUALITY_FLAGS in df.columns:
+            # the readings the source marked as missing may leave with the nulls; the answer still tells how many
+            count_response_warning(
+                MISSING_VALUE_MARKER,
+                df.filter(pl.col("value").is_null() & pl.col(QUALITY_FLAGS).str.contains(RAW_TOKEN)).height,
+                MISSING_VALUE_MARKER_MESSAGE,
+            )
         if self.sr.options.drop_nulls_effective:
             df = df.drop_nulls(subset=["value"])
         return self._organize_df_columns(df, station_id, dataset)

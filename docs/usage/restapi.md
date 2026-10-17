@@ -31,19 +31,19 @@ The REST API is complemented by a modern web app built with Nuxt.js, providing a
 
 Visit [wetterdienst.eobs.org](https://wetterdienst.eobs.org) to use the web interface.
 
-By default the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints return only
-the requested data. Add `with_metadata=true` to include the provider-metadata block, and (for the
-endpoints of values and `history`) `with_stations=true` to include the queried stations' metadata;
-a listing of `stations` is the stations, and takes no `with_stations`. With
-`with_metadata=true`, the JSON and GeoJSON of `values`, `interpolate` and `summarize` also carry a
-`settings` block next to `metadata`: the settings the result was got with, named as the endpoint's
-query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
+The JSON and GeoJSON of the `stations`, `values`, `interpolate`, `summarize` and `history` endpoints
+carry a `metadata` block next to the data, always: see [Response metadata](#response-metadata). Add
+`with_metadata=true` for its heavier parts, and (for the endpoints of values and `history`)
+`with_stations=true` to include the queried stations' metadata; a listing of `stations` is the
+stations, and takes no `with_stations`. With `with_metadata=true`, the JSON and GeoJSON of `values`,
+`interpolate` and `summarize` also carry a `settings` block next to `metadata`: the settings the result
+was got with, named as the endpoint's query parameters are. `interpolate` and `summarize` also report the settings the server sets alone
 for them, which no query parameter of theirs changes: `skip_empty`, `skip_threshold`,
 `skip_criteria`, `drop_nulls` and `station_distance_resolution_factors`.
 
 The command line renders through the same function, so the same request gives the same body there:
-`wetterdienst values ... --with-metadata=true` writes the `settings` block too, and `--pretty` the
-indentation `pretty=true` does.
+`wetterdienst values ... --with-metadata=true` writes the `settings` block too, `--pretty` the
+indentation `pretty=true` does, and every command that prints JSON prints the `metadata` block.
 
 What the endpoints share about which stations a request names:
 
@@ -52,7 +52,7 @@ What the endpoints share about which stations a request names:
   number, for either.
 - **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
   goes on with the others. When none exists the result is empty. The ids left out are named in a
-  warning in the server's log; the response carries no warning of its own. The one reference station
+  warning of the response's `metadata`, and in the server's log. The one reference station
   of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404.
 - **An empty result** -- a window without readings, a name nothing is called -- is a 200 with an empty
   `values` or `stations`, on the command line exit 0 with the sentence on stderr. A 4xx or a non-zero
@@ -87,6 +87,130 @@ not exist (`/api/v2/...`) is a 404.
 
 The operation ids of the OpenAPI document (`values_api_values_get`) and the names of the MCP tools
 (`values`) do not carry the version.
+
+## Response metadata
+
+The JSON answer of `stations`, `values`, `interpolate`, `summarize` and `history` has a `metadata`
+member, and so does the GeoJSON of the first four (next to its `data`). It is always there, and it
+says where the data comes from and may be used, what was asked for as the library resolved it, and
+what the answer is missing:
+
+```json
+{
+  "metadata": {
+    "api_version": "1",
+    "schema_version": "1",
+    "retrieved_at": "2026-10-16T21:04:37.118220+00:00",
+    "provider": {
+      "name_local": "Deutscher Wetterdienst",
+      "name_english": "German Weather Service",
+      "country": "Germany",
+      "copyright": "© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)",
+      "url": "https://opendata.dwd.de/climate_environment/CDC/",
+      "license": {
+        "spdx_id": "CC-BY-4.0",
+        "name": "Creative Commons Attribution 4.0 International",
+        "url": "https://creativecommons.org/licenses/by/4.0/"
+      },
+      "attribution": "Source: Deutscher Wetterdienst"
+    },
+    "producer": {
+      "name": "wetterdienst",
+      "version": "0.156.0",
+      "repository": "https://github.com/earthobservations/wetterdienst",
+      "documentation": "https://wetterdienst.readthedocs.io",
+      "doi": "10.5281/zenodo.3960624"
+    },
+    "request": {
+      "provider": "dwd",
+      "network": "observation",
+      "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+      "periods": ["historical", "recent"],
+      "start": "2026-01-01T00:00:00.000000+00:00",
+      "end": "2026-01-01T23:59:59.999999+00:00",
+      "stations": {"filter": "by_station_id", "ids": ["01048"]}
+    },
+    "counts": {"stations": 1, "rows": 1},
+    "crs": {
+      "code": "EPSG:4326",
+      "name": "WGS 84",
+      "axis_order": "longitude, latitude",
+      "elevation": "metres above mean sea level"
+    },
+    "warnings": [
+      {
+        "code": "unknown-station",
+        "message": "No station with station_id 99999 for the requested parameters and periods of DwdObservationRequest."
+      }
+    ]
+  },
+  "values": [
+    {"station_id": "01048", "resolution": "daily", "dataset": "climate_summary", "parameter": "temperature_air_mean_2m", "timestamp": "2026-01-01T00:00:00.000000+00:00", "value": 1.6, "quality_flags": "10"}
+  ]
+}
+```
+
+- **`provider.license`** is the terms the provider publishes its data under: `spdx_id`, the identifier of
+  the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 OR NLOD-2.0`,
+  where the provider offers two), `name` and `url`. `spdx_id` is `null` where the terms have none
+  (ECCC's licence agreement, AEMET's legal notice). The whole of `license` is `null` where the provider
+  states no terms that could be read, as for CHMI, IMGW, IPMA and NOAA GHCN: it is then for the user to ask
+  the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
+  states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
+  provider states none or asks for none. `copyright` stays the free text it was.
+- **`request`** is the request as resolved, not as typed: `daily/kl` is the list of parameters it means,
+  `periods` the periods read, `start` and `end` the window applied in UTC (`null` without one), and
+  `stations` how they were selected (`filter`: `all`, `by_station_id`, `by_name`, `by_rank`,
+  `by_distance`, `by_bbox` or `by_sql`) and the `station_id` of each station in the answer.
+- **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache,
+  and when the provider published it, are not told yet.
+- **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
+  the wide shape), the stations listed, or the histories.
+- **`crs`** is the reference system of every position in the answer: WGS 84, longitude before latitude in
+  a GeoJSON position, the elevation in metres above mean sea level.
+- **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
+  from a whole one. Each has a `code` that stays and a `message` that may be improved. The codes are
+  `unknown-station` (an id of `stations` the network has no station for), `station-skipped` (a station with too
+  few readings, by `skip_empty` and `skip_threshold`), `period-not-published` and `period-not-narrowing`
+  (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
+  elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
+  `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker) and `deprecated-parameter`. Codes are added as more are told; a client reads the
+  ones it knows.
+- **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
+  block, so that a stored answer can be told from one in a later shape.
+
+`with_metadata=true` adds two more members to the block:
+
+- **`parameters`**: for each parameter read its `resolution`, `dataset`, canonical `name`,
+  `name_original` (the source's), `description`, `quantity` and the `unit` of its values: the target of the
+  quantity, which `unit_targets` sets, where `convert_units` is on, else the unit the source publishes.
+- **`quality`**: what the `quality_flags` of a reading holds (its `format`), and the `source_flags`, the
+  quality flags the datasets read publish, whose code is the first token of `quality_flags`. The meaning of
+  each code is the provider's and is not listed here yet.
+
+A format with no body to put the block in carries the same in headers, and so does every JSON answer:
+
+| Header | Value |
+| --- | --- |
+| `X-Wetterdienst-API-Version`, `X-Wetterdienst-Schema-Version` | `api_version` and `schema_version` |
+| `X-Wetterdienst-Retrieved-At` | `retrieved_at` |
+| `X-Wetterdienst-Provider` | the provider's English name |
+| `X-Wetterdienst-License` | the SPDX identifier of the licence, else its name; left out without a licence |
+| `Link` | `<licence url>; rel="license"`, left out without a licence |
+| `X-Wetterdienst-Attribution` | the credit line; left out without one |
+| `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
+| `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
+
+A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
+carry, is percent-encoded UTF-8;
+`urllib.parse.unquote` reads it back. The CSV and image formats are otherwise the data alone, as they were.
+The command line prints the block in its JSON and GeoJSON, as REST does, and nothing of it in CSV; the MCP
+tools return the REST answer, and so the block.
+
+The OpenAPI document is the contract of the API, and `tests/ui/openapi.snapshot.json` is that document as
+last reviewed: a test fails when the served document is not it, and `uv run poe openapi:snapshot` writes it
+anew, for the diff to be read in the pull request that changes the contract.
 
 ## One vocabulary
 
