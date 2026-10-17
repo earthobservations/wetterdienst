@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- The page's Content Security Policy names the nonce its inline scripts carry
+  (`script-src 'self' 'nonce-...' 'wasm-unsafe-eval'`) and no longer allows `'unsafe-inline'` for
+  scripts, which the nonces never switched off: an inline script that gets into the page, or an
+  event handler attribute, is refused now (GH-3112)
+
 ## [0.24.0] - 2026-10-18
 
 

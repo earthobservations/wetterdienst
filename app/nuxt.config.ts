@@ -163,10 +163,15 @@ export default defineNuxtConfig({
         // this policy; Zod probed it, see `useSettings.ts`). `'wasm-unsafe-eval'` is for DuckDB's module, which
         // the worker compiles: Chrome gives a worker the policy of its script, which has none, but a browser
         // that gives it the page's needs it, and it allows WebAssembly, no string.
+        // Scripts: nuxt-security gives every response its own nonce, puts it on the page's `<script>` elements
+        // and into the header where `'nonce-{{nonce}}'` stands. Without that entry the page carried nonces the
+        // header did not know, and `'unsafe-inline'` was what let its inline scripts run, injected ones too
+        // (GH-3112). `style-src` keeps its `'unsafe-inline'`, which
+        // is a question of its own (inline styles cannot run code).
         'default-src': ['\'self\''],
         'connect-src': ['\'self\''],
         'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com'],
-        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'wasm-unsafe-eval\''],
+        'script-src': ['\'self\'', '\'nonce-{{nonce}}\'', '\'wasm-unsafe-eval\''],
         'worker-src': ['\'self\''],
         'child-src': ['\'self\''],
         'style-src': ['\'self\'', '\'unsafe-inline\''],
