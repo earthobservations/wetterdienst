@@ -47,6 +47,13 @@ The NOAA GHCN incorporates data of multiple weather services across the globe. T
 [NOAA GHCN description](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00861) page
 includes more information on the usage, references, qualities etc.
 
+NOAA waives its rights in the data under the
+[Creative Commons Zero 1.0 Universal Public Domain Dedication (CC0-1.0)](https://creativecommons.org/publicdomain/zero/1.0/):
+the [GHCNh record](https://data.noaa.gov/onestop/collections/details/76ca9a6c-a4d4-45a8-b4a9-a336d474ba55) says so,
+and [NOAA's Open Data Dissemination program](https://registry.opendata.aws/noaa-ghcn/) says it of GHCN-Daily (NCEI's
+own record of GHCN-Daily states a citation and no licence). Attribution is requested, not required; do not state or
+imply that NOAA endorses you, or that modified data is NOAA's original. Cite the product as its record asks.
+
 ```{toctree}
 :hidden:
 

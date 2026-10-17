@@ -494,6 +494,11 @@ CC_BY_4_0 = LicenseModel(
     name="Creative Commons Attribution 4.0 International",
     url="https://creativecommons.org/licenses/by/4.0/",
 )
+CC0_1_0 = LicenseModel(
+    spdx_id="CC0-1.0",
+    name="Creative Commons Zero v1.0 Universal",
+    url="https://creativecommons.org/publicdomain/zero/1.0/",
+)
 OGL_UK_3_0 = LicenseModel(
     spdx_id="OGL-UK-3.0",
     name="UK Open Government Licence v3.0",

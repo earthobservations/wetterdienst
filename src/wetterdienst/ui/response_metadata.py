@@ -49,6 +49,10 @@ API_VERSION = "1"
 #: the version of the shape of the `metadata` block, which a stored answer is told apart from a later one by
 SCHEMA_VERSION = "1"
 
+#: the most stations whose `station_id` the block lists: an answer of more says how many there are instead
+#: (`ids` null, `count` set), so that a listing of a whole network does not carry its ids a second time
+MAX_LISTED_STATION_IDS = 100
+
 _QUALITY_FLAGS_DESCRIPTION = (
     "One nullable string per reading, comma-separated. The first token without a `kind:` prefix is the "
     "source's own quality flag as the source writes it. Every further token is `kind:code`: the kinds a "
@@ -64,7 +68,11 @@ class StationsSelected(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     filter: StationsFilter = Field(description="How the stations were selected from the network's.")
-    ids: list[str] = Field(description="The `station_id` of every station in the answer, in its order.")
+    count: int = Field(description="How many stations the answer has.")
+    ids: list[str] | None = Field(
+        description="The `station_id` of every station in the answer, in its order, for an answer of "
+        f"{MAX_LISTED_STATION_IDS} stations or fewer; null for one of more, which `count` gives.",
+    )
 
 
 class ResolvedRequest(BaseModel):
@@ -217,7 +225,11 @@ def response_metadata(
             periods=[period.value for period in sorted(cast("Iterable[Period]", stations.request.periods or ()))],
             start=format_timestamp(stations.start) if stations.start else None,
             end=format_timestamp(stations.end) if stations.end else None,
-            stations=StationsSelected(filter=stations.stations_filter.value, ids=ids),
+            stations=StationsSelected(
+                filter=stations.stations_filter.value,
+                count=len(ids),
+                ids=ids if len(ids) <= MAX_LISTED_STATION_IDS else None,
+            ),
         ),
         counts=Counts(stations=len(ids), rows=result.df.height if rows is None else rows),
         crs=Crs(),

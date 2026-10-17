@@ -40,7 +40,8 @@ long shape drops the rows without a value by default, so the token shows with
 ## License
 
 Data is © DMI (Danish Meteorological Institute) and licensed under
-[Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+[Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/), as
+DMI's [terms of use](https://www.dmi.dk/friedata/dokumentation/terms-of-use) state.
 See [DMI Open Data](https://www.dmi.dk/friedata/dokumentation/basics) for further information and usage
 conditions.
 

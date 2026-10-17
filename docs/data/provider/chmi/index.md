@@ -10,9 +10,13 @@ required.
 
 ## License
 
-CHMI data is provided as open data through the
-[CHMI open data portal](https://opendata.chmi.cz/). Check the portal for the applicable
-usage conditions and attribution requirements.
+CHMI data is provided as open data through the [CHMI open data portal](https://opendata.chmi.cz/) under the
+[Creative Commons Attribution 4.0 International licence (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/):
+"Otevřená data ČHMÚ můžete využívat bezplatně při respektování licence Creative Commons BY 4.0"
+([CHMI FAQ](https://www.chmi.cz/-/jak-mohu-použít-otevřená-data-čhmú-)). The portal's listing itself says
+nothing; the national open data catalogue (data.gov.cz) names the licence and the author, "Český hydrometeorologický
+ústav", for each dataset. CHMI gives no credit line of its own: name the author, link the licence and say if you
+changed the data.
 
 ```{toctree}
 :hidden:

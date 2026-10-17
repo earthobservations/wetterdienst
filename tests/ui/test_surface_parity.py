@@ -643,14 +643,6 @@ _CLI_ONLY_OF = {
 _REST_ONLY_OF = {
     core.CoverageRequest: {"pretty": "the command line always indents"},
 }
-#: fields REST accepts and ignores, which the command and the tool therefore do not take (GH-3056): REST has
-#: accepted them since before 0.155.0, and a model forbidding extras would answer its callers with a 422
-_ACCEPTED_AND_IGNORED = {
-    core.StationsRequest: {
-        "lead_time": "the stations of a forecast network are the same for every run, which `values` chooses",
-        "issue": "the stations of a forecast network are the same for every run, which `values` chooses",
-    },
-}
 _NO_COMMAND = {
     core.StripesValuesRequest: "the data of the stripes has no command: `stripes values` writes the image",
     core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
@@ -723,22 +715,18 @@ def test_every_field_of_a_request_is_an_option_and_an_mcp_argument(model: type[B
     # the endpoint takes the fields, and the tool is the endpoint
     parameters = {p["name"]: p for p in restapi.app.openapi()["paths"][_versioned(endpoint)]["get"]["parameters"]}
     assert set(parameters) == set(fields)
-    ignored = _ACCEPTED_AND_IGNORED.get(model, {})
-    for name in ignored:
-        assert "ignored" in parameters[name]["description"], "REST says it ignores what it accepts and ignores"
-    taken = set(fields) - set(ignored)
     if tool is not None:
         arguments = _tools()[tool]["properties"]
-        assert set(arguments) == taken
+        assert set(arguments) == set(fields)
         assert {name: _kind(argument) for name, argument in arguments.items()} == {
-            name: _kind(schema[name]) for name in taken
+            name: _kind(schema[name]) for name in fields
         }
 
     if path is None:
         assert model in _NO_COMMAND
         return
     options = _cli_options(path)
-    rest_only = {**_REST_ONLY_OF.get(model, {}), **ignored}
+    rest_only = _REST_ONLY_OF.get(model, {})
     cli_only = {**_CLI_ONLY, **_CLI_ONLY_OF.get(path, {})}
     assert set(fields) - set(options) == set(rest_only), "a field without an option is written down with its reason"
     assert set(options) - set(fields) <= set(cli_only), "an option without a field is written down with its reason"
@@ -1075,16 +1063,23 @@ def test_stations_on_the_command_line_do_not_take_the_run(option: str) -> None:
 
 
 @pytest.mark.parametrize("name", ["lead_time", "issue"])
-def test_stations_over_rest_accept_and_ignore_the_run(name: str) -> None:
-    """`/api/stations` answers a run with the same list as without one (GH-3056).
+def test_stations_over_rest_refuse_the_run(name: str) -> None:
+    """`/api/stations` answers a run with a 422, as it does any parameter it does not take (GH-3056, GH-3061).
 
-    REST has accepted them since before 0.155.0, and a model forbidding extras would answer a caller with a 422.
+    0.156.0 took the pair onto `stations` to satisfy this file, and they changed nothing in the list;
+    the command line and the tool dropped them in GH-3056, REST now does too.
     """
-    without = _rest_stations(all="true")
-    with_run = _rest_stations(all="true", **{name: "short" if name == "lead_time" else "2026-10-01T11:00"})
-    assert with_run == without
+    response = TestClient(restapi.app).get(
+        _versioned("/api/stations"),
+        params={"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": "true", name: "long"},
+    )
+    assert response.status_code == 422, response.text
+    assert name in response.text
     parameters = restapi.app.openapi()["paths"][_versioned("/api/stations")]["get"]["parameters"]
-    assert "ignored" in next(p["description"] for p in parameters if p["name"] == name)
+    assert name not in {p["name"] for p in parameters}
+    assert {"lead_time", "issue"} <= {
+        p["name"] for p in restapi.app.openapi()["paths"][_versioned("/api/values")]["get"]["parameters"]
+    }
 
 
 @pytest.mark.parametrize("name", ["lead_time", "issue"])
@@ -1180,7 +1175,7 @@ def test_the_stations_selected_by_id_are_told_as_such() -> None:
     """A selection by `station_id` is told as that, with the ids that are in the answer and not those that are not."""
     metadata = _rest("/api/stations", stations="00001,99999").json()["metadata"]
 
-    assert metadata["request"]["stations"] == {"filter": "by_station_id", "ids": ["00001"]}
+    assert metadata["request"]["stations"] == {"filter": "by_station_id", "count": 1, "ids": ["00001"]}
     assert metadata["request"]["provider"] == "dwd"
     assert [warning["code"] for warning in metadata["warnings"]] == ["unknown-station"]
 

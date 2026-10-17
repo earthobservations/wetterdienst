@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
+import polars as pl
 import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
@@ -26,7 +27,12 @@ from wetterdienst import Options, Wetterdienst
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
-from wetterdienst.ui.response_metadata import API_VERSION, SCHEMA_VERSION, response_metadata
+from wetterdienst.ui.response_metadata import (
+    API_VERSION,
+    MAX_LISTED_STATION_IDS,
+    SCHEMA_VERSION,
+    response_metadata,
+)
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings, warn_response
 
 if TYPE_CHECKING:
@@ -116,8 +122,26 @@ def test_the_request_is_told_as_it_was_resolved(client: TestClient, monkeypatch:
     assert len(request["parameters"]) > 1
     assert request["periods"] == ["historical", "recent"]
     assert (request["start"], request["end"]) == (None, None)
-    assert request["stations"] == {"filter": "all", "ids": ["01048"]}
+    assert request["stations"] == {"filter": "all", "count": 1, "ids": ["01048"]}
     assert metadata["counts"] == {"stations": 1, "rows": 2}
+
+
+@pytest.mark.parametrize(
+    ("stations", "listed"),
+    [(MAX_LISTED_STATION_IDS, True), (MAX_LISTED_STATION_IDS + 1, False)],
+    ids=["at-the-limit", "past-the-limit"],
+)
+def test_the_station_ids_are_listed_up_to_a_limit_and_counted_beyond_it(*, stations: int, listed: bool) -> None:
+    """An answer of many stations says how many, not which: `ids` is null past `MAX_LISTED_STATION_IDS` (GH-3061)."""
+    result = _values_result_of_shape("long").stations
+    ids = [f"{number:05d}" for number in range(stations)]
+    result = replace(result, df=pl.DataFrame({"station_id": ids}))
+
+    block = response_metadata(result, SimpleNamespace(provider="dwd", network="observation", with_metadata=False))
+
+    assert block.request.stations.count == stations
+    assert block.request.stations.ids == (ids if listed else None)
+    assert block.counts.stations == stations
 
 
 def test_the_heavy_parts_are_with_metadata_alone(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -166,7 +190,7 @@ def test_a_stations_answer_has_the_block(client: TestClient, monkeypatch: pytest
     assert response.status_code == 200, response.text
     metadata = response.json()["metadata"]
     assert set(metadata) == ALWAYS
-    assert metadata["request"]["stations"] == {"filter": "all", "ids": ["01048"]}
+    assert metadata["request"]["stations"] == {"filter": "all", "count": 1, "ids": ["01048"]}
     assert metadata["counts"] == {"stations": 1, "rows": 2}
 
 
@@ -313,14 +337,38 @@ def test_the_command_line_prints_the_block_without_with_metadata(monkeypatch: py
 # --- the licence of every provider ------------------------------------------------------------
 
 #: the networks whose provider states no terms of use anywhere this could be read, with where it was looked. A new
-#: provider declares its licence, or is named here with the reason (`"license": None` in its metadata).
-LICENSE_NOT_STATED = {
-    ("chmi", "observation"): "opendata.chmi.cz is a directory listing and its description of the data (PDF) names none",
-    ("imgw", "hydrology"): "dane.imgw.pl names the Polish open-data act as the legal basis, and no licence",
-    ("imgw", "meteorology"): "dane.imgw.pl names the Polish open-data act as the legal basis, and no licence",
-    ("ipma", "observation"): "api.ipma.pt and the site's notice name no licence for the API",
-    ("noaa", "ghcn"): "the NCEI product page and the ISO metadata name a citation, not a licence",
+#: provider declares its licence, or is named here with the reason (`"license": None` in its metadata). None is,
+#: since CHMI, IMGW, IPMA and NOAA GHCN were read against their own pages and catalogues (GH-3061).
+LICENSE_NOT_STATED: dict[tuple[str, str], str] = {}
+
+#: the licence of the providers whose terms are not a standard one or were read from a catalogue, as they state it
+STATED_LICENCES = {
+    ("chmi", "observation"): "CC-BY-4.0",
+    ("dmi", "observation"): "CC-BY-4.0",
+    ("noaa", "ghcn"): "CC0-1.0",
+    ("imgw", "meteorology"): None,
+    ("imgw", "hydrology"): None,
+    ("ipma", "observation"): None,
 }
+
+
+@pytest.mark.parametrize(("network", "spdx_id"), list(STATED_LICENCES.items()))
+def test_the_licence_a_provider_states_is_the_one_declared(network: tuple[str, str], spdx_id: str | None) -> None:
+    """IMGW and IPMA state terms of their own, which no SPDX identifier names: they say so by `spdx_id` null."""
+    metadata = Wetterdienst.resolve(*network).metadata
+
+    assert metadata.license is not None
+    assert metadata.license.spdx_id == spdx_id
+    assert metadata.attribution
+
+
+def test_imgw_asks_for_its_own_words() -> None:
+    """§ 5 of IMGW-PIB's terms prescribes the credit line, in Polish, and the model carries it as written."""
+    attribution = Wetterdienst.resolve("imgw", "meteorology").metadata.attribution
+
+    assert attribution == (
+        "Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy"  # noqa: RUF001 -- the dash the terms write
+    )
 
 
 def _timeseries_networks() -> list[tuple[str, str]]:

@@ -2,7 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Metadata for NOAA Global Historical Climatology Network (GHCN) dataset."""
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC0_1_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 # translate the above enums to dictionary based model
 _NoaaGhcnMetadataSpec = {
@@ -11,7 +11,11 @@ _NoaaGhcnMetadataSpec = {
     "name_local": "National Oceanic And Atmospheric Administration",
     "country": "United States Of America",
     "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
-    "license": None,
+    # GHCNh: "NOAA waives any potential copyright and related rights in these data worldwide through the Creative
+    # Commons Zero 1.0 Universal Public Domain Dedication (CC0-1.0)" (NCEI OneStop record); GHCN-Daily as NOAA's Open
+    # Data Dissemination program publishes it (the bucket this url is of) says the same, and NCEI's own record of it
+    # states a citation and no licence
+    "license": CC0_1_0,
     # NCEI asks for a citation of each product (GHCN-Daily, GHCN-Hourly), and this network serves both
     "attribution": "NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network",
     "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
