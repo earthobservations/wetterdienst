@@ -4,7 +4,7 @@ import type { Value } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { formatDayMonth, formatNumber, plotlySeparators } from '~/utils/format'
+import { formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
 
 const props = defineProps<{
@@ -18,11 +18,6 @@ const { t, locale, localeProperties } = useI18n()
 
 // The language's own tag (`en-GB`, `de-DE`), which the date formats read, where `locale` is the app's code (`en`)
 const language = computed(() => localeProperties.value.language ?? locale.value)
-
-// Short, locale-aware weekday name (e.g. "Mo"/"Mon") for the given Luxon DateTime.
-function weekdayShort(dt: DateTime): string {
-  return dt.setLocale(locale.value).toFormat('ccc')
-}
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let Plotly: any = null
@@ -358,7 +353,7 @@ const compactDays = computed(() => {
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
     const precipLabel = dayPrecip >= 0.1 ? `${formatNumber(dayPrecip, locale.value, 1)} mm` : null
     const isToday = dt.hasSame(localNow, 'day')
-    out.push({ date: dt, emoji, weekday: weekdayShort(dt), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday })
+    out.push({ date: dt, emoji, weekday: weekdayShort(dt, language.value), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday })
     dt = dt.plus({ days: 1 })
   }
   // Limit number of days shown in compact mode for readability
@@ -1188,7 +1183,7 @@ async function renderChartActual() {
     const annotFontSize = dayWidthPx < 50 ? 8 : 10
     // The date is 5.5 px per character wide or more: 44 px for the eight characters of "Mo 05.10", which
     // a language that writes the date longer ("Čt 15. 10.") needs more of
-    const weekday = weekdayShort(localDt)
+    const weekday = weekdayShort(localDt, language.value)
     const annotText = dayWidthPx < 5.5 * `${weekday} ${dayMonth}`.length
       ? `<b>${weekday}</b>`
       : `<b>${weekday}</b> ${dayMonth}`
@@ -1765,7 +1760,7 @@ async function renderChartActual() {
       showgrid: false,
       linecolor: 'rgba(0,0,0,0)',
       tickformat: '%H',
-      hoverformat: '%a %d.%m %H:%M',
+      hoverformat: plotlyHoverFormat(language.value),
       dtick: 6 * 3_600_000,
       tickfont: { size: compact.value ? 7 : 9, color: TICK },
       tickcolor: W(0.25),
@@ -1854,7 +1849,8 @@ async function renderChartActual() {
   }
 
   const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches
-  const config = { responsive: true, displayModeBar: false, ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
+  // the weekday of the hover heading is written by Plotly, which knows English only unless it is given the language
+  const config = { responsive: true, displayModeBar: false, locale: language.value, locales: { [language.value]: plotlyDateLocale(language.value) }, ...(isTouchDevice ? { dragmode: 'pan', scrollZoom: false } : {}) }
 
   if (chartRef.value) {
     try {

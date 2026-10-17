@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { defineComponent, h } from 'vue'
 import MeteogramStationSearch from '~/components/MeteogramStationSearch.vue'
 import MeteogramPage from '~/pages/meteogram.vue'
+import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
 
 describe('meteogram Page', () => {
   beforeEach(() => {
@@ -422,5 +423,78 @@ describe('meteogram Page failures in the active language', () => {
     )
     vm.selectedStation = { ...station, station_id: '00002' }
     await vi.waitFor(() => expect(vm.error).toBe(withStatus))
+  })
+})
+
+// the failure on show is written again in the language switched to, not kept in the one it was made in (GH-3052)
+describe('meteogram Page failure after a language switch', () => {
+  const messages = (code: string) => messagesOf(code, 'common')
+  const station = { station_id: '00001', name: 'Test Station', latitude: 52.5, longitude: 13.4 }
+  const languages = OTHER_LANGUAGES
+
+  let harness: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  let wrapper: VueWrapper | undefined
+  const setLocale = (code: string) => (harness!.vm as any).setLocale(code)
+
+  beforeEach(async () => {
+    globalThis.fetch = vi.fn()
+    registerEndpoint('/api/stations', () => ({ stations: [] }))
+    harness = await mountSuspended(defineComponent({
+      setup: () => ({ setLocale: useI18n().setLocale }),
+      render: () => h('div'),
+    }))
+    await setLocale('en')
+  })
+
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    await setLocale('en')
+    harness?.unmount()
+    harness = undefined
+  })
+
+  // the page shows the failure in English, the language is switched, and the same failure is shown again
+  async function failedThenSwitched(code: string, answer: () => Promise<Response>) {
+    vi.mocked(globalThis.fetch).mockImplementation(answer)
+    wrapper = await mountSuspended(MeteogramPage)
+    const vm = wrapper.vm as any
+    vm.selectedStation = station
+    await vi.waitFor(() => expect(vm.error).not.toBeNull())
+    const before = vm.error
+    await setLocale(code)
+    await vi.waitFor(() => expect(wrapper!.text()).toContain(vm.error))
+    return { before, after: vm.error as string, requests: vi.mocked(globalThis.fetch).mock.calls.length }
+  }
+
+  it.each(languages)('writes the failure of a request with no message in %s', async (code) => {
+    const { before, after, requests } = await failedThenSwitched(code, async () => Promise.reject(Object.assign(new Error('aborted'), { message: '' })))
+    expect(before).toBe(messages('en').requestFailed)
+    expect(after).toBe(messages(code).requestFailed)
+    expect(after).not.toBe(before)
+    // the message was translated, not asked for again
+    expect(requests).toBe(1)
+  })
+
+  it.each(languages)('writes the backend\'s error with its reason in %s', async (code) => {
+    const { before, after } = await failedThenSwitched(code, async () =>
+      new Response(JSON.stringify({ detail: 'Unknown station' }), { status: 422, statusText: 'Unprocessable Entity' }))
+    expect(before).toBe('Backend error 422: Unknown station')
+    expect(after).toBe(fill(messages(code).backendErrorDetail!, { status: '422', detail: 'Unknown station' }))
+    expect(after).not.toBe(before)
+  })
+
+  it.each(languages)('writes the backend\'s error with its status in %s, the status text as the server wrote it', async (code) => {
+    const { before, after } = await failedThenSwitched(code, async () =>
+      new Response('<html>proxy page</html>', { status: 502, statusText: 'Bad Gateway' }))
+    expect(before).toBe('Backend error 502 Bad Gateway')
+    expect(after).toBe(`${fill(messages(code).backendError!, { status: '502' })} Bad Gateway`)
+    expect(after).not.toBe(before)
+  })
+
+  it('leaves a message of the browser\'s own as it is', async () => {
+    const { before, after } = await failedThenSwitched('de', async () => Promise.reject(new TypeError('Failed to fetch')))
+    expect(before).toBe('Failed to fetch')
+    expect(after).toBe('Failed to fetch')
   })
 })
