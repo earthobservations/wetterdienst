@@ -6,15 +6,12 @@ import { mockBackend } from './accessibility/mock-backend'
 // Swagger UI are files of the app, and the Content Security Policy allows no CDN. Both are used here for real,
 // in a browser that holds the app to its policy, and every request that leaves the origin is a failure.
 
-// The icons are fetched from Iconify at run time (no icon set is installed to serve them): they are data, GH-3111
-const ICON_API = 'https://api.iconify.design'
-
 /** What a page asks for beyond its own origin, and what its Content Security Policy refused */
 function watch(page: Page, origin: string) {
   const foreign: string[] = []
   page.on('request', (request) => {
     const url = request.url()
-    if (new URL(url).origin !== origin && !url.startsWith('data:') && !url.startsWith('blob:') && request.resourceType() !== 'image' && !url.startsWith(`${ICON_API}/`))
+    if (new URL(url).origin !== origin && !url.startsWith('data:') && !url.startsWith('blob:') && request.resourceType() !== 'image')
       foreign.push(url)
   })
   return {

@@ -46,14 +46,14 @@ pnpm test:a11y      # the axe accessibility spec, on request only (not in test:e
 
 ```bash
 docker compose --profile full up       # backend + app
-docker compose --profile backend up    # backend only, port 3000
+docker compose --profile backend up    # backend only, port 7890
 docker compose --profile app up        # app only, port 4000
 ```
 
 ### CLI / REST API
 
 ```bash
-wetterdienst restapi --listen 0.0.0.0:3000
+wetterdienst restapi --listen 0.0.0.0:7890
 wetterdienst stations --provider dwd --network observation --parameters daily/kl --periods recent --all
 wetterdienst values --provider dwd --network observation --parameters daily/kl --periods recent --stations 00011
 ```

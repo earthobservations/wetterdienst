@@ -184,6 +184,10 @@ class CatalogueCounts(BaseModel):
 
     providers: int
     networks: int
+    parameters: int = Field(
+        description="How many different parameters (canonical names) the networks listed declare, counted once "
+        "however many networks, resolutions and datasets carry one.",
+    )
 
 
 class CatalogueMetadata(BaseModel):
@@ -343,14 +347,14 @@ def result_metadata(
     return block
 
 
-def catalogue_metadata(*, providers: int, networks: int) -> CatalogueMetadata:
+def catalogue_metadata(*, providers: int, networks: int, parameters: int) -> CatalogueMetadata:
     """Build the block of an answer about the library's providers."""
     return CatalogueMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
         producer=describe_producer(),
-        counts=CatalogueCounts(providers=providers, networks=networks),
+        counts=CatalogueCounts(providers=providers, networks=networks, parameters=parameters),
         warnings=recorded_warnings(),
     )
 

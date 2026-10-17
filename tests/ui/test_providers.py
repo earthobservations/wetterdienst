@@ -87,6 +87,19 @@ def test_a_provider_of_several_countries_has_a_null_country_code(
     assert body["providers"][0]["country_code"] is None
 
 
+def _declared_parameters() -> set[str]:
+    """Give the different canonical names the networks with a metadata model declare."""
+    return {
+        parameter.name
+        for provider, networks in Wetterdienst.registry.items()
+        for network in networks
+        if not Wetterdienst.is_standalone(provider, network)
+        for resolution in Wetterdienst.resolve(provider, network).metadata
+        for dataset in resolution
+        for parameter in dataset
+    }
+
+
 def test_the_providers_are_the_registry_and_sorted_by_name(client: TestClient) -> None:
     """Every provider of the registry is listed once, by the name a reader sorts them by."""
     response = client.get("/api/v1/providers")
@@ -101,6 +114,7 @@ def test_the_providers_are_the_registry_and_sorted_by_name(client: TestClient) -
     assert body["metadata"]["counts"] == {
         "providers": len(Wetterdienst.registry),
         "networks": sum(len(networks) for networks in Wetterdienst.registry.values()),
+        "parameters": len(_declared_parameters()),
     }
     assert body["metadata"]["warnings"] == []
     assert response.headers["X-Wetterdienst-API-Version"] == "1"

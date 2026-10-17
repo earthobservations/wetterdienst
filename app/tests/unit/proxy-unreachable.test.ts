@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // The catch-all at `server/api/[...].get.ts` uses Nitro's auto-imports, which a plain node project
 // does not have: stub the ones it calls, and import it afterwards.
-const BACKEND = 'http://wetterdienst-backend.internal:3000/api'
+const BACKEND = 'http://wetterdienst-backend.internal:7890/api'
 
 async function proxyOutcome(failure: unknown, requestId?: string) {
   const setResponseStatus = vi.fn()
@@ -30,7 +30,7 @@ describe('the /api proxy with an unreachable backend', () => {
   it('answers a fixed text and logs the cause, which names the backend, on the server', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     // what h3 throws for a refused connection: a constant message, the diagnostic on `cause`
-    const cause = new Error('connect ECONNREFUSED 10.0.3.7:3000')
+    const cause = new Error('connect ECONNREFUSED 10.0.3.7:7890')
     const refused = Object.assign(new Error('Bad Gateway'), { statusCode: 502, cause })
 
     const { body, setResponseStatus, setResponseHeader } = await proxyOutcome(refused, 'req-1.a')
@@ -45,7 +45,7 @@ describe('the /api proxy with an unreachable backend', () => {
       instance: 'urn:wetterdienst:request:req-1.a',
       request_id: 'req-1.a',
     })
-    expect(JSON.stringify(body)).not.toMatch(/ECONNREFUSED|10\.0\.3\.7|3000|internal/)
+    expect(JSON.stringify(body)).not.toMatch(/ECONNREFUSED|10\.0\.3\.7|7890|internal/)
     expect(logged).toHaveBeenCalledOnce()
     expect(logged.mock.calls[0]).toContain(cause)
     // the log line names the request, so a client quoting the id finds it

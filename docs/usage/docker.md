@@ -37,6 +37,21 @@ Run Wetterdienst HTTP REST API service:
 docker run -it --rm --publish=7890:7890 ghcr.io/earthobservations/wetterdienst wetterdienst restapi --listen 0.0.0.0:7890
 ```
 
+The image listens on port 7890 when it is started without a command, as `wetterdienst restapi` does
+outside Docker, so `docker run --publish=7890:7890 ghcr.io/earthobservations/wetterdienst` serves the API.
+Images up to 0.158.0 listened on 3000 instead: a deployment that mapped `3000:3000` has to map
+`3000:7890` to keep its host port (or move to `7890:7890`), and a health check or proxy that asks the
+container for port 3000 asks for 7890.
+
+## Docker Compose
+
+`compose.yml` of the repository builds the development images. `docker compose --profile backend up`
+serves the API on <http://localhost:7890>, `--profile app up` the app on <http://localhost:4000>, and
+`--profile full up` both, the app asking the backend at `http://backend:7890/api` on the compose network
+(`NUXT_PUBLIC_API_BASE`). The host ports are the container's own, 7890 and 4000. To publish one on
+another host port, give it in a `compose.override.yml` (`ports: !override ["3000:7890"]`) rather than
+in `compose.yml`.
+
 ## User and cache
 
 The image runs as the unprivileged user `wetterdienst` (uid 10001), whose cache is

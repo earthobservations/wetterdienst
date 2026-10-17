@@ -3,9 +3,9 @@ import { expect, test } from '@playwright/test'
 
 // Every request here goes through the app's own catch-all at `server/api/[...].get.ts`
 // (relative URLs resolve against `baseURL`, port 4000), unlike `api.spec.ts` which talks to the
-// backend directly on port 3000. That handler streams the upstream response straight through, so
+// backend directly on port 7890. That handler streams the upstream response straight through, so
 // what needs guarding is fidelity: status codes, bodies and query parameters must survive the hop.
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:7890'
 
 // Playwright defaults to 30s for both a test and a single API request, which is tight for a backend
 // that may still be downloading from DWD opendata on a cold cache.

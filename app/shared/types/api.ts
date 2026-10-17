@@ -493,7 +493,7 @@ export interface ProvidersMetadata {
   api_version: string
   schema_version: string
   retrieved_at: string
-  counts: { providers: number, networks: number }
+  counts: { providers: number, networks: number, parameters: number }
   warnings: Array<{ code: string, message: string }>
 }
 

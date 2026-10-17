@@ -73,8 +73,8 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
     uv sync --frozen --active \
     --extra bufr --extra cratedb --extra duckdb --extra export --extra influxdb --extra interpolation --extra knmi --extra plotting --extra postgresql --extra radar --extra radarplus --extra restapi --extra mcp
 
-EXPOSE 3000
-CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000", "--reload"]
+EXPOSE 7890
+CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890", "--reload"]
 
 # Final stage
 FROM python:3.15-slim-trixie
@@ -105,8 +105,8 @@ RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin wetterdienst && 
 USER wetterdienst
 WORKDIR /home/wetterdienst
 
-# Expose port 3000
-EXPOSE 3000
+# Expose port 7890
+EXPOSE 7890
 
-# Default command: start restapi on port 3000
-CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:3000"]
+# Default command: start restapi on port 7890
+CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890"]

@@ -15,7 +15,7 @@ services:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
     ports:
-      - "3000:3000"
+      - "7890:7890"
     develop:
       watch:
         - path: src/wetterdienst
@@ -39,7 +39,7 @@ services:
       - HOST=0.0.0.0
       - PORT=4000
       - CI=true
-      - NUXT_PUBLIC_API_BASE=http://backend:3000/api
+      - NUXT_PUBLIC_API_BASE=http://backend:7890/api
     ports:
       - "4000:4000"
     develop:

@@ -146,7 +146,12 @@ export function providersResponse(): ProvidersResponse {
       api_version: '1',
       schema_version: '1',
       retrieved_at: '2026-10-17T10:00:00.000000+00:00',
-      counts: { providers: all.length, networks: all.reduce((sum, provider) => sum + provider.networks.length, 0) },
+      counts: {
+        providers: all.length,
+        networks: all.reduce((sum, provider) => sum + provider.networks.length, 0),
+        // a number of its own, unlike any in the page: the test has to read it off the answer to find it
+        parameters: 587,
+      },
       warnings: [],
     },
     providers: all,
