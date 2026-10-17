@@ -20,6 +20,9 @@ from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+# not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
+from typing_extensions import TypedDict
+
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
@@ -44,6 +47,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     _InterpolatedValuesDictBody,
     _InterpolatedValuesOgcFeatureCollectionBody,
+    _Station,
     _StationsDictBody,
     _StationsOgcFeatureCollectionBody,
     _SummarizedValuesDictBody,
@@ -64,6 +68,7 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
+    ProvidersRequest,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -91,19 +96,34 @@ from wetterdienst.ui.core import (
     set_logging_level,
 )
 from wetterdienst.ui.mcp import is_tool_request
+from wetterdienst.ui.providers import ProvidersAnswer, get_providers
 from wetterdienst.ui.render import (
     InterpolationSettings,
+    StripesValuesMetadata,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
     _AppliedSettings,
     render,
+    render_alerts,
     render_history,
+    render_issues,
     render_stations,
+    render_stripes_stations,
+    render_stripes_values,
 )
-from wetterdienst.ui.response_metadata import API_VERSION, ResponseMetadata, response_headers, response_metadata
+from wetterdienst.ui.response_metadata import (
+    API_VERSION,
+    ResponseMetadata,
+    catalogue_headers,
+    issues_metadata,
+    response_headers,
+    response_metadata,
+    result_metadata,
+    stripes_metadata,
+)
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
+from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.response_warnings import begin_response, warn_response
 
@@ -544,6 +564,43 @@ class _SummarizedValuesWithSettingsDict(_SummarizedValuesDictBody):
 class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectionBody):
     metadata: ResponseMetadata
     settings: NotRequired[SummarySettings]
+
+
+class _HistoryWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    stations: NotRequired[list[_Station]]
+    # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
+    histories: list[dict[str, Any]]
+
+
+class _IssuesWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    issues: list[str]
+
+
+class _AlertsWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    # the UTC production time of the snapshot, null for the latest one
+    snapshot: str | None
+    # one entry per alert, with the nested `geometry` and `parameters` of DWD's CAP document
+    alerts: list[dict[str, Any]]
+
+
+class _AlertsWithMetadataOgcFeatureCollection(TypedDict):
+    type: Literal["FeatureCollection"]
+    metadata: ResponseMetadata
+    snapshot: str | None
+    features: list[dict[str, Any]]
+
+
+class _StripesValue(TypedDict):
+    timestamp: str | None
+    value: float | None
+
+
+class _StripesValuesWithMetadataDict(TypedDict):
+    metadata: StripesValuesMetadata
+    values: list[_StripesValue]
 
 
 @app.get("/")
@@ -1040,6 +1097,36 @@ def coverage(
     return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
 
+@router.get("/providers", response_model=ProvidersAnswer)
+def providers(
+    request: Annotated[ProvidersRequest, Query()],
+) -> Response:
+    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+
+    For every provider, or the one named with `provider`: the names it goes by, its country (`country_code`
+    is the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states
+    none) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,
+    whether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters
+    each has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
+    parameters of a network, and `auth` checks whether its credentials are accepted.
+    """
+    set_logging_level(debug=request.debug)
+    begin_response()
+
+    try:
+        answer = get_providers(request.provider)
+    except ApiNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{e} Use {app.url_path_for('providers')} to list the providers.",
+        ) from e
+    return Response(
+        content=answer.model_dump_json(indent=4 if request.pretty else None),
+        media_type="application/json",
+        headers=dict(catalogue_headers(answer.metadata)),
+    )
+
+
 @router.get("/glossary", response_model=list[GlossaryEntry])
 def glossary(
     request: Annotated[GlossaryRequest, Query()],
@@ -1140,15 +1227,16 @@ def stations(
     return _answer(content, request.format, metadata)
 
 
-@router.get("/issues")
+@router.get("/issues", response_model=_IssuesWithMetadataDict)
 def issues(
     request: Annotated[IssuesRequest, Query()],
-) -> JSONResponse:
+) -> Response:
     """Return available issue datetimes for a provider/network/station combination.
 
     Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
 
     try:
         api = resolve_network(request.provider, request.network)
@@ -1166,7 +1254,8 @@ def issues(
     except Exception as e:
         raise _failure(e, request, "get issues") from e
 
-    return JSONResponse(content={"issues": issue_list})
+    metadata = issues_metadata(api, request, issue_list)
+    return _answer(render_issues(issue_list, metadata), "json", metadata)
 
 
 # response models for the different formats are
@@ -1545,12 +1634,16 @@ def summarize(
     return _answer(content, request.format, metadata)
 
 
-@router.get("/stripes/stations")
+@router.get(
+    "/stripes/stations",
+    response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
+)
 def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
 ) -> Response:
     """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
     set_logging_level(debug=request.debug)
+    begin_response()
 
     # the provider request below builds its settings from the environment inside the handler: checked
     # here first, a malformed server setting is the app's unhandled 500, which does not read its
@@ -1562,12 +1655,11 @@ def stripes_stations(
         # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         raise _logged_server_error(e, "get stripes stations") from e
-    content = stations.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
-    media_type = "text/csv" if request.format == "csv" else "application/json"
-    return Response(content=content, media_type=media_type)
+    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
+    return _answer(render_stripes_stations(stations, request, metadata), request.format, metadata)
 
 
-@router.get("/stripes/values")
+@router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str)
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
@@ -1589,24 +1681,12 @@ def stripes_values(
     except Exception as e:
         raise _failure(e, request, "get stripes data") from e
 
+    metadata = stripes_metadata(stripes_data, request)
     if request.format == "csv":
         content = timestamps_to_string(stripes_data.df).write_csv()
-        media_type = "text/csv"
     else:
-        data = {
-            "metadata": stripes_data.metadata.model_dump(),
-            "values": [
-                {
-                    "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
-                    "value": row["value"],
-                }
-                for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
-            ],
-        }
-        content = json.dumps(data, indent=4 if request.pretty else None)
-        media_type = "application/json"
-
-    return Response(content=content, media_type=media_type)
+        content = render_stripes_values(stripes_data, request, metadata)
+    return _answer(content, request.format, metadata)
 
 
 @router.get("/stripes/image")
@@ -1634,7 +1714,7 @@ def stripes_image(
     )
 
 
-@router.get("/history")
+@router.get("/history", response_model=_HistoryWithMetadataDict)
 def history(
     request: Annotated[HistoryRequest, Query()],
 ) -> Response:
@@ -1680,7 +1760,10 @@ def history(
     return _answer(content, "json", metadata)
 
 
-@router.get("/alerts")
+@router.get(
+    "/alerts",
+    response_model=_AlertsWithMetadataDict | _AlertsWithMetadataOgcFeatureCollection | str,
+)
 def alerts(
     request: Annotated[AlertsRequest, Query()],
 ) -> Response:
@@ -1694,6 +1777,7 @@ def alerts(
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
     set_logging_level(debug=request.debug)
+    begin_response()
 
     # outside the handlers below, as for `/api/stations`
     settings = Settings()
@@ -1708,9 +1792,8 @@ def alerts(
         # and an alert in it the parser does not expect, is the provider's (GH-2985)
         raise _failure(e, request, "get weather alerts") from e
 
-    content = result.to_format(request.format, indent=request.pretty)
-    media_type = "text/csv" if request.format == "csv" else "application/json"
-    return Response(content=content, media_type=media_type)
+    content, metadata = render_alerts(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
 
 
 def _mount_mcp(rest_app: FastAPI) -> bool:

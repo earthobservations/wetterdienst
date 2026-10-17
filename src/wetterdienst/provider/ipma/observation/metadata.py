@@ -24,6 +24,7 @@ _IpmaObservationMetadataSpec = {
     "name_english": "Portuguese Institute for Sea and Atmosphere",
     "name_local": "Instituto Português do Mar e da Atmosfera",
     "country": "Portugal",
+    "country_code": "PT",
     "copyright": "© IPMA (Instituto Português do Mar e da Atmosfera)",
     # no licence is named. IPMA's news item of 2020-02-06 on its API says "Estes dados podem ser usados, reutilizados e
     # redistribuídos livremente - sendo exigido sempre a indicação da fonte dos mesmos", and the conditions of use

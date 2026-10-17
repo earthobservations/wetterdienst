@@ -63,6 +63,7 @@ _AemetObservationMetadataSpec = {
     "name_english": "State Meteorological Agency of Spain",
     "name_local": "Agencia Estatal de Meteorología",
     "country": "Spain",
+    "country_code": "ES",
     "copyright": "© AEMET",
     "license": LicenseModel(
         spdx_id=None,

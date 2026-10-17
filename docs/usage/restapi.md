@@ -90,9 +90,10 @@ The operation ids of the OpenAPI document (`values_api_values_get`) and the name
 
 ## Response metadata
 
-The JSON answer of `stations`, `values`, `interpolate`, `summarize` and `history` has a `metadata`
-member, and so does the GeoJSON of the first four (next to its `data`). It is always there, and it
-says where the data comes from and may be used, what was asked for as the library resolved it, and
+The JSON answer of `stations`, `values`, `interpolate`, `summarize`, `history`, `issues`, `alerts` and
+the three `stripes` endpoints has a `metadata` member, and so does the GeoJSON of the first four (next to its
+`data`) and of `alerts` (a foreign member of the collection, next to its `snapshot`). It is always there, and
+it says where the data comes from and may be used, what was asked for as the library resolved it, and
 what the answer is missing:
 
 ```json
@@ -184,14 +185,27 @@ what the answer is missing:
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
   block, so that a stored answer can be told from one in a later shape.
 
+Where the answer is not about stations, `request.stations` is `null` and `counts.stations` is `0` (the
+warnings of `alerts`), and `counts.rows` counts what it lists: the issues, the alerts. The `metadata` of
+`stripes/values` also keeps the members it had before it was this block (`station`, `resolution`, `dataset`,
+`parameter` and `unit`), so a client reading the unit from it still finds it there. `providers` has a
+smaller block, with the `api_version`, `schema_version`, `retrieved_at`, `producer`, `warnings` and the counts of
+providers and networks: its answer is about the library, and the terms are those of each provider it lists.
+
 `with_metadata=true` adds two more members to the block:
 
 - **`parameters`**: for each parameter read its `resolution`, `dataset`, canonical `name`,
   `name_original` (the source's), `description`, `quantity` and the `unit` of its values: the target of the
   quantity, which `unit_targets` sets, where `convert_units` is on, else the unit the source publishes.
-- **`quality`**: what the `quality_flags` of a reading holds (its `format`), and the `source_flags`, the
-  quality flags the datasets read publish, whose code is the first token of `quality_flags`. The meaning of
-  each code is the provider's and is not listed here yet.
+- **`quality`**: what the `quality_flags` of a reading holds (its `format`), the `source_flags`, the
+  quality flags the datasets read publish, whose code is the first token of `quality_flags`, and the
+  `legend`: what each kind of token means for the network read, in the order of the column. An entry has
+  its `kind` (`zone` for `zone:mez`; `null` for the source's own flag, which has no prefix and comes first),
+  how it is `written` (`zone:<mez|woz>`, `raw:<text>`), its `meaning` and, where the source documents a closed
+  set, its `codes` with their meanings (DMI's `validity:true` and `validity:false`, IMGW's `8`, `9`, `Z` and
+  `11`, CHMI's quality `0` to `5`, the MADIS flags of the NWS). Where the source tells the
+  codes itself (DWD's QN levels, Frost's `qualityCode`, GHCN's flags) the `meaning` names whose they are, and
+  `codes` is `null`. The legend is empty for a network whose readings carry no flag (LHMT, MeteoSwiss, WSV).
 
 A format with no body to put the block in carries the same in headers, and so does every JSON answer:
 
@@ -299,6 +313,26 @@ http localhost:7890/api/auth provider==aemet network==observation
 
 The MCP tool `auth` and the command `wetterdienst about auth --provider=aemet --network=observation`
 ask the same question and give the same answer.
+
+### Providers
+
+What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
+by, its country (`country_code` is the ISO 3166-1 alpha-2 code, `ZZ` for a provider of several countries), the
+terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
+(`attribution`), and its networks with their `kind`, source `url`, whether they need credentials (`auth`) and
+the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
+credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
+whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
+
+```bash
+# Every provider, sorted by name.
+http localhost:7890/api/providers
+
+# One provider.
+http localhost:7890/api/providers provider==dwd
+```
+
+The command line is `wetterdienst about providers [--provider dwd]` and the MCP tool is `providers`.
 
 ### Glossary
 

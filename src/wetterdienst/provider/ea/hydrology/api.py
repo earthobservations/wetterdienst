@@ -40,6 +40,7 @@ _EAHydrologyMetadataSpec = {
     "name_english": "Environment Agency",
     "name_local": "Environment Agency",
     "country": "United Kingdom",
+    "country_code": "GB",
     "copyright": "© Environment Agency of UK",
     "license": OGL_UK_3_0,
     "attribution": "Environment Agency",

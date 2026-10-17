@@ -10,7 +10,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import Enum
 from functools import update_wrapper
-from typing import TYPE_CHECKING, Generic, Literal, NotRequired, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Generic, Literal, NotRequired, Protocol, Self, TypeVar, cast
 
 import polars as pl
 from pydantic import ConfigDict, with_config
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
     from wetterdienst import Settings
     from wetterdienst.model.history import History, TimeseriesHistory
-    from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.metadata import LicenseModel, ParameterModel
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
@@ -173,6 +173,49 @@ class _StationsOgcFeatureCollection(_StationsOgcFeatureCollectionBody):
     """Type definition for OGC feature collection of stations."""
 
     metadata: NotRequired[_Metadata]
+
+
+class _ProviderTerms(Protocol):
+    """What a network says of its provider: a metadata model has it, and so does a standalone network."""
+
+    name_local: str
+    name_english: str
+    country: str
+    country_code: str
+    copyright: str
+    url: str
+    license: LicenseModel | None
+    attribution: str | None
+
+
+def describe_producer() -> _Producer:
+    """Give the `producer` block of an answer: this library, its version and where it is documented."""
+    from wetterdienst import Info  # noqa: PLC0415
+
+    info = Info()
+    return {
+        "name": info.name,
+        "version": info.version,
+        "repository": info.repository,
+        "documentation": info.documentation,
+        "doi": "10.5281/zenodo.3960624",
+    }
+
+
+def describe_provider(terms: _ProviderTerms) -> _Metadata:
+    """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us."""
+    return {
+        "provider": {
+            "name_local": terms.name_local,
+            "name_english": terms.name_english,
+            "country": terms.country,
+            "copyright": terms.copyright,
+            "url": terms.url,
+            "license": cast("_License", terms.license.model_dump()) if terms.license else None,
+            "attribution": terms.attribution,
+        },
+        "producer": describe_producer(),
+    }
 
 
 class _CalledMethod:
@@ -330,33 +373,7 @@ class StationsResult(ExportMixin):
         ``request.metadata`` (a `MetadataModel`) as a dictionary, the producer's is ``Info().to_dict()`` and
         the library's DOI; a caller who wants the typed provider metadata reads ``request.metadata``.
         """
-        from wetterdienst import Info  # noqa: PLC0415
-
-        info = Info()
-        name_local = self.request.metadata.name_local
-        name_english = self.request.metadata.name_english
-        country = self.request.metadata.country
-        copyright_ = self.request.metadata.copyright
-        url = self.request.metadata.url
-        license_ = self.request.metadata.license
-        return {
-            "provider": {
-                "name_local": name_local,
-                "name_english": name_english,
-                "country": country,
-                "copyright": copyright_,
-                "url": url,
-                "license": cast("_License", license_.model_dump()) if license_ else None,
-                "attribution": self.request.metadata.attribution,
-            },
-            "producer": {
-                "name": info.name,
-                "version": info.version,
-                "repository": info.repository,
-                "documentation": info.documentation,
-                "doi": "10.5281/zenodo.3960624",
-            },
-        }
+        return describe_provider(self.request.metadata)
 
     def to_dict(self, *, with_metadata: bool = False) -> _StationsDict:
         """Format station information as dictionary.

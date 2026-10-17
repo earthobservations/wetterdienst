@@ -22,6 +22,7 @@ _FmiObservationMetadataSpec = {
     "name_english": "Finnish Meteorological Institute",
     "name_local": "Ilmatieteen laitos",
     "country": "Finland",
+    "country_code": "FI",
     "copyright": "© Finnish Meteorological Institute",
     "license": CC_BY_4_0,
     "attribution": "© Finnish Meteorological Institute",

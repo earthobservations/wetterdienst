@@ -132,6 +132,7 @@ _MetOfficeObservationMetadataSpec = {
     "name_english": "Met Office",
     "name_local": "Met Office",
     "country": "United Kingdom",
+    "country_code": "GB",
     "copyright": "© Crown Copyright, Met Office, MIDAS Open, Open Government Licence v3.0",
     "license": OGL_UK_3_0,
     "attribution": "© Crown Copyright, Met Office, MIDAS Open",

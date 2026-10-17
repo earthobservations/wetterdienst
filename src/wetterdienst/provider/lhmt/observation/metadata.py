@@ -23,6 +23,7 @@ _LhmtObservationMetadataSpec = {
     "name_english": "Lithuanian Hydrometeorological Service",
     "name_local": "Lietuvos hidrometeorologijos tarnyba",
     "country": "Lithuania",
+    "country_code": "LT",
     "copyright": "© LHMT (Lietuvos hidrometeorologijos tarnyba)",
     "license": LicenseModel(
         spdx_id="CC-BY-SA-4.0",

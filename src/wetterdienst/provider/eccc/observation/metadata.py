@@ -11,6 +11,7 @@ _EcccObservationMetadataSpec = {
     "name_english": "Environment And Climate Change Canada",
     "name_local": "Environnement Et Changement Climatique Canada",
     "country": "Canada",
+    "country_code": "CA",
     "copyright": "© Environment And Climate Change Canada (ECCC)",
     "license": LicenseModel(
         spdx_id=None,
