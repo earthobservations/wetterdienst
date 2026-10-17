@@ -181,7 +181,7 @@ class _ProviderTerms(Protocol):
     name_local: str
     name_english: str
     country: str
-    country_code: str
+    country_code: str | None
     copyright: str
     url: str
     license: LicenseModel | None

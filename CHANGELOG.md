@@ -36,7 +36,7 @@ Types of changes:
   provider is: names, country (`country_code`, ISO 3166-1 alpha-2), `license`, `attribution`, and
   its networks with their kind, source URL, whether they need credentials and the resolutions and
   datasets they offer. Nothing is downloaded or probed. A network declaration has to give
-  `country_code` now (GH-2565)
+  `country_code` now, null for a provider of several countries (GH-2565)
 - With `with_metadata=true`, `metadata.quality.legend` says what each kind of `quality_flags` token
   means for the network read (`zone:`, `validity:`, `raw:`, ...), with the codes where the source
   documents a closed set (GH-3060)
@@ -58,16 +58,17 @@ Types of changes:
 - Every problem has a `type` of its own, `urn:wetterdienst:problem:<kind>` (listed in the REST API
   docs), an `instance` and a `request_id`, and every response an `X-Request-ID` header, the
   client's own if it sends a plain one. A 502, 503 or 504 carries `Retry-After`. A response to a
-  request that uses something deprecated carries `Deprecation`, `Sunset` and `Link`; the
-  `use_nearby_station_distance` of `summarize` is the one use, and the policy is in the docs
-  (GH-3065)
+  request that uses something deprecated carries `Deprecation`, `Sunset` and `Link`; the policy is
+  in the docs (GH-3065)
+- `GET /api/version` reports the `limits` of the instance: `max_stations`, `max_rows`,
+  `max_stream_rows` and the `timeout` in seconds, 0 for none, so a client can size its requests
+  before one is refused (GH-3078)
 
 ### Changed
 
 - The answers of `issues`, `alerts` and the three `stripes` endpoints carry the `metadata` block
-  too, over REST, on the command line and in the MCP tools. `stripes/values` keeps `station`,
-  `resolution`, `dataset`, `parameter` and `unit` in it, `stripes/stations` the `provider` and
-  `producer` it had, and the GeoJSON of `alerts` has it as a foreign member. These and `history`
+  too, over REST, on the command line and in the MCP tools. `stripes/stations` keeps the `provider`
+  and `producer` it had, and the GeoJSON of `alerts` has it as a foreign member. These and `history`
   are in the OpenAPI document with a response model now; the MCP tools `alerts` and `stripes_*`,
   whose model is a union with text for CSV, answer `{"result": ...}` as `stations` does; read
   the answer from `result` (GH-3059)
@@ -86,6 +87,11 @@ Types of changes:
   minutes among them) and in two summers of zeros (2015-04-25 to 2015-08-19, 2017-06-02 to
   2017-09-19), in all three resolutions; they were returned as readings. See the provider page
   (GH-3031)
+- **Breaking**: the answer of `stripes/values` has the `station`, `resolution`, `dataset`,
+  `parameter` and `unit` of its values in a `series` member, no longer in `metadata`, which is only
+  the metadata block, as for every other endpoint. Read `answer["series"]["unit"]` where you read
+  `answer["metadata"]["unit"]`; the same for the other four, in the MCP tool `stripes_values` too
+  (GH-3076)
 - **Breaking**: `values` refuses more than 100 stations (`all=true` on a network of more), and any
   answer over the row limits above, with the 400 `limit-exceeded`. Request fewer stations or a
   shorter `timestamp`, use `format=ndjson` or `csv` for a long answer, or raise the limits on your
@@ -100,6 +106,10 @@ Types of changes:
 
 ### Removed
 
+- **Breaking**: `summarize` no longer takes `use_nearby_station_distance` (deprecated since 0.140.0,
+  it was read by nothing): `--use-nearby-station-distance` of `wetterdienst summarize` is an unknown
+  option, and the REST API (a 422) and the MCP tool refuse the parameter. Leave it out; a summary
+  takes the nearest station with data. `interpolate` keeps its own (GH-3077)
 - **Breaking**: `TimeseriesValues` no longer has the attributes `stations_counter` and
   `stations_collected`, nor takes them as constructor arguments. `query()` kept them for nobody; the
   stations a query returned are in the `station_id` column of the results (GH-3037)

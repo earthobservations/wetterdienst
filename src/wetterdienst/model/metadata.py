@@ -489,9 +489,6 @@ class LicenseModel(BaseModel):
     url: str
 
 
-#: the `country_code` of a provider that is no one country's (the networks of EUMETNET, say): `ZZ`, which ISO 3166-1
-#: leaves to the user to assign and CLDR reads as "unknown or unspecified region", so that it is no country's code
-MULTINATIONAL = "ZZ"
 _COUNTRY_CODE = re.compile(r"[A-Z]{2}")
 
 
@@ -507,7 +504,7 @@ class ProviderTerms:
     name_local: str
     name_english: str
     country: str
-    country_code: str
+    country_code: str | None
     copyright: str
     license: LicenseModel | None
     attribution: str | None
@@ -550,8 +547,9 @@ class MetadataModel(BaseModel):
     name_english: str
     name_local: str
     country: str
-    #: the ISO 3166-1 alpha-2 code of `country` (`DE`), or `MULTINATIONAL` for a provider of several countries
-    country_code: str
+    #: the ISO 3166-1 alpha-2 code of `country` (`DE`); null for a provider of several countries (the declaration
+    #: says so by writing `"country_code": None`, so that a new provider cannot leave the question out)
+    country_code: str | None
     copyright: str
     #: the terms the provider publishes its data under; null where it states none (the declaration says so
     #: by writing `"license": None`, so that a new provider cannot leave the question out)
@@ -567,10 +565,10 @@ class MetadataModel(BaseModel):
 
     @field_validator("country_code")
     @classmethod
-    def _validate_country_code(cls, value: str) -> str:
+    def _validate_country_code(cls, value: str | None) -> str | None:
         """Refuse a country code that is no two capital letters, which is how an alpha-2 code is written."""
-        if not _COUNTRY_CODE.fullmatch(value):
-            msg = f"{value!r} is no ISO 3166-1 alpha-2 code: two capital letters, or {MULTINATIONAL!r}"
+        if value is not None and not _COUNTRY_CODE.fullmatch(value):
+            msg = f"{value!r} is no ISO 3166-1 alpha-2 code: two capital letters, or null for several countries"
             raise ValueError(msg)
         return value
 

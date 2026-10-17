@@ -75,7 +75,9 @@ class Provider(BaseModel):
     name_local: str
     name_english: str
     country: str
-    country_code: str = Field(description="ISO 3166-1 alpha-2 code of the country, or `ZZ` for a multinational one.")
+    country_code: str | None = Field(
+        description="ISO 3166-1 alpha-2 code of the country; null for a provider of several countries.",
+    )
     license: LicenseModel | None = Field(
         description="The terms the provider publishes its data under; null where it states none.",
     )
