@@ -143,6 +143,48 @@ def _closes_its_hour(df: pl.DataFrame) -> pl.Series:
     return reports.select((pl.col("reported") & pl.col("stamp").eq(closing_stamp)).alias("closing")).to_series()
 
 
+# a report belongs to the full hour it is nearest to, so an hour reaches half an hour to either side of its full hour
+_HALF_HOUR = dt.timedelta(minutes=30)
+
+
+def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
+    """Keep, for each parameter and full hour, the one reading nearest to the hour, stamped with it (GH-3000).
+
+    The hourly file holds every report of a station: the temperature of Denver 2026 (read 2026-10-17) has 9,146 rows in
+    its 6,854 hours, one to seven in an hour. They are the routine METAR at :53 (source 413), the SPECI and the further
+    `FM15` reports filed between (:21, :47, :59), and at the synoptic hours a SYNOP at :00 (source 412). The 5-minute
+    rows of the file hold the 5-minute precipitation only (`precipitation_5_minute`, source 343), which is not read.
+    A reading belongs to the full hour it is nearest to (14:53 to 15:00, 14:20 to 14:00; 14:30 to 15:00). Of the
+    readings of a parameter in an hour the one kept is, in this order:
+
+    1. one the file gives a value for, so that a parameter a SPECI does not carry (no sea level pressure) is read
+       from the report that has it, rather than the hour reading null;
+    2. the one nearest to the full hour, the routine METAR at :51 to :54 unless a report was filed closer;
+    3. the earlier of two at the same distance, 14:57 over 15:03.
+
+    The kept reading is stamped with the full hour (15:00 for the METAR of 14:53), as DWD and ECCC stamp their hourly
+    readings, the instant ones among them (DWD's are those of about ten minutes before the stamp). On the full-hour
+    grid that `interpolate` and `summarize` join on, a reading at :53 would count for nothing, and `skip_empty` counts
+    the rows of an hour by its truncated hour. The parameters of an hour come from the reports nearest to it each, so
+    they may come from different reports. An hour in which a parameter has no value at all keeps one null for it,
+    which only `drop_nulls=False` shows. The precipitation holds one reading an hour already (`_closes_its_hour`), and
+    is stamped with the hour that report is nearest to: 15:00 for the report of 14:53, which closes the clock hour 14.
+    """
+    timestamp = pl.col("timestamp")
+    hour = (timestamp + _HALF_HOUR).dt.truncate("1h")
+    return (
+        df.with_columns(
+            hour.alias("_hour"),
+            pl.col("value").struct.field("value").is_not_null().alias("_has_value"),
+            (timestamp - hour).dt.total_microseconds().abs().alias("_distance"),
+        )
+        .sort(["_has_value", "_distance", "timestamp"], descending=[True, False, False], maintain_order=True)
+        .unique(subset=["station_id", "parameter", "_hour"], keep="first", maintain_order=True)
+        .with_columns(pl.col("_hour").alias("timestamp"))
+        .drop("_hour", "_has_value", "_distance")
+    )
+
+
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
@@ -202,7 +244,8 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # 2026-10-15). `<element>_Report_Type` (`SAO`, `FM15`, ...) and `<element>_Source_Station_ID` are not returned.
         # A code of `Null` is no code (sources 245 and 367 write it): left out.
         # `precipitation` is a METAR's running total, which the reports of an hour repeat with growing amounts; only
-        # the report that closes the hour keeps it (`_closes_its_hour`, GH-2841). The other elements keep every report
+        # the report that closes the hour keeps it (`_closes_its_hour`, GH-2841). Every element is then thinned to one
+        # reading for each full hour (`_one_report_per_hour`, GH-3000)
         closing = _closes_its_hour(df)
 
         def element(parameter: str) -> pl.Expr:
@@ -221,6 +264,12 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             variable_name="parameter",
             value_name="value",
         )
+        # GHCNh provides a ready-made ISO-8601 timestamp column; parse it directly rather than
+        # reconstructing from the separate year/month/day/hour/minute fields
+        df = df.with_columns(pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"))
+        # the file holds every report of the station, which `hourly` is not: one reading for each parameter and full
+        # hour, stamped with the hour (GH-3000)
+        df = _one_report_per_hour(df)
         df = df.with_columns(
             pl.col("value").struct.field("quality"),
             pl.col("value").struct.field("measurement"),
@@ -229,9 +278,6 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            # GHCNh provides a ready-made ISO-8601 timestamp column; parse it directly rather than
-            # reconstructing from the separate year/month/day/hour/minute fields
-            pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S", time_zone="UTC"),
         )
         # a wind direction is 1 to 360 degrees and 0 for a calm wind ("000" is calm, per the documentation), which
         # is no bearing (GH-2794), yet the older reports write 999, mostly with the measurement code C (calm) but
