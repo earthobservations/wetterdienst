@@ -20,6 +20,9 @@ from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+# not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
+from typing_extensions import TypedDict
+
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
 from wetterdienst.exceptions import (
     ApiNotFoundError,
@@ -44,6 +47,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.result import (
     _InterpolatedValuesDictBody,
     _InterpolatedValuesOgcFeatureCollectionBody,
+    _Station,
     _StationsDictBody,
     _StationsOgcFeatureCollectionBody,
     _SummarizedValuesDictBody,
@@ -64,6 +68,7 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
+    ProvidersRequest,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -91,19 +96,34 @@ from wetterdienst.ui.core import (
     set_logging_level,
 )
 from wetterdienst.ui.mcp import is_tool_request
+from wetterdienst.ui.providers import ProvidersAnswer, get_providers
 from wetterdienst.ui.render import (
     InterpolationSettings,
+    StripesValuesMetadata,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
     _AppliedSettings,
     render,
+    render_alerts,
     render_history,
+    render_issues,
     render_stations,
+    render_stripes_stations,
+    render_stripes_values,
 )
-from wetterdienst.ui.response_metadata import API_VERSION, ResponseMetadata, response_headers, response_metadata
+from wetterdienst.ui.response_metadata import (
+    API_VERSION,
+    ResponseMetadata,
+    catalogue_headers,
+    issues_metadata,
+    response_headers,
+    response_metadata,
+    result_metadata,
+    stripes_metadata,
+)
 from wetterdienst.util.cli import setup_logging
-from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
+from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.response_warnings import begin_response, warn_response
 
@@ -130,6 +150,11 @@ app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_too
 API_PREFIX = f"/api/v{API_VERSION}"
 #: the same routes without the version, an alias of the current version: not deprecated, and not in OpenAPI
 API_ALIAS_PREFIX = "/api"
+#: where the MCP endpoint of the current version is served; the tools mirror the routes of `API_PREFIX` 1:1,
+#: so the two share a version (GH-3074)
+MCP_PREFIX = f"/mcp/v{API_VERSION}"
+#: the same endpoint without the version, an alias of the current version, as `API_ALIAS_PREFIX` is for the routes
+MCP_ALIAS_PREFIX = "/mcp"
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -155,10 +180,10 @@ class _RefuseInvalidSettings:
 
     Checked as the server starts the app's lifespan, so it holds whatever starts it --
     `wetterdienst restapi`, `uvicorn wetterdienst.ui.restapi:app` -- unless the lifespan is turned
-    off, and covers `/mcp`, which is served by this app. A failure in the app's own lifespan would
-    reach the server as Starlette's formatted traceback; answering the startup here gives the log
-    the variables and what is wrong with them, a line each, without the values, and the server
-    exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
+    off, and covers `/mcp/v1` and its alias `/mcp`, which are served by this app. A failure in the
+    app's own lifespan would reach the server as Starlette's formatted traceback; answering the
+    startup here gives the log the variables and what is wrong with them, a line each, without the
+    values, and the server exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
     stays, and starts a worker again on the next change to a source file.
     """
 
@@ -187,7 +212,7 @@ class _RefuseInvalidSettings:
 app.add_middleware(_RefuseInvalidSettings)
 
 # Set to True at the bottom of this module when the optional ``[mcp]`` extra (fastmcp) is installed
-# and an MCP endpoint has been mounted onto ``app`` at ``/mcp``. Read by the index page.
+# and an MCP endpoint has been mounted onto ``app`` at ``MCP_PREFIX`` and ``MCP_ALIAS_PREFIX``. Read by the index page.
 mcp_enabled = False
 
 log = logging.getLogger(__name__)
@@ -546,6 +571,43 @@ class _SummarizedValuesWithSettingsOgcFeatureCollection(_SummarizedValuesOgcFeat
     settings: NotRequired[SummarySettings]
 
 
+class _HistoryWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    stations: NotRequired[list[_Station]]
+    # one history per station and dataset, each as the `History` model dumps it, its timestamps as text
+    histories: list[dict[str, Any]]
+
+
+class _IssuesWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    issues: list[str]
+
+
+class _AlertsWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    # the UTC production time of the snapshot, null for the latest one
+    snapshot: str | None
+    # one entry per alert, with the nested `geometry` and `parameters` of DWD's CAP document
+    alerts: list[dict[str, Any]]
+
+
+class _AlertsWithMetadataOgcFeatureCollection(TypedDict):
+    type: Literal["FeatureCollection"]
+    metadata: ResponseMetadata
+    snapshot: str | None
+    features: list[dict[str, Any]]
+
+
+class _StripesValue(TypedDict):
+    timestamp: str | None
+    value: float | None
+
+
+class _StripesValuesWithMetadataDict(TypedDict):
+    metadata: StripesValuesMetadata
+    values: list[_StripesValue]
+
+
 @app.get("/")
 def index() -> HTMLResponse:
     """Provide index page."""
@@ -659,7 +721,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
-                    {"<li>MCP endpoint (streamable HTTP): <code>/mcp</code></li>" if mcp_enabled else ""}
+                    {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -721,11 +783,22 @@ def version() -> JSONResponse:
 
     `mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at
     the bottom of this module, after the routes are declared. It is reported here because the
-    endpoint is optional -- an instance installed without the `[mcp]` extra has no `/mcp` route --
+    endpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --
     and a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP
-    transport means opening a session rather than asking a question.
+    transport means opening a session rather than asking a question. When it is enabled,
+    `mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and
+    `mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`
+    otherwise.
     """
-    return JSONResponse(content={"version": __version__, "api_version": API_VERSION, "mcp_enabled": mcp_enabled})
+    return JSONResponse(
+        content={
+            "version": __version__,
+            "api_version": API_VERSION,
+            "mcp_enabled": mcp_enabled,
+            "mcp_path": MCP_PREFIX if mcp_enabled else None,
+            "mcp_alias_path": MCP_ALIAS_PREFIX if mcp_enabled else None,
+        },
+    )
 
 
 # each endpoint's settings, by the request it takes them from
@@ -907,18 +980,23 @@ def _openapi() -> dict[str, Any]:
 app.openapi = _openapi  # ty: ignore[invalid-assignment]
 
 
-# OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
-# Desktop must receive a 404 here to conclude "no authorization server" and connect anonymously;
-# a 200 (e.g. from a catch-all serving HTML) makes them attempt -- and fail -- Dynamic Client
-# Registration. FastAPI already 404s unknown paths (including the resource-specific sub-paths like
-# `.../oauth-protected-resource/mcp`), but declaring these explicitly documents the no-auth contract
-# and keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
+# OAuth discovery endpoints. The MCP server (`/mcp/v1`, and `/mcp` as its alias) is open (no auth),
+# so MCP clients such as Claude Desktop must receive a 404 here to conclude "no authorization
+# server" and connect anonymously; a 200 (e.g. from a catch-all serving HTML) makes them attempt --
+# and fail -- Dynamic Client Registration. FastAPI already 404s unknown paths (including the
+# resource-specific sub-paths like `.../oauth-protected-resource/mcp/v1`, which RFC 9728 derives
+# from the endpoint's path), but declaring these explicitly documents the no-auth contract and
+# keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
 # `include_in_schema=False` keeps them out of the OpenAPI schema so they do not become MCP tools.
-@app.get("/.well-known/oauth-authorization-server", include_in_schema=False)
-@app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
 def oauth_metadata_not_found() -> None:
-    """Return 404 for OAuth discovery so the open `/mcp` server is treated as no-auth."""
+    """Return 404 for OAuth discovery so the open MCP server is treated as no-auth."""
     raise HTTPException(status_code=404, detail="Not Found")
+
+
+for _discovery in ("oauth-authorization-server", "oauth-protected-resource"):
+    # the bare document, then the one for each MCP endpoint, as a client derives it from the URL it was given
+    for _resource in ("", MCP_PREFIX, MCP_ALIAS_PREFIX):
+        app.get(f"/.well-known/{_discovery}{_resource}", include_in_schema=False)(oauth_metadata_not_found)
 
 
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -1040,6 +1118,36 @@ def coverage(
     return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
 
+@router.get("/providers", response_model=ProvidersAnswer)
+def providers(
+    request: Annotated[ProvidersRequest, Query()],
+) -> Response:
+    """Describe what each data provider is: its name, country, licence, credit line, source and networks.
+
+    For every provider, or the one named with `provider`: the names it goes by, its country (`country_code`
+    is the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states
+    none) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,
+    whether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters
+    each has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
+    parameters of a network, and `auth` checks whether its credentials are accepted.
+    """
+    set_logging_level(debug=request.debug)
+    begin_response()
+
+    try:
+        answer = get_providers(request.provider)
+    except ApiNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{e} Use {app.url_path_for('providers')} to list the providers.",
+        ) from e
+    return Response(
+        content=answer.model_dump_json(indent=4 if request.pretty else None),
+        media_type="application/json",
+        headers=dict(catalogue_headers(answer.metadata)),
+    )
+
+
 @router.get("/glossary", response_model=list[GlossaryEntry])
 def glossary(
     request: Annotated[GlossaryRequest, Query()],
@@ -1140,15 +1248,16 @@ def stations(
     return _answer(content, request.format, metadata)
 
 
-@router.get("/issues")
+@router.get("/issues", response_model=_IssuesWithMetadataDict)
 def issues(
     request: Annotated[IssuesRequest, Query()],
-) -> JSONResponse:
+) -> Response:
     """Return available issue datetimes for a provider/network/station combination.
 
     Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
     """
     set_logging_level(debug=request.debug)
+    begin_response()
 
     try:
         api = resolve_network(request.provider, request.network)
@@ -1166,7 +1275,8 @@ def issues(
     except Exception as e:
         raise _failure(e, request, "get issues") from e
 
-    return JSONResponse(content={"issues": issue_list})
+    metadata = issues_metadata(api, request, issue_list)
+    return _answer(render_issues(issue_list, metadata), "json", metadata)
 
 
 # response models for the different formats are
@@ -1545,12 +1655,16 @@ def summarize(
     return _answer(content, request.format, metadata)
 
 
-@router.get("/stripes/stations")
+@router.get(
+    "/stripes/stations",
+    response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
+)
 def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
 ) -> Response:
     """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
     set_logging_level(debug=request.debug)
+    begin_response()
 
     # the provider request below builds its settings from the environment inside the handler: checked
     # here first, a malformed server setting is the app's unhandled 500, which does not read its
@@ -1562,12 +1676,11 @@ def stripes_stations(
         # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         raise _logged_server_error(e, "get stripes stations") from e
-    content = stations.to_format(fmt=request.format, with_metadata=True, indent=request.pretty)
-    media_type = "text/csv" if request.format == "csv" else "application/json"
-    return Response(content=content, media_type=media_type)
+    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
+    return _answer(render_stripes_stations(stations, request, metadata), request.format, metadata)
 
 
-@router.get("/stripes/values")
+@router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str)
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
@@ -1589,24 +1702,12 @@ def stripes_values(
     except Exception as e:
         raise _failure(e, request, "get stripes data") from e
 
+    metadata = stripes_metadata(stripes_data, request)
     if request.format == "csv":
         content = timestamps_to_string(stripes_data.df).write_csv()
-        media_type = "text/csv"
     else:
-        data = {
-            "metadata": stripes_data.metadata.model_dump(),
-            "values": [
-                {
-                    "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
-                    "value": row["value"],
-                }
-                for row in stripes_data.df.select("timestamp", "value").iter_rows(named=True)
-            ],
-        }
-        content = json.dumps(data, indent=4 if request.pretty else None)
-        media_type = "application/json"
-
-    return Response(content=content, media_type=media_type)
+        content = render_stripes_values(stripes_data, request, metadata)
+    return _answer(content, request.format, metadata)
 
 
 @router.get("/stripes/image")
@@ -1634,7 +1735,7 @@ def stripes_image(
     )
 
 
-@router.get("/history")
+@router.get("/history", response_model=_HistoryWithMetadataDict)
 def history(
     request: Annotated[HistoryRequest, Query()],
 ) -> Response:
@@ -1680,7 +1781,10 @@ def history(
     return _answer(content, "json", metadata)
 
 
-@router.get("/alerts")
+@router.get(
+    "/alerts",
+    response_model=_AlertsWithMetadataDict | _AlertsWithMetadataOgcFeatureCollection | str,
+)
 def alerts(
     request: Annotated[AlertsRequest, Query()],
 ) -> Response:
@@ -1694,6 +1798,7 @@ def alerts(
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
     set_logging_level(debug=request.debug)
+    begin_response()
 
     # outside the handlers below, as for `/api/stations`
     settings = Settings()
@@ -1708,50 +1813,62 @@ def alerts(
         # and an alert in it the parser does not expect, is the provider's (GH-2985)
         raise _failure(e, request, "get weather alerts") from e
 
-    content = result.to_format(request.format, indent=request.pretty)
-    media_type = "text/csv" if request.format == "csv" else "application/json"
-    return Response(content=content, media_type=media_type)
+    content, metadata = render_alerts(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
 
 
 def _mount_mcp(rest_app: FastAPI) -> bool:
-    """Mount an MCP endpoint at ``/mcp`` onto ``rest_app``, if the optional ``[mcp]`` extra is present.
+    """Mount the MCP endpoint at ``/mcp/v1`` and its alias ``/mcp`` onto ``rest_app``, if ``[mcp]`` is installed.
 
     The MCP server (see :mod:`wetterdienst.ui.mcp`) is generated from the REST API's own routes, so
-    the ``/mcp`` transport stays in lockstep with the HTTP API, with a workflow ``instructions``
-    block and clean tool names layered on for agent usability. The MCP streamable-http session
-    manager runs via the sub-app's lifespan, which is *composed* with ``rest_app``'s existing
-    lifespan here (not replaced), so any current or future app startup/shutdown still runs; the
-    existing REST routes keep working with or without the lifespan running.
+    the MCP transport stays in lockstep with the HTTP API, with a workflow ``instructions``
+    block and clean tool names layered on for agent usability. ``/mcp/v1`` is the endpoint of the
+    contract version, and ``/mcp`` is an alias of the current one, as ``/api`` is of ``/api/v1``.
+    Both paths are routes to the one endpoint, so they share the session manager and its sessions
+    and the server is built once, and a tool answers alike on either (GH-3074). The MCP
+    streamable-http session manager runs via the sub-app's lifespan, which is *composed* with
+    ``rest_app``'s existing lifespan here (not replaced), so any current or future app
+    startup/shutdown still runs; the existing REST routes keep working with or without the
+    lifespan running.
 
     Returns ``True`` when the endpoint was mounted, ``False`` when the optional ``[mcp]`` extra is not
-    installed or the MCP server could not be built (so the ``/mcp`` route is strictly optional and a
+    installed or the MCP server could not be built (so the MCP routes are strictly optional and a
     build error never takes down the plain REST API).
     """
     try:
         from fastmcp.utilities.lifespan import combine_lifespans  # noqa: PLC0415
+        from starlette.routing import Route  # noqa: PLC0415
 
         from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-        mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
+        mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX)
     except ModuleNotFoundError as exc:
-        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no /mcp route.
+        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no MCP route.
         # Said out loud, because an instance missing /mcp for want of a dependency otherwise looks
         # exactly like one that was never meant to have it.
-        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without /mcp", exc.name)
+        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without it", exc.name)
         return False
     except Exception:
-        # never let an MCP build/version error take down the whole REST API; degrade to no /mcp
-        log.exception("Failed to build the MCP endpoint; continuing without /mcp")
+        # never let an MCP build/version error take down the whole REST API; degrade to no MCP route
+        log.exception("Failed to build the MCP endpoint; continuing without it")
         return False
 
-    # Add the /mcp route(s) to the existing app and compose the MCP session-manager lifespan with the
+    # Add the MCP route(s) to the existing app and compose the MCP session-manager lifespan with the
     # app's existing lifespan (rather than replacing it, which would drop any app startup/shutdown).
-    rest_app.router.routes.extend(mcp_app.router.routes)
+    # The alias is a second route to the pinned route's own endpoint: not a second `http_app`, whose
+    # lifespan would start a second session manager and enter the server's lifespan a second time
+    mcp_routes = list(mcp_app.router.routes)
+    rest_app.router.routes.extend(mcp_routes)
+    rest_app.router.routes.extend(
+        Route(MCP_ALIAS_PREFIX, endpoint=route.endpoint, methods=sorted(route.methods) if route.methods else None)
+        for route in mcp_routes
+        if isinstance(route, Route) and route.path == MCP_PREFIX
+    )
     rest_app.router.lifespan_context = combine_lifespans(
         rest_app.router.lifespan_context,
         mcp_app.router.lifespan_context,
     )
-    log.info("MCP endpoint mounted at /mcp")
+    log.info("MCP endpoint mounted at %s, and %s as its alias", MCP_PREFIX, MCP_ALIAS_PREFIX)
     return True
 
 

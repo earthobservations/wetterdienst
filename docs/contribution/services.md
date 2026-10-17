@@ -197,7 +197,12 @@ flag as the first argument, written as the plain code, and every further kind it
 (`join_quality_flags(pl.col("QFLAG"), measurement=pl.col("MFLAG"), source=pl.col("SFLAG"))` gives
 `G,measurement:T,source:7`). A blank flag is left out and a reading without a flag is null. A provider
 that publishes none leaves the column out, and the base class fills it with a null. Document each
-code of the source next to the provider's page and quote its documentation in the test.
+code of the source next to the provider's page and quote its documentation in the test. Tell what each
+kind of token means in `LEGENDS` of `wetterdienst.model.quality_legend`, under `provider/network`: the answers
+of `with_metadata` carry it as `metadata.quality.legend`, and `tests/model/test_quality_legend.py` fails until
+the kinds the reader passes to `join_quality_flags` are the kinds listed there. Give `codes` only for a set the
+source documents; for the others say in the `meaning` where the source tells them. A network with no flag is
+listed with an empty legend.
 
 A source that writes a number or a text for a value it does not have (`-999`, `99.9`, `NaN`, `---`, a wind
 direction `0`) is mapped to null in the reader, before the unit conversion, and its text is not lost: map it

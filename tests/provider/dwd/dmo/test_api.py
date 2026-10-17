@@ -1547,7 +1547,7 @@ def test_dmo_available_issues_lists_by_default_the_runs_a_default_request_accept
     assert [dt.datetime.fromisoformat(issue).hour for issue in listed] == [0]
     result = CliRunner().invoke(cli, ["issues", "--provider=dwd", "--network=dmo", "--station=01001"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == {"issues": listed}
+    assert json.loads(result.output)["issues"] == listed
 
 
 def test_dmo_available_issues_asked_for_every_lead_time_says_so_when_none_is_a_forecast(

@@ -489,6 +489,31 @@ class LicenseModel(BaseModel):
     url: str
 
 
+#: the `country_code` of a provider that is no one country's (the networks of EUMETNET, say): `ZZ`, which ISO 3166-1
+#: leaves to the user to assign and CLDR reads as "unknown or unspecified region", so that it is no country's code
+MULTINATIONAL = "ZZ"
+_COUNTRY_CODE = re.compile(r"[A-Z]{2}")
+
+
+@dataclass(frozen=True)
+class ProviderTerms:
+    """What a network without a metadata model says of its provider: the same fields a `MetadataModel` has for it.
+
+    The radar products and the warnings of `dwd` are standalone networks (`NetworkKind`), have no resolutions or
+    parameters to declare and so no `MetadataModel`, but an answer about them names who published the data and
+    under which terms all the same (GH-3059).
+    """
+
+    name_local: str
+    name_english: str
+    country: str
+    country_code: str
+    copyright: str
+    license: LicenseModel | None
+    attribution: str | None
+    url: str
+
+
 CC_BY_4_0 = LicenseModel(
     spdx_id="CC-BY-4.0",
     name="Creative Commons Attribution 4.0 International",
@@ -525,6 +550,8 @@ class MetadataModel(BaseModel):
     name_english: str
     name_local: str
     country: str
+    #: the ISO 3166-1 alpha-2 code of `country` (`DE`), or `MULTINATIONAL` for a provider of several countries
+    country_code: str
     copyright: str
     #: the terms the provider publishes its data under; null where it states none (the declaration says so
     #: by writing `"license": None`, so that a new provider cannot leave the question out)
@@ -537,6 +564,15 @@ class MetadataModel(BaseModel):
     timezone: TimeZoneName
     auth: bool = False
     resolutions: list[ResolutionModel]
+
+    @field_validator("country_code")
+    @classmethod
+    def _validate_country_code(cls, value: str) -> str:
+        """Refuse a country code that is no two capital letters, which is how an alpha-2 code is written."""
+        if not _COUNTRY_CODE.fullmatch(value):
+            msg = f"{value!r} is no ISO 3166-1 alpha-2 code: two capital letters, or {MULTINATIONAL!r}"
+            raise ValueError(msg)
+        return value
 
     def model_post_init(self, _context: object, /) -> None:
         """Tell each resolution which declaration it belongs to."""

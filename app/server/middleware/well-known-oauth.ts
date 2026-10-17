@@ -1,5 +1,6 @@
-// MCP clients (e.g. Claude Desktop) probe `/.well-known/oauth-*` before connecting to `/mcp` to
-// discover an OAuth authorization server. The wetterdienst `/mcp` server is open (no auth), so those
+// MCP clients (e.g. Claude Desktop) probe `/.well-known/oauth-*` before connecting to `/mcp/v1` (or
+// `/mcp`, and the derived `/.well-known/oauth-protected-resource/mcp/v1`) to discover an OAuth
+// authorization server. The wetterdienst MCP server is open (no auth), so those
 // paths must return 404 -- that is how a client concludes "no OAuth here" and connects anonymously.
 //
 // Without this, the Nuxt SPA catch-all answers `/.well-known/oauth-*` with a 200 `index.html`, which

@@ -24,6 +24,7 @@ from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.renamed import refuse_renamed_arguments
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.metadata import ProviderTerms
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radar,
@@ -174,6 +175,19 @@ class DwdRadarValues:  # noqa: PLW1641
         "kind": "radar",
         "url": "https://opendata.dwd.de/weather/radar/",
     }
+
+    # who published the products and under which terms, which an answer about them names as a network with a
+    # metadata model does through its `MetadataModel` (GH-3059)
+    terms: ClassVar = ProviderTerms(
+        name_local=_METADATA["name_local"],
+        name_english=_METADATA["name_english"],
+        country=_METADATA["country"],
+        country_code=_METADATA["country_code"],
+        copyright="© Deutscher Wetterdienst (DWD), radar products",
+        license=_METADATA["license"],
+        attribution=_METADATA["attribution"],
+        url="https://opendata.dwd.de/weather/radar/",
+    )
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument by naming the new one, as `TimeseriesRequest` does."""

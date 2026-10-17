@@ -11,6 +11,7 @@ _MeteoFranceSynopMetadataSpec = {
     "name_english": "Météo-France",
     "name_local": "Météo-France",
     "country": "France",
+    "country_code": "FR",
     "copyright": "© Météo-France, Etalab Open License 2.0",
     "license": ETALAB_2_0,
     "attribution": "© Météo-France",

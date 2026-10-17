@@ -10,6 +10,7 @@ _NoaaGhcnMetadataSpec = {
     "name_english": "National Oceanic And Atmospheric Administration",
     "name_local": "National Oceanic And Atmospheric Administration",
     "country": "United States Of America",
+    "country_code": "US",
     "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
     # GHCNh: "NOAA waives any potential copyright and related rights in these data worldwide through the Creative
     # Commons Zero 1.0 Universal Public Domain Dedication (CC0-1.0)" (NCEI OneStop record); GHCN-Daily as NOAA's Open

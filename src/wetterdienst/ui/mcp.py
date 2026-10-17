@@ -50,9 +50,9 @@ def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
 
     The REST app's fastapi telemetry gives these no server span, no `http.server.*` metrics and no
     exception log of their own (GH-2432): their spans would start a trace of their own, cut off from
-    the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp`
-    runs in that request's context, so fastapi records the tool request's operation spans, its
-    telemetry data and a validation failure of its parameters as the `/mcp` request's, the spans
+    the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp/v1`
+    (or its alias `/mcp`) runs in that request's context, so fastapi records the tool request's operation spans, its
+    telemetry data and a validation failure of its parameters as the MCP request's, the spans
     beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where
     it runs, does not read fastapi's `exclude` and still records them.
 
@@ -102,7 +102,9 @@ plain-language "summary". `history` is different again: it returns a station's *
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
 knows nothing about providers or stations, so `coverage` remains the tool for "which parameters \
-does this provider have".
+does this provider have". `providers` answers what a provider *is* -- its country, the licence its data \
+is published under and the credit line to give, and what its networks offer -- and is the tool for \
+"may I reuse this data" and "which providers cover this country".
 
 `auth` checks the credentials this server holds for one provider and network that needs them \
 (e.g. aemet/observation): `valid` is true when the provider accepted them, false when it rejected \
@@ -177,6 +179,7 @@ _TOOL_NAMES = {
     "auth_api_auth_get": "auth",
     "coverage_api_coverage_get": "coverage",
     "glossary_api_glossary_get": "glossary",
+    "providers_api_providers_get": "providers",
     "stations_api_stations_get": "stations",
     "values_api_values_get": "values",
     "interpolate_api_interpolate_get": "interpolate",
@@ -273,7 +276,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     @asynccontextmanager
     async def lifespan(_server: FastMCP):  # noqa: ANN202
         # Tie the in-process httpx2 client to the server lifespan so it is closed on shutdown; this
-        # lifespan is composed into the REST app's lifespan when /mcp is mounted (see restapi.py).
+        # lifespan is composed into the REST app's lifespan when the MCP endpoint is mounted (see restapi.py).
         try:
             yield
         finally:

@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- The MCP endpoint is versioned like the REST API: `/mcp/v1` is the endpoint to configure, and
+  `/mcp` stays as an alias of the current version, the same endpoint with the same tools and
+  sessions. A breaking change of a tool will come with `/mcp/v2`, and `/mcp/v1` keeps serving for
+  at least two minor releases. `GET /api/version` reports `mcp_path` (`/mcp/v1`) and
+  `mcp_alias_path` (`/mcp`), `null` without the `[mcp]` extra; the index page lists `/mcp/v1`.
+  Nothing a client has configured at `/mcp` changes (GH-3074)
 - `Settings(...)` is checked by `ty`, mypy and pyright field by field: a misspelt setting
   (`Settings(cache_dsable=True)`) or a value of the wrong type is reported where it is written, not
   as a `ValidationError` at run time. Nothing changes at run time (GH-3042)
@@ -26,6 +32,24 @@ Types of changes:
   `InterpolatedValuesDict`, `InterpolatedValuesOgcFeatureCollection`, `SummarizedValuesDict`,
   `SummarizedValuesOgcFeatureCollection`, `HistoryDict` and `ResultMetadata`, importable from
   `wetterdienst.model.result` instead of the underscored classes they are aliases of (GH-3046)
+- `GET /api/providers`, `wetterdienst about providers` and the MCP tool `providers` say what each
+  provider is: names, country (`country_code`, ISO 3166-1 alpha-2), `license`, `attribution`, and
+  its networks with their kind, source URL, whether they need credentials and the resolutions and
+  datasets they offer. Nothing is downloaded or probed. A network declaration has to give
+  `country_code` now (GH-2565)
+- With `with_metadata=true`, `metadata.quality.legend` says what each kind of `quality_flags` token
+  means for the network read (`zone:`, `validity:`, `raw:`, ...), with the codes where the source
+  documents a closed set (GH-3060)
+
+### Changed
+
+- The answers of `issues`, `alerts` and the three `stripes` endpoints carry the `metadata` block
+  too, over REST, on the command line and in the MCP tools. `stripes/values` keeps `station`,
+  `resolution`, `dataset`, `parameter` and `unit` in it, `stripes/stations` the `provider` and
+  `producer` it had, and the GeoJSON of `alerts` has it as a foreign member. These and `history`
+  are in the OpenAPI document with a response model now; the MCP tools `alerts` and `stripes_*`,
+  whose model is a union with text for CSV, answer `{"result": ...}` as `stations` does; read
+  the answer from `result` (GH-3059)
 
 ### Changed
 
@@ -47,6 +71,11 @@ Types of changes:
   the full-hour grid. The minute of a report is not returned; read the GHCNh file for it. The
   precipitation of source 412 (`FM94_1`) stays, marked `source:412`; it does not agree with the
   station's gauge, see the provider page (GH-3000, GH-3016)
+- `rmi/observation` `sun_duration` of station 6477 is null, with the source's value as `raw:<value>`
+  in `quality_flags`, from 2016-04-30 to 2017-05-31 (a stuck sensor, 13 days of exactly 1,440
+  minutes among them) and in two summers of zeros (2015-04-25 to 2015-08-19, 2017-06-02 to
+  2017-09-19), in all three resolutions; they were returned as readings. See the provider page
+  (GH-3031)
 
 ### Removed
 

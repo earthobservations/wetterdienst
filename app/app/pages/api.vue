@@ -2,18 +2,20 @@
 const { t } = useI18n()
 
 // Whether this backend serves an MCP endpoint at all: it lives behind the optional `[mcp]` extra,
-// so an instance installed without it has no /mcp route and must not be told to point a client at
+// so an instance installed without it has no MCP route and must not be told to point a client at
 // one. The backend reports it next to its version, which is the only thing the card waits for.
 // `$fetch` rather than `useFetch`: the answer is a fact about the backend, not page state, and
 // `useFetch` would key it by URL and hand back whatever the app shell already cached for
 // /api/version -- which is the version, fetched before this page existed.
-const backend = await $fetch<{ version: string, mcp_enabled?: boolean }>('/api/version').catch(() => null)
+const backend = await $fetch<{ version: string, mcp_enabled?: boolean, mcp_path?: string | null }>('/api/version').catch(() => null)
 const mcpEnabled = computed(() => backend?.mcp_enabled === true)
 
 // The MCP endpoint is served on this app's own origin: the app proxies /mcp through to the
 // backend, preserving the streamable-HTTP transport. Reading the origin rather than hard-coding
-// the public URL means the snippet is also correct on a self-hosted or local instance.
-const mcpUrl = computed(() => `${useRequestURL().origin}/mcp`)
+// the public URL means the snippet is also correct on a self-hosted or local instance. The path is
+// the pinned one the backend reports (`/mcp/v1`), so a client configured from here does not move
+// with the next version; a backend that predates the versioned path reports none and only has `/mcp`.
+const mcpUrl = computed(() => `${useRequestURL().origin}${backend?.mcp_path ?? '/mcp'}`)
 const mcpClientConfig = computed(() => JSON.stringify(
   { mcpServers: { wetterdienst: { url: mcpUrl.value } } },
   null,
