@@ -96,7 +96,7 @@ jobs:
       - name: Start backend
         working-directory: .
         run: |
-          uv run wetterdienst restapi --listen 0.0.0.0:3000 > backend.log 2>&1 &
+          uv run wetterdienst restapi --listen 0.0.0.0:7890 > backend.log 2>&1 &
           echo $! > backend.pid
           echo "Backend started with PID $(cat backend.pid)"
 
@@ -104,7 +104,7 @@ jobs:
         run: |
           echo "Waiting for backend to start..."
           for i in {1..30}; do
-            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+            if curl -f http://localhost:7890/health > /dev/null 2>&1; then
               echo "✅ Backend is ready!"
               exit 0
             fi
@@ -119,7 +119,7 @@ jobs:
       - name: Run E2E tests
         run: pnpm run test:e2e
         env:
-          BACKEND_URL: http://localhost:3000
+          BACKEND_URL: http://localhost:7890
           CI: true
 
       - name: Upload test results

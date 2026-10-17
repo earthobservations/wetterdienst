@@ -44,7 +44,7 @@ If the backend is not available, you'll see a clear error message:
 ❌ BACKEND HEALTH CHECK FAILED!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 The Wetterdienst backend is not running or not accessible.
-Expected backend at: http://localhost:3000
+Expected backend at: http://localhost:7890
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📋 To start the backend:
@@ -54,7 +54,7 @@ Expected backend at: http://localhost:3000
 
    Option 2 - Local Python:
    $ cd .. && pip install -e .
-   $ wetterdienst restapi --listen 0.0.0.0:3000
+   $ wetterdienst restapi --listen 0.0.0.0:7890
 ```
 
 ## Prerequisites
@@ -68,13 +68,13 @@ The E2E tests require the Wetterdienst backend API to be running. You have two o
 docker compose --profile backend up -d
 ```
 
-The backend will be available at `http://localhost:3000`
+The backend will be available at `http://localhost:7890`
 
 #### Option 2: Local Python Installation
 ```bash
 # From the project root
 pip install -e .
-wetterdienst restapi --listen 0.0.0.0:3000
+wetterdienst restapi --listen 0.0.0.0:7890
 ```
 
 ### App Server
@@ -165,10 +165,10 @@ You can override the URLs for testing:
 BASE_URL=http://localhost:4000 npm run test:e2e
 
 # Override backend URL
-BACKEND_URL=http://localhost:3000 npm run test:e2e
+BACKEND_URL=http://localhost:7890 npm run test:e2e
 
 # Override both
-BASE_URL=http://localhost:4000 BACKEND_URL=http://localhost:3000 npm run test:e2e
+BASE_URL=http://localhost:4000 BACKEND_URL=http://localhost:7890 npm run test:e2e
 ```
 
 **Note:** The health check will verify the backend is accessible before running any tests.
@@ -191,7 +191,7 @@ docker compose --profile backend down
 
 1. **Check backend is running:**
    ```bash
-   curl http://localhost:3000/api/coverage
+   curl http://localhost:7890/api/coverage
    ```
 
 2. **Run test with UI:**

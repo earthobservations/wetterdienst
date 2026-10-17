@@ -18,8 +18,14 @@ async function mountHome() {
   mounted.push(wrapper)
   return wrapper
 }
+function tile(wrapper: Awaited<ReturnType<typeof mountHome>>, label: string) {
+  return wrapper.findAll('.text-2xl').find(el => el.element.parentElement?.textContent?.includes(label))
+}
 function servicesTile(wrapper: Awaited<ReturnType<typeof mountHome>>) {
-  return wrapper.findAll('.text-2xl').find(el => el.element.parentElement?.textContent?.includes('weather services'))
+  return tile(wrapper, 'weather services')
+}
+function parametersTile(wrapper: Awaited<ReturnType<typeof mountHome>>) {
+  return tile(wrapper, 'parameters')
 }
 function settled(wrapper: Awaited<ReturnType<typeof mountHome>>) {
   return vi.waitFor(() => expect((wrapper.vm as any).providersLoading).toBe(false), { timeout: 5000 })
@@ -106,6 +112,23 @@ describe('index Page', () => {
     expect(servicesTile(fewer)?.text()).toBe('4')
   })
 
+  it('counts the parameters from the answer too, not from a number of its own', async () => {
+    const wrapper = await mountHome()
+    await settled(wrapper)
+    expect(parametersTile(wrapper)?.text()).toBe('587')
+
+    // a parameter more upstream is a number higher, with nothing changed in the app
+    clearNuxtData()
+    served = () => {
+      const response = providersResponse()
+      response.metadata.counts.parameters = 600
+      return response
+    }
+    const more = await mountHome()
+    await settled(more)
+    expect(parametersTile(more)?.text()).toBe('600')
+  })
+
   it('holds the place of the chips and the count until the backend has answered', async () => {
     let release!: () => void
     const gate = new Promise<void>((resolve) => {
@@ -124,6 +147,8 @@ describe('index Page', () => {
     expect(wrapper.text()).not.toContain('EUMETNET')
     expect(wrapper.text()).not.toContain('No weather services')
     expect(servicesTile(wrapper)?.text()).toBe('')
+    expect(parametersTile(wrapper)?.text()).toBe('')
+    expect(parametersTile(wrapper)?.find('.animate-pulse').exists()).toBe(true)
 
     release()
     await settled(wrapper)
@@ -155,9 +180,10 @@ describe('index Page', () => {
 
     expect(wrapper.text()).toContain('Request failed')
     expect(wrapper.text()).toContain('The backend could not be reached.')
-    // the count is not guessed at, and the numbers that do not come from the backend are there
+    // the counts are not guessed at, and the numbers that do not come from the backend are there
     expect(servicesTile(wrapper)?.text()).toBe('–')
-    expect(wrapper.text()).toContain('514')
+    expect(parametersTile(wrapper)?.text()).toBe('–')
+    expect(wrapper.text()).toContain('0 €')
     const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')
     expect(retry).toBeDefined()
 
@@ -194,7 +220,7 @@ describe('index Page', () => {
     expect(chips).toContain('/docs REST API')
     expect(chips).toContain('/mcp/v1 MCP')
     expect(text).toContain('Also for developers')
-    // and the 514 parameters lead somewhere that explains them
+    // and the parameters lead somewhere that explains them
     expect(html).toContain('/glossary')
   })
 

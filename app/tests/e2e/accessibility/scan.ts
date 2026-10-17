@@ -60,7 +60,7 @@ const worse = (a: string, b: string) => IMPACTS.indexOf(a) >= IMPACTS.indexOf(b)
 
 /** Wait until nothing is moving: a menu fading in has half its final colours, which axe reads */
 async function settle(page: Page, backend: Backend) {
-  // not `networkidle`: the icons the app asks api.iconify.design for are refused, and it asks again
+  // not `networkidle`: a request that is refused (a tile, another host's image) is asked again
   await backend.idle()
   await page.waitForFunction(() => document.getAnimations().every(animation =>
     // a spinner never ends and is no reason to wait; nor is a toast's progress bar, which moves

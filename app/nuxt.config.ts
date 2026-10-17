@@ -61,6 +61,20 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // The icons come from this app's own server (GH-3111): the three sets are installed (`@iconify-json/*`) and
+  // the server bundle serves them. `provider` is set because @nuxt/icon picks `iconify`, which asks
+  // api.iconify.design for every icon, whenever `ssr` is false, as it is here. `localApiEndpoint` is outside
+  // `/api`, which the app proxies to the backend. `fallbackToApi: false` keeps a name that no set has from
+  // being asked of the third party: it is an icon missing, not a request.
+  icon: {
+    provider: 'server',
+    serverBundle: {
+      collections: ['lucide', 'heroicons', 'simple-icons'],
+    },
+    localApiEndpoint: '/_nuxt_icon',
+    fallbackToApi: false,
+  },
+
   devServer: {
     host: '0.0.0.0',
     port: 4000,
@@ -69,7 +83,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
-      apiBase: 'http://localhost:3000/api',
+      apiBase: 'http://localhost:7890/api',
     },
   },
 
@@ -126,9 +140,9 @@ export default defineNuxtConfig({
       referrerPolicy: 'strict-origin-when-cross-origin',
       contentSecurityPolicy: {
         'default-src': ['\'self\''],
-        'connect-src': ['\'self\'', new URL(process.env.NUXT_PUBLIC_API_BASE || 'http://0.0.0.0:3000/api').origin, 'https://api.iconify.design', 'https://code.iconify.design', 'https://cdn.jsdelivr.net'],
-        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com', 'https://api.iconify.design', 'https://code.iconify.design'],
-        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://api.iconify.design', 'https://cdn.jsdelivr.net', 'blob:'],
+        'connect-src': ['\'self\'', new URL(process.env.NUXT_PUBLIC_API_BASE || 'http://0.0.0.0:7890/api').origin, 'https://cdn.jsdelivr.net'],
+        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com'],
+        'script-src': ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://cdn.jsdelivr.net', 'blob:'],
         'worker-src': ['\'self\'', 'blob:', 'https://cdn.jsdelivr.net'],
         'child-src': ['\'self\'', 'blob:'],
         'style-src': ['\'self\'', '\'unsafe-inline\''],

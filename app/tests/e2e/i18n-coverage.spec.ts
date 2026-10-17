@@ -16,7 +16,7 @@ import { expect, test } from '@playwright/test'
 // this test exists -- the suite runs the app against a backend started from there -- so a change
 // that adds a parameter runs this.
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:7890'
 
 const glossaryEn = fileURLToPath(new URL('../../i18n/glossary/en.ts', import.meta.url))
 const localeEn = fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url))
@@ -152,5 +152,12 @@ test.describe('the app can name what the backend serves', () => {
     // the first of the four numbers is the count of the providers
     const stat = page.locator('.text-2xl').first()
     await expect(stat).toHaveText(String(registered.length))
+
+    // and the second is the count of the parameters, the backend's own: not a number the page was written with
+    const catalogue = await request.get(`${BACKEND_URL}/api/providers`, SLOW)
+    expect(catalogue.ok(), 'the backend did not serve /api/providers').toBeTruthy()
+    const { metadata } = await catalogue.json() as { metadata: { counts: { parameters: number } } }
+    expect(metadata.counts.parameters, '/api/providers counted no parameters').toBeGreaterThan(0)
+    await expect(page.locator('.text-2xl').nth(1)).toHaveText(String(metadata.counts.parameters))
   })
 })

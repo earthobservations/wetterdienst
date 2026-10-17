@@ -1,7 +1,7 @@
 import type { CoverageNetworkInfo } from '../../shared/types/api'
 import { expect, test } from '@playwright/test'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:7890'
 
 test.describe('API Coverage Endpoint', () => {
   test('should fetch coverage data', async ({ request }) => {

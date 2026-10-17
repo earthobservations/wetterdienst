@@ -17,8 +17,8 @@ baseline is empty.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
-answered with a transparent pixel or refused. The icons the app loads from `api.iconify.design` at run
-time are therefore not drawn in the scans.
+answered with a transparent pixel or refused. The icons are the app's own (`/_nuxt_icon`, GH-3111), so
+they are drawn in the scans.
 
 ## The baseline
 
