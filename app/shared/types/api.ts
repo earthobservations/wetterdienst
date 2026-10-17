@@ -422,3 +422,73 @@ export interface ApiErrorResponse {
   detail: string
   errors?: { loc?: (string | number)[], msg?: string, type?: string }[]
 }
+
+// ============================================================================
+// Providers API
+// ============================================================================
+
+/** The terms a provider publishes its data under, as `GET /api/providers` lists them */
+export interface ProviderLicense {
+  /** The SPDX identifier (or expression), null where the terms have none: `name` and `url` then tell them */
+  spdx_id: string | null
+  name: string
+  url: string
+}
+
+/** A dataset of a resolution, with how many parameters it has */
+export interface ProviderDataset {
+  name: string
+  parameters: number
+}
+
+/** A resolution of a network, with its datasets */
+export interface ProviderResolution {
+  name: Resolution
+  datasets: ProviderDataset[]
+}
+
+/** A network of a provider, as `GET /api/providers` lists it: standalone ones (`radar`, `alerts`) have no resolutions */
+export interface ProviderNetwork {
+  network: string
+  kind: NetworkKind
+  /** Where the provider publishes the data of the network */
+  url: string
+  copyright: string
+  /** Whether the network needs credentials; `GET /api/auth` tells whether they are accepted */
+  auth: boolean
+  date_required: boolean
+  /** How many parameters the network has in all of its datasets */
+  parameters: number
+  resolutions: ProviderResolution[]
+}
+
+/** A provider of data, as `GET /api/providers` lists it */
+export interface Provider {
+  /** The name a request calls it by: `dwd` */
+  provider: string
+  name_local: string
+  name_english: string
+  country: string
+  /** ISO 3166-1 alpha-2, or `ZZ` for a provider of several countries */
+  country_code: string
+  /** Null where the provider states no terms */
+  license: ProviderLicense | null
+  /** The credit line to give; null where the provider states none or asks for none */
+  attribution: string | null
+  networks: ProviderNetwork[]
+}
+
+/** The `metadata` block of an answer about the library: versions, time, producer, warnings and counts */
+export interface ProvidersMetadata {
+  api_version: string
+  schema_version: string
+  retrieved_at: string
+  counts: { providers: number, networks: number }
+  warnings: Array<{ code: string, message: string }>
+}
+
+/** Response from GET /api/providers */
+export interface ProvidersResponse {
+  metadata: ProvidersMetadata
+  providers: Provider[]
+}

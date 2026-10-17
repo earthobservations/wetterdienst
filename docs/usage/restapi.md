@@ -24,6 +24,7 @@ The REST API is complemented by a modern web app built with Nuxt.js, providing a
   - Values mode: Data shape (long/wide), skip empty stations, drop nulls
   - Interpolation mode: Station distances, nearby station distance, gain thresholds
 - **Climate Stripes**: Visual representation of temperature trends
+- **Providers**: What each data provider is: its country, licence and credit line, and the networks, resolutions and datasets it offers
 - **Customization**: Primary color themes and dark mode support
 - **Export**: Download data in CSV, JSON, or GeoJSON formats
 

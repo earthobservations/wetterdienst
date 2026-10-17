@@ -68,6 +68,16 @@ const PAGES: Target[] = [
     path: '/glossary',
     ready: async (page) => { await expect(page.getByText('Mean air temperature at 2 m height.').first()).toBeVisible() },
   },
+  {
+    page: 'providers',
+    path: '/providers',
+    ready: async (page) => { await expect(page.getByRole('heading', { name: 'German Weather Service' })).toBeVisible() },
+  },
+  {
+    page: 'provider',
+    path: '/providers/dwd',
+    ready: async (page) => { await expect(page.getByText('Source: Deutscher Wetterdienst')).toBeVisible() },
+  },
   { page: 'api', path: '/api' },
   { page: 'settings', path: '/settings' },
   { page: 'about', path: '/about' },

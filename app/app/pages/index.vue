@@ -200,6 +200,9 @@ const dataKinds = computed(() => [
         <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
           {{ t('home.glossaryHint') }}
         </NuxtLink>
+        <NuxtLink to="/providers" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+          {{ t('home.providersLink') }}
+        </NuxtLink>
       </p>
     </UCard>
 

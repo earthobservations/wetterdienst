@@ -4,6 +4,7 @@ import type {
   GlossaryEntry,
   HistoryResponse,
   ProviderNetworkCoverageResponse,
+  ProvidersResponse,
   Station,
   StripesStation,
   StripesValuesResponse,
@@ -129,6 +130,71 @@ const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => (
   start_timestamp: '1950-01-01T00:00:00+00:00',
   end_timestamp: null,
 }))
+
+/** `GET /api/providers`: DWD with a licence, a credit line, a network with resolutions and a standalone one, and AEMET with a key and no terms */
+const PROVIDER_LIST: ProvidersResponse = {
+  metadata: {
+    api_version: '1',
+    schema_version: '1',
+    retrieved_at: '2026-10-17T10:00:00.000000+00:00',
+    counts: { providers: 2, networks: 3 },
+    warnings: [],
+  },
+  providers: [
+    {
+      provider: 'dwd',
+      name_local: 'Deutscher Wetterdienst',
+      name_english: 'German Weather Service',
+      country: 'Germany',
+      country_code: 'DE',
+      license: { spdx_id: 'CC-BY-4.0', name: 'Creative Commons Attribution 4.0 International', url: 'https://creativecommons.org/licenses/by/4.0/' },
+      attribution: 'Source: Deutscher Wetterdienst',
+      networks: [
+        {
+          network: 'observation',
+          kind: 'observation',
+          url: 'https://opendata.dwd.de/climate_environment/CDC/',
+          copyright: '© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)',
+          auth: false,
+          date_required: false,
+          parameters: 12,
+          resolutions: [{ name: 'daily', datasets: [{ name: 'climate_summary', parameters: 8 }] }],
+        },
+        {
+          network: 'radar',
+          kind: 'radar',
+          url: 'https://opendata.dwd.de/weather/radar/',
+          copyright: '© Deutscher Wetterdienst (DWD), radar products',
+          auth: false,
+          date_required: false,
+          parameters: 0,
+          resolutions: [],
+        },
+      ],
+    },
+    {
+      provider: 'aemet',
+      name_local: 'Agencia Estatal de Meteorología',
+      name_english: 'State Meteorological Agency of Spain',
+      country: 'Spain',
+      country_code: 'ES',
+      license: null,
+      attribution: null,
+      networks: [
+        {
+          network: 'observation',
+          kind: 'observation',
+          url: 'https://opendata.aemet.es/',
+          copyright: '© AEMET',
+          auth: true,
+          date_required: true,
+          parameters: 6,
+          resolutions: [{ name: 'daily', datasets: [{ name: 'data', parameters: 6 }] }],
+        },
+      ],
+    },
+  ],
+}
 
 const GLOSSARY: GlossaryEntry[] = [
   { name: 'temperature_air_mean_2m', unit_type: 'temperature', unit: 'degree_celsius', unit_symbol: '°C', description: 'Mean air temperature at 2 m height.' },
@@ -270,6 +336,7 @@ export function defaultHandlers(): Handlers {
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,
     'glossary': () => GLOSSARY,
+    'providers': () => PROVIDER_LIST,
     'stripes/stations': () => ({ stations: STRIPES_STATIONS }),
     'stripes/values': url => stripesValues(url.searchParams.get('station')),
   }

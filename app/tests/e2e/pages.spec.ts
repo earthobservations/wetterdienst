@@ -104,6 +104,66 @@ test.describe('Climate Stripes Page', () => {
   })
 })
 
+test.describe('Providers Page', () => {
+  test('should be reachable from the navigation', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('navigation').getByRole('link', { name: 'Providers', exact: true }).click()
+
+    await expect(page).toHaveURL(/\/providers$/)
+    await expect(page.getByRole('heading', { name: 'Providers', level: 1 })).toBeVisible()
+  })
+
+  test('should be reachable from the home page', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('link', { name: /All providers, their licences/ }).click()
+
+    await expect(page).toHaveURL(/\/providers$/)
+  })
+
+  test('should list the providers the backend serves, and narrow them by a search', async ({ page }) => {
+    await page.goto('/providers')
+
+    // what the backend says each is, not a list written into the app
+    await expect(page.getByRole('heading', { name: 'German Weather Service' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Norwegian Meteorological Institute' })).toBeVisible()
+    await expect(page.getByText(/Showing 22 of 22/)).toBeVisible()
+
+    await page.getByPlaceholder(/Search name, country or code/).fill('norway')
+    await expect(page.getByRole('heading', { name: 'Norwegian Meteorological Institute' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'German Weather Service' })).toHaveCount(0)
+    await expect(page.getByText(/Showing 1 of 22/)).toBeVisible()
+  })
+
+  test('should open the page of a provider with its licence and credit line', async ({ page }) => {
+    await page.goto('/providers')
+    await page.getByRole('link', { name: /German Weather Service/ }).click()
+
+    await expect(page).toHaveURL(/\/providers\/dwd$/)
+    await expect(page.getByRole('heading', { name: 'German Weather Service', level: 1 })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Creative Commons Attribution 4.0 International' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
+    await expect(page.getByText('Source: Deutscher Wetterdienst')).toBeVisible()
+    // its networks, the standalone ones among them
+    await expect(page.getByRole('heading', { name: 'observation', level: 3 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'radar', level: 3 })).toBeVisible()
+  })
+
+  test('should open the explorer on the network of a provider', async ({ page }) => {
+    await page.goto('/providers/dwd')
+    await page.getByRole('link', { name: 'Open in the explorer' }).first().click()
+
+    await expect(page).toHaveURL(/\/explorer\?provider=dwd&network=/)
+    await expect(page.getByText(/Select Parameters/i).first()).toBeVisible()
+  })
+
+  test('should say so for a provider there is none of', async ({ page }) => {
+    await page.goto('/providers/nowhere')
+
+    await expect(page.getByText('There is no provider called "nowhere".')).toBeVisible()
+  })
+})
+
 test.describe('Support Page', () => {
   test('should be reachable from the header icon', async ({ page }) => {
     await page.goto('/')

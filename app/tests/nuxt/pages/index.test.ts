@@ -57,6 +57,17 @@ describe('index Page', () => {
     expect(text).toContain('MeteoSwiss')
   })
 
+  it('leads from the weather services to the page that says what each is', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(IndexPage)
+    const link = wrapper.findAll('a').find(a => a.attributes('href') === '/providers')
+
+    expect(link?.text()).toBe('All providers, their licences and what they offer')
+  })
+
   it('points developers at the library, the API and MCP', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
