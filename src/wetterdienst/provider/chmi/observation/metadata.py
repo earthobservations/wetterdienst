@@ -15,7 +15,7 @@ sub-directory, the value-selection rule and the file layout are resolved in ``ap
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
 
 _TEMPERATURE = {"unit": "degree_celsius"}
 _PRECIPITATION = {"unit": "millimeter"}
@@ -87,8 +87,11 @@ _ChmiObservationMetadataSpec = {
     "name_local": "Český hydrometeorologický ústav",
     "country": "Czechia",
     "copyright": "© Czech Hydrometeorological Institute (CHMI)",
-    "license": None,
-    "attribution": None,
+    # "Otevřená data ČHMÚ můžete využívat bezplatně při respektování licence Creative Commons BY 4.0."
+    # (https://www.chmi.cz/-/jak-mohu-použít-otevřená-data-čhmú-), and each distribution in the national open
+    # data catalogue (data.gov.cz) names CC BY 4.0 with "Český hydrometeorologický ústav" as the author
+    "license": CC_BY_4_0,
+    "attribution": "Český hydrometeorologický ústav (ČHMÚ)",
     "url": "https://opendata.chmi.cz/",
     "kind": "observation",
     "timezone": "Europe/Prague",

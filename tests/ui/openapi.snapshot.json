@@ -778,46 +778,6 @@
             "explode": false
           },
           {
-            "name": "lead_time",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "enum": [
-                    "short",
-                    "long"
-                  ],
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused.",
-              "title": "Lead Time"
-            },
-            "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused."
-          },
-          {
-            "name": "issue",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused.",
-              "title": "Issue"
-            },
-            "description": "Accepted and ignored: the stations of a network do not depend on the run, which `values` takes. A value that does not parse is still refused."
-          },
-          {
             "name": "all",
             "in": "query",
             "required": false,
@@ -4702,19 +4662,32 @@
             "$ref": "#/components/schemas/StationsFilter",
             "description": "How the stations were selected from the network's."
           },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "How many stations the answer has."
+          },
           "ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Ids",
-            "description": "The `station_id` of every station in the answer, in its order."
+            "description": "The `station_id` of every station in the answer, in its order, for an answer of 100 stations or fewer; null for one of more, which `count` gives."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "filter",
+          "count",
           "ids"
         ],
         "title": "StationsSelected",

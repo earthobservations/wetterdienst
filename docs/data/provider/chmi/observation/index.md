@@ -29,8 +29,9 @@ have simply contributes no rows.
 
 ## License
 
-Data is © Czech Hydrometeorological Institute (CHMI). See
-[CHMI open data](https://opendata.chmi.cz/) for further information and usage conditions.
+Data is © Czech Hydrometeorological Institute (CHMI), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See
+[CHMI open data](https://opendata.chmi.cz/) and the [provider page](../index.md) for the sources of the licence.
 
 ```{toctree}
 :hidden:

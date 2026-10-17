@@ -28,6 +28,11 @@ Types of changes:
 - Those answers, CSV and images included, carry the same in the headers `X-Wetterdienst-API-Version`,
   `-Schema-Version`, `-Retrieved-At`, `-Provider`, `-License`, `-Attribution`, `-Stations`, `-Rows`
   and `-Warnings`, and a `Link: <licence>; rel="license"` (GH-2561)
+- The `metadata` block says the licences as the providers state them: CHMI is CC BY 4.0 and NOAA
+  GHCN CC0 1.0, IMGW and IPMA have terms of their own (`license.spdx_id` null, with the name and
+  the link of the terms; IMGW's credit line is the Polish sentence its terms prescribe), and DMI
+  links its terms of use, as its documentation host answers 404. `request.stations` has a `count`
+  and lists `ids` for up to 100 stations, else `ids` is null; read the ids from the body (GH-3061)
 
 ### Changed
 
@@ -35,8 +40,10 @@ Types of changes:
   the MCP `stations` tool no longer takes `lead_time` and `issue`: they never changed the list, the
   run being chosen for `values`. Drop the flag or argument, or pass it to `values`; `wetterdienst
   stations --lead-time=...` now fails with click's `No such option`, and a tool call with either
-  with a tool error. `/api/stations` still accepts them and its OpenAPI document now says it
-  ignores them (GH-3056)
+  with a tool error (GH-3056)
+- **Breaking**: `/api/stations` no longer takes `lead_time` and `issue`: a request with either is
+  a 422, as for any parameter the endpoint does not know. They never changed the list. Leave them
+  out of the request, or send them to `/api/values`, where the run is chosen (GH-3056, GH-3061)
 - **Breaking**: a download that did not answer is a `DownloadError`, where it was logged and read as
   no data, in the `metno/frost` values and the AEMET and KNMI station lists: a timeout, a dropped
   connection, a body cut short and a 5xx. A TLS failure (a certificate that does not verify) is one

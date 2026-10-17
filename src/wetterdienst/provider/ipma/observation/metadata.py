@@ -17,7 +17,7 @@ duplicates ``intensidadeVento`` (m/s). ``-99.0`` is the missing-value sentinel a
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, build_metadata_model
 
 _IpmaObservationMetadataSpec = {
     "name_short": "IPMA",
@@ -25,8 +25,15 @@ _IpmaObservationMetadataSpec = {
     "name_local": "Instituto Português do Mar e da Atmosfera",
     "country": "Portugal",
     "copyright": "© IPMA (Instituto Português do Mar e da Atmosfera)",
-    "license": None,
-    "attribution": None,
+    # no licence is named. IPMA's news item of 2020-02-06 on its API says "Estes dados podem ser usados, reutilizados e
+    # redistribuídos livremente - sendo exigido sempre a indicação da fonte dos mesmos", and the conditions of use
+    # on api.ipma.pt allow free use "desde que dessa utilização não decorram finalidades lucrativas ou ofensivas"
+    "license": LicenseModel(
+        spdx_id=None,
+        name="IPMA open data: free use, reuse and redistribution with the source named",
+        url="https://www.ipma.pt/pt/media/noticias/news.detail.jsp?y=2020&f=api-2020.html",
+    ),
+    "attribution": "Source: IPMA (Instituto Português do Mar e da Atmosfera)",
     "url": "https://api.ipma.pt/",
     "kind": "observation",
     "timezone": "Europe/Lisbon",

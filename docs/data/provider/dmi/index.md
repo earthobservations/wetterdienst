@@ -10,9 +10,11 @@ through its Open Data climateData API. No authentication is required.
 
 ## License
 
-DMI provides its data as free/open data. See the
+DMI's open data are distributed under the Creative Commons Attribution 4.0 licence (CC BY 4.0), as the
+[terms of use](https://www.dmi.dk/friedata/dokumentation/terms-of-use) say: give appropriate credit, link the
+licence and say if you changed the data. DMI prescribes no wording; the
 [DMI Open Data documentation](https://www.dmi.dk/friedata/dokumentation/basics) and the
-[DMI frie data](https://www.dmi.dk/friedata/) pages for licensing and attribution.
+[DMI frie data](https://www.dmi.dk/friedata/) pages have the rest.
 
 ```{toctree}
 :hidden:

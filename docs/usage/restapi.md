@@ -128,7 +128,7 @@ what the answer is missing:
       "periods": ["historical", "recent"],
       "start": "2026-01-01T00:00:00.000000+00:00",
       "end": "2026-01-01T23:59:59.999999+00:00",
-      "stations": {"filter": "by_station_id", "ids": ["01048"]}
+      "stations": {"filter": "by_station_id", "count": 1, "ids": ["01048"]}
     },
     "counts": {"stations": 1, "rows": 1},
     "crs": {
@@ -153,15 +153,19 @@ what the answer is missing:
 - **`provider.license`** is the terms the provider publishes its data under: `spdx_id`, the identifier of
   the licence in the [SPDX list](https://spdx.org/licenses/) (or an expression, `CC-BY-4.0 OR NLOD-2.0`,
   where the provider offers two), `name` and `url`. `spdx_id` is `null` where the terms have none
-  (ECCC's licence agreement, AEMET's legal notice). The whole of `license` is `null` where the provider
-  states no terms that could be read, as for CHMI, IMGW, IPMA and NOAA GHCN: it is then for the user to ask
-  the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
+  (ECCC's licence agreement, AEMET's legal notice, IMGW's terms of data provision, IPMA's statement that the
+  data may be reused with the source named). `url` is the licence, or the provider's own page that states it. The
+  whole of `license` is `null` where the provider states no terms that could be read: no provider does at present,
+  and it is then for the user to ask the provider. **`provider.attribution`** is the credit line to give, in the provider's own words where it
   states one (DWD's "Source: Deutscher Wetterdienst") and else its name as the rights holder; `null` where the
   provider states none or asks for none. `copyright` stays the free text it was.
 - **`request`** is the request as resolved, not as typed: `daily/kl` is the list of parameters it means,
   `periods` the periods read, `start` and `end` the window applied in UTC (`null` without one), and
   `stations` how they were selected (`filter`: `all`, `by_station_id`, `by_name`, `by_rank`,
-  `by_distance`, `by_bbox` or `by_sql`) and the `station_id` of each station in the answer.
+  `by_distance`, `by_bbox` or `by_sql`), `count` the stations in the answer and `ids` their `station_id`, for an
+  answer of up to 100 stations; for one of more `ids` is `null`, so a listing of a whole network does not carry
+  its ids a second time, and `count` is how many there are. To have the ids of a large answer, read the
+  `station_id` column of its body.
 - **`retrieved_at`** is when the answer was made, in UTC. Whether the data came from the server's cache,
   and when the provider published it, are not told yet.
 - **`counts`** is the stations in the answer and its rows: the items of `values` (one per timestamp in
@@ -237,13 +241,10 @@ learnt on one holds on the others:
 - **A boolean is `true`, `1`, `yes`, `on`, `t` or `y`, or one of their opposites**, in any case, on
   every surface; nothing else is one. On the command line a boolean option given without a value is
   on (`--pretty`, `--all`), and `--pretty=false` says it outright.
-- **A parameter an endpoint ignores is not an option of the command or an argument of the tool.**
-  `stations` takes `lead_time` and `issue` and ignores them: the stations of a forecast network are
-  the same for every run, which is chosen for `values`. A value that does not parse is still
-  refused. REST keeps accepting them, as it always has, so that no caller gets a 422, and the
-  OpenAPI document says in their descriptions that they are ignored; `wetterdienst stations` and the `stations` tool
-  do not take them, and `--lead-time` and `--issue` are options of `values`, `interpolate` and
-  `summarize`.
+- **A parameter an endpoint ignores is not a parameter of it.** `stations` takes no `lead_time` and `issue`: the
+  stations of a forecast network are the same for every run, which is chosen for `values`, `interpolate` and
+  `summarize`. `/api/stations` answers either with a 422 like any parameter it does not know, as
+  `wetterdienst stations` and the `stations` tool do.
 - **The stations are named by exactly one of** `all`, `stations`, `name`, a point (`latitude` and
   `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
   `sql`. None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`

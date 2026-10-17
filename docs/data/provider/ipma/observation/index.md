@@ -21,7 +21,8 @@ same wind speed in km/h) is not exposed, as it duplicates `intensidadeVento` (m/
 ## License
 
 Data is © IPMA (Instituto Português do Mar e da Atmosfera). See the [IPMA API](https://api.ipma.pt/)
-for further information and usage conditions.
+for further information, and the [provider page](../index.md) for what IPMA states about reuse (no licence is named;
+the source is to be named).
 
 ```{toctree}
 :hidden:

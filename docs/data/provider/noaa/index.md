@@ -10,7 +10,7 @@ required.
 ## License
 
 GHCN data is provided by NOAA's National Centers for Environmental Information (NCEI) as
-open data. See the
+open data under CC0 1.0 (see [GHCN](ghcn/index.md#license)). See the
 [GHCN daily product page](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)
 for citation and usage information.
 

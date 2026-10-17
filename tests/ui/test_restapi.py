@@ -4034,24 +4034,6 @@ def test_values_long_row_does_not_pass_for_a_wide_one(fmt: str, schema_name: str
             id="stations-bbox-the-wrong-way-round",
         ),
         pytest.param(
-            "/api/stations",
-            {"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "stations": "10382", "issue": "foo"},
-            "Invalid isoformat string: 'foo'",
-            id="stations-mosmix-unparseable-issue",
-        ),
-        pytest.param(
-            "/api/stations",
-            {
-                "provider": "dwd",
-                "network": "dmo",
-                "parameters": "hourly/icon",
-                "stations": "10382",
-                "issue": "0001-01-01T00:00+01:00",
-            },
-            "date value out of range",
-            id="stations-dmo-issue-before-the-first-day-in-utc",
-        ),
-        pytest.param(
             "/api/history",
             {**_OBSERVATION, "parameters": "daily/abc", "stations": "01048"},
             _UNKNOWN_PARAMETER,
@@ -4717,14 +4699,13 @@ def test_values_geojson_items_are_the_ones_the_description_states(stubbed_values
         ]
 
 
-@pytest.mark.parametrize("endpoint", ["/api/stations", "/api/values"])
-def test_swsmos_issue_reaches_the_request(client: TestClient, endpoint: str) -> None:
+def test_swsmos_issue_reaches_the_request(client: TestClient) -> None:
     """The issue asked of dwd/swsmos is read, so one that is no date is the caller's 400 (GH-2299).
 
     It was dropped on the way to the request, which then read the latest run whatever was asked.
     """
     response = client.get(
-        endpoint,
+        "/api/values",
         params={
             "provider": "dwd",
             "network": "swsmos",

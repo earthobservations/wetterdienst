@@ -5,7 +5,7 @@
 DMI publishes quality-controlled climate data through an open, key-less OGC API Features
 service (GeoJSON). The ``climateData`` service exposes aggregated ``stationValue`` records
 that can be filtered by station, parameter, time resolution and datetime range in a single
-request -- see https://opendatadocs.dmi.govcloud.dk/Data/Climate_Data.
+request -- see https://www.dmi.dk/friedata/dokumentation/climate-data.
 """
 
 from __future__ import annotations
@@ -415,7 +415,7 @@ class DmiObservationRequest(TimeseriesRequest):
     """Request class for DMI (Danish Meteorological Institute) climate data observations.
 
     - https://www.dmi.dk/friedata/
-    - https://opendatadocs.dmi.govcloud.dk/Data/Climate_Data
+    - https://www.dmi.dk/friedata/dokumentation/climate-data
     """
 
     metadata = DmiObservationMetadata

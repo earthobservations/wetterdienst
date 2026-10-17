@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, build_metadata_model
+from wetterdienst.model.metadata import CC_BY_4_0, DATASET_NAME_DEFAULT, LicenseModel, build_metadata_model
 
 # DMI's climateData `stationValue` collection returns every available parameter for a
 # station/resolution/date-range in a single request, so each resolution is modelled as one
@@ -146,9 +146,14 @@ _DmiObservationMetadataSpec = {
     "name_local": "Danmarks Meteorologiske Institut",
     "country": "Denmark",
     "copyright": "© DMI (Danish Meteorological Institute), CC BY 4.0",
-    "license": CC_BY_4_0,
+    # "DMI's Open Data are distributed under the Creative Commons License CC BY 4.0", on DMI's terms of use
+    "license": LicenseModel(
+        spdx_id=CC_BY_4_0.spdx_id,
+        name=CC_BY_4_0.name,
+        url="https://www.dmi.dk/friedata/dokumentation/terms-of-use",
+    ),
     "attribution": "© DMI (Danish Meteorological Institute)",
-    "url": "https://opendatadocs.dmi.govcloud.dk/",
+    "url": "https://www.dmi.dk/friedata/",
     "kind": "observation",
     "timezone": "Europe/Copenhagen",
     "auth": False,
