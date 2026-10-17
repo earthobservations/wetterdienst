@@ -5,7 +5,7 @@ import ApiPage from '~/pages/api.vue'
 // the page asks the backend whether it serves an MCP endpoint, through `$fetch` rather than the
 // global one, so the endpoint is registered instead of the fetch being stubbed. Registered once:
 // re-registering the same path in a later test does not replace the handler
-let backend = { version: '0.0.0', mcp_enabled: true }
+let backend: { version: string, mcp_enabled: boolean, mcp_path?: string | null } = { version: '0.0.0', mcp_enabled: true }
 registerEndpoint('/api/version', () => backend)
 
 describe('aPI Page', () => {
@@ -61,19 +61,31 @@ describe('aPI Page', () => {
   })
 
   it('advertises the MCP endpoint on this origin when the backend serves one', async () => {
-    backend = { version: '0.0.0', mcp_enabled: true }
+    backend = { version: '0.0.0', mcp_enabled: true, mcp_path: '/mcp/v1' }
 
     const wrapper = await mountSuspended(ApiPage)
     const text = wrapper.text()
 
     expect(text).toContain('MCP endpoint')
     // the whole point is that the URL follows the origin the page is served from rather than being
-    // hard-coded to the hosted instance, so assert the origin this test runs under -- `/mcp` alone
+    // hard-coded to the hosted instance, so assert the origin this test runs under -- `/mcp/v1` alone
     // would pass on a hard-coded wetterdienst.eobs.org too
-    expect(text).toContain(`${window.location.origin}/mcp`)
+    expect(text).toContain(`${window.location.origin}/mcp/v1`)
     // and the config snippet a user pastes carries that same URL
     expect(text).toContain('mcpServers')
+    expect(text).toContain(`"url": "${window.location.origin}/mcp/v1"`)
+  })
+
+  it('points an older backend, which reports no versioned path, at /mcp', async () => {
+    // the backends before /mcp/v1 serve the endpoint at /mcp alone, and the app is the thing a user
+    // reads the URL from
+    backend = { version: '0.0.0', mcp_enabled: true }
+
+    const wrapper = await mountSuspended(ApiPage)
+    const text = wrapper.text()
+
     expect(text).toContain(`"url": "${window.location.origin}/mcp"`)
+    expect(text).not.toContain('/mcp/v1')
   })
 
   it('says nothing about MCP when the backend has no such endpoint', async () => {

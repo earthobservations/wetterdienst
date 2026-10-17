@@ -79,14 +79,21 @@ examples on this page and the web app use the alias.
 `GET /api/version` reports the version of the contract next to that of the package:
 
 ```json
-{"version": "0.155.0", "api_version": "1", "mcp_enabled": true}
+{
+  "version": "0.157.0",
+  "api_version": "1",
+  "mcp_enabled": true,
+  "mcp_path": "/mcp/v1",
+  "mcp_alias_path": "/mcp"
+}
 ```
 
 `api_version` is raised with a change a client has to follow. A path under a version that does
 not exist (`/api/v2/...`) is a 404.
 
-The operation ids of the OpenAPI document (`values_api_values_get`) and the names of the MCP tools
-(`values`) do not carry the version.
+The MCP endpoint is versioned alike, see [MCP endpoint](#mcp-endpoint). The operation ids of the
+OpenAPI document (`values_api_values_get`) and the names of the MCP tools (`values`) do not carry
+the version.
 
 ## Response metadata
 
@@ -424,7 +431,7 @@ The limit holds for the REST API and the MCP tools; the library and the CLI have
 
 Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
 problem, served as `application/problem+json`, whatever its status: a 400, a 404, a 422, a 500 or
-the 404 of a path that does not exist. The `/mcp` endpoint answers its own errors as JSON-RPC.
+the 404 of a path that does not exist. The MCP endpoint (`/mcp/v1`) answers its own errors as JSON-RPC.
 
 ```json
 {
@@ -481,7 +488,7 @@ that no endpoint handled is the 500 sentence there too, not its own message.
 ## MCP endpoint
 
 The REST API can optionally expose a [Model Context Protocol](https://modelcontextprotocol.io/)
-(MCP) endpoint at `/mcp`, so LLM agents can call the data endpoints (coverage, auth, stations,
+(MCP) endpoint at `/mcp/v1`, so LLM agents can call the data endpoints (coverage, auth, stations,
 values, interpolate, summarize, stripes, alerts, ...) as MCP tools. It is served over the
 streamable-HTTP transport by [FastMCP](https://gofastmcp.com/), generated from the REST API's own
 routes and running in the same process.
@@ -501,7 +508,7 @@ wetterdienst restapi
 The endpoint then lives next to the HTTP API, on the backend:
 
 ```
-http://localhost:7890/mcp
+http://localhost:7890/mcp/v1
 ```
 
 Point any MCP client (streamable HTTP) at that URL — for example:
@@ -510,28 +517,43 @@ Point any MCP client (streamable HTTP) at that URL — for example:
 {
   "mcpServers": {
     "wetterdienst": {
-      "url": "http://localhost:7890/mcp"
+      "url": "http://localhost:7890/mcp/v1"
     }
   }
 }
 ```
 
-Without the `[mcp]` extra installed, the REST API behaves exactly as before and the `/mcp` route is
-simply absent. `GET /api/version` says which of the two an instance is:
+### Versioning
+
+The endpoint is versioned like the REST API, and the tools mirror the routes of the same version 1:1
+(the tool `values` is `/api/v1/values`). `/mcp/v1` is the endpoint to configure: it stays what it
+is. `/mcp` is an alias of the current version, the same endpoint behind a second path with the same
+tools and the same sessions, as `/api` is for `/api/v1`. It is not deprecated, and it moves with the
+next version, so a client that must not move with it is configured with `/mcp/v1`.
+
+A breaking change of a tool (its name, an argument, the answer) comes with `/mcp/v2`, and `/mcp/v1`
+keeps serving the tools as they were for at least two minor releases, announced in the changelog.
+Until `/mcp/v2` exists, it is a 404. A new tool, an optional argument and a new field in an
+answer are not breaking and come to `/mcp/v1` as they come to the REST API. The `instructions` and
+the descriptions of the tools are written for agents and are improved without a new version.
+
+Without the `[mcp]` extra installed, the REST API behaves exactly as before and the MCP paths are
+simply absent. `GET /api/version` says which of the two an instance is, and where the endpoint is:
 
 ```json
-{"version": "0.155.0", "api_version": "1", "mcp_enabled": true}
+{"version": "0.157.0", "api_version": "1", "mcp_enabled": true, "mcp_path": "/mcp/v1", "mcp_alias_path": "/mcp"}
 ```
 
-The app reads that flag before offering an MCP client configuration, so an instance installed
-without the extra is never advertised as having an endpoint it does not serve.
+`mcp_path` and `mcp_alias_path` are `null` where `mcp_enabled` is `false`. The app reads these
+before offering an MCP client configuration, so an instance installed without the extra is never
+advertised as having an endpoint it does not serve.
 
 ### Hosted instance
 
-The `[mcp]` extra is included in the backend Docker image, and the app proxies `/mcp` through
+The `[mcp]` extra is included in the backend Docker image, and the app proxies `/mcp/v1` (and `/mcp`) through
 to the backend (preserving the streamable-HTTP POST/SSE transport), so the hosted app serves the MCP
 endpoint on its own origin:
 
 ```
-https://wetterdienst.eobs.org/mcp
+https://wetterdienst.eobs.org/mcp/v1
 ```

@@ -2404,12 +2404,13 @@ def test_request_models_have_field_descriptions() -> None:
 
 
 def test_mcp_endpoint_mounted() -> None:
-    """The /mcp endpoint is mounted when the optional fastmcp extra is installed."""
+    """The /mcp/v1 endpoint and its alias /mcp are mounted when the optional fastmcp extra is installed."""
     pytest.importorskip("fastmcp")
     from wetterdienst.ui import restapi  # noqa: PLC0415
 
     assert restapi.mcp_enabled is True
     paths = [getattr(route, "path", None) for route in restapi.app.routes]
+    assert "/mcp/v1" in paths
     assert "/mcp" in paths
 
 
@@ -2423,11 +2424,11 @@ def test_mcp_index_link() -> None:
     if not restapi.mcp_enabled:
         pytest.skip("fastmcp not installed")
     response = TestClient(restapi.app).get("/")
-    assert "/mcp" in response.text
+    assert "/mcp/v1" in response.text
 
 
 def test_mcp_initialize_handshake() -> None:
-    """The /mcp endpoint speaks MCP: an initialize request returns an event-stream response."""
+    """The /mcp/v1 endpoint speaks MCP: an initialize request returns an event-stream response."""
     pytest.importorskip("fastmcp")
     from fastapi.testclient import TestClient  # noqa: PLC0415
 
@@ -2447,7 +2448,7 @@ def test_mcp_initialize_handshake() -> None:
     }
     # the session manager runs in the app lifespan, so drive the client as a context manager
     with TestClient(restapi.app) as client:
-        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+        response = client.post("/mcp/v1", json=body, headers={"Accept": "application/json, text/event-stream"})
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
 
