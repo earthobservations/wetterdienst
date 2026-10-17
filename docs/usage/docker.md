@@ -37,6 +37,11 @@ Run Wetterdienst HTTP REST API service:
 docker run -it --rm --publish=7890:7890 ghcr.io/earthobservations/wetterdienst wetterdienst restapi --listen 0.0.0.0:7890
 ```
 
+Without a command the image starts the REST API on port 3000 (`wetterdienst restapi --listen 0.0.0.0:3000`), which
+is the port the [app](app.md) and `compose.yml` expect. The [MCP server](mcp.md) is served next to it, at `/mcp/v1`.
+
+The app has an image of its own, `ghcr.io/earthobservations/wetterdienst-app`, see [Web app](app.md#run-your-own).
+
 ## User and cache
 
 The image runs as the unprivileged user `wetterdienst` (uid 10001), whose cache is
