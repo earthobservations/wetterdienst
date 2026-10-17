@@ -1,7 +1,8 @@
 name: Vulnerable
 
 # `uv audit` reads the resolved dependency set, so only the manifest and the lockfile
-# can change its verdict.
+# can change its verdict on a pull request. An advisory is published against a lock that does
+# not change, though, so the schedule runs it weekly on main as well.
 on:
   push:
     branches: [ main ]
@@ -15,6 +16,9 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/vulnerable.yml'
+
+  schedule:
+    - cron: '41 3 * * 1' # every Monday
 
   # Allow job to be triggered manually.
   workflow_dispatch:
