@@ -16,7 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the app looks for the backend at `http://localhost:7890/api` by default, where
+  `wetterdienst restapi` listens, not 3000; the Docker image of the backend and `compose.yml` use
+  7890 too. A deployment that runs the backend on another port sets `NUXT_PUBLIC_API_BASE` (the
+  compose file does for its own network), as before (GH-3106)
+- The home page states the number of parameters the backend counts (`/api/providers`,
+  `metadata.counts.parameters`), not a number it was written with, which no longer held: it shows
+  a placeholder until the backend has answered and a dash where it did not (GH-3105)
+
 ### Security
+
+- The icons are served by the app itself (`/_nuxt_icon`, from the installed `@iconify-json` sets)
+  and no longer fetched from api.iconify.design, so a visitor's address and the icons of a page
+  go to no third party and the icons are there with that host unreachable. The Content Security
+  Policy drops `api.iconify.design` and `code.iconify.design` (GH-3111)
 
 - A `..` in the path of a request to `/api` no longer leaves the backend's `/api`: the proxy
   resolves the URL before it fetches it and answers a 404 problem for one that is not under

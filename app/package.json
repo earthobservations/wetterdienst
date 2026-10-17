@@ -51,6 +51,9 @@
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
     "@axe-core/playwright": "^4.13.0",
+    "@iconify-json/heroicons": "^1.2.3",
+    "@iconify-json/lucide": "^1.2.144",
+    "@iconify-json/simple-icons": "^1.2.100",
     "@intlify/eslint-plugin-vue-i18n": "^4.5.1",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.3.2",

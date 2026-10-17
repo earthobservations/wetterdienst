@@ -1,7 +1,7 @@
 import type { FullConfig } from '@playwright/test'
 import process from 'node:process'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:7890'
 
 async function checkBackendHealth() {
   console.warn('\n🔍 Checking backend health...')
@@ -35,7 +35,7 @@ async function checkBackendHealth() {
     console.error('   $ cd .. && docker compose --profile backend up -d\n')
     console.error('   Option 2 - Local Python:')
     console.error('   $ cd .. && pip install -e .')
-    console.error('   $ wetterdienst restapi --listen 0.0.0.0:3000\n')
+    console.error('   $ wetterdienst restapi --listen 0.0.0.0:7890\n')
     console.error('━'.repeat(60))
     console.error(`Error: ${error.message}`)
     console.error('━'.repeat(60))
