@@ -114,6 +114,11 @@ export default defineNuxtConfig({
   },
 
   security: {
+    // nuxt-security limits every route to 150 requests per IP in five minutes (a 429 after that). The e2e suite
+    // is one client, and a run went over the limit: the last tests were answered 429, which ones depending on how
+    // fast the runner was. The suite's own build and server switch the limit off (`WD_E2E`, set by
+    // playwright.config.ts); no other build does.
+    rateLimiter: process.env.WD_E2E === '1' ? false : undefined,
     headers: {
       // nuxt-security defaults this to 'no-referrer', which strips the Referer
       // header. OpenStreetMap's tile servers reject refererless requests
