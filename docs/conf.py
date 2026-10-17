@@ -59,7 +59,10 @@ autodoc2_packages = [
 
 # Providers re-export their `*Metadata` objects, so autodoc2's static analysis
 # sees the same object under two module paths. These duplicates are harmless.
-suppress_warnings = ["autodoc2.dup_item"]
+#
+# A notebook page that is not executed (`-D nb_execution_mode=off`, which the docs workflow builds with, and
+# `docs:linkcheck`) has no kernel to say its language, so myst-nb warns about the lexer of every cell.
+suppress_warnings = ["autodoc2.dup_item", "myst-nb.lexer"]
 
 # -- sphinx-copybutton -------------------------------------------------------
 # Strip interactive prompts (>>>, ..., $) so copied snippets are runnable.

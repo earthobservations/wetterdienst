@@ -37,7 +37,9 @@ includes the interpolated value.
 
 ![interpolation example](../assets/interpolation.png)
 
-Values represented as a table:
+Values represented as a table. The figure and the table are in kelvin, as the library returned temperatures when
+they were made; the default is `degree_celsius` now (see [Units](units.md)), in which the same request answers
+`5.0`, `4.0`, `5.2` and `3.1` for the stations and `4.5` for the interpolated value:
 
 | station_id | resolution | dataset         | parameter               | timestamp                 | value  |
 |------------|------------|-----------------|-------------------------|---------------------------|--------|
