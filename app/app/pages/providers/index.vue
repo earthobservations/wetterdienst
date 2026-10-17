@@ -33,7 +33,7 @@ const providers = computed<Provider[]>(() => {
         return true
       // the id a request names, both names, the country and its code: "DWD", "Wetterdienst",
       // "Germany" and "DE" find the same card
-      return [provider.provider, provider.name_english, provider.name_local, provider.country, provider.country_code]
+      return [provider.provider, provider.name_english, provider.name_local, provider.country, provider.country_code ?? '']
         .some(text => text.toLowerCase().includes(term))
     })
     .sort((a, b) => collator.value.compare(a.name_english, b.name_english))
@@ -117,7 +117,7 @@ function parameterCount(provider: Provider): number {
                 </div>
               </div>
               <p class="text-sm text-gray-600 dark:text-gray-400">
-                {{ provider.country_code === MULTINATIONAL ? t('providers.multinational') : provider.country }}
+                {{ provider.country_code === null ? t('providers.multinational') : provider.country }}
               </p>
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 {{ t('providers.networksCount', { count: provider.networks.length }) }}

@@ -300,15 +300,19 @@ export interface StripesValueItem {
   value: number | null
 }
 
-export interface StripesMetadata {
+/** What the values of the stripes are of: the station, the parameter and the unit of `value` */
+export interface StripesSeries {
   station: StripesStation
   resolution: string
   dataset: string
   parameter: string
+  unit: string
 }
 
 export interface StripesValuesResponse {
-  metadata: StripesMetadata
+  /** The block every answer has (licence, resolved request, warnings, ...); the app reads nothing from it */
+  metadata: Record<string, unknown>
+  series: StripesSeries
   values: StripesValueItem[]
 }
 
@@ -420,6 +424,10 @@ export interface ApiErrorResponse {
   title: string
   status: number
   detail: string
+  /** `urn:wetterdienst:request:<request_id>` */
+  instance?: string
+  /** The id of the request, also its `X-Request-ID` header: quote it when reporting a failure */
+  request_id?: string
   errors?: { loc?: (string | number)[], msg?: string, type?: string }[]
 }
 
@@ -466,11 +474,13 @@ export interface ProviderNetwork {
 export interface Provider {
   /** The name a request calls it by: `dwd` */
   provider: string
+  /** The short name to write beside a flag: `DWD` */
+  name_short: string
   name_local: string
   name_english: string
   country: string
-  /** ISO 3166-1 alpha-2, or `ZZ` for a provider of several countries */
-  country_code: string
+  /** ISO 3166-1 alpha-2; null for a provider of several countries */
+  country_code: string | null
   /** Null where the provider states no terms */
   license: ProviderLicense | null
   /** The credit line to give; null where the provider states none or asks for none */

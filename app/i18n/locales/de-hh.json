@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Eene Afraagform för all. Dat GHCN vun de NOAA bringt noch Stationen ut de ganze Welt dorto, wiet över de hier nöömten Länner rut.",
     "glossaryHint": "Jeder Parameter is in dat Glossar verklort.",
     "providersLink": "All Anbeder, ehr Lizenzen un wat se anbeden",
+    "providersEmpty": "Keen Wedderdeenste to wiesen.",
     "kindObservationsTitle": "Meetweerten",
     "kindObservationsDesc": "Temperatur, Nedderslag, Wind, Füchtigkeit, Druck, Sünnschien, Snee un mehr – vun Tien-Minuten-Weerten bet to Jöhrsmiddeln, mit oole Archiven.",
     "kindForecastsTitle": "Utsichten",

@@ -136,7 +136,7 @@ describe('provider Page', () => {
   it('tells why the page is missing, with a way to ask again', async () => {
     served = (event) => {
       setResponseStatus(event, 502)
-      return { type: 'about:blank', title: 'Bad Gateway', status: 502, detail: 'The backend could not be reached.' }
+      return { type: 'urn:wetterdienst:problem:backend-unreachable', title: 'Bad Gateway', status: 502, detail: 'The backend could not be reached.' }
     }
     const wrapper = await mountProvider('dwd')
 

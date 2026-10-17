@@ -15,6 +15,7 @@ export function providers(): Provider[] {
   return [
     {
       provider: 'dwd',
+      name_short: 'DWD',
       name_local: 'Deutscher Wetterdienst',
       name_english: 'German Weather Service',
       country: 'Germany',
@@ -49,6 +50,7 @@ export function providers(): Provider[] {
     },
     {
       provider: 'aemet',
+      name_short: 'AEMET',
       name_local: 'Agencia Estatal de Meteorología',
       name_english: 'State Meteorological Agency of Spain',
       country: 'Spain',
@@ -70,6 +72,7 @@ export function providers(): Provider[] {
     },
     {
       provider: 'metno',
+      name_short: 'met.no',
       name_local: 'Meteorologisk institutt',
       name_english: 'Norwegian Meteorological Institute',
       country: 'Norway',
@@ -91,6 +94,7 @@ export function providers(): Provider[] {
     },
     {
       provider: 'mosmix',
+      name_short: 'MOSMIX',
       name_local: 'Vorhersagedienst',
       name_english: 'Forecast Service',
       country: 'Luxembourg',
@@ -112,10 +116,11 @@ export function providers(): Provider[] {
     },
     {
       provider: 'eumetnet',
+      name_short: 'EUMETNET',
       name_local: 'EUMETNET',
       name_english: 'EUMETNET',
       country: 'Europe',
-      country_code: 'ZZ',
+      country_code: null,
       license: null,
       attribution: null,
       networks: [

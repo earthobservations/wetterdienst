@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Jedna postać zapytania dla wszystkich. GHCN od NOAA dodaje stacje z całego świata, daleko poza wymienionymi tu krajami.",
     "glossaryHint": "Każdy parametr jest objaśniony w słowniku.",
     "providersLink": "Wszyscy dostawcy, ich licencje i oferta",
+    "providersEmpty": "Brak służb meteorologicznych do wyświetlenia.",
     "kindObservationsTitle": "Pomiary",
     "kindObservationsDesc": "Temperatura, opady, wiatr, wilgotność, ciśnienie, usłonecznienie, śnieg i więcej – od wartości dziesięciominutowych po średnie roczne, wraz z archiwami historycznymi.",
     "kindForecastsTitle": "Prognozy",

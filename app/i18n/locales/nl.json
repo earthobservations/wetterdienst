@@ -46,6 +46,7 @@
     "dataProvidersDesc": "Eén vorm van opvragen voor allemaal. De GHCN van NOAA voegt stations wereldwijd toe, ver buiten de hier genoemde landen.",
     "glossaryHint": "Elke parameter wordt uitgelegd in de woordenlijst.",
     "providersLink": "Alle aanbieders, hun licenties en wat ze bieden",
+    "providersEmpty": "Geen weerdiensten om te tonen.",
     "kindObservationsTitle": "Metingen",
     "kindObservationsDesc": "Temperatuur, neerslag, wind, vochtigheid, druk, zonneschijn, sneeuw en meer – van tienminutenwaarden tot jaargemiddelden, historische archieven inbegrepen.",
     "kindForecastsTitle": "Verwachtingen",

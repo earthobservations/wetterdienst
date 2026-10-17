@@ -16,11 +16,18 @@ function buildSearchParams(query: QueryObject): URLSearchParams {
   return params
 }
 
-// the phrase of the status an unreachable backend is answered with, as RFC 9457 asks of a problem's title
-const GATEWAY_STATUS_PHRASES: Record<number, string> = {
-  502: 'Bad Gateway',
-  503: 'Service Unavailable',
-  504: 'Gateway Timeout',
+// The problem the app answers with when it cannot reach the backend, as the backend's own are written
+// (docs/usage/restapi.md, "Errors"): a `type` that names the kind, `instance` and `request_id`, and the
+// `Retry-After` of a 502, 503 or 504. The kind is the app's, not one of the backend's: the backend is what
+// could not be reached, so it cannot answer it. It is always a 502, as `sendProxy` answers every failure to
+// reach the backend, and a kind keeps its status.
+const BACKEND_UNREACHABLE_TYPE = 'urn:wetterdienst:problem:backend-unreachable'
+const RETRY_AFTER_SECONDS = 30
+// the id of a client that is let through, as the backend lets it: plain, short text
+const REQUEST_ID = /^[\w.~-]{1,128}$/
+
+function requestIdOf(sent: string | undefined): string {
+  return sent && REQUEST_ID.test(sent) ? sent : globalThis.crypto.randomUUID().replaceAll('-', '')
 }
 
 export default defineEventHandler(async (event): Promise<unknown> => {
@@ -32,6 +39,9 @@ export default defineEventHandler(async (event): Promise<unknown> => {
   const params = buildSearchParams(query)
   const queryString = params.toString()
   const url = `${apiBase}${path}${queryString ? `?${queryString}` : ''}`
+  // The client's own request id, if it sent one, goes on to the backend, which answers with it and logs
+  // its failures by it. Only that header: `sendProxy` forwards none of the client's others (cookies included).
+  const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
 
   try {
     // Stream the upstream response straight through to the client. `$fetch` used to buffer the
@@ -47,6 +57,7 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     // problem) is already the shape we want, and `sendProxy` forwards a non-2xx status and body
     // verbatim instead of throwing.
     return await sendProxy(event, url, {
+      headers: { 'x-request-id': requestId },
       // Streaming also relays the backend's response headers, which buffering never did. Most are
       // harmless, but a few are the backend's to own rather than ours to republish under this
       // origin. `onResponse` runs after `sendProxy` has set them and before the first chunk, so
@@ -77,22 +88,21 @@ export default defineEventHandler(async (event): Promise<unknown> => {
     // Backend unreachable. h3 wraps the connection failure as a 502 whose `message` is the constant
     // "Bad Gateway"; the diagnostic worth having (ECONNREFUSED, DNS failure) is on `cause`, and it
     // names the backend's host and port. That is for whoever runs this app, so it goes to the server
-    // log, and the client is answered a fixed text, as the backend answers its own 500s.
-    const fetchError = error as {
-      statusCode?: number
-      status?: number
-      cause?: unknown
-    }
-    console.error(`Request to the backend for ${path} failed:`, fetchError?.cause ?? error)
-    const statusCode = fetchError?.statusCode || fetchError?.status || 502
-    setResponseStatus(event, statusCode)
+    // log with the request id, and the client is answered a fixed text, as the backend answers its own 500s.
+    const fetchError = error as { cause?: unknown }
+    console.error(`Request ${requestId} to the backend for ${path} failed:`, fetchError?.cause ?? error)
+    setResponseStatus(event, 502)
     setResponseHeader(event, 'content-type', 'application/problem+json')
+    setResponseHeader(event, 'x-request-id', requestId)
+    setResponseHeader(event, 'retry-after', RETRY_AFTER_SECONDS)
 
     return {
-      type: 'about:blank',
-      title: GATEWAY_STATUS_PHRASES[statusCode] ?? 'Bad Gateway',
-      status: statusCode,
+      type: BACKEND_UNREACHABLE_TYPE,
+      title: 'Bad Gateway',
+      status: 502,
       detail: 'The backend could not be reached. The cause is in the server log.',
+      instance: `urn:wetterdienst:request:${requestId}`,
+      request_id: requestId,
     } satisfies ApiErrorResponse
   }
 })

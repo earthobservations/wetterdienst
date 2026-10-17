@@ -143,6 +143,7 @@ const PROVIDER_LIST: ProvidersResponse = {
   providers: [
     {
       provider: 'dwd',
+      name_short: 'DWD',
       name_local: 'Deutscher Wetterdienst',
       name_english: 'German Weather Service',
       country: 'Germany',
@@ -174,6 +175,7 @@ const PROVIDER_LIST: ProvidersResponse = {
     },
     {
       provider: 'aemet',
+      name_short: 'AEMET',
       name_local: 'Agencia Estatal de Meteorología',
       name_english: 'State Meteorological Agency of Spain',
       country: 'Spain',
@@ -280,7 +282,8 @@ function forecastValues(url: URL): Value[] {
 function stripesValues(station: string | null): StripesValuesResponse {
   const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
-    metadata: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m' },
+    metadata: {},
+    series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
     values: Array.from({ length: 70 }, (_, index) => ({
       timestamp: `${1955 + index}-01-01T00:00:00+00:00`,
       // a warming curve with a wobble, so the stripes run from blue to red
