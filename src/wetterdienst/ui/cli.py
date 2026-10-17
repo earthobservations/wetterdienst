@@ -32,6 +32,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.io.export import require_kaleido
 from wetterdienst.metadata.unit_type import UnitType
+from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.options import Options
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.settings import check_settings
@@ -61,6 +62,7 @@ from wetterdienst.ui.core import (
     limit_stations_to_rank,
     limit_stations_to_window,
     overlay_options,
+    resolve_network,
     set_logging_level,
 )
 from wetterdienst.ui.render import (
@@ -82,7 +84,7 @@ if TYPE_CHECKING:
 
     from pydantic_core import ErrorDetails
 
-    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.api import StandaloneRequest
 
 log = logging.getLogger(__name__)
 
@@ -420,14 +422,14 @@ def station_distance_opts(kind: str) -> Callable[[_CommandT], _CommandT]:
 _COVERAGE_HINT = "`wetterdienst about coverage`, without --provider and --network, lists the available ones."
 
 
-def get_api(provider: str, network: str) -> type[TimeseriesRequest]:
-    """Get API for provider and network.
+def get_api(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
+    """Get API for provider and network, of a standalone network (dwd/radar, dwd/alerts) too.
 
     A provider or network that does not exist is the command line's mistake, so it is a usage error
     naming where the existing ones are listed, as the REST API answers it with a 404 and that hint.
     """
     try:
-        return Wetterdienst(provider, network)
+        return resolve_network(provider, network)
     except ApiNotFoundError as e:
         msg = f"{e} {_COVERAGE_HINT}"
         raise click.UsageError(msg) from e
@@ -442,13 +444,12 @@ def get_timeseries_api(provider: str, network: str, *, history: bool = False) ->
     """
     api = get_api(provider, network)
     try:
-        check_timeseries_api(api, provider, network, history=history)
+        return check_timeseries_api(api, provider, network, history=history)
     except ApiNotFoundError as e:
         msg = f"{e} {_COVERAGE_HINT}"
         raise click.UsageError(msg) from e
     except NotImplementedError as e:
         raise click.UsageError(str(e)) from e
-    return api
 
 
 def _validate_request(model: type[_RequestT], values: dict[str, Any]) -> _RequestT:
@@ -1177,7 +1178,7 @@ def coverage(
 
     # Standalone networks (e.g. dwd/radar, dwd/alerts) have no metadata model and thus no per-network
     # discover(); a usage error, as `/api/coverage` answers it with a 404, not an AttributeError.
-    if not hasattr(api, "discover"):
+    if not issubclass(api, TimeseriesRequest):
         msg = f"Coverage is not available for provider '{provider}' and network '{network}'."
         raise click.UsageError(msg)
 
@@ -1344,8 +1345,6 @@ def fields(
 @end_opt
 @start_date_renamed_opt
 @end_date_renamed_opt
-@lead_time_opt
-@issue_opt
 @all_opt
 @stations_opt
 @name_opt
@@ -1376,8 +1375,6 @@ def stations(
     timestamp: str,
     start: str,
     end: str,
-    lead_time: Literal["short", "long"],
-    issue: str,
     all_: bool,  # noqa: FBT001
     stations: list[str],
     name: str,
@@ -1418,8 +1415,6 @@ def stations(
             "network": network,
             "parameters": parameters,
             "periods": periods,
-            "lead_time": lead_time,
-            "issue": issue,
             "timestamp": timestamp_resolved,
             "all": all_,
             "stations": stations,

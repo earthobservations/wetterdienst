@@ -473,6 +473,7 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
     `api.py` would otherwise excuse that provider from all four tests below.
     """
     from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.ui.core import resolve_network  # noqa: PLC0415
 
     pages: list[tuple[str, str, object, Path]] = []
     skipped: set[tuple[str, str]] = set()
@@ -483,7 +484,7 @@ def _resolution_pages() -> tuple[list[tuple[str, str, object, Path]], set[tuple[
         for network in networks:
             if network in excluded:
                 continue
-            api = Wetterdienst(provider, network)
+            api = resolve_network(provider, network)
             metadata = getattr(api, "metadata", None)
             if metadata is None:
                 if (provider, network) not in NETWORKS_WITHOUT_A_METADATA_MODEL:
@@ -1335,10 +1336,10 @@ def test_time_reference_has_a_row_for_every_resolution() -> None:
         documented.setdefault((provider, network, resolution), set()).update(
             name.strip() for name in datasets.split(",")
         )
-    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.ui.core import resolve_network  # noqa: PLC0415
 
     for provider, network in _TIME_REFERENCE_WITHOUT_RESOLUTION:
-        assert getattr(Wetterdienst(provider, network), "metadata", None) is None, (
+        assert getattr(resolve_network(provider, network), "metadata", None) is None, (
             f"{provider}/{network} declares resolutions now, which need rows of their own: "
             "remove it from _TIME_REFERENCE_WITHOUT_RESOLUTION and document them"
         )
@@ -1546,3 +1547,14 @@ def test_docs_name_only_extras_that_exist() -> None:
     docker_page = (DOCS / "usage" / "docker.md").read_text(encoding="utf8")
     listed = set(re.findall(r"^- (\w+)$", docker_page.split("## Acquire image")[0], flags=re.MULTILINE))
     assert listed == installed
+
+
+def test_the_documentation_resolves_a_network_with_resolve() -> None:
+    """The constructor form `Wetterdienst(provider, network)` is deprecated, so no page shows it (GH-3045)."""
+    errors = [
+        f"{path.relative_to(ROOT)}: {line.strip()}"
+        for path in [*_prose_files(), *(ROOT / "examples").rglob("*.py")]
+        for line in path.read_text(encoding="utf8").splitlines()
+        if re.search(r"\bWetterdienst\((?:provider=|[\"'])", line)
+    ]
+    assert not errors, "\n".join(errors)

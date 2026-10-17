@@ -39,8 +39,10 @@ from wetterdienst.model.result import (
     ValuesResult,
 )
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
+from wetterdienst.provider.dwd.radar import DwdRadarValues
 
 # settings (the host's) and options (the request's) are accepted as the model or as a dict of its fields
 settings = Settings(cache_disable=True)
@@ -60,6 +62,22 @@ DwdObservationRequest(
 api = Wetterdienst.resolve("dwd", "observation")
 assert_type(api, type[TimeseriesRequest])
 
+# dwd/radar and dwd/alerts are no timeseries networks, and are resolved by their own entry point, to
+# the exact class where the names are literals
+assert_type(Wetterdienst.resolve_standalone("dwd", "radar"), type[DwdRadarValues])
+assert_type(Wetterdienst.resolve_standalone("dwd", "alerts"), type[DwdWeatherAlertRequest])
+
+
+def resolve_by_name(provider_name: str, network_name: str) -> None:
+    """Resolve a standalone network by names that are not literals."""
+    assert_type(
+        Wetterdienst.resolve_standalone(provider_name, network_name),
+        type[DwdRadarValues] | type[DwdWeatherAlertRequest],
+    )
+
+
+assert_type(Wetterdienst.is_standalone("dwd", "radar"), bool)
+
 # stations
 stations = request.filter_by_station_id(station_id=(5779,))
 assert_type(stations, StationsResult)
@@ -75,8 +93,14 @@ assert_type(request.filter_by_sql("station_id = '05779'"), StationsResult)
 assert_type(stations.to_json(), str)
 assert_type(stations.to_csv(), str)
 assert_type(stations.to_geojson(), str)
+assert_type(stations.to_geojson(with_metadata=True, indent=2), str)
 assert_type(stations.to_dict()["stations"][0]["station_id"], str)
 assert_type(stations.to_ogc_feature_collection()["data"]["type"], Literal["FeatureCollection"])
+
+# a typo in the argument of a formatter is an error where it is made, not a different document
+stations.to_geojson(with_metdata=True)  # ty: ignore[unknown-argument]
+stations.to_ogc_feature_collection(with_metdata=True)  # ty: ignore[unknown-argument]
+stations.to_plot(anything=1)  # ty: ignore[unknown-argument]
 
 # values
 values_request = stations.values()

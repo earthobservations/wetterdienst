@@ -23,6 +23,7 @@ become the parameter descriptions, so those live with the endpoints in ``restapi
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING
 
 from wetterdienst import __version__
@@ -190,6 +191,22 @@ _TOOL_NAMES = {
 }
 
 
+# Query parameters an endpoint accepts and ignores, which its tool therefore does not take (GH-3056). `stations`
+# lists the same stations for every run of a forecast, so `lead_time` and `issue` choose nothing there; REST still
+# accepts them, which it has done since before 0.155.0 and a caller of it may send.
+_IGNORED_BY_TOOL = {"stations_api_stations_get": ("lead_time", "issue")}
+
+
+def _tool_spec(rest_app: FastAPI) -> dict[str, Any]:
+    """Give the OpenAPI document of the REST app, without the query parameters its tools do not take."""
+    spec = copy.deepcopy(rest_app.openapi())
+    for operations in spec["paths"].values():
+        for operation in operations.values():
+            if ignored := _IGNORED_BY_TOOL.get(operation.get("operationId", "")):
+                operation["parameters"] = [p for p in operation["parameters"] if p["name"] not in ignored]
+    return spec
+
+
 def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     """Build the middleware that refuses a tool argument the tool does not take.
 
@@ -264,7 +281,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
         base_url=_ASGI_BASE_URL,
     )
     provider = OpenAPIProvider(
-        openapi_spec=rest_app.openapi(),
+        openapi_spec=_tool_spec(rest_app),
         client=client,
         route_maps=route_maps,
         mcp_names=_TOOL_NAMES,

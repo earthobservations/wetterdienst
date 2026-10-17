@@ -240,7 +240,7 @@ def _factory_method(func: _MethodT) -> _MethodT:
     return cast("_MethodT", _FactoryMethod(cast("FunctionType", func)))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class StationsResult(ExportMixin):
     """Result class for stations.
 
@@ -430,9 +430,7 @@ class StationsResult(ExportMixin):
             "geometry": geometry,
         }
 
-    def to_ogc_feature_collection(
-        self, *, with_metadata: bool = False, **_kwargs: object
-    ) -> _StationsOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _StationsOgcFeatureCollection:
         """Format station information as OGC feature collection.
 
         Will be used by ``.to_geojson()``.
@@ -453,7 +451,7 @@ class StationsResult(ExportMixin):
             return {"metadata": self.get_metadata(), "data": collection}
         return {"data": collection}
 
-    def to_plot(self, **_kwargs: object) -> go.Figure:
+    def to_plot(self) -> go.Figure:
         """Create a plotly figure from the stations DataFrame."""
         px = import_optional("plotly.express", "Plotting", extra="plotting")
         go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
@@ -530,13 +528,12 @@ class StationsResult(ExportMixin):
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
-        **kwargs: object,
     ) -> bytes | str:
         """Create an image from the plotly figure.
 
         This method is used by ``.to_image()`` to create an image for stations from the plotly figure.
         """
-        fig = self.to_plot(**kwargs)
+        fig = self.to_plot()
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
@@ -625,7 +622,7 @@ _RowsT = TypeVar("_RowsT")
 _DictT = TypeVar("_DictT", bound="Mapping[str, object]")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class _ValuesResult(ExportMixin, Generic[_RowsT, _DictT]):
     """What the results of values, interpolation and summary have in common.
 
@@ -766,16 +763,14 @@ class _ValuesOgcFeatureCollection(_ValuesOgcFeatureCollectionBody):
     metadata: NotRequired[_Metadata]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDict], _ValuesDict]):
     """Result class for values."""
 
     stations: StationsResult
     df: pl.DataFrame
 
-    def to_ogc_feature_collection(
-        self, *, with_metadata: bool = False, **_kwargs: object
-    ) -> _ValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _ValuesOgcFeatureCollection:
         """Format values as OGC feature collection."""
         # The stations frame holds one row per resolution, dataset and station, so a feature is one
         # dataset of one station and carries that dataset's values only, save in a resolution the
@@ -834,7 +829,7 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             return {"metadata": self.stations.get_metadata(), "data": collection}
         return {"data": collection}
 
-    def to_plot(self, **_kwargs: object) -> go.Figure:
+    def to_plot(self) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         px = import_optional("plotly.express", "Plotting", extra="plotting")
         go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
@@ -969,13 +964,12 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
-        **kwargs: object,
     ) -> bytes | str:
         """Create an image from the plotly figure.
 
         This method is used by ``.to_image()`` to create an image for values from the plotly figure.
         """
-        fig = self.to_plot(**kwargs)
+        fig = self.to_plot()
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
@@ -1069,7 +1063,7 @@ def history_to_json(
     return json.dumps(data, indent=indent)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class HistoryResult:
     """Result class for history data: how one station and dataset changed over time."""
 
@@ -1184,7 +1178,7 @@ class _InterpolatedValuesOgcFeatureCollection(_InterpolatedValuesOgcFeatureColle
     metadata: NotRequired[_Metadata]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], _InterpolatedValuesDict]):
     """Result class for interpolated values."""
 
@@ -1198,12 +1192,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         """Get the stations the values were interpolated from, which `stations` is already cut down to."""
         return self.stations.df
 
-    def to_ogc_feature_collection(
-        self,
-        *,
-        with_metadata: bool = False,
-        **_kwargs: object,
-    ) -> _InterpolatedValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _InterpolatedValuesOgcFeatureCollection:
         """Format interpolated values as OGC feature collection."""
         latitude, longitude = self.latlon
         name = f"interpolation({latitude:.4f},{longitude:.4f})"
@@ -1237,7 +1226,7 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
             return {"metadata": self.stations.get_metadata(), "data": collection}
         return {"data": collection}
 
-    def to_plot(self, **_kwargs: object) -> go.Figure:
+    def to_plot(self) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         px = import_optional("plotly.express", "Plotting", extra="plotting")
         go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
@@ -1309,13 +1298,12 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
-        **kwargs: object,
     ) -> bytes | str:
         """Create an image from the plotly figure.
 
         This method is used by ``.to_image()`` to create an image for interpolated values from the plotly figure.
         """
-        fig = self.to_plot(**kwargs)
+        fig = self.to_plot()
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
@@ -1383,7 +1371,7 @@ class _SummarizedValuesOgcFeatureCollection(_SummarizedValuesOgcFeatureCollectio
     metadata: NotRequired[_Metadata]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _SummarizedValuesDict]):
     """Calculate summary of stations and parameters."""
 
@@ -1397,12 +1385,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         """Get the stations the values were summarized from, which `stations` is already cut down to."""
         return self.stations.df
 
-    def to_ogc_feature_collection(
-        self,
-        *,
-        with_metadata: bool = False,
-        **_kwargs: object,
-    ) -> _SummarizedValuesOgcFeatureCollection:
+    def to_ogc_feature_collection(self, *, with_metadata: bool = False) -> _SummarizedValuesOgcFeatureCollection:
         """Export summarized values as OGC feature collection."""
         latitude, longitude = self.latlon
         name = f"summary({latitude:.4f},{longitude:.4f})"
@@ -1436,7 +1419,7 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
             return {"metadata": self.stations.get_metadata(), "data": collection}
         return {"data": collection}
 
-    def to_plot(self, **_kwargs: object) -> go.Figure:
+    def to_plot(self) -> go.Figure:
         """Create a plotly figure from the values DataFrame."""
         px = import_optional("plotly.express", "Plotting", extra="plotting")
         go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
@@ -1507,13 +1490,12 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
-        **kwargs: object,
     ) -> bytes | str:
         """Create an image from the plotly figure.
 
         This method is used by ``.to_image()`` to create an image for summarized values from the plotly figure.
         """
-        fig = self.to_plot(**kwargs)
+        fig = self.to_plot()
         if fmt == "html":
             img = fig.to_html()
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):

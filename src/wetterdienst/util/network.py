@@ -44,7 +44,7 @@ from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
@@ -185,16 +185,53 @@ def as_outage(error: Exception, url: str) -> Exception:
     `DownloadError` `File.raise_if_exception` would raise, naming the file and with the failure as
     its `__cause__`. A failed connection is the `NoInternetError` it already is.
 
+    A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though it
+    is not asked again (`_worth_retrying`): the host presented what it could not be trusted with, which is
+    no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises for
+    it (GH-3022).
+
     Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
     a refused key or a 429 -- the source answering -- and what is no download error at all.
     """
     if isinstance(error, NoInternetError):
         return error
-    if _worth_retrying(error):
+    if _worth_retrying(error) or isinstance(error, (ClientSSLError, ssl.SSLError)):
         failure = _download_error(error, url)
         failure.__cause__ = error
         return failure
     return error
+
+
+#: The statuses with which a provider says that it refuses the credential it was sent.
+CREDENTIAL_REJECTED_STATUSES = frozenset({HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN})
+
+
+def credential_rejected(source: str, setting: str, what: str, status: int | None = None) -> CredentialRejectedError:
+    """Say that a provider refuses the credential this installation holds for it (GH-3018).
+
+    The message names the setting to change and what it holds, never the credential: whoever runs the
+    process reads it as it is, while the REST API and the MCP tools answer with a fixed sentence.
+
+    Args:
+        source: How the message calls the provider, such as ``"AEMET"``.
+        setting: The name under ``WD_AUTH__`` that holds the credential, such as ``"AEMET"``.
+        what: What the setting holds, such as ``"API key"``.
+        status: The HTTP status of the refusal, if it came as one.
+
+    """
+    rejected = f"rejected the request with HTTP {status}" if status else "rejected the request"
+    return CredentialRejectedError(f"{source} {rejected}. Check that WD_AUTH__{setting} contains a valid {what}.")
+
+
+def raise_if_credential_rejected(file: File, source: str, setting: str, what: str) -> None:
+    """Raise `CredentialRejectedError` for a download the provider answered with a 401 or a 403 (GH-3018).
+
+    For a download that is sent the credential, called before `File.raise_if_exception`, which would
+    raise the same answer as a `DownloadError`. A download that is not sent one, or whose address is
+    pre-signed, says nothing about the credential when it is refused: that stays a download error.
+    """
+    if isinstance(file.content, Exception) and file.status in CREDENTIAL_REJECTED_STATUSES:
+        raise credential_rejected(source, setting, what, file.status)
 
 
 def _no_internet_error(url: str, error: ClientConnectorError) -> NoInternetError:

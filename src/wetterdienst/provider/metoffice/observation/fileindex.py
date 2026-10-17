@@ -18,6 +18,7 @@ import re
 from typing import TYPE_CHECKING
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.provider.metoffice.observation.download import raise_if_ceda_rejected
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -43,7 +44,8 @@ def latest_release_version(settings: Settings, token: str | None) -> str | None:
     A listing that cannot be fetched raises a ``DownloadError`` -- a 404 included, for the listing is
     the one file every request depends on -- where it read as no release and so as a network without
     stations or values (GH-2519), and no connection at all raises ``NoInternetError`` (GH-2640).
-    ``None`` is for a listing that was read and names no release.
+    ``None`` is for a listing that was read and names no release. The listing is sent the token, and a
+    token CEDA refuses (401, 403) is the ``CredentialRejectedError`` (GH-3018).
     """
     file = download_file(
         url=_RELEASE_LISTING_URL,
@@ -53,6 +55,8 @@ def latest_release_version(settings: Settings, token: str | None) -> str | None:
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
+    # the listing is sent the token, so a refusal of it is the token's (GH-3018)
+    raise_if_ceda_rejected(file, settings)
     file.raise_if_exception()
     if isinstance(file.content, Exception):
         # narrows the type; `raise_if_exception` has raised for any failed download
