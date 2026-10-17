@@ -72,6 +72,10 @@ The following settings are available:
 | read_bufr            | parse DWD radar BUFR products into `RadarResult.df` (needs the `bufr` extra) | False               |
 | auth                 | credentials of the providers that need them, each from its own variable, `WD_AUTH__AEMET`, `WD_AUTH__KNMI`, `WD_AUTH__METNO_FROST` or `WD_AUTH__CEDA`; held as secrets and not printed (see the provider pages) | none |
 | restapi_sql          | let REST API and MCP clients filter with `sql` / `sql_values` (refused with a 403 otherwise); the clause runs in DuckDB on the server, see [REST API](restapi.md#sql-filters) | False |
+| restapi_max_stations | the most stations one `values` or `history` request of the REST API and the MCP tools may read, else a 400; 0 for no limit, see [Limits](restapi.md#limits) | 100 |
+| restapi_max_rows     | the most rows (estimated) of an answer the REST API sends as one body, else a 400; 0 for no limit | 500000 |
+| restapi_max_stream_rows | the most rows (estimated) of a streamed answer (`format=ndjson`, `format=csv`), else a 400; 0 for no limit | 10000000 |
+| restapi_timeout      | seconds a REST API request may take until its answer begins (a stream: between two chunks), else a 504; 0 for none, see [Timeout](restapi.md#timeout) | 60 |
 
 ### Python
 

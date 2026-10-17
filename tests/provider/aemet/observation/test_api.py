@@ -860,6 +860,18 @@ def _serve_envelope_and_datos(monkeypatch: pytest.MonkeyPatch, envelope: File, d
     return asked
 
 
+def _serve_in_turn(monkeypatch: pytest.MonkeyPatch, *answers: File) -> list[str]:
+    """Answer the requests of `_fetch_datos` with `answers` in turn, the last one for good. Returns the urls asked."""
+    asked: list[str] = []
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        asked.append(url)
+        return answers[min(len(asked), len(answers)) - 1]
+
+    monkeypatch.setattr(aemet_api, "_download_with_rate_limit_retry", download)
+    return asked
+
+
 _ENDPOINT = "https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/datos/x"
 _DATOS = "https://opendata.aemet.es/opendata/sh/0123abc?X-Amz-Signature=secret"
 
@@ -930,11 +942,9 @@ def test_aemet_fetch_datos_returns_what_is_an_answer_as_it_was(monkeypatch: pyte
         result = _fetch()
         assert isinstance(result, Exception)
         assert not isinstance(result, DownloadError), file
-    for file in (
-        File(url=_ENDPOINT, content=_response_error(401), status=401),
-        _envelope(403),
-    ):
-        _serve_envelope_and_datos(monkeypatch, file)
+    for refusal in (lambda: File(url=_ENDPOINT, content=_response_error(401), status=401), lambda: _envelope(403)):
+        # a refusal is asked for once more (GH-3022), so it is the answer to both requests
+        _serve_in_turn(monkeypatch, refusal(), refusal())
         assert isinstance(_fetch(), AemetKeyRejectedError)
     _serve_envelope_and_datos(
         monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=FileNotFoundError(_DATOS), status=404)
@@ -1139,3 +1149,42 @@ def test_aemet_observation_daily_values_keep_the_text_of_what_is_no_number() -> 
     assert df.get_column("raw").to_list() == [None, "Ip", None, None, None]
     assert df.get_column("direction").to_list() == [280.0, None, None, 230.0, None]
     assert df.get_column("direction_raw").to_list() == [None, "Ip", "99", None, None]
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        pytest.param(File(url=_ENDPOINT, content=_response_error(401), status=401), id="http-401"),
+        pytest.param(_envelope(401), id="estado-401"),
+    ],
+)
+def test_aemet_fetch_datos_asks_again_after_a_401_and_takes_the_second_answer(
+    monkeypatch: pytest.MonkeyPatch, refusal: File
+) -> None:
+    """AEMET answers a 401 to a key it accepts on the next request: one refusal is not a refused key (GH-3022)."""
+    asked = _serve_in_turn(
+        monkeypatch,
+        refusal,
+        _envelope(200, datos=_DATOS),
+        File(url=_DATOS, content=BytesIO(b'[{"indicativo": "3195"}]'), status=200),
+    )
+    assert _fetch() == b'[{"indicativo": "3195"}]'
+    assert asked == [_ENDPOINT, _ENDPOINT, _DATOS]
+
+
+def test_aemet_fetch_datos_returns_the_refusal_of_a_second_401_and_does_not_ask_a_third_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A key refused twice is refused: the refusal that the readers raise as `CredentialRejectedError`."""
+    refusal = File(url=_ENDPOINT, content=_response_error(401), status=401)
+    asked = _serve_in_turn(monkeypatch, refusal, refusal, _envelope(200, datos=_DATOS))
+    assert isinstance(_fetch(), AemetKeyRejectedError)
+    assert asked == [_ENDPOINT, _ENDPOINT]
+
+
+def test_aemet_fetch_datos_does_not_ask_again_for_anything_but_a_refused_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 404, a 429 and an outage are met once, as before: only the 401 and 403 of the key are asked again."""
+    for file in (File(url=_ENDPOINT, content=FileNotFoundError(_ENDPOINT), status=404), _envelope(404), _envelope(429)):
+        asked = _serve_in_turn(monkeypatch, file)
+        assert isinstance(_fetch(), Exception)
+        assert asked == [_ENDPOINT], file

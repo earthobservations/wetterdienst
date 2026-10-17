@@ -21,6 +21,9 @@ A value no sensor can have produced, a number outside the physical range of its 
 (4021 °C beside a daily mean of 110 °C), is mapped the same way: ``OutOfRange`` is a rule of ``null_sentinels``
 beside ``Sentinel``, and the value is read as ``raw:4021`` (GH-2797). The bounds are the reader's, per resolution where
 the quantity grows with the span, in the unit of the source, and generous: a value that is only odd stays.
+
+A stuck or dead sensor over a period of time gives values inside every range. ``NoReading`` maps what a
+station, a parameter and a period select to null the same way, keeping the value as ``raw`` (GH-3031).
 """
 
 from __future__ import annotations
@@ -137,9 +140,27 @@ class OutOfRange:
         self.where = where
 
 
+class NoReading:
+    """Every value that ``where`` selects is no reading: a sensor that was stuck or dead over a period.
+
+    The rule of a value that is no sentinel and lies inside every range, because the whole series of a station for a
+    span of time is a defect of the sensor (a sunshine that follows the length of the day whatever the weather, a
+    zero every day of a summer), and no single number gives it away (GH-3031). It maps such a value to null and keeps
+    it as the ``raw`` token, as ``OutOfRange`` does. A value that is blank or no number is not touched.
+
+    Args:
+        where: the values this expression selects, the station, the parameter and the period of the defect.
+
+    """
+
+    def __init__(self, where: pl.Expr) -> None:
+        """Declare the rule."""
+        self.where = where
+
+
 def null_sentinels(
     value: pl.Expr,
-    *sentinels: Sentinel | OutOfRange,
+    *sentinels: Sentinel | OutOfRange | NoReading,
     text: bool = True,
     non_numeric: bool = False,
 ) -> tuple[pl.Expr, pl.Expr]:
@@ -155,7 +176,8 @@ def null_sentinels(
     Args:
         value: the expression of the reading. With ``text=True`` the text the source wrote, a String column,
             which is what a reader that sets ``infer_schema_length=0`` has; with ``text=False`` a number.
-        *sentinels: the sentinels and ranges (``Sentinel``, ``OutOfRange``), the first that matches decides.
+        *sentinels: the sentinels, ranges and periods (``Sentinel``, ``OutOfRange``, ``NoReading``), the first that
+            matches decides.
         text: whether ``value`` is the text of the source. Then the ``raw`` text is the stripped cell as it was
             written (``-999.0`` stays ``-999.0``); from a number it is the text the matching sentinel was
             declared with, or for an ``OutOfRange`` the number as ``OutOfRange`` writes it.
@@ -183,6 +205,11 @@ def null_sentinels(
 
     branches: list[tuple[pl.Expr, pl.Expr, pl.Expr]] = []
     for sentinel in sentinels:
+        if isinstance(sentinel, NoReading):
+            # a blank cell or a text that is no number is nothing to take back
+            chosen = sentinel.where & number.is_not_null()
+            branches.append((chosen.fill_null(value=False), null, cell if text else _written(number)))
+            continue
         if isinstance(sentinel, OutOfRange):
             outside = (number < sentinel.low) | (number > sentinel.high)
             if sentinel.where is not None:
@@ -238,7 +265,7 @@ def raw_column(column: str) -> str:
 def clear_sentinels(
     df: Frame,
     columns: Iterable[str],
-    *sentinels: Sentinel | OutOfRange,
+    *sentinels: Sentinel | OutOfRange | NoReading,
     non_numeric: bool = False,
 ) -> Frame:
     """Map the sentinels and out-of-range values of the given columns of a wide frame, keeping their ``raw`` text.

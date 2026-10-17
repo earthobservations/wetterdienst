@@ -19,7 +19,7 @@ import pytest
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation import api as aemet_api
-from wetterdienst.provider.aemet.observation.api import AemetObservationRequest, _fetch_datos
+from wetterdienst.provider.aemet.observation.api import AemetKeyRejectedError, AemetObservationRequest, _fetch_datos
 from wetterdienst.settings import Settings
 
 if TYPE_CHECKING:
@@ -82,7 +82,6 @@ def _url(server: ThreadingHTTPServer, path: str) -> str:
     [
         pytest.param(_envelope(429), id="estado-429"),
         pytest.param(_envelope(500), id="estado-500"),
-        pytest.param(_envelope(401), id="estado-401"),
         pytest.param(b"<html>maintenance</html>", id="html"),
         pytest.param(_envelope(200), id="no-link"),
     ],
@@ -97,6 +96,30 @@ def test_a_failed_envelope_is_asked_for_again(aemet: ThreadingHTTPServer, failur
     assert isinstance(_fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES), Exception)
     assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == _PAYLOAD
     assert aemet.requests == [_ENVELOPE, _ENVELOPE, "/datos"]
+
+
+def test_an_estado_401_is_asked_for_again_at_once_and_not_read_back_from_the_cache(
+    aemet: ThreadingHTTPServer,
+) -> None:
+    """The refusal is cached like any 200: the second request must reach AEMET, which accepts the key then (GH-3022)."""
+    aemet.script = {
+        _ENVELOPE: [_envelope(401), _envelope(200, datos=_url(aemet, "/datos"))],
+        "/datos": [_PAYLOAD],
+    }
+    assert _fetch_datos(_url(aemet, _ENVELOPE), Settings(), CacheExpiry.FIVE_MINUTES) == _PAYLOAD
+    assert aemet.requests == [_ENVELOPE, _ENVELOPE, "/datos"]
+
+
+def test_a_key_refused_twice_is_refused_and_the_refusal_is_not_kept(aemet: ThreadingHTTPServer) -> None:
+    """Two `estado` 401 are a refused key, asked twice and no more; the next request asks AEMET again."""
+    aemet.script = {
+        _ENVELOPE: [_envelope(401), _envelope(401), _envelope(200, datos=_url(aemet, "/datos"))],
+        "/datos": [_PAYLOAD],
+    }
+    settings = Settings()
+    assert isinstance(_fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES), AemetKeyRejectedError)
+    assert aemet.requests == [_ENVELOPE, _ENVELOPE]
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.FIVE_MINUTES) == _PAYLOAD
 
 
 def test_a_good_envelope_stays_in_the_cache(aemet: ThreadingHTTPServer) -> None:

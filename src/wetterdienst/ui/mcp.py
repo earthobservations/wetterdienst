@@ -50,9 +50,9 @@ def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
 
     The REST app's fastapi telemetry gives these no server span, no `http.server.*` metrics and no
     exception log of their own (GH-2432): their spans would start a trace of their own, cut off from
-    the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp`
-    runs in that request's context, so fastapi records the tool request's operation spans, its
-    telemetry data and a validation failure of its parameters as the `/mcp` request's, the spans
+    the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp/v1`
+    (or its alias `/mcp`) runs in that request's context, so fastapi records the tool request's operation spans, its
+    telemetry data and a validation failure of its parameters as the MCP request's, the spans
     beneath the tool call's span. The middleware of `opentelemetry-instrumentation-fastapi`, where
     it runs, does not read fastapi's `exclude` and still records them.
 
@@ -276,7 +276,7 @@ def build_mcp_server(rest_app: FastAPI) -> FastMCP:
     @asynccontextmanager
     async def lifespan(_server: FastMCP):  # noqa: ANN202
         # Tie the in-process httpx2 client to the server lifespan so it is closed on shutdown; this
-        # lifespan is composed into the REST app's lifespan when /mcp is mounted (see restapi.py).
+        # lifespan is composed into the REST app's lifespan when the MCP endpoint is mounted (see restapi.py).
         try:
             yield
         finally:

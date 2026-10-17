@@ -59,7 +59,7 @@
     "/api/v1/version": {
       "get": {
         "summary": "Version",
-        "description": "Get version information, and whether this instance serves an MCP endpoint.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no `/mcp` route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question.",
+        "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind\n`limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
         "operationId": "version_api_version_get",
         "responses": {
           "200": {
@@ -1139,6 +1139,7 @@
                 "json",
                 "geojson",
                 "csv",
+                "ndjson",
                 "html",
                 "png",
                 "jpg",
@@ -1147,11 +1148,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -1254,6 +1255,17 @@
                   ],
                   "title": "Response Stations Api Stations Get"
                 }
+              },
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "{\"metadata\":{...}}\n{\"station_id\":\"01048\",\"...\":\"...\"}\n{\"end\":{\"counts\":{}}}\n"
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -1263,6 +1275,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -1780,6 +1856,7 @@
                 "json",
                 "geojson",
                 "csv",
+                "ndjson",
                 "html",
                 "png",
                 "jpg",
@@ -1788,11 +1865,11 @@
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). ndjson, and csv as well, are sent as they are built, station by station, so they allow a longer answer than the others: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -2047,6 +2124,17 @@
                   ],
                   "title": "Response Values Api Values Get"
                 }
+              },
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "{\"metadata\":{...}}\n{\"station_id\":\"01048\",\"...\":\"...\"}\n{\"end\":{\"counts\":{}}}\n"
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -2056,6 +2144,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -2579,6 +2731,70 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -2901,27 +3117,6 @@
             "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20."
           },
           {
-            "name": "use_nearby_station_distance",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "minimum": 0
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Deprecated. It has no effect on a summary, which takes the nearest station with data anyway, and will be removed in a future release. Leave it out.",
-              "deprecated": true,
-              "title": "Use Nearby Station Distance"
-            },
-            "description": "Deprecated. It has no effect on a summary, which takes the nearest station with data anyway, and will be removed in a future release. Leave it out.",
-            "deprecated": true
-          },
-          {
             "name": "min_gain_of_value_pairs",
             "in": "query",
             "required": false,
@@ -3107,6 +3302,70 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -3218,7 +3477,7 @@
     "/api/v1/stripes/values": {
       "get": {
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps and metadata.\n\nThe JSON metadata names the unit of the values in `unit`, e.g. \"degree_celsius\". The server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter\nfor: the target of the quantity where the values are converted, the source's unit where not.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. The server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter\nfor: the target of the quantity where the values are converted, the source's unit where not.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -3787,6 +4046,70 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is refused, or passes a limit of the server.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The data provider failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server could not reach the data provider.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The data provider, or the server's own request timeout, did not answer in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds after which the same request may be made again.",
+                "schema": {
+                  "type": "integer"
                 }
               }
             }
@@ -4598,6 +4921,11 @@
             "title": "Provider",
             "description": "The name a request calls it by, `dwd`."
           },
+          "name_short": {
+            "type": "string",
+            "title": "Name Short",
+            "description": "The short name to write beside a flag, `DWD`."
+          },
           "name_local": {
             "type": "string",
             "title": "Name Local"
@@ -4611,9 +4939,16 @@
             "title": "Country"
           },
           "country_code": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Country Code",
-            "description": "ISO 3166-1 alpha-2 code of the country, or `ZZ` for a multinational one."
+            "description": "ISO 3166-1 alpha-2 code of the country; null for a provider of several countries."
           },
           "license": {
             "anyOf": [
@@ -4650,6 +4985,7 @@
         "type": "object",
         "required": [
           "provider",
+          "name_short",
           "name_local",
           "name_english",
           "country",
@@ -5200,7 +5536,7 @@
         "title": "StationsSelected",
         "description": "The stations an answer is about."
       },
-      "StripesValuesMetadata": {
+      "StripesSeries": {
         "properties": {
           "station": {
             "additionalProperties": true,
@@ -5222,69 +5558,6 @@
           "unit": {
             "type": "string",
             "title": "Unit"
-          },
-          "api_version": {
-            "type": "string",
-            "title": "Api Version"
-          },
-          "schema_version": {
-            "type": "string",
-            "title": "Schema Version"
-          },
-          "retrieved_at": {
-            "type": "string",
-            "title": "Retrieved At",
-            "description": "When this answer was made, in UTC."
-          },
-          "provider": {
-            "$ref": "#/components/schemas/_Provider",
-            "description": "Who published the data, under which licence (`license`, null where the provider states none) and with which credit line (`attribution`)."
-          },
-          "producer": {
-            "$ref": "#/components/schemas/_Producer"
-          },
-          "request": {
-            "$ref": "#/components/schemas/ResolvedRequest"
-          },
-          "counts": {
-            "$ref": "#/components/schemas/Counts"
-          },
-          "crs": {
-            "$ref": "#/components/schemas/Crs"
-          },
-          "warnings": {
-            "items": {
-              "$ref": "#/components/schemas/ResponseWarning"
-            },
-            "type": "array",
-            "title": "Warnings",
-            "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`."
-          },
-          "parameters": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ParameterInfo"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parameters",
-            "description": "With `with_metadata` only."
-          },
-          "quality": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Quality"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "With `with_metadata` only."
           }
         },
         "additionalProperties": false,
@@ -5294,19 +5567,10 @@
           "resolution",
           "dataset",
           "parameter",
-          "unit",
-          "api_version",
-          "schema_version",
-          "retrieved_at",
-          "provider",
-          "producer",
-          "request",
-          "counts",
-          "crs",
-          "warnings"
+          "unit"
         ],
-        "title": "StripesValuesMetadata",
-        "description": "The `metadata` of `/api/stripes/values`: the block of every answer, and what the stripes are of.\n\n`station`, `resolution`, `dataset`, `parameter` and `unit` are what this member held before it was the block."
+        "title": "StripesSeries",
+        "description": "What a series of climate stripes is of: the station, the parameter and the unit of its values."
       },
       "SummarySettings": {
         "properties": {
@@ -6342,7 +6606,10 @@
       "_StripesValuesWithMetadataDict": {
         "properties": {
           "metadata": {
-            "$ref": "#/components/schemas/StripesValuesMetadata"
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "series": {
+            "$ref": "#/components/schemas/StripesSeries"
           },
           "values": {
             "items": {
@@ -6355,6 +6622,7 @@
         "type": "object",
         "required": [
           "metadata",
+          "series",
           "values"
         ],
         "title": "_StripesValuesWithMetadataDict"
@@ -6899,8 +7167,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "default": "about:blank",
-            "description": "Always `about:blank` for now."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `upstream-unreachable`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -6914,19 +7181,46 @@
             "type": "string",
             "description": "The reason, one line for each thing wrong in a request."
           },
+          "instance": {
+            "type": "string",
+            "description": "`urn:wetterdienst:request:<id>`: the request this problem answers."
+          },
+          "request_id": {
+            "type": "string",
+            "description": "The id of the request, also sent as `X-Request-ID`."
+          },
           "errors": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
             "description": "The invalid parameters, each with the `loc` of its parameter, of a 422."
+          },
+          "limit": {
+            "type": "string",
+            "enum": [
+              "stations",
+              "rows",
+              "stream_rows"
+            ],
+            "description": "Of `limit-exceeded`: the limit the request passes."
+          },
+          "maximum": {
+            "type": "integer",
+            "description": "Of `limit-exceeded`: the value of that limit."
+          },
+          "requested": {
+            "type": "integer",
+            "description": "Of `limit-exceeded`: what the request comes to (estimated for the rows)."
           }
         },
         "required": [
           "type",
           "title",
           "status",
-          "detail"
+          "detail",
+          "instance",
+          "request_id"
         ]
       }
     }

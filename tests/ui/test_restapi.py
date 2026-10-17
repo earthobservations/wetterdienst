@@ -10,7 +10,7 @@ import os
 import pathlib
 import sys
 import zipfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import replace
 from http import HTTPStatus
 from pathlib import Path
@@ -34,7 +34,7 @@ from wetterdienst.ui import restapi
 from wetterdienst.ui.core import (
     StripesData,
     StripesImageRequest,
-    StripesMetadata,
+    StripesSeries,
     _FormatField,
     get_glossary,
     resolve_network,
@@ -78,8 +78,10 @@ def _is_a_500_naming_only(response: object, exception_type: str, *, hides: str) 
     """
     assert response.status_code == 500
     assert response.headers["content-type"] == "application/problem+json"
-    assert response.json() == {
-        "type": "about:blank",
+    body = response.json()
+    assert body.pop("instance") == f"urn:wetterdienst:request:{body.pop('request_id')}"
+    assert body == {
+        "type": "urn:wetterdienst:problem:internal-error",
         "title": "Internal Server Error",
         "status": 500,
         "detail": f"Internal server error ({exception_type}). The cause is in the server log.",
@@ -167,6 +169,7 @@ def test_health(client: TestClient) -> None:
     assert response.json() == {"status": "OK"}
 
 
+@pytest.mark.usefixtures("_no_ambient_settings")
 def test_version(client: TestClient) -> None:
     """Test that the version endpoint reports the version and whether MCP is served.
 
@@ -180,6 +183,19 @@ def test_version(client: TestClient) -> None:
     data = response.json()
     assert data["version"] == __version__
     assert data["mcp_enabled"] is restapi.mcp_enabled
+    assert data["limits"] == {"max_stations": 100, "max_rows": 500_000, "max_stream_rows": 10_000_000, "timeout": 60.0}
+
+
+def test_version_reports_the_limits_the_server_holds(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The limits of the instance are those of its settings, 0 meaning none, so a client can size its requests."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "7")
+    monkeypatch.setenv("WD_RESTAPI_MAX_ROWS", "0")
+    monkeypatch.setenv("WD_RESTAPI_MAX_STREAM_ROWS", "123")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "2.5")
+
+    limits = client.get("/api/v1/version").json()["limits"]
+
+    assert limits == {"max_stations": 7, "max_rows": 0, "max_stream_rows": 123, "timeout": 2.5}
 
 
 @pytest.mark.remote
@@ -469,7 +485,7 @@ def test_stations_wrong_format(client: TestClient) -> None:
     assert response.status_code == 422
     assert (
         response.json()["errors"][0]["msg"]
-        == "Input should be 'json', 'geojson', 'csv', 'html', 'png', 'jpg', 'webp', 'svg' or 'pdf'"
+        == "Input should be 'json', 'geojson', 'csv', 'ndjson', 'html', 'png', 'jpg', 'webp', 'svg' or 'pdf'"
     )
 
 
@@ -1806,10 +1822,10 @@ def test_stripes_values_default(client: TestClient) -> None:
     data = response.json()
     assert "metadata" in data
     assert "values" in data
-    assert data["metadata"]["station"]["station_id"] == "01048"
-    assert data["metadata"]["resolution"] == "annual"
-    assert data["metadata"]["dataset"] == "climate_summary"
-    assert data["metadata"]["parameter"] == "temperature_air_mean_2m"
+    assert data["series"]["station"]["station_id"] == "01048"
+    assert data["series"]["resolution"] == "annual"
+    assert data["series"]["dataset"] == "climate_summary"
+    assert data["series"]["parameter"] == "temperature_air_mean_2m"
     assert len(data["values"]) > 0
     assert all("timestamp" in v and "value" in v for v in data["values"])
 
@@ -2285,13 +2301,14 @@ def test_issues_dwd_dmo(client: TestClient) -> None:
 
 
 def test_issues_unsupported_provider(client: TestClient) -> None:
-    """Test /api/issues returns 400 for providers that don't support issue listing."""
+    """Test /api/issues returns 501 for providers that don't support issue listing (GH-3065)."""
     response = client.get(
         "/api/issues",
         params={"provider": "dwd", "network": "observation", "station": "00011"},
     )
-    assert response.status_code == 400
+    assert response.status_code == 501
     assert "supported" in response.json()["detail"].lower()
+    assert response.json()["type"] == "urn:wetterdienst:problem:not-implemented"
 
 
 def test_issues_unknown_provider(client: TestClient) -> None:
@@ -2411,12 +2428,13 @@ def test_request_models_have_field_descriptions() -> None:
 
 
 def test_mcp_endpoint_mounted() -> None:
-    """The /mcp endpoint is mounted when the optional fastmcp extra is installed."""
+    """The /mcp/v1 endpoint and its alias /mcp are mounted when the optional fastmcp extra is installed."""
     pytest.importorskip("fastmcp")
     from wetterdienst.ui import restapi  # noqa: PLC0415
 
     assert restapi.mcp_enabled is True
     paths = [getattr(route, "path", None) for route in restapi.app.routes]
+    assert "/mcp/v1" in paths
     assert "/mcp" in paths
 
 
@@ -2430,11 +2448,11 @@ def test_mcp_index_link() -> None:
     if not restapi.mcp_enabled:
         pytest.skip("fastmcp not installed")
     response = TestClient(restapi.app).get("/")
-    assert "/mcp" in response.text
+    assert "/mcp/v1" in response.text
 
 
 def test_mcp_initialize_handshake() -> None:
-    """The /mcp endpoint speaks MCP: an initialize request returns an event-stream response."""
+    """The /mcp/v1 endpoint speaks MCP: an initialize request returns an event-stream response."""
     pytest.importorskip("fastmcp")
     from fastapi.testclient import TestClient  # noqa: PLC0415
 
@@ -2454,7 +2472,7 @@ def test_mcp_initialize_handshake() -> None:
     }
     # the session manager runs in the app lifespan, so drive the client as a context manager
     with TestClient(restapi.app) as client:
-        response = client.post("/mcp", json=body, headers={"Accept": "application/json, text/event-stream"})
+        response = client.post("/mcp/v1", json=body, headers={"Accept": "application/json, text/event-stream"})
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
 
@@ -2923,6 +2941,27 @@ def test_an_offline_server_answers_503_through_the_whole_request(
     assert "could not reach the data provider" in response.json()["detail"]
 
 
+def _without_ids(body: dict) -> dict:
+    """Leave out the members that name the request, which two requests to one path do not share."""
+    return {key: value for key, value in body.items() if key not in ("instance", "request_id")}
+
+
+def _selection(**attributes: object) -> SimpleNamespace:
+    """Stand in for the stations a lookup selected: what the limits of the API read of them, and what a test adds."""
+    from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
+
+    return SimpleNamespace(
+        df=pl.DataFrame({"station_id": ["01048"]}),
+        stations_filter=StationsFilter.BY_STATION_ID,
+        rank=None,
+        parameters=[],
+        options=SimpleNamespace(tidy=True),
+        start=None,
+        end=None,
+        **attributes,
+    )
+
+
 def test_values_a_value_error_from_the_values_is_a_500(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -2942,7 +2981,7 @@ def test_values_a_value_error_from_the_values_is_a_500(
     def fail() -> None:
         raise ValueError(msg)
 
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
+    stations = _selection(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = client.get(
@@ -3578,7 +3617,7 @@ def test_a_refusal_raised_past_the_station_lookup_keeps_its_4xx(
     endpoints answer it with a 400 since GH-2429, and a station the lookup does not know with a 404.
     """
     if entry_point is None:
-        stations = SimpleNamespace(values=lambda: SimpleNamespace(all=refuse))
+        stations = _selection(values=lambda: SimpleNamespace(all=refuse))
         monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     else:
         monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", refuse)
@@ -3664,7 +3703,7 @@ def test_values_a_duckdb_failure_that_is_not_about_the_statement_is_a_500(
     def fail() -> None:
         raise duckdb.OutOfMemoryException(msg)
 
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
+    stations = _selection(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"})
@@ -3708,7 +3747,7 @@ def test_values_a_refused_sql_values_clause_is_a_400(
 
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     frame = pl.DataFrame({"station_id": ["01048"], "parameter": ["temperature_air_mean_2m"], "value": [1.0]})
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=lambda: ExportMixin(df=frame)))
+    stations = _selection(values=lambda: SimpleNamespace(all=lambda: ExportMixin(df=frame)))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     # the memory limit is 1 GiB plus the frame's size, here made 64 MiB in all so the refusal comes cheap
     monkeypatch.setattr(pl.DataFrame, "estimated_size", lambda _self, _unit="b": 64 * 2**20 - 2**30)
@@ -3739,7 +3778,7 @@ def test_values_a_duckdb_failure_inside_duckdb_is_a_500_with_a_clause_too(
     def fail() -> None:
         raise getattr(duckdb, name)(msg)
 
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
+    stations = _selection(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
     response = TestClient(restapi.app, raise_server_exceptions=False).get(
@@ -3769,7 +3808,7 @@ def test_values_the_bare_duckdb_error_is_the_callers_only_with_a_clause(
     def fail() -> None:
         raise duckdb.Error(msg)
 
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
+    stations = _selection(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     params = {**_OBSERVATION, "stations": "01048"}
     if sql_values:
@@ -3921,7 +3960,7 @@ def test_mcp_values_tool_passes_output_validation_in_each_shape_and_format(
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     result = _values_result_of_shape(shape)
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=lambda: result))
+    stations = _selection(values=lambda: SimpleNamespace(all=lambda: result))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     mcp = build_mcp_server(restapi.app)
 
@@ -4155,6 +4194,8 @@ class _HistoryFails:
 
     def __init__(self, step: str, fail: Callable[[], None] = _fail) -> None:
         self.step, self.fail = step, fail
+        # what the limits of the API read of the stations selected
+        self.df, self.stations_filter, self.rank = pl.DataFrame({"station_id": ["01048"]}), None, None
 
     def history(self) -> SimpleNamespace:
         if self.step == "history":
@@ -4309,14 +4350,14 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
         {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None], "value": [9.5, None]},
         schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
     )
-    stripes = StripesMetadata(
+    stripes = StripesSeries(
         station={"station_id": "01048"},
         resolution="annual",
         dataset="climate_summary",
         parameter="temperature_air_mean_2m",
         unit="degree_celsius",
     )
-    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(metadata=stripes, df=df))
+    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
@@ -4827,26 +4868,23 @@ def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
     _is_an_unhandled_500(response)
 
 
-def test_summarize_use_nearby_station_distance_is_deprecated(
+def test_summarize_has_no_use_nearby_station_distance(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     tmp_path: pathlib.Path,
 ) -> None:
-    """`/api/summarize` accepts `use_nearby_station_distance`, says it is deprecated, and reads nothing from it.
+    """`/api/summarize` has no `use_nearby_station_distance`, which no summary read (GH-3077); `/api/interpolate` has.
 
-    It used to set a setting no summary reads, so any value left the summary as it was (GH-2333). The
-    schema marks it deprecated, which the MCP tool's schema is built from, and a request giving it is
-    logged. `/api/interpolate` reads it still.
+    It was deprecated since 0.140.0 (GH-2333) and set a setting no summary reads, so it is gone from the document
+    (and with it from the MCP tool's schema) and a request giving it is refused like any unknown parameter.
     """
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    parameters = app.openapi()["paths"]["/api/v1/summarize"]["get"]["parameters"]
-    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
-    assert field["deprecated"] is True
-    parameters = app.openapi()["paths"]["/api/v1/interpolate"]["get"]["parameters"]
-    (field,) = (parameter for parameter in parameters if parameter["name"] == "use_nearby_station_distance")
-    assert "deprecated" not in field
+    def names(path: str) -> set[str]:
+        return {parameter["name"] for parameter in app.openapi()["paths"][path]["get"]["parameters"]}
+
+    assert "use_nearby_station_distance" not in names("/api/v1/summarize")
+    assert "use_nearby_station_distance" in names("/api/v1/interpolate")
 
     taken: list[Options] = []
 
@@ -4862,21 +4900,18 @@ def test_summarize_use_nearby_station_distance_is_deprecated(
     monkeypatch.setenv("WD_TS_GEO_USE_NEARBY_STATION_DISTANCE", "3")
     monkeypatch.chdir(tmp_path)
     params = {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"}
+
+    refused = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
     # each answered by the stub's failure, a 500, so each reached the entry point with its settings
-    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
-        response = client.get("/api/summarize", params={**params, "use_nearby_station_distance": 0.5})
-    _is_a_500_naming_only(response, "ValueError", hides="taken")
-    assert "use_nearby_station_distance is deprecated. It has no effect on a summary" in caplog.text
-    caplog.clear()
-    with caplog.at_level(logging.WARNING, logger="wetterdienst.ui.restapi"):
-        responses = [
-            client.get("/api/summarize", params=params),
-            client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
-        ]
+    responses = [
+        client.get("/api/summarize", params=params),
+        client.get("/api/interpolate", params={**params, "use_nearby_station_distance": 0.5}),
+    ]
+
+    assert refused.status_code == 422, refused.text
+    assert "use_nearby_station_distance" in refused.text
     assert [response.status_code for response in responses] == [500, 500]
-    # the warnings only: the stub's failures are logged with their tracebacks as errors
-    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
-    assert [options.geo_use_nearby_station_distance for options in taken] == [3.0, 3.0, 0.5]
+    assert [options.geo_use_nearby_station_distance for options in taken] == [3.0, 0.5]
 
 
 @pytest.fixture
@@ -5011,7 +5046,8 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
             "convert_units": "true",
             f"{kind}_station_distance_homogeneous": "40",
             f"{kind}_station_distance_heterogeneous": "20",
-            "use_nearby_station_distance": "1",
+            # a summary has none, it reads none: the server's stays
+            **({"use_nearby_station_distance": "1"} if kind == "interpolation" else {}),
             "min_gain_of_value_pairs": "0.1",
             "num_additional_stations": "3",
         },
@@ -5020,7 +5056,6 @@ def test_geo_leaves_a_setting_the_request_does_not_give_to_the_server(
     assert options.convert_units is True
     assert options.geo_station_distance_homogeneous == 40
     assert options.geo_station_distance_heterogeneous == 20
-    # a summary does not pass it on, as it reads none (GH-2333): the server's stays
     assert options.geo_use_nearby_station_distance == (1 if kind == "interpolation" else 0)
     assert options.geo_min_gain_of_value_pairs == 0.1
     assert options.geo_num_additional_stations == 3
@@ -5298,7 +5333,7 @@ _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
 }
 _REPORTED_SETTINGS = {
     "values": _REPORTED_VALUES_SETTINGS,
-    # a summary reads none, its field being deprecated (GH-2333)
+    # a summary has none
     "interpolate": _REPORTED_GEO_SETTINGS
     | {
         "use_nearby_station_distance",
@@ -5423,7 +5458,40 @@ def _stub_result(monkeypatch: pytest.MonkeyPatch, endpoint: str, station_name: s
         return result
 
     monkeypatch.setattr(restapi, _FETCH_OF_ENDPOINT[endpoint], fetch)
+    if endpoint == "/api/values":
+        # the csv and the ndjson of values are streamed, station by station, from the reader of the selection
+        _stub_stream(monkeypatch, [result])
     return taken
+
+
+def _stub_stream(
+    monkeypatch: pytest.MonkeyPatch,
+    results: "Sequence[ValuesResult]",
+    error: BaseException | None = None,
+    stations_df: pl.DataFrame | None = None,
+) -> "ValuesResult":
+    """Stream the values from `results`, one station each, then fail with `error` if one is given.
+
+    Stood in at the selection of the stations and the reader that walks them, so the route, the limits and the
+    stream are the real ones. `stations_df` is the selection, where a test needs another than the one station.
+    Returns the result the selection is that of.
+    """
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    base = _values_result_of_shape("long")
+    stations = replace(base.stations, request=DwdObservationRequest(parameters=[("daily", "climate_summary")]))
+    if stations_df is not None:
+        stations = replace(stations, df=stations_df)
+
+    def query(_reader: object) -> "Iterator[ValuesResult]":
+        yield from results
+        if error is not None:
+            raise error
+
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
+    monkeypatch.setattr(type(stations.request)._values, "query", query)  # noqa: SLF001
+    return replace(base, stations=stations)
 
 
 _SETTINGS_OF_ENDPOINT = {"/api/values": "values", "/api/interpolate": "interpolate", "/api/summarize": "summarize"}
@@ -5880,7 +5948,6 @@ _SETTINGS_PARAMETERS = [
         "5",
         {"interpolate": {"interpolation_station_distance_heterogeneous"}},
     ),
-    # the summary's is deprecated, and read by nothing (GH-2333)
     ("use_nearby_station_distance", "3", {"interpolate": {"use_nearby_station_distance"}}),
     ("summary_station_distance", '{"temperature_air_mean_2m": 5}', {"summarize": {"summary_station_distance"}}),
     ("summary_station_distance_homogeneous", "10", {"summarize": {"summary_station_distance_homogeneous"}}),
@@ -5921,8 +5988,7 @@ def test_settings_parameters_are_the_data_endpoints_settings_parameters() -> Non
     """`/api/settings` takes the settings query parameters of the three data endpoints, as they declare them (GH-2383).
 
     Each is the parameter of every endpoint that takes it, its description and schema included, so
-    the OpenAPI says what a parameter does to the endpoints taking it. The summary's deprecated
-    `use_nearby_station_distance`, which sets no setting, is not among them.
+    the OpenAPI says what a parameter does to the endpoints taking it.
     """
     paths = restapi.app.openapi()["paths"]
     taken = {parameter["name"]: parameter for parameter in paths["/api/v1/settings"]["get"]["parameters"]}
@@ -6026,7 +6092,10 @@ def test_settings_refuses_a_value_as_the_data_endpoint_does(
     for endpoint in endpoints:
         _stub_result(monkeypatch, endpoint)
         refused = client.get(endpoint, params=_data_request(endpoint, **{parameter: value}))
-        assert (response.status_code, response.json()) == (refused.status_code, refused.json()), endpoint
+        assert (response.status_code, _without_ids(response.json())) == (
+            refused.status_code,
+            _without_ids(refused.json()),
+        ), endpoint
 
 
 _REQUEST_OF_ENDPOINT = {
@@ -6225,7 +6294,6 @@ def test_openapi_settings_defaults_are_the_servers(client: TestClient, monkeypat
         ("/api/v1/interpolate", "interpolation_station_distance"),
         ("/api/v1/interpolate", "interpolation_station_distance_homogeneous"),
         ("/api/v1/summarize", "summary_station_distance"),
-        ("/api/v1/summarize", "use_nearby_station_distance"),
         ("/api/v1/settings", "unit_targets"),
     ):
         assert "default" not in parameters[path][name]["schema"], (path, name)
@@ -6515,10 +6583,10 @@ def test_stripes_values_name_the_unit_the_server_converts_to(
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["metadata"]["unit"] == unit
+    assert data["series"]["unit"] == unit
     assert [item["value"] for item in data["values"]] == expected
     # named by the parameter the unit is taken from
-    assert (data["metadata"]["resolution"], data["metadata"]["dataset"], data["metadata"]["parameter"]) == {
+    assert (data["series"]["resolution"], data["series"]["dataset"], data["series"]["parameter"]) == {
         "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
         "precipitation": ("annual", "precipitation_more", "precipitation_amount"),
     }[kind]
@@ -6544,7 +6612,7 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
 
     # the tool's answer is the endpoint's, as its output schema (a JSON object or text) has it wrapped
     data = asyncio.run(_call())["result"]
-    assert data["metadata"]["unit"] == "degree_fahrenheit"
+    assert data["series"]["unit"] == "degree_fahrenheit"
     assert [item["value"] for item in data["values"]] == [33.8, 35.6]
 
 
@@ -7459,7 +7527,7 @@ def test_values_a_failure_that_is_not_a_refusal_is_still_logged_with_its_traceba
     def fail() -> None:
         raise ValueError(msg)
 
-    stations = SimpleNamespace(values=lambda: SimpleNamespace(all=fail))
+    stations = _selection(values=lambda: SimpleNamespace(all=fail))
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
     with caplog.at_level(logging.INFO, logger="wetterdienst.ui.restapi"):
         response = client.get("/api/values", params={**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"})
@@ -7828,8 +7896,9 @@ def test_history_refuses_a_network_without_history_before_the_station_lookup(
         "/api/history",
         params={"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "all": "true"},
     )
-    assert response.status_code == 404, response.text
+    assert response.status_code == 501, response.text
     assert response.json()["detail"] == "History not implemented for DwdMosmixRequest"
+    assert response.json()["type"] == "urn:wetterdienst:problem:not-implemented"
 
 
 _POINT_ON_A_DAY = {"latitude": 50.0, "longitude": 10.0, "timestamp": "2020-06-30"}
@@ -7886,16 +7955,16 @@ def test_a_provider_and_network_without_an_api_is_logged_as_info_without_a_trace
 def test_a_history_not_implemented_is_logged_as_info_without_a_traceback(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A network without station history is a 404 and one info line, not an error with a traceback (GH-2532)."""
+    """A network without station history is a 501 and one info line, not an error with a traceback (GH-2532)."""
     with caplog.at_level(logging.INFO, logger=restapi.log.name):
         response = client.get(
             "/api/history",
             params={"provider": "dwd", "network": "mosmix", "parameters": "hourly/small", "all": "true"},
         )
-    assert response.status_code == 404, response.text
+    assert response.status_code == 501, response.text
     records = _the_restapi_records(caplog)
     assert [(r.levelno, r.getMessage()) for r in records] == [
-        (logging.INFO, "Refused a request for station history: History not implemented for DwdMosmixRequest")
+        (logging.INFO, "Failed to serve the station history: History not implemented for DwdMosmixRequest")
     ]
     assert records[0].exc_info is None
 
@@ -8872,7 +8941,9 @@ def _is_a_problem(response: object, status: int, detail: str | None = None) -> d
     assert response.headers["content-type"] == "application/problem+json"
     body = response.json()
     assert {"type", "title", "status", "detail"} <= set(body)
-    assert body["type"] == "about:blank"
+    assert body["type"].startswith("urn:wetterdienst:problem:")
+    assert body["instance"] == f"urn:wetterdienst:request:{body['request_id']}"
+    assert response.headers["X-Request-ID"] == body["request_id"]
     assert body["status"] == status
     assert body["title"] == HTTPStatus(status).phrase
     # always text, so a client reading `detail` still gets a sentence
@@ -8932,7 +9003,7 @@ def test_the_422_is_the_problem_in_the_openapi_document(client: TestClient) -> N
 
     assert "HTTPValidationError" not in schema["components"]["schemas"]
     problem = schema["components"]["schemas"]["Problem"]
-    assert set(problem["required"]) == {"type", "title", "status", "detail"}
+    assert set(problem["required"]) == {"type", "title", "status", "detail", "instance", "request_id"}
     assert problem["properties"]["errors"]["items"] == {"$ref": "#/components/schemas/ValidationError"}
     answers = [
         operation["responses"]["422"]

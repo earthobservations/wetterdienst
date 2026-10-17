@@ -340,10 +340,10 @@ def test_the_stripes_stations_have_the_block(client: TestClient, monkeypatch: py
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-def test_the_stripes_values_have_the_block_and_keep_what_their_metadata_held(
+def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`station`, `resolution`, `dataset`, `parameter` and `unit` stay where they were, beside the block."""
+    """`station`, `resolution`, `dataset`, `parameter` and `unit` are the `series`, and the `metadata` is the block."""
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
 
     _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
@@ -351,10 +351,13 @@ def test_the_stripes_values_have_the_block_and_keep_what_their_metadata_held(
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
     assert response.status_code == 200, response.text
-    metadata = response.json()["metadata"]
-    assert set(metadata) == ALWAYS | {"station", "resolution", "dataset", "parameter", "unit"}
-    assert metadata["unit"] == "degree_celsius"
-    assert metadata["station"]["station_id"] == "01048"
+    body = response.json()
+    assert set(body) == {"metadata", "series", "values"}
+    metadata = body["metadata"]
+    assert set(metadata) == ALWAYS
+    assert set(body["series"]) == {"station", "resolution", "dataset", "parameter", "unit"}
+    assert body["series"]["unit"] == "degree_celsius"
+    assert body["series"]["station"]["station_id"] == "01048"
     assert metadata["request"]["parameters"] == ["annual/climate_summary/temperature_air_mean_2m"]
     assert metadata["request"]["stations"] == {"filter": "by_station_id", "count": 1, "ids": ["01048"]}
     assert metadata["counts"] == {"stations": 1, "rows": 2}
@@ -382,7 +385,7 @@ def test_the_openapi_document_describes_the_answer_of_each_route_with_the_block(
     # follow the references one level: the answer's own models name `ResponseMetadata` in their members
     named = refs(schema)
     named |= set().union(*(refs(schemas[name]) for name in list(named)))
-    assert named & {"ResponseMetadata", "StripesValuesMetadata"}, schema
+    assert "ResponseMetadata" in named, schema
 
 
 def test_a_history_answer_is_what_its_model_describes(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -435,16 +438,6 @@ def test_a_request_starts_without_the_warnings_of_the_one_before(
     assert values["metadata"]["warnings"] == []
 
 
-def test_a_deprecated_parameter_is_a_warning(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A deprecated parameter that was used is told in the answer, not only in the server's log."""
-    _stub_result(monkeypatch, "/api/summarize")
-
-    response = client.get("/api/summarize", params=_params("/api/summarize", use_nearby_station_distance="5"))
-
-    assert response.status_code == 200, response.text
-    assert [w["code"] for w in response.json()["metadata"]["warnings"]] == ["deprecated-parameter"]
-
-
 # --- the headers ------------------------------------------------------------------------------
 
 
@@ -466,10 +459,9 @@ def test_a_csv_answer_carries_the_block_in_headers(
     assert headers["X-Wetterdienst-License"] == "CC-BY-4.0"
     assert unquote(headers["X-Wetterdienst-Attribution"]) == "Source: Deutscher Wetterdienst"
     assert unquote(headers["X-Wetterdienst-Provider"]) == "German Weather Service"
-    assert (headers["X-Wetterdienst-Stations"], headers["X-Wetterdienst-Rows"]) == (
-        "1",
-        "1" if endpoint != "/api/values" else "2",
-    )
+    assert headers["X-Wetterdienst-Stations"] == "1"
+    # the csv of values is streamed, whose rows are not known as the headers go out
+    assert headers.get("X-Wetterdienst-Rows") == (None if endpoint == "/api/values" else "1")
     assert headers["Link"] == '<https://creativecommons.org/licenses/by/4.0/>; rel="license"'
     assert "X-Wetterdienst-Warnings" not in headers
 

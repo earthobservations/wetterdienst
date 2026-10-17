@@ -72,10 +72,13 @@ class Provider(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: str = Field(description="The name a request calls it by, `dwd`.")
+    name_short: str = Field(description="The short name to write beside a flag, `DWD`.")
     name_local: str
     name_english: str
     country: str
-    country_code: str = Field(description="ISO 3166-1 alpha-2 code of the country, or `ZZ` for a multinational one.")
+    country_code: str | None = Field(
+        description="ISO 3166-1 alpha-2 code of the country; null for a provider of several countries.",
+    )
     license: LicenseModel | None = Field(
         description="The terms the provider publishes its data under; null where it states none.",
     )
@@ -171,6 +174,7 @@ def get_providers(provider: str | None = None) -> ProvidersAnswer:
         providers.append(
             Provider(
                 provider=name,
+                name_short=first.name_short,
                 name_local=first.name_local,
                 name_english=first.name_english,
                 country=first.country,
