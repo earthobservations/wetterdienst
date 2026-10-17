@@ -1,0 +1,87 @@
+name: Docs
+
+# What the pages are built from: the pages, the Sphinx configuration and its extensions, and the code the
+# API pages and the parameter glossary are written from. The build here does not execute the notebook pages
+# (they fetch from the providers, which tests/test_docs_samples.py does under the `remote` marker and the
+# Read the Docs build does as it renders): it holds the structure, so a toctree that names a page that is
+# not there, a link to an anchor that does not exist, an orphaned page or a directive that fails is an error.
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'src/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/docs.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'src/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/docs.yml'
+
+  # The external links change without a commit of ours, so they are checked on a schedule
+  schedule:
+    - cron: "17 5 * * 1"
+
+  # Allow job to be triggered manually.
+  workflow_dispatch:
+
+# Cancel in-progress jobs when pushing to the same branch.
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  PYTHON: "3.14"
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build the pages, warnings are errors
+    if: ${{ github.event_name != 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Install project and the docs group
+        run: uv sync --group docs
+
+      - name: Build
+        run: uv run --group docs sphinx-build --builder html --fail-on-warning --keep-going -D nb_execution_mode=off docs docs/_build/html
+
+  linkcheck:
+    name: Check the external links
+    # a link that is down for an hour is no reason to fail a pull request, so only the schedule and a manual run
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acquire sources
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Install project and the docs group
+        run: uv sync --group docs
+
+      - name: Check the links
+        run: uv run poe "docs:linkcheck"

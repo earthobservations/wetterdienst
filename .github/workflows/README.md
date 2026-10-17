@@ -27,6 +27,17 @@ The one deliberate exception is `codeql.yml`. Code scanning is a merge requireme
 ruleset, and that requirement is reported per pull request - a run that never happens leaves the
 pull request waiting for a result rather than passing it, so CodeQL keeps running unconditionally.
 
+## Docs CI
+
+`docs.yml` builds the Sphinx pages (`docs/conf.py`) with warnings as errors and the notebook pages not
+executed, so a broken toctree, a link to a missing anchor or a failing directive is a red check on the pull
+request that made it; the page filter is `docs/**`, the README and changelog the pages include, `src/**` (the API
+pages and the parameter glossary are written from it) and the dependency files. A second job checks the external
+links (`poe "docs:linkcheck"`) on a weekly schedule and on request only: a site that is down for an hour is not a
+reason to fail a pull request. The code samples are run by `tests/test_docs_samples.py` (the command line and
+REST samples offline, the Python ones under the `remote` marker), which `tests.yml` and `coverage.yml` start on a
+change to `docs/**`.
+
 ## Credentials
 
 A secret goes in the `env:` of the step that reads it, never of the job or the workflow: `uv sync`,

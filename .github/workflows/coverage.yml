@@ -10,7 +10,8 @@ on:
       - 'tests/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
-      - 'docs/data/provider/**'
+      # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
+      - 'docs/**'
       - 'app/i18n/**'
       - 'app/app/pages/index.vue'
       - 'app/shared/types/api.ts'
@@ -28,7 +29,8 @@ on:
       - 'tests/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
-      - 'docs/data/provider/**'
+      # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
+      - 'docs/**'
       - 'app/i18n/**'
       - 'app/app/pages/index.vue'
       - 'app/shared/types/api.ts'

@@ -2,7 +2,8 @@ name: Tests
 
 # The matrix is ten jobs of a network-bound suite, so it is worth being precise about what can
 # actually change its outcome. Beyond the obvious sources and tests that is the documentation -
-# tests/test_docs.py checks the provider pages under docs/data/provider against the metadata model -
+# tests/test_docs.py checks the pages under docs against the metadata model and the settings, and
+# tests/test_docs_samples.py runs their code samples against the command line and the REST API -
 # and three root files: the README is doctested and CITATION.cff is tied to it and to the changelog.
 # The suite also reaches into the app, in one place: tests/metadata/test_resolution.py reads the
 # resolution union in app/shared/types/api.ts, to catch a resolution that gained a name here but
@@ -16,7 +17,8 @@ on:
       - 'tests/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
-      - 'docs/data/provider/**'
+      # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
+      - 'docs/**'
       - 'app/shared/types/api.ts'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -32,7 +34,8 @@ on:
       - 'tests/**'
       # tests/examples runs these, so a change to one is a change this suite covers
       - 'examples/**'
-      - 'docs/data/provider/**'
+      # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
+      - 'docs/**'
       - 'app/shared/types/api.ts'
       - 'pyproject.toml'
       - 'uv.lock'
