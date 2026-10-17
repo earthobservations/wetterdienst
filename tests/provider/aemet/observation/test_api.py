@@ -36,6 +36,7 @@ from wetterdienst.provider.aemet.observation.parser import (
     parse_wind_direction,
 )
 from wetterdienst.settings import Settings
+from wetterdienst.ui.core import failure_status
 from wetterdienst.util.network import PROBE_TIMEOUT_SECONDS, File
 
 MADRID_RETIRO = "3195"
@@ -50,20 +51,20 @@ requires_aemet_credentials = pytest.mark.skipif(
 )
 
 
-def _is_refusal(failure: Exception) -> bool:
-    """Tell whether AEMET refused the request with an HTTP 429, the rate limit.
+def _is_rate_limit(failure: DownloadError) -> bool:
+    """Tell whether a `DownloadError` is AEMET refusing the rate: an HTTP 429 or an `estado` 429 (GH-2989).
 
     A refused key is raised as the `CredentialRejectedError` by the reader (GH-3018), which `_values_or_skip` skips on.
 
-    A timeout, a dropped connection and a 5xx are no refusal: the reader raises them as a `DownloadError`, which
-    `skip_if_upstream_unavailable` skips on (GH-2965). A rate limit that AEMET reports in the envelope of an HTTP
-    200 (`estado` 429) reaches here as an envelope error that is not told from a 404 of the envelope, so it still
-    fails the test.
+    A timeout, a dropped connection and a 5xx are no refusal: the reader raises them as a `DownloadError` too, and
+    `skip_if_upstream_unavailable` skips on them (GH-2965).
 
     A 400, a 404 or an envelope that says there is no data is AEMET answering, and what it most likely says is
     that the request was built wrong, which is what these tests are there to catch (see `tests/conftest.py`).
     """
-    return isinstance(failure, ClientResponseError) and failure.status == HTTPStatus.TOO_MANY_REQUESTS
+    cause = failure.__cause__
+    status = cause.status if isinstance(cause, (ClientResponseError, _AemetEnvelopeError)) else None
+    return status == HTTPStatus.TOO_MANY_REQUESTS
 
 
 def _values_or_skip(
@@ -72,17 +73,15 @@ def _values_or_skip(
 ) -> pl.DataFrame:
     """Build a request and read its values, and skip the test if AEMET refused the key or the rate (GH-2965).
 
-    The reader logs the failure of a chunk and goes on with an empty frame for a 429, so that never reaches the
-    test as the exception that `skip_if_upstream_unavailable` skips on (a timeout, a dropped connection or a 5xx
-    does: the reader raises those). A refused key is raised as the `CredentialRejectedError` (GH-3018), by the
-    chunk and by the station list alike, and skips here. CI runs every job of both workflows on one key, and
-    AEMET answers that with a 401 or a 429 for part of the calls; the test asserts what AEMET publishes, which a
-    refusal says nothing about. The request is built here, because filtering by station id already reads the
-    station list.
+    A timeout, a dropped connection or a 5xx is raised as a `DownloadError` that `skip_if_upstream_unavailable`
+    skips on. A refused key is raised as the `CredentialRejectedError` (GH-3018), by the chunk and by the station
+    list alike, and skips here, and so does a rate limit, a `DownloadError` whose cause is a 429 (GH-2989). CI runs
+    every job of both workflows on one key, and AEMET answers that with a 401 or a 429 for part of the calls; the
+    test asserts what AEMET publishes, which a refusal says nothing about. The request is built here, because
+    filtering by station id already reads the station list.
 
-    Only a refusal skips: a key refused, and an empty frame after failures that all are a rate limit (a revoked
-    key skips the same way, and the reason names it). Any other failure, such as a 404, and an empty frame
-    without one fail.
+    Only a refusal skips: a key refused (a revoked key skips the same way, and the reason names it) and a rate
+    limit. Any other failure, such as a 404, and an empty frame without one fail.
     """
     failures: list[Exception] = []
     fetch = aemet_api._fetch_datos  # noqa: SLF001
@@ -95,12 +94,14 @@ def _values_or_skip(
 
     monkeypatch.setattr(aemet_api, "_fetch_datos", recording_fetch)
     try:
-        df = make_request().values().all().df
+        return make_request().values().all().df
     except CredentialRejectedError as refused:
+        # the reason names what AEMET answered, which the error raised for the caller does not
         pytest.skip(f"AEMET did not hand out the data: {(failures or [refused])[0]!r}")
-    if df.is_empty() and failures and all(_is_refusal(failure) for failure in failures):
-        pytest.skip(f"AEMET did not hand out the data: {failures[0]!r}")
-    return df
+    except DownloadError as failed:
+        if not _is_rate_limit(failed):
+            raise
+        pytest.skip(f"AEMET did not hand out the data: {failed!r}")
 
 
 @pytest.mark.remote
@@ -674,6 +675,13 @@ def _response_error(status: int) -> ClientResponseError:
     return ClientResponseError(request_info=MagicMock(), history=(), status=status)
 
 
+def _rate_limited(cause: Exception) -> DownloadError:
+    """Make the `DownloadError` `_fetch_datos` returns for a rate limit, with its `cause`."""
+    error = DownloadError("https://opendata.aemet.es/opendata/api/x", "AEMET answered 429, the rate limit")
+    error.__cause__ = cause
+    return error
+
+
 def _daily_request() -> AemetObservationRequest:
     return AemetObservationRequest(
         parameters=[("daily", "data")],
@@ -695,7 +703,8 @@ def _not_skipped(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     "refusal",
     [
         pytest.param(AemetKeyRejectedError("AEMET answered HTTP 401: Unauthorized"), id="key-rejected"),
-        pytest.param(_response_error(429), id="rate-limit"),
+        pytest.param(_rate_limited(_response_error(429)), id="rate-limit"),
+        pytest.param(_rate_limited(_AemetEnvelopeError(429, "wait for the next minute")), id="rate-limit-estado"),
     ],
 )
 def test_values_or_skip_skips_when_aemet_refused_the_data(monkeypatch: pytest.MonkeyPatch, refusal: Exception) -> None:
@@ -919,6 +928,55 @@ def test_aemet_fetch_datos_returns_a_fault_of_the_envelope_as_a_download_error(
     assert str(estado) in str(result)
 
 
+@pytest.mark.parametrize(
+    ("as_envelope", "reason"),
+    [
+        pytest.param(False, "HTTP 429, the rate limit", id="http-429"),
+        pytest.param(True, "estado 429, the rate limit: the answer", id="estado-429"),
+    ],
+)
+def test_aemet_fetch_datos_returns_a_rate_limit_as_a_download_error(
+    monkeypatch: pytest.MonkeyPatch,
+    as_envelope: bool,  # noqa: FBT001
+    reason: str,
+) -> None:
+    """A rate limit that outlasted the retries is no answer: a `DownloadError` naming the file, caused by the 429."""
+    file = _envelope(429) if as_envelope else File(url=_ENDPOINT, content=_response_error(429), status=429)
+    _serve_envelope_and_datos(monkeypatch, file)
+    result = _fetch()
+    assert isinstance(result, DownloadError)
+    assert result.url == file.url
+    assert reason in str(result)
+    assert result.__cause__ is not None
+    assert getattr(result.__cause__, "status", None) == HTTPStatus.TOO_MANY_REQUESTS
+    # a 429 is a failure of the provider's, answered as the table of `failure_status` has it
+    assert failure_status(result) == HTTPStatus.BAD_GATEWAY
+
+
+def test_aemet_fetch_datos_returns_a_rate_limit_of_the_datos_link_as_a_download_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The "datos" request met by the rate limit is a `DownloadError` naming the link, without its signature."""
+    refusal = _response_error(429)
+    _serve_envelope_and_datos(monkeypatch, _envelope(200, datos=_DATOS), File(url=_DATOS, content=refusal, status=429))
+    result = _fetch()
+    assert isinstance(result, DownloadError)
+    assert result.url == "https://opendata.aemet.es/opendata/sh/0123abc"
+    assert "secret" not in str(result)
+    assert result.__cause__ is refusal
+
+
+@pytest.mark.parametrize("resolution", ["daily", "monthly", "annual", "hourly"])
+def test_aemet_observation_values_raise_a_rate_limit_rather_than_skip_the_chunk(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
+) -> None:
+    """A chunk the rate limit refused is not "no data": the request ends with the error, not with a partial result."""
+    attempted = _fake_fetch_datos(monkeypatch, _rate_limited(_response_error(429)))
+    with pytest.raises(DownloadError, match="the rate limit"):
+        _values(resolution, years=10)
+    assert len(attempted) == 1
+
+
 def test_aemet_fetch_datos_returns_an_estado_that_is_no_number_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
     """An `estado` the JSON gives as text is no status to compare: it stays a plain failure, which is logged."""
     body = json.dumps({"estado": "500", "descripcion": "the answer"}).encode()
@@ -929,13 +987,11 @@ def test_aemet_fetch_datos_returns_an_estado_that_is_no_number_as_it_was(monkeyp
 
 
 def test_aemet_fetch_datos_returns_what_is_an_answer_as_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 404, an `estado` of 404 or 429, a refused key and a body that is no envelope stay what they were."""
+    """A 404, an `estado` of 404, a refused key and a body that is no envelope stay what they were."""
     for file in (
         File(url=_ENDPOINT, content=FileNotFoundError(_ENDPOINT), status=404),
-        File(url=_ENDPOINT, content=_response_error(429), status=429),
         File(url=_ENDPOINT, content=_response_error(400), status=400),
         _envelope(404),
-        _envelope(429),
         File(url=_ENDPOINT, content=BytesIO(b"<html>maintenance</html>"), status=200),
     ):
         _serve_envelope_and_datos(monkeypatch, file)

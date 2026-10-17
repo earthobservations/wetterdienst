@@ -76,6 +76,18 @@ log = logging.getLogger(__name__)
 _PERIOD_RANK = "period_rank"
 # marks the rows of a parameter whose stamp was shifted to UTC, in the frame of `_tidy_up_df` only
 _SHIFTED = "shifted_to_utc"
+# whether a row holds a value in any parameter, which settles a stamp that is listed twice, in the frame of the
+# collection only (GH-2996)
+_HAS_VALUE = "has_value"
+
+
+def _is_value_column(column: str) -> bool:
+    """Say whether a column of a period's frame is a parameter, not the quality, a sentinel's text or a mark."""
+    return not (
+        column.endswith(RAW_SUFFIX)
+        or column in (WOZ_COLUMN, _PERIOD_RANK)
+        or column.startswith((MEZ_MD_PREFIX, "qn", "qualitaet"))
+    )
 
 
 class DwdObservationValues(TimeseriesValues):
@@ -150,8 +162,18 @@ class DwdObservationValues(TimeseriesValues):
         # Only on the rank, and stably: a duplicate timestamp *within* one period -- the 1 minute
         # precipitation events share their boundary minutes -- has to keep being settled the way it
         # was, not resorted.
-        parameter_df = parameter_df.sort(_PERIOD_RANK, maintain_order=True).unique(subset=["timestamp"], keep="first")
-        parameter_df = parameter_df.drop(_PERIOD_RANK)
+        #
+        # A stamp that a file lists twice, one row the reading and the other a placeholder with no value in any
+        # parameter (03086, 1999-08-04 10:00 to 1999-12-31 23:50 MEZ: 1002 stamps, `-999` in RWS_10 and an empty
+        # RWS_IND_10), goes to the row that has a value, whichever comes first (GH-2996). Two rows with a value, or
+        # two without, are left as they were.
+        value_columns = [column for column in parameter_df.collect_schema().names()[2:] if _is_value_column(column)]
+        parameter_df = parameter_df.with_columns(
+            pl.any_horizontal(pl.col(column).is_not_null() for column in value_columns).alias(_HAS_VALUE)
+        )
+        parameter_df = parameter_df.sort([_PERIOD_RANK, _HAS_VALUE], descending=[False, True], maintain_order=True)
+        parameter_df = parameter_df.unique(subset=["timestamp"], keep="first")
+        parameter_df = parameter_df.drop(_PERIOD_RANK, _HAS_VALUE)
         # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which
         # takes the `datetime_ranges` + `explode` of the historical 1 minute precipitation 13 times (one
         # station-year) to 200 times (ten) as long as the in-memory engine does

@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for NWS (United States) observation provider."""
 
+import base64
 import datetime as dt
 import json
 from io import BytesIO
@@ -16,7 +17,7 @@ from wetterdienst import Options, Settings, __version__
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.nws.observation import NwsObservationRequest
 from wetterdienst.provider.nws.observation import api as nws_api
-from wetterdienst.provider.nws.observation.api import NwsObservationValues
+from wetterdienst.provider.nws.observation.api import _HALF_HOUR, NwsObservationValues
 from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
@@ -119,7 +120,7 @@ def test_nws_url_names_the_window_in_utc_whatever_zone_it_was_asked_in(
 
 
 def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
-    """Test that a request without dates asks for the endpoint's own default.
+    """Test that a request without dates asks for the endpoint's own default, a page of 500 observations.
 
     `date_required` is enforced at the CLI and the REST API but not in the Python API, so a
     request can reach the endpoint with nothing to narrow it to.
@@ -128,7 +129,7 @@ def test_nws_url_names_no_window_where_the_request_carries_no_dates() -> None:
 
     url = _values(request)._build_url(DENVER)  # noqa: SLF001
 
-    assert url == f"https://api.weather.gov/stations/{DENVER}/observations"
+    assert url == f"https://api.weather.gov/stations/{DENVER}/observations?limit=500"
 
 
 def test_nws_stations_reads_the_columns_of_the_metar_table_by_their_position(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -661,7 +662,10 @@ def test_nws_hourly_url_asks_for_the_half_hour_around_the_window(monkeypatch: py
     _hourly(["temperature_air_2m"], _stamp("10-14 12:00"), _stamp("10-14 16:00"))
 
     assert urls == [
-        "https://api.weather.gov/stations/KDEN/observations?start=2026-10-14T11%3A30%3A00Z&end=2026-10-14T16%3A30%3A00Z"
+        (
+            "https://api.weather.gov/stations/KDEN/observations"
+            "?start=2026-10-14T11%3A30%3A00Z&end=2026-10-14T16%3A30%3A00Z&limit=500"
+        )
     ]
 
 
@@ -716,3 +720,172 @@ def test_nws_hourly_of_a_station_without_observations_is_empty(monkeypatch: pyte
     """Test that a station the endpoint holds nothing for still returns an empty frame (GH-2857)."""
     _serve_observations(monkeypatch, [])
     assert _hourly(["temperature_air_2m"], _stamp("10-14 00:00"), _stamp("10-14 23:59")).is_empty()
+
+
+def _three_days() -> list[dict]:
+    """Give KDEN's observations of 2026-10-12 to 2026-10-14 as the endpoint serves them: 936, newest first.
+
+    A 5-minute row at every multiple of five minutes, and a report at :53 beside it, as in ``KDEN_REPORTS``. The
+    temperature of a report is a tenth of a degree and that of a 5-minute row a whole one, so the value says which
+    of the two an hour kept.
+    """
+    observations = []
+    time = _stamp("10-12 00:00")
+    while time < _stamp("10-15 00:00"):
+        if time.minute == 53:
+            observations.append(_observation(time, 5.3 + time.hour / 100, report=True))
+        elif time.minute % 5 == 0:
+            observations.append(_observation(time, float(5 + time.hour // 12), report=False))
+        time += dt.timedelta(minutes=1)
+    return observations[::-1]
+
+
+def _cursor(stamp: str) -> str:
+    """Give the cursor the endpoint names for a page whose oldest observation is ``stamp``: ``{"s": stamp}``."""
+    return base64.urlsafe_b64encode(json.dumps({"s": stamp}, separators=(",", ":")).encode()).decode()
+
+
+def _serve_pages(monkeypatch: pytest.MonkeyPatch, observations: list[dict]) -> list[str]:
+    """Serve the observations the way the endpoint pages them, and return the URLs asked for.
+
+    The newest 500 observations of the window, newest first, with ``pagination.next`` naming a cursor on the stamp
+    of the oldest of them. The cursor walks backwards, strictly older than its stamp, honours a ``start`` and
+    takes no ``end`` (read 2026-10-17); a page that is the last one names a ``next`` as well (KBOS, 81 rows).
+    """
+    urls: list[str] = []
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        urls.append(url or args[0])
+        query = parse_qs(urlparse(urls[-1]).query)
+        rows = sorted(observations, key=lambda o: o["properties"]["timestamp"], reverse=True)
+        if "cursor" in query:
+            before = json.loads(base64.urlsafe_b64decode(query["cursor"][0]))["s"]
+            rows = [o for o in rows if o["properties"]["timestamp"] < before]
+        elif "end" in query:
+            end = dt.datetime.strptime(query["end"][0], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+            rows = [o for o in rows if dt.datetime.fromisoformat(o["properties"]["timestamp"]) <= end]
+        if "start" in query:
+            start = dt.datetime.strptime(query["start"][0], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+            rows = [o for o in rows if dt.datetime.fromisoformat(o["properties"]["timestamp"]) >= start]
+        page = rows[:500]
+        body: dict[str, object] = {"features": page}
+        if page:
+            body["pagination"] = {
+                "next": f"https://api.weather.gov/stations/KDEN/observations?cursor={_cursor(page[-1]['properties']['timestamp'])}"
+            }
+        return File(url=urls[-1], content=BytesIO(json.dumps(body).encode()), status=200)
+
+    monkeypatch.setattr(nws_api, "download_file", download_file)
+    return urls
+
+
+def test_nws_hourly_follows_the_pages_of_a_window_of_more_than_500_observations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a window of three days is read to its start, not to the newest 500 observations (GH-2994).
+
+    936 observations are about 40 hours at 12 an hour for the first page, which was all the provider read; the
+    hourly rows were those of the last 40 hours.
+    """
+    urls = _serve_pages(monkeypatch, _three_days())
+
+    df = _hourly(["temperature_air_2m"], _stamp("10-12 00:00"), _stamp("10-14 23:00")).sort("timestamp")
+
+    assert df.get_column("timestamp").to_list() == [_stamp("10-12 00:00") + dt.timedelta(hours=h) for h in range(72)]
+    # every hour keeps its report, the METAR of :53 of the hour before, whichever page it is on; the first hour has
+    # none in the data and keeps a 5-minute row
+    assert df.get_column("value").to_list() == pytest.approx([5.0] + [5.3 + ((h - 1) % 24) / 100 for h in range(1, 72)])
+    assert len(urls) == 2
+    assert "cursor" not in urls[0]
+    assert "cursor=" in urls[1]
+
+
+def test_nws_hourly_names_the_start_of_the_window_to_the_cursor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the cursor URL is sent the `start` of the window, as it carries no window of its own (GH-2994).
+
+    Alone it walks on past the start to the end of the week the endpoint keeps (KBOS, 3 hours: 34 rows, then a
+    cursor that answered 500 rows older than the window).
+    """
+    urls = _serve_pages(monkeypatch, _three_days())
+
+    _hourly(["temperature_air_2m"], _stamp("10-12 00:00"), _stamp("10-14 23:00"))
+
+    assert parse_qs(urlparse(urls[1]).query)["start"] == ["2026-10-11T23:30:00Z"]
+
+
+def test_nws_hourly_reads_one_page_of_a_window_that_a_page_holds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a page shorter than the limit is the last one, though it names a next page (GH-2994).
+
+    A window of 3 hours of KBOS held 34 rows and a `next` (read 2026-10-17).
+    """
+    urls = _serve_pages(monkeypatch, _three_days())
+
+    df = _hourly(["temperature_air_2m"], _stamp("10-14 20:00"), _stamp("10-14 23:00"))
+
+    assert df.height == 4
+    assert len(urls) == 1
+
+
+def test_nws_hourly_stops_at_a_page_that_ends_in_the_window_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a full page whose oldest observation is the start of the window is not followed (GH-2994)."""
+    observations = _three_days()
+    urls = _serve_pages(monkeypatch, observations)
+    # 500 observations back from the newest end at this stamp, which the request names as its start less half an hour
+    oldest = dt.datetime.fromisoformat(observations[499]["properties"]["timestamp"])
+
+    df = _hourly(["temperature_air_2m"], oldest + _HALF_HOUR, _stamp("10-14 23:00"))
+
+    assert not df.is_empty()
+    assert len(urls) == 1
+
+
+def test_nws_hourly_reads_the_report_of_an_hour_that_two_pages_split(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the observations of the pages are thinned together: an hour has one row, its report (GH-2994).
+
+    The first page ends at the 500th observation, in the middle of an hour whose 5-minute rows are on one page and
+    whose METAR is on the other.
+    """
+    observations = _three_days()
+    urls = _serve_pages(monkeypatch, observations)
+    boundary = dt.datetime.fromisoformat(observations[499]["properties"]["timestamp"])
+
+    df = _hourly(["temperature_air_2m"], _stamp("10-12 00:00"), _stamp("10-14 23:00"))
+
+    assert len(urls) == 2
+    hour = (boundary + _HALF_HOUR).replace(minute=0, second=0, microsecond=0)
+    assert df.filter(pl.col("timestamp") == hour).height == 1
+    assert df.height == df.get_column("timestamp").n_unique()
+    assert all(value != round(value) for value in df.sort("timestamp").get_column("value").to_list()[1:])
+
+
+def test_nws_hourly_without_dates_reads_the_pages_to_the_end_of_the_week(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a request without dates, which the Python API allows, is not cut at 500 observations (GH-2994)."""
+    urls = _serve_pages(monkeypatch, _three_days())
+    request = NwsObservationRequest(
+        parameters=[("hourly", "data", "temperature_air_2m")],
+        settings=Settings(cache_disable=True),
+    )
+
+    df = NwsObservationValues(sr=stations_result(request, "hourly", "data", "KDEN")).all().df
+
+    # the 72 hours and 00:00 of the day after, the hour of the METAR of 23:53
+    assert df.height == 73
+    assert len(urls) == 2
+    assert "start" not in urls[1]
+
+
+def test_nws_hourly_does_not_follow_a_cursor_that_repeats(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that an endpoint that answers a page with its own address ends the walk instead of looping (GH-2994)."""
+    urls: list[str] = []
+    page = _three_days()[:500]
+    own = "https://api.weather.gov/stations/KDEN/observations?cursor=eyJzIjoiMjAyNi0xMC0xMlQxMjo1NDowMCswMDowMCJ9"
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        urls.append(url or args[0])
+        body = json.dumps({"features": page, "pagination": {"next": own}})
+        return File(url=urls[-1], content=BytesIO(body.encode()), status=200)
+
+    monkeypatch.setattr(nws_api, "download_file", download_file)
+    _hourly(["temperature_air_2m"], _stamp("10-12 00:00"), _stamp("10-14 23:00"))
+
+    assert len(urls) == 2

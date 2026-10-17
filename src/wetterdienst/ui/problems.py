@@ -59,6 +59,8 @@ class ProblemKind(StrEnum):
     REQUEST_REFUSED = "request-refused"
     LIMIT_EXCEEDED = "limit-exceeded"
     IMAGE_TOO_LARGE = "image-too-large"
+    HOST_NOT_ALLOWED = "host-not-allowed"
+    ORIGIN_NOT_ALLOWED = "origin-not-allowed"
     SQL_DISABLED = "sql-disabled"
     NOT_FOUND = "not-found"
     UNKNOWN_NETWORK = "unknown-network"
@@ -69,6 +71,7 @@ class ProblemKind(StrEnum):
     CREDENTIAL_REJECTED = "credential-rejected"
     NOT_CONFIGURED = "not-configured"
     UPSTREAM_FAILED = "upstream-failed"
+    SERVER_BUSY = "server-busy"
     UPSTREAM_UNREACHABLE = "upstream-unreachable"
     UPSTREAM_TIMEOUT = "upstream-timeout"
     REQUEST_TIMEOUT = "request-timeout"
@@ -102,6 +105,16 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
         "narrow it.",
     ),
     ProblemKind.IMAGE_TOO_LARGE: ProblemSpec(400, "A chart would be longer than 8192 px on a side."),
+    ProblemKind.HOST_NOT_ALLOWED: ProblemSpec(
+        400,
+        "The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server "
+        "by a name it lists.",
+    ),
+    ProblemKind.ORIGIN_NOT_ALLOWED: ProblemSpec(
+        400,
+        "The `Origin` of a request to the MCP endpoint is not a host the server answers to "
+        "(`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
+    ),
     ProblemKind.SQL_DISABLED: ProblemSpec(
         403, "The request carries a `sql` or `sql_values` filter and the server does not enable them."
     ),
@@ -123,6 +136,11 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ProblemKind.NOT_CONFIGURED: ProblemSpec(501, "The server is not configured to serve the request."),
     ProblemKind.UPSTREAM_FAILED: ProblemSpec(
         502, "The data provider failed or sent an answer the server cannot read. The request was valid; retry it."
+    ),
+    ProblemKind.SERVER_BUSY: ProblemSpec(
+        503,
+        "The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request "
+        "was not started; retry it after `Retry-After`.",
     ),
     ProblemKind.UPSTREAM_UNREACHABLE: ProblemSpec(
         503, "The server could not reach the data provider (no connection). The request was valid; retry it."
