@@ -40,6 +40,10 @@ Types of changes:
 
 ### Fixed
 
+- `eccc/observation` lists a station for `monthly` only if the station list flags a monthly
+  summary (`HAS_MONTHLY_SUMMARY` is `Y`), no longer all 8435 stations: the 108 whose flag is `N` or
+  empty have no monthly row, so `filter_by_rank`, `filter_by_distance`, `interpolate` and
+  `summarize` for monthly no longer pick them. Hourly and daily are unchanged (GH-3006)
 - `dwd/observation` `hourly/urban_wind` `wind_direction`: a 0 is null, with `raw:0` as the last
   token of `quality_flags`, no longer returned as a bearing. The 1,288 zeros come at 0.1 to
   1.6 m/s, never 0, and in the 410 of those hours with the six 10-minute values at hand the
