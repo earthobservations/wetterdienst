@@ -71,7 +71,7 @@ describe('index Page', () => {
     const chips = wrapper.findAll('a').map(a => `${a.attributes('href')} ${a.text()}`)
     expect(chips).toContain('https://pypi.org/project/wetterdienst/ pip install wetterdienst')
     expect(chips).toContain('/docs REST API')
-    expect(chips).toContain('/mcp MCP')
+    expect(chips).toContain('/mcp/v1 MCP')
     expect(text).toContain('Also for developers')
     // and the 514 parameters lead somewhere that explains them
     expect(html).toContain('/glossary')

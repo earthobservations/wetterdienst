@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- The MCP endpoint is versioned like the REST API: `/mcp/v1` is the endpoint to configure, and
+  `/mcp` stays as an alias of the current version, the same endpoint with the same tools and
+  sessions. A breaking change of a tool will come with `/mcp/v2`, and `/mcp/v1` keeps serving for
+  at least two minor releases. `GET /api/version` reports `mcp_path` (`/mcp/v1`) and
+  `mcp_alias_path` (`/mcp`), `null` without the `[mcp]` extra; the index page lists `/mcp/v1`.
+  Nothing a client has configured at `/mcp` changes (GH-3074)
 - `Settings(...)` is checked by `ty`, mypy and pyright field by field: a misspelt setting
   (`Settings(cache_dsable=True)`) or a value of the wrong type is reported where it is written, not
   as a `ValidationError` at run time. Nothing changes at run time (GH-3042)

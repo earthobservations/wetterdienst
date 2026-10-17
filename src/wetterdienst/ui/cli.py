@@ -793,7 +793,7 @@ AUTH_EXAMPLES = r"""
 """
 
 RESTAPI_EXAMPLES = r"""
-    # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp
+    # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp/v1 (and /mcp)
     wetterdienst restapi
 
     # listen on every interface, and reload on source changes

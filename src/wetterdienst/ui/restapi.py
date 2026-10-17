@@ -150,6 +150,11 @@ app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_too
 API_PREFIX = f"/api/v{API_VERSION}"
 #: the same routes without the version, an alias of the current version: not deprecated, and not in OpenAPI
 API_ALIAS_PREFIX = "/api"
+#: where the MCP endpoint of the current version is served; the tools mirror the routes of `API_PREFIX` 1:1,
+#: so the two share a version (GH-3074)
+MCP_PREFIX = f"/mcp/v{API_VERSION}"
+#: the same endpoint without the version, an alias of the current version, as `API_ALIAS_PREFIX` is for the routes
+MCP_ALIAS_PREFIX = "/mcp"
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -175,10 +180,10 @@ class _RefuseInvalidSettings:
 
     Checked as the server starts the app's lifespan, so it holds whatever starts it --
     `wetterdienst restapi`, `uvicorn wetterdienst.ui.restapi:app` -- unless the lifespan is turned
-    off, and covers `/mcp`, which is served by this app. A failure in the app's own lifespan would
-    reach the server as Starlette's formatted traceback; answering the startup here gives the log
-    the variables and what is wrong with them, a line each, without the values, and the server
-    exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
+    off, and covers `/mcp/v1` and its alias `/mcp`, which are served by this app. A failure in the
+    app's own lifespan would reach the server as Starlette's formatted traceback; answering the
+    startup here gives the log the variables and what is wrong with them, a line each, without the
+    values, and the server exits before taking a connection. Under `--reload` it is the worker that exits; the reloader
     stays, and starts a worker again on the next change to a source file.
     """
 
@@ -207,7 +212,7 @@ class _RefuseInvalidSettings:
 app.add_middleware(_RefuseInvalidSettings)
 
 # Set to True at the bottom of this module when the optional ``[mcp]`` extra (fastmcp) is installed
-# and an MCP endpoint has been mounted onto ``app`` at ``/mcp``. Read by the index page.
+# and an MCP endpoint has been mounted onto ``app`` at ``MCP_PREFIX`` and ``MCP_ALIAS_PREFIX``. Read by the index page.
 mcp_enabled = False
 
 log = logging.getLogger(__name__)
@@ -716,7 +721,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
-                    {"<li>MCP endpoint (streamable HTTP): <code>/mcp</code></li>" if mcp_enabled else ""}
+                    {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
                 <ul>
@@ -778,11 +783,22 @@ def version() -> JSONResponse:
 
     `mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at
     the bottom of this module, after the routes are declared. It is reported here because the
-    endpoint is optional -- an instance installed without the `[mcp]` extra has no `/mcp` route --
+    endpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --
     and a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP
-    transport means opening a session rather than asking a question.
+    transport means opening a session rather than asking a question. When it is enabled,
+    `mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and
+    `mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`
+    otherwise.
     """
-    return JSONResponse(content={"version": __version__, "api_version": API_VERSION, "mcp_enabled": mcp_enabled})
+    return JSONResponse(
+        content={
+            "version": __version__,
+            "api_version": API_VERSION,
+            "mcp_enabled": mcp_enabled,
+            "mcp_path": MCP_PREFIX if mcp_enabled else None,
+            "mcp_alias_path": MCP_ALIAS_PREFIX if mcp_enabled else None,
+        },
+    )
 
 
 # each endpoint's settings, by the request it takes them from
@@ -964,18 +980,23 @@ def _openapi() -> dict[str, Any]:
 app.openapi = _openapi  # ty: ignore[invalid-assignment]
 
 
-# OAuth discovery endpoints. The `/mcp` server is open (no auth), so MCP clients such as Claude
-# Desktop must receive a 404 here to conclude "no authorization server" and connect anonymously;
-# a 200 (e.g. from a catch-all serving HTML) makes them attempt -- and fail -- Dynamic Client
-# Registration. FastAPI already 404s unknown paths (including the resource-specific sub-paths like
-# `.../oauth-protected-resource/mcp`), but declaring these explicitly documents the no-auth contract
-# and keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
+# OAuth discovery endpoints. The MCP server (`/mcp/v1`, and `/mcp` as its alias) is open (no auth),
+# so MCP clients such as Claude Desktop must receive a 404 here to conclude "no authorization
+# server" and connect anonymously; a 200 (e.g. from a catch-all serving HTML) makes them attempt --
+# and fail -- Dynamic Client Registration. FastAPI already 404s unknown paths (including the
+# resource-specific sub-paths like `.../oauth-protected-resource/mcp/v1`, which RFC 9728 derives
+# from the endpoint's path), but declaring these explicitly documents the no-auth contract and
+# keeps it correct if a static/SPA catch-all is ever mounted ahead of these routes.
 # `include_in_schema=False` keeps them out of the OpenAPI schema so they do not become MCP tools.
-@app.get("/.well-known/oauth-authorization-server", include_in_schema=False)
-@app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
 def oauth_metadata_not_found() -> None:
-    """Return 404 for OAuth discovery so the open `/mcp` server is treated as no-auth."""
+    """Return 404 for OAuth discovery so the open MCP server is treated as no-auth."""
     raise HTTPException(status_code=404, detail="Not Found")
+
+
+for _discovery in ("oauth-authorization-server", "oauth-protected-resource"):
+    # the bare document, then the one for each MCP endpoint, as a client derives it from the URL it was given
+    for _resource in ("", MCP_PREFIX, MCP_ALIAS_PREFIX):
+        app.get(f"/.well-known/{_discovery}{_resource}", include_in_schema=False)(oauth_metadata_not_found)
 
 
 def _resolve_listed_network(provider: str, network: str, what: str) -> type[TimeseriesRequest] | StandaloneRequest:
@@ -1797,44 +1818,57 @@ def alerts(
 
 
 def _mount_mcp(rest_app: FastAPI) -> bool:
-    """Mount an MCP endpoint at ``/mcp`` onto ``rest_app``, if the optional ``[mcp]`` extra is present.
+    """Mount the MCP endpoint at ``/mcp/v1`` and its alias ``/mcp`` onto ``rest_app``, if ``[mcp]`` is installed.
 
     The MCP server (see :mod:`wetterdienst.ui.mcp`) is generated from the REST API's own routes, so
-    the ``/mcp`` transport stays in lockstep with the HTTP API, with a workflow ``instructions``
-    block and clean tool names layered on for agent usability. The MCP streamable-http session
-    manager runs via the sub-app's lifespan, which is *composed* with ``rest_app``'s existing
-    lifespan here (not replaced), so any current or future app startup/shutdown still runs; the
-    existing REST routes keep working with or without the lifespan running.
+    the MCP transport stays in lockstep with the HTTP API, with a workflow ``instructions``
+    block and clean tool names layered on for agent usability. ``/mcp/v1`` is the endpoint of the
+    contract version, and ``/mcp`` is an alias of the current one, as ``/api`` is of ``/api/v1``.
+    Both paths are routes to the one endpoint, so they share the session manager and its sessions
+    and the server is built once, and a tool answers alike on either (GH-3074). The MCP
+    streamable-http session manager runs via the sub-app's lifespan, which is *composed* with
+    ``rest_app``'s existing lifespan here (not replaced), so any current or future app
+    startup/shutdown still runs; the existing REST routes keep working with or without the
+    lifespan running.
 
     Returns ``True`` when the endpoint was mounted, ``False`` when the optional ``[mcp]`` extra is not
-    installed or the MCP server could not be built (so the ``/mcp`` route is strictly optional and a
+    installed or the MCP server could not be built (so the MCP routes are strictly optional and a
     build error never takes down the plain REST API).
     """
     try:
         from fastmcp.utilities.lifespan import combine_lifespans  # noqa: PLC0415
+        from starlette.routing import Route  # noqa: PLC0415
 
         from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-        mcp_app = build_mcp_server(rest_app).http_app(path="/mcp")
+        mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX)
     except ModuleNotFoundError as exc:
-        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no /mcp route.
+        # optional [mcp] extra (fastmcp, httpx2) not installed -> plain REST API, no MCP route.
         # Said out loud, because an instance missing /mcp for want of a dependency otherwise looks
         # exactly like one that was never meant to have it.
-        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without /mcp", exc.name)
+        log.info("No MCP endpoint: %s is not installed (optional [mcp] extra), continuing without it", exc.name)
         return False
     except Exception:
-        # never let an MCP build/version error take down the whole REST API; degrade to no /mcp
-        log.exception("Failed to build the MCP endpoint; continuing without /mcp")
+        # never let an MCP build/version error take down the whole REST API; degrade to no MCP route
+        log.exception("Failed to build the MCP endpoint; continuing without it")
         return False
 
-    # Add the /mcp route(s) to the existing app and compose the MCP session-manager lifespan with the
+    # Add the MCP route(s) to the existing app and compose the MCP session-manager lifespan with the
     # app's existing lifespan (rather than replacing it, which would drop any app startup/shutdown).
-    rest_app.router.routes.extend(mcp_app.router.routes)
+    # The alias is a second route to the pinned route's own endpoint: not a second `http_app`, whose
+    # lifespan would start a second session manager and enter the server's lifespan a second time
+    mcp_routes = list(mcp_app.router.routes)
+    rest_app.router.routes.extend(mcp_routes)
+    rest_app.router.routes.extend(
+        Route(MCP_ALIAS_PREFIX, endpoint=route.endpoint, methods=sorted(route.methods) if route.methods else None)
+        for route in mcp_routes
+        if isinstance(route, Route) and route.path == MCP_PREFIX
+    )
     rest_app.router.lifespan_context = combine_lifespans(
         rest_app.router.lifespan_context,
         mcp_app.router.lifespan_context,
     )
-    log.info("MCP endpoint mounted at /mcp")
+    log.info("MCP endpoint mounted at %s, and %s as its alias", MCP_PREFIX, MCP_ALIAS_PREFIX)
     return True
 
 
