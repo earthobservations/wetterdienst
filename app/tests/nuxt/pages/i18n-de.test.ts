@@ -69,7 +69,7 @@ describe('german (de) locale rendering', () => {
   it('renders the history page in German', async () => {
     registerEndpoint('/api/coverage', () => ({ dwd: { observation: {} } }))
     const wrapper = await mountSuspended(HistoryPage)
-    expect(wrapper.text()).toContain('Stationschronik')
+    expect(wrapper.text()).toContain('Stationsverlauf')
     expect(wrapper.text()).toContain('Bitte zuerst Auflösung und Datensatz wählen')
   })
 

@@ -49,7 +49,7 @@ from yarl import URL
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
-from wetterdienst.ui.core import timed_out
+from wetterdienst.ui.core import failure_status, timed_out
 from wetterdienst.util import network
 from wetterdienst.util.network import (
     _BLOB_CACHE_DIR,
@@ -3159,8 +3159,9 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
 
     Both are `ClientConnectorError`s, so they were caught with a refused connection and came back as
     `[]`: an empty directory, and for a provider that lists first an empty result with no hint of why.
-    The host answered, so the failure is raised -- as the SSL error underneath, which says why and
-    chains to neither the connection key's proxy password nor the request in the aiohttp error.
+    The host answered, so the failure is raised -- as a `DownloadError` (GH-3099) with the SSL error
+    underneath as its cause, which says why and chains to neither the connection key's proxy password
+    nor the request in the aiohttp error.
     """
     error = _tls_failure(kind, proxy=URL("http://user:secret@proxy:3128"), proxy_auth=_basic_auth())
     attempts = []
@@ -3174,15 +3175,20 @@ def test_a_listing_that_fails_on_tls_raises_rather_than_returning_no_files(
     with (
         stamina.set_testing(True, attempts=2),
         caplog.at_level(logging.INFO, logger="wetterdienst.util.network"),
-        pytest.raises(ssl.SSLError) as raised,
+        pytest.raises(DownloadError) as raised,
     ):
         list_remote_files_fsspec("https://example.com/tls/", Settings(cache_dir=tmp_path))
 
-    assert raised.value is error.os_error
+    # a download's TLS failure is this too (GH-3099): the SSL error underneath is its cause
+    assert raised.value.__cause__ is error.os_error
+    assert raised.value.url == "https://example.com/tls/"
     assert "secret" not in repr(raised.value)
+    assert "secret" not in repr(raised.value.__cause__)
     # nothing to walk to the aiohttp error, whose repr and traceback hold the proxy password and the request
-    assert raised.value.__cause__ is None
     assert raised.value.__context__ is None
+    assert raised.value.__cause__.__cause__ is None
+    assert raised.value.__cause__.__context__ is None
+    assert not isinstance(raised.value, NoInternetError)
     # the SSL error names no host, so the log does
     assert "Failed to list https://example.com/tls/." in caplog.text
     # asked once, though the retry allows more: the same server presents the same certificate (GH-2618)
@@ -3440,13 +3446,13 @@ def test_an_authorization_header_aiohttp_adds_itself_is_kept_out_of_the_error(
 
 
 @pytest.mark.parametrize("kind", ["certificate", "handshake"])
-def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
+def test_a_directory_listing_that_fails_on_tls_raises_a_download_error_caused_by_the_ssl_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     kind: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A TLS failure in a directory listing leaves as the `ssl.SSLError` underneath, not the aiohttp error (GH-2590).
+    """A TLS failure in a directory listing is a `DownloadError` caused by the `ssl.SSLError` (GH-2590, GH-3099).
 
     The aiohttp error's repr renders the connection key, and with it the password of a proxy named in
     `HTTPS_PROXY`; stamina logs that repr on a retry and providers format it into their own messages.
@@ -3465,14 +3471,17 @@ def test_a_directory_listing_that_fails_on_tls_raises_the_bare_ssl_error(
     with (
         stamina.set_testing(True, attempts=2),
         caplog.at_level(logging.DEBUG),
-        pytest.raises(ssl.SSLError) as raised,
+        pytest.raises(DownloadError) as raised,
     ):
         list_remote_directory_fsspec("https://example.com/tls/", Settings(cache_dir=tmp_path))
 
-    assert raised.value is error.os_error
+    assert raised.value.__cause__ is error.os_error
+    assert raised.value.url == "https://example.com/tls/"
     assert "secret" not in repr(raised.value)
-    assert raised.value.__cause__ is None
+    assert "secret" not in repr(raised.value.__cause__)
     assert raised.value.__context__ is None
+    assert raised.value.__cause__.__cause__ is None
+    assert raised.value.__cause__.__context__ is None
     # the SSL error names no host, so the log does
     assert "Failed to list https://example.com/tls/." in caplog.text
     # asked once, though the retry allows more: the same server presents the same certificate (GH-2618)
@@ -4115,10 +4124,15 @@ def test_a_listing_asks_once_for_a_tls_failure(
     monkeypatch.setattr(HTTPFileSystem, "find", fail)
     monkeypatch.setattr(HTTPFileSystem, "ls", fail)
 
-    with stamina.set_testing(True, attempts=3), pytest.raises(ssl.SSLError):
+    with stamina.set_testing(True, attempts=3), pytest.raises(DownloadError) as raised:
         function("https://example.com/tls/", Settings(cache_dir=tmp_path))
 
     assert len(attempts) == 1
+    assert isinstance(raised.value.__cause__, ssl.SSLError)
+    assert raised.value.__context__ is None
+    # a TLS failure is no timeout, and no bug of ours: the REST API answers it a 502, not a 500 (GH-3099)
+    assert not timed_out(raised.value)
+    assert failure_status(raised.value) == 502
 
 
 @pytest.mark.parametrize("function", [list_remote_files_fsspec, list_remote_directory_fsspec])

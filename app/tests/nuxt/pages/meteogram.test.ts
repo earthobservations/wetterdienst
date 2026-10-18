@@ -405,7 +405,7 @@ describe('meteogram Page failures in the active language', () => {
   it.each([
     ['en', 'Backend error 422: stations: Unknown station', 'Backend error 500 Internal Server Error'],
     ['de', 'Backend-Fehler 422: stations: Unknown station', 'Backend-Fehler 500 Internal Server Error'],
-    ['fr', 'Erreur du backend 422 : stations: Unknown station', 'Erreur du backend 500 Internal Server Error'],
+    ['fr', 'Erreur du backend 422\u00A0: stations: Unknown station', 'Erreur du backend 500 Internal Server Error'],
     ['pl', 'Błąd backendu 422: stations: Unknown station', 'Błąd backendu 500 Internal Server Error'],
   ])('names the backend\'s error in %s', async (language, withDetail, withStatus) => {
     await inLanguage(language)

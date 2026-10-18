@@ -27,6 +27,24 @@ The one deliberate exception is `codeql.yml`. Code scanning is a merge requireme
 ruleset, and that requirement is reported per pull request - a run that never happens leaves the
 pull request waiting for a result rather than passing it, so CodeQL keeps running unconditionally.
 
+## Pinning
+
+Every `uses:` line is pinned to the full commit SHA of a release, with the release tag in a trailing
+comment (`uses: actions/checkout@<sha> # v7.0.1`), and the base images of `docker/` carry their
+digest after the tag (`python:3.15-slim-trixie@sha256:...`). A tag is something the owner of an
+action can move to other code; a commit and a digest are not. Dependabot (`github-actions` and
+`docker` in `.github/dependabot.yml`) reads the comment and the tag and proposes the next release
+with its new SHA and digest, so the pin does not freeze the version. zizmor's `unpinned-uses` rule
+is on and fails a new action that is referenced by a tag or a branch. When you add an action,
+resolve the tag with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (an annotated tag has to be
+dereferenced to its commit) and write the SHA and the tag. The one thing left on a tag is the
+`mcr.microsoft.com/playwright` job container of `app-accessibility.yml`, which Dependabot does not
+read and which is kept in step with `@playwright/test` by hand.
+
+`vulnerable.yml` is path-filtered for pull requests (only the manifest and the lock change what
+`uv audit` finds) and also runs weekly on `main`, because an advisory is published against a lock
+that does not change.
+
 ## Docs CI
 
 `docs.yml` builds the Sphinx pages (`docs/conf.py`) with warnings as errors and the notebook pages not
