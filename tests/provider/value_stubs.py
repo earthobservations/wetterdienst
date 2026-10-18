@@ -1029,15 +1029,24 @@ def _knmi_serve(monkeypatch: pytest.MonkeyPatch, payloads: dict[str, bytes]) -> 
 def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # a file per day for the whole network (here one station): a missing observation is the NaN _FillValue and a trace
     # of precipitation a -1 in RH
+    # The sunshine duration SQ has the trace code of RH, "(-1 for <0.05 hour)", which the daily export of the
+    # stations 260, 240, 344, 235, 270 and 310 writes 246 times since 1960, and the mean cloud cover NG "9=sky
+    # invisible" (GH-3123); both are the headers of https://www.daggegevens.knmi.nl/klimatologie/daggegevens, read
+    # 2026-10-18
     _knmi_serve(
         monkeypatch,
         {
-            "20240101": _knmi_netcdf({"TG": 3.2, "RH": 1.4}),
-            "20240102": _knmi_netcdf({"TG": float("nan"), "RH": -1.0}),
+            "20240101": _knmi_netcdf({"TG": 3.2, "RH": 1.4, "SQ": 2.1, "NG": 7.0}),
+            "20240102": _knmi_netcdf({"TG": float("nan"), "RH": -1.0, "SQ": -1.0, "NG": 9.0}),
         },
     )
     request = KnmiObservationRequest(
-        parameters=[("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "precipitation_amount")],
+        parameters=[
+            ("daily", "data", "temperature_air_mean_2m"),
+            ("daily", "data", "precipitation_amount"),
+            ("daily", "data", "sunshine_duration"),
+            ("daily", "data", "cloud_cover_total"),
+        ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
         settings=_settings(auth={"knmi": "stub"}),
@@ -1049,17 +1058,23 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # DD is "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (GH-2850): a bearing at 00 UTC, the code for
     # a variable wind at 01 UTC (hourly-observations-validated-20261012-08.nc has Horst at 990 with FF 1.0 m/s) and the
-    # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue
+    # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue. The cloud cover N is in octants and "9=sky
+    # invisible" (GH-3123): 941 of the 87,696 hours of the stations 260, 240 and 344 from 2015 to 2024 in the hourly
+    # export of https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, read 2026-10-18
     _knmi_serve(
         monkeypatch,
         {
-            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0}),
-            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0}),
-            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0}),
+            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0, "N": 6.0}),
+            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0, "N": 9.0}),
+            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0, "N": 8.0}),
         },
     )
     request = KnmiObservationRequest(
-        parameters=[("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_direction_last_10min")],
+        parameters=[
+            ("hourly", "data", "temperature_air_2m"),
+            ("hourly", "data", "wind_direction_last_10min"),
+            ("hourly", "data", "cloud_cover_total"),
+        ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 1, 2),
         settings=_settings(auth={"knmi": "stub"}),
@@ -1499,19 +1514,31 @@ STUBS = [
         "knmi/observation daily/data",
         _knmi_daily,
         reading=("temperature_air_mean_2m", 3.2),
-        sentinels=(("precipitation_amount", -1.0),),
-        tokens=(("temperature_air_mean_2m", "NaN", None), ("precipitation_amount", "-1", 0.0)),
+        # the sunshine duration is converted from hours to seconds and the cloud cover from octants to a fraction
+        sentinels=(("precipitation_amount", -1.0), ("sunshine_duration", -3600.0), ("cloud_cover_total", 1.125)),
+        tokens=(
+            ("temperature_air_mean_2m", "NaN", None),
+            ("precipitation_amount", "-1", 0.0),
+            ("sunshine_duration", "-1", 0.0),
+            ("cloud_cover_total", "9", None),
+        ),
     ),
     ValueStub(
         "knmi/observation hourly/data",
         _knmi_hourly,
         reading=("wind_direction_last_10min", 250.0),
         # 0 is a calm and 990 a variable wind, neither a bearing (GH-2850)
-        sentinels=(("wind_direction_last_10min", 0.0), ("wind_direction_last_10min", 990.0)),
+        # the octants are converted to a fraction on their way
+        sentinels=(
+            ("wind_direction_last_10min", 0.0),
+            ("wind_direction_last_10min", 990.0),
+            ("cloud_cover_total", 1.125),
+        ),
         tokens=(
             ("temperature_air_2m", "NaN", None),
             ("wind_direction_last_10min", "0", None),
             ("wind_direction_last_10min", "990", None),
+            ("cloud_cover_total", "9", None),
         ),
     ),
     ValueStub(
