@@ -16,6 +16,8 @@ import pytest
 
 from tests.ui.openapi_snapshot import GENERATED_WITH, SNAPSHOT, build_document, installed_versions, locked_versions
 from wetterdienst import __version__
+from wetterdienst.ui.response_metadata import API_VERSION
+from wetterdienst.ui.restapi import API_PREFIX
 
 _REGENERATE = (
     "The OpenAPI document served by the REST API is not tests/ui/openapi.snapshot.json. If the change is "
@@ -187,3 +189,12 @@ def test_the_pages_and_the_image_say_their_media_type() -> None:
         "image/svg+xml",
         "application/pdf",
     }
+
+
+def test_the_api_version_is_in_the_info_and_in_the_paths() -> None:
+    """`info.x-api-version` is the version of the contract, the one of `/api/v<version>` and of the metadata block."""
+    document = build_document()
+
+    assert document["info"]["x-api-version"] == API_VERSION == "1"
+    assert f"/api/v{document['info']['x-api-version']}" == API_PREFIX
+    assert all(path.startswith(f"{API_PREFIX}/") for path in document["paths"] if path.startswith("/api"))

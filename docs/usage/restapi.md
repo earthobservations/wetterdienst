@@ -252,8 +252,9 @@ is that document as last reviewed: a test fails when the served document is not 
 `uv run poe openapi:snapshot` writes it anew, for the diff to be read in the pull request that changes the contract.
 
 - **`info`** is the project's: the title, the MIT licence, the issue tracker as the contact, and the `version` of
-  wetterdienst that serves the document. The version of the API is in the paths (`/api/v1`) and in
-  `GET /api/version`. The `servers` are the hosted instance and the address `wetterdienst restapi` listens on.
+  wetterdienst that serves the document, and `info.x-api-version` is the version of the API (`1`, the same as
+  the `v1` of the paths, `api_version` of `GET /api/version` and of the `metadata` block, and the
+  `X-Wetterdienst-API-Version` header). The `servers` are the hosted instance and the address `wetterdienst restapi` listens on.
   There are no terms of service: the data is published under the terms of each provider, which the `metadata` of an
   answer and `providers` state.
 - **Tags** group the operations: `Catalogue` (`coverage`, `providers`, `glossary`, `auth`), `Stations` (`stations`,

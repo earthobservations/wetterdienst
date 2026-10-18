@@ -3,7 +3,7 @@
   "info": {
     "title": "Wetterdienst",
     "summary": "Open weather data for humans",
-    "description": "Weather, climate and hydrology data from national weather services (DWD, NOAA, ECCC and many more) through\none interface: find a station with `stations`, read its measurements with `values`, or estimate a point\nbetween stations with `interpolate` and `summarize`.\n\n**Version.** This document describes version 1 of the API, served under `/api/v1`;\n`/api` is an alias of the current version. `info.version` is the version of wetterdienst that serves it.\nThe `operationId` of an operation is stable: the name of its handler, then its path without the version and\nits method (`values_api_values_get`), and the MCP tools are found by it. A change to one is a break of the\nAPI version, as a removed path, parameter or member is.\n\n**Answers.** The JSON and GeoJSON of the data routes carry a `metadata` block next to the data: the\nprovider with its licence and the credit line to give, the request as resolved, counts and warnings.\n\n**Errors.** Every error is an `application/problem+json` document as RFC 9457 describes it (`Problem`),\nwhose `type` names the kind of error: read that, not the `detail`. A 502, 503 or 504 carries `Retry-After`.\n\n**Licence.** The code is MIT. The data is published under the terms of its provider, which the `metadata`\nof every answer and `providers` state.\n",
+    "description": "Weather, climate and hydrology data from national weather services (DWD, NOAA, ECCC and many more) through\none interface: find a station with `stations`, read its measurements with `values`, or estimate a point\nbetween stations with `interpolate` and `summarize`.\n\n**Version.** This document describes version 1 of the API, served under `/api/v1`;\n`/api` is an alias of the current version. `info.version` is the version of wetterdienst that serves it,\n`info.x-api-version` that of the API.\nThe `operationId` of an operation is stable: the name of its handler, then its path without the version and\nits method (`values_api_values_get`), and the MCP tools are found by it. A change to one is a break of the\nAPI version, as a removed path, parameter or member is.\n\n**Answers.** The JSON and GeoJSON of the data routes carry a `metadata` block next to the data: the\nprovider with its licence and the credit line to give, the request as resolved, counts and warnings.\n\n**Errors.** Every error is an `application/problem+json` document as RFC 9457 describes it (`Problem`),\nwhose `type` names the kind of error: read that, not the `detail`. A 502, 503 or 504 carries `Retry-After`.\n\n**Licence.** The code is MIT. The data is published under the terms of its provider, which the `metadata`\nof every answer and `providers` state.\n",
     "contact": {
       "name": "wetterdienst",
       "url": "https://github.com/earthobservations/wetterdienst/issues"
@@ -13,7 +13,8 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.159.0"
+    "version": "0.159.0",
+    "x-api-version": "1"
   },
   "servers": [
     {

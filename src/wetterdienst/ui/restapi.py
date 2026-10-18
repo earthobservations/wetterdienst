@@ -206,7 +206,8 @@ app = FastAPI(
         between stations with `interpolate` and `summarize`.
 
         **Version.** This document describes version {API_VERSION} of the API, served under `/api/v{API_VERSION}`;
-        `/api` is an alias of the current version. `info.version` is the version of wetterdienst that serves it.
+        `/api` is an alias of the current version. `info.version` is the version of wetterdienst that serves it,
+        `info.x-api-version` that of the API.
         The `operationId` of an operation is stable: the name of its handler, then its path without the version and
         its method (`values_api_values_get`), and the MCP tools are found by it. A change to one is a break of the
         API version, as a removed path, parameter or member is.
@@ -1240,6 +1241,8 @@ def _openapi() -> dict[str, Any]:
     schema = FastAPI.openapi(app)
     if schema is kept:
         return schema
+    # the version of the contract, next to `info.version` which is the package's: an extension of the Info object
+    schema["info"]["x-api-version"] = API_VERSION
     _declare_problem_schema(schema)
     _declare_list_parameters(schema)
     try:
