@@ -159,7 +159,8 @@ def test_dwd_observation_data_dates(default_settings: Settings) -> None:
         settings=default_settings,
     )
     assert request.start == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
-    assert request.end == dt.datetime(1971, 1, 1, tzinfo=ZoneInfo("UTC"))
+    # a date without a time is the whole day (GH-3133)
+    assert request.end == dt.datetime(1971, 1, 1, 23, 59, 59, 999999, tzinfo=ZoneInfo("UTC"))
     assert request.periods == {Period.HISTORICAL}
 
 
@@ -570,8 +571,8 @@ def test_request_keeps_the_window_under_its_new_names(default_settings: Settings
     stations = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     assert (stations.start, stations.end) == (request.start, request.end)
 
@@ -650,25 +651,33 @@ def test_request_periods_error_lists_the_valid_values() -> None:
     assert str(raised.value) == "foo could not be parsed from Period. Valid values: historical, recent, now, future"
 
 
-@pytest.mark.parametrize("bound", [2020, 2020.5, True, dt.date(2020, 1, 1), b"2020-01-01", ["2020-01-01"]])
+@pytest.mark.parametrize("bound", [2020, 2020.5, True, b"2020-01-01", ["2020-01-01"]])
 @pytest.mark.parametrize("argument", ["start", "end"])
 def test_request_refuses_a_date_that_is_neither_a_string_nor_a_datetime(argument: str, bound: object) -> None:
     """Test that `start=2020` is a TypeError saying so, not an AttributeError about tzinfo (GH-2636)."""
-    with pytest.raises(TypeError, match=rf"{argument} must be a str or a datetime, got {type(bound).__name__}"):
+    with pytest.raises(TypeError, match=rf"{argument} must be a str, a date or a datetime, got {type(bound).__name__}"):
         DwdObservationRequest(parameters="daily/kl", **{argument: bound})  # ty: ignore[invalid-argument-type]
     with pytest.raises(TypeError, match=argument):
         TimeseriesRequest.convert_timestamps(**{"start": None, "end": None, argument: bound})  # ty: ignore[invalid-argument-type]
 
 
 def test_request_end_alone_is_the_whole_window() -> None:
-    """Test that `end` without `start` is one instant, as `start` without `end` is, and as the CLI reads it (GH-2636).
+    """Test that `end` without `start` is the window `start` without `end` is, as the CLI reads it (GH-2636, GH-3133).
 
-    Refusing it would break `--end` of the command line, which is documented and tested to be a
-    single-point date, and the two bounds would no longer be read alike.
+    Refusing it would break `--end` of the command line, which is documented and tested to be read as
+    `--timestamp`, and the two bounds would no longer be read alike. A date is its whole day, an instant
+    one instant.
     """
+    day = (
+        dt.datetime(2020, 1, 5, tzinfo=ZoneInfo("UTC")),
+        dt.datetime(2020, 1, 5, 23, 59, 59, 999999, tzinfo=ZoneInfo("UTC")),
+    )
     request = DwdObservationRequest(parameters="daily/kl", end="2020-01-05")
-    assert request.start == request.end == dt.datetime(2020, 1, 5, tzinfo=ZoneInfo("UTC"))
+    assert (request.start, request.end) == day
     assert DwdObservationRequest(parameters="daily/kl", start="2020-01-05").end == request.end
+
+    instant = DwdObservationRequest(parameters="daily/kl", end="2020-01-05T00:00:00")
+    assert instant.start == instant.end == dt.datetime(2020, 1, 5, tzinfo=ZoneInfo("UTC"))
 
 
 def test_discover_refuses_a_resolution_or_dataset_the_provider_does_not_have() -> None:
@@ -762,9 +771,9 @@ def test_station_filters_build_the_station_index_once(
     kwargs: dict,
     expected: list[str],
 ) -> None:
-    """Test each station filter builds the station index once and hands that frame to df_all (GH-2475).
+    """Test each station filter builds the station index once and hands that frame to `_df_all` (GH-2475).
 
-    They built it again for the result's df_all, and filter_by_distance four times. df_all stays
+    They built it again for the result's `_df_all`, and filter_by_distance four times. `_df_all` stays
     the full station list as all() gives it: filter_by_rank's distance column is not added to it.
     """
     built = _count_station_index_builds(monkeypatch)
@@ -774,7 +783,7 @@ def test_station_filters_build_the_station_index_once(
 
     assert len(built) == 1
     assert result.df.get_column("station_id").to_list() == expected
-    assert_frame_equal(result.df_all, request.all().df)
+    assert_frame_equal(result._df_all, request.all().df)  # noqa: SLF001
 
 
 def test_filter_by_distance_without_stations_finds_none(
@@ -792,7 +801,7 @@ def test_filter_by_distance_without_stations_finds_none(
     result = request.filter_by_distance(latlon=(51.05, 13.74), distance=10)
 
     assert result.df.is_empty()
-    assert result.df_all.is_empty()
+    assert result._df_all.is_empty()  # noqa: SLF001
 
 
 @pytest.mark.parametrize(
@@ -814,7 +823,7 @@ def test_estimates_build_the_station_index_once(
     """Test interpolate and summarize build the station index once, where they built it twice (GH-2506).
 
     The real core runs, with the stations' values read as none. It ranks the stations with
-    `filter_by_distance` and the request builds its frame of the stations taken (`df_all`) off the
+    `filter_by_distance` and the request builds its frame of the stations taken (`_df_all`) off the
     same station list, which each used to build on its own (GH-2475 took six builds to two, and
     `_by_station_id` read the position off a third).
     """
@@ -834,7 +843,7 @@ def test_estimates_build_the_station_index_once(
     result = getattr(request, method)(**kwargs)
 
     assert len(built) == 1
-    assert_frame_equal(result.stations.df_all, request.all().df)
+    assert_frame_equal(result.stations._df_all, request.all().df)  # noqa: SLF001
 
 
 def test_interpolate_refuses_a_point_utm_cannot_place_before_building_the_station_index(

@@ -147,7 +147,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         if self.sr.options.humanize:
             hpm = self._create_humanized_parameters_mapping()
         for (station_id,), df_station_meta in self.sr.df.group_by(["station_id"], maintain_order=True):
-            if stations_collected == self.sr.rank:
+            if stations_collected == self.sr._rank:  # noqa: SLF001
                 break
             station_id = cast("str", station_id)
             if self._begins_after_window(df_station_meta):

@@ -204,8 +204,8 @@ def _stations_without_histories() -> StationsResult:
     return _StationsWithoutHistories(
         request=DwdObservationRequest(parameters=[("daily", "climate_summary")]),
         df=df,
-        df_all=df,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     )
 
 
@@ -385,7 +385,7 @@ def test_history_network_without_history_is_a_usage_error(
         # the station lookup succeeds; MOSMIX has no history to collect for it
         request = DwdMosmixRequest(parameters=[("hourly", "large")])
         return StationsResult(
-            request=request, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.BY_STATION_ID
+            request=request, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.BY_STATION_ID
         )
 
     monkeypatch.setattr("wetterdienst.ui.cli.get_stations", get_stations)

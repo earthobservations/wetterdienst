@@ -549,3 +549,17 @@ def options_from_mapping(given: Mapping[str, Any], base: Options | None = None) 
     if "geo_station_distance" in given:
         _checked_geo_station_distance_keys(given["geo_station_distance"], "", log)
     return options
+
+
+def resolve_options(options: Options | Mapping[str, Any] | None) -> Options:
+    """Settle the options of a request from what it was given.
+
+    None gives the options of the environment and ``.env``. A mapping gives `options_from_mapping`,
+    and an `Options` is used as it is.
+    """
+    if options is None:
+        with _quiet():
+            return Options()
+    if isinstance(options, Options):
+        return options
+    return options_from_mapping(options)

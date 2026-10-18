@@ -181,8 +181,8 @@ def test_wsv_timeseries_meta_is_not_cached_when_the_listing_is_unreachable(monke
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     settings = request.settings
@@ -330,8 +330,8 @@ def test_wsv_unmapped_equidistance_is_not_served_under_a_neighbouring_resolution
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     values._timeseries_meta_cache = {  # noqa: SLF001
