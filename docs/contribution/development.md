@@ -72,6 +72,22 @@ runs the selection on its own, which is how CI asks the question: everything `-m
 selects, less `explorer`, which no job here runs and which nothing in the tree is marked with. It
 runs serially, two of those tests being marked `cflake`.
 
+## The contract snapshots
+
+Three contracts are committed as snapshots that a test holds the code to: the OpenAPI document of the REST API
+(`tests/ui/openapi.snapshot.json`), the `--help` of every command (`tests/ui/cli/help.snapshot.txt`) and the public
+surface of the Python API (`tests/public_surface.snapshot.json`). A change to an option, a parameter or a signature
+fails its test until the snapshot is regenerated in the same pull request, where the diff is read:
+
+```bash
+uv run poe contracts:snapshot   # all three; or openapi:snapshot, cli:snapshot, surface:snapshot
+```
+
+The REST contract is also compared with the document of the last release (`tests/ui/openapi.baseline.json`), and a
+removed or renamed path, parameter, enum member or response member, a changed type or a status that is gone fails
+that test even with the snapshot regenerated. See `.github/RELEASE_STRATEGY.md` for how a break that is meant is
+approved and how the baseline is refreshed.
+
 ## Build OCI images
 
 The image is built from the sources in the working tree (`docker/Dockerfile` installs them with
