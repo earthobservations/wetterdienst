@@ -62,8 +62,7 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest" ]
-        # h5py, duckdb, numcodecs, pyyaml, httptools and bitarray have no 3.15 wheel in the lock
-        # and are built from source
+        # h5py, duckdb, numcodecs and pyyaml have no 3.15 wheel and are built from source
         python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
           - os: "windows-latest"
@@ -200,9 +199,9 @@ jobs:
 
     strategy:
       # the guard reasons about an interpreter difference, so the version it names is run here: 3.12
-      # is the one that calls a v4-mapped loopback address not a loopback. 3.11 and 3.14 are the
-      # oldest and newest final release the project supports, 3.15 the release candidate. The
-      # matrix above covers all of them, but it is `continue-on-error`, so a regression in that
+      # is the one that calls a v4-mapped loopback address not a loopback. 3.11 is the oldest and
+      # 3.15 (released on 2026-10-09) the newest release the project supports, 3.14 the one before.
+      # The matrix above covers all of them, but it is `continue-on-error`, so a regression in that
       # branch would block nothing
       fail-fast: false
       matrix:
