@@ -155,7 +155,7 @@ def _request(options: Options | None = None) -> DwdObservationRequest:
 
 def _stations(request: DwdObservationRequest, *station_ids: str) -> StationsResult:
     df = _stations_frame(*station_ids)
-    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
 
 
 @pytest.fixture

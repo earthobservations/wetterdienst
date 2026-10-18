@@ -25,19 +25,19 @@
 
 | name                              | original name | description                                          | unit | constraints |
 |-----------------------------------|---------------|------------------------------------------------------|------|-------------|
-| {term}`quality_wind` | qn_3 | Quality level of the following columns. | -             | - |
+| {term}`quality_wind` | qn_3 | Quality level of the following columns. | - | - |
 | {term}`wind_gust_max` | fx | Daily maximum of windgust. | m/s | >=0 |
-| {term}`wind_speed` | fm | Daily mean of wind velocity. | m/s | >=0 |
-| {term}`quality_general` | qn_4 | Quality level of the following columns. | -             | - |
+| {term}`wind_speed_mean` | fm | Daily mean of wind velocity. | m/s | >=0 |
+| {term}`quality_general` | qn_4 | Quality level of the following columns. | - | - |
 | {term}`precipitation_amount` | rsk | Daily precipitation height. | mm | >=0 |
 | {term}`precipitation_form` | rskf | Precipitation form. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |
 | {term}`snow_depth` | shk_tag | Daily snow depth. | cm | >=0 |
-| {term}`cloud_cover_total` | nm | Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | 1/8 | >=0,<=8 |
-| {term}`pressure_vapor` | vpm | Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
-| {term}`pressure_air_site` | pm | Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
+| {term}`cloud_cover_total_mean` | nm | Daily mean of cloud cover: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | 1/8 | >=0,<=8 |
+| {term}`pressure_vapor_mean` | vpm | Daily mean of vapor pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
+| {term}`pressure_air_site_mean` | pm | Daily mean of pressure: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | hPa | >=0 |
 | {term}`temperature_air_mean_2m` | tmk | Daily mean of temperature: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, TT1 to TT3: TMK=(TT1+TT2+(TT3*2))/4; 4 or 8 at some). | °C | - |
-| {term}`humidity_relative` | upm | Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | % | >=0,<=100 |
+| {term}`humidity_relative_mean` | upm | Daily mean of relative humidity: the arithmetic mean of at least 21 hourly values, in earlier periods the mean of the observation terms (3 terms at most stations, 4 or 8 at some). | % | >=0,<=100 |
 | {term}`temperature_air_max_2m` | txk | Daily maximum of temperature at 2 m height. | °C | - |
 | {term}`temperature_air_min_2m` | tnk | Daily minimum of temperature at 2m height. | °C | - |
 | {term}`temperature_air_min_0_05m` | tgk | Daily minimum of air temperature at 5 cm above ground. | °C | - |

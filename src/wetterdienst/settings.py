@@ -13,31 +13,27 @@ import os
 import platform
 import re
 import shutil
-import sys
 import tempfile
 import threading
-import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Self
+from typing import TYPE_CHECKING, Annotated, Any
 
 import platformdirs
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    PrivateAttr,
     SecretStr,
     ValidationError,
     field_validator,
+    model_validator,
 )
 from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
 
 from wetterdienst.options import (
     Options,
     _decode_nested_as_json_would,
-    _quiet,
-    options_from_mapping,
 )
 from wetterdienst.util.hosts import normalize_host
 
@@ -442,120 +438,11 @@ def _redact_client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
-#: the modules that are no caller of the shim: wetterdienst itself, and the libraries it goes through
-_SKIPPED_MODULES = ("wetterdienst", "pydantic", "pydantic_settings")
-
-#: the ``ts_*`` settings the settings carried until options took them over (GH-2639), by the name of
-#: the option each became. Written out, so that an option added later is not a keyword that never
-#: existed; a test holds the names to the fields of `Options`. Still accepted, with a warning, until
-#: they are dropped for good
-_REMOVED_SETTINGS: dict[str, str] = {
-    f"ts_{name}": name
-    for name in (
-        "humanize",
-        "shape",
-        "convert_units",
-        "unit_targets",
-        "skip_empty",
-        "skip_threshold",
-        "skip_criteria",
-        "drop_nulls",
-        "geo_station_distance_homogeneous",
-        "geo_station_distance_heterogeneous",
-        "geo_station_distance",
-        "geo_station_distance_resolution_factors",
-        "geo_use_nearby_station_distance",
-        "geo_min_gain_of_value_pairs",
-        "geo_num_additional_stations",
+def _removed_ts_settings(names: Iterable[object]) -> list[str]:
+    """Return the names that are ``ts_*`` settings Settings had until options took them over (GH-2639, GH-3128)."""
+    return sorted(
+        name for name in names if isinstance(name, str) and name.startswith("ts_") and name[3:] in Options.model_fields
     )
-}
-#: the members derived from them, which `Options` has by the same name
-_REMOVED_MEMBERS: dict[str, str] = {
-    f"ts_{name}": name
-    for name in ("tidy", "drop_nulls_effective", "geo_station_distance_for", "geo_station_distance_resolution_factor")
-}
-
-
-def _is_skipped(module: object) -> bool:
-    """Tell whether a frame of this module, by its ``__name__``, is no caller of the shim."""
-    return isinstance(module, str) and any(
-        module == skipped or module.startswith(f"{skipped}.") for skipped in _SKIPPED_MODULES
-    )
-
-
-def _caller_stacklevel() -> int:
-    """Return the stacklevel, for `_warn_removed`, that points at the code outside wetterdienst and pydantic.
-
-    The shim is reached through `__init__`, `model_validate` (which a request calls for settings
-    given as a dict), `__getattr__` and `__setattr__`, some of them through frames of pydantic and
-    of the generated dataclass `__init__`. A warning attributed to one of those is not shown by
-    default, which shows a `DeprecationWarning` only for code in ``__main__``. The frames are told
-    by the module they run in and not by their file, which is none for ``python -c`` or a REPL.
-    """
-    level = 2
-    frame = sys._getframe(2)  # noqa: SLF001
-    while frame.f_back is not None and _is_skipped(frame.f_globals.get("__name__")):
-        level += 1
-        frame = frame.f_back
-    return level
-
-
-def _warn_removed(name: str) -> None:
-    """Warn that a ``ts_*`` setting is deprecated and what to use instead."""
-    if name in _REMOVED_MEMBERS:
-        use = f"read request.options.{_REMOVED_MEMBERS[name]}"
-    else:
-        option = _REMOVED_SETTINGS[name]
-        use = f"set options=Options({option}=...) on the request and read request.options.{option}"
-    warnings.warn(
-        f"the setting '{name}' is deprecated: it is an option of the request now; {use}. "
-        "The WD_TS_* variables are unchanged",
-        DeprecationWarning,
-        stacklevel=_caller_stacklevel(),
-    )
-
-
-def resolve_options(options: Options | Mapping[str, Any] | None, settings: Settings) -> Options:
-    """Settle the options of a request from what it was given.
-
-    None gives the options the removed ``ts_*`` settings made, where the settings were given or
-    assigned any, and otherwise those of the environment. A mapping gives `options_from_mapping`,
-    and an `Options` is used as it is.
-
-    Options given beside settings that carry ``ts_*`` settings of their own are refused: one of the
-    two would be ignored, and which one is not a thing to leave a caller to guess. What the settings
-    carry is compared with the options of the environment and ``.env``, so an operator's ``WD_TS_*``
-    never counts against a caller who passes options. Options that are the very ones the settings
-    carry are no conflict, which is what a request copied with `dataclasses.replace` gives.
-
-    Raises:
-        ValueError: Where both are given.
-
-    """
-    carried = settings._ts_options  # noqa: SLF001
-    if options is None:
-        return carried if carried is not None else Options()
-    baseline = None
-    if isinstance(options, Options):
-        given = options
-    else:
-        with _quiet():
-            baseline = Options()
-        given = options_from_mapping(options, baseline)
-    if carried is None or given.model_dump() == carried.model_dump():
-        return given
-    if baseline is None:
-        with _quiet():
-            baseline = Options()
-    baseline_dump = baseline.model_dump()
-    differing = [f"ts_{name}" for name, value in carried.model_dump().items() if value != baseline_dump[name]]
-    if differing:
-        msg = (
-            f"the request was given options and settings that carry {', '.join(differing)}; "
-            "set the request's options through options= alone"
-        )
-        raise ValueError(msg)
-    return given
 
 
 class Settings(BaseSettings):
@@ -613,9 +500,6 @@ class Settings(BaseSettings):
     # is a 400. Empty: any, which is what a server behind a proxy wants. `wetterdienst restapi` with a loopback
     # `--listen` sets it to the loopback names for its own process unless it is given
     restapi_allowed_hosts: Annotated[tuple[str, ...], NoDecode] = Field(default=())
-    #: what the removed ``ts_*`` settings were given or assigned as, laid over the options of the
-    #: environment. `None` until one is: a request then takes the options of the environment alone
-    _ts_options: Options | None = PrivateAttr(default=None)
 
     @classmethod
     def settings_customise_sources(
@@ -639,7 +523,7 @@ class Settings(BaseSettings):
         # misspelt setting or a value of the wrong type is reported where it is written (GH-3042).
         # `BaseSettings.__init__` takes `**values: Any`, which hides them; the one below does the work.
         # `tests/test_settings.py` holds this signature to `Settings.model_fields`. A field takes what its
-        # validator coerces to it, and the removed ``ts_*`` settings are left out.
+        # validator coerces to it. A ``ts_*`` setting is refused (`refuse_removed_ts_settings`), so it is no argument.
         def __init__(
             self,
             /,
@@ -659,77 +543,29 @@ class Settings(BaseSettings):
             restapi_allowed_hosts: str | list[str] | tuple[str, ...] = ...,
         ) -> None:
             """Build the settings from the fields, which the environment and `.env` fill where they are not given."""
-    else:
 
-        def __init__(self, /, **values: Any) -> None:  # noqa: ANN401
-            """Build the settings, taking the removed ``ts_*`` settings given as the options they became (GH-2639).
-
-            They are no fields of the settings any more, and the environment's ``WD_TS_*`` is `Options`'
-            to read, so this is only what a caller wrote out: ``Settings(ts_shape="wide")``. They are
-            removed from the input before the settings validate it, so that they are not refused as
-            settings that do not exist. Taken here and not by a validator, which would turn an error of
-            a default (the cache directory) into one of the validation.
-            """
-            removed = {name: values.pop(name) for name in tuple(values) if name in _REMOVED_SETTINGS}
-            super().__init__(**values)
-            self._take_removed_ts_settings(removed)
-
+    @model_validator(mode="before")
     @classmethod
-    def model_validate(cls, obj: Any, **kwargs: Any) -> Self:  # noqa: ANN401
-        """Validate settings from a mapping or an instance, taking the removed ``ts_*`` settings as `__init__` does."""
-        removed = {}
-        if isinstance(obj, Mapping):
-            removed = {name: obj[name] for name in obj if name in _REMOVED_SETTINGS}
-            obj = {name: value for name, value in obj.items() if name not in removed}
-        settings = super().model_validate(obj, **kwargs)
-        settings._take_removed_ts_settings(removed)  # noqa: SLF001
-        return settings
+    def refuse_removed_ts_settings(cls, data: object) -> object:
+        """Refuse a ``ts_*`` setting with the way to set it now: the option of the request (GH-3128).
 
-    def _take_removed_ts_settings(self, removed: dict[str, Any]) -> None:
-        """Warn of the removed ``ts_*`` settings given, and keep them as the options they became."""
-        if not removed:
-            return
-        for name in removed:
-            _warn_removed(name)
-        self._ts_options = Options(**{_REMOVED_SETTINGS[name]: value for name, value in removed.items()})
-
-    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
-        """Copy the settings, taking a removed ``ts_*`` setting in `update` as an assignment to the copy."""
-        removed = {name: value for name, value in (update or {}).items() if name in _REMOVED_SETTINGS}
-        rest = {name: value for name, value in (update or {}).items() if name not in removed}
-        settings = super().model_copy(update=rest or None, deep=deep)
-        for name, value in removed.items():
-            setattr(settings, name, value)
-        return settings
-
-    def __getattr__(self, name: str) -> object:
-        """Read a removed ``ts_*`` setting from the options it became, and say it is removed (GH-2639)."""
-        option = _REMOVED_SETTINGS.get(name) or _REMOVED_MEMBERS.get(name)
-        if option is None:
-            # pydantic defines `__getattr__` (private attributes and extras) outside the type-checking view
-            return super().__getattr__(name)  # ty: ignore[unresolved-attribute]
-        _warn_removed(name)
-        return getattr(self._options_of_ts_settings(), option)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        """Assign a removed ``ts_*`` setting to the options it became, and say it is removed (GH-2639).
-
-        The options are frozen, so this makes a changed copy: a request built from the settings
-        before keeps the options it had, and one built after has the changed ones.
+        ``Settings(ts_shape="wide")`` and ``settings={"ts_shape": "wide"}`` set what is an option of
+        the request since 0.148.0 (GH-2639), and were taken with a warning until GH-3128 removed them. They are refused
+        by name here, instead of as the settings that do not exist, so that the error says where to go.
+        The environment's ``WD_TS_*`` variables are `Options`' to read and never reach this.
         """
-        option = _REMOVED_SETTINGS.get(name)
-        if option is None:
-            super().__setattr__(name, value)
-            return
-        _warn_removed(name)
-        self._ts_options = self._options_of_ts_settings().replace(**{option: value})
-
-    def _options_of_ts_settings(self) -> Options:
-        """Return the options of the environment with the removed ``ts_*`` settings laid over them."""
-        if self._ts_options is not None:
-            return self._ts_options
-        with _quiet():
-            return Options()
+        removed = _removed_ts_settings(data) if isinstance(data, Mapping) else []
+        if removed:
+            one = len(removed) == 1
+            instead = ", ".join(f"{name[3:]}=..." for name in removed)
+            msg = (
+                f"{', '.join(removed)} {'is no setting' if one else 'are no settings'}: "
+                f"{'it is an option' if one else 'they are options'} of the request, "
+                f"so pass options=Options({instead}) to the request (or options={{'{removed[0][3:]}': ...}}) "
+                "instead; the WD_TS_* variables are unchanged"
+            )
+            raise ValueError(msg)
+        return data
 
     @field_validator("fsspec_client_kwargs", mode="before")
     @classmethod

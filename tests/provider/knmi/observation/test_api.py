@@ -34,6 +34,7 @@ from wetterdienst.provider.knmi.observation.api import (
     _download_with_retry,
     _filename_for,
     _moments,
+    _stamp,
 )
 from wetterdienst.provider.knmi.observation.parser import parse_knmi_netcdf, public_station_id
 from wetterdienst.settings import Settings
@@ -106,16 +107,38 @@ def test_knmi_filename_for_daily() -> None:
     assert _filename_for(Resolution.DAILY, moment) == "daily-observations-validated-20200101.nc"
 
 
-def test_knmi_moments_hourly_steps_by_hour_inclusive() -> None:
-    """Hourly stepping covers both endpoints, one moment per hour."""
+def test_knmi_moments_hourly_name_the_files_of_the_hours_that_end_in_the_range() -> None:
+    """The hourly files are named for the start of the hour that ends at a stamp in the range (GH-2824)."""
     start = dt.datetime(2020, 1, 1, 0, tzinfo=UTC)
     end = dt.datetime(2020, 1, 1, 3, tzinfo=UTC)
     assert list(_moments(start, end, Resolution.HOURLY)) == [
+        dt.datetime(2019, 12, 31, 23, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 0, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 1, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 2, tzinfo=UTC),
-        dt.datetime(2020, 1, 1, 3, tzinfo=UTC),
     ]
+
+
+@pytest.mark.parametrize(
+    ("resolution", "moment", "stamp"),
+    [
+        pytest.param(Resolution.MINUTE_10, (2026, 10, 14, 9, 0), (2026, 10, 14, 9, 0), id="10 minutes"),
+        pytest.param(Resolution.HOURLY, (2026, 10, 14, 8, 0), (2026, 10, 14, 9, 0), id="hourly"),
+        pytest.param(Resolution.DAILY, (2025, 1, 2, 0, 0), (2025, 1, 2, 0, 0), id="daily"),
+    ],
+)
+def test_knmi_stamp_is_the_end_of_the_interval_of_the_values_in_the_file(
+    resolution: Resolution,
+    moment: tuple[int, ...],
+    stamp: tuple[int, ...],
+) -> None:
+    """Name the stamp of a real file's values (GH-2824).
+
+    In the real files of 2026-10-14 the 10-minute file named 09:00 has the time coordinate 09:00, the hourly file
+    named 08 has 09:00 (both the end of the interval), and the daily file is stamped with its date, as for every
+    provider (its coordinate is the next 00:00).
+    """
+    assert _stamp(dt.datetime(*moment, tzinfo=UTC), resolution) == dt.datetime(*stamp, tzinfo=UTC)
 
 
 def test_knmi_moments_daily_steps_by_day_inclusive() -> None:
@@ -173,21 +196,29 @@ def test_knmi_single_daily_request_floors_start_date_to_midnight() -> None:
     assert request.start == dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC)
 
 
-def test_knmi_single_hourly_request_floors_start_date_to_hour() -> None:
-    """A single-resolution hourly request snaps an unaligned start_date down to the hour."""
+def test_knmi_single_hourly_request_does_not_floor_start_date() -> None:
+    """Hourly is left unfloored at the request level, like 10-minute.
+
+    Its values are stamped with the end of the hour, so an unaligned start must exclude the hour that ends
+    before it (the [start, end] filter does), and `_moments` starts at the first stamp at or after it.
+    """
     request = _request(
         [("hourly", "data", "temperature_air_2m")],
         dt.datetime(2020, 1, 1, 10, 30, tzinfo=UTC),
         dt.datetime(2020, 1, 1, 12, tzinfo=UTC),
     )
-    assert request.start == dt.datetime(2020, 1, 1, 10, 0, tzinfo=UTC)
+    assert request.start == dt.datetime(2020, 1, 1, 10, 30, tzinfo=UTC)
+    assert list(_moments(request.start, request.end, Resolution.HOURLY)) == [
+        dt.datetime(2020, 1, 1, 10, tzinfo=UTC),  # the hour 10-11, stamped 11:00
+        dt.datetime(2020, 1, 1, 11, tzinfo=UTC),  # the hour 11-12, stamped 12:00
+    ]
 
 
 def test_knmi_single_10_minutes_request_does_not_floor_start_date() -> None:
     """10-minute is left unfloored at the request level.
 
-    Its end-labelled sub-hour intervals mean an unaligned start must exclude the pre-start
-    interval (handled by the [start, end] filter), so start_date stays put and only _moments
+    Its values are stamped with the end of the interval, so an unaligned start must exclude the
+    interval that ends before it (handled by the [start, end] filter), so start_date stays put and only _moments
     floors it to resolve filenames.
     """
     request = _request(
@@ -232,7 +263,8 @@ def test_knmi_moments_10_minutes_floors_unaligned_start() -> None:
     """A start not on a 10-minute boundary is floored down so filenames resolve.
 
     12:07 -> 12:00, then step by 10 minutes through the end. The 12:00 file lands before
-    the requested start but the framework trims it back to the requested range later.
+    the requested start but the framework trims it back to the requested range later. The
+    10-minute file is named for its stamp, the end of its interval.
     """
     start = dt.datetime(2020, 6, 1, 12, 7, tzinfo=UTC)
     end = dt.datetime(2020, 6, 1, 12, 30, tzinfo=UTC)
@@ -821,7 +853,7 @@ def test_knmi_observation_values_10_minutes() -> None:
     Values are cross-checked against the raw KMDS NetCDF: ta=23.2 °C, rh=32 % on disk
     (returned as the 0.32 fraction after unit conversion), ff=3.01 m/s. Also confirms the
     unaligned-start flooring: the query starts at 12:07 but the first returned interval is
-    12:10 (12:00 is fetched then trimmed).
+    12:10 (12:00 is fetched then trimmed). The file is named for its stamp, the end of the interval (GH-2824).
     """
     df = (
         KnmiObservationRequest(
@@ -843,7 +875,7 @@ def test_knmi_observation_values_10_minutes() -> None:
 
     assert value_of("temperature_air_2m") == pytest.approx(23.2)
     assert value_of("humidity_relative") == pytest.approx(0.32)
-    assert value_of("wind_speed") == pytest.approx(3.01)
+    assert value_of("wind_speed_mean") == pytest.approx(3.01)
 
 
 def test_knmi_download_no_internet_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -887,6 +919,113 @@ def _hourly_values(days: int, station_ids: tuple[str, ...] = (DE_BILT,)) -> pl.D
         .all()
         .df
     )
+
+
+def _station_file(path: Path, variables: dict[str, float]) -> bytes:
+    """Build a NetCDF with De Bilt as its one station and one (station, time) value per variable."""
+    with h5netcdf.File(path, "w") as file:
+        file.dimensions = {"station": 1, "time": 1}
+        station = file.create_variable("station", ("station",), dtype=h5py.string_dtype())
+        station[:] = ["0-20000-0-06260"]
+        for name, value in variables.items():
+            variable = file.create_variable(name, ("station", "time"), dtype="f8")
+            variable[:] = [[value]]
+    return path.read_bytes()
+
+
+def test_knmi_hourly_values_are_stamped_with_the_end_of_their_hour(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The file named for the hour 10-11 carries the air temperature of 11:00 and is stamped 11:00 (GH-2824).
+
+    The values are De Bilt on 2024-06-02 from KNMI's key-less hourly export (HH is the hour-ending slot, "Uurvak 05
+    loopt van 04.00 UT tot 5.00 UT"): slot 11 has T 161 and P 10239, slot 12 T 168 and P 10236 (0.1 degC, 0.1 hPa).
+    They are the air temperature and the sea-level pressure of NOAA's GHCNh De Bilt record at 11:00 and 12:00 UTC
+    (mean absolute difference over June 2024: 0.04 K and 0.0 hPa at that alignment, 0.77 K and 0.32 hPa one hour off).
+    """
+    files = {
+        "hourly-observations-validated-20240602-10.nc": _station_file(tmp_path / "10.nc", {"T": 16.1, "P": 1023.9}),
+        "hourly-observations-validated-20240602-11.nc": _station_file(tmp_path / "11.nc", {"T": 16.8, "P": 1023.6}),
+    }
+    asked: list[str] = []
+
+    def fetch(_dataset: str, _version: str, filename: str, _settings: Settings) -> bytes | Exception:
+        asked.append(filename)
+        return files.get(filename, FileNotFoundError(filename))
+
+    monkeypatch.setattr(
+        "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
+        staticmethod(lambda *_args: pl.DataFrame({"station_id": [DE_BILT], "name": ["De Bilt"]})),
+    )
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", fetch)
+    df = (
+        _request(
+            [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "pressure_air_sea_level")],
+            dt.datetime(2024, 6, 2, 10, 30, tzinfo=UTC),  # unaligned: the hour that ends at 10:00 is out
+            dt.datetime(2024, 6, 2, 12, tzinfo=UTC),
+        )
+        .filter_by_station_id(DE_BILT)
+        .values()
+        .all()
+        .df
+    )
+    assert sorted(set(asked)) == sorted(files)
+    rows = {(row["parameter"], row["timestamp"]): row["value"] for row in df.to_dicts()}
+    assert rows == {
+        ("temperature_air_2m", dt.datetime(2024, 6, 2, 11, tzinfo=UTC)): pytest.approx(16.1),
+        ("temperature_air_2m", dt.datetime(2024, 6, 2, 12, tzinfo=UTC)): pytest.approx(16.8),
+        ("pressure_air_sea_level", dt.datetime(2024, 6, 2, 11, tzinfo=UTC)): pytest.approx(1023.9),
+        ("pressure_air_sea_level", dt.datetime(2024, 6, 2, 12, tzinfo=UTC)): pytest.approx(1023.6),
+    }
+
+
+def test_knmi_10_minute_and_hourly_files_of_the_same_instant_agree_on_the_stamp(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The 10-minute file named 09:00 and the hourly file named 08 are the same instant, 09:00 (GH-2824).
+
+    The values are De Bilt in the real files of 2026-10-14, read on 2026-10-18: `ta` 14.7 degC and `pp` 1030.03 hPa
+    in `KMDS__OPER_P___10M_OBS_L2_202610140900.nc` (time coordinate 09:00), 15.2 degC in the one named 09:10;
+    `T` 14.7 degC and `P` 1030.0 hPa in `hourly-observations-validated-20261014-08.nc` (time coordinate 09:00), 16.3
+    degC in the one named 09. NOAA GHCNh De Bilt reads 14.7 degC and 1030.0 hPa at 09:00 UTC and 16.3 degC at 10:00.
+    """
+    files = {
+        "KMDS__OPER_P___10M_OBS_L2_202610140900.nc": _station_file(tmp_path / "a.nc", {"ta": 14.7, "pp": 1030.03}),
+        "KMDS__OPER_P___10M_OBS_L2_202610140910.nc": _station_file(tmp_path / "b.nc", {"ta": 15.2, "pp": 1030.13}),
+        "hourly-observations-validated-20261014-08.nc": _station_file(tmp_path / "c.nc", {"T": 14.7, "P": 1030.0}),
+        "hourly-observations-validated-20261014-09.nc": _station_file(tmp_path / "d.nc", {"T": 16.3, "P": 1030.0}),
+    }
+    monkeypatch.setattr(
+        "wetterdienst.provider.knmi.observation.api.KnmiObservationRequest._station_frame",
+        staticmethod(lambda *_args: pl.DataFrame({"station_id": [DE_BILT], "name": ["De Bilt"]})),
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.knmi.observation.api._fetch_netcdf",
+        lambda _dataset, _version, filename, _settings: files.get(filename, FileNotFoundError(filename)),
+    )
+
+    def values(resolution: str, start: dt.datetime, end: dt.datetime) -> dict[dt.datetime, float]:
+        df = (
+            _request([(resolution, "data", "temperature_air_2m")], start, end)
+            .filter_by_station_id(DE_BILT)
+            .values()
+            .all()
+            .df
+        )
+        return dict(zip(df["timestamp"].to_list(), df["value"].to_list(), strict=True))
+
+    ten = values("10_minutes", dt.datetime(2026, 10, 14, 9, tzinfo=UTC), dt.datetime(2026, 10, 14, 9, 10, tzinfo=UTC))
+    hourly = values("hourly", dt.datetime(2026, 10, 14, 9, tzinfo=UTC), dt.datetime(2026, 10, 14, 10, tzinfo=UTC))
+    assert ten == {
+        dt.datetime(2026, 10, 14, 9, tzinfo=UTC): pytest.approx(14.7),
+        dt.datetime(2026, 10, 14, 9, 10, tzinfo=UTC): pytest.approx(15.2),
+    }
+    assert hourly == {
+        dt.datetime(2026, 10, 14, 9, tzinfo=UTC): pytest.approx(14.7),
+        dt.datetime(2026, 10, 14, 10, tzinfo=UTC): pytest.approx(16.3),
+    }
 
 
 def test_knmi_values_offline_raise_at_the_first_moment(

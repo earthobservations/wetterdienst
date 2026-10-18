@@ -31,12 +31,12 @@ _MeteoFranceSynopMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "dd",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },

@@ -97,12 +97,12 @@ _NwsObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_direction_last_2min",
+                            "name": "wind_direction_mean_last_2min",
                             "name_original": "winddirection",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed_last_2min",
+                            "name": "wind_speed_mean_last_2min",
                             "name_original": "windspeed",
                             "unit": "kilometer_per_hour",
                         },

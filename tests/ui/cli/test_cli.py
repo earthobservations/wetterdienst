@@ -398,16 +398,18 @@ def test_issues_refuses_a_station_that_is_no_id_as_a_usage_error() -> None:
 def test_cli_glossary() -> None:
     """Test that the glossary reports what a parameter measures and its returned unit."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["about", "glossary", "--parameter=radiation_global_intensity"])
+    result = runner.invoke(cli, ["about", "glossary", "--parameter=radiation_global_intensity_mean"])
     assert result.exit_code == 0
     entries = json.loads(result.stdout)
     assert entries == [
         {
-            "name": "radiation_global_intensity",
+            "name": "radiation_global_intensity_mean",
             "unit_type": "power_per_area",
             "unit": "watt_per_square_meter",
             "unit_symbol": "W/m²",
-            "description": "Global irradiance on a horizontal surface, reported as power rather than energy.",
+            "description": (
+                "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy."
+            ),
         },
     ]
 

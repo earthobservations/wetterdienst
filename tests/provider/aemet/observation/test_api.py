@@ -179,13 +179,13 @@ def test_aemet_observation_values_daily(monkeypatch: pytest.MonkeyPatch) -> None
     assert value_on("temperature_air_max_2m", day1) == pytest.approx(11.2)
     assert value_on("temperature_air_min_2m", day1) == pytest.approx(1.9)
     assert value_on("precipitation_amount", day1) == pytest.approx(0.0)
-    assert value_on("wind_speed", day1) == pytest.approx(0.3)
+    assert value_on("wind_speed_mean", day1) == pytest.approx(0.3)
     assert value_on("wind_gust_max", day1) == pytest.approx(3.3)
     assert value_on("wind_direction_gust_max", day1) == pytest.approx(50.0)
     assert value_on("pressure_air_site_max", day1) == pytest.approx(954.2)
     assert value_on("pressure_air_site_min", day1) == pytest.approx(952.0)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
-    assert value_on("humidity_relative", day1) == pytest.approx(0.65)
+    assert value_on("humidity_relative_mean", day1) == pytest.approx(0.65)
     assert value_on("humidity_relative_max", day1) == pytest.approx(0.80)
     assert value_on("humidity_relative_min", day1) == pytest.approx(0.48)
 
@@ -225,7 +225,7 @@ def test_aemet_observation_values_monthly(monkeypatch: pytest.MonkeyPatch) -> No
     assert value_of("precipitation_amount") == pytest.approx(16.4)
     assert value_of("precipitation_amount_max") == pytest.approx(5.4)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
-    assert value_of("humidity_relative") == pytest.approx(0.66)
+    assert value_of("humidity_relative_mean") == pytest.approx(0.66)
 
 
 @pytest.mark.remote
@@ -262,7 +262,7 @@ def test_aemet_observation_values_annual(monkeypatch: pytest.MonkeyPatch) -> Non
     assert value_of("precipitation_amount") == pytest.approx(474.4)
     assert value_of("precipitation_amount_max") == pytest.approx(37.8)
     # AEMET's annual aggregate doesn't include a humidity field at all
-    assert df.filter(pl.col("parameter").eq("humidity_relative")).is_empty()
+    assert df.filter(pl.col("parameter").eq("humidity_relative_mean")).is_empty()
 
 
 @pytest.mark.remote
@@ -298,7 +298,7 @@ def test_aemet_observation_values_hourly_realtime(monkeypatch: pytest.MonkeyPatc
     assert 0.0 <= latest("humidity_relative") <= 1.0
     # unlike the daily endpoint's coded 0-36 direction, real-time direction is already in
     # plain degrees — this would fail if the daily parser's *10 scaling was wrongly reused.
-    assert 0 <= latest("wind_direction_last_10min") <= 360
+    assert 0 <= latest("wind_direction_mean_last_10min") <= 360
     assert 800 < latest("pressure_air_site") < 1100
 
 

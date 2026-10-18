@@ -53,7 +53,9 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.model.schema import INTERPOLATED_SCHEMA, STATIONS_SCHEMA, SUMMARIZED_SCHEMA, coerce
 from wetterdienst.model.util import create_station_id_from_string
-from wetterdienst.settings import Settings, resolve_options
+from wetterdienst.options import resolve_options
+from wetterdienst.settings import Settings
+from wetterdienst.util.datetime import date_only, parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
@@ -85,7 +87,7 @@ _PARAMETER_TYPE_SINGULAR = (
     str | tuple[str | Resolution, str] | tuple[str | Resolution, str, str] | ParameterModel | DatasetModel
 )
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
-_DATETIME_TYPE = str | dt.datetime | None
+_DATETIME_TYPE = str | dt.date | dt.datetime | None
 # either of
 # str: "recent"  # noqa: ERA001
 # Period: Period.RECENT  # noqa: ERA001
@@ -119,9 +121,8 @@ class TimeseriesRequest:
     # asking for another one is an error rather than a silently widened request.
     periods: _PERIODS_TYPE = None
     # How the values come back and how the stations are chosen, as opposed to `settings`, which is
-    # the host's. None takes the deprecated `ts_*` settings given to `settings`, if any, and otherwise
-    # the options of the environment; a dict is taken as the options it names. Resolved in
-    # __post_init__ to an `Options`, which is read from there on and never again from `settings`.
+    # the host's. None takes the options of the environment; a dict is taken as the options it names.
+    # Resolved in __post_init__ to an `Options`, which is read from there on.
     # Keyword-only, so that it moves none of the arguments a subclass adds after `periods` (`issue` of
     # the forecasts)
     options: Options | dict[str, Any] | None = field(default=None, kw_only=True)
@@ -155,7 +156,7 @@ class TimeseriesRequest:
         # second time, GH-2476, GH-2504)
         if not isinstance(self.settings, Settings):
             self.settings = Settings.model_validate(self.settings)
-        self.options = resolve_options(self.options, self.settings)
+        self.options = resolve_options(self.options)
         # Convert timestamps
         self.start, self.end = self.convert_timestamps(self.start, self.end)
         # Parse parameters
@@ -290,16 +291,26 @@ class TimeseriesRequest:
         return series.cast(pl.String)
 
     @staticmethod
-    def _bound_to_utc(name: str, bound: _DATETIME_TYPE) -> dt.datetime | None:
-        """Read one bound of the window as a datetime in UTC, or None where none was given."""
-        if bound is not None and not isinstance(bound, str | dt.datetime):
-            msg = f"{name} must be a str or a datetime, got {type(bound).__name__} {bound!r}"
+    def _bound_to_window(name: str, bound: _DATETIME_TYPE) -> tuple[dt.datetime, dt.datetime] | None:
+        """Read one bound as the first and the last instant it names, in UTC, or None where none was given.
+
+        A bound that names an instant -- a `datetime`, or a string carrying a time -- names that instant
+        alone, so its first and last are one. A bound that names a day and nothing else -- a `date`, or a
+        string such as ``"2026-01-31"`` -- names the whole day, as it does as the ``timestamp`` of the REST
+        API, the command line and MCP (`parse_date_window`, GH-3133).
+        """
+        if bound is not None and not isinstance(bound, str | dt.date):
+            msg = f"{name} must be a str, a date or a datetime, got {type(bound).__name__} {bound!r}"
             raise TypeError(msg)
         if not bound:
             return None
-        if isinstance(bound, str):
-            bound = dt.datetime.fromisoformat(bound)
-        return bound.replace(tzinfo=ZoneInfo("UTC")) if not bound.tzinfo else bound.astimezone(ZoneInfo("UTC"))
+        if not isinstance(bound, dt.datetime):
+            day = bound if isinstance(bound, dt.date) else date_only(bound)
+            if day is not None:
+                return parse_date_window(day.isoformat())
+            bound = dt.datetime.fromisoformat(cast("str", bound))
+        instant = bound.replace(tzinfo=ZoneInfo("UTC")) if not bound.tzinfo else bound.astimezone(ZoneInfo("UTC"))
+        return instant, instant
 
     @staticmethod
     def convert_timestamps(
@@ -314,41 +325,40 @@ class TimeseriesRequest:
         provider that formats or floors a bound -- by its year, its date -- would do so in the
         caller's zone rather than the one the values are in.
 
-        A bound given alone is the whole window, ``start`` as much as ``end``: it names one instant
-        (``start == end``), so a date reads that day's values. It is not an open end.
+        A bound that is a date without a time -- a `datetime.date`, or a string such as
+        ``"2026-01-31"`` -- is the whole day, as the ``timestamp`` of the REST API, the command line and
+        MCP reads it (GH-3133): ``start`` is the first instant of the day and ``end`` the last,
+        ``23:59:59.999999`` UTC, so ``end="2026-01-31"`` includes the readings of the 31st. A `datetime`,
+        or a string with a time (``"2026-01-31T00:00"``), is that instant and no more.
+
+        A bound given alone is the whole window, ``start`` as much as ``end``: an instant is a window of
+        one instant (``start == end``) and a date is the whole day. It is not an open end.
 
         Args:
-            start: Start of the request, an ISO 8601 string or a datetime.
-            end: End of the request, an ISO 8601 string or a datetime.
+            start: Start of the request, an ISO 8601 string, a date or a datetime.
+            end: End of the request, an ISO 8601 string, a date or a datetime.
 
         Returns:
             tuple[None, None] | tuple[dt.datetime, dt.datetime]: Start and end of the request.
 
         Raises:
-            TypeError: a bound is neither a string nor a datetime, an int such as ``2020`` among them.
+            TypeError: a bound is neither a string, a date nor a datetime, an int such as ``2020`` among them.
 
         """
-        start = TimeseriesRequest._bound_to_utc("start", start)
-        end = TimeseriesRequest._bound_to_utc("end", end)
-        if start is None and end is None:
+        start_window = TimeseriesRequest._bound_to_window("start", start)
+        end_window = TimeseriesRequest._bound_to_window("end", end)
+        if start_window is None and end_window is None:
             return None, None
 
-        # If only one date given, set the other one to equal.
-        if not start:
-            start = end
+        # If only one bound is given, the window is the one it names.
+        first, _ = start_window or cast("tuple[dt.datetime, dt.datetime]", end_window)
+        _, last = end_window or cast("tuple[dt.datetime, dt.datetime]", start_window)
 
-        if not end:
-            end = start
-
-        # TODO: replace this with a response + logging
-        if not isinstance(start, dt.datetime) or not isinstance(end, dt.datetime):
-            msg = "start and end must be datetime objects at this point"
-            raise TypeError(msg)
-        if not start <= end:
+        if not first <= last:
             msg = "'start' must be smaller or equal to 'end'."
             raise ReversedTimeIntervalError(msg)
 
-        return start, end
+        return first, last
 
     @classmethod
     def is_configured(cls) -> bool:
@@ -518,8 +528,8 @@ class TimeseriesRequest:
         return StationsResult(
             request=self,
             df=df,
-            df_all=df,
-            stations_filter=StationsFilter.ALL,
+            _df_all=df,
+            _stations_filter=StationsFilter.ALL,
         )
 
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
@@ -554,8 +564,8 @@ class TimeseriesRequest:
         return StationsResult(
             request=self,
             df=df_station_id,
-            df_all=df,
-            stations_filter=StationsFilter.BY_STATION_ID,
+            _df_all=df,
+            _stations_filter=StationsFilter.BY_STATION_ID,
         )
 
     def filter_by_name(
@@ -629,9 +639,9 @@ class TimeseriesRequest:
         return StationsResult(
             request=self,
             df=df,
-            df_all=df_all,
-            stations_filter=StationsFilter.BY_NAME,
-            rank=rank,
+            _df_all=df_all,
+            _stations_filter=StationsFilter.BY_NAME,
+            _rank=rank,
         )
 
     def filter_by_rank(
@@ -697,9 +707,9 @@ class TimeseriesRequest:
         return StationsResult(
             request=self,
             df=df,
-            df_all=df_all,
-            stations_filter=StationsFilter.BY_RANK,
-            rank=rank,
+            _df_all=df_all,
+            _stations_filter=StationsFilter.BY_RANK,
+            _rank=rank,
         )
 
     def filter_by_distance(
@@ -746,8 +756,8 @@ class TimeseriesRequest:
         return StationsResult(
             request=self,
             df=df,
-            df_all=ranked.df_all,
-            stations_filter=StationsFilter.BY_DISTANCE,
+            _df_all=ranked._df_all,  # noqa: SLF001
+            _stations_filter=StationsFilter.BY_DISTANCE,
         )
 
     def filter_by_bbox(self, left: float, bottom: float, right: float, top: float) -> StationsResult:
@@ -783,7 +793,7 @@ class TimeseriesRequest:
         if df.is_empty():
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
 
-        return StationsResult(request=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_BBOX)
+        return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 
     def filter_by_sql(self, sql: str) -> StationsResult:
         """Filter stations by SQL query.
@@ -801,7 +811,7 @@ class TimeseriesRequest:
         df = ExportMixin._filter_by_sql(df_all, sql)  # noqa: SLF001
         if df.is_empty():
             log.info(f"No stations were found for sql {sql}")
-        return StationsResult(request=self, df=df, df_all=df_all, stations_filter=StationsFilter.BY_SQL)
+        return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_SQL)
 
     def interpolate(self, latlon: tuple[float, float], elevation: float | None = None) -> InterpolatedValuesResult:
         """Interpolate values across multiple stations.
@@ -888,8 +898,8 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             request=self,
             df=df_stations,
-            df_all=df_all,
-            stations_filter=StationsFilter.BY_STATION_ID,
+            _df_all=df_all,
+            _stations_filter=StationsFilter.BY_STATION_ID,
         )
         return InterpolatedValuesResult(
             df=df_interpolated,
@@ -1001,8 +1011,8 @@ class TimeseriesRequest:
         stations_result = StationsResult(
             request=self,
             df=df_stations,
-            df_all=df_all,
-            stations_filter=StationsFilter.BY_STATION_ID,
+            _df_all=df_all,
+            _stations_filter=StationsFilter.BY_STATION_ID,
         )
         return SummarizedValuesResult(
             df=summarized_values,

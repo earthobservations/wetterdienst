@@ -227,7 +227,7 @@ def test_a_ranked_selection_counts_as_its_rank(client: TestClient, monkeypatch: 
 
     monkeypatch.setenv("WD_RESTAPI_MAX_STATIONS", "2")
     base = _stub_stream(monkeypatch, [_values_result_of_shape("long")], stations_df=_selection_of(50))
-    ranked = replace(base.stations, df=_selection_of(50), stations_filter=StationsFilter.BY_RANK, rank=2)
+    ranked = replace(base.stations, df=_selection_of(50), _stations_filter=StationsFilter.BY_RANK, _rank=2)
     monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: ranked)
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: ranked)
 
@@ -235,7 +235,7 @@ def test_a_ranked_selection_counts_as_its_rank(client: TestClient, monkeypatch: 
         client.get("/api/v1/values", params={**_OBSERVATION, "latitude": 51, "longitude": 13, "rank": 2}).status_code
         == 200
     )
-    ranked = replace(ranked, rank=3)
+    ranked = replace(ranked, _rank=3)
     assert (
         client.get("/api/v1/values", params={**_OBSERVATION, "latitude": 51, "longitude": 13, "rank": 3}).status_code
         == 400

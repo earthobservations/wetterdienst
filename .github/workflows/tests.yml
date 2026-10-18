@@ -194,7 +194,7 @@ jobs:
   # for that reason. Nothing in the repo's ruleset requires it, though - there is no
   # `required_status_checks` rule - so it reports rather than stops a merge.
   offline:
-    name: Offline selection on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    name: Offline selection on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.polars && format(' / polars {0}', matrix.polars) || '' }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -207,7 +207,18 @@ jobs:
       matrix:
         os: [ "ubuntu-latest" ]
         python-version: [ "3.11", "3.12", "3.14", "3.15" ]
+        # the polars of the lock; the empty value is what makes the entry below a leg of its own,
+        # since an `include` entry that overwrites no value of the matrix is added to its legs
+        polars: [ "" ]
         include:
+          # the lock resolves the newest polars (2.x), which every other leg runs; the floor the
+          # project claims (`polars[calamine]>=1.43.0`) is run here, so that code only the newest
+          # polars understands fails a job that blocks, not the "Minimum dependency versions" one
+          # that cannot (it is `continue-on-error` and runs the remote tests). 1.43.0 and 1.43.1 are
+          # yanked on PyPI, so 1.43.2 is the oldest an install can get
+          - os: "ubuntu-latest"
+            python-version: "3.14"
+            polars: "1.43.2"
           # the one platform where `socket.connect` is not asyncio's path -- `ProactorEventLoop`
           # connects through `_overlapped.ConnectEx` - which is why the guard refuses names as well
           # as addresses. Nothing else in CI asks whether the selection is offline here: the
@@ -249,8 +260,20 @@ jobs:
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
+      # after the extras: `uv run` would sync the environment back to the lock, so the run below
+      # does not sync (`UV_NO_SYNC`) when polars was set aside
+      - name: Install the oldest polars
+        if: ${{ matrix.polars }}
+        env:
+          POLARS: ${{ matrix.polars }}
+        run: |
+          uv pip install "polars[calamine]==${POLARS}"
+          uv pip list | grep -i "^polars "
+
       # deliberately without the provider credentials the test steps of the other jobs carry:
       # nothing this selects may reach a provider, so nothing it selects needs one
       - name: Run the offline selection
+        env:
+          UV_NO_SYNC: ${{ matrix.polars && '1' || '0' }}
         run: |
           uv run poe "test:offline"

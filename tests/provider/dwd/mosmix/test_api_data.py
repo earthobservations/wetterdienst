@@ -411,8 +411,8 @@ def _stub_mosmix_stations(issue: str | dt.datetime = "latest") -> StationsResult
     return StationsResult(
         request=request,
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     )
 
 

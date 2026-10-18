@@ -310,7 +310,7 @@ class _EqualByFields:
     """Make the results compare by what they hold, and keep them unhashable.
 
     Two results are equal when they are of the same class and every field of the dataclass is equal: a
-    frame (``df``, ``df_all``) when it has the same columns, dtypes, rows in the same order and values
+    frame (``df``, ``_df_all``) when it has the same columns, dtypes, rows in the same order and values
     (a null equals a null, a NaN a NaN), the request and the other fields by their own ``==``. The
     generated ``__eq__`` of a dataclass compares the fields as a tuple, which asks polars for the truth
     value of a frame and fails (GH-3037). A result of another class is not equal, a subclass included.
@@ -337,8 +337,8 @@ class StationsResult(_EqualByFields, ExportMixin):
     formats (`to_dict`, `to_json`, `to_geojson`, `to_csv`, ...) and `values()` / `history()`.
     `settings`, `options`, `parameters`, `start` and `end` read what the request was given.
 
-    `df_all`, `stations_filter` and `rank` say how `df` was selected from the stations of the request
-    and are for the library: a caller reads `df`.
+    `_df_all`, `_stations_filter` and `_rank` say how `df` was selected from the stations of the request.
+    They are the library's, private fields (GH-3128) that a caller does not read or pass: a caller reads `df`.
     """
 
     #: the request that made this result: what a later step reads the settings, the parameters and the
@@ -347,11 +347,11 @@ class StationsResult(_EqualByFields, ExportMixin):
     #: the selected stations, one row per resolution, dataset and station
     df: pl.DataFrame
     #: every station of the request, which `df` was selected from
-    df_all: pl.DataFrame
+    _df_all: pl.DataFrame
     #: how `df` was selected, which says why only some of the stations are in it
-    stations_filter: StationsFilter
+    _stations_filter: StationsFilter
     #: the number of stations a ranked selection asked for, which `values()` stops at
-    rank: int | None = None
+    _rank: int | None = None
 
     @property
     def settings(self) -> Settings:

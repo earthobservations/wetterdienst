@@ -68,9 +68,12 @@ _HOURLY_RAIN_PARAMETERS = [
     {"name": "precipitation_duration", "name_original": "prcp_dur", "unit": "minute"},
 ]
 
+# the wind of a SYNOP or a METAR is the mean of the last 10 minutes: the WM page of the mean wind table, "Ten minute
+# winds recorded in SYNOPs and METARs", says they "are stored in the UK Hourly Weather table" (GH-2838)
+# (https://artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/WM_Table.html)
 _HOURLY_WEATHER_PARAMETERS = [
-    {"name": "wind_direction", "name_original": "wind_direction", **_WIND_DIRECTION},
-    {"name": "wind_speed", "name_original": "wind_speed", **_WIND_SPEED},
+    {"name": "wind_direction_mean_last_10min", "name_original": "wind_direction", **_WIND_DIRECTION},
+    {"name": "wind_speed_mean_last_10min", "name_original": "wind_speed", **_WIND_SPEED},
     {"name": "wind_gust_max_last_10min", "name_original": "q10mnt_mxgst_spd", **_WIND_SPEED},
     # native decametres; scaled to metres in api.py (_SCALE)
     {"name": "visibility", "name_original": "visibility", "unit": "meter"},
@@ -86,8 +89,8 @@ _HOURLY_WEATHER_PARAMETERS = [
 ]
 
 _MEAN_WIND_PARAMETERS = [
-    {"name": "wind_direction", "name_original": "mean_wind_dir", **_WIND_DIRECTION},
-    {"name": "wind_speed", "name_original": "mean_wind_speed", **_WIND_SPEED},
+    {"name": "wind_direction_mean", "name_original": "mean_wind_dir", **_WIND_DIRECTION},
+    {"name": "wind_speed_mean", "name_original": "mean_wind_speed", **_WIND_SPEED},
     {"name": "wind_direction_gust_max", "name_original": "max_gust_dir", **_WIND_DIRECTION},
     {"name": "wind_gust_max", "name_original": "max_gust_speed", **_WIND_SPEED},
 ]

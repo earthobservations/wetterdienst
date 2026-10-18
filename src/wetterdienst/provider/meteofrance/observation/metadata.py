@@ -54,7 +54,7 @@ _MeteoFranceObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "FFM",
                             "unit": "meter_per_second",
                         },
@@ -76,12 +76,12 @@ _MeteoFranceObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "PMERM",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "TSVM",
                             "unit": "hectopascal",
                         },
@@ -96,7 +96,7 @@ _MeteoFranceObservationMetadataSpec = {
                             "unit": "joule_per_square_centimeter",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "UM",
                             "unit": "percent",
                         },
@@ -170,12 +170,12 @@ _MeteoFranceObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "FF",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "DD",
                             "unit": "degree",
                         },
@@ -271,7 +271,7 @@ _MeteoFranceObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "FFM",
                             "unit": "meter_per_second",
                         },
@@ -281,17 +281,17 @@ _MeteoFranceObservationMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "UMM",
                             "unit": "percent",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "PMERM",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "TSVM",
                             "unit": "hectopascal",
                         },
