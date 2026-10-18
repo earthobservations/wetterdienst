@@ -215,7 +215,7 @@ def _stations_result(request: DwdObservationRequest, station_ids: tuple[str, ...
             "name": pl.String,
         },
     )
-    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
 
 
 def _stage(name: str, cache_dir: Path, stations: tuple[str, ...], engine: str) -> Callable[[], int]:

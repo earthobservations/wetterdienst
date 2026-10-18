@@ -249,8 +249,8 @@ def _stub_dmo_values(
     return StationsResult(
         request=request,
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     ).values()
 
 
@@ -1574,8 +1574,8 @@ def _dmo_stations_for(parameters: list[str], lead_time: Literal["short", "long"]
     return StationsResult(
         request=DwdDmoRequest(parameters=parameters, lead_time=lead_time),
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     )
 
 

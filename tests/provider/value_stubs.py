@@ -182,7 +182,7 @@ def stations_result(request: Any, resolution: str, dataset: str, station_id: str
             "name": pl.String,
         },
     )
-    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
 
 
 def _settings(**kwargs: Any) -> Settings:  # noqa: ANN401

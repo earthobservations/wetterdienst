@@ -197,11 +197,18 @@ DwdObservationRequest(
 )
 ```
 
-``start`` and ``end`` are an ISO 8601 string or a ``datetime``; anything else, a year as an integer
-such as ``start=2020`` among it, is a ``TypeError``. A bound given alone is the whole window: ``end``
-without ``start`` is the same single instant as ``start`` without ``end``, so ``end="2020-01-05"`` asks
-for that day, not for everything up to it. Pass both for a range. The command line reads ``--end``
-alone the same way.
+``start`` and ``end`` are an ISO 8601 string, a ``date`` or a ``datetime``; anything else, a year as
+an integer such as ``start=2020`` among it, is a ``TypeError``. A bound that is a date without a time,
+a ``datetime.date`` or a string such as ``"2026-01-31"``, is the whole day, as the ``timestamp`` of the
+REST API, the command line and MCP reads it: ``start="2026-01-31"`` is the first instant of the 31st
+and ``end="2026-01-31"`` its last (23:59:59.999999 UTC), so ``end="2026-01-31"`` includes all 24 readings
+of the 31st of hourly data and not midnight alone. A ``datetime`` and a string with a time
+(``"2026-01-31T00:00"``) are that instant and no more, so ``end=datetime(2026, 1, 31)`` ends at
+midnight. A bound given alone is the whole window: ``end`` without ``start`` is the same window as
+``start`` without ``end``, the day of a date and the single instant of an instant, so
+``end="2020-01-05"`` asks for that day, not for everything up to it. Pass both for a range. The
+command line reads ``--end`` alone the same way. Only a day is read this way: the ``"2020-08"`` and
+``"2020"`` that the REST API takes for a month and a year are not a ``start`` or ``end`` here.
 
 Every request takes ``periods``, the release the data is read from. Valid periods are
 ``historical``, ``recent``, ``now`` and ``future``, and which of them a dataset is published under
@@ -629,8 +636,8 @@ What a request answers is a result, and the results are what a caller reads:
   on is the one you made. The frame-returning forms are `result.filtered_by_sql(sql).df`.
 - **`request` is the request** that made a `StationsResult`, with the settings, options, parameters and
   window it was given (`stations.settings`, `.options`, `.parameters`, `.start` and `.end` read them).
-  The stations are in `df`; `df_all` (every station of the request), `stations_filter` and `rank` say how `df`
-  was selected from them and are for the library.
+  The stations are in `df`. How `df` was selected from them is the library's: `_df_all` (every station of
+  the request), `_stations_filter` and `_rank` are private, as the underscore says, and a caller reads `df`.
 - **`values()` and `history()` are methods.** Each builds a new reader on every call, so two walks over
   the stations never share state; keep the reader in a variable where you use it more than once.
 - **A values result does not hold the reader** that produced it, so one you keep for a long job keeps

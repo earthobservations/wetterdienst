@@ -50,7 +50,7 @@ def _stations() -> StationsResult:
         parameters=[("daily", "climate_summary", "temperature_air_mean_2m")], settings=Settings(cache_disable=True)
     )
     df = _stations_frame()
-    return StationsResult(request=request, df=df, df_all=df, stations_filter=StationsFilter.BY_STATION_ID)
+    return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
 
 
 def _values_frame(station_ids: tuple[str, ...] = ("01048",)) -> pl.DataFrame:
@@ -102,7 +102,7 @@ def test_the_old_name_of_the_request_fails_with_the_new_one() -> None:
         _ = stations.stations  # ty: ignore[unresolved-attribute]
     with pytest.raises(TypeError, match=r"StationsResult\.stations was renamed to 'request'"):
         StationsResult(  # ty: ignore[unknown-argument]
-            stations=stations.request, df=stations.df, df_all=stations.df, stations_filter=StationsFilter.ALL
+            stations=stations.request, df=stations.df, _df_all=stations.df, _stations_filter=StationsFilter.ALL
         )
 
 
@@ -208,7 +208,7 @@ def test_a_name_that_never_existed_fails_as_it_always_did() -> None:
         _ = _stations().nope  # ty: ignore[unresolved-attribute]
     with pytest.raises(TypeError, match="unexpected keyword argument 'nope'"):
         StationsResult(  # ty: ignore[unknown-argument]
-            request=None, df=pl.DataFrame(), df_all=pl.DataFrame(), stations_filter=StationsFilter.ALL, nope=1
+            request=None, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.ALL, nope=1
         )
 
 
@@ -249,12 +249,22 @@ def test_the_fields_of_the_results_are_the_ones_the_library_promises() -> None:
     """What each of the five results holds, in the order it is declared (a constructor takes them by keyword)."""
     fields = {cls.__name__: [field.name for field in dataclasses.fields(cls)] for cls in _RESULTS}
     assert fields == {
-        "StationsResult": ["df", "request", "df_all", "stations_filter", "rank"],
+        "StationsResult": ["df", "request", "_df_all", "_stations_filter", "_rank"],
         "ValuesResult": ["df", "stations"],
         "InterpolatedValuesResult": ["df", "stations", "latlon", "elevation"],
         "SummarizedValuesResult": ["df", "stations", "latlon", "elevation"],
         "HistoryResult": ["stations", "history"],
     }
+
+
+def test_how_the_stations_were_selected_is_private_to_the_library() -> None:
+    """`df_all`, `stations_filter` and `rank` are the library's (GH-3128): the stations have no public name for them."""
+    stations = _stations()
+    for name in ("df_all", "stations_filter", "rank"):
+        assert not hasattr(stations, name)
+        assert hasattr(stations, f"_{name}")
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
+            StationsResult(request=stations.request, df=stations.df, **{name: None})  # ty: ignore[invalid-argument-type]
 
 
 def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -> None:
@@ -265,7 +275,6 @@ def test_the_public_methods_of_the_results_are_the_ones_the_library_promises() -
         "history",
         "options",
         "parameters",
-        "rank",
         "settings",
         "start",
         "station_id",
@@ -309,8 +318,8 @@ def test_an_error_inside_a_property_of_a_result_is_the_error_that_is_raised() ->
     stations = StationsResult(
         request=request,  # ty: ignore[invalid-argument-type]
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     with pytest.raises(AttributeError, match="RequestWithoutSettings"):
         _ = stations.settings
@@ -482,13 +491,13 @@ def test_a_result_is_unhashable(name: str) -> None:
         ),
         pytest.param(
             "stations",
-            lambda result: dataclasses.replace(result, stations_filter=StationsFilter.ALL),
+            lambda result: dataclasses.replace(result, _stations_filter=StationsFilter.ALL),
             id="stations-filter",
         ),
-        pytest.param("stations", lambda result: dataclasses.replace(result, rank=3), id="rank"),
+        pytest.param("stations", lambda result: dataclasses.replace(result, _rank=3), id="rank"),
         pytest.param(
             "stations",
-            lambda result: dataclasses.replace(result, df_all=result.df_all.head(1)),
+            lambda result: dataclasses.replace(result, _df_all=result._df_all.head(1)),  # noqa: SLF001
             id="df-all",
         ),
         pytest.param(

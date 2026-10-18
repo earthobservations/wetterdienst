@@ -909,8 +909,8 @@ def test_period_precedence_on_overlapping_timestamps(
     stations_result = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     values = DwdObservationValues.from_stations(stations_result)
     given_df = values._collect_station_parameter_or_dataset("00011", dataset)  # noqa: SLF001
@@ -1532,8 +1532,8 @@ def test_create_humanized_column_names_mapping() -> None:
     stations_result = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     hcnm = DwdObservationValues.from_stations(stations_result)._create_humanized_parameters_mapping()  # noqa: SLF001
 
