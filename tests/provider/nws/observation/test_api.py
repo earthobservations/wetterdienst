@@ -286,7 +286,10 @@ def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch
     ]
     serve(monkeypatch, nws_api, {"/observations": json.dumps({"features": features}).encode()})
     request = NwsObservationRequest(
-        parameters=[("hourly", "data", "wind_direction_last_2min"), ("hourly", "data", "wind_speed_last_2min")],
+        parameters=[
+            ("hourly", "data", "wind_direction_mean_last_2min"),
+            ("hourly", "data", "wind_speed_mean_last_2min"),
+        ],
         start=dt.datetime(2026, 10, 12, tzinfo=UTC),
         end=dt.datetime(2026, 10, 13, tzinfo=UTC),
         settings=Settings(cache_disable=True),
@@ -294,9 +297,9 @@ def test_nws_values_null_the_wind_direction_of_a_calm_and_keep_north(monkeypatch
     )
     sr = stations_result(request, "hourly", "data", "KBOS")
     df = NwsObservationValues(sr=sr).all().df
-    direction = df.filter(pl.col("parameter") == "wind_direction_last_2min").sort("timestamp")
+    direction = df.filter(pl.col("parameter") == "wind_direction_mean_last_2min").sort("timestamp")
     assert direction.select("value", "quality_flags").rows() == [(360.0, "V"), (None, "V,raw:0"), (None, "Z")]
-    wind_speed = df.filter(pl.col("parameter") == "wind_speed_last_2min").sort("timestamp")
+    wind_speed = df.filter(pl.col("parameter") == "wind_speed_mean_last_2min").sort("timestamp")
     # a speed of 0 is a reading, and 9.36 km/h arrives as 2.6 m/s
     assert wind_speed.select("value", "quality_flags").rows() == [(2.6, "V"), (0.0, "V"), (2.6, "V")]
 
@@ -342,7 +345,7 @@ def test_nws_values_keep_the_fractions_of_the_quantities_that_carry_them(monkeyp
     sr = stations_result(request, "hourly", "data", "KBOS")
     df = NwsObservationValues(sr=sr).all().df
     values = dict(df.select("parameter", "value").rows())
-    assert values["wind_direction_last_2min"] == 60.0
+    assert values["wind_direction_mean_last_2min"] == 60.0
     # the gust arrives in km/h and is returned in m/s, the pressures arrive in Pa and are returned in hPa
     assert values["wind_gust_max_last_10min"] == pytest.approx(35.172 / 3.6)
     # `barometricPressure` is the altimeter setting, `seaLevelPressure` the one with the temperatures observed

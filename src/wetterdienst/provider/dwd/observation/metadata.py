@@ -232,12 +232,12 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "ff_10",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dd_10",
                             "unit": "degree",
                         },
@@ -457,11 +457,11 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "ff_st_10",
                             "unit": "meter_per_second",
                         },
-                        {"name": "wind_direction", "name_original": "dd_st_10", "unit": "degree"},
+                        {"name": "wind_direction_mean", "name_original": "dd_st_10", "unit": "degree"},
                     ],
                 },
             ],
@@ -868,11 +868,11 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "f",
                             "unit": "meter_per_second",
                         },
-                        {"name": "wind_direction", "name_original": "d", "unit": "degree"},
+                        {"name": "wind_direction_mean", "name_original": "d", "unit": "degree"},
                     ],
                 },
                 {
@@ -903,7 +903,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },
@@ -1037,12 +1037,12 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "windgeschwindigkeit",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "windrichtung",
                             "unit": "degree",
                         },
@@ -1260,7 +1260,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fm",
                             "unit": "meter_per_second",
                         },

@@ -1026,7 +1026,7 @@ def test_dwd_10_minutes_historical_wind_stamps_of_1999_file_beyond_midnight_are_
     if reverse:
         files = dict(reversed(files.items()))
     _serve_historical_files(monkeypatch, files)
-    df = _seam_values("10_minutes", "wind", "wind_speed", "01048", default_settings)
+    df = _seam_values("10_minutes", "wind", "wind_speed_mean", "01048", default_settings)
     assert df.get_column("timestamp").to_list() == [
         dt.datetime(1999, 12, 31, 22, 50, tzinfo=ZoneInfo("UTC")),
         dt.datetime(1999, 12, 31, 23, 0, tzinfo=ZoneInfo("UTC")),
@@ -1231,7 +1231,7 @@ def test_dwd_observations_urban_10_minutes_now(default_settings: Settings) -> No
 def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings) -> None:
     """The 10 minute urban `historical` period reaches back beyond what `recent` covers (GH-1875)."""
     request = DwdObservationRequest(
-        parameters=[("10_minutes", "urban_wind", "wind_direction")],
+        parameters=[("10_minutes", "urban_wind", "wind_direction_mean")],
         periods="historical",
         start="2016-01-01",
         end="2016-01-02",
@@ -1244,7 +1244,7 @@ def test_dwd_observations_urban_10_minutes_historical(default_settings: Settings
                 "station_id": "00399",
                 "resolution": "10_minutes",
                 "dataset": "urban_wind",
-                "parameter": "wind_direction",
+                "parameter": "wind_direction_mean",
                 "timestamp": dt.datetime(2016, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 230.0,
                 "quality_flags": "3",
@@ -1508,7 +1508,7 @@ def test_create_humanized_column_names_mapping() -> None:
     """Test create humanized column names mapping."""
     kl_daily_hcnm = {
         "fx": "wind_gust_max",
-        "fm": "wind_speed",
+        "fm": "wind_speed_mean",
         "rsk": "precipitation_amount",
         "rskf": "precipitation_form",
         "sdk": "sunshine_duration",
@@ -2085,7 +2085,7 @@ def test_dwd_observation_data_daily_climate_summary_custom_units() -> None:
                 "station_id": "01048",
                 "resolution": "daily",
                 "dataset": "climate_summary",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo(key="UTC")),
                 "value": 18.36,
                 "quality_flags": "10",

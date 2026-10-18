@@ -87,7 +87,7 @@ describe('useParameterLabel', () => {
         await nextTick()
         const glossary = glossaries[code]!
         // a long id, the one the app showed prettified
-        expect(wrapper.vm.parameterLabel('wind_direction_last_10min'), code).toBe(glossary.parameters.wind_direction_last_10min)
+        expect(wrapper.vm.parameterLabel('wind_direction_mean_last_10min'), code).toBe(glossary.parameters.wind_direction_mean_last_10min)
         expect(wrapper.vm.resolutionLabel('10_minutes'), code).toBe(glossary.resolutions['10_minutes'])
         expect(wrapper.vm.datasetLabel('urban_wind'), code).toBe(glossary.datasets.urban_wind)
       }

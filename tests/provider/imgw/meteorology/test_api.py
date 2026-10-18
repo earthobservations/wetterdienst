@@ -184,7 +184,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.7,
                 "quality_flags": None,
@@ -394,7 +394,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
                 "quality_flags": None,
@@ -541,7 +541,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
                 "quality_flags": None,
@@ -590,8 +590,8 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
 
 
 # The Polish word for the aggregation a column carries, and the marker its canonical name has to
-# have. Only min/max are listed: the canonical vocabulary marks a mean only for temperature, so
-# `średnia dobowa prędkość wiatru` is plain `wind_speed` and a "mean" rule would be all noise.
+# have. Only min/max are listed: the mean (`średnia dobowa prędkość wiatru` is `wind_speed_mean`) is held for every
+# quantity the rule of GH-3151 has been applied to by `tests/metadata/test_mean_names.py`, which reads `średni*` too.
 _AGGREGATION_MARKERS = {
     "minimalna": "_min",
     "minimalne": "_min",

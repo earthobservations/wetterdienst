@@ -145,7 +145,7 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
                 parameters=[
                     ("hourly", "data", "temperature_air_2m"),
                     ("hourly", "data", "humidity_relative"),
-                    ("hourly", "data", "wind_speed_last_10min"),
+                    ("hourly", "data", "wind_speed_mean_last_10min"),
                 ],
                 start=dt.datetime(2020, 1, 1, tzinfo=UTC),
                 end=dt.datetime(2020, 1, 2, tzinfo=UTC),
@@ -164,7 +164,7 @@ def test_metno_frost_values_hourly_multi_parameter_batched(caplog: pytest.LogCap
     assert sorted(df["parameter"].unique().to_list()) == [
         "humidity_relative",
         "temperature_air_2m",
-        "wind_speed_last_10min",
+        "wind_speed_mean_last_10min",
     ]
     temperature = df.filter(pl.col("parameter") == "temperature_air_2m")
     # closed one-day window: 00:00 of the 1st and of the 2nd are both in it

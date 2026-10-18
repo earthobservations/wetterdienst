@@ -147,11 +147,16 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # from the daily (max + min) / 2 too; no other provider had them, so the old names are no table entries any more
     "count_days_valid_temperature_air_mean_2m": "count_days_valid_temperature_air_mean_minmax_2m",
     "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
+    # GH-3151: a mean carries the word, and a mean over a window keeps the window after it
+    "wind_direction_last_10min": "wind_direction_mean_last_10min",
+    "wind_direction_last_2min": "wind_direction_mean_last_2min",
+    "wind_speed_last_10min": "wind_speed_mean_last_10min",
+    "wind_speed_last_2min": "wind_speed_mean_last_2min",
 }
 
 _WIND_LAST_10MIN = {
-    "wind_speed": "wind_speed_last_10min",
-    "wind_direction": "wind_direction_last_10min",
+    "wind_speed": "wind_speed_mean_last_10min",
+    "wind_direction": "wind_direction_mean_last_10min",
 }
 _GUST_LAST_10MIN = {"wind_gust_max": "wind_gust_max_last_10min"}
 _EXTREMES_LAST_12H = {
@@ -205,29 +210,33 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         ("hourly", "icon_eu"): {**_EXTREMES_LAST_12H, **_PPPP_SEA_LEVEL},
     },
     # GH-2697, GH-2707, GH-2733, GH-2835: the mean of the last 10 minutes, no longer the row's interval
-    "DwdObservationMetadata": {("hourly", "wind_synoptic"): {"wind_speed": "wind_speed_last_10min"}},
+    "DwdObservationMetadata": {("hourly", "wind_synoptic"): {"wind_speed": "wind_speed_mean_last_10min"}},
     "DwdPoiMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
     # GH-2836: WG_10MIN is the strongest gust of the last 10 minutes
     "FmiObservationMetadata": {("hourly", "data"): {**_WIND_LAST_10MIN, **_GUST_LAST_10MIN}},
-    "KnmiObservationMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
+    "KnmiObservationMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_mean_last_10min"}},
     "MeteoFranceObservationMetadata": {
         # GH-2834: FXY is the hour's highest 10-minute mean wind, no gust
         ("hourly", "core"): {**_WIND_LAST_10MIN, "wind_gust_max": "wind_speed_rolling_mean_max"},
     },
     "MeteoFranceSynopMetadata": {("subdaily", "data"): {**_WIND_LAST_10MIN, **_GUST_LAST_10MIN}},
     # Frost's own element `wind_speed` still selects its row, so only the direction is not found
-    "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_last_10min"}},
+    "MetnoFrostMetadata": {("hourly", "data"): {"wind_direction": "wind_direction_mean_last_10min"}},
     "SmhiObservationMetadata": {("hourly", "data"): _WIND_LAST_10MIN},
     # GH-2836, GH-2837, GH-2840, GH-2841: NWS's wind is the ASOS's 2-minute average, its gust the peak of the past 10
     # minutes, its barometricPressure the altimeter setting, the pressure at sea level of the standard atmosphere, and
     # its precipitationLastHour the METAR's amount since the last routine report. ECCC's
-    # hourly direction, now `wind_direction_last_2min`, is not listed: `wind_direction` is also the source's own field
+    # hourly direction, now `wind_direction_mean_last_2min`, is not listed: `wind_direction` is also the source's own
+    # field
     # name there, so a request for it still selects the row
+    # GH-2838: the wind of the hourly weather table is the SYNOP's and the METAR's mean of the last 10 minutes. Only the
+    # gust is listed: `wind_speed` and `wind_direction` are also the source's own field names there, so a request for
+    # them still selects the row (answered as `wind_speed_mean_last_10min` and `wind_direction_mean_last_10min`)
     "MetOfficeObservationMetadata": {("hourly", "weather"): _GUST_LAST_10MIN},
     "NwsObservationMetadata": {
         ("hourly", "data"): {
-            "wind_speed": "wind_speed_last_2min",
-            "wind_direction": "wind_direction_last_2min",
+            "wind_speed": "wind_speed_mean_last_2min",
+            "wind_direction": "wind_direction_mean_last_2min",
             **_GUST_LAST_10MIN,
             "pressure_air_site": "pressure_air_site_reduced",
             **_PRECIPITATION_SINCE_LAST_ROUTINE_REPORT,
@@ -255,6 +264,159 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         },
     },
 }
+
+# GH-3151, wind
+_MEAN_WIND_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    "AemetObservationMetadata": {
+        ("daily", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "ChmiObservationMetadata": {
+        ("daily", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "DmiObservationMetadata": {
+        ("annual", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("daily", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("hourly", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "DwdObservationMetadata": {
+        ("10_minutes", "urban_wind"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("10_minutes", "wind"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("daily", "climate_summary"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("hourly", "urban_wind"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("hourly", "wind"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "GeosphereObservationMetadata": {
+        ("daily", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "ImgwMeteorologyMetadata": {
+        ("daily", "climate"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("daily", "synop"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "climate"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "synop"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "KnmiObservationMetadata": {
+        ("10_minutes", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("daily", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("hourly", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "MetOfficeObservationMetadata": {
+        ("hourly", "wind"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "MeteoFranceObservationMetadata": {
+        ("daily", "core"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "MeteoswissObservationMetadata": {
+        ("10_minutes", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("annual", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("daily", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("hourly", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "MetnoFrostMetadata": {
+        ("daily", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+        ("monthly", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "NoaaGhcnMetadata": {
+        ("daily", "data"): {
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+    "SmhiObservationMetadata": {
+        ("1_minute", "data"): {
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+    },
+}
+
+
+def _merge_in_dataset(*blocks: dict[str, dict[tuple[str, str], dict[str, str]]]) -> None:
+    """Add the renames of each block to `RENAMED_PARAMETERS_IN_DATASET`, a name already there being replaced."""
+    for block in blocks:
+        for metadata_name, datasets in block.items():
+            for key, renames in datasets.items():
+                # a new dict: the existing ones are shared between datasets
+                datasets_of_provider = RENAMED_PARAMETERS_IN_DATASET.setdefault(metadata_name, {})
+                datasets_of_provider[key] = {**datasets_of_provider.get(key, {}), **renames}
+
+
+_merge_in_dataset(_MEAN_WIND_IN_DATASET)
 
 #: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
 #: value is refused with the new one named

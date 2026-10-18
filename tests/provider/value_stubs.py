@@ -668,7 +668,7 @@ def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
 
 def _meteofrance_observation_hourly_core(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     return _meteofrance_observation_hourly(
-        monkeypatch, "core", ["temperature_air_2m", "wind_direction_last_10min"], drop_nulls=drop_nulls
+        monkeypatch, "core", ["temperature_air_2m", "wind_direction_mean_last_10min"], drop_nulls=drop_nulls
     )
 
 
@@ -718,7 +718,7 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             ("subdaily", "data", "precipitation_amount_last_1h"),
             ("subdaily", "data", "precipitation_amount_last_6h"),
             ("subdaily", "data", "cloud_cover_total"),
-            ("subdaily", "data", "wind_direction_last_10min"),
+            ("subdaily", "data", "wind_direction_mean_last_10min"),
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
@@ -908,7 +908,7 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     body = json.dumps({"features": [{"type": "Feature", "properties": row} for row in rows]}).encode()
     serve(monkeypatch, eccc_api, {"climate-hourly": body})
     request = EcccObservationRequest(
-        parameters=[("hourly", "data", "wind_direction_last_2min"), ("hourly", "data", "wind_speed")],
+        parameters=[("hourly", "data", "wind_direction_mean_last_2min"), ("hourly", "data", "wind_speed")],
         start=_day(2019, 1, 1),
         end=_day(2019, 1, 9),
         settings=_settings(),
@@ -1072,7 +1072,7 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     request = KnmiObservationRequest(
         parameters=[
             ("hourly", "data", "temperature_air_2m"),
-            ("hourly", "data", "wind_direction_last_10min"),
+            ("hourly", "data", "wind_direction_mean_last_10min"),
             ("hourly", "data", "cloud_cover_total"),
         ],
         # the files of the hours 00 to 03 are stamped with the end of their hour (GH-2824)
@@ -1180,7 +1180,7 @@ def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         {"parameter/3/station/188790/period": csv.encode(), "parameter/16/station/188790/period": cloud_cover.encode()},
     )
     request = SmhiObservationRequest(
-        parameters=[("hourly", "data", "wind_direction_last_10min"), ("hourly", "data", "cloud_cover_total")],
+        parameters=[("hourly", "data", "wind_direction_mean_last_10min"), ("hourly", "data", "cloud_cover_total")],
         start=_day(2019, 1, 18),
         end=_day(2019, 3, 16),
         settings=_settings(),
@@ -1389,9 +1389,9 @@ STUBS = [
     ValueStub(
         "dwd/observation hourly/wind",
         _dwd_hourly_wind,
-        reading=("wind_direction", 250.0),
-        sentinels=(("wind_direction", 990.0), ("wind_direction", 0.0)),
-        tokens=(("wind_direction", "990", None), ("wind_direction", "0", None)),
+        reading=("wind_direction_mean", 250.0),
+        sentinels=(("wind_direction_mean", 990.0), ("wind_direction_mean", 0.0)),
+        tokens=(("wind_direction_mean", "990", None), ("wind_direction_mean", "0", None)),
     ),
     ValueStub(
         "dwd/observation hourly/wind_synop",
@@ -1412,22 +1412,22 @@ STUBS = [
         "dwd/observation 10_minutes/wind",
         _dwd_10_minutes_wind,
         # no sentinel: a 0 beside a wind that blows is a bearing here
-        reading=("wind_direction", 360.0),
-        tokens=(("wind_direction", "0", None),),
+        reading=("wind_direction_mean", 360.0),
+        tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
         "dwd/observation 10_minutes/urban_wind",
         _dwd_10_minutes_urban_wind,
-        reading=("wind_direction", 360.0),
-        sentinels=(("wind_direction", 0.0),),
-        tokens=(("wind_direction", "0", None),),
+        reading=("wind_direction_mean", 360.0),
+        sentinels=(("wind_direction_mean", 0.0),),
+        tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
         "dwd/observation hourly/urban_wind",
         _dwd_hourly_urban_wind,
-        reading=("wind_direction", 360.0),
-        sentinels=(("wind_direction", 0.0),),
-        tokens=(("wind_direction", "0", None),),
+        reading=("wind_direction_mean", 360.0),
+        sentinels=(("wind_direction_mean", 0.0),),
+        tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
         "dwd/observation 10_minutes/urban_solar",
@@ -1527,18 +1527,18 @@ STUBS = [
     ValueStub(
         "knmi/observation hourly/data",
         _knmi_hourly,
-        reading=("wind_direction_last_10min", 250.0),
+        reading=("wind_direction_mean_last_10min", 250.0),
         # 0 is a calm and 990 a variable wind, neither a bearing (GH-2850)
         # the octants are converted to a fraction on their way
         sentinels=(
-            ("wind_direction_last_10min", 0.0),
-            ("wind_direction_last_10min", 990.0),
+            ("wind_direction_mean_last_10min", 0.0),
+            ("wind_direction_mean_last_10min", 990.0),
             ("cloud_cover_total", 1.125),
         ),
         tokens=(
             ("temperature_air_2m", "NaN", None),
-            ("wind_direction_last_10min", "0", None),
-            ("wind_direction_last_10min", "990", None),
+            ("wind_direction_mean_last_10min", "0", None),
+            ("wind_direction_mean_last_10min", "990", None),
             ("cloud_cover_total", "9", None),
         ),
     ),
@@ -1546,35 +1546,35 @@ STUBS = [
         "fmi/observation hourly/data",
         _fmi_hourly,
         reading=("temperature_air_2m", -3.5),
-        sentinels=(("precipitation_amount", -1.0), ("wind_direction_last_10min", 0.0)),
+        sentinels=(("precipitation_amount", -1.0), ("wind_direction_mean_last_10min", 0.0)),
         tokens=(
             ("temperature_air_2m", "NaN", None),
             ("precipitation_amount", "-1.0", 0.0),
-            ("wind_direction_last_10min", "0.0", None),
+            ("wind_direction_mean_last_10min", "0.0", None),
         ),
     ),
     ValueStub(
         "nws/observation hourly/data",
         _nws_hourly,
-        reading=("wind_direction_last_2min", 360.0),
-        sentinels=(("wind_direction_last_2min", 0.0),),
+        reading=("wind_direction_mean_last_2min", 360.0),
+        sentinels=(("wind_direction_mean_last_2min", 0.0),),
         # a calm is no direction; the speed of 0 is a reading
-        tokens=(("wind_direction_last_2min", "0", None),),
+        tokens=(("wind_direction_mean_last_2min", "0", None),),
     ),
     ValueStub(
         "smhi/observation hourly/data",
         _smhi_hourly,
-        reading=("wind_direction_last_10min", 360.0),
+        reading=("wind_direction_mean_last_10min", 360.0),
         # the percent is converted to a decimal on its way: 113 % is the 9 oktas of an obscured sky
-        sentinels=(("wind_direction_last_10min", 0.0), ("cloud_cover_total", 1.13)),
-        tokens=(("wind_direction_last_10min", "0", None), ("cloud_cover_total", "113", None)),
+        sentinels=(("wind_direction_mean_last_10min", 0.0), ("cloud_cover_total", 1.13)),
+        tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "113", None)),
     ),
     ValueStub(
         "dmi/observation hourly/data",
         _dmi_hourly,
-        reading=("wind_direction", 250.0),
-        sentinels=(("wind_direction", 0.0),),
-        tokens=(("wind_direction", "0", None),),
+        reading=("wind_direction_mean", 250.0),
+        sentinels=(("wind_direction_mean", 0.0),),
+        tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
         "dmi/observation annual/data",
@@ -1617,10 +1617,10 @@ STUBS = [
     ValueStub(
         "eccc/observation hourly/data",
         _eccc_hourly,
-        reading=("wind_direction_last_2min", 310.0),
+        reading=("wind_direction_mean_last_2min", 310.0),
         # a calm has no direction; the speed of 0 is a reading
-        sentinels=(("wind_direction_last_2min", 0.0),),
-        tokens=(("wind_direction_last_2min", "0", None),),
+        sentinels=(("wind_direction_mean_last_2min", 0.0),),
+        tokens=(("wind_direction_mean_last_2min", "0", None),),
     ),
     ValueStub(
         "aemet/observation daily/data",
@@ -1658,12 +1658,12 @@ STUBS = [
         _dwd_poi,
         reading=("temperature_air_2m", 15.3),
         # the percent is converted to a decimal on its way
-        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26), ("wind_direction_last_10min", 0.0)),
+        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26), ("wind_direction_mean_last_10min", 0.0)),
         tokens=(
             ("cloud_cover_total", "---", None),
             ("cloud_cover_total", "113", None),
             ("cloud_cover_total", "126", None),
-            ("wind_direction_last_10min", "0", None),
+            ("wind_direction_mean_last_10min", "0", None),
         ),
     ),
     ValueStub(
@@ -1688,8 +1688,8 @@ STUBS = [
         "meteofrance/observation hourly/core",
         _meteofrance_observation_hourly_core,
         reading=("temperature_air_2m", 2.1),
-        sentinels=(("wind_direction_last_10min", 0.0), ("wind_direction_last_10min", 999.0)),
-        tokens=(("wind_direction_last_10min", "0", None), ("wind_direction_last_10min", "999", None)),
+        sentinels=(("wind_direction_mean_last_10min", 0.0), ("wind_direction_mean_last_10min", 999.0)),
+        tokens=(("wind_direction_mean_last_10min", "0", None), ("wind_direction_mean_last_10min", "999", None)),
     ),
     ValueStub(
         "meteofrance/observation daily/core",
@@ -1721,16 +1721,16 @@ STUBS = [
         sentinels=(
             ("precipitation_amount_last_6h", -0.1),
             ("cloud_cover_total", 1.01),
-            ("wind_direction_last_10min", 0.0),
-            ("wind_direction_last_10min", 400.0),
+            ("wind_direction_mean_last_10min", 0.0),
+            ("wind_direction_mean_last_10min", 400.0),
         ),
         # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm and a 400 are no direction,
         # and north is 360
         tokens=(
             ("precipitation_amount_last_6h", "-0.1", 0.0),
             ("cloud_cover_total", "101", None),
-            ("wind_direction_last_10min", "0", None),
-            ("wind_direction_last_10min", "400", None),
+            ("wind_direction_mean_last_10min", "0", None),
+            ("wind_direction_mean_last_10min", "400", None),
         ),
     ),
 ]

@@ -60,4 +60,4 @@
 | {term}`temperature_soil_min_0_5m`    | tb50_min       | soil temperature min at 0.5m    | °C    | -           |
 | {term}`temperature_soil_min_1m`      | tb100_min      | soil temperature min at 1m      | °C    | -           |
 | {term}`temperature_soil_min_2m`      | tb200_min      | soil temperature min at 2m      | °C    | -           |
-| {term}`wind_speed`                   | vv_mittel      | wind speed                      | m/s   | >=0         |
+| {term}`wind_speed_mean`              | vv_mittel      | wind speed                      | m/s   | >=0         |

@@ -20,7 +20,7 @@
 | {term}`temperature_air_min_2m` | tmin | Minimum temperature of the day. | degree_celsius |
 | {term}`precipitation_amount` | prec | Daily precipitation, from 07 to 07. | millimeter |
 | {term}`wind_direction_gust_max` | dir | Direction of the maximum gust. | degree |
-| {term}`wind_speed` | velmedia | Mean wind speed. | meter_per_second |
+| {term}`wind_speed_mean` | velmedia | Mean wind speed. | meter_per_second |
 | {term}`wind_gust_max` | racha | Maximum wind gust. | meter_per_second |
 | {term}`pressure_air_site_max` | presmax | Maximum pressure at the station's reference level. | hectopascal |
 | {term}`pressure_air_site_min` | presmin | Minimum pressure at the station's reference level. | hectopascal |

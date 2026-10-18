@@ -3021,7 +3021,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "weather_type_vicinity_thunder", "dimensionless", "Whether thunder was observed in the vicinity of the station."
     ),
-    CanonicalParameter("wind_direction", "angle", "Direction the wind is blowing from, clockwise from true north."),
+    CanonicalParameter(
+        "wind_direction",
+        "angle",
+        "Direction the wind is blowing from, clockwise from true north, where the source states no statistic "
+        "or a reading at one moment; the stated mean is `wind_direction_mean`.",
+    ),
     CanonicalParameter("wind_direction_gust_max", "angle", "Direction the strongest gust of the period blew from."),
     CanonicalParameter(
         "wind_direction_gust_max_1mile",
@@ -3039,16 +3044,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("wind_direction_gust_max_instant", "angle", "Direction of the strongest instantaneous gust."),
     CanonicalParameter(
-        "wind_direction_last_10min",
+        "wind_direction_mean",
         "angle",
-        "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than the "
-        "dataset's own interval.",
+        "Mean direction the wind is blowing from over the period, clockwise from true north.",
     ),
     CanonicalParameter(
-        "wind_direction_last_2min",
+        "wind_direction_mean_last_10min",
         "angle",
-        "Mean direction the wind blew from over the 2 minutes before the timestamp, a window shorter than the "
-        "dataset's own interval.",
+        "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than "
+        "the dataset's own interval.",
+    ),
+    CanonicalParameter(
+        "wind_direction_mean_last_2min",
+        "angle",
+        "Mean direction the wind blew from over the 2 minutes before the timestamp, a window shorter than the"
+        " dataset's own interval.",
     ),
     CanonicalParameter(
         "wind_force_beaufort", "wind_scale", "Wind strength on the Beaufort scale.", interpolation="homogeneous"
@@ -3109,7 +3119,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Wind run over several days, reported as one total.",
         interpolation="homogeneous",
     ),
-    CanonicalParameter("wind_speed", "speed", "Mean speed of the wind over the period.", interpolation="homogeneous"),
+    CanonicalParameter(
+        "wind_speed",
+        "speed",
+        "Speed of the wind where the source states no statistic or a reading at one moment; the stated mean "
+        "over the interval is `wind_speed_mean`.",
+        interpolation="homogeneous",
+    ),
     CanonicalParameter(
         "wind_speed_arithmetic",
         "speed",
@@ -3117,17 +3133,20 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "wind_speed_last_10min",
+        "wind_speed_mean", "speed", "Mean speed of the wind over the period.", interpolation="homogeneous"
+    ),
+    CanonicalParameter(
+        "wind_speed_mean_last_10min",
         "speed",
         "Mean wind speed over the 10 minutes before the timestamp, a window shorter than the dataset's own "
-        "interval, not the mean over the interval that `wind_speed` is.",
+        "interval, not the mean over the interval that `wind_speed_mean` is.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "wind_speed_last_2min",
+        "wind_speed_mean_last_2min",
         "speed",
         "Mean wind speed over the 2 minutes before the timestamp, a window shorter than the dataset's own "
-        "interval, not the mean over the interval that `wind_speed` is.",
+        "interval, not the mean over the interval that `wind_speed_mean` is.",
         interpolation="homogeneous",
     ),
     CanonicalParameter("wind_speed_min", "speed", "Lowest wind speed over the period.", interpolation="homogeneous"),

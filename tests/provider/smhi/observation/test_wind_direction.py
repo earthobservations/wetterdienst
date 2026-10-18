@@ -73,7 +73,7 @@ def test_smhi_hourly_wind_direction_of_0_is_null_and_360_is_north(monkeypatch: p
     _serve(monkeypatch, {"parameter/3/station/188790/period/corrected-archive": _HOURLY})
     df = _values(
         "hourly",
-        "wind_direction_last_10min",
+        "wind_direction_mean_last_10min",
         dt.datetime(2019, 1, 18, tzinfo=UTC),
         dt.datetime(2019, 3, 16, tzinfo=UTC),
     )
@@ -90,7 +90,7 @@ def test_smhi_1_minute_wind_direction_of_0_is_null_as_the_source_writes_it(monke
     _serve(monkeypatch, {"parameter/48/station/188790/period/latest-day": _MINUTE})
     df = _values(
         "1_minute",
-        "wind_direction",
+        "wind_direction_mean",
         dt.datetime(2026, 10, 12, 9, tzinfo=UTC),
         dt.datetime(2026, 10, 12, 10, tzinfo=UTC),
     )
@@ -103,7 +103,7 @@ def test_smhi_wind_speed_of_0_is_a_reading(monkeypatch: pytest.MonkeyPatch) -> N
     _serve(monkeypatch, {"parameter/4/station/188790/period/corrected-archive": speed})
     df = _values(
         "hourly",
-        "wind_speed_last_10min",
+        "wind_speed_mean_last_10min",
         dt.datetime(2019, 1, 18, tzinfo=UTC),
         dt.datetime(2019, 1, 19, tzinfo=UTC),
     )

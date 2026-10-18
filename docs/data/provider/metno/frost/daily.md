@@ -19,7 +19,7 @@
 | {term}`temperature_air_max_2m` | max(air_temperature P1D) | Highest recorded air temperature per 24 hours | degree_celsius |
 | {term}`temperature_air_min_2m` | min(air_temperature P1D) | Lowest recorded air temperature per 24 hours | degree_celsius |
 | {term}`precipitation_amount` | sum(precipitation_amount P1D) | Daily precipitation sum (between 06-06 UTC). | millimeter |
-| {term}`wind_speed` | mean(wind_speed P1D) | Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
+| {term}`wind_speed_mean` | mean(wind_speed P1D) | Daily mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`wind_speed_rolling_mean_max` | max(wind_speed P1D) | Daily maximum mean wind speed of hourly observations (00, 01, 02,..., 23 UTC). If hourly observations do not exist then the main observation times are used (06, 12, 18 UTC and also 00 UTC where available). | meter_per_second |
 | {term}`humidity_relative` | mean(relative_humidity P1D) | Daily mean relative humidity. | percent |
 | {term}`pressure_air_sea_level` | mean(air_pressure_at_sea_level P1D) | Mean daily air pressure reduced to sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |

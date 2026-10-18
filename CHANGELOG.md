@@ -18,6 +18,15 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the mean wind carries its statistic in the name, as `temperature_air_mean_2m` does
+  (GH-3151, first of three families): where the source states a mean of the row's interval the name
+  is `wind_speed_mean` / `wind_direction_mean` (46 rows, 13 networks), and a mean of a shorter
+  window is `wind_speed_mean_last_10min` etc. (were `wind_speed_last_10min`; the Met Office hourly
+  `weather` rows were `wind_speed`, GH-2838). Rows whose source states no statistic keep
+  `wind_speed` / `wind_direction`. The old name is refused with the new one named: change the
+  `parameter` you request and filter on, wide column names, SQL filters and `geo_station_distance`
+  keys. All rows are in "The statistic in a name" of the docs' parameters page. Release the app
+  after this backend
 - **Breaking**: `knmi/observation` `hourly` values are stamped with the end of their hour, KNMI's own
   timestamp, where they were stamped with its start: the air temperature KNMI gives for 12:00 UTC
   was returned as 11:00, the hourly sums and means as the hour that begins at the stamp. Every

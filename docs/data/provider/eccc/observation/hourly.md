@@ -31,7 +31,7 @@
 | {term}`precipitation_amount`     | precip_amount     | precipitation height                                                                                                                      | mm   | >=0         |
 | {term}`pressure_air_site`        | station_pressure  | air pressure at site                                                                                                                      | kPa  | >=0         |
 | {term}`visibility`               | visibility        | visibility range                                                                                                                          | km   | >=0         |
-| {term}`wind_direction_last_2min` | wind_direction    | wind direction (source: 10s deg), the average of the two minutes ending at the time of observation. The source's 0 (a calm wind) is null. | °    | >=0,<=360   |
+| {term}`wind_direction_mean_last_2min` | wind_direction    | wind direction (source: 10s deg), the average of the two minutes ending at the time of observation. The source's 0 (a calm wind) is null. | °    | >=0,<=360   |
 | {term}`wind_speed`               | wind_speed        | wind speed                                                                                                                                | km/h | >=0         |
 | {term}`temperature_wind_chill`   | windchill         | wind chill temperature                                                                                                                    | °C   | -           |
 | {term}`temperature_humidex`      | humidex           | humidex apparent temperature                                                                                                              | °C   | -           |
