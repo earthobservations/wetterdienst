@@ -166,6 +166,87 @@ describe('whitespace', () => {
   })
 })
 
+describe('typography', () => {
+  // How each language sets its quotation marks, so that one locale does not carry two styles (a
+  // straight " next to its own „…“) and a text does not look pasted together. The straight " is
+  // nobody's: every language has its own pair, and en is British (GH-2610). The apostrophe is the
+  // straight ' everywhere, as the catalogs have it, not the typographic one.
+  const QUOTES: Record<string, string> = {
+    'cs': '„“',
+    'da': '“”',
+    'de': '„“',
+    'de-hh': '„“',
+    'en': '“”',
+    'es': '«»',
+    'fr': '«»',
+    'it': '«»',
+    'lb': '„“',
+    'nl': '“”',
+    'pl': '„”',
+  }
+  const sets: [string, Record<string, Catalog>][] = [['UI text', ui], ['glossary label', glossary]]
+
+  it('has a quotation style written down for every locale', () => {
+    expect(Object.keys(QUOTES).sort()).toEqual(locales)
+  })
+
+  it.each(sets)('sets the quotation marks of a %s the way its language does', (_name, catalogs) => {
+    const off = Object.entries(catalogs).flatMap(([locale, catalog]) =>
+      Object.entries(catalog)
+        // «…» is the marker the operator note of the legal page names, in every language
+        .filter(([, text]) => (text.replace(/«…»/g, '').match(/["“”„«»]/g) ?? []).some(mark => !QUOTES[locale]!.includes(mark)))
+        .map(([key, text]) => `${locale} ${key}: ${JSON.stringify(text)}`),
+    )
+    expect(off).toEqual([])
+  })
+
+  it.each(sets)('writes the apostrophe of a %s straight', (_name, catalogs) => {
+    const curly = Object.entries(catalogs).flatMap(([locale, catalog]) =>
+      Object.entries(catalog)
+        .filter(([, text]) => text.includes('’'))
+        .map(([key, text]) => `${locale} ${key}: ${JSON.stringify(text)}`),
+    )
+    expect(curly).toEqual([])
+  })
+
+  it('sets French punctuation with a no-break space before : ; ? ! and inside « »', () => {
+    // a plain space lets the colon fall to the start of the next line
+    const loose = Object.entries(ui.fr!)
+      .filter(([, text]) => / [:;?!»]|« /.test(text))
+      .map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
+    expect(loose).toEqual([])
+  })
+})
+
+describe('address', () => {
+  // The way each locale speaks to the reader is written down in i18n/TERMS.md ("Address and spelling"):
+  // du/Sie, tu/vous. A pronoun of the other register in a locale is a text that was translated by
+  // itself. This sees pronouns and possessives only: a verb form alone (Spanish "obtiene" for
+  // "obtienes") has no word to find, so the read-through has to catch it. Luxembourgish and Low German
+  // are left out: the sign there is the imperative (lb `mapHint`, which TERMS.md lists as open), not a
+  // pronoun.
+  // whole words, letters being any letter (JavaScript's \b sees only ASCII ones: it finds "tě" in "návštěvami")
+  const word = (alternatives: string) => new RegExp(`(?<![\\p{L}\\p{N}/])(${alternatives})(?![\\p{L}\\p{N}])`, 'iu')
+  const OTHER_REGISTER: Record<string, RegExp> = {
+    cs: word('ty|tvůj|tvoje|tvé|tvého|tobě|tě'),
+    // "De" is also the plural article, at the start of a sentence, so it is left out
+    da: /(?<=\s)(Dem|Deres)(?!\p{L})/u,
+    de: word('du|dich|dir|dein\\w*'),
+    es: word('usted|ustedes'),
+    fr: word('tu|toi|ton|ta|tes'),
+    it: /(?<!\p{L})(Lei|Suo|Sua|Suoi|Sue)(?!\p{L})/u,
+    nl: /(^|\s)(uw|u)(?=\s)/i,
+    pl: /(?<!\p{L})(Pan|Pani|Państwo|Państwa)(?!\p{L})/u,
+  }
+
+  it.each(Object.keys(OTHER_REGISTER))('speaks to the reader of %s in one register', (locale) => {
+    const off = Object.entries(ui[locale]!)
+      .filter(([, text]) => OTHER_REGISTER[locale]!.test(text.replace(/\{[^{}]*\}/g, '')))
+      .map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
+    expect(off).toEqual([])
+  })
+})
+
 // Why a text may be the same as en's or de's. An entry says which locales may show the text as it is;
 // one that no longer matches is stale and fails, so the list cannot outlive the text it excuses.
 const NAME = 'a name, a format or a product, written the same in every language'
@@ -212,7 +293,6 @@ const UI_SAME: Record<string, Same> = {
   'impressum.disclaimerTitle': { en: ['nl'], why: COGNATE },
   'impressum.openSourceTitle': { en: ['da', 'fr', 'it'], why: COGNATE },
   'api.title': { en: ['cs', 'de-hh', 'de'], why: NAME },
-  'api.endpointsTitle': { en: ['da', 'es', 'nl'], why: COGNATE },
   'api.paramHeader': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'api.descHeader': { en: ['fr'], why: COGNATE },
   'glossary.parametersTitle': { en: ['nl'], why: COGNATE },
@@ -501,6 +581,21 @@ describe('terminology', () => {
       'pl': 'sie[ćc]i?',
     }, rephrased: {
       'stripes.aboutText2': { locales: ['de', 'de-hh'], why: 'says "Daten des Deutschen Wetterdienstes" where en says "DWD observation network"' },
+    } },
+    // not in the table of TERMS.md, which is the words the app's pages label things with: it is the
+    // API page's own word, and fr, es, nl and da used to have two for it (GH-2610)
+    endpoint: { en: /\bendpoints?\b/i, label: 'api.endpointsTitle', stems: {
+      'cs': 'koncov\\S* bod',
+      'da': 'endepunkt',
+      'de': 'endpunkt',
+      'de-hh': 'endpunkt',
+      'en': 'endpoint',
+      'es': 'puntos? de acceso',
+      'fr': 'points? d\'accès',
+      'it': 'endpoint',
+      'lb': 'endpunkt',
+      'nl': 'eindpunt',
+      'pl': 'punkt\\S* końcow',
     } },
     period: { en: /\bperiods?\b/i, label: 'history.periods', stems: {
       'cs': 'období',
