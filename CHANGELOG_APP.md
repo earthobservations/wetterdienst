@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- `[Glossary]` The means of humidity, pressure, cloud cover and visibility have labels in all eleven
+  languages (GH-3151): `humidity_relative_mean`, `pressure_air_site_mean`,
+  `pressure_air_sea_level_mean`, `pressure_vapor_mean`, `cloud_cover_total_mean`, `visibility_mean`, and
+  `cloud_cover_total_mean_midnight_to_midnight` and its three siblings, which replace the old ones.
+  Needs the backend that serves them: release the backend first
 - `[Glossary]` The mean wind has labels in all eleven languages for the backend names that carry the
   statistic (GH-3151): `wind_speed_mean`, `wind_direction_mean` and the `_mean_last_10min` /
   `_mean_last_2min` ones, which replace the `_last_10min` / `_last_2min` ones. Needs the backend

@@ -28,9 +28,9 @@
 | {term}`wind_speed_mean`                            | fkl010d0      | Wind speed scalar; daily mean in m/s                             | meter_per_second      |
 | {term}`wind_gust_max`                              | fkl010d1      | Gust peak (one second); daily maximum in m/s                     | meter_per_second      |
 | {term}`precipitation_amount`                       | rre150d0      | Precipitation; daily total 6 UTC - 6 UTC following day           | millimeter            |
-| {term}`pressure_air_site`                          | prestad0      | Atmospheric pressure at barometric altitude (QFE); daily mean    | hectopascal           |
-| {term}`pressure_air_sea_level`                     | pp0qffd0      | Atmospheric pressure reduced to sea level (QFF); daily mean      | hectopascal           |
-| {term}`pressure_vapor`                             | pva200d0      | Vapour pressure 2 m above ground; daily mean                     | hectopascal           |
+| {term}`pressure_air_site_mean`                     | prestad0      | Atmospheric pressure at barometric altitude (QFE); daily mean    | hectopascal           |
+| {term}`pressure_air_sea_level_mean`                | pp0qffd0      | Atmospheric pressure reduced to sea level (QFF); daily mean      | hectopascal           |
+| {term}`pressure_vapor_mean`                        | pva200d0      | Vapour pressure 2 m above ground; daily mean                     | hectopascal           |
 | {term}`radiation_global_intensity`                 | gre000d0      | Global radiation; daily mean                                     | watt_per_square_meter |
 | {term}`radiation_sky_short_wave_diffuse_intensity` | ods000d0      | Diffuse radiation; daily mean                                    | watt_per_square_meter |
 | {term}`radiation_sky_long_wave_intensity`          | oli000d0      | Longwave incoming radiation; daily mean                          | watt_per_square_meter |
@@ -45,6 +45,6 @@
 | {term}`temperature_soil_mean_0_05m`                | tso005d0      | Soil temperature at 5 cm depth; daily mean                       | degree_celsius        |
 | {term}`temperature_soil_mean_0_1m`                 | tso010d0      | Soil temperature at 10 cm depth; daily mean                      | degree_celsius        |
 | {term}`temperature_soil_mean_0_2m`                 | tso020d0      | Soil temperature at 20 cm depth; daily mean                      | degree_celsius        |
-| {term}`humidity_relative`                          | ure200d0      | Relative air humidity 2 m above ground; daily mean               | percent               |
+| {term}`humidity_relative_mean`                     | ure200d0      | Relative air humidity 2 m above ground; daily mean               | percent               |
 | {term}`evapotranspiration_potential_grass_fao`     | erefaod0      | Reference evaporation from FAO; daily total                      | millimeter            |
 

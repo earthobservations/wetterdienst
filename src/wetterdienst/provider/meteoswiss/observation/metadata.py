@@ -161,17 +161,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestah0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffh0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200h0",
                             "unit": "hectopascal",
                         },
@@ -241,7 +241,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200h0",
                             "unit": "percent",
                         },
@@ -286,17 +286,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestad0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffd0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200d0",
                             "unit": "hectopascal",
                         },
@@ -371,7 +371,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200d0",
                             "unit": "percent",
                         },
@@ -411,17 +411,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestam0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffm0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200m0",
                             "unit": "hectopascal",
                         },
@@ -486,7 +486,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200m0",
                             "unit": "percent",
                         },
@@ -521,17 +521,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestay0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffy0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200y0",
                             "unit": "hectopascal",
                         },
@@ -596,7 +596,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200y0",
                             "unit": "percent",
                         },

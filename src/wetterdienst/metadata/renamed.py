@@ -152,6 +152,10 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "wind_direction_last_2min": "wind_direction_mean_last_2min",
     "wind_speed_last_10min": "wind_speed_mean_last_10min",
     "wind_speed_last_2min": "wind_speed_mean_last_2min",
+    "cloud_cover_total_midnight_to_midnight": "cloud_cover_total_mean_midnight_to_midnight",
+    "cloud_cover_total_midnight_to_midnight_manual": "cloud_cover_total_mean_midnight_to_midnight_manual",
+    "cloud_cover_total_sunrise_to_sunset": "cloud_cover_total_mean_sunrise_to_sunset",
+    "cloud_cover_total_sunrise_to_sunset_manual": "cloud_cover_total_mean_sunrise_to_sunset_manual",
 }
 
 _WIND_LAST_10MIN = {
@@ -416,7 +420,179 @@ def _merge_in_dataset(*blocks: dict[str, dict[tuple[str, str], dict[str, str]]])
                 datasets_of_provider[key] = {**datasets_of_provider.get(key, {}), **renames}
 
 
-_merge_in_dataset(_MEAN_WIND_IN_DATASET)
+# GH-3151, humidity
+_MEAN_HUMIDITY_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    "AemetObservationMetadata": {
+        ("daily", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+        },
+        ("monthly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+        },
+    },
+    "ChmiObservationMetadata": {
+        ("daily", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+        },
+    },
+    "DmiObservationMetadata": {
+        ("annual", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+        },
+        ("daily", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+        },
+        ("hourly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+        },
+        ("monthly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+        },
+    },
+    "DwdObservationMetadata": {
+        ("annual", "climate_summary"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+        },
+        ("daily", "climate_summary"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("monthly", "climate_summary"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+        },
+    },
+    "DwdRoadMetadata": {
+        ("15_minutes", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+        },
+    },
+    "GeosphereObservationMetadata": {
+        ("daily", "data"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("monthly", "data"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+    },
+    "ImgwMeteorologyMetadata": {
+        ("daily", "climate"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+        },
+        ("daily", "synop"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("monthly", "climate"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+        },
+        ("monthly", "synop"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+    },
+    "KnmiObservationMetadata": {
+        ("10_minutes", "data"): {
+            "visibility": "visibility_mean",
+        },
+        ("daily", "data"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+        },
+    },
+    "MeteoFranceObservationMetadata": {
+        ("daily", "others"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("monthly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+    },
+    "MeteoswissObservationMetadata": {
+        ("annual", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("daily", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("hourly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+        ("monthly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+            "pressure_vapor": "pressure_vapor_mean",
+        },
+    },
+    "MetnoFrostMetadata": {
+        ("annual", "data"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+        },
+        ("daily", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+        },
+        ("monthly", "data"): {
+            "cloud_cover_total": "cloud_cover_total_mean",
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+            "pressure_air_site": "pressure_air_site_mean",
+        },
+    },
+    "RmiObservationMetadata": {
+        ("10_minutes", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+        },
+        ("daily", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+        },
+        ("hourly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+        },
+    },
+    "SmhiObservationMetadata": {
+        ("1_minute", "data"): {
+            "visibility": "visibility_mean",
+        },
+    },
+}
+
+
+_merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET)
 
 #: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
 #: value is refused with the new one named

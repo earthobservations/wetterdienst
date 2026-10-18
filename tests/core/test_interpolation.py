@@ -887,7 +887,7 @@ def test_decimals_for_rounds_as_values_does() -> None:
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
 
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total")],
+        parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total_mean")],
     )
     snow_depth, cloud_cover = request.parameters
     unit_converter = UnitConverter()
@@ -970,7 +970,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
                         "value": value,
                         "quality_flags": "10",
                     }
-                    for parameter, value in (("snow_depth", snow_depth), ("cloud_cover_total", cloud_cover))
+                    for parameter, value in (("snow_depth", snow_depth), ("cloud_cover_total_mean", cloud_cover))
                     for timestamp in timestamps
                 ],
             )
@@ -979,7 +979,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     monkeypatch.setattr(DwdObservationRequest, "filter_by_distance", _filter_by_distance)
     monkeypatch.setattr(DwdObservationValues, "query", _query)
     request = DwdObservationRequest(
-        parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total")],
+        parameters=[("daily", "climate_summary", "snow_depth"), ("daily", "climate_summary", "cloud_cover_total_mean")],
         start=timestamps[0],
         end=timestamps[-1],
         options=Options(unit_targets={"length_short": "mile"}),
@@ -988,7 +988,7 @@ def test_interpolate_and_summarize_keep_the_precision_values_returns(
     df = get_df(request, latitude, longitude)
     assert df.height == 6
     values = dict(df.group_by("parameter").agg(pl.col("value").unique()).iter_rows())
-    assert values == {"snow_depth": [snow_depth], "cloud_cover_total": [cloud_cover]}
+    assert values == {"snow_depth": [snow_depth], "cloud_cover_total_mean": [cloud_cover]}
 
 
 def test_decimals_for_keeps_a_reading_in_a_small_source_unit_when_units_are_not_converted() -> None:

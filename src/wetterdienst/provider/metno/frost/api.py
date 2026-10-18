@@ -237,17 +237,17 @@ _MetnoFrostMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "mean(relative_humidity P1D)",
                             "unit": "percent",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "mean(air_pressure_at_sea_level P1D)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "mean(surface_air_pressure P1D)",
                             "unit": "hectopascal",
                         },
@@ -317,22 +317,22 @@ _MetnoFrostMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "mean(relative_humidity P1M)",
                             "unit": "percent",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "mean(air_pressure_at_sea_level P1M)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "mean(surface_air_pressure P1M)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "mean(cloud_area_fraction P1M)",
                             "unit": "one_eighth",
                         },
@@ -382,7 +382,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "mean(cloud_area_fraction P1Y)",
                             "unit": "one_eighth",
                         },

@@ -107,12 +107,12 @@ _ImgwMeteorologyMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "średnie dobowe zachmurzenie ogólne",
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "średnia dobowa wilgotność względna",
                             "unit": "percent",
                         },
@@ -181,12 +181,12 @@ _ImgwMeteorologyMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "średnie dobowe zachmurzenie ogólne",
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "średnia dobowa wilgotność względna",
                             "unit": "percent",
                         },
@@ -206,17 +206,17 @@ _ImgwMeteorologyMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "średnia dobowe ciśnienie na poziomie stacji",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "średnie dobowe ciśnienie na pozimie morza",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "średnia dobowe ciśnienie pary wodnej",
                             "unit": "hectopascal",
                         },
@@ -266,12 +266,12 @@ _ImgwMeteorologyMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "średnie miesięczne zachmurzenie ogólne",
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "średnia miesięczna wilgotność względna",
                             "unit": "percent",
                         },
@@ -350,12 +350,12 @@ _ImgwMeteorologyMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "średnie miesięczne zachmurzenie ogólne",
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "średnia miesięczna wilgotność względna",
                             "unit": "percent",
                         },
@@ -380,17 +380,17 @@ _ImgwMeteorologyMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "średnie miesięczne ciśnienie na poziomie stacji",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "średnie miesięczne ciśnienie na pozimie morza",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "średnie miesięczne ciśnienie pary wodnej",
                             "unit": "hectopascal",
                         },
