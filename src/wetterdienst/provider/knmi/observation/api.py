@@ -115,23 +115,39 @@ def _ceil(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
 def _stamp(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
     """Return the `timestamp` of the values in the file that is named for `moment`.
 
-    KNMI names a 10-minute or hourly file for the START of the interval it covers (`...202501022350.nc` is
-    23:50 to 24:00) and stamps the values in it with the END: "The timestamp in the files indicates the end of the
-    measuring interval preceding that timestamp" (GH-2824). The instantaneous parameters ("Past minute mean air
-    temperature", "Past 1 minute air pressure") belong to that end, the aggregates (FH, RH, Q, ...) cover the
-    interval before it. The daily file is named for the date and holds the UTC day of that date: its value is
-    stamped with the date, as for every provider.
+    KNMI stamps the values of a file with the END of the interval they cover ("The timestamp in the files indicates the
+    end of the measuring interval preceding that timestamp"), and the three datasets name their files differently
+    (GH-2824). Read from real files on 2026-10-18 (De Bilt, 2026-10-14):
+
+    - 10 minutes: the name is the end. `KMDS__OPER_P___10M_OBS_L2_202610140900.nc` has the time coordinate 09:00
+      ("the end of the 10-minute measurement interval") and `ta` 14.7 degC, NOAA GHCNh De Bilt at 09:00 UTC; the
+      files named 08:50 and 09:10 hold 14.6 and 15.2. So the name is the stamp (the dataset page's example table
+      has a file named 2350 with the timestamp 00:00; the real files do not).
+    - hourly: the name is the START of the hour. `hourly-observations-validated-20261014-08.nc` has the time
+      coordinate 09:00 and `T` 14.7 degC, the same as the 10-minute file named 09:00 and GHCNh at 09:00, so its
+      stamp is the name plus one hour (over the five hours read, 08 to 12: 0.0 K against GHCNh at the coordinate,
+      1.2 K at the name).
+    - daily: the name is the date, the time coordinate is the end of that UTC day (the next 00:00); the value is
+      stamped with the date, as for every provider (`TG` 11.5 of `daily-observations-validated-20261014.nc` is the
+      value of 20261014 in the legacy export).
     """
-    return moment if resolution == Resolution.DAILY else moment + _STEP_BY_RESOLUTION[resolution]
+    return moment + dt.timedelta(hours=1) if resolution == Resolution.HOURLY else moment
 
 
 def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> Iterator[dt.datetime]:
     """Yield the moments that name the files whose values are stamped within [start_date, end_date]."""
     step = _STEP_BY_RESOLUTION[resolution]
-    # a daily file is stamped with its own date. When the whole request is daily, __post_init__ has already floored
-    # start to the day so the moments are aligned; a mixed request keeps the (harmless) unaligned label. Otherwise
-    # the first stamp at or after start_date, and the file of the interval that ends there
-    current = start_date if resolution == Resolution.DAILY else _ceil(start_date, resolution) - step
+    if resolution == Resolution.HOURLY:
+        # the hour that ends at the first stamp at or after start_date (its file is named for the start of it)
+        current = _ceil(start_date, resolution) - step
+    elif resolution == Resolution.MINUTE_10:
+        # 10-minute filenames encode the minute, so an unaligned start would not resolve -- floor it (the over-fetched
+        # pre-start file is trimmed by the framework's [start, end] filter)
+        current = _floor(start_date, resolution)
+    else:
+        # a daily file is stamped with its own date. When the whole request is daily, __post_init__ has already floored
+        # start to the day so the moments are aligned; a mixed request keeps the (harmless) unaligned label
+        current = start_date
     while _stamp(current, resolution) <= end_date:
         yield current
         current += step
@@ -363,8 +379,8 @@ class KnmiObservationRequest(TimeseriesRequest):
         # filter the framework shares across resolutions) keeps the stamp on the date AND the day in range. The
         # 10-minute and the hourly values are stamped with the END of their interval (`_stamp`), so an unaligned
         # start correctly excludes the interval that ends before it (the framework's [start, end] filter does
-        # that, and `_moments` starts at the first stamp at or after it). A mixed-resolution request has no
-        # single boundary and is left as-is.
+        # that; `_moments` starts at the first stamp at or after it). A mixed-resolution request has no single
+        # boundary and is left as-is.
         resolutions = {
             _resolution_of(parameter_or_dataset)
             for parameter_or_dataset in self.parameters

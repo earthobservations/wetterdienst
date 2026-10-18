@@ -81,11 +81,9 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
     Each file covers a single timestamp for every station at once (the whole point of
     downloading it), so this returns at most one row per parameter. The file's own
     internal "time" coordinate is not read: `moment`, the `timestamp` the caller attaches, is
-    computed from the file's name (``api._stamp``). A 10-minute or hourly file is named for the
-    start of its interval and its time coordinate is the end of it, which `moment` is; a daily
-    file's coordinate is the end of the UTC day (the file for 2020-01-01 carries 2020-01-02), a
-    KNMI labelling convention confirmed against the legacy CSV service, which dates the same
-    values to 2020-01-01, and `moment` is the date.
+    computed from the file's name (``api._stamp``, which says what the real files hold). The
+    coordinate is the end of the interval in all three datasets (10 minutes: the file's name; hourly:
+    the name plus one hour; daily: the next 00:00, which is why the date is attached).
     """
     h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
 
