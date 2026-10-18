@@ -54,6 +54,15 @@ _PERIODS_BY_RESOLUTION = {
 # and in no other. SMHI documents neither, but a 0 is no bearing there, so it is null (GH-2794).
 _WIND_DIRECTION_NOT_GIVEN = Sentinel("0")
 
+# The total cloud cover (parameter 16, percent) is the oktas 0 to 8 written as 0, 13, 25, 38, 50, 63, 75, 88 and
+# 100, and 113 for the 9 of an obscured sky: "Kod 9 används vid till exempel dimma och högt snödrev då molnen inte
+# kan observeras" and "Kod 9 sätts till då 112,5%" (https://www.smhi.se/kunskapsbanken/meteorologi/moln/hur-mats-molnighet).
+# The open data documentation does not describe it, but station 182910 reads 113 in 427 of 3,140 hours of
+# `latest-months` and 140460 in 20 of 3,127 (read 2026-10-18), all with the quality `G`. It is no amount of cloud, so
+# it is null (GH-3122).
+_CLOUD_COVER_SKY_OBSCURED = Sentinel("113")
+_CLOUD_COVER_PARAMETER = "16"
+
 _EMPTY_VALUES_SCHEMA = {
     "resolution": pl.String,
     "dataset": pl.String,
@@ -159,8 +168,11 @@ class SmhiObservationValues(TimeseriesValues):
         # fetched (and appended) first, so keep="first" prefers it over the still-under-QC
         # latest-months value; maintain_order=True makes that deterministic.
         df = df.unique(subset="timestamp", keep="first", maintain_order=True)
-        # the 0 of a wind direction is mapped before the value is read as a number, and stays as a `raw:` token
+        # the 0 of a wind direction and the 113 of a cloud cover are mapped before the value is read as a number, and
+        # stay as a `raw:` token
         sentinels = (_WIND_DIRECTION_NOT_GIVEN,) if parameter.name.startswith("wind_direction") else ()
+        if parameter.name_original == _CLOUD_COVER_PARAMETER:
+            sentinels = (_CLOUD_COVER_SKY_OBSCURED,)
         value, raw = null_sentinels(pl.col("value"), *sentinels)
         return df.select(
             pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
