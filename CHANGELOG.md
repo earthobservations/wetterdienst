@@ -27,6 +27,12 @@ Types of changes:
   `parameter` you request and filter on, wide column names, SQL filters and `geo_station_distance`
   keys. All rows are in "The statistic in a name" of the docs' parameters page. Release the app
   after this backend
+- **Breaking**: `knmi/observation` `hourly` values are stamped with the end of their hour, KNMI's own
+  timestamp, where they were stamped with its start: the air temperature KNMI gives for 12:00 UTC
+  was returned as 11:00, the hourly sums and means as the hour that begins at the stamp. Every
+  hourly `timestamp` moves 1 hour later, and a request for `start`..`end` returns the hours that
+  end in it, so `start` = `end` = 12:00 returns the hour 11-12. `10_minutes` (the file name is its
+  end) and `daily` are unchanged (GH-2824)
 - **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
   every provider that lists) that fails on TLS, a certificate that does not verify or a handshake
   that fails, raises a `DownloadError` naming the URL, with the `ssl.SSLError` as its `__cause__`,
