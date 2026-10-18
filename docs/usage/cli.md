@@ -6,14 +6,30 @@ kernelspec:
 
 # Command Line Interface
 
-Exit codes: `0` for an answer, empty or not -- a window without readings or a name nothing is called
-exits 0 with the sentence on stderr, as the REST API answers such a request with a 200 and an empty
-`values` or `stations` --, `1` for a failure, and `2` for a request that cannot be served as phrased. A list of
-`--stations` ids leaves out an id the network has no station for and says so in a warning. A boolean
+A `--stations` list leaves out an id the network has no station for and says so in a warning. A boolean
 option is the same everywhere: bare, as `--pretty`, or as `--pretty=true` and `--pretty=false`. The command line
 and the [REST API](restapi.md) render a result through the same function, so the same request gives the
 same output, the `metadata` block of the [response metadata](restapi.md#response-metadata) and a
 `settings` block with `--with-metadata` included.
+
+## Exit codes
+
+The exit code of a command is part of its contract, for the script, the scheduler and the CI job that branch on
+it: it is `0`, `1` or `2`, and no command has another. A test holds every explicit exit and every error the
+command line raises to these three, and each failure of the library to the status the REST API answers it with.
+
+| Code | Meaning | REST | For instance |
+| --- | --- | --- | --- |
+| `0` | an answer, empty or not | 200 | the values; a window without readings, a name nothing is called or an id the network has no station for (the sentence is on stderr, and a `--target` is left as it is); `--help`, `--version` |
+| `1` | a failure that is not the request's to rephrase | 5xx | a provider that failed or cannot be reached (`DownloadError`, `NoInternetError`), a credential or an extra the machine lacks, a malformed `WD_*` setting, a `--target` that cannot be written, a defect, Ctrl-C |
+| `2` | a request that cannot be served as phrased | 400, 404, 422 | no command or an unknown one, an unknown or missing option, a value out of range, a selection that is not exactly one, a provider, network or station that does not exist, a window that ends before it starts |
+
+What the REST API answers with a 400, 404 or 422 is `2` here, and what it answers with a 5xx is `1`, so the
+same request fails with the same kind of code on both. A failure of the provider and a defect of ours are both
+`1`: a script cannot tell them apart by the code, and reads the message. The three codes are frozen -- a code of
+its own for an upstream failure would break the scripts that test for `1` -- and a change to one is a breaking
+change of the command line. A command that a signal ends, or an interpreter that crashes as it exits
+(see [known issues](../known_issues.md)), has the status the operating system gives it.
 
 An option is spelled as the REST query parameter and the MCP argument of the same request, with hyphens
 for underscores (`--name-threshold` is `name_threshold`), and a list is plural and comma-separated
