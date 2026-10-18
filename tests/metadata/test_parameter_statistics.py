@@ -586,9 +586,14 @@ _WIND_MEAN_WINDOW = re.compile(
 )
 _NUMBER_WORDS = {"one": 1, "two": 2, "ten": 10}
 _TEN_MINUTES = re.compile(r"\b(?:10|ten)[ -]?min(?:ute)?s?\b", re.IGNORECASE)
-_WIND_MEAN_NAMES = {"wind_speed": "wind_speed_last_10min", "wind_direction": "wind_direction_last_10min"}
+_WIND_MEAN_NAMES = {
+    "wind_speed": "wind_speed_mean_last_10min",
+    "wind_direction": "wind_direction_mean_last_10min",
+    "wind_speed_mean": "wind_speed_mean_last_10min",
+    "wind_direction_mean": "wind_direction_mean_last_10min",
+}
 _TWO_MINUTES = re.compile(r"\b(?:2|two)[ -]?min(?:ute)?s?\b", re.IGNORECASE)
-_TWO_MINUTE_WIND_NAMES = {"wind_speed_last_2min", "wind_direction_last_2min"}
+_TWO_MINUTE_WIND_NAMES = {"wind_speed_mean_last_2min", "wind_direction_mean_last_2min"}
 _GUST_LAST_10MIN = "wind_gust_max_last_10min"
 
 # Rows named `wind_speed` or `wind_direction` below daily resolution whose source states a mean over a window
@@ -603,7 +608,7 @@ def _states_a_shorter_wind_mean(evidence: str, resolution: str) -> bool:
     """Say whether `evidence` states a mean over fewer minutes than a sub-daily row's interval.
 
     From daily on the mean of readings that are each a 10-minute mean (Météo-France `FFM`, "Daily mean of
-    the wind force averaged over 10 minutes") is the mean of the interval and takes the plain name.
+    the wind force averaged over 10 minutes") is the mean of the interval and takes the `_mean` name.
     """
     interval = _INTERVAL_MINUTES.get(resolution)
     if interval is None or resolution in _COARSE_RESOLUTIONS:
@@ -645,7 +650,7 @@ def test_a_wind_mean_over_a_shorter_window_is_not_named_the_interval_mean() -> N
 
 
 def test_the_ten_minute_wind_names_are_for_a_window_the_source_states() -> None:
-    """`wind_speed_last_10min` and `wind_direction_last_10min` are only for a stated 10 minutes in a longer row."""
+    """`wind_speed_mean_last_10min` and `wind_direction_mean_last_10min` are for a stated 10 minutes in a longer row."""
     wrong = []
     for site, resolution, parameter, evidence in _sourced_parameters():
         if parameter.name not in _WIND_MEAN_NAMES.values():
@@ -658,7 +663,7 @@ def test_the_ten_minute_wind_names_are_for_a_window_the_source_states() -> None:
 
 
 def test_the_two_minute_wind_names_are_for_a_window_the_source_states() -> None:
-    """`wind_speed_last_2min` and `wind_direction_last_2min` are only for a stated 2 minutes in a longer row."""
+    """`wind_speed_mean_last_2min` and `wind_direction_mean_last_2min` are for a stated 2 minutes in a longer row."""
     seen = set()
     wrong = []
     for site, resolution, parameter, evidence in _sourced_parameters():
@@ -706,26 +711,28 @@ def test_nws_eccc_and_the_gust_rows_name_their_windows() -> None:
 
     NWS `windspeed` and `winddirection` are the ASOS's 2-minute averages and `windgust` its 10-minute peak. ECCC's
     hourly direction is "the average direction during the two minute period ending at the time of observation",
-    where its speed is the average of "the one-, two- or ten-minute period" and keeps `wind_speed`, as
+    where its speed is the average of "the one-, two- or ten-minute period" and keeps the plain `wind_speed`, as
     `noaa/ghcn` does, for which the GHCNh documentation states no window.
     """
     nws = {p.name_original: p.name for p in NwsObservationMetadata["hourly"]["data"]}
-    assert nws["windspeed"] == "wind_speed_last_2min"
-    assert nws["winddirection"] == "wind_direction_last_2min"
+    assert nws["windspeed"] == "wind_speed_mean_last_2min"
+    assert nws["winddirection"] == "wind_direction_mean_last_2min"
     assert nws["windgust"] == "wind_gust_max_last_10min"
     eccc = {p.name_original: p.name for p in EcccObservationMetadata["hourly"]["data"]}
-    assert eccc["wind_direction"] == "wind_direction_last_2min"
+    assert eccc["wind_direction"] == "wind_direction_mean_last_2min"
     assert eccc["wind_speed"] == "wind_speed"
     fmi = {p.name_original: p.name for p in FmiObservationMetadata["hourly"]["data"]}
     assert fmi["wg_10min"] == "wind_gust_max_last_10min"
     metoffice = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["weather"]}
     assert metoffice["q10mnt_mxgst_spd"] == "wind_gust_max_last_10min"
-    # the hourly weather wind says no window of its own (the WM page says the SYNOP and METAR winds are kept here,
-    # which no data could be checked against without a CEDA login), and the whole-hour gust of the wind table is plain
-    assert metoffice["wind_speed"] == "wind_speed"
-    assert metoffice["wind_direction"] == "wind_direction"
+    # the WM page says the 10-minute winds of SYNOPs and METARs are kept in the hourly weather table (GH-2838), where
+    # the mean wind table holds the whole-hour means, and the whole-hour gust of the wind table is plain
+    assert metoffice["wind_speed"] == "wind_speed_mean_last_10min"
+    assert metoffice["wind_direction"] == "wind_direction_mean_last_10min"
     metoffice_wind = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["wind"]}
     assert metoffice_wind["max_gust_speed"] == "wind_gust_max"
+    assert metoffice_wind["mean_wind_speed"] == "wind_speed_mean"
+    assert metoffice_wind["mean_wind_dir"] == "wind_direction_mean"
 
 
 def test_dwd_road_wind_keeps_the_names_of_its_interval() -> None:
@@ -819,43 +826,43 @@ def test_dwd_poi_and_aemet_hourly_and_dwd_synoptic_wind_name_their_ten_minutes()
     "Windrichtung" and state no window, unlike `FF` ("10-Min-Mittel der Windgeschwindigkeit").
     """
     synoptic = {p.name_original: p.name for p in DwdObservationMetadata["hourly"]["wind_synoptic"]}
-    assert synoptic["ff"] == "wind_speed_last_10min"
+    assert synoptic["ff"] == "wind_speed_mean_last_10min"
     assert synoptic["dd"] == "wind_direction"
     # the sibling dataset's sheet says "hourly mean"
     hourly = {p.name_original: p.name for p in DwdObservationMetadata["hourly"]["wind"]}
-    assert hourly["f"] == "wind_speed"
-    assert hourly["d"] == "wind_direction"
+    assert hourly["f"] == "wind_speed_mean"
+    assert hourly["d"] == "wind_direction_mean"
     poi = {p.name_original: p.name for p in DwdPoiMetadata["hourly"]["data"]}
-    assert poi["mean_wind_speed_during last_10_min_at_10_meters_above_ground"] == "wind_speed_last_10min"
-    assert poi["mean_wind_direction_during_last_10 min_at_10_meters_above_ground"] == "wind_direction_last_10min"
+    assert poi["mean_wind_speed_during last_10_min_at_10_meters_above_ground"] == "wind_speed_mean_last_10min"
+    assert poi["mean_wind_direction_during_last_10 min_at_10_meters_above_ground"] == "wind_direction_mean_last_10min"
     aemet = {p.name_original: p.name for p in AemetObservationMetadata["hourly"]["data"]}
-    assert aemet["vv"] == "wind_speed_last_10min"
-    assert aemet["dv"] == "wind_direction_last_10min"
+    assert aemet["vv"] == "wind_speed_mean_last_10min"
+    assert aemet["dv"] == "wind_direction_mean_last_10min"
     # the daily mean is the day's, whatever the readings it is made of
-    assert {p.name_original: p.name for p in AemetObservationMetadata["daily"]["data"]}["velmedia"] == "wind_speed"
+    assert {p.name_original: p.name for p in AemetObservationMetadata["daily"]["data"]}["velmedia"] == "wind_speed_mean"
 
 
 def test_fmi_metno_and_smhi_hourly_wind_name_their_ten_minutes() -> None:
     """The rows GH-2707 names: FMI `ws_10min` / `wd_10min`, MET Norway `wind_speed` / `wind_from_direction`, SMHI.
 
     Their daily and monthly (MET Norway) and 1-minute (SMHI `47` / `48`) siblings are the mean of their own
-    interval and keep the plain names.
+    interval and are `wind_speed_mean` / `wind_direction_mean`.
     """
     fmi = {p.name_original: p.name for p in FmiObservationMetadata["hourly"]["data"]}
-    assert fmi["ws_10min"] == "wind_speed_last_10min"
-    assert fmi["wd_10min"] == "wind_direction_last_10min"
+    assert fmi["ws_10min"] == "wind_speed_mean_last_10min"
+    assert fmi["wd_10min"] == "wind_direction_mean_last_10min"
     metno = {p.name_original: p.name for p in MetnoFrostMetadata["hourly"]["data"]}
-    assert metno["wind_speed"] == "wind_speed_last_10min"
-    assert metno["wind_from_direction"] == "wind_direction_last_10min"
+    assert metno["wind_speed"] == "wind_speed_mean_last_10min"
+    assert metno["wind_from_direction"] == "wind_direction_mean_last_10min"
     assert {p.name_original: p.name for p in MetnoFrostMetadata["daily"]["data"]}[
         "mean(wind_speed P1D)"
-    ] == "wind_speed"
+    ] == "wind_speed_mean"
     smhi = {p.name_original: p.name for p in SmhiObservationMetadata["hourly"]["data"]}
-    assert smhi["4"] == "wind_speed_last_10min"
-    assert smhi["3"] == "wind_direction_last_10min"
+    assert smhi["4"] == "wind_speed_mean_last_10min"
+    assert smhi["3"] == "wind_direction_mean_last_10min"
     one_minute = {p.name_original: p.name for p in SmhiObservationMetadata["1_minute"]["data"]}
-    assert one_minute["47"] == "wind_speed"
-    assert one_minute["48"] == "wind_direction"
+    assert one_minute["47"] == "wind_speed_mean"
+    assert one_minute["48"] == "wind_direction_mean"
 
 
 def test_meteofrance_hourly_wind_names_its_ten_minutes() -> None:
@@ -863,13 +870,17 @@ def test_meteofrance_hourly_wind_names_its_ten_minutes() -> None:
 
     `FF` is the "force du vent moyenné sur 10 mn"; `DD`, "direction de FF", states no window of its own, so it
     moves with `FF` and the speed and the direction of the dataset do not end up under mismatched names. The
-    daily and monthly `FFM` are a mean of the day's or month's values and keep `wind_speed`.
+    daily and monthly `FFM` are a mean of the day's or month's values and are `wind_speed_mean`.
     """
     hourly = {p.name_original: p.name for p in MeteoFranceObservationMetadata["hourly"]["core"]}
-    assert hourly["FF"] == "wind_speed_last_10min"
-    assert hourly["DD"] == "wind_direction_last_10min"
-    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["daily"]["core"]}["FFM"] == "wind_speed"
-    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["monthly"]["data"]}["FFM"] == "wind_speed"
+    assert hourly["FF"] == "wind_speed_mean_last_10min"
+    assert hourly["DD"] == "wind_direction_mean_last_10min"
+    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["daily"]["core"]}[
+        "FFM"
+    ] == "wind_speed_mean"
+    assert {p.name_original: p.name for p in MeteoFranceObservationMetadata["monthly"]["data"]}[
+        "FFM"
+    ] == "wind_speed_mean"
 
 
 def test_meteofrance_synop_wind_names_its_ten_minutes() -> None:
@@ -880,8 +891,8 @@ def test_meteofrance_synop_wind_names_its_ten_minutes() -> None:
     no mean, and is `wind_gust_max_last_10min` (GH-2836).
     """
     subdaily = {p.name_original: p.name for p in MeteoFranceSynopMetadata["subdaily"]["data"]}
-    assert subdaily["dd"] == "wind_direction_last_10min"
-    assert subdaily["ff"] == "wind_speed_last_10min"
+    assert subdaily["dd"] == "wind_direction_mean_last_10min"
+    assert subdaily["ff"] == "wind_speed_mean_last_10min"
     assert subdaily["raf10"] == "wind_gust_max_last_10min"
 
 
@@ -890,14 +901,16 @@ def test_knmi_hourly_wind_direction_names_its_ten_minutes() -> None:
 
     The NetCDF says "Past 10 minute mean wind direction, representative for 10 meters" and the legacy hourly
     file "Mean wind direction (in degrees) for the 10-minute period preceding the observation time stamp"; the
-    hourly mean speed `FH` ("Hourly mean wind speed") keeps `wind_speed`. The 10-minute `dd` is the mean of its
-    own interval and keeps `wind_direction`.
+    hourly mean speed `FH` ("Hourly mean wind speed") is `wind_speed_mean`. The 10-minute `dd` is the mean of its
+    own interval and is `wind_direction_mean`.
     """
     hourly = {p.name_original: p for p in KnmiObservationMetadata["hourly"]["data"]}
-    assert hourly["DD"].name == "wind_direction_last_10min"
+    assert hourly["DD"].name == "wind_direction_mean_last_10min"
     assert "10 minute mean wind direction" in hourly["DD"].description
-    assert hourly["FH"].name == "wind_speed"
-    assert {p.name_original: p.name for p in KnmiObservationMetadata["10_minutes"]["data"]}["dd"] == "wind_direction"
+    assert hourly["FH"].name == "wind_speed_mean"
+    assert {p.name_original: p.name for p in KnmiObservationMetadata["10_minutes"]["data"]}[
+        "dd"
+    ] == "wind_direction_mean"
 
 
 def test_meteofrance_hourly_fxy_is_the_highest_ten_minute_mean_not_a_gust() -> None:

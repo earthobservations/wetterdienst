@@ -2,6 +2,9 @@
 import type { NetworkKind, Provider } from '#shared/types/api'
 
 const { t, locale } = useI18n()
+
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('providers.title') })
 const { networkKindLabel } = useNetworkKindLabel()
 
 // Names are sorted for the language of the page, as the glossary does: "Český" after "Czech" is where

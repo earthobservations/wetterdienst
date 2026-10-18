@@ -31,14 +31,11 @@ Both read the environment, and `.env`, the same way. The variables of the option
 `WD_TS_` prefix, so `WD_TS_SHAPE="wide"` sets the `shape` option as before.
 
 ```{note}
-`Settings(ts_shape="long")` and the other `ts_*` settings, reading or assigning `settings.ts_shape`,
-and a `settings={"ts_shape": "long"}` dict are the old way to set what are options now. `Settings`
-no longer has them as fields. They are still taken, with a `DeprecationWarning`, when a request is
-given no `options=`, but will be removed: pass `options=Options(shape="long")` instead. Giving
-`options=` beside such `ts_*` settings that differ from the options of the environment raises a
-`ValueError`. A mapping given as a `ts_*` setting is merged with the environment's, key by key, as
-`Options(...)` does and `options={...}` does not. `Settings.model_construct(ts_...)` is not covered.
-The `WD_TS_*` variables stay and are read by `Options` alone.
+`Settings(ts_shape="long")` and the other `ts_*` settings, `settings.ts_shape`, and a
+`settings={"ts_shape": "long"}` dict were the old way to set what are options now. They are gone, and
+`Settings` refuses them with an error that names the option to pass instead:
+`options=Options(shape="long")` (or `options={"shape": "long"}`) on the request. The `WD_TS_*`
+variables stay and are read by `Options` alone.
 ```
 
 ## Settings

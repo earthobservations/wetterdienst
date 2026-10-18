@@ -43,14 +43,60 @@ describe('mapStations', () => {
       props: { stations, selectedStations: [] },
     })
     const vm = wrapper.vm as any
-    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
     await vm.onMapReady()
 
-    const { markers } = markerCluster.mock.calls[0]![0] as { markers: { options: { title: string } }[] }
+    const { markers } = markerCluster.mock.calls[0]![0] as { markers: { options: { title: string, alt: string } }[] }
     expect(markers.map(m => m.options.title)).toEqual([
       'JAN MAYEN (ID: 01001)',
       'Test Station (ID: 00001, Berlin)',
     ])
+    // Leaflet names a marker for a screen reader by its `alt`, "Marker" unless it is given one
+    expect(markers.map(m => m.options.alt)).toEqual(markers.map(m => m.options.title))
+  })
+})
+
+describe('mapStations marker focus', () => {
+  // A marker that Tab reaches outside what the map shows has its focus out of sight: the map pans by the part
+  // that is hidden (WCAG 2.4.11). The boxes are the view and the marker, as the browser would measure them.
+  const box = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom, width: right - left, height: bottom - top }) as DOMRect
+
+  async function focusMarkerAt(markerBox: DOMRect, className = 'leaflet-marker-icon') {
+    const panBy = vi.fn()
+    const container = document.createElement('div')
+    container.getBoundingClientRect = () => box(100, 100, 500, 500)
+    const marker = document.createElement('img')
+    marker.className = className
+    marker.getBoundingClientRect = () => markerBox
+    container.append(marker)
+    const wrapper = await mountSuspended(MapStations, { props: { stations: [], selectedStations: [] } })
+    const vm = wrapper.vm as any
+    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {}, getContainer: () => container, panBy } }
+    await vm.onMapReady()
+    marker.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    wrapper.unmount()
+    return panBy
+  }
+
+  it('pans a marker that is left of and above the view into it, with a margin', async () => {
+    const panBy = await focusMarkerAt(box(60, 40, 85, 81))
+    // the box starts 40 and 60 px outside, and 24 px of margin are kept
+    expect(panBy).toHaveBeenCalledExactlyOnceWith([-64, -84], { animate: false })
+  })
+
+  it('pans a marker that is right of and below the view into it', async () => {
+    const panBy = await focusMarkerAt(box(520, 530, 545, 571))
+    expect(panBy).toHaveBeenCalledExactlyOnceWith([69, 95], { animate: false })
+  })
+
+  it('leaves the map where it is for a marker that is in view', async () => {
+    const panBy = await focusMarkerAt(box(250, 250, 275, 291))
+    expect(panBy).not.toHaveBeenCalled()
+  })
+
+  it('leaves the map where it is for anything else that takes the focus', async () => {
+    const panBy = await focusMarkerAt(box(60, 40, 85, 81), 'leaflet-control-zoom-in')
+    expect(panBy).not.toHaveBeenCalled()
   })
 })
 
@@ -73,7 +119,7 @@ describe('mapStations with stations that have no position', () => {
     wrapper = await mountSuspended(MapStations, { props: { stations, selectedStations, multiple: true } })
     const vm = wrapper.vm as any
     const removeLayer = vi.fn()
-    vm.map = { leafletObject: { addLayer: () => {}, removeLayer, fitBounds: () => {} } }
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer, fitBounds: () => {} } }
     await vm.onMapReady()
     return { vm, removeLayer }
   }
@@ -180,7 +226,7 @@ describe('mapStations when its list changes while the markers are built', () => 
     const vm = wrapper.vm as any
     const addLayer = vi.fn()
     const removeLayer = vi.fn()
-    vm.map = { leafletObject: { addLayer, removeLayer, fitBounds: () => {} } }
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer, removeLayer, fitBounds: () => {} } }
     const ready: Promise<void> = vm.onMapReady()
     return { addLayer, removeLayer, ready }
   }
@@ -257,7 +303,7 @@ describe('mapStations when its list changes while the markers are built', () => 
     const vm = wrapper.vm as any
     const addLayer = vi.fn()
     const removeLayer = vi.fn()
-    vm.map = { leafletObject: { addLayer, removeLayer, fitBounds: () => {} } }
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer, removeLayer, fitBounds: () => {} } }
     overtake = () => vm.createMarkers()
 
     await vm.onMapReady()
@@ -286,7 +332,7 @@ describe('mapStations when its list changes while the markers are built', () => 
     wrapper = await mountSuspended(MapStations, { props: { stations: [berlin], selectedStations: [] } })
     const vm = wrapper.vm as any
     const addLayer = vi.fn()
-    vm.map = { leafletObject: { addLayer, removeLayer: () => {}, fitBounds: () => {} } }
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer, removeLayer: () => {}, fitBounds: () => {} } }
     unmount = () => {
       wrapper!.unmount()
       wrapper = undefined
@@ -319,7 +365,7 @@ describe('mapStations centring on selected stations that have no position', () =
     wrapper = await mountSuspended(MapStations, { props: { stations: [postcode, berlin], selectedStations: [], multiple: true } })
     const vm = wrapper.vm as any
     const fitBounds = vi.fn()
-    vm.map = { leafletObject: { addLayer: () => {}, removeLayer: () => {}, fitBounds } }
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer: () => {}, fitBounds } }
     await wrapper.setProps({ selectedStations })
     return { vm, fitBounds }
   }
@@ -414,7 +460,7 @@ describe('mapStations when leaflet.markercluster fails to load', () => {
     // set again after the message comes or goes: re-rendering sets the ref back to the LMap stub,
     // which holds no map
     const setMap = () => {
-      vm.map = { leafletObject: { addLayer, removeLayer: () => {}, fitBounds: () => {} } }
+      vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer, removeLayer: () => {}, fitBounds: () => {} } }
     }
     setMap()
     return { vm, addLayer, setMap }
@@ -526,7 +572,7 @@ describe('mapStations bounds of many stations', () => {
     expect(button.text()).toBe('Center on all stations')
     // set after the render above, which hands the template ref the mocked LMap
     const fitBounds = vi.fn()
-    ;(wrapper.vm as any).map = { leafletObject: { fitBounds } }
+    ;(wrapper.vm as any).map = { leafletObject: { getContainer: () => document.createElement('div'), fitBounds } }
 
     await button.trigger('click')
     const bounds = fitBounds.mock.lastCall![0]

@@ -61,6 +61,7 @@ Settings(**settings.model_dump())
 
 # the fields of the settings are checked by name and by type, as those of the options are
 Settings(cache_dsable=True)  # ty: ignore[unknown-argument]
+Settings(ts_shape="wide")  # ty: ignore[unknown-argument]  # an option of the request since GH-2639: options=
 Settings(cache_disable="yes")  # ty: ignore[invalid-argument-type]
 Options(shap="wide")  # ty: ignore[unknown-argument]
 request = DwdObservationRequest(

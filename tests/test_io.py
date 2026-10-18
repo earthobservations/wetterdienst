@@ -130,8 +130,8 @@ def stations_result_mock(df_stations: pl.DataFrame, stations_mock: TimeseriesReq
     """Provide StationsResult mock."""
     return StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=stations_mock,
     )
 
@@ -273,8 +273,8 @@ def test_stations_to_dict(df_stations: pl.DataFrame) -> None:
     """Test export of DataFrame of stations to dictionary."""
     data = StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=None,
     ).to_dict()
     assert data.keys() == {"stations"}
@@ -302,8 +302,8 @@ def test_stations_to_dict_with_metadata(
     """Test export of DataFrame of stations to dictionary with metadata."""
     data = StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=stations_mock,
     ).to_dict(with_metadata=True)
     assert data.keys() == {"stations", "metadata"}
@@ -314,8 +314,8 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
     """Test export of DataFrame of stations to OGC feature collection."""
     data = StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=None,
     ).to_ogc_feature_collection()
     assert data.keys() == {"data"}
@@ -342,8 +342,8 @@ def test_stations_to_ogc_feature_collection_with_metadata(
     """Test export of DataFrame of stations to OGC feature collection with metadata."""
     data = StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=stations_mock,
     ).to_ogc_feature_collection(with_metadata=True)
     assert data.keys() == {"data", "metadata"}
@@ -354,8 +354,8 @@ def test_stations_format_json(df_stations: pl.DataFrame) -> None:
     """Test export of DataFrame to json."""
     output = StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=None,
     ).to_json()
     response = json.loads(output)
@@ -368,8 +368,8 @@ def test_stations_format_geojson(df_stations: pl.DataFrame, stations_mock: Times
     """Test export of DataFrame to geojson."""
     output = StationsResult(
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.ALL,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.ALL,
         request=stations_mock,
     ).to_geojson()
     response = json.loads(output)
@@ -383,8 +383,8 @@ def test_stations_format_csv(df_stations: pl.DataFrame) -> None:
     output = (
         StationsResult(
             df=df_stations,
-            df_all=df_stations,
-            stations_filter=StationsFilter.ALL,
+            _df_all=df_stations,
+            _stations_filter=StationsFilter.ALL,
             request=None,
         )
         .to_csv()
@@ -796,8 +796,8 @@ def test_values_plot_labels_the_unit_the_values_carry(
     stations = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     df = pl.DataFrame(
         {
@@ -829,8 +829,8 @@ def test_values_plot_labels_one_name_published_in_two_units() -> None:
     stations = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     df = pl.DataFrame(
         {
@@ -2567,7 +2567,7 @@ def _gauge_stations_result() -> StationsResult:
         },
         orient="row",
     ).with_columns(gauge_zero=pl.Series([None, None, -1.809], dtype=pl.Float64), distance=pl.lit(1.0))
-    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, request=GaugeRequestMock())
+    return StationsResult(df=df, _df_all=df, _stations_filter=StationsFilter.ALL, request=GaugeRequestMock())
 
 
 # per station id: the feature's position and its gauge_zero property
@@ -3122,7 +3122,7 @@ def _two_dataset_stations_result() -> StationsResult:
         },
         orient="row",
     )
-    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, request=None)
+    return StationsResult(df=df, _df_all=df, _stations_filter=StationsFilter.ALL, request=None)
 
 
 def _values_result(stations: StationsResult, rows: list[dict]) -> ValuesResult:
@@ -3253,7 +3253,7 @@ def _unlocated_stations_result() -> StationsResult:
         },
         orient="row",
     ).with_columns(region=pl.lit(None, dtype=pl.String))
-    return StationsResult(df=df, df_all=df, stations_filter=StationsFilter.ALL, request=None)
+    return StationsResult(df=df, _df_all=df, _stations_filter=StationsFilter.ALL, request=None)
 
 
 # per station id: the feature's geometry, null where the station has no position
@@ -3335,7 +3335,7 @@ def test_values_to_ogc_feature_collection_merged_datasets_span_their_dates() -> 
         "temperature_air_temperature_air_2m": None,
     }
     result = _values_result(
-        StationsResult(df=stations, df_all=stations, stations_filter=StationsFilter.ALL, request=None),
+        StationsResult(df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL, request=None),
         [
             {"station_id": "01048", "resolution": "daily", "dataset": None, "timestamp": utc(2025), **wide},
             {"station_id": "00011", "resolution": "daily", "dataset": None, "timestamp": utc(2019), **wide},
@@ -3527,7 +3527,7 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
         ),
         pytest.param(
             {"humanize": False},
-            ["hourly/wind/wind_speed", "hourly/wind_extreme/wind_gust_max"],
+            ["hourly/wind/wind_speed_mean", "hourly/wind_extreme/wind_gust_max"],
             ["f", "fx_911"],
             id="one-dataset-name-beginning-another",
         ),
@@ -3548,8 +3548,8 @@ def test_values_plot_of_a_wide_frame_draws_what_the_long_frame_does(
     stations = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     values = stations.values()
     series = [
@@ -3605,8 +3605,8 @@ def test_values_plot_of_an_empty_wide_frame_is_an_empty_figure() -> None:
     stations = StationsResult(
         request=request,
         df=pl.DataFrame(),
-        df_all=pl.DataFrame(),
-        stations_filter=StationsFilter.ALL,
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
     )
     df = stations.values()._widen_df(pl.DataFrame(schema=LONG_SCHEMA))  # noqa: SLF001
     assert ValuesResult(stations=stations, df=df).to_plot().data == ()

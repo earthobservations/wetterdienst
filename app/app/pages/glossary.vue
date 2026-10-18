@@ -2,6 +2,9 @@
 import type { GlossaryEntry } from '#shared/types/api'
 
 const { t, locale } = useI18n()
+
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('glossary.title') })
 const { parameterLabel } = useParameterLabel()
 const { unitTypeLabel } = useUnitTypeLabel()
 

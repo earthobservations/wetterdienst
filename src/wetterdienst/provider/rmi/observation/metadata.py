@@ -70,7 +70,7 @@ _COMMON = [
         "unit": "meter_per_second",
     },
     {
-        "name": "humidity_relative",
+        "name": "humidity_relative_mean",
         "name_original": "humidity_rel_shelter_avg",
         "unit": "percent",
     },
@@ -85,7 +85,7 @@ _COMMON = [
         "unit": "minute",
     },
     {
-        "name": "radiation_global_intensity",
+        "name": "radiation_global_intensity_mean",
         "name_original": "short_wave_from_sky_avg",
         "unit": "watt_per_square_meter",
     },

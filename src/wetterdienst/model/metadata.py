@@ -165,7 +165,7 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
     never sends a caller to a parameter that is not there:
 
     1. the rename declared for this dataset (`RENAMED_PARAMETERS_IN_DATASET`), for a name another
-       dataset of the provider still has: `wind_speed` is `wind_speed_last_10min` in
+       dataset of the provider still has: `wind_speed` is `wind_speed_mean_last_10min` in
        `hourly/data` but stays `wind_speed` in `daily/data`;
     2. the rename for 1.0 that holds everywhere (`RENAMED_PARAMETERS`);
     3. the spot name of a sub-daily `_mean_` temperature, which no table lists since the move
@@ -205,7 +205,7 @@ _ERROR_PREFIX = ("error", "absolute")
 # how close two such tokens have to be to count as one spelled wrongly ("sped", "realtive")
 _TOKEN_CUTOFF = 0.75
 # the token that makes a name the gust of a quantity, whatever the quantity tokens before it: `wind_direction_gust_max`
-# is the direction of the gust, `wind_direction_last_10min` that of the mean wind (GH-3009)
+# is the direction of the gust, `wind_direction_mean_last_10min` that of the mean wind (GH-3009)
 _GUST_TOKEN = "gust"  # noqa: S105
 
 

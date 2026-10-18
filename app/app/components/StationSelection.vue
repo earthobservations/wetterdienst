@@ -233,9 +233,9 @@ function removeStation(station: Station) {
     </p>
     <UContainer v-if="selectedStations.length > 0" class="mt-2">
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-sm font-medium">
+        <h3 class="text-sm font-medium">
           {{ t('stationSelection.selectedStations') }}
-        </h4>
+        </h3>
         <UButton size="xs" color="neutral" variant="ghost" @click="selectedStations = []">
           {{ t('stationSelection.clearAll') }}
         </UButton>

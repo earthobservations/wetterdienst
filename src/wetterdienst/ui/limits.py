@@ -90,8 +90,8 @@ def selected_station_count(stations: StationsResult) -> int:
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
     count = stations.df.get_column("station_id").n_unique()
-    if stations.stations_filter is StationsFilter.BY_RANK and stations.rank:
-        return min(count, stations.rank)
+    if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
+        return min(count, stations._rank)  # noqa: SLF001
     return count
 
 

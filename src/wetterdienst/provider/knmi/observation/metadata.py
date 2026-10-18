@@ -61,12 +61,12 @@ _KnmiObservationMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dd",
                             "unit": "degree",
                         },
@@ -86,7 +86,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "qg",
                             "unit": "watt_per_square_meter",
                         },
@@ -101,12 +101,12 @@ _KnmiObservationMetadataSpec = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "visibility",
+                            "name": "visibility_mean",
                             "name_original": "vv",
                             "unit": "meter",
                         },
                         {
-                            "name": "precipitation_intensity",
+                            "name": "precipitation_intensity_mean",
                             "name_original": "rg",
                             "unit": "millimeter_per_hour",
                         },
@@ -146,12 +146,12 @@ _KnmiObservationMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "FH",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "DD",
                             "unit": "degree",
                         },
@@ -221,12 +221,12 @@ _KnmiObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "UG",
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "FG",
                             "unit": "meter_per_second",
                         },
@@ -261,7 +261,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "joule_per_square_centimeter",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "NG",
                             "unit": "one_eighth",
                         },

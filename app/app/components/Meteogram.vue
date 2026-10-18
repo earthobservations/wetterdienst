@@ -2134,13 +2134,13 @@ watch(
                   : 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/70 hover:border-gray-200 dark:hover:border-gray-700',
               ]"
             >
-              <div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
+              <div class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
                 {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
               </div>
               <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow">
                 {{ d.emoji }}
               </div>
-              <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+              <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
                 {{ d.dayMonth }}
               </div>
               <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
@@ -2158,7 +2158,9 @@ watch(
 </template>
 
 <style scoped>
-/* Smooth custom bounce animation for weather emojis */
+/* Smooth custom bounce animation for weather emojis. Once, and not at all for a visitor who asked
+   for less motion: movement that starts by itself and goes on for more than five seconds needs a way
+   to be stopped (WCAG 2.2.2), and a decoration is not worth one. */
 @keyframes bounce-slow {
   0%, 100% {
     transform: translateY(0);
@@ -2167,7 +2169,9 @@ watch(
     transform: translateY(-4px);
   }
 }
-.animate-bounce-slow {
-  animation: bounce-slow 4s ease-in-out infinite;
+@media (prefers-reduced-motion: no-preference) {
+  .animate-bounce-slow {
+    animation: bounce-slow 4s ease-in-out 1;
+  }
 }
 </style>

@@ -3,6 +3,9 @@ import { describeFetchError } from '~/utils/api-error'
 import { plotlySeparators } from '~/utils/format'
 
 const { t, locale } = useI18n()
+
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('stripes.title') })
 const toast = useToast()
 
 // Plotly instance (loaded client-side only)
