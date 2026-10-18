@@ -17,6 +17,7 @@ import pytest
 from click.testing import CliRunner, Result
 from pydantic import ValidationError
 
+from tests.conftest import is_no_such_option
 from wetterdienst import Settings, Wetterdienst
 from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
@@ -992,7 +993,7 @@ def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.Mo
 
     refused = run(["summarize", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
     assert refused.exit_code == 2, refused.output
-    assert "No such option '--use-nearby-station-distance'" in refused.output
+    assert is_no_such_option(refused.output, "--use-nearby-station-distance")
     taken = run(["interpolate", *_POINT_ARGS, "--use-nearby-station-distance=0.5"])
     assert isinstance(taken.exception, _SettingsTaken), taken.output
     assert taken.exception.args[0].geo_use_nearby_station_distance == 0.5

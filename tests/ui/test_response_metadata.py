@@ -21,6 +21,7 @@ import pytest
 from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
+from tests.conftest import RESPONSE_METADATA_ALWAYS
 from tests.ui.cli.test_cli_history import _stations_without_histories
 from tests.ui.test_restapi import _OBSERVATION, _station_of, _stub_result, _values_result_of_shape
 from wetterdienst import Options, Wetterdienst
@@ -40,17 +41,7 @@ if TYPE_CHECKING:
 
 LOG = logging.getLogger(__name__)
 #: the members of the block that every answer has, whatever was asked for
-ALWAYS = {
-    "api_version",
-    "schema_version",
-    "retrieved_at",
-    "provider",
-    "producer",
-    "request",
-    "counts",
-    "crs",
-    "warnings",
-}
+ALWAYS = RESPONSE_METADATA_ALWAYS
 ENDPOINTS = ["/api/values", "/api/interpolate", "/api/summarize"]
 
 

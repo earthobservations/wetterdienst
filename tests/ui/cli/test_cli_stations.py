@@ -13,7 +13,7 @@ import pytest
 from click.testing import CliRunner, Result
 from dirty_equals import IsFloat, IsStr
 
-from tests.conftest import IS_WINDOWS, is_html_document
+from tests.conftest import IS_WINDOWS, assert_response_metadata, is_html_document
 from wetterdienst.ui.cli import cli
 
 SETTINGS_STATIONS = (
@@ -198,7 +198,7 @@ def test_cli_stations_json(
         fmt="json",
     )
     response = json.loads(result.output)
-    assert response.keys() == {"stations"}
+    assert response.keys() == {"metadata", "stations"}
     first = response["stations"][0]
     expected_dict = expected_dict.copy()
     expected_dict.pop("distance")
@@ -218,7 +218,7 @@ def test_cli_stations_json_with_metadata(metadata: dict) -> None:
     )
     response = json.loads(result.output)
     assert response.keys() == {"stations", "metadata"}
-    assert response["metadata"] == metadata
+    assert_response_metadata(response["metadata"], metadata, with_metadata=True)
 
 
 @pytest.mark.remote
@@ -238,7 +238,11 @@ def test_cli_stations_empty(
     """Test the CLI command `stations` with empty station: an empty list and exit 0, as REST answers it (GH-2635)."""
     result = invoke_wetterdienst_stations_empty(provider=provider, network=network, setting=setting, fmt="json")
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {"stations": []}
+    response = json.loads(result.stdout)
+    # the `metadata` block is always there, and counts what is not
+    assert response.keys() == {"metadata", "stations"}
+    assert response["stations"] == []
+    assert response["metadata"]["counts"] == {"stations": 0, "rows": 0}
     assert "WARNING" in caplog.text
     assert "No stations available for given constraints" in caplog.text
 
@@ -265,7 +269,7 @@ def test_cli_stations_geojson(
         fmt="geojson",
     )
     response = json.loads(result.output)
-    assert response.keys() == {"data"}
+    assert response.keys() == {"metadata", "data"}
     first = response["data"]["features"][0]
     first_prop = first["properties"]
     first_prop.pop("end_timestamp")
@@ -288,7 +292,7 @@ def test_cli_stations_geojson_with_metadata(metadata: dict) -> None:
     )
     response = json.loads(result.output)
     assert response.keys() == {"data", "metadata"}
-    assert response["metadata"] == metadata
+    assert_response_metadata(response["metadata"], metadata, with_metadata=True)
 
 
 @pytest.mark.remote

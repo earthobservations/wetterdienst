@@ -18,7 +18,7 @@ import pytest
 from click.testing import CliRunner, Result
 from dirty_equals import IsInstance, IsStr
 
-from tests.conftest import IS_WINDOWS, is_html_document
+from tests.conftest import IS_WINDOWS, assert_response_metadata, is_html_document
 from wetterdienst.exceptions import (
     DownloadError,
     IssueNotFoundError,
@@ -290,7 +290,7 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
     )
     response = json.loads(result.output)
     assert response.keys() == {"values", "metadata", "settings", "stations"}
-    assert response["metadata"] == metadata
+    assert_response_metadata(response["metadata"], metadata, with_metadata=True)
     assert response["stations"] == [
         {
             "resolution": "daily",
@@ -376,7 +376,7 @@ def test_cli_values_geojson(metadata: dict) -> None:
     )
     response = json.loads(result.output)
     assert response.keys() == {"metadata", "settings", "data"}
-    assert response["metadata"] == metadata
+    assert_response_metadata(response["metadata"], metadata, with_metadata=True)
     assert response["data"] == {
         "type": "FeatureCollection",
         "features": [
@@ -415,7 +415,7 @@ def test_cli_values_geojson_no_metadata() -> None:
         ],
     )
     response = json.loads(result.output)
-    assert response.keys() == {"data"}
+    assert response.keys() == {"metadata", "data"}
 
 
 @pytest.mark.remote

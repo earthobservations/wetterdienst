@@ -29,6 +29,32 @@ BUFR_AVAILABLE = bufr_is_available()
 
 info = Info()
 
+#: the members of the `metadata` block that every JSON answer has, whatever was asked for
+RESPONSE_METADATA_ALWAYS = frozenset(
+    {"api_version", "schema_version", "retrieved_at", "provider", "producer", "request", "counts", "crs", "warnings"},
+)
+#: the members `with_metadata` adds to the block
+RESPONSE_METADATA_HEAVY = frozenset({"parameters", "quality"})
+
+
+def assert_response_metadata(block: dict, metadata: dict, *, with_metadata: bool = False) -> None:
+    """Check the `metadata` block of an answer: its members, and the producer and provider it names.
+
+    The block is always there; `with_metadata` adds the parameters and the quality flags to it. The
+    `metadata` fixture holds the producer and the provider, the rest is read off the request.
+    """
+    assert set(block) == RESPONSE_METADATA_ALWAYS | (RESPONSE_METADATA_HEAVY if with_metadata else frozenset())
+    assert block["producer"] == metadata["producer"]
+    assert block["provider"] == metadata["provider"]
+
+
+def is_no_such_option(output: str, option: str) -> bool:
+    """Say whether click's output refuses an option it does not have, in the words of any click the floor allows.
+
+    click 8.2.0 says `No such option: --x`, the releases after it `No such option '--x'`.
+    """
+    return f"No such option '{option}'" in output or f"No such option: {option}" in output
+
 
 def is_html_document(output: str) -> bool:
     """Say whether an HTML export is a whole document rather than a fragment.
