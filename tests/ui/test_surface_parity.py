@@ -22,6 +22,7 @@ import pytest
 from click.testing import CliRunner, Result
 from fastapi.testclient import TestClient
 
+from tests.conftest import is_no_such_option
 from wetterdienst.exceptions import StationNotFoundError
 from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LISTING
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
@@ -1051,7 +1052,7 @@ def test_an_option_that_was_never_renamed_is_clicks_own_refusal(command: str, op
     result = CliRunner().invoke(cli, [command, f"{option}=x"])
     assert result.exit_code == 2, result.output
     assert "was renamed" not in result.output
-    assert f"No such option '{option}'" in result.output
+    assert is_no_such_option(result.output, option)
 
 
 @pytest.mark.parametrize("option", ["--lead-time", "--issue"])
@@ -1062,7 +1063,7 @@ def test_stations_on_the_command_line_do_not_take_the_run(option: str) -> None:
     """
     result = _cli("stations", "--all", f"{option}=long")
     assert result.exit_code == 2, result.output
-    assert f"No such option '{option}'" in result.output
+    assert is_no_such_option(result.output, option)
     assert {"lead_time", "issue"} <= set(_cli_options(("values",)))
 
 

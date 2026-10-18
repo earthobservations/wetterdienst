@@ -10,7 +10,7 @@ import pytest
 from click.testing import CliRunner
 from dirty_equals import IsStr
 
-from tests.conftest import is_html_document
+from tests.conftest import assert_response_metadata, is_html_document
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.network import File
 
@@ -36,7 +36,7 @@ def test_cli_interpolate_no_metadata_no_stations() -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"values"}
+    assert response.keys() == {"metadata", "values"}
     assert response["values"] == [
         {
             "station_id": "4fde7164",
@@ -83,7 +83,7 @@ def test_cli_interpolate_with_metadata_with_stations(metadata: dict) -> None:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
     assert response.keys() == {"metadata", "settings", "stations", "values"}
-    assert response["metadata"] == metadata
+    assert_response_metadata(response["metadata"], metadata, with_metadata=True)
     assert response["stations"] == [
         {
             "resolution": "daily",
@@ -169,7 +169,7 @@ def test_cli_interpolate_geojson(metadata: dict) -> None:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
     assert response.keys() == {"metadata", "settings", "data"}
-    assert response["metadata"] == metadata
+    assert_response_metadata(response["metadata"], metadata, with_metadata=True)
     assert response["data"] == {
         "type": "FeatureCollection",
         "features": [
@@ -288,7 +288,7 @@ def test_cli_interpolate_interpolation_station_distance() -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"values"}
+    assert response.keys() == {"metadata", "values"}
     assert response["values"] == [
         {
             "station_id": "4fde7164",
@@ -335,7 +335,7 @@ def test_cli_interpolate_dont_use_nearby_station() -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"values"}
+    assert response.keys() == {"metadata", "values"}
     assert response["values"] == [
         {
             "station_id": "4fde7164",
@@ -382,7 +382,7 @@ def test_cli_interpolate_custom_units() -> None:
     if result.exit_code != 0:
         raise ChildProcessError(result.stderr)
     response = json.loads(result.stdout)
-    assert response.keys() == {"values"}
+    assert response.keys() == {"metadata", "values"}
     assert response["values"] == [
         {
             "station_id": "4fde7164",

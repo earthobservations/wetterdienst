@@ -792,7 +792,8 @@ def test_dwd_observations_urban_values(default_settings: Settings) -> None:
     request = DwdObservationRequest(
         parameters=[("hourly", "urban_air_temperature")],
         periods="historical",
-        start="2022-06-01",
+        # a datetime is the instant: a date alone is the whole day, 24 hours of both parameters (GH-3133)
+        start=dt.datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,
     ).filter_by_station_id("00399")
     given_df = request.values().all().df

@@ -838,7 +838,7 @@ def test_api_imgw_meteorology(default_settings: Settings) -> None:
 def test_api_noaa_ghcn_hourly(default_settings: Settings) -> None:
     """Test noaa ghcn hourly API."""
     request = NoaaGhcnRequest(
-        parameters=[("hourly", "data", "precipitation_amount")],
+        parameters=[("hourly", "data", "precipitation_amount_since_last_routine_report")],
         settings=default_settings,
     ).filter_by_station_id("AQC00914594")
     assert not request.df.is_empty()
