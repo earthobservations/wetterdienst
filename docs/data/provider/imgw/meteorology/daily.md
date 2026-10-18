@@ -25,8 +25,8 @@
 
 | name                               | original name                      | description                | unit | constraints |
 |------------------------------------|------------------------------------|----------------------------|------|-------------|
-| {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
-| {term}`humidity_relative` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
+| {term}`humidity_relative_mean` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_amount` | suma dobowa opadów | precipitation height | mm | >=0 |
 | {term}`snow_depth` | wysokość pokrywy śnieżnej | snow depth | cm | >=0 |
 | {term}`temperature_air_max_2m` | maksymalna temperatura dobowa | temperature air max 2m | °C | - |
@@ -69,14 +69,14 @@
 
 | name                            | original name                  | description          | unit | constraints |
 |---------------------------------|--------------------------------|----------------------|------|-------------|
-| {term}`cloud_cover_total` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
-| {term}`humidity_relative` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean` | średnie dobowe zachmurzenie ogólne | Cloud cover total. | 1/8 | >=0,<=100 |
+| {term}`humidity_relative_mean` | średnia dobowa wilgotność względna | Humidity. | % | >=0,<=100 |
 | {term}`precipitation_amount` | suma dobowa opadów | precipitation height | mm | >=0 |
 | {term}`precipitation_amount_day` | suma opadu dzień | Depth of precipitation collected during the daytime hours. | mm | >=0 |
 | {term}`precipitation_amount_night` | suma opadu noc | Depth of precipitation collected during the night hours. | mm | >=0 |
-| {term}`pressure_air_site` | średnia dobowe ciśnienie na poziomie stacji | Pressure air site. | hPa | >=0 |
-| {term}`pressure_air_sea_level` | średnie dobowe ciśnienie na pozimie morza | Air pressure reduced to mean sea level, so that stations at different heights compare. | hPa | >=0 |
-| {term}`pressure_vapor` | średnia dobowe ciśnienie pary wodnej | Pressure vapor. | hPa | >=0 |
+| {term}`pressure_air_site_mean` | średnia dobowe ciśnienie na poziomie stacji | Pressure air site. | hPa | >=0 |
+| {term}`pressure_air_sea_level_mean` | średnie dobowe ciśnienie na pozimie morza | Mean air pressure reduced to mean sea level over the period, so that stations at different heights compare. | hPa | >=0 |
+| {term}`pressure_vapor_mean` | średnia dobowe ciśnienie pary wodnej | Pressure vapor. | hPa | >=0 |
 | {term}`snow_depth` | wysokość pokrywy śnieżnej | snow depth | cm | >=0 |
 | {term}`temperature_air_max_2m` | maksymalna temperatura dobowa | temperature air max 2m | °C | - |
 | {term}`temperature_air_mean_2m` | średnia dobowa temperatura | temperature air mean | °C | - |

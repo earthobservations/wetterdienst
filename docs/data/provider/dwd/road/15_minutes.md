@@ -25,20 +25,20 @@
 
 | name                                  | original name                            | description                      | unit | constraints |
 |---------------------------------------|------------------------------------------|----------------------------------|------|-------------|
-| {term}`humidity_relative`             | relativeHumidity                         | mean humidity                    | %    | >=0,<=100   |
-| {term}`precipitation_type_flags`      | precipitationType                        | types of precipitation, as flags | -    | -           |
-| {term}`precipitation_amount`          | totalPrecipitationOrTotalWaterEquivalent | precipitation height             | mm   | >=0         |
-| {term}`precipitation_intensity`       | intensityOfPrecipitation                 | precipitation intensity          | mm/s | >=0         |
-| {term}`road_surface_condition`        | roadSurfaceCondition                     | road surface condition           | -    | -           |
-| {term}`temperature_air_2m`            | airTemperature                           | air temperature (BUFR 0 12 101, no time period or statistic attached) | K    | -           |
-| {term}`temperature_dew_point_2m`      | dewpointTemperature                      | dew point temperature (BUFR 0 12 103, no time period or statistic attached) | K    | -           |
-| {term}`temperature_surface`           | roadSurfaceTemperature                   | road surface temperature         | K    | -           |
-| {term}`visibility`                    | horizontalVisibility                     | visibility range                 | m    | >=0         |
-| {term}`water_film_thickness`          | waterFilmThickness                       | thickness of water film          | m    | >=0         |
-| {term}`wind_direction`                | windDirection                            | mean direction of wind           | °    | >=0,<=360   |
-| {term}`wind_direction_gust_max`       | maximumWindGustDirection                 | direction of maximum wind gust   | °    | >=0,<=360   |
-| {term}`wind_gust_max`                 | maximumWindGustSpeed                     | maximum wind gust                | m/s  | >=0         |
-| {term}`wind_speed`                    | windSpeed                                | mean wind speed                  | m/s  | >=0         |
+| {term}`humidity_relative_mean` | relativeHumidity | mean humidity | % | >=0,<=100 |
+| {term}`precipitation_type_flags` | precipitationType | types of precipitation, as flags | - | - |
+| {term}`precipitation_amount` | totalPrecipitationOrTotalWaterEquivalent | precipitation height | mm | >=0 |
+| {term}`precipitation_intensity` | intensityOfPrecipitation | precipitation intensity | mm/s | >=0 |
+| {term}`road_surface_condition` | roadSurfaceCondition | road surface condition | - | - |
+| {term}`temperature_air_2m` | airTemperature | air temperature (BUFR 0 12 101, no time period or statistic attached) | K | - |
+| {term}`temperature_dew_point_2m` | dewpointTemperature | dew point temperature (BUFR 0 12 103, no time period or statistic attached) | K | - |
+| {term}`temperature_surface` | roadSurfaceTemperature | road surface temperature | K | - |
+| {term}`visibility` | horizontalVisibility | visibility range | m | >=0 |
+| {term}`water_film_thickness` | waterFilmThickness | thickness of water film | m | >=0 |
+| {term}`wind_direction` | windDirection | mean direction of wind | ° | >=0,<=360 |
+| {term}`wind_direction_gust_max` | maximumWindGustDirection | direction of maximum wind gust | ° | >=0,<=360 |
+| {term}`wind_gust_max` | maximumWindGustSpeed | maximum wind gust | m/s | >=0 |
+| {term}`wind_speed` | windSpeed | mean wind speed | m/s | >=0 |
 
 :::{note}
 The `unit` column above is the unit this network **publishes** in, not the one a request returns,

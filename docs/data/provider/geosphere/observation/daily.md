@@ -25,11 +25,11 @@
 
 | name                              | original name | description                  | unit  | constraints |
 |-----------------------------------|---------------|------------------------------|-------|-------------|
-| {term}`cloud_cover_total` | bewm_mittel | total cloud cover | % | >=0,<=100 |
-| {term}`humidity_relative` | rf_mittel | relative humidity | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean` | bewm_mittel | total cloud cover | % | >=0,<=100 |
+| {term}`humidity_relative_mean` | rf_mittel | relative humidity | % | >=0,<=100 |
 | {term}`precipitation_amount` | rr | precipitation height | mm | >=0 |
-| {term}`pressure_air_site` | p_mittel | air pressure at site | hPa | >=0 |
-| {term}`pressure_vapor` | dampf_mittel | vapor pressure | hPa | >=0 |
+| {term}`pressure_air_site_mean` | p_mittel | air pressure at site | hPa | >=0 |
+| {term}`pressure_vapor_mean` | dampf_mittel | vapor pressure | hPa | >=0 |
 | {term}`radiation_global` | cglo_j | global radiation | J/cm² | >=0 |
 | {term}`snow_depth` | sh | snow depth | cm | >=0 |
 | {term}`snow_depth_manual` | sh_manu | manually measured snow depth | cm | >=0 |

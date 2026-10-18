@@ -179,6 +179,108 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | smhi/observation | hourly/data | `4` | `wind_speed_last_10min` | `wind_speed_mean_last_10min` |
 
 
+#### Humidity, pressure, cloud cover and visibility
+
+| old name | new name | rows |
+| --- | --- | --- |
+| `cloud_cover_total` | `cloud_cover_total_mean` | 12 |
+| `cloud_cover_total_midnight_to_midnight` | `cloud_cover_total_mean_midnight_to_midnight` | 1 |
+| `cloud_cover_total_midnight_to_midnight_manual` | `cloud_cover_total_mean_midnight_to_midnight_manual` | 1 |
+| `cloud_cover_total_sunrise_to_sunset` | `cloud_cover_total_mean_sunrise_to_sunset` | 1 |
+| `cloud_cover_total_sunrise_to_sunset_manual` | `cloud_cover_total_mean_sunrise_to_sunset_manual` | 1 |
+| `humidity_relative` | `humidity_relative_mean` | 27 |
+| `pressure_air_sea_level` | `pressure_air_sea_level_mean` | 14 |
+| `pressure_air_site` | `pressure_air_site_mean` | 11 |
+| `pressure_vapor` | `pressure_vapor_mean` | 11 |
+| `visibility` | `visibility_mean` | 2 |
+
+The rows, by network, resolution and dataset (`field` is the source's own name):
+
+| network | resolution/dataset | field | old name | new name |
+| --- | --- | --- | --- | --- |
+| aemet/observation | daily/data | `hrmedia` | `humidity_relative` | `humidity_relative_mean` |
+| aemet/observation | monthly/data | `hr` | `humidity_relative` | `humidity_relative_mean` |
+| chmi/observation | daily/data | `H` | `humidity_relative` | `humidity_relative_mean` |
+| chmi/observation | daily/data | `P` | `pressure_air_site` | `pressure_air_site_mean` |
+| dmi/observation | annual/data | `mean_relative_hum` | `humidity_relative` | `humidity_relative_mean` |
+| dmi/observation | annual/data | `mean_pressure` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| dmi/observation | daily/data | `mean_relative_hum` | `humidity_relative` | `humidity_relative_mean` |
+| dmi/observation | daily/data | `mean_pressure` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| dmi/observation | hourly/data | `mean_relative_hum` | `humidity_relative` | `humidity_relative_mean` |
+| dmi/observation | hourly/data | `mean_pressure` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| dmi/observation | monthly/data | `mean_relative_hum` | `humidity_relative` | `humidity_relative_mean` |
+| dmi/observation | monthly/data | `mean_pressure` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| dwd/observation | annual/climate_summary | `ja_n` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| dwd/observation | daily/climate_summary | `nm` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| dwd/observation | daily/climate_summary | `upm` | `humidity_relative` | `humidity_relative_mean` |
+| dwd/observation | daily/climate_summary | `pm` | `pressure_air_site` | `pressure_air_site_mean` |
+| dwd/observation | daily/climate_summary | `vpm` | `pressure_vapor` | `pressure_vapor_mean` |
+| dwd/observation | monthly/climate_summary | `mo_n` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| dwd/road | 15_minutes/data | `relativeHumidity` | `humidity_relative` | `humidity_relative_mean` |
+| geosphere/observation | daily/data | `bewm_mittel` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| geosphere/observation | daily/data | `rf_mittel` | `humidity_relative` | `humidity_relative_mean` |
+| geosphere/observation | daily/data | `p_mittel` | `pressure_air_site` | `pressure_air_site_mean` |
+| geosphere/observation | daily/data | `dampf_mittel` | `pressure_vapor` | `pressure_vapor_mean` |
+| geosphere/observation | monthly/data | `bewm_mittel` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| geosphere/observation | monthly/data | `rf_mittel` | `humidity_relative` | `humidity_relative_mean` |
+| geosphere/observation | monthly/data | `dampf_mittel` | `pressure_vapor` | `pressure_vapor_mean` |
+| imgw/meteorology | daily/climate | `średnie dobowe zachmurzenie ogólne` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| imgw/meteorology | daily/climate | `średnia dobowa wilgotność względna` | `humidity_relative` | `humidity_relative_mean` |
+| imgw/meteorology | daily/synop | `średnie dobowe zachmurzenie ogólne` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| imgw/meteorology | daily/synop | `średnia dobowa wilgotność względna` | `humidity_relative` | `humidity_relative_mean` |
+| imgw/meteorology | daily/synop | `średnie dobowe ciśnienie na pozimie morza` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| imgw/meteorology | daily/synop | `średnia dobowe ciśnienie na poziomie stacji` | `pressure_air_site` | `pressure_air_site_mean` |
+| imgw/meteorology | daily/synop | `średnia dobowe ciśnienie pary wodnej` | `pressure_vapor` | `pressure_vapor_mean` |
+| imgw/meteorology | monthly/climate | `średnie miesięczne zachmurzenie ogólne` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| imgw/meteorology | monthly/climate | `średnia miesięczna wilgotność względna` | `humidity_relative` | `humidity_relative_mean` |
+| imgw/meteorology | monthly/synop | `średnie miesięczne zachmurzenie ogólne` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| imgw/meteorology | monthly/synop | `średnia miesięczna wilgotność względna` | `humidity_relative` | `humidity_relative_mean` |
+| imgw/meteorology | monthly/synop | `średnie miesięczne ciśnienie na pozimie morza` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| imgw/meteorology | monthly/synop | `średnie miesięczne ciśnienie na poziomie stacji` | `pressure_air_site` | `pressure_air_site_mean` |
+| imgw/meteorology | monthly/synop | `średnie miesięczne ciśnienie pary wodnej` | `pressure_vapor` | `pressure_vapor_mean` |
+| knmi/observation | 10_minutes/data | `vv` | `visibility` | `visibility_mean` |
+| knmi/observation | daily/data | `NG` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| knmi/observation | daily/data | `UG` | `humidity_relative` | `humidity_relative_mean` |
+| meteofrance/observation | daily/others | `UM` | `humidity_relative` | `humidity_relative_mean` |
+| meteofrance/observation | daily/others | `PMERM` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| meteofrance/observation | daily/others | `TSVM` | `pressure_vapor` | `pressure_vapor_mean` |
+| meteofrance/observation | monthly/data | `UMM` | `humidity_relative` | `humidity_relative_mean` |
+| meteofrance/observation | monthly/data | `PMERM` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| meteofrance/observation | monthly/data | `TSVM` | `pressure_vapor` | `pressure_vapor_mean` |
+| meteoswiss/observation | annual/data | `ure200y0` | `humidity_relative` | `humidity_relative_mean` |
+| meteoswiss/observation | annual/data | `pp0qffy0` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| meteoswiss/observation | annual/data | `prestay0` | `pressure_air_site` | `pressure_air_site_mean` |
+| meteoswiss/observation | annual/data | `pva200y0` | `pressure_vapor` | `pressure_vapor_mean` |
+| meteoswiss/observation | daily/data | `ure200d0` | `humidity_relative` | `humidity_relative_mean` |
+| meteoswiss/observation | daily/data | `pp0qffd0` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| meteoswiss/observation | daily/data | `prestad0` | `pressure_air_site` | `pressure_air_site_mean` |
+| meteoswiss/observation | daily/data | `pva200d0` | `pressure_vapor` | `pressure_vapor_mean` |
+| meteoswiss/observation | hourly/data | `ure200h0` | `humidity_relative` | `humidity_relative_mean` |
+| meteoswiss/observation | hourly/data | `pp0qffh0` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| meteoswiss/observation | hourly/data | `prestah0` | `pressure_air_site` | `pressure_air_site_mean` |
+| meteoswiss/observation | hourly/data | `pva200h0` | `pressure_vapor` | `pressure_vapor_mean` |
+| meteoswiss/observation | monthly/data | `ure200m0` | `humidity_relative` | `humidity_relative_mean` |
+| meteoswiss/observation | monthly/data | `pp0qffm0` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| meteoswiss/observation | monthly/data | `prestam0` | `pressure_air_site` | `pressure_air_site_mean` |
+| meteoswiss/observation | monthly/data | `pva200m0` | `pressure_vapor` | `pressure_vapor_mean` |
+| metno/frost | annual/data | `mean(cloud_area_fraction P1Y)` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| metno/frost | daily/data | `mean(relative_humidity P1D)` | `humidity_relative` | `humidity_relative_mean` |
+| metno/frost | daily/data | `mean(air_pressure_at_sea_level P1D)` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| metno/frost | daily/data | `mean(surface_air_pressure P1D)` | `pressure_air_site` | `pressure_air_site_mean` |
+| metno/frost | monthly/data | `mean(cloud_area_fraction P1M)` | `cloud_cover_total` | `cloud_cover_total_mean` |
+| metno/frost | monthly/data | `mean(relative_humidity P1M)` | `humidity_relative` | `humidity_relative_mean` |
+| metno/frost | monthly/data | `mean(air_pressure_at_sea_level P1M)` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` |
+| metno/frost | monthly/data | `mean(surface_air_pressure P1M)` | `pressure_air_site` | `pressure_air_site_mean` |
+| noaa/ghcn | daily/data | `acmc` | `cloud_cover_total_midnight_to_midnight` | `cloud_cover_total_mean_midnight_to_midnight` |
+| noaa/ghcn | daily/data | `acmh` | `cloud_cover_total_midnight_to_midnight_manual` | `cloud_cover_total_mean_midnight_to_midnight_manual` |
+| noaa/ghcn | daily/data | `acsc` | `cloud_cover_total_sunrise_to_sunset` | `cloud_cover_total_mean_sunrise_to_sunset` |
+| noaa/ghcn | daily/data | `acsh` | `cloud_cover_total_sunrise_to_sunset_manual` | `cloud_cover_total_mean_sunrise_to_sunset_manual` |
+| rmi/observation | 10_minutes/data | `humidity_rel_shelter_avg` | `humidity_relative` | `humidity_relative_mean` |
+| rmi/observation | daily/data | `humidity_rel_shelter_avg` | `humidity_relative` | `humidity_relative_mean` |
+| rmi/observation | hourly/data | `humidity_rel_shelter_avg` | `humidity_relative` | `humidity_relative_mean` |
+| smhi/observation | 1_minute/data | `51` | `visibility` | `visibility_mean` |
+
+
 ## Glossary
 
 The unit type is a property of the parameter itself and decides which unit values are returned in;

@@ -384,7 +384,7 @@ def test_a_name_of_another_quantity_is_not_guessed_at(
         # a misspelled token in the part that names the quantity is still a typo of it
         ("daily/kl/temperatur_air_mean_2m", "temperature_air_mean_2m"),
         ("daily/kl/wind_sped", "wind_speed_mean"),
-        ("daily/kl/humidity_realtive", "humidity_relative"),
+        ("daily/kl/humidity_realtive", "humidity_relative_mean"),
         # the source's own name is a candidate too, and a code has no quantity to compare
         ("daily/kl/tmkk", "tmk"),
         ("daily/kl/rsx", "rsk"),

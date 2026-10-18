@@ -25,14 +25,14 @@
 
 | name                                 | original name  | description                     | unit  | constraints |
 |--------------------------------------|----------------|---------------------------------|-------|-------------|
-| {term}`cloud_cover_total`            | bewm_mittel    | cloud cover total               | %     | >=0,<=100   |
-| {term}`humidity_relative`            | rf_mittel      | relative humidity               | %     | >=0,<=100   |
+| {term}`cloud_cover_total_mean`       | bewm_mittel    | cloud cover total               | %     | >=0,<=100   |
+| {term}`humidity_relative_mean`       | rf_mittel      | relative humidity               | %     | >=0,<=100   |
 | {term}`precipitation_amount`         | rr             | precipitation height            | mm    | >=0         |
 | {term}`precipitation_amount_max`     | rr_max         | precipitation height max        | mm    | >=0         |
 | {term}`pressure_air_site`            | p              | air pressure at site            | hPa   | >=0         |
 | {term}`pressure_air_site_max`        | pmax           | air pressure at site max        | hPa   | >=0         |
 | {term}`pressure_air_site_min`        | pmin           | air pressure at site min        | hPa   | >=0         |
-| {term}`pressure_vapor`               | dampf_mittel   | vapor pressure                  | hPa   | >=0         |
+| {term}`pressure_vapor_mean`          | dampf_mittel   | vapor pressure                  | hPa   | >=0         |
 | {term}`radiation_global`             | cglo_j         | global radiation                | J/cm² | >=0         |
 | {term}`snow_depth_new`               | shneu_manu     | snow depth new                  | cm    | >=0         |
 | {term}`snow_depth_new_max`           | shneu_manu_max | snow depth new max              | cm    | >=0         |

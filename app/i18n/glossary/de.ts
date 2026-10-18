@@ -35,12 +35,16 @@ export const parameters: Record<string, string> = {
 
   // Humidity & moisture
   humidity_relative: 'Relative Luftfeuchte',
+  humidity_relative_mean: 'Mittlere relative Luftfeuchte',
   humidity_absolute: 'Absolute Luftfeuchte',
   pressure_vapor: 'Dampfdruck',
+  pressure_vapor_mean: 'Mittlerer Dampfdruck',
 
   // Air pressure
   pressure_air_site: 'Luftdruck (Station)',
+  pressure_air_site_mean: 'Mittlerer Luftdruck (Station)',
   pressure_air_sea_level: 'Luftdruck (Meereshöhe)',
+  pressure_air_sea_level_mean: 'Mittlerer Luftdruck (Meereshöhe)',
 
   // Wind
   wind_speed: 'Windgeschwindigkeit',
@@ -77,9 +81,11 @@ export const parameters: Record<string, string> = {
 
   // Clouds & visibility
   cloud_cover_total: 'Gesamtbedeckung',
+  cloud_cover_total_mean: 'Mittlere Gesamtbedeckung',
   cloud_cover_total_measurement_method: 'Bedeckungsgrad, Messart',
   cloud_height_layer1: 'Wolkenuntergrenze (1. Schicht)',
   visibility: 'Sichtweite',
+  visibility_mean: 'Mittlere Sichtweite',
   visibility_index: 'Sichtweitenklasse',
   visibility_measurement_method: 'Sichtweite, Messart',
 
@@ -415,10 +421,10 @@ export const parameters: Record<string, string> = {
   cloud_cover_below_7km: 'Bedeckungsgrad unterhalb 7 km',
   cloud_cover_between_2km_and_7km: 'Bedeckungsgrad zwischen 2 und 7 km',
   cloud_cover_effective: 'Effektiver Bedeckungsgrad',
-  cloud_cover_total_midnight_to_midnight: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht',
-  cloud_cover_total_midnight_to_midnight_manual: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht (Augenbeobachtung)',
-  cloud_cover_total_sunrise_to_sunset: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang',
-  cloud_cover_total_sunrise_to_sunset_manual: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang (Augenbeobachtung)',
+  cloud_cover_total_mean_midnight_to_midnight: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht',
+  cloud_cover_total_mean_midnight_to_midnight_manual: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht (Augenbeobachtung)',
+  cloud_cover_total_mean_sunrise_to_sunset: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang',
+  cloud_cover_total_mean_sunrise_to_sunset_manual: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang (Augenbeobachtung)',
   cloud_density: 'Optische Wolkendichte',
   cooling_degree_day: 'Kühlgradtage',
   cooling_degree_hour: 'Kühlgradstunden',
