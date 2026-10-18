@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
+  every provider that lists) that fails on TLS, a certificate that does not verify or a handshake
+  that fails, raises a `DownloadError` naming the URL, with the `ssl.SSLError` as its `__cause__`,
+  as a download does, not the bare `ssl.SSLError` (REST: 500, now 502). Code that caught
+  `ssl.SSLError` around a listing catches `DownloadError` and reads `__cause__` now; a TLS failure
+  is still asked for once (GH-3099)
+
 ### Fixed
 
 - `knmi/observation`: the sunshine duration `SQ` of KNMI's `-1` ("less than 0.05 hour") is 0.0, with
