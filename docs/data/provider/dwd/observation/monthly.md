@@ -53,7 +53,7 @@
 | {term}`temperature_air_max_2m_mean` | mo_tx | Monthly mean of daily temperature maxima at 2 m above ground. | °C | - |
 | {term}`temperature_air_min_2m_mean` | mo_tn | Monthly mean of daily temperature minima in 2 m above ground. | °C | - |
 | {term}`sunshine_duration` | mo_sd_s | Monthly sum of sunshine duration. | h | >=0 |
-| {term}`wind_force_beaufort` | mo_fk | Monthly mean of the daily wind force in Beaufort. | Bft | >=0 |
+| {term}`wind_force_beaufort_mean` | mo_fk | Monthly mean of the daily wind force in Beaufort. | Bft | >=0 |
 | {term}`temperature_air_max_2m` | mx_tx | Monthly maximum of daily temperature maxima in 2 m above ground. | °C | - |
 | {term}`wind_gust_max` | mx_fx | Monthly maximum of the daily wind peaks (Windspitze). | m/s | >=0 |
 | {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |

@@ -24,13 +24,23 @@ from tests.test_api import ALL_METADATA
 MEAN_NAMED = (
     "cloud_cover_total",
     "humidity_relative",
+    "precipitation_intensity",
     "pressure_air_sea_level",
     "pressure_air_site",
     "pressure_vapor",
+    "radiation_global_intensity",
+    "radiation_sky_long_wave_intensity",
+    "radiation_sky_short_wave_diffuse_intensity",
+    "snow_depth",
     "visibility",
     "wind_direction",
+    "wind_force_beaufort",
     "wind_speed",
 )
+# a family of quantities by the start of the plain name: one per ground cover, soil type and layer
+MEAN_NAMED_PREFIXES = ("soil_moisture_",)
+# quantities of which every row states a mean, so that no plain name is left
+_NO_PLAIN_ROW = {"radiation_sky_long_wave_intensity"}
 
 _MEAN_IN_THE_FIELD_NAME = re.compile(r"mittel|średni|media\b|moyen|gemiddeld|medel", re.IGNORECASE)
 
@@ -51,6 +61,11 @@ def _quantity(name: str) -> str:
     return re.sub(r"_mean(?=_|$)", "", name, count=1)
 
 
+def _is_named(base: str) -> bool:
+    """Say whether the rule has been applied to the quantity of a plain name."""
+    return base in MEAN_NAMED or base.startswith(MEAN_NAMED_PREFIXES)
+
+
 def _rows() -> Iterator[tuple[str, str, str, str, str, bool]]:
     """Yield `(metadata, resolution, dataset, name, name_original, states_a_mean)` for the rows of `MEAN_NAMED`."""
     for metadata in ALL_METADATA:
@@ -58,7 +73,7 @@ def _rows() -> Iterator[tuple[str, str, str, str, str, bool]]:
             for dataset in resolution:
                 for parameter in dataset.parameters:
                     base = _quantity(parameter.name)
-                    if base not in MEAN_NAMED or "_mean_last_" in parameter.name:
+                    if not _is_named(base) or "_mean_last_" in parameter.name:
                         # the means of a window shorter than the interval are held by test_parameter_statistics
                         continue
                     description = _source_description(metadata.name, resolution.name, dataset.name, parameter)
@@ -75,7 +90,7 @@ def test_a_source_that_states_a_mean_gets_the_mean_name() -> None:
         f"{metadata} {resolution}/{dataset}/{name} [{original}]: the source states a mean, the name is plain"
         for metadata, resolution, dataset, name, original, states in _rows()
         if states
-        and name in MEAN_NAMED
+        and _quantity(name) == name
         and metadata not in _NOT_EVIDENCE
         and (metadata, resolution, dataset, original) not in _PLAIN_ON_PURPOSE
     ]
@@ -87,12 +102,12 @@ def test_a_mean_name_needs_a_source_that_states_a_mean() -> None:
     wrong = [
         f"{metadata} {resolution}/{dataset}/{name} [{original}]: named a mean, but the source states none"
         for metadata, resolution, dataset, name, original, states in _rows()
-        if name not in MEAN_NAMED and not states
+        if _quantity(name) != name and not states
     ]
     assert not wrong, "\n".join(wrong)
 
 
 def test_the_plain_name_of_a_named_quantity_is_where_the_source_states_none() -> None:
     """At least one row keeps each plain name, so the description of the plain name has a row to describe."""
-    plain = {name for _, _, _, name, _, _ in _rows() if name in MEAN_NAMED}
-    assert plain == set(MEAN_NAMED)
+    plain = {name for _, _, _, name, _, _ in _rows() if _quantity(name) == name}
+    assert set(MEAN_NAMED) - plain == _NO_PLAIN_ROW

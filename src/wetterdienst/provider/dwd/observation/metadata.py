@@ -1630,7 +1630,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "hour",
                         },
                         {
-                            "name": "wind_force_beaufort",
+                            "name": "wind_force_beaufort_mean",
                             "name_original": "mo_fk",
                             "unit": "beaufort",
                         },
@@ -1883,7 +1883,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "hour",
                         },
                         {
-                            "name": "wind_force_beaufort",
+                            "name": "wind_force_beaufort_mean",
                             "name_original": "ja_fk",
                             "unit": "beaufort",
                         },

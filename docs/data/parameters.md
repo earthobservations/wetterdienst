@@ -82,8 +82,8 @@ The statistic comes straight after the quantity and before the height, depth or 
 the interval (`precipitation_amount`, `sunshine_duration`, `radiation_global`) carries no word: it is a total by
 nature. A source that says nothing about the statistic keeps the plain name, so a plain name never claims a mean
 the source does not state. `tests/metadata/test_mean_names.py` holds the rule to the source's own description and
-field name. The rule was applied to temperature first (GH-2651, GH-2657) and is being applied to the other
-quantities one family at a time (GH-3151); a quantity not listed below is still named as it was.
+field name. The rule was applied to temperature first (GH-2651, GH-2657) and to the other quantities with GH-3151;
+the renames of that change are listed below.
 
 A name that was renamed is refused with the new name in the message (`'wind_speed' was renamed to
 'wind_speed_mean' in this dataset`), and the plain name stays where the source states no mean. The old names of a
@@ -279,6 +279,70 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | rmi/observation | daily/data | `humidity_rel_shelter_avg` | `humidity_relative` | `humidity_relative_mean` |
 | rmi/observation | hourly/data | `humidity_rel_shelter_avg` | `humidity_relative` | `humidity_relative_mean` |
 | smhi/observation | 1_minute/data | `51` | `visibility` | `visibility_mean` |
+
+
+#### Irradiance, soil moisture, snow depth, precipitation intensity and Beaufort
+
+| old name | new name | rows |
+| --- | --- | --- |
+| `precipitation_intensity` | `precipitation_intensity_mean` | 1 |
+| `radiation_global_intensity` | `radiation_global_intensity_mean` | 11 |
+| `radiation_sky_long_wave_intensity` | `radiation_sky_long_wave_intensity_mean` | 5 |
+| `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` | 3 |
+| `snow_depth` | `snow_depth_mean` | 1 |
+| `soil_moisture_corn_loamy_silt_00cm_60cm` | `soil_moisture_mean_corn_loamy_silt_00cm_60cm` | 1 |
+| `soil_moisture_corn_sand_00cm_60cm` | `soil_moisture_mean_corn_sand_00cm_60cm` | 1 |
+| `soil_moisture_grass_loamy_silt_00cm_10cm` | `soil_moisture_mean_grass_loamy_silt_00cm_10cm` | 1 |
+| `soil_moisture_grass_loamy_silt_00cm_60cm` | `soil_moisture_mean_grass_loamy_silt_00cm_60cm` | 1 |
+| `soil_moisture_grass_loamy_silt_10cm_20cm` | `soil_moisture_mean_grass_loamy_silt_10cm_20cm` | 1 |
+| `soil_moisture_grass_loamy_silt_20cm_30cm` | `soil_moisture_mean_grass_loamy_silt_20cm_30cm` | 1 |
+| `soil_moisture_grass_loamy_silt_30cm_40cm` | `soil_moisture_mean_grass_loamy_silt_30cm_40cm` | 1 |
+| `soil_moisture_grass_loamy_silt_40cm_50cm` | `soil_moisture_mean_grass_loamy_silt_40cm_50cm` | 1 |
+| `soil_moisture_grass_loamy_silt_50cm_60cm` | `soil_moisture_mean_grass_loamy_silt_50cm_60cm` | 1 |
+| `soil_moisture_grass_sand_00cm_60cm` | `soil_moisture_mean_grass_sand_00cm_60cm` | 1 |
+| `soil_moisture_winter_wheat_loamy_silt_00cm_60cm` | `soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm` | 1 |
+| `soil_moisture_winter_wheat_sand_00cm_60cm` | `soil_moisture_mean_winter_wheat_sand_00cm_60cm` | 1 |
+| `wind_force_beaufort` | `wind_force_beaufort_mean` | 2 |
+
+The rows, by network, resolution and dataset (`field` is the source's own name):
+
+| network | resolution/dataset | field | old name | new name |
+| --- | --- | --- | --- | --- |
+| dwd/derived | monthly/soil | `mittel von bfml_ag` | `soil_moisture_corn_loamy_silt_00cm_60cm` | `soil_moisture_mean_corn_loamy_silt_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfms_ag` | `soil_moisture_corn_sand_00cm_60cm` | `soil_moisture_mean_corn_sand_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl01_ag` | `soil_moisture_grass_loamy_silt_00cm_10cm` | `soil_moisture_mean_grass_loamy_silt_00cm_10cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl_ag` | `soil_moisture_grass_loamy_silt_00cm_60cm` | `soil_moisture_mean_grass_loamy_silt_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl02_ag` | `soil_moisture_grass_loamy_silt_10cm_20cm` | `soil_moisture_mean_grass_loamy_silt_10cm_20cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl03_ag` | `soil_moisture_grass_loamy_silt_20cm_30cm` | `soil_moisture_mean_grass_loamy_silt_20cm_30cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl04_ag` | `soil_moisture_grass_loamy_silt_30cm_40cm` | `soil_moisture_mean_grass_loamy_silt_30cm_40cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl05_ag` | `soil_moisture_grass_loamy_silt_40cm_50cm` | `soil_moisture_mean_grass_loamy_silt_40cm_50cm` |
+| dwd/derived | monthly/soil | `mittel von bfgl06_ag` | `soil_moisture_grass_loamy_silt_50cm_60cm` | `soil_moisture_mean_grass_loamy_silt_50cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfgs_ag` | `soil_moisture_grass_sand_00cm_60cm` | `soil_moisture_mean_grass_sand_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfwl_ag` | `soil_moisture_winter_wheat_loamy_silt_00cm_60cm` | `soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfws_ag` | `soil_moisture_winter_wheat_sand_00cm_60cm` | `soil_moisture_mean_winter_wheat_sand_00cm_60cm` |
+| dwd/observation | annual/climate_summary | `ja_fk` | `wind_force_beaufort` | `wind_force_beaufort_mean` |
+| dwd/observation | monthly/climate_summary | `mo_fk` | `wind_force_beaufort` | `wind_force_beaufort_mean` |
+| knmi/observation | 10_minutes/data | `rg` | `precipitation_intensity` | `precipitation_intensity_mean` |
+| knmi/observation | 10_minutes/data | `qg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| meteoswiss/observation | 10_minutes/data | `gre000z0` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| meteoswiss/observation | 10_minutes/data | `oli000z0` | `radiation_sky_long_wave_intensity` | `radiation_sky_long_wave_intensity_mean` |
+| meteoswiss/observation | 10_minutes/data | `ods000z0` | `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` |
+| meteoswiss/observation | annual/data | `gre000y0` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| meteoswiss/observation | annual/data | `oli000y0` | `radiation_sky_long_wave_intensity` | `radiation_sky_long_wave_intensity_mean` |
+| meteoswiss/observation | daily/data | `gre000d0` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| meteoswiss/observation | daily/data | `oli000d0` | `radiation_sky_long_wave_intensity` | `radiation_sky_long_wave_intensity_mean` |
+| meteoswiss/observation | daily/data | `ods000d0` | `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` |
+| meteoswiss/observation | hourly/data | `gre000h0` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| meteoswiss/observation | hourly/data | `oli000h0` | `radiation_sky_long_wave_intensity` | `radiation_sky_long_wave_intensity_mean` |
+| meteoswiss/observation | hourly/data | `ods000h0` | `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` |
+| meteoswiss/observation | monthly/data | `gre000m0` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| meteoswiss/observation | monthly/data | `oli000m0` | `radiation_sky_long_wave_intensity` | `radiation_sky_long_wave_intensity_mean` |
+| metno/frost | daily/data | `mean(surface_downwelling_shortwave_flux_in_air P1D)` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| metno/frost | hourly/data | `mean(surface_downwelling_shortwave_flux_in_air PT1H)` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| metno/frost | monthly/data | `mean(surface_snow_thickness P1M)` | `snow_depth` | `snow_depth_mean` |
+| rmi/observation | 10_minutes/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| rmi/observation | daily/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
+| rmi/observation | hourly/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
 
 
 ## Glossary

@@ -26,5 +26,5 @@
 | {term}`pressure_air_sea_level_mean` | mean(air_pressure_at_sea_level P1M) | Monthly mean air pressure reduced to sea level. The parameter is usually called QFF in aviation and shows the measured air pressure reduced to mean sea level by applying actual atmospheric conditions. | hectopascal |
 | {term}`pressure_air_site_mean` | mean(surface_air_pressure P1M) | Monthly mean air pressure at the station. The parameter is usually called QFE in aviation and shows the measured air pressure reduced to the reference height of the station. | hectopascal |
 | {term}`cloud_cover_total_mean` | mean(cloud_area_fraction P1M) | Monthly mean cloud cover. The mean is an arithmetic mean of three daily observations (06, 12 and 18 UTC). | one_eighth |
-| {term}`snow_depth` | mean(surface_snow_thickness P1M) | Monthly mean snow depth. The mean value is an arithmetic mean of daily values. | centimeter |
+| {term}`snow_depth_mean` | mean(surface_snow_thickness P1M) | Monthly mean snow depth. The mean value is an arithmetic mean of daily values. | centimeter |
 | {term}`sunshine_duration` | sum(duration_of_sunshine P1M) | Number of hours of sunshine over the last month. | second |

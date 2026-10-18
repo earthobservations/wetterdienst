@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- `[Glossary]` The means of the irradiances, the soil moisture (twelve names), the snow depth, the
+  precipitation intensity and the Beaufort wind force have labels in all eleven languages (GH-3151):
+  `radiation_global_intensity_mean`, `radiation_sky_long_wave_intensity_mean` (which replaces the
+  plain key), `radiation_sky_short_wave_diffuse_intensity_mean`, `precipitation_intensity_mean`,
+  `snow_depth_mean`, `wind_force_beaufort_mean`, `soil_moisture_mean_*`. Needs the backend that
+  serves them: release the backend first
 - `[Glossary]` The means of humidity, pressure, cloud cover and visibility have labels in all eleven
   languages (GH-3151): `humidity_relative_mean`, `pressure_air_site_mean`,
   `pressure_air_sea_level_mean`, `pressure_vapor_mean`, `cloud_cover_total_mean`, `visibility_mean`, and

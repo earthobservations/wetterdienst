@@ -18,6 +18,15 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the mean of the irradiances, the soil moisture, the snow depth, the precipitation
+  intensity and the Beaufort wind force carries its statistic in the name (GH-3151, last of three
+  families): where the source states a mean of the row's interval they are
+  `radiation_global_intensity_mean`, `radiation_sky_long_wave_intensity_mean`,
+  `radiation_sky_short_wave_diffuse_intensity_mean`, `precipitation_intensity_mean`,
+  `snow_depth_mean`, `wind_force_beaufort_mean` and `soil_moisture_mean_<cover>_<soil>_<depth>`
+  (35 rows, 6 networks: MeteoSwiss, KNMI, MET Norway, RMI, DWD derived and observation). The old
+  name is refused with the new one named; `wsv/pegel` stays as it was until WSV confirms its
+  "average". All rows are in the parameters page of the docs. Release the app after this backend
 - **Breaking**: the mean of humidity, pressure, cloud cover and visibility carries its statistic in
   the name (GH-3151, second of three families): where the source states a mean of the row's interval
   `humidity_relative`, `pressure_air_site`, `pressure_air_sea_level`, `pressure_vapor`,
