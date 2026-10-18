@@ -38,7 +38,7 @@
 | {term}`radiation_global_intensity` | global_radiation_last_hour | Global irradiance in the preceding hour. | W/m² |
 | {term}`radiation_sky_short_wave_diffuse_intensity` | diffuse_solar_radiation_last_hour | Diffuse short-wave irradiance in the preceding hour. | W/m² |
 | {term}`radiation_sky_short_wave_direct_intensity` | direct_solar_radiation_last_hour | Direct short-wave irradiance in the preceding hour. | W/m² |
-| {term}`snow_depth` | total_snow_depth | Depth of the snow lying on the ground. | cm |
+| {term}`snow_depth` | total_snow_depth | Depth of the snow lying on the ground, where the source states no statistic or a reading at one moment; the stated mean is `snow_depth_mean`. | cm |
 | {term}`snow_depth_new` | depth_of_new_snow | Depth of the snow that fell since the previous observation. | cm |
 | {term}`sunshine_duration` | total_time_of_sunshine_during_last_hour | Length of time the sun shone in the preceding hour. | min |
 | {term}`sunshine_duration_yesterday` | total_time_of_sunshine_past_day | Length of time the sun shone on the previous day. | h |

@@ -66,17 +66,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000z0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "ods000z0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000z0",
                             "unit": "watt_per_square_meter",
                         },
@@ -176,17 +176,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000h0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "ods000h0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000h0",
                             "unit": "watt_per_square_meter",
                         },
@@ -301,17 +301,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000d0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "ods000d0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000d0",
                             "unit": "watt_per_square_meter",
                         },
@@ -426,12 +426,12 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000m0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000m0",
                             "unit": "watt_per_square_meter",
                         },
@@ -536,12 +536,12 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000y0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000y0",
                             "unit": "watt_per_square_meter",
                         },

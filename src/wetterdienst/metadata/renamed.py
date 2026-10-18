@@ -156,6 +156,7 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "cloud_cover_total_midnight_to_midnight_manual": "cloud_cover_total_mean_midnight_to_midnight_manual",
     "cloud_cover_total_sunrise_to_sunset": "cloud_cover_total_mean_sunrise_to_sunset",
     "cloud_cover_total_sunrise_to_sunset_manual": "cloud_cover_total_mean_sunrise_to_sunset_manual",
+    "radiation_sky_long_wave_intensity": "radiation_sky_long_wave_intensity_mean",
 }
 
 _WIND_LAST_10MIN = {
@@ -592,7 +593,84 @@ _MEAN_HUMIDITY_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
 }
 
 
-_merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET)
+# GH-3151, rest
+_MEAN_REST_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    "DwdDerivedMetadata": {
+        ("monthly", "soil"): {
+            "soil_moisture_corn_loamy_silt_00cm_60cm": "soil_moisture_mean_corn_loamy_silt_00cm_60cm",
+            "soil_moisture_corn_sand_00cm_60cm": "soil_moisture_mean_corn_sand_00cm_60cm",
+            "soil_moisture_grass_loamy_silt_00cm_10cm": "soil_moisture_mean_grass_loamy_silt_00cm_10cm",
+            "soil_moisture_grass_loamy_silt_00cm_60cm": "soil_moisture_mean_grass_loamy_silt_00cm_60cm",
+            "soil_moisture_grass_loamy_silt_10cm_20cm": "soil_moisture_mean_grass_loamy_silt_10cm_20cm",
+            "soil_moisture_grass_loamy_silt_20cm_30cm": "soil_moisture_mean_grass_loamy_silt_20cm_30cm",
+            "soil_moisture_grass_loamy_silt_30cm_40cm": "soil_moisture_mean_grass_loamy_silt_30cm_40cm",
+            "soil_moisture_grass_loamy_silt_40cm_50cm": "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
+            "soil_moisture_grass_loamy_silt_50cm_60cm": "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
+            "soil_moisture_grass_sand_00cm_60cm": "soil_moisture_mean_grass_sand_00cm_60cm",
+            "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
+            "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+        },
+    },
+    "DwdObservationMetadata": {
+        ("annual", "climate_summary"): {
+            "wind_force_beaufort": "wind_force_beaufort_mean",
+        },
+        ("monthly", "climate_summary"): {
+            "wind_force_beaufort": "wind_force_beaufort_mean",
+        },
+    },
+    "KnmiObservationMetadata": {
+        ("10_minutes", "data"): {
+            "precipitation_intensity": "precipitation_intensity_mean",
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+    },
+    "MeteoswissObservationMetadata": {
+        ("10_minutes", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+            "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+        },
+        ("annual", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+        ("daily", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+            "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+        },
+        ("hourly", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+            "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+        },
+        ("monthly", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+    },
+    "MetnoFrostMetadata": {
+        ("daily", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+        ("hourly", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+        ("monthly", "data"): {
+            "snow_depth": "snow_depth_mean",
+        },
+    },
+    "RmiObservationMetadata": {
+        ("10_minutes", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+        ("daily", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+        ("hourly", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+        },
+    },
+}
+
+
+_merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET, _MEAN_REST_IN_DATASET)
 
 #: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
 #: value is refused with the new one named

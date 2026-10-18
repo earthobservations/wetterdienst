@@ -86,7 +86,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "qg",
                             "unit": "watt_per_square_meter",
                         },
@@ -106,7 +106,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "meter",
                         },
                         {
-                            "name": "precipitation_intensity",
+                            "name": "precipitation_intensity_mean",
                             "name_original": "rg",
                             "unit": "millimeter_per_hour",
                         },

@@ -262,15 +262,17 @@ def test_coverage(client: TestClient) -> None:
 
 def test_glossary(client: TestClient) -> None:
     """Test that the glossary reports what a parameter measures and its returned unit."""
-    response = client.get("/api/glossary", params={"parameter": "radiation_global_intensity"})
+    response = client.get("/api/glossary", params={"parameter": "radiation_global_intensity_mean"})
     assert response.status_code == 200
     assert response.json() == [
         {
-            "name": "radiation_global_intensity",
+            "name": "radiation_global_intensity_mean",
             "unit_type": "power_per_area",
             "unit": "watt_per_square_meter",
             "unit_symbol": "W/m\u00b2",
-            "description": "Global irradiance on a horizontal surface, reported as power rather than energy.",
+            "description": (
+                "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy."
+            ),
         },
     ]
 
