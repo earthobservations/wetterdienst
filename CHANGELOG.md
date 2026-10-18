@@ -22,6 +22,10 @@ Types of changes:
   `raw:-1` in `quality_flags`, where the `-1` came back as -3600 s, and the `9` of the hourly cloud
   cover `N` and the daily `NG`, a sky that is invisible, is null, where it came back as a cloud
   cover of 1.125 (GH-3123)
+- `smhi/observation` hourly `cloud_cover_total`: SMHI's 113 is null, with `raw:113` as the last
+  token of `quality_flags`, no longer returned as a cloud cover of 1.13. It is the 9 of the oktas
+  scale, a sky that cannot be observed (fog, snow drift), written as a percentage: station 182910
+  writes it in 427 of 3,140 hours (GH-3122)
 
 ## [0.159.0] - 2026-10-18
 

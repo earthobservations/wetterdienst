@@ -52,7 +52,7 @@ afterEach(async () => {
 /** What the panel says in query mode, per language: the button that enters it, and the chrome inside. */
 const said = {
   'de': { enable: 'Mit SQL-Abfrage transformieren', inside: ['SQL-Abfrage-Transformation', 'Abfrage ausführen', 'Abbrechen', 'Beispielabfragen', 'Fragen Sie die Tabelle data mit Standard-SQL ab.', 'Verfügbare Spalten:'] },
-  'fr': { enable: 'Transformer avec une requête SQL', inside: ['Transformation par requête SQL', 'Exécuter la requête', 'Annuler', 'Exemples de requêtes', 'Interrogez la table data avec du SQL standard.', 'Colonnes disponibles :'] },
+  'fr': { enable: 'Transformer avec une requête SQL', inside: ['Transformation par requête SQL', 'Exécuter la requête', 'Annuler', 'Exemples de requêtes', 'Interrogez la table data avec du SQL standard.', 'Colonnes disponibles\u00A0:'] },
   'pl': { enable: 'Przekształć zapytaniem SQL', inside: ['Przekształcenie zapytaniem SQL', 'Uruchom zapytanie', 'Anuluj', 'Przykładowe zapytania', 'Odpytaj tabelę data za pomocą standardowego SQL.', 'Dostępne kolumny:'] },
   'lb': { enable: 'Mat enger SQL-Ufro transforméieren', inside: ['SQL-Ufro-Transformatioun', 'Ufro ausféieren', 'Ofbriechen', 'Beispillufroen', 'Frot d\'Tabell data mat Standard-SQL of.', 'Verfügbar Kolonnen:'] },
   'de-hh': { enable: 'Mit SQL-Afraag transformeren', inside: ['SQL-Afraag-Transformatschoon', 'Afraag utföhren', 'Afbreken', 'Bispelafraagen', 'Frag de Tabell data mit Standard-SQL af.', 'Verfögbare Spalten:'] },

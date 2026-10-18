@@ -1164,9 +1164,22 @@ def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         "2019-01-18;04:00:00;0;G\n"
         "2019-03-15;11:00:00;360;G\n"
     )
-    serve(monkeypatch, smhi_api, {"parameter/3/station/188790/period": csv.encode()})
+    # parameter 16, "Total molnmängd" in percent (read 2026-10-18): the oktas 0 to 8 as 0, 13, 25, ... 100, and 113 for
+    # the 9 of an obscured sky ("Kod 9 sätts till då 112,5%", smhi.se/kunskapsbanken/meteorologi/moln/
+    # hur-mats-molnighet), which station 182910 writes in 427 of 3,140 hours (GH-3122)
+    cloud_cover = (
+        "Datum;Tid (UTC);Total molnmängd;Kvalitet\n"
+        "2019-01-18;03:00:00;88;G\n"
+        "2019-01-18;04:00:00;113;G\n"
+        "2019-03-15;11:00:00;100;G\n"
+    )
+    serve(
+        monkeypatch,
+        smhi_api,
+        {"parameter/3/station/188790/period": csv.encode(), "parameter/16/station/188790/period": cloud_cover.encode()},
+    )
     request = SmhiObservationRequest(
-        parameters=[("hourly", "data", "wind_direction_last_10min")],
+        parameters=[("hourly", "data", "wind_direction_last_10min"), ("hourly", "data", "cloud_cover_total")],
         start=_day(2019, 1, 18),
         end=_day(2019, 3, 16),
         settings=_settings(),
@@ -1551,8 +1564,9 @@ STUBS = [
         "smhi/observation hourly/data",
         _smhi_hourly,
         reading=("wind_direction_last_10min", 360.0),
-        sentinels=(("wind_direction_last_10min", 0.0),),
-        tokens=(("wind_direction_last_10min", "0", None),),
+        # the percent is converted to a decimal on its way: 113 % is the 9 oktas of an obscured sky
+        sentinels=(("wind_direction_last_10min", 0.0), ("cloud_cover_total", 1.13)),
+        tokens=(("wind_direction_last_10min", "0", None), ("cloud_cover_total", "113", None)),
     ),
     ValueStub(
         "dmi/observation hourly/data",
