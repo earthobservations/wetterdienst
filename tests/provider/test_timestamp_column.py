@@ -97,7 +97,7 @@ def test_interpolated_and_summarized_timestamps_are_utc_microseconds(
         distance: float,  # noqa: ARG001
         df_all: pl.DataFrame | None = None,  # noqa: ARG001
     ) -> StationsResult:
-        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.BY_DISTANCE)
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.BY_DISTANCE)
 
     def _query(self: DwdObservationValues) -> Iterator[object]:  # noqa: ARG001
         for station_id in offsets:

@@ -306,7 +306,7 @@ def result_metadata(
             start=format_timestamp(stations.start) if stations.start else None,
             end=format_timestamp(stations.end) if stations.end else None,
             stations=StationsSelected(
-                filter=stations.stations_filter.value,
+                filter=stations._stations_filter.value,  # noqa: SLF001
                 count=len(ids),
                 ids=ids if len(ids) <= MAX_LISTED_STATION_IDS else None,
             ),

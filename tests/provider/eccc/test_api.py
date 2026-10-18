@@ -1106,7 +1106,7 @@ def test_eccc_a_request_without_dates_for_a_hand_built_result_asks_for_the_years
             "end_timestamp": pl.Datetime(time_zone="UTC"),
         },
     )
-    stations = StationsResult(request=request, df=frame, df_all=frame, stations_filter=StationsFilter.BY_STATION_ID)
+    stations = StationsResult(request=request, df=frame, _df_all=frame, _stations_filter=StationsFilter.BY_STATION_ID)
     stations.values().all()
     hourly = [int(url.split("UTC_YEAR=")[1][:4]) for url in urls if "UTC_YEAR=" in url]
     daily = [int(url.split("datetime=")[1][:4]) for url in urls if "datetime=" in url]

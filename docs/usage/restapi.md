@@ -448,6 +448,10 @@ hourly data -- `2020-08` the month and `2020` the year. An interval runs from th
 span its first half names to the end of the span its second, so `2020-08/2020-09` ends with
 September. A date carrying a time, `2020-08-01T12`, names that one instant.
 
+The Python API reads a date-only `start` and `end` the same way: `end="2020-08-05"` is the whole 5th, as
+`timestamp==2020-08-01/2020-08-05` is, and the same inputs give the same window on both. Only a day
+does there; a month and a year are `timestamp` notation, and `start`/`end` are refused them.
+
 ```bash
 # Acquire observations.
 http localhost:7890/api/values provider==dwd network==observation parameters==daily/kl periods==recent stations==1048,4411

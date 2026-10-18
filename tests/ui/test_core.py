@@ -544,7 +544,7 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
 
     def _collect_station_parameter_or_dataset(
         self: DwdObservationValues,  # noqa: ARG001
@@ -611,7 +611,7 @@ def test_stripes_of_a_station_that_returns_no_rows_are_refused(monkeypatch: pyte
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
 
     monkeypatch.setattr(DwdObservationRequest, "all", _all)
     monkeypatch.setattr(

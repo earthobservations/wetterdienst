@@ -38,8 +38,8 @@ def _values(request: NwsObservationRequest) -> NwsObservationValues:
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
 

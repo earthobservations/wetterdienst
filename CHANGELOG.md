@@ -24,6 +24,19 @@ Types of changes:
   as a download does, not the bare `ssl.SSLError` (REST: 500, now 502). Code that caught
   `ssl.SSLError` around a listing catches `DownloadError` and reads `__cause__` now; a TLS failure
   is still asked for once (GH-3099)
+- **Breaking**: `Settings(ts_shape=...)` and the other `ts_*` settings are gone, with reading or
+  assigning `settings.ts_*` and a `settings={"ts_...": ...}` dict, which warned since 0.148.0; they
+  are a `ValidationError` that names the option to pass instead: `options=Options(shape=...)` (or
+  `options={"shape": ...}`) on the request. The `WD_TS_*` variables are unchanged (GH-3128)
+- **Breaking**: the fields `df_all`, `stations_filter` and `rank` of `StationsResult`, which say how
+  `df` was selected, are private: `_df_all`, `_stations_filter` and `_rank`, also as the keywords of
+  its constructor. A caller that read them reads `df`; the frozen public surface leaves them out
+  (GH-3128)
+- **Breaking**: a `start` or `end` of a request that is a date without a time (`"2026-01-31"`, a
+  `datetime.date`) is the whole day, as the REST `timestamp` always read it: `end="2026-01-31"`
+  includes the 31st to 23:59:59.999999, where it ended at midnight and left out the day. A date
+  alone is the whole day too. A `datetime` or a string with a time stays that exact instant; end a
+  window at midnight with `end="2026-01-31T00:00:00"`. A `date` is accepted as a bound (GH-3133)
 
 ### Fixed
 
