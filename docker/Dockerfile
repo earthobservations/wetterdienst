@@ -1,6 +1,6 @@
-FROM python:3.15-slim-trixie AS build
+FROM python:3.15-slim-trixie@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce AS build
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/
 
 ENV UV_NO_DEV=1
 ENV UV_COMPILE_BYTECODE=1
@@ -39,9 +39,9 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
 
 # Dev stage: editable install so uvicorn --reload picks up source changes.
 # Installs the same extras and OS packages as the final stage for feature parity.
-FROM python:3.15-slim-trixie AS dev
+FROM python:3.15-slim-trixie@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce AS dev
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/
 
 ENV UV_NO_DEV=1
 ENV UV_LINK_MODE=copy
@@ -77,7 +77,7 @@ EXPOSE 7890
 CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890", "--reload"]
 
 # Final stage
-FROM python:3.15-slim-trixie
+FROM python:3.15-slim-trixie@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce
 
 # Install chromium -> required for kaleido png export, curl for health checks, and the ecCodes
 # library (with its definitions, libeccodes-data) that the eccodes bindings of the `bufr` extra

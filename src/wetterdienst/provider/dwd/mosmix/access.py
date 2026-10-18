@@ -128,7 +128,7 @@ class KMLReader:
             response = dwdfs.open(url, block_size=0)
         except ClientSSLError as e:
             # the host answered, so a certificate or handshake failure is not being offline: the bare
-            # `ssl.SSLError`, as the listings and `download_file` keep it (GH-2553)
+            # `ssl.SSLError`, as `download_file` keeps it (GH-2553)
             failure = _bare_tls_failure(e)
         except ClientConnectorError as e:
             # the place this reader meets the network, through fsspec and not `download_file`:

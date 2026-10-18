@@ -196,7 +196,7 @@ test.describe('Providers Page', () => {
   test('should say so for a provider there is none of', async ({ page }) => {
     await page.goto('/providers/nowhere')
 
-    await expect(page.getByText('There is no provider called "nowhere".')).toBeVisible()
+    await expect(page.getByText('There is no provider called “nowhere”.')).toBeVisible()
   })
 })
 

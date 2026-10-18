@@ -16,6 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
+  every provider that lists) that fails on TLS, a certificate that does not verify or a handshake
+  that fails, raises a `DownloadError` naming the URL, with the `ssl.SSLError` as its `__cause__`,
+  as a download does, not the bare `ssl.SSLError` (REST: 500, now 502). Code that caught
+  `ssl.SSLError` around a listing catches `DownloadError` and reads `__cause__` now; a TLS failure
+  is still asked for once (GH-3099)
+
+### Fixed
+
+- `knmi/observation`: the sunshine duration `SQ` of KNMI's `-1` ("less than 0.05 hour") is 0.0, with
+  `raw:-1` in `quality_flags`, where the `-1` came back as -3600 s, and the `9` of the hourly cloud
+  cover `N` and the daily `NG`, a sky that is invisible, is null, where it came back as a cloud
+  cover of 1.125 (GH-3123)
+- `smhi/observation` hourly `cloud_cover_total`: SMHI's 113 is null, with `raw:113` as the last
+  token of `quality_flags`, no longer returned as a cloud cover of 1.13. It is the 9 of the oktas
+  scale, a sky that cannot be observed (fog, snow drift), written as a percentage: station 182910
+  writes it in 427 of 3,140 hours (GH-3122)
+
 ## [0.159.0] - 2026-10-18
 
 

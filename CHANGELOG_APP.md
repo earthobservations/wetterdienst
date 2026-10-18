@@ -16,6 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Home]` The home page no longer says "no rate limit", which the app's rate limit made untrue
+  (GH-3093): its data section promises "No key, no account." in all eleven languages (GH-2610)
+- `[Translations]` Review of the eleven catalogs: Spanish speaks to the reader as "tú" throughout
+  (`Qué datos obtienes`, `Convierte esa columna`); the history page is "Stationsverlauf" in German
+  where it was "Chronik" and "Verlauf"; Spanish and Italian call a station's elevation "Altitud" and
+  "Altitudine" on the history page as on the interpolation panel; the API page's endpoints are
+  "Puntos de acceso", "Eindpunten", "Endepunkter" and "Points d'accès" like the MCP texts around
+  them; Danish "Vejvejr" for road weather; Polish, Italian and German sentences made grammatical
+  (GH-2610)
+- `[Translations]` Quotation marks and apostrophes follow each language (“…” in English, Danish
+  and Dutch, «…» in Italian, „…“ in Luxembourgish) where the newest texts had a straight `"` or
+  `’`, and French sets a no-break space before `: ; ? !` and inside « » (GH-2610)
+
 ### Fixed
 
 - `[Accessibility]` The keyboard focus is shown by a solid 2 px outline in the primary colour
@@ -39,6 +54,13 @@ Types of changes:
   visitor who has not asked for reduced motion, not for ever (WCAG 2.2.2; GH-2559)
 - `[Accessibility]` The list of selected stations has a heading of the level below its section's
   (`h3`, was `h4`) (GH-2559)
+
+### Security
+
+- The page's Content Security Policy names the nonce its inline scripts carry
+  (`script-src 'self' 'nonce-...' 'wasm-unsafe-eval'`) and no longer allows `'unsafe-inline'` for
+  scripts, which the nonces never switched off: an inline script that gets into the page, or an
+  event handler attribute, is refused now (GH-3112)
 
 ## [0.24.0] - 2026-10-18
 

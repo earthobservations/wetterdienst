@@ -6,8 +6,8 @@ called two things on two pages of one language.
 
 The table is read back by `tests/unit/i18n-quality.test.ts`: a cell that differs from the catalog
 fails, so it can only say what the catalogs say. The same test checks, for station, parameter,
-dataset, resolution, provider, network and period, that each locale's text contains its word wherever
-the English text has the term. To change a word, change it in the catalog, here and in the stem
+dataset, resolution, provider, network and period, and for the API page's endpoint (which is not in the
+table), that each locale's text contains its word wherever the English text has the term. To change a word, change it in the catalog, here and in the stem
 table at the bottom of that test, in one commit.
 
 ## The terms
@@ -48,19 +48,24 @@ are in `glossary/<locale>.ts`).
 
 How each locale speaks to the reader, as the catalogs have it now. A new string follows this.
 
-| Locale | Address | Spelling and notes |
-| --- | --- | --- |
-| `en` | no direct address needed | British spelling (`humanised`, `colour`), as `en-GB` in `nuxt.config.ts` |
-| `de` | Sie | |
-| `de-hh` | du | Plattdüütsch (Low German, Hamburg), in the UI text and in the glossary alike |
-| `fr` | vous | |
-| `es` | tú | `periodo`, not `período` |
-| `it` | tu | |
-| `nl` | je | |
-| `pl` | imperative, second person singular | |
-| `cs` | vy | |
-| `da` | du | |
-| `lb` | Dir (second person plural) | |
+| Locale | Address | Quotation marks | Spelling and notes |
+| --- | --- | --- | --- |
+| `en` | no direct address needed | “…” | British spelling (`humanised`, `colour`), as `en-GB` in `nuxt.config.ts` |
+| `de` | Sie | „…“ | |
+| `de-hh` | du | „…“ | Plattdüütsch (Low German, Hamburg), in the UI text and in the glossary alike |
+| `fr` | vous | « … » | a no-break space before `: ; ? !` and inside the guillemets |
+| `es` | tú | «…» | `periodo`, not `período` |
+| `it` | tu | «…» | |
+| `nl` | je | “…” | |
+| `pl` | imperative, second person singular | „…” | |
+| `cs` | vy | „…“ | |
+| `da` | du | “…” | |
+| `lb` | Dir (second person plural) | „…“ | |
+
+The apostrophe is the straight `'` in every locale, and `«…»` in the legal page's operator note is the
+marker of a field to fill in, not a quotation. `tests/unit/i18n-quality.test.ts` holds the catalogs to
+the quotation marks and the apostrophe, to the French spacing, and to one register of address (the
+pronouns and possessives of the other one, which it can find; a verb form alone it cannot).
 
 ## Counts
 
@@ -118,3 +123,34 @@ request that added this file, and the issue it belongs to is
 - `lb`: the four map hints (`mapHint`, `mapHintMultiple`) address the reader with "du" ("Tipp op
   ...") where the rest of the locale uses "Dir".
 - `nl`: `waarneming` (glossary, one label) and `observatie` (the UI) are both used for "observation".
+- `nl`: `Colofon` for the legal notice (`footer.legal`, `impressum.title`) names the publisher's
+  imprint; a Dutch reader may expect `Juridische informatie`.
+- `fr`: `Paramètres` is both "Settings" (`common.settings`, `settings.title`, `stripes.settingsTitle`,
+  `explorer.settings`, `explorer.generalSettings`, `explorer.advancedSettings`,
+  `dataViewer.chartSettings`) and "Parameters" (`glossary.parametersTitle`,
+  `parameterSelection.parametersLabel`), on the same pages. `Réglages` for the settings would keep
+  the two apart.
+
+The review of GH-2610 fixed what could be shown to be wrong without a native speaker: the claim of
+"no limit" in `home.dataIntro` after the rate limit, a formal address in the `es` catalog, a word
+for the same thing in two forms (endpoint, station history, elevation), the quotation marks and
+apostrophes that each language sets its own way, French spacing, and a few sentences that were not
+grammatical. What follows it left, each with a suggestion. A suggestion is a proposal from a reader of
+the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as before.
+
+| Locale | Key | Now | Suggestion | Sure |
+| --- | --- | --- | --- | --- |
+| `lb` | `api.endpoints.coverage`, `explorer.available`, `stripes.available`, `widget.noData`, `meteogram.chart.noData`, `query.availableColumns`, `dataViewer.noChartData`, `history.about2`, `history.about3`, `history.datasetHint`, `impressum.openSourceText` | `verfügbar`, `Verfügbar` (German) | `disponibel`, which `parameterSelection.*RestrictionUnavailable` already use | high |
+| `lb` | `stripes.showDataAvailability`, `stripes.plotDataAvailability` | `Datverfügbarkeet` | `Disponibilitéit vun den Daten` | medium |
+| `lb` | `api.endpoints.history`, `history.about1`, `history.about3`, `history.missingDataHistory`, `history.colMissingCount` | `fehlend`, `fehlenden` | `feelend`, `feelenden` | medium |
+| `lb` | `api.endpoints.history`, `history.subtitle`, `history.about3`, `history.deviceHistory`, `history.colDeviceType`, `history.colDeviceHeight` | `Gerät`, `Geräter`, `Gerätehistorique` | `Apparat`, `Apparater`, `Apparatehistorique` | medium |
+| `lb` | `home.featureAnalysisTitle` | `Resumé`, where the rest of the catalog writes `Resümee` | one spelling | medium |
+| `lb` | `impressum.disclaimerTitle` | `Haftungsausschloss` (German) | a Luxembourgish word for the disclaimer | low |
+| `lb` | `dataViewer.rowsPerPage`, `dataViewer.copiedRows`, `query.success` | `Zeile`, `Zeil`, `Zeilen` (German) | `Rei`, `Reien` | low |
+| `lb` | `meteogram.aboutText2`, `meteogram.chart.panelCloud`, `meteogram.chart.summaryAvgCloud`, `meteogram.chart.summaryMaxGust`, `meteogram.chart.seriesWindGust` | `Bewölkung`, `Bö` (German) | the Luxembourgish words for cloud cover and gust | low |
+| `de-hh` | `nav.history`, `history.title`, `history.subtitle`, `history.aboutButton`, `history.stationHistoryTitle` | `Chronik`, `Stationschronik`, where the rest of the page says `Verloop` | one word, `Verloop` as `de` now has `Verlauf` | medium |
+| `de-hh` | `common.backendError`, `support.reportTitle`, `history.error`, `api.endpoints.history` | `Fehler`, `fehlende` where the catalog also has `Feller` | the Low German spelling | low |
+| `pl` | `support.reportText` | `Znalazłeś/-aś błąd?` (gendered) | `Czy znaleziono błąd?` | low |
+| `pl` | `widget.poweredBy` | `Obsługiwane przez` ("served by") | `Działa dzięki` | low |
+| `pl` | `explorer.minGain` | `Min. zysk par wartości` | `Min. przyrost par wartości` | low |
+| `cs` | `glossary.noResults`, `providers.noResults` | `Hledání neodpovídá žádný parametr.` | `Hledanému výrazu neodpovídá žádný parametr.` | low |

@@ -74,16 +74,17 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
 | IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
 | IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
-| KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount`, a trace (0.0) |
+| KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount` and `sunshine_duration`, a trace (0.0); `0` and `990` in the hourly wind direction, calm and variable (null); `9` in the hourly and daily `cloud_cover_total`, the sky is invisible (null) |
 | Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
 | Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
 | Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
+| SMHI | `0` in the wind directions, a calm wind (null); `113` in the hourly cloud cover, the sky is obscured (null) |
 | RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code
 already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
-missing value. CHMI, MeteoSwiss, SMHI, DWD phenology and the real-time values of AEMET read a text that is no
+missing value. CHMI, MeteoSwiss, DWD phenology and the real-time values of AEMET read a text that is no
 number as null without a token; none was found in their files, and DWD observation does the same for a letter
 outside `P` and `I` in a measurement method.
