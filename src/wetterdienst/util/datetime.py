@@ -102,6 +102,27 @@ _DAY = "day"
 _INSTANT = "instant"
 
 
+def date_only(date_string: str) -> dt.date | None:
+    """Return the day a string names where it is a date and nothing else, else ``None``.
+
+    "2020-05-01", "20200501" or "2020-W01-1" each name a whole day. Asking `date` rather than looking
+    for a separator is what tells them from a datetime -- `datetime.fromisoformat` takes any single
+    character between the two, so "2020-05-01t12" and "2020-05-01+02:00" are times of day however
+    unusually they are written. A month ("2020-05") or a year ("2020") is no day, and is ``None`` too.
+
+    Args:
+        date_string: Date string to read
+
+    Returns:
+        The day, or ``None`` where the string is no date without a time
+
+    """
+    try:
+        return dt.date.fromisoformat(date_string)
+    except ValueError:
+        return None
+
+
 def _parse_date_with_precision(date_string: str) -> tuple[dt.datetime, str]:
     """Parse a date string to its first instant and the precision it was written with.
 
@@ -112,16 +133,9 @@ def _parse_date_with_precision(date_string: str) -> tuple[dt.datetime, str]:
         The first instant the string names and one of the precisions above
 
     """
-    try:
-        # a date and nothing else: "2020-05-01", "20200501" or "2020-W01-1", each a whole day.
-        # Asking `date` rather than looking for a separator is what tells them from a datetime --
-        # `datetime.fromisoformat` takes any single character between the two, so "2020-05-01t12"
-        # and "2020-05-01+02:00" are times of day however unusually they are written
-        date_only = dt.date.fromisoformat(date_string)
-    except ValueError:
-        pass
-    else:
-        return _as_utc(dt.datetime.combine(date_only, dt.time())), _DAY
+    day = date_only(date_string)
+    if day is not None:
+        return _as_utc(dt.datetime.combine(day, dt.time())), _DAY
     try:
         date_parsed = dt.datetime.fromisoformat(date_string)
     except ValueError:

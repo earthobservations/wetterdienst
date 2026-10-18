@@ -92,6 +92,7 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     # a change over three hours
     "pressure_air_site_delta_last_3h": Bounds(-100.0, 100.0),
     "pressure_vapor": Bounds(0.0, 100.0),  # hPa
+    "pressure_vapor_mean": Bounds(0.0, 100.0),  # hPa
     # a zenith angle runs from the sun overhead to below the horizon
     "sun_zenith_angle": Bounds(0.0, 180.0),
     "count_days_in_month": Bounds(28.0, 31.0),
@@ -111,6 +112,7 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "snow_depth_new_normal": Bounds(0.0, 500.0),
     "ice_on_water_thickness": Bounds(0.0, 500.0),  # cm
     "visibility": Bounds(0.0, 200_000.0),  # m
+    "visibility_mean": Bounds(0.0, 200_000.0),  # m
     "cloud_base_convective": Bounds(0.0, 25_000.0),  # m
     "temperature_humidex": Bounds(-90.0, 80.0),  # °C
 }

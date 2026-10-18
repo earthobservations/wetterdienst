@@ -118,8 +118,8 @@ Codes (precipitation_index):
 
 | name                   | original name | description                                       | unit | constraints |
 |------------------------|---------------|---------------------------------------------------|------|-------------|
-| {term}`wind_speed` | ff_10 | Mean wind speed during the previous 10 minutes. | m/s | >=0 |
-| {term}`wind_direction` | dd_10 | Mean wind direction during the previous 10 minutes. The source's 0 beside a wind speed of 0 (a calm wind) is null. | ° | >=0,<=360 |
+| {term}`wind_speed_mean` | ff_10 | Mean wind speed during the previous 10 minutes. | m/s | >=0 |
+| {term}`wind_direction_mean` | dd_10 | Mean wind direction during the previous 10 minutes. The source's 0 beside a wind speed of 0 (a calm wind) is null. | ° | >=0,<=360 |
 
 ### wind_extreme
 
@@ -268,8 +268,8 @@ Codes (precipitation_index):
 
 | name                   | original name | description                                    | unit | constraints |
 |------------------------|---------------|------------------------------------------------|------|-------------|
-| {term}`wind_speed` | ff_st_10 | Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). | m/s | >=0 |
-| {term}`wind_direction` | dd_st_10 | Mean wind direction over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). The source's 0 beside a wind speed of 0 (a calm wind) is null. | ° | >=0,<=360 |
+| {term}`wind_speed_mean` | ff_st_10 | Mean wind speed over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). | m/s | >=0 |
+| {term}`wind_direction_mean` | dd_st_10 | Mean wind direction over 10 minutes, at the sensor height of the station (368 m at Berlin-Alexanderplatz) (DWD: "10Minuten Mittel"). The source's 0 beside a wind speed of 0 (a calm wind) is null. | ° | >=0,<=360 |
 
 ### urban_wind_extreme
 

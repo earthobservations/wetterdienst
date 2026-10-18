@@ -31,12 +31,12 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dkl010z0",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010z0",
                             "unit": "meter_per_second",
                         },
@@ -66,17 +66,17 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000z0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "ods000z0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000z0",
                             "unit": "watt_per_square_meter",
                         },
@@ -141,12 +141,12 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dkl010h0",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010h0",
                             "unit": "meter_per_second",
                         },
@@ -161,32 +161,32 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestah0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffh0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200h0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000h0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "ods000h0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000h0",
                             "unit": "watt_per_square_meter",
                         },
@@ -241,7 +241,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200h0",
                             "unit": "percent",
                         },
@@ -266,12 +266,12 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dkl010d0",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010d0",
                             "unit": "meter_per_second",
                         },
@@ -286,32 +286,32 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestad0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffd0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200d0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000d0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "ods000d0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000d0",
                             "unit": "watt_per_square_meter",
                         },
@@ -371,7 +371,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200d0",
                             "unit": "percent",
                         },
@@ -396,7 +396,7 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010m0",
                             "unit": "meter_per_second",
                         },
@@ -411,27 +411,27 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestam0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffm0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200m0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000m0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000m0",
                             "unit": "watt_per_square_meter",
                         },
@@ -486,7 +486,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200m0",
                             "unit": "percent",
                         },
@@ -506,7 +506,7 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010y0",
                             "unit": "meter_per_second",
                         },
@@ -521,27 +521,27 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "prestay0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pp0qffy0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "pva200y0",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "gre000y0",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_intensity",
+                            "name": "radiation_sky_long_wave_intensity_mean",
                             "name_original": "oli000y0",
                             "unit": "watt_per_square_meter",
                         },
@@ -596,7 +596,7 @@ _MeteoswissObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "ure200y0",
                             "unit": "percent",
                         },

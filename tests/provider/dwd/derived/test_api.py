@@ -63,8 +63,8 @@ def _values_of(request: DwdDerivedRequest, station_id: str = "00044") -> DwdDeri
     sr = StationsResult(
         request=request,
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     )
     return DwdDerivedValues.from_stations(sr)
 

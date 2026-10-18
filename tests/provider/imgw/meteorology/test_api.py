@@ -121,7 +121,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "cloud_cover_total",
+                "parameter": "cloud_cover_total_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.2875,
                 "quality_flags": None,
@@ -184,7 +184,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "station_id": "253160090",
                 "resolution": "daily",
                 "dataset": "climate",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1.7,
                 "quality_flags": None,
@@ -250,7 +250,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "cloud_cover_total",
+                "parameter": "cloud_cover_total_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.6,
                 "quality_flags": None,
@@ -259,7 +259,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "humidity_relative",
+                "parameter": "humidity_relative_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.753,
                 "quality_flags": None,
@@ -304,7 +304,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "pressure_air_sea_level",
+                "parameter": "pressure_air_sea_level_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1013.8,
                 "quality_flags": None,
@@ -313,7 +313,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "pressure_air_site",
+                "parameter": "pressure_air_site_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 967.4,
                 "quality_flags": None,
@@ -322,7 +322,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "pressure_vapor",
+                "parameter": "pressure_vapor_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 15.6,
                 "quality_flags": None,
@@ -394,7 +394,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "station_id": "349190600",
                 "resolution": "monthly",
                 "dataset": "synop",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2010, 8, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
                 "quality_flags": None,
@@ -433,7 +433,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "humidity_relative",
+                "parameter": "humidity_relative_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 0.905,
                 "quality_flags": None,
@@ -469,7 +469,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "pressure_air_sea_level",
+                "parameter": "pressure_air_sea_level_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1004.2,
                 "quality_flags": None,
@@ -478,7 +478,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "pressure_air_site",
+                "parameter": "pressure_air_site_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 1003.5,
                 "quality_flags": None,
@@ -487,7 +487,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "pressure_vapor",
+                "parameter": "pressure_vapor_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 7.7,
                 "quality_flags": None,
@@ -541,7 +541,7 @@ def test_imgw_meteorology_api_daily_synop() -> None:
                 "station_id": "354150100",
                 "resolution": "daily",
                 "dataset": "synop",
-                "parameter": "wind_speed",
+                "parameter": "wind_speed_mean",
                 "timestamp": dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
                 "value": 3.1,
                 "quality_flags": None,
@@ -590,8 +590,8 @@ def test_imgw_meteorology_file_schema_names_are_declared_by_their_own_dataset() 
 
 
 # The Polish word for the aggregation a column carries, and the marker its canonical name has to
-# have. Only min/max are listed: the canonical vocabulary marks a mean only for temperature, so
-# `średnia dobowa prędkość wiatru` is plain `wind_speed` and a "mean" rule would be all noise.
+# have. Only min/max are listed: the mean (`średnia dobowa prędkość wiatru` is `wind_speed_mean`) is held for every
+# quantity the rule of GH-3151 has been applied to by `tests/metadata/test_mean_names.py`, which reads `średni*` too.
 _AGGREGATION_MARKERS = {
     "minimalna": "_min",
     "minimalne": "_min",
@@ -874,7 +874,7 @@ def test_imgw_meteorology_values_match_the_upstream_column(
         # so the dataset used to answer 0 cm of snow cover for every day of a Polish January.
         ("daily", "precipitation", "snow_depth", "249180020", "2010-01-01", None),
         # 0 % relative humidity, from `.0` beside a status of "8" in k_m_t.
-        ("monthly", "climate", "humidity_relative", "249180010", "2010-01-01", None),
+        ("monthly", "climate", "humidity_relative_mean", "249180010", "2010-01-01", None),
     ],
 )
 def test_imgw_meteorology_values_read_the_status_column(

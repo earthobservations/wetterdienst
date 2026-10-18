@@ -1,12 +1,37 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "FastAPI",
-    "version": "0.1.0"
+    "title": "Wetterdienst",
+    "summary": "Open weather data for humans",
+    "description": "Weather, climate and hydrology data from national weather services (DWD, NOAA, ECCC and many more) through\none interface: find a station with `stations`, read its measurements with `values`, or estimate a point\nbetween stations with `interpolate` and `summarize`.\n\n**Version.** This document describes version 1 of the API, served under `/api/v1`;\n`/api` is an alias of the current version. `info.version` is the version of wetterdienst that serves it,\n`info.x-api-version` that of the API.\nThe `operationId` of an operation is stable: the name of its handler, then its path without the version and\nits method (`values_api_values_get`), and the MCP tools are found by it. A change to one is a break of the\nAPI version, as a removed path, parameter or member is.\n\n**Answers.** The JSON and GeoJSON of the data routes carry a `metadata` block next to the data: the\nprovider with its licence and the credit line to give, the request as resolved, counts and warnings.\n\n**Errors.** Every error is an `application/problem+json` document as RFC 9457 describes it (`Problem`),\nwhose `type` names the kind of error: read that, not the `detail`. A 502, 503 or 504 carries `Retry-After`.\n\n**Licence.** The code is MIT. The data is published under the terms of its provider, which the `metadata`\nof every answer and `providers` state.\n",
+    "contact": {
+      "name": "wetterdienst",
+      "url": "https://github.com/earthobservations/wetterdienst/issues"
+    },
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT",
+      "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
+    },
+    "version": "0.159.0",
+    "x-api-version": "1"
   },
+  "servers": [
+    {
+      "url": "https://wetterdienst.eobs.org",
+      "description": "The hosted instance."
+    },
+    {
+      "url": "http://127.0.0.1:7890",
+      "description": "A local server, as `wetterdienst restapi` starts it."
+    }
+  ],
   "paths": {
     "/": {
       "get": {
+        "tags": [
+          "Server"
+        ],
         "summary": "Index",
         "description": "Provide index page.",
         "operationId": "index__get",
@@ -14,16 +39,24 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
     },
     "/robots.txt": {
       "get": {
+        "tags": [
+          "Server"
+        ],
         "summary": "Robots",
         "description": "Provide robots.txt.",
         "operationId": "robots_robots_txt_get",
@@ -31,25 +64,35 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
     },
     "/health": {
       "get": {
+        "tags": [
+          "Server"
+        ],
         "summary": "Health",
-        "description": "Health check.",
+        "description": "Health check: liveness, for a probe. It is `OK` as long as the server answers; it checks nothing else.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
               }
             }
           }
@@ -58,6 +101,9 @@
     },
     "/api/v1/version": {
       "get": {
+        "tags": [
+          "Server"
+        ],
         "summary": "Version",
         "description": "Get version information, what this instance serves, and the limits it holds requests to.\n\n`api_version` is the version of the REST API contract the routes are served under\n(`/api/v1/...`; `/api/...` is an alias of the current version), `version` that of wetterdienst.\n\n`mcp_enabled` is read at request time rather than captured at import: `_mount_mcp` sets it at\nthe bottom of this module, after the routes are declared. It is reported here because the\nendpoint is optional -- an instance installed without the `[mcp]` extra has no MCP route --\nand a client has no other way to find out short of probing `/mcp`, which on the streamable-HTTP\ntransport means opening a session rather than asking a question. When it is enabled,\n`mcp_path` is the endpoint of the contract version (`/mcp/v1`), the one to configure, and\n`mcp_alias_path` the alias that follows the current version (`/mcp`); both are `null`\notherwise.\n\n`limits` are the limits of this instance, as a request meets them (`WD_RESTAPI_*`): `max_stations`\nand `max_rows` for an answer sent as one body, `max_stream_rows` for one streamed as `ndjson` or\n`csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind\n`limit-exceeded`, the timeout a 504; 0 means the instance sets none.",
         "operationId": "version_api_version_get",
@@ -66,15 +112,32 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VersionAnswer"
+                }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/settings": {
       "get": {
+        "tags": [
+          "Server"
+        ],
         "summary": "Server Settings",
         "description": "Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take, for the query parameters given.\n\nEach is the server's `WD_TS_*` variable where it sets one, else wetterdienst's default, keyed\nby endpoint and named as the endpoint's query parameters are; the ones an endpoint has no query\nparameter for are the server's alone. `unit_targets` names the unit of every quantity, and\n`station_distance_resolution_factors` the factor of every resolution. Each is the one in effect,\nas a request leaving out every setting gets it: the server's wide shape turns `drop_nulls` off.\n\nThe query parameters are those of the three endpoints' settings, and a parameter given here is\nlaid over the server's for each endpoint that takes it, as a request to it giving the parameter\ngets it: `humanize`, `convert_units` and `unit_targets` for all three, `min_gain_of_value_pairs`\nand `num_additional_stations` for `interpolate` and `summarize`. A request's `unit_targets` or\nstation distance dict is merged into the server's, an entry it gives winning. A value an\nendpoint refuses is refused here, as that endpoint refuses it. Nothing is stored: the parameters\napply to this answer alone.",
         "operationId": "server_settings_api_settings_get",
@@ -376,12 +439,27 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/auth": {
       "get": {
+        "tags": [
+          "Catalogue"
+        ],
         "summary": "Auth",
         "description": "Check whether the credentials for an auth-required provider are present and valid.\n\nReturns `{\"provider\": ..., \"network\": ..., \"auth\": bool, \"configured\": bool, \"valid\": bool | null}`.\nFor providers that do not require authentication, `auth` is false and `configured`/`valid` are true.\n`configured` reflects whether credentials are present (false as well while the settings are invalid);\n`valid` whether a probe request showed them accepted (true) or rejected (false). It is null when\nthe probe could not tell (no network, a timeout, a rate limit, an outage of the provider): that is\nnot a rejection, so treat null as unknown.\n`valid` is false whenever `configured` is false (a probe cannot be performed without credentials).\n\nThis is the one call that probes the provider, for the one network asked about: one attempt that\ngives up after a few seconds. `/api/coverage` does not probe, so ask here whether the credentials\nof a network it lists as `configured` are accepted. The MCP tool and the CLI command\n(`wetterdienst about auth`) are this call.",
         "operationId": "auth_api_auth_get",
@@ -392,8 +470,10 @@
             "required": true,
             "schema": {
               "type": "string",
+              "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage.",
               "title": "Provider"
-            }
+            },
+            "description": "Data provider/organisation, e.g. 'dwd'. List valid provider/network combinations via coverage."
           },
           {
             "name": "network",
@@ -401,8 +481,10 @@
             "required": true,
             "schema": {
               "type": "string",
+              "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage.",
               "title": "Network"
-            }
+            },
+            "description": "Data network of the provider, e.g. 'observation'. List valid combinations via coverage."
           },
           {
             "name": "debug",
@@ -437,12 +519,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/coverage": {
       "get": {
+        "tags": [
+          "Catalogue"
+        ],
         "summary": "Coverage",
         "description": "List available data: providers/networks, or the resolutions, datasets and parameters within one.\n\nCall with no arguments to list every provider and its networks. Pass provider+network (e.g.\nprovider=\"dwd\", network=\"observation\") to list its resolutions/datasets/parameters; narrow with\nresolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names.\n\nThe list of every provider downloads nothing, so it answers at once. Per network it gives\n`name_short`, `country`, `url` and `kind`. `kind` is `observation`, `forecast` or `derived` for a\ntimeseries network, which has stations and values (every network but two); `radar` and `alerts`\nare standalone (`dwd/radar`, `dwd/alerts`): the other endpoints answer 404 for them. For a network\nthat needs credentials, `configured` says whether they are present; whether the provider accepts\nthem is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network.",
         "operationId": "coverage_api_coverage_get",
@@ -460,8 +563,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed.",
               "title": "Provider"
-            }
+            },
+            "description": "Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, datasets and parameters; with neither, every provider and its networks are listed."
           },
           {
             "name": "network",
@@ -476,8 +581,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Data network of the provider, e.g. 'observation'. Needs provider.",
               "title": "Network"
-            }
+            },
+            "description": "Data network of the provider, e.g. 'observation'. Needs provider."
           },
           {
             "name": "resolutions",
@@ -584,12 +691,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/providers": {
       "get": {
+        "tags": [
+          "Catalogue"
+        ],
         "summary": "Providers",
         "description": "Describe what each data provider is: its name, country, licence, credit line, source and networks.\n\nFor every provider, or the one named with `provider`: the names it goes by, its country (`country_code`\nis the ISO 3166-1 alpha-2 code), the terms it publishes its data under (`license`, null where it states\nnone) and the credit line to give (`attribution`), and its networks, each with its `kind`, source `url`,\nwhether it needs credentials (`auth`) and the resolutions and datasets it offers, with how many parameters\neach has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the\nparameters of a network, and `auth` checks whether its credentials are accepted.",
         "operationId": "providers_api_providers_get",
@@ -657,12 +785,30 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/glossary": {
       "get": {
+        "tags": [
+          "Catalogue"
+        ],
         "summary": "Glossary",
         "description": "Look up what a parameter measures and which unit it is returned in.\n\nFilter with parameter=\"radiation\" to match names containing that text, or\nunit_type=\"temperature\" for every parameter of one quantity. Both can be combined. Use limit to\ncap the number of entries: the vocabulary runs to several hundred parameters, so an unfiltered call is a\nlarge response and a broad filter can still be a wide one (parameter=\"temperature\" matches\nnearly two hundred).\n\nThis complements coverage: coverage says which parameters a given provider offers, this says\nwhat any of them means. The unit reported is the one a values request would actually return,\nincluding any `unit_targets` option override.",
         "operationId": "glossary_api_glossary_get",
@@ -680,8 +826,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Only the parameters whose name contains this text, e.g. 'radiation'. Not case-sensitive.",
               "title": "Parameter"
-            }
+            },
+            "description": "Only the parameters whose name contains this text, e.g. 'radiation'. Not case-sensitive."
           },
           {
             "name": "unit_type",
@@ -721,8 +869,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Only the parameters of this quantity, e.g. 'temperature'. Combines with parameter.",
               "title": "Unit Type"
-            }
+            },
+            "description": "Only the parameters of this quantity, e.g. 'temperature'. Combines with parameter."
           },
           {
             "name": "limit",
@@ -780,12 +930,27 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/stations": {
       "get": {
+        "tags": [
+          "Stations"
+        ],
         "summary": "Stations",
         "description": "Find weather stations and their `station_id` (step 1 of the station -> values workflow).\n\nRequires provider, network and parameters (e.g. provider=\"dwd\", network=\"observation\",\nparameters=\"daily/kl\"), and exactly one way of selecting stations: `name` for a place (e.g.\nname=\"Hamburg Fuhlsbüttel\", optionally with `rank` for how many matches), `stations` ids,\nlat/lon with `rank` or `distance`, a bounding box, `sql` (where the server enables it), or\nall=true for the full list. `name` gives the best five matches unless `rank` says otherwise.\nReturns station metadata including `station_id`, which you pass to `values`.\n\nA `timestamp`, a date or an interval as for `values`, lists only the stations whose record\noverlaps it, so the nearest stations are not ones that closed decades ago. An id of `stations`\nthe network has no station for is left out of the list, which is then empty or shorter, and\nnamed in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.",
         "operationId": "stations_api_stations_get",
@@ -1282,74 +1447,37 @@
             }
           },
           "400": {
-            "description": "The request is refused, or passes a limit of the server.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "502": {
-            "description": "The data provider failed.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
-            "description": "The server could not reach the data provider.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           },
           "504": {
-            "description": "The data provider, or the server's own request timeout, did not answer in time.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/issues": {
       "get": {
+        "tags": [
+          "Stations"
+        ],
         "summary": "Issues",
         "description": "Return available issue datetimes for a provider/network/station combination.\n\nCurrently supported: provider=dwd, network=mosmix|dmo|swsmos.",
         "operationId": "issues_api_issues_get",
@@ -1464,12 +1592,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/values": {
       "get": {
+        "tags": [
+          "Values"
+        ],
         "summary": "Values",
         "description": "Get measured values for station(s) (step 2 of the station -> values workflow).\n\nRequires provider, network, parameters and exactly one station selection, as for `stations`,\nexcept that a `name` selects its one best match, where `stations` lists the best five; `rank`\nasks for more. A window without readings is a 200 with an empty `values`, not an error.\nUse parameters as \"resolution/dataset/parameter\" (e.g.\n\"daily/climate_summary/temperature_air_mean_2m\") to keep the response small, and `stations` with\nan id from `stations` (e.g. stations=\"01975\"). `periods` is optional and provider-specific --\n\"recent\" for dwd/observation, while a provider that publishes under a single period rejects any\nother one. In the JSON of shape=\"long\", the default unless the server's WD_TS_SHAPE says\notherwise, the `values` items are grouped by station, then by\nresolution, dataset and parameter, in timestamp order within each group: a parameter's latest\ntimestamp is the last item of its group, not of the array. With shape=\"wide\" an item is one\ntimestamp of a station and resolution, with a key per parameter (prefixed with the full dataset\nname, e.g. \"climate_summary_\", when datasets of more than one name are requested), its\n`_quality_flags` key, no `parameter` key, and a null `dataset` where\nseveral datasets of its resolution are requested. With format=\"geojson\" the items sit under each\nfeature's `values`, keeping their order but not `station_id`; a feature is one resolution and\ndataset of one station (one resolution in the wide shape), so a station can have several. Do not\nre-request in other formats.",
         "operationId": "values_api_values_get",
@@ -2152,74 +2304,37 @@
             }
           },
           "400": {
-            "description": "The request is refused, or passes a limit of the server.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "502": {
-            "description": "The data provider failed.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
-            "description": "The server could not reach the data provider.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           },
           "504": {
-            "description": "The data provider, or the server's own request timeout, did not answer in time.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/interpolate": {
       "get": {
+        "tags": [
+          "Values"
+        ],
         "summary": "Interpolate",
         "description": "Estimate a value series at a point between stations by spatial interpolation (opt-in; adds inaccuracy).\n\nDo NOT use this for the weather at a named place (city, town, station) -- that is ALWAYS the\n`stations` -> `values` workflow, even when a specific past date is given (e.g. \"the weather in\nKiel on 26.12.2025\": find Kiel's nearest station, then read its values for that date). Only reach\nfor interpolate when the user explicitly asks for an interpolated / between-stations estimate, or\nwhen `stations` -> `values` genuinely finds no station with data near the location. It blends up\nto four surrounding stations for a `latitude`/`longitude` (or reference `station`) that has no\nstation of its own, so the result is a modelled estimate, not a measurement. Requires provider,\nnetwork, parameters and a `timestamp`.",
         "operationId": "interpolate_api_interpolate_get",
@@ -2737,74 +2852,37 @@
             }
           },
           "400": {
-            "description": "The request is refused, or passes a limit of the server.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "502": {
-            "description": "The data provider failed.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
-            "description": "The server could not reach the data provider.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           },
           "504": {
-            "description": "The data provider, or the server's own request timeout, did not answer in time.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/summarize": {
       "get": {
+        "tags": [
+          "Values"
+        ],
         "summary": "Summarize",
         "description": "Build a value series at a point from the nearest stations with data (opt-in; not a text summary).\n\nDo NOT use this for the weather at a named place (city, town, station) -- that is ALWAYS the\n`stations` -> `values` workflow, even when a specific past date is given. Despite the name this\nis NOT a plain-language weather summary. Only reach for it when the user explicitly asks for a\nnearest-station estimate at an arbitrary point, or when `stations` -> `values` genuinely finds no\nstation with data near the location. Per parameter and date it takes the value of the closest\nstation that reported it (the result names the `taken_station_id` and its `distance`), so the\nresult may stitch together different stations. Requires provider, network, parameters and a\n`timestamp`.",
         "operationId": "summarize_api_summarize_get",
@@ -3309,74 +3387,37 @@
             }
           },
           "400": {
-            "description": "The request is refused, or passes a limit of the server.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "502": {
-            "description": "The data provider failed.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
-            "description": "The server could not reach the data provider.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           },
           "504": {
-            "description": "The data provider, or the server's own request timeout, did not answer in time.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/stripes/stations": {
       "get": {
+        "tags": [
+          "Climate stripes"
+        ],
         "summary": "Stripes Stations",
         "description": "Wrap get_climate_stripes_temperature_request to provide results via restapi.",
         "operationId": "stripes_stations_api_stripes_stations_get",
@@ -3391,8 +3432,10 @@
                 "precipitation"
               ],
               "type": "string",
+              "description": "temperature (annual mean air temperature) or precipitation (annual amount).",
               "title": "Kind"
-            }
+            },
+            "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
             "name": "active",
@@ -3400,9 +3443,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
+              "description": "Only the stations that still report, i.e. have data in the recent period.",
               "default": true,
               "title": "Active"
-            }
+            },
+            "description": "Only the stations that still report, i.e. have data in the recent period."
           },
           {
             "name": "format",
@@ -3415,9 +3460,11 @@
                 "csv"
               ],
               "type": "string",
+              "description": "Output format: json, geojson (a feature collection) or csv.",
               "default": "json",
               "title": "Format"
-            }
+            },
+            "description": "Output format: json, geojson (a feature collection) or csv."
           },
           {
             "name": "pretty",
@@ -3475,12 +3522,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/stripes/values": {
       "get": {
+        "tags": [
+          "Climate stripes"
+        ],
         "summary": "Stripes Values",
         "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. The server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter\nfor: the target of the quantity where the values are converted, the source's unit where not.",
         "operationId": "stripes_values_api_stripes_values_get",
@@ -3655,12 +3723,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/stripes/image": {
       "get": {
+        "tags": [
+          "Climate stripes"
+        ],
         "summary": "Stripes Image",
         "description": "Generate climate stripes image for a station.",
         "operationId": "stripes_image_api_stripes_image_get",
@@ -3848,11 +3940,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "The image, in the media type of its `format`.",
             "content": {
-              "application/json": {
-                "schema": {}
-              }
+              "image/png": {},
+              "image/jpeg": {},
+              "image/svg+xml": {},
+              "application/pdf": {}
             }
           },
           "422": {
@@ -3864,12 +3957,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/history": {
       "get": {
+        "tags": [
+          "Stations"
+        ],
         "summary": "History",
         "description": "Return a station's metadata history -- how the station itself changed over time (not weather).\n\nProvides the record of a station's name, position, sensors/devices and data-gap sections across\nits lifetime, for auditing station changes. This is NOT weather or measurement history: for past\nmeasurements use the stations -> values workflow with a `timestamp` or interval. Requires provider,\nnetwork, parameters and either `stations` ids or all=true.",
         "operationId": "history_api_history_get",
@@ -4056,74 +4173,34 @@
             }
           },
           "400": {
-            "description": "The request is refused, or passes a limit of the server.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           },
           "502": {
-            "description": "The data provider failed.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
-            "description": "The server could not reach the data provider.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           },
           "504": {
-            "description": "The data provider, or the server's own request timeout, did not answer in time.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds after which the same request may be made again.",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            }
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
     },
     "/api/v1/alerts": {
       "get": {
+        "tags": [
+          "Alerts"
+        ],
         "summary": "Alerts",
         "description": "Provide DWD weather alerts (CAP warnings) via restapi.\n\nReturns all warnings active at the selected time, one entry per alert, with a GeoJSON\nMultiPolygon geometry. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from\nDWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result simply means\nthere were no active warnings.",
         "operationId": "alerts_api_alerts_get",
@@ -4138,9 +4215,11 @@
                 "district"
               ],
               "type": "string",
+              "description": "Spatial unit of the warnings: 'community' (per municipality) or 'district' (per Landkreis).",
               "default": "community",
               "title": "Granularity"
-            }
+            },
+            "description": "Spatial unit of the warnings: 'community' (per municipality) or 'district' (per Landkreis)."
           },
           {
             "name": "language",
@@ -4155,9 +4234,11 @@
                 "mul"
               ],
               "type": "string",
+              "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language.",
               "default": "en",
               "title": "Language"
-            }
+            },
+            "description": "Language of the warnings. 'mul' bundles every language in one file, of which only the first is read: prefer a single language."
           },
           {
             "name": "timestamp",
@@ -4172,8 +4253,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Instant in ISO 8601 (UTC if no offset) of a snapshot from DWD's rolling window of about 48 hours. Without it, the latest snapshot.",
               "title": "Timestamp"
-            }
+            },
+            "description": "Instant in ISO 8601 (UTC if no offset) of a snapshot from DWD's rolling window of about 48 hours. Without it, the latest snapshot."
           },
           {
             "name": "format",
@@ -4186,9 +4269,11 @@
                 "csv"
               ],
               "type": "string",
+              "description": "Output format: json, geojson (a feature collection) or csv.",
               "default": "json",
               "title": "Format"
-            }
+            },
+            "description": "Output format: json, geojson (a feature collection) or csv."
           },
           {
             "name": "pretty",
@@ -4246,6 +4331,27 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
           }
         }
       }
@@ -4667,6 +4773,28 @@
         "title": "GlossaryEntry",
         "description": "One canonical parameter: what it measures and which unit it is returned in."
       },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "OK",
+            "title": "Status",
+            "description": "Always `OK`: the server is up and answers. It reads no setting."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Health",
+        "description": "The answer of the liveness probe.",
+        "examples": [
+          {
+            "status": "OK"
+          }
+        ]
+      },
       "InterpolationSettings": {
         "properties": {
           "humanize": {
@@ -4868,6 +4996,46 @@
         ],
         "title": "LicenseModel",
         "description": "The terms a provider publishes its data under, as the provider states them (GH-2561).\n\n`spdx_id` is the identifier of the licence in the SPDX list, or an SPDX expression where the\nprovider offers two (`CC-BY-4.0 OR NLOD-2.0`); null where the terms have no SPDX identifier,\nwhich is then told by `name` and `url` alone. `url` is a page of the licence or of the provider's\nown terms, whichever states them."
+      },
+      "Limits": {
+        "properties": {
+          "max_stations": {
+            "type": "integer",
+            "title": "Max Stations",
+            "description": "The most stations one `values` or `history` request may read; a `rank` counts as that many."
+          },
+          "max_rows": {
+            "type": "integer",
+            "title": "Max Rows",
+            "description": "The most rows (estimated) of an answer sent as one body: json, geojson, a chart, and the answer of `interpolate` and `summarize`."
+          },
+          "max_stream_rows": {
+            "type": "integer",
+            "title": "Max Stream Rows",
+            "description": "The most rows (estimated) of an answer streamed as `ndjson` or `csv` by `stations` or `values`."
+          },
+          "timeout": {
+            "type": "number",
+            "title": "Timeout",
+            "description": "The seconds a request may take until its answer begins, and a streamed answer between two chunks, else a 504."
+          },
+          "max_concurrent": {
+            "type": "integer",
+            "title": "Max Concurrent",
+            "description": "The most requests under `/api` the server works on at once, else a 503 with `Retry-After`; 0 for none."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max_stations",
+          "max_rows",
+          "max_stream_rows",
+          "timeout",
+          "max_concurrent"
+        ],
+        "title": "Limits",
+        "description": "The limits and the timeout this server holds requests to, 0 meaning none."
       },
       "ParameterInfo": {
         "properties": {
@@ -5839,6 +6007,81 @@
         ],
         "title": "ValuesSettings",
         "description": "The settings of `/api/values`."
+      },
+      "VersionAnswer": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "The version of wetterdienst this instance runs, e.g. `0.159.0`."
+          },
+          "api_version": {
+            "type": "string",
+            "title": "Api Version",
+            "description": "The version of the REST API contract, the `v1` of `/api/v1`."
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "title": "Mcp Enabled",
+            "description": "Whether the MCP endpoint is served: it needs the `mcp` extra."
+          },
+          "mcp_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcp Path",
+            "description": "The MCP endpoint of the contract version (`/mcp/v1`); null without MCP."
+          },
+          "mcp_alias_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcp Alias Path",
+            "description": "The MCP endpoint that follows the current version (`/mcp`); null without MCP."
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits",
+            "description": "The limits and the timeout this instance holds requests to."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "api_version",
+          "mcp_enabled",
+          "mcp_path",
+          "mcp_alias_path",
+          "limits"
+        ],
+        "title": "VersionAnswer",
+        "description": "What an instance is: the versions it serves, whether it serves MCP, and the limits it holds requests to.",
+        "examples": [
+          {
+            "api_version": "1",
+            "limits": {
+              "max_concurrent": 32,
+              "max_rows": 500000,
+              "max_stations": 100,
+              "max_stream_rows": 10000000,
+              "timeout": 60.0
+            },
+            "mcp_alias_path": "/mcp",
+            "mcp_enabled": true,
+            "mcp_path": "/mcp/v1",
+            "version": "0.159.0"
+          }
+        ]
       },
       "_AlertsWithMetadataDict": {
         "properties": {
@@ -7232,10 +7475,152 @@
           "detail",
           "instance",
           "request_id"
+        ],
+        "examples": [
+          {
+            "type": "urn:wetterdienst:problem:request-refused",
+            "title": "Bad Request",
+            "status": 400,
+            "detail": "the interval in timestamp ends before it starts",
+            "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+            "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11"
+          }
         ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden. The body is a problem (`Problem`) of one of the kinds:\n\n- `sql-disabled`: The request carries a `sql` or `sql_values` filter and the server does not enable them.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not Found. The body is a problem (`Problem`) of one of the kinds:\n\n- `not-found`: What the request names does not exist: a station, a forecast run, a resolution or dataset, or a path.\n- `unknown-network`: The provider and network are not served, or have no stations or values to request.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error. The body is a problem (`Problem`) of one of the kinds:\n\n- `internal-error`: The server's own error, a defect. The cause is in the server log.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "NotImplemented": {
+        "description": "Not Implemented. The body is a problem (`Problem`) of one of the kinds:\n\n- `not-implemented`: The server does not implement what the request asks for, such as the station history of a network.\n- `dependency-missing`: The server lacks an optional package the request needs. Whoever runs it has to install it.\n- `credential-missing`: The provider needs a credential and the server has none.\n- `credential-rejected`: The provider rejected the credential of the server.\n- `not-configured`: The server is not configured to serve the request.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "BadGateway": {
+        "description": "Bad Gateway. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-failed`: The data provider failed or sent an answer the server cannot read. The request was valid; retry it.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds after which the same request may be made again.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Service Unavailable. The body is a problem (`Problem`) of one of the kinds:\n\n- `server-busy`: The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`.\n- `upstream-unreachable`: The server could not reach the data provider (no connection). The request was valid; retry it.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds after which the same request may be made again.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "GatewayTimeout": {
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds after which the same request may be made again.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
       }
     }
   },
+  "tags": [
+    {
+      "name": "Catalogue",
+      "description": "What the server offers: providers, networks, parameters, and credentials."
+    },
+    {
+      "name": "Stations",
+      "description": "Find stations and read their history and the runs of a forecast."
+    },
+    {
+      "name": "Values",
+      "description": "Measurements of stations, or estimated for a point between them."
+    },
+    {
+      "name": "Climate stripes",
+      "description": "Climate stripes of a station in Germany: stations, values and the image."
+    },
+    {
+      "name": "Alerts",
+      "description": "Weather warnings of the DWD."
+    },
+    {
+      "name": "Server",
+      "description": "This instance: its version and limits, its settings, and its health."
+    }
+  ],
   "x-generated-with": {
     "fastapi": "0.142.2",
     "pydantic": "2.14.0"
