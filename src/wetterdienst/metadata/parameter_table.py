@@ -762,6 +762,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "precipitation_form", "dimensionless", "Coded form of the precipitation, such as rain, snow or freezing rain."
     ),
     CanonicalParameter(
+        "precipitation_intensity_mean",
+        "precipitation_intensity",
+        "Mean rate at which precipitation fell over the period.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+    ),
+    CanonicalParameter(
         "precipitation_type_flags",
         "dimensionless",
         "Set of precipitation types observed at once, as a bit per type rather than a single code.",
@@ -953,7 +960,8 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "precipitation_intensity",
         "precipitation_intensity",
-        "Rate at which precipitation is falling.",
+        "Rate at which precipitation is falling, where the source states no statistic or a reading at one "
+        "moment; the stated mean is `precipitation_intensity_mean`.",
         interpolation="heterogeneous",
         zero_inflated=True,
     ),
@@ -1496,7 +1504,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "radiation_global_intensity",
         "power_per_area",
-        "Global irradiance on a horizontal surface, reported as power rather than energy.",
+        "Global irradiance on a horizontal surface, reported as power rather than energy, where the source "
+        "states no statistic or a reading at one moment; the stated mean is "
+        "`radiation_global_intensity_mean`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "radiation_global_intensity_mean",
+        "power_per_area",
+        "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1522,9 +1538,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "radiation_sky_long_wave_intensity",
+        "radiation_sky_long_wave_intensity_mean",
         "power_per_area",
-        "Downward long-wave irradiance from the sky, reported as power.",
+        "Mean downward long-wave irradiance from the sky over the period, reported as power.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1542,7 +1558,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "radiation_sky_short_wave_diffuse_intensity",
         "power_per_area",
-        "Diffuse short-wave irradiance from the sky, reported as power.",
+        "Diffuse short-wave irradiance from the sky, reported as power, where the source states no statistic "
+        "or a reading at one moment; the stated mean is `radiation_sky_short_wave_diffuse_intensity_mean`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "radiation_sky_short_wave_diffuse_intensity_mean",
+        "power_per_area",
+        "Mean diffuse short-wave irradiance from the sky over the period, reported as power.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1561,7 +1584,17 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "road_surface_condition", "dimensionless", "Coded condition of the road surface, such as dry, wet or icy."
     ),
     CanonicalParameter(
-        "snow_depth", "length_short", "Depth of the snow lying on the ground.", interpolation="homogeneous"
+        "snow_depth",
+        "length_short",
+        "Depth of the snow lying on the ground, where the source states no statistic or a reading at one "
+        "moment; the stated mean is `snow_depth_mean`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "snow_depth_mean",
+        "length_short",
+        "Mean depth of the snow lying on the ground over the period.",
+        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "snow_depth_sampled",
@@ -1608,73 +1641,167 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "soil_moisture_corn_loamy_silt_00cm_60cm",
         "fraction",
-        "Soil moisture in loamy silt under corn, between the surface and 60 cm.",
+        "Soil moisture in loamy silt under corn, between the surface and 60 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_corn_loamy_silt_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_corn_sand_00cm_60cm",
         "fraction",
-        "Soil moisture in sand under corn, between the surface and 60 cm.",
+        "Soil moisture in sand under corn, between the surface and 60 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is `soil_moisture_mean_corn_sand_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_00cm_10cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between the surface and 10 cm.",
+        "Soil moisture in loamy silt under grass, between the surface and 10 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_00cm_10cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_00cm_60cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between the surface and 60 cm.",
+        "Soil moisture in loamy silt under grass, between the surface and 60 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_10cm_20cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between 10 cm and 20 cm.",
+        "Soil moisture in loamy silt under grass, between 10 cm and 20 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_10cm_20cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_20cm_30cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between 20 cm and 30 cm.",
+        "Soil moisture in loamy silt under grass, between 20 cm and 30 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_20cm_30cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_30cm_40cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between 30 cm and 40 cm.",
+        "Soil moisture in loamy silt under grass, between 30 cm and 40 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_30cm_40cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_40cm_50cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between 40 cm and 50 cm.",
+        "Soil moisture in loamy silt under grass, between 40 cm and 50 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_40cm_50cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_loamy_silt_50cm_60cm",
         "fraction",
-        "Soil moisture in loamy silt under grass, between 50 cm and 60 cm.",
+        "Soil moisture in loamy silt under grass, between 50 cm and 60 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_grass_loamy_silt_50cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_grass_sand_00cm_60cm",
         "fraction",
-        "Soil moisture in sand under grass, between the surface and 60 cm.",
+        "Soil moisture in sand under grass, between the surface and 60 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is `soil_moisture_mean_grass_sand_00cm_60cm`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_corn_loamy_silt_00cm_60cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under corn, between the surface and 60 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_corn_sand_00cm_60cm",
+        "fraction",
+        "Mean soil moisture in sand under corn, between the surface and 60 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_00cm_10cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between the surface and 10 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_00cm_60cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between the surface and 60 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_10cm_20cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between 10 cm and 20 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_20cm_30cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between 20 cm and 30 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_30cm_40cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between 30 cm and 40 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between 40 cm and 50 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under grass, between 50 cm and 60 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_grass_sand_00cm_60cm",
+        "fraction",
+        "Mean soil moisture in sand under grass, between the surface and 60 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
+        "fraction",
+        "Mean soil moisture in loamy silt under winter wheat, between the surface and 60 cm over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+        "fraction",
+        "Mean soil moisture in sand under winter wheat, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
         "fraction",
-        "Soil moisture in loamy silt under winter wheat, between the surface and 60 cm.",
+        "Soil moisture in loamy silt under winter wheat, between the surface and 60 cm, where the source "
+        "states no statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "soil_moisture_winter_wheat_sand_00cm_60cm",
         "fraction",
-        "Soil moisture in sand under winter wheat, between the surface and 60 cm.",
+        "Soil moisture in sand under winter wheat, between the surface and 60 cm, where the source states no "
+        "statistic or a reading at one moment; the stated mean is "
+        "`soil_moisture_mean_winter_wheat_sand_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -3112,7 +3239,17 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         " dataset's own interval.",
     ),
     CanonicalParameter(
-        "wind_force_beaufort", "wind_scale", "Wind strength on the Beaufort scale.", interpolation="homogeneous"
+        "wind_force_beaufort",
+        "wind_scale",
+        "Wind strength on the Beaufort scale, where the source states no statistic or a reading at one "
+        "moment; the stated mean is `wind_force_beaufort_mean`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "wind_force_beaufort_mean",
+        "wind_scale",
+        "Mean wind strength on the Beaufort scale over the period.",
+        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "wind_gust_max", "speed", "Speed of the strongest gust of the period.", interpolation="homogeneous"

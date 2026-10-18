@@ -157,7 +157,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "mean(surface_downwelling_shortwave_flux_in_air PT1H)",
                             "unit": "watt_per_square_meter",
                         },
@@ -252,7 +252,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "mean(surface_downwelling_shortwave_flux_in_air P1D)",
                             "unit": "watt_per_square_meter",
                         },
@@ -337,7 +337,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "snow_depth",
+                            "name": "snow_depth_mean",
                             "name_original": "mean(surface_snow_thickness P1M)",
                             "unit": "centimeter",
                         },

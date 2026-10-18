@@ -85,7 +85,7 @@ _COMMON = [
         "unit": "minute",
     },
     {
-        "name": "radiation_global_intensity",
+        "name": "radiation_global_intensity_mean",
         "name_original": "short_wave_from_sky_avg",
         "unit": "watt_per_square_meter",
     },
