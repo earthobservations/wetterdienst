@@ -15,6 +15,9 @@ const MOSMIX = {
 }
 
 const { t } = useI18n()
+
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('nav.meteogram') })
 const route = useRoute()
 const stationId = computed(() => route.query.station as string | undefined)
 const themeParam = computed(() => route.query.theme as string | undefined)

@@ -3,6 +3,7 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
 
@@ -94,6 +95,8 @@ interface State {
   viewport?: { width: number, height: number }
   /** Brings the page to the state, from where `path` left it */
   reach: (page: Page, locale: Locale) => Promise<void>
+  /** An open menu, popover or dialog that holds the focus: the keyboard scan walks on from there, not from the top of the page */
+  keepFocus?: boolean
 }
 
 const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station'
@@ -119,6 +122,7 @@ const STATES: State[] = [
   {
     page: 'explorer',
     state: 'station-menu-open',
+    keepFocus: true,
     path: EXPLORER,
     reach: async (page, locale) => {
       await page.getByText(message(locale, 'common.stationSearch')).click()
@@ -234,6 +238,7 @@ const STATES: State[] = [
   {
     page: 'stripes',
     state: 'download-menu-open',
+    keepFocus: true,
     path: '/stripes?kind=temperature&station=00011',
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
@@ -262,7 +267,17 @@ const STATES: State[] = [
   },
   {
     page: 'meteogram',
+    state: 'compact-view',
+    path: '/meteogram?station=01001&compact=true',
+    // the day cards, which are not controls and still change their colours under the pointer
+    reach: async (page, locale) => {
+      await expect(page.getByText(message(locale, 'meteogram.chart.today')).first()).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram',
     state: 'station-menu-open',
+    keepFocus: true,
     path: '/meteogram',
     reach: async (page, locale) => {
       await page.getByText(message(locale, 'common.stationSearch')).click()
@@ -289,6 +304,7 @@ const STATES: State[] = [
   {
     page: 'index',
     state: 'settings-popover-open',
+    keepFocus: true,
     path: '/',
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.settings'), exact: true }).click()
@@ -298,6 +314,7 @@ const STATES: State[] = [
   {
     page: 'index',
     state: 'mobile-menu-open',
+    keepFocus: true,
     path: '/',
     viewport: { width: 390, height: 844 },
     reach: async (page, locale) => {
@@ -320,8 +337,14 @@ async function open(page: Page, path: string, variant: Variant) {
 
 const baseline = readBaseline()
 
-// a chart page in a browser on a busy runner takes longer than Playwright's thirty seconds
-test.describe.configure({ timeout: 60_000 })
+// beyond what axe finds in a page at rest: the colours under a pointer (hover) and the focus on its way
+// through the page (keyboard: indicator, hidden behind content, order), see accessibility/interact.ts
+const INTERACTIONS = ['hover', 'keyboard'] as const
+const interact = { hover: scanHover, keyboard: scanKeyboard }
+
+// a chart page in a browser on a busy runner takes longer than Playwright's thirty seconds, and a scan
+// that hovers every link or walks the tab order of a page is a hundred scans of an element
+test.describe.configure({ timeout: 180_000 })
 
 const UNMOCKED = 'the page asked the backend for something the accessibility spec does not mock'
 
@@ -329,9 +352,15 @@ const UNMOCKED = 'the page asked the backend for something the accessibility spe
 // scanned in) could never be found fixed, and so would stay in the baseline for ever
 test('the baseline lists only scans this spec makes', () => {
   test.skip(RECORDING, 'the baseline is being rewritten')
+  const inStateVariants = VARIANTS.filter(variant => STATE_VARIANTS.has(variantKey(variant)))
   const planned = new Set([
     ...PAGES.flatMap(target => VARIANTS.map(variant => `${target.page}/first-paint/${variantKey(variant)}`)),
-    ...STATES.flatMap(state => VARIANTS.filter(variant => STATE_VARIANTS.has(variantKey(variant))).map(variant => `${state.page}/${state.state}/${variantKey(variant)}`)),
+    ...STATES.flatMap(state => inStateVariants.map(variant => `${state.page}/${state.state}/${variantKey(variant)}`)),
+    // the pointer and keyboard scans, of the first paint of each page and of each state
+    ...INTERACTIONS.flatMap(kind => [
+      ...PAGES.flatMap(target => inStateVariants.map(variant => `${target.page}/first-paint-${kind}/${variantKey(variant)}`)),
+      ...STATES.flatMap(state => inStateVariants.map(variant => `${state.page}/${state.state}-${kind}/${variantKey(variant)}`)),
+    ]),
   ])
   const unplanned = baseline.entries.flatMap(entry => entry.variants.map(variant => `${entry.page}/${entry.state}/${variant}`)).filter(key => !planned.has(key))
   expect(unplanned, 'baseline entries for scans the spec does not make -- remove them from tests/e2e/accessibility/baseline.json').toEqual([])
@@ -380,6 +409,35 @@ for (const variant of VARIANTS) {
     if (!STATE_VARIANTS.has(variantKey(variant)))
       return
 
+    for (const kind of INTERACTIONS) {
+      for (const target of PAGES) {
+        test(`${target.page}: first paint (${kind})`, async ({ page, baseURL }) => {
+          const backend = await mockBackend(page, baseURL!)
+          await open(page, target.path, variant)
+          if (target.ready)
+            await target.ready(page, variant.locale)
+          else
+            await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+
+          const result = await interact[kind](page, backend, { page: target.page, state: `first-paint-${kind}`, variant })
+          holdToBaseline(result)
+        })
+      }
+
+      for (const state of STATES) {
+        test(`${state.page}: ${state.state} (${kind})`, async ({ page, baseURL }) => {
+          if (state.viewport)
+            await page.setViewportSize(state.viewport)
+          const backend = await mockBackend(page, baseURL!, state.handlers)
+          await open(page, state.path, variant)
+          await state.reach(page, variant.locale)
+
+          const result = await interact[kind](page, backend, { page: state.page, state: `${state.state}-${kind}`, variant }, { keepFocus: state.keepFocus })
+          holdToBaseline(result)
+        })
+      }
+    }
+
     for (const state of STATES) {
       test(`${state.page}: ${state.state}`, async ({ page, baseURL }) => {
         if (state.viewport)
@@ -395,3 +453,179 @@ for (const variant of VARIANTS) {
     }
   })
 }
+
+// Keyboard operation of the widgets the scans can only look at (WCAG 2.1.1, 2.1.2, 2.4.3, 4.1.2): the
+// station picker, a collapsible, a menu and the narrow layout's menu, each driven by keys alone. The
+// keyboard scan (accessibility/interact.ts) walks the tab order; these say what the keys do there.
+test.describe('keyboard operation', () => {
+  test.describe.configure({ timeout: 30_000 })
+  const variant: Variant = { mode: 'light', locale: 'en' }
+
+  test.beforeEach(async ({ context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+  })
+
+  test('the station picker opens, searches, selects and closes by keys', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, EXPLORER, variant)
+    // Reka's select menu is a button with a popup, whose name is the placeholder until something is chosen
+    const picker = page.getByRole('button', { name: message('en', 'common.stationSearch') })
+    await picker.focus()
+    await page.keyboard.press('Enter')
+
+    // the list is the one the picker controls, and its options are named
+    const listbox = page.getByRole('listbox')
+    await expect(listbox).toBeVisible()
+    await expect(picker).toHaveAttribute('aria-expanded', 'true')
+    await expect(picker).toHaveAttribute('aria-controls', (await listbox.getAttribute('id'))!)
+    await expect(listbox.getByRole('option').first()).toHaveAccessibleName(/\S/)
+
+    await page.keyboard.type('Donaueschingen')
+    await expect(listbox.getByRole('option')).toHaveCount(1)
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Escape')
+    await expect(listbox).toBeHidden()
+    // what was chosen is the picker's name now, and the focus is back on it, not lost to the page
+    const chosen = page.getByRole('button', { name: /Donaueschingen/ })
+    await expect(chosen).toBeVisible()
+    await expect(chosen).toBeFocused()
+  })
+
+  test('a collapsible opens and closes by Enter and Space, and says so', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, EXPLORER, variant)
+    const trigger = page.getByRole('button', { name: message('en', 'explorer.aboutButton') })
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    // what it controls is there, and not an empty reference (axe: aria-allowed-attr)
+    const controlled = (await trigger.getAttribute('aria-controls'))!
+    expect(controlled).not.toBe('')
+    await expect(page.locator(`[id="${controlled}"]`)).toBeVisible()
+    await page.keyboard.press('Space')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('a menu opens by Enter, moves by the arrow keys and gives the focus back on Escape', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(plotly(page)).toBeVisible()
+
+    const trigger = page.getByRole('button', { name: message('en', 'stripes.downloadImage') })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    const items = page.getByRole('menuitem')
+    await expect(items.first()).toBeVisible()
+    // opened by a key, the menu puts the focus on an item; the arrow keys move it on, each to another
+    const focusedItem = () => page.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem' ? document.activeElement.textContent : null)
+    await expect.poll(focusedItem).not.toBeNull()
+    const first = await focusedItem()
+    await page.keyboard.press('ArrowDown')
+    await expect.poll(focusedItem).not.toBe(first)
+    await expect.poll(focusedItem).not.toBeNull()
+    await page.keyboard.press('Escape')
+    await expect(items.first()).toBeHidden()
+    await expect(trigger).toBeFocused()
+  })
+
+  test('the menu of the narrow layout is a dialog that keeps the focus, and Escape closes it', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockBackend(page, baseURL!)
+    await open(page, '/', variant)
+    // by label, not by role: while the dialog is open the page behind it is hidden from the accessibility tree
+    const hamburger = page.locator(`button[aria-label="${message('en', 'header.menu')}"]`)
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'false')
+    await hamburger.focus()
+    await page.keyboard.press('Enter')
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toHaveAccessibleName(message('en', 'header.menu'))
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'true')
+    // Tab through more stops than the menu has: the focus never leaves it, forwards or back
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let stop = 0; stop < 25; stop++) {
+        await page.keyboard.press(key)
+        expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true)
+      }
+    }
+    // a tooltip that is open takes an Escape of its own, as it should; the dialog goes with the next
+    for (let attempt = 0; attempt < 3 && await dialog.isVisible(); attempt++) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+    }
+    await expect(dialog).toBeHidden()
+    await expect(hamburger).toBeFocused()
+  })
+})
+
+// Page titles (WCAG 2.4.2): axe only asks that a page has one. Every page names itself, in the language
+// of the page, and a screen reader is told so when a client-side navigation arrives at it.
+test.describe('page titles', () => {
+  test.describe.configure({ timeout: 120_000 })
+  test.use({ locale: 'en-US' })
+
+  test.beforeEach(async ({ context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+  })
+
+  test('every page has a title of its own', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    const titles: Record<string, string> = {}
+    for (const target of PAGES) {
+      await open(page, target.path, { mode: 'light', locale: 'en' })
+      if (target.ready)
+        await target.ready(page, 'en')
+      else
+        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      titles[target.page] = await page.title()
+    }
+    expect(Object.values(titles).every(title => title.includes('Wetterdienst')), JSON.stringify(titles)).toBe(true)
+    // the same title on two pages tells a reader of the tab strip or of the history nothing
+    const duplicates = Object.entries(titles).filter(([, title], index, all) => all.findIndex(([, other]) => other === title) !== index)
+    expect(duplicates, 'pages that share a title').toEqual([])
+  })
+
+  test('a navigation within the app changes the title and announces the page', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/', { mode: 'light', locale: 'en' })
+    await page.getByRole('navigation').first().getByRole('link', { name: message('en', 'nav.glossary') }).click()
+    await expect(page).toHaveTitle(`${message('en', 'glossary.title')} - Wetterdienst`)
+    await expect(page.locator('.nuxt-route-announcer [aria-live]')).toHaveText(`${message('en', 'glossary.title')} - Wetterdienst`)
+  })
+})
+
+// Reflow (WCAG 1.4.10): at 320 CSS pixels wide, the width of a phone and of a desktop window at 400 %
+// zoom, a page needs no sideways scrolling. A table or a chart may scroll inside its own box; the page may not.
+test.describe('reflow at 320 px', () => {
+  test.use({ locale: 'en-US', viewport: { width: 320, height: 640 } })
+
+  test.beforeEach(async ({ context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+  })
+
+  for (const target of PAGES) {
+    test(`${target.page} does not scroll sideways`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await open(page, target.path, { mode: 'light', locale: 'en' })
+      if (target.ready)
+        await target.ready(page, 'en')
+      else
+        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      const overflow = await page.evaluate(() => {
+        const width = document.documentElement.clientWidth
+        const wide = [...document.body.querySelectorAll('*')]
+          .filter(node => node.getBoundingClientRect().right > width + 1 && node.getBoundingClientRect().width > 0)
+          // what scrolls inside a box of its own does not widen the page
+          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .js-plotly-plot, [style*="overflow"]'))
+          .slice(0, 5)
+          .map(node => `${node.tagName.toLowerCase()}.${[...node.classList].slice(0, 3).join('.')} (${Math.round(node.getBoundingClientRect().right)} px)`)
+        return { scrolls: document.documentElement.scrollWidth - width, wide }
+      })
+      expect(overflow.scrolls, `the page is wider than its window; wide: ${overflow.wide.join(', ')}`).toBeLessThanOrEqual(1)
+    })
+  }
+})

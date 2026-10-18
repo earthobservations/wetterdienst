@@ -31,6 +31,12 @@
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
+  /* A link button is text-primary and, hovered, text-primary at 75 %: the 700-800 mix above, faded
+     over the page, is 3.4:1 on white. A hovered link goes to shade 800 instead, as darker is what
+     "hovered" means for text on white (GH-2991). */
+  :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
+    color: var(--ui-color-primary-800);
+  }
 }
 
 /* The label of a solid primary button (app.config.ts). White on the brand green, #00c950, is 2.2:1,
@@ -40,6 +46,29 @@
    brand's, is not touched. */
 :root {
   --app-text-on-primary: #0f172b;
+}
+
+/* The focus indicator of a keyboard user (WCAG 2.4.7, 1.4.11: 3:1 against what is behind it). Nuxt UI draws
+   it as a 3 px outline at 25 % of the primary colour, and a ring in the primary colour where there is one: the
+   first is 1.2:1 to 1.7:1 on white and the brand green, #00c950, 2.2:1, and some fields (the search field of a menu)
+   draw none. One solid outline for everything that takes the focus by keyboard, in shade 700 of the primary
+   colour on light (4.9:1 on white) and shade 400 on dark (10:1 on the page); the rings and outlines of the
+   components stay as they are, beside it. Not in a layer, so that it wins over the utilities of the components.
+   Not for what takes the focus without being a control (a dialog, a chart, a scroll area: tabindex -1). */
+:root {
+  --app-focus-ring: var(--ui-color-primary-700);
+}
+.dark {
+  --app-focus-ring: var(--ui-color-primary-400);
+}
+:focus-visible:not([tabindex="-1"]) {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+}
+/* The map is a light surface in both modes (Leaflet's grey, and the tiles): it takes the ring of light mode */
+.leaflet-container:focus-visible,
+.leaflet-container :focus-visible:not([tabindex="-1"]) {
+  outline-color: var(--ui-color-primary-700);
 }
 
 /* Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout.
@@ -87,27 +116,4 @@
   100% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--ui-primary) 0%, transparent);
   }
-}
-
-/* Sepia color mode */
-html.sepia {
-  --ui-bg: #f4ecd8;
-  --ui-bg-muted: #e8ddc4;
-  --ui-bg-elevated: #faf6eb;
-  --ui-bg-accented: #ddd0b0;
-  --ui-bg-inverted: #3d2b1f;
-
-  --ui-text: #3d2b1f;
-  --ui-text-muted: #5c4a3d;
-  --ui-text-dimmed: #7a6555;
-  --ui-text-highlighted: #2d1f15;
-  --ui-text-inverted: #f4ecd8;
-
-  --ui-border: #c9b896;
-  --ui-border-muted: #ddd0b0;
-  --ui-border-accented: #b5a07a;
-  --ui-border-inverted: #3d2b1f;
-
-  color-scheme: light;
-  background-color: var(--ui-bg);
 }

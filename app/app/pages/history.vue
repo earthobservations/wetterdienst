@@ -8,6 +8,9 @@ import { formatDate } from '~/utils/format'
 
 const { t } = useI18n()
 
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('history.title') })
+
 const route = useRoute()
 const router = useRouter()
 

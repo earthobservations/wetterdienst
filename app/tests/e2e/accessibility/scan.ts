@@ -59,7 +59,7 @@ const IMPACTS = ['minor', 'moderate', 'serious', 'critical']
 const worse = (a: string, b: string) => IMPACTS.indexOf(a) >= IMPACTS.indexOf(b) ? a : b
 
 /** Wait until nothing is moving: a menu fading in has half its final colours, which axe reads */
-async function settle(page: Page, backend: Backend) {
+export async function settle(page: Page, backend: Backend) {
   // not `networkidle`: a request that is refused (a tile, another host's image) is asked again
   await backend.idle()
   await page.waitForFunction(() => document.getAnimations().every(animation =>
@@ -71,28 +71,43 @@ async function settle(page: Page, backend: Backend) {
   ))
 }
 
+export interface Where { page: string, state: string, variant: Variant }
+
+/** One violation of axe, as `ScanResult.found` holds it */
+export type Found = ScanResult['found'][string]
+
+/** Fold the violations axe found into `found`, keeping the more severe impact and the sum of the elements */
+export function addViolations(found: ScanResult['found'], violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations'], context = '') {
+  for (const violation of violations) {
+    const before = found[violation.id]
+    found[violation.id] = {
+      impact: violation.nodes.reduce<string>((impact, node) => worse(impact, node.impact ?? 'minor'), before?.impact ?? violation.impact ?? 'minor'),
+      nodes: (before?.nodes ?? 0) + violation.nodes.length,
+      help: violation.help,
+      targets: [...(before?.targets ?? []), ...violation.nodes.map(node => `${context}${node.target.join(' ')}`)].slice(0, 12),
+    }
+  }
+}
+
+/** Write what a scan found where `report.mjs` reads it, and return it */
+export function record(where: Where, engine: string, found: ScanResult['found']): ScanResult {
+  const result: ScanResult = { ...where, variant: variantKey(where.variant), engine, found }
+  mkdirSync(RESULTS_DIR, { recursive: true })
+  const file = `${where.page}__${where.state}__${result.variant.replace('/', '-')}.json`
+  writeFileSync(join(RESULTS_DIR, file), `${JSON.stringify(result, null, 2)}\n`)
+  return result
+}
+
 /** Scan `page` as it is and return the rules it breaks, by rule id */
-export async function scan(page: Page, backend: Backend, where: { page: string, state: string, variant: Variant }): Promise<ScanResult> {
+export async function scan(page: Page, backend: Backend, where: Where): Promise<ScanResult> {
   await settle(page, backend)
   const axe = await new AxeBuilder({ page })
     .withTags(WCAG_TAGS)
     .analyze()
 
   const found: ScanResult['found'] = {}
-  for (const violation of axe.violations) {
-    found[violation.id] = {
-      impact: violation.nodes.reduce<string>((impact, node) => worse(impact, node.impact ?? 'minor'), violation.impact ?? 'minor'),
-      nodes: violation.nodes.length,
-      help: violation.help,
-      targets: violation.nodes.slice(0, 5).map(node => node.target.join(' ')),
-    }
-  }
-  const result: ScanResult = { ...where, variant: variantKey(where.variant), engine: axe.testEngine.version, found }
-
-  mkdirSync(RESULTS_DIR, { recursive: true })
-  const file = `${where.page}__${where.state}__${result.variant.replace('/', '-')}.json`
-  writeFileSync(join(RESULTS_DIR, file), `${JSON.stringify(result, null, 2)}\n`)
-  return result
+  addViolations(found, axe.violations)
+  return record(where, axe.testEngine.version, found)
 }
 
 /**

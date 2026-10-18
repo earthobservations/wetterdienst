@@ -95,6 +95,8 @@ async function createMarkers() {
         lng: station.longitude,
         options: {
           title: stationLabel(station),
+          // the name of the marker for a screen reader: Leaflet's default, "Marker", is the same for all
+          alt: stationLabel(station),
         },
       })),
     })
@@ -164,7 +166,38 @@ function updateMarkerIcons() {
   markerClusterGroup.refreshClusters()
 }
 
-async function onMapReady() {
+// Leaflet draws the markers a little beyond what the map shows, and lets any of them take the focus by Tab:
+// the focus then sits on a marker the map has clipped, out of sight (WCAG 2.4.7, 2.4.11). A marker that
+// takes the focus is brought into the view, by the part of it that is hidden and a margin.
+const FOCUS_MARGIN = 24
+let focusMap: L.Map | null = null
+function keepFocusedMarkerInView(event: FocusEvent) {
+  const leafletMap = focusMap
+  const marker = event.target
+  if (!leafletMap || !(marker instanceof HTMLElement) || !marker.classList.contains('leaflet-marker-icon'))
+    return
+  const view = leafletMap.getContainer().getBoundingClientRect()
+  const box = marker.getBoundingClientRect()
+  const hidden = (low: number, high: number, viewLow: number, viewHigh: number) =>
+    low < viewLow + FOCUS_MARGIN ? low - viewLow - FOCUS_MARGIN : high > viewHigh - FOCUS_MARGIN ? high - viewHigh + FOCUS_MARGIN : 0
+  const dx = hidden(box.left, box.right, view.left, view.right)
+  const dy = hidden(box.top, box.bottom, view.top, view.bottom)
+  if (dx || dy)
+    leafletMap.panBy([dx, dy], { animate: false })
+}
+
+let focusContainer: HTMLElement | null = null
+onBeforeUnmount(() => {
+  focusContainer?.removeEventListener('focusin', keepFocusedMarkerInView)
+  focusMap = null
+})
+
+// `ready` hands over the Leaflet map itself: the template ref to the component is not set yet when it fires
+async function onMapReady(readyMap?: L.Map) {
+  focusContainer?.removeEventListener('focusin', keepFocusedMarkerInView)
+  focusMap = readyMap ?? map.value?.leafletObject ?? null
+  focusContainer = focusMap?.getContainer() ?? null
+  focusContainer?.addEventListener('focusin', keepFocusedMarkerInView)
   await createMarkers()
   updateMarkerIcons()
 }
