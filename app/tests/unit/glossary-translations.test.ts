@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 // Every identifier the backend serves -- parameter, resolution, dataset -- has a label in each
 // locale's glossary, and that label is a translation. `useParameterLabel` falls back to the
-// prettified id ("Wind Direction Last 10min") for an id it cannot find, which reads as English in
+// prettified id ("Wind Direction Mean Last 10min") for an id it cannot find, which reads as English in
 // every language, so a missing or copied entry shows nowhere except on the screen of someone using
 // that language.
 //

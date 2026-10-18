@@ -3030,8 +3030,8 @@ def _selection(**attributes: object) -> SimpleNamespace:
 
     return SimpleNamespace(
         df=pl.DataFrame({"station_id": ["01048"]}),
-        stations_filter=StationsFilter.BY_STATION_ID,
-        rank=None,
+        _stations_filter=StationsFilter.BY_STATION_ID,
+        _rank=None,
         parameters=[],
         options=SimpleNamespace(tidy=True),
         start=None,
@@ -3728,8 +3728,8 @@ def test_values_an_issue_the_source_does_not_list_is_a_404(
     stations = StationsResult(
         request=DwdDmoRequest(parameters=["hourly/icon/temperature_air_2m"], issue="2020-01-01T00:00"),
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     )
     monkeypatch.setattr("wetterdienst.ui.core.get_stations", lambda **_kwargs: stations)
 
@@ -3961,7 +3961,7 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
             ("daily", "precipitation_more", "precipitation_amount"),
         ],
     )
-    stations = StationsResult(df=df_stations, df_all=df_stations, stations_filter=StationsFilter.ALL, request=request)
+    stations = StationsResult(df=df_stations, _df_all=df_stations, _stations_filter=StationsFilter.ALL, request=request)
     row = {"station_id": "01048", "resolution": "daily", "timestamp": dt.datetime(2026, 1, 1, tzinfo=dt.UTC)}
     df_values = pl.DataFrame(
         [
@@ -4273,7 +4273,7 @@ class _HistoryFails:
     def __init__(self, step: str, fail: Callable[[], None] = _fail) -> None:
         self.step, self.fail = step, fail
         # what the limits of the API read of the stations selected
-        self.df, self.stations_filter, self.rank = pl.DataFrame({"station_id": ["01048"]}), None, None
+        self.df, self._stations_filter, self._rank = pl.DataFrame({"station_id": ["01048"]}), None, None
 
     def history(self) -> SimpleNamespace:
         if self.step == "history":
@@ -6580,7 +6580,7 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, df_all=stations, stations_filter=StationsFilter.ALL)
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
 
     def _collect(
         self: DwdObservationValues,  # noqa: ARG001

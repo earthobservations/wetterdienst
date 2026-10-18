@@ -59,7 +59,7 @@ _DwdRoadMetadataSpec = {
                     "periods": ["historical"],
                     "parameters": [
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "relativeHumidity",
                             "unit": "percent",
                         },

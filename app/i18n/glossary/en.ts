@@ -40,16 +40,22 @@ export const parameters: Record<string, string> = {
 
   // Humidity & moisture
   humidity_relative: 'Relative humidity',
+  humidity_relative_mean: 'Mean relative humidity',
   humidity_absolute: 'Absolute humidity',
   pressure_vapor: 'Vapour pressure',
+  pressure_vapor_mean: 'Mean vapour pressure',
 
   // Air pressure
   pressure_air_site: 'Air pressure (station)',
+  pressure_air_site_mean: 'Mean air pressure (station)',
   pressure_air_sea_level: 'Air pressure (sea level)',
+  pressure_air_sea_level_mean: 'Mean air pressure (sea level)',
 
   // Wind
   wind_speed: 'Wind speed',
+  wind_speed_mean: 'Mean wind speed',
   wind_direction: 'Wind direction',
+  wind_direction_mean: 'Mean wind direction',
   wind_gust_max: 'Maximum wind gust',
   wind_gust_max_last_3h: 'Maximum wind gust (3 h)',
   wind_gust_max_last_6h: 'Maximum wind gust (6 h)',
@@ -80,9 +86,11 @@ export const parameters: Record<string, string> = {
 
   // Clouds & visibility
   cloud_cover_total: 'Total cloud cover',
+  cloud_cover_total_mean: 'Mean total cloud cover',
   cloud_cover_total_measurement_method: 'Cloud cover, how measured',
   cloud_height_layer1: 'Cloud base height (1st layer)',
   visibility: 'Visibility',
+  visibility_mean: 'Mean visibility',
   visibility_index: 'Visibility class',
   visibility_measurement_method: 'Visibility, how measured',
 
@@ -418,10 +426,10 @@ export const parameters: Record<string, string> = {
   cloud_cover_below_7km: 'Cloud cover below 7 km',
   cloud_cover_between_2km_and_7km: 'Cloud cover between 2 and 7 km',
   cloud_cover_effective: 'Effective cloud cover',
-  cloud_cover_total_midnight_to_midnight: 'Mean cloud cover, midnight to midnight',
-  cloud_cover_total_midnight_to_midnight_manual: 'Mean cloud cover, midnight to midnight (observed)',
-  cloud_cover_total_sunrise_to_sunset: 'Mean cloud cover, sunrise to sunset',
-  cloud_cover_total_sunrise_to_sunset_manual: 'Mean cloud cover, sunrise to sunset (observed)',
+  cloud_cover_total_mean_midnight_to_midnight: 'Mean cloud cover, midnight to midnight',
+  cloud_cover_total_mean_midnight_to_midnight_manual: 'Mean cloud cover, midnight to midnight (observed)',
+  cloud_cover_total_mean_sunrise_to_sunset: 'Mean cloud cover, sunrise to sunset',
+  cloud_cover_total_mean_sunrise_to_sunset_manual: 'Mean cloud cover, sunrise to sunset (observed)',
   cloud_density: 'Cloud optical density',
   cooling_degree_day: 'Cooling degree days',
   cooling_degree_hour: 'Cooling degree hours',
@@ -623,8 +631,8 @@ export const parameters: Record<string, string> = {
   wind_direction_gust_max_2min: 'Direction of the strongest 2-minute gust',
   wind_direction_gust_max_5sec: 'Direction of the strongest 5-second gust',
   wind_direction_gust_max_instant: 'Direction of the strongest instantaneous gust',
-  wind_direction_last_10min: 'Mean wind direction (last 10 min)',
-  wind_direction_last_2min: 'Mean wind direction (last 2 min)',
+  wind_direction_mean_last_10min: 'Mean wind direction (last 10 min)',
+  wind_direction_mean_last_2min: 'Mean wind direction (last 2 min)',
   wind_gust_max_1mile: 'Strongest one-mile gust',
   wind_gust_max_1min: 'Strongest 1-minute gust',
   wind_gust_max_2min: 'Strongest 2-minute gust',
@@ -637,8 +645,8 @@ export const parameters: Record<string, string> = {
   wind_movement: 'Wind run (24 h)',
   wind_movement_multiday: 'Wind run, several days combined',
   wind_speed_arithmetic: 'Arithmetic mean wind speed',
-  wind_speed_last_10min: 'Mean wind speed (last 10 min)',
-  wind_speed_last_2min: 'Mean wind speed (last 2 min)',
+  wind_speed_mean_last_10min: 'Mean wind speed (last 10 min)',
+  wind_speed_mean_last_2min: 'Mean wind speed (last 2 min)',
   wind_speed_min: 'Minimum wind speed',
   wind_speed_rolling_mean_max: 'Highest rolling mean wind speed',
   wind_speed_rolling_mean_max_last_6h: 'Highest rolling mean wind speed (last 6 h)',

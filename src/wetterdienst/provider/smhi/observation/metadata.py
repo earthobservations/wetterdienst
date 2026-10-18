@@ -55,17 +55,17 @@ _SmhiObservationMetadataSpec = {
                             "unit": "meter",
                         },
                         {
-                            "name": "visibility",
+                            "name": "visibility_mean",
                             "name_original": "51",
                             "unit": "meter",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "47",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "48",
                             "unit": "degree",
                         },
@@ -100,12 +100,12 @@ _SmhiObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "4",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "3",
                             "unit": "degree",
                         },

@@ -35,16 +35,22 @@ export const parameters: Record<string, string> = {
 
   // Humidity & moisture
   humidity_relative: 'Relative Luftfeuchte',
+  humidity_relative_mean: 'Mittlere relative Luftfeuchte',
   humidity_absolute: 'Absolute Luftfeuchte',
   pressure_vapor: 'Dampfdruck',
+  pressure_vapor_mean: 'Mittlerer Dampfdruck',
 
   // Air pressure
   pressure_air_site: 'Luftdruck (Station)',
+  pressure_air_site_mean: 'Mittlerer Luftdruck (Station)',
   pressure_air_sea_level: 'Luftdruck (Meereshöhe)',
+  pressure_air_sea_level_mean: 'Mittlerer Luftdruck (Meereshöhe)',
 
   // Wind
   wind_speed: 'Windgeschwindigkeit',
+  wind_speed_mean: 'Mittlere Windgeschwindigkeit',
   wind_direction: 'Windrichtung',
+  wind_direction_mean: 'Mittlere Windrichtung',
   wind_gust_max: 'Maximale Windböe',
   wind_gust_max_last_3h: 'Maximale Windböe (3 h)',
   wind_gust_max_last_6h: 'Maximale Windböe (6 h)',
@@ -75,9 +81,11 @@ export const parameters: Record<string, string> = {
 
   // Clouds & visibility
   cloud_cover_total: 'Gesamtbedeckung',
+  cloud_cover_total_mean: 'Mittlere Gesamtbedeckung',
   cloud_cover_total_measurement_method: 'Bedeckungsgrad, Messart',
   cloud_height_layer1: 'Wolkenuntergrenze (1. Schicht)',
   visibility: 'Sichtweite',
+  visibility_mean: 'Mittlere Sichtweite',
   visibility_index: 'Sichtweitenklasse',
   visibility_measurement_method: 'Sichtweite, Messart',
 
@@ -413,10 +421,10 @@ export const parameters: Record<string, string> = {
   cloud_cover_below_7km: 'Bedeckungsgrad unterhalb 7 km',
   cloud_cover_between_2km_and_7km: 'Bedeckungsgrad zwischen 2 und 7 km',
   cloud_cover_effective: 'Effektiver Bedeckungsgrad',
-  cloud_cover_total_midnight_to_midnight: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht',
-  cloud_cover_total_midnight_to_midnight_manual: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht (Augenbeobachtung)',
-  cloud_cover_total_sunrise_to_sunset: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang',
-  cloud_cover_total_sunrise_to_sunset_manual: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang (Augenbeobachtung)',
+  cloud_cover_total_mean_midnight_to_midnight: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht',
+  cloud_cover_total_mean_midnight_to_midnight_manual: 'Mittlerer Bedeckungsgrad, Mitternacht bis Mitternacht (Augenbeobachtung)',
+  cloud_cover_total_mean_sunrise_to_sunset: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang',
+  cloud_cover_total_mean_sunrise_to_sunset_manual: 'Mittlerer Bedeckungsgrad, Sonnenaufgang bis Sonnenuntergang (Augenbeobachtung)',
   cloud_density: 'Optische Wolkendichte',
   cooling_degree_day: 'Kühlgradtage',
   cooling_degree_hour: 'Kühlgradstunden',
@@ -618,8 +626,8 @@ export const parameters: Record<string, string> = {
   wind_direction_gust_max_2min: 'Richtung der stärksten 2-Minuten-Böe',
   wind_direction_gust_max_5sec: 'Richtung der stärksten 5-Sekunden-Böe',
   wind_direction_gust_max_instant: 'Richtung der stärksten Momentanböe',
-  wind_direction_last_10min: 'Mittlere Windrichtung (letzte 10 min)',
-  wind_direction_last_2min: 'Mittlere Windrichtung (letzte 2 min)',
+  wind_direction_mean_last_10min: 'Mittlere Windrichtung (letzte 10 min)',
+  wind_direction_mean_last_2min: 'Mittlere Windrichtung (letzte 2 min)',
   wind_gust_max_1mile: 'Stärkste Eine-Meile-Böe',
   wind_gust_max_1min: 'Stärkste 1-Minuten-Böe',
   wind_gust_max_2min: 'Stärkste 2-Minuten-Böe',
@@ -632,8 +640,8 @@ export const parameters: Record<string, string> = {
   wind_movement: 'Windweg (24 h)',
   wind_movement_multiday: 'Windweg, mehrere Tage zusammengefasst',
   wind_speed_arithmetic: 'Arithmetische mittlere Windgeschwindigkeit',
-  wind_speed_last_10min: 'Mittlere Windgeschwindigkeit (letzte 10 min)',
-  wind_speed_last_2min: 'Mittlere Windgeschwindigkeit (letzte 2 min)',
+  wind_speed_mean_last_10min: 'Mittlere Windgeschwindigkeit (letzte 10 min)',
+  wind_speed_mean_last_2min: 'Mittlere Windgeschwindigkeit (letzte 2 min)',
   wind_speed_min: 'Niedrigste Windgeschwindigkeit',
   wind_speed_rolling_mean_max: 'Höchste gleitende mittlere Windgeschwindigkeit',
   wind_speed_rolling_mean_max_last_6h: 'Höchste gleitende mittlere Windgeschwindigkeit (letzte 6 h)',

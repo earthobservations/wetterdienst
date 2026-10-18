@@ -24,8 +24,8 @@ def _values(parameters: list[tuple[str, str, str]]) -> TimeseriesValues:
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
 
@@ -140,8 +140,8 @@ def _dwd_values(parameters: list[tuple[str, str]]) -> TimeseriesValues:
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
 
@@ -206,8 +206,8 @@ def _hourly_values(start_date: dt.datetime, end_date: dt.datetime) -> Timeseries
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
 
@@ -330,8 +330,8 @@ def test_actual_percentage_is_zero_for_a_parameter_that_came_back_with_nothing()
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     df = _hourly_long([start_date, end_date])
@@ -360,8 +360,8 @@ def test_actual_percentage_falls_back_to_the_span_of_the_series() -> None:
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
 
@@ -403,8 +403,8 @@ def test_actual_percentage_reads_the_fallback_window_off_the_dataset_it_measures
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     daily_dates = pl.datetime_range(
@@ -454,8 +454,8 @@ def test_actual_percentage_matches_a_parameter_name_in_the_provider_own_casing()
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     dates = pl.datetime_range(start_date, end_date, interval="15m", eager=True)
@@ -694,8 +694,8 @@ def test_convert_units_keeps_a_reading_a_much_larger_target_holds_little_of() ->
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     df = _long([("daily", "climate_summary", "shk_tag", 0, 5.0), ("daily", "climate_summary", "shk_tag", 1, 150.0)])
@@ -718,8 +718,8 @@ def test_convert_units_keeps_the_value_column_whatever_the_conversion_starts_wit
         sr=StationsResult(
             request=request,
             df=pl.DataFrame(),
-            df_all=pl.DataFrame(),
-            stations_filter=StationsFilter.ALL,
+            _df_all=pl.DataFrame(),
+            _stations_filter=StationsFilter.ALL,
         ),
     )
     monkeypatch.setattr(values, "_create_conversions", lambda _dataset: {"shk_tag": (lambda x: 9 / 5 * x, 2)})

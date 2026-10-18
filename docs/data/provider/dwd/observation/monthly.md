@@ -47,8 +47,8 @@
 
 | name                                | original name | description                                              | unit | constraints |
 |-------------------------------------|---------------|----------------------------------------------------------|------|-------------|
-| {term}`quality_general` | qn_4 | Quality level of the data in the following columns. | -             | - |
-| {term}`cloud_cover_total` | mo_n | Monthly mean of cloud cover. | 1/8 | >=0,<=8 |
+| {term}`quality_general` | qn_4 | Quality level of the data in the following columns. | - | - |
+| {term}`cloud_cover_total_mean` | mo_n | Monthly mean of cloud cover. | 1/8 | >=0,<=8 |
 | {term}`temperature_air_mean_2m` | mo_tt | Monthly mean of the daily mean air temperature 2 m above ground. | °C | - |
 | {term}`temperature_air_max_2m_mean` | mo_tx | Monthly mean of daily temperature maxima at 2 m above ground. | °C | - |
 | {term}`temperature_air_min_2m_mean` | mo_tn | Monthly mean of daily temperature minima in 2 m above ground. | °C | - |
@@ -57,7 +57,7 @@
 | {term}`temperature_air_max_2m` | mx_tx | Monthly maximum of daily temperature maxima in 2 m above ground. | °C | - |
 | {term}`wind_gust_max` | mx_fx | Monthly maximum of the daily wind peaks (Windspitze). | m/s | >=0 |
 | {term}`temperature_air_min_2m` | mx_tn | Monthly minimum of daily temperature minima in 2 m above ground. | °C | - |
-| {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | -             | - |
+| {term}`quality_precipitation` | qn_6 | Quality level of the data in the following columns. | - | - |
 | {term}`precipitation_amount` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
 | {term}`precipitation_amount_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 

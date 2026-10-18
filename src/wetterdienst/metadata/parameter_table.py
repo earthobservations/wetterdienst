@@ -187,37 +187,44 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "cloud_cover_total",
         "fraction",
-        "Fraction of the sky covered by cloud of any kind.",
+        "Fraction of the sky covered by cloud of any kind, where the source states no statistic or a reading "
+        "at one moment; the stated mean is `cloud_cover_total_mean`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "cloud_cover_total_mean",
+        "fraction",
+        "Mean fraction of the sky covered by cloud of any kind over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "cloud_cover_total_mean_midnight_to_midnight",
+        "fraction",
+        "Mean total cloud cover over the calendar day, midnight to midnight.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "cloud_cover_total_mean_midnight_to_midnight_manual",
+        "fraction",
+        "Mean total cloud cover over the calendar day, midnight to midnight, from manual observation.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "cloud_cover_total_mean_sunrise_to_sunset",
+        "fraction",
+        "Mean total cloud cover over the daylight hours, sunrise to sunset.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "cloud_cover_total_mean_sunrise_to_sunset_manual",
+        "fraction",
+        "Mean total cloud cover over the daylight hours, sunrise to sunset, from manual observation.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
         "cloud_cover_total_measurement_method",
         "dimensionless",
         "Coded indicator of how the total cloud cover was determined, such as by a person or an instrument.",
-    ),
-    CanonicalParameter(
-        "cloud_cover_total_midnight_to_midnight",
-        "fraction",
-        "Mean total cloud cover over the calendar day, midnight to midnight.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "cloud_cover_total_midnight_to_midnight_manual",
-        "fraction",
-        "Mean total cloud cover over the calendar day, midnight to midnight, from manual observation.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "cloud_cover_total_sunrise_to_sunset",
-        "fraction",
-        "Mean total cloud cover over the daylight hours, sunrise to sunset.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "cloud_cover_total_sunrise_to_sunset_manual",
-        "fraction",
-        "Mean total cloud cover over the daylight hours, sunrise to sunset, from manual observation.",
-        interpolation="homogeneous",
     ),
     CanonicalParameter("cloud_density", "dimensionless", "Optical density of the cloud."),
     CanonicalParameter(
@@ -538,7 +545,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "humidity_relative",
         "fraction",
-        "Relative humidity of the air, the fraction of the moisture it could hold at that temperature.",
+        "Relative humidity of the air, the fraction of the moisture it could hold at that temperature, where "
+        "the source states no statistic or a reading at one moment; the stated mean is "
+        "`humidity_relative_mean`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -549,6 +558,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter(
         "humidity_relative_max", "fraction", "Highest relative humidity over the period.", interpolation="homogeneous"
+    ),
+    CanonicalParameter(
+        "humidity_relative_mean",
+        "fraction",
+        "Mean relative humidity of the air over the period, the fraction of the moisture it could hold at "
+        "that temperature.",
+        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "humidity_relative_min", "fraction", "Lowest relative humidity over the period.", interpolation="homogeneous"
@@ -944,11 +960,23 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "pressure_air_sea_level",
         "pressure",
-        "Air pressure reduced to mean sea level, so that stations at different heights compare.",
+        "Air pressure reduced to mean sea level, so that stations at different heights compare, where the "
+        "source states no statistic or a reading at one moment; the stated mean is "
+        "`pressure_air_sea_level_mean`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "pressure_air_site", "pressure", "Air pressure as measured at station height.", interpolation="homogeneous"
+        "pressure_air_sea_level_mean",
+        "pressure",
+        "Mean air pressure reduced to mean sea level over the period, so that stations at different heights compare.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "pressure_air_site",
+        "pressure",
+        "Air pressure as measured at station height, where the source states no statistic or a reading at one"
+        " moment; the stated mean is `pressure_air_site_mean`.",
+        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "pressure_air_site_delta_last_3h",
@@ -960,6 +988,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "pressure_air_site_max",
         "pressure",
         "Highest air pressure at station height over the period.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "pressure_air_site_mean",
+        "pressure",
+        "Mean air pressure as measured at station height over the period.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -976,7 +1010,17 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "pressure_vapor", "pressure", "Partial pressure of water vapour in the air.", interpolation="homogeneous"
+        "pressure_vapor",
+        "pressure",
+        "Partial pressure of water vapour in the air, where the source states no statistic or a reading at "
+        "one moment; the stated mean is `pressure_vapor_mean`.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "pressure_vapor_mean",
+        "pressure",
+        "Mean partial pressure of water vapour in the air over the period.",
+        interpolation="homogeneous",
     ),
     CanonicalParameter(
         "probability_drizzle_last_12h",
@@ -2850,13 +2894,20 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "visibility",
         "length_medium",
-        "Horizontal distance at which an object can still be made out.",
+        "Horizontal distance at which an object can still be made out, where the source states no statistic "
+        "or a reading at one moment; the stated mean is `visibility_mean`.",
         interpolation="heterogeneous",
     ),
     CanonicalParameter(
         "visibility_index",
         "dimensionless",
         "Coded class the visibility range falls into, rather than a measured distance.",
+    ),
+    CanonicalParameter(
+        "visibility_mean",
+        "length_medium",
+        "Mean horizontal distance at which an object can still be made out, over the period.",
+        interpolation="heterogeneous",
     ),
     CanonicalParameter(
         "visibility_measurement_method",
@@ -3021,7 +3072,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "weather_type_vicinity_thunder", "dimensionless", "Whether thunder was observed in the vicinity of the station."
     ),
-    CanonicalParameter("wind_direction", "angle", "Direction the wind is blowing from, clockwise from true north."),
+    CanonicalParameter(
+        "wind_direction",
+        "angle",
+        "Direction the wind is blowing from, clockwise from true north, where the source states no statistic "
+        "or a reading at one moment; the stated mean is `wind_direction_mean`.",
+    ),
     CanonicalParameter("wind_direction_gust_max", "angle", "Direction the strongest gust of the period blew from."),
     CanonicalParameter(
         "wind_direction_gust_max_1mile",
@@ -3039,16 +3095,21 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("wind_direction_gust_max_instant", "angle", "Direction of the strongest instantaneous gust."),
     CanonicalParameter(
-        "wind_direction_last_10min",
+        "wind_direction_mean",
         "angle",
-        "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than the "
-        "dataset's own interval.",
+        "Mean direction the wind is blowing from over the period, clockwise from true north.",
     ),
     CanonicalParameter(
-        "wind_direction_last_2min",
+        "wind_direction_mean_last_10min",
         "angle",
-        "Mean direction the wind blew from over the 2 minutes before the timestamp, a window shorter than the "
-        "dataset's own interval.",
+        "Mean direction the wind blew from over the 10 minutes before the timestamp, a window shorter than "
+        "the dataset's own interval.",
+    ),
+    CanonicalParameter(
+        "wind_direction_mean_last_2min",
+        "angle",
+        "Mean direction the wind blew from over the 2 minutes before the timestamp, a window shorter than the"
+        " dataset's own interval.",
     ),
     CanonicalParameter(
         "wind_force_beaufort", "wind_scale", "Wind strength on the Beaufort scale.", interpolation="homogeneous"
@@ -3109,7 +3170,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Wind run over several days, reported as one total.",
         interpolation="homogeneous",
     ),
-    CanonicalParameter("wind_speed", "speed", "Mean speed of the wind over the period.", interpolation="homogeneous"),
+    CanonicalParameter(
+        "wind_speed",
+        "speed",
+        "Speed of the wind where the source states no statistic or a reading at one moment; the stated mean "
+        "over the interval is `wind_speed_mean`.",
+        interpolation="homogeneous",
+    ),
     CanonicalParameter(
         "wind_speed_arithmetic",
         "speed",
@@ -3117,17 +3184,20 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "wind_speed_last_10min",
+        "wind_speed_mean", "speed", "Mean speed of the wind over the period.", interpolation="homogeneous"
+    ),
+    CanonicalParameter(
+        "wind_speed_mean_last_10min",
         "speed",
         "Mean wind speed over the 10 minutes before the timestamp, a window shorter than the dataset's own "
-        "interval, not the mean over the interval that `wind_speed` is.",
+        "interval, not the mean over the interval that `wind_speed_mean` is.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "wind_speed_last_2min",
+        "wind_speed_mean_last_2min",
         "speed",
         "Mean wind speed over the 2 minutes before the timestamp, a window shorter than the dataset's own "
-        "interval, not the mean over the interval that `wind_speed` is.",
+        "interval, not the mean over the interval that `wind_speed_mean` is.",
         interpolation="homogeneous",
     ),
     CanonicalParameter("wind_speed_min", "speed", "Lowest wind speed over the period.", interpolation="homogeneous"),

@@ -271,13 +271,13 @@ _GeosphereObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "bewm_mittel",
                             # Geosphere documents bewm_mittel as "1/100", i.e. percent
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "rf_mittel",
                             "unit": "percent",
                         },
@@ -287,12 +287,12 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "p_mittel",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "dampf_mittel",
                             "unit": "hectopascal",
                         },
@@ -347,7 +347,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "vv_mittel",
                             "unit": "meter_per_second",
                         },
@@ -367,13 +367,13 @@ _GeosphereObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "bewm_mittel",
                             # Geosphere documents bewm_mittel as "1/100", i.e. percent
                             "unit": "percent",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "rf_mittel",
                             "unit": "percent",
                         },
@@ -403,7 +403,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "dampf_mittel",
                             "unit": "hectopascal",
                         },
@@ -543,7 +543,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "vv_mittel",
                             "unit": "meter_per_second",
                         },

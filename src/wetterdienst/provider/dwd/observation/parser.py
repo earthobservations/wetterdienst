@@ -161,8 +161,8 @@ PRECIPITATION_FORM_PARAMETERS = {
 # between 0 and 360 or is -999.
 WIND_DIRECTION_VARIABLE = 990
 WIND_DIRECTION_PARAMETERS = (
-    (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original),
-    (DwdObservationMetadata.minute_10.wind, DwdObservationMetadata.minute_10.wind.wind_direction.name_original),
+    (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction_mean.name_original),
+    (DwdObservationMetadata.minute_10.wind, DwdObservationMetadata.minute_10.wind.wind_direction_mean.name_original),
 )
 
 # The wind files write a direction of 0 where there is no direction, and mostly 360 for north (GH-2805; read
@@ -202,7 +202,7 @@ WIND_DIRECTION_PARAMETERS = (
 #   hourly file writes as 360 (4,280 times), and no rule of the six values that gives the 0 was found: 811 hours of a
 #   scatter as wide have a direction. So every 0 is null, with its text. DWD has not been asked.
 CALM_WIND_DIRECTION_PARAMETERS = (
-    (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction.name_original, None),
+    (DwdObservationMetadata.hourly.wind, DwdObservationMetadata.hourly.wind.wind_direction_mean.name_original, None),
     (
         DwdObservationMetadata.hourly.wind_synoptic,
         DwdObservationMetadata.hourly.wind_synoptic.wind_direction.name_original,
@@ -211,13 +211,13 @@ CALM_WIND_DIRECTION_PARAMETERS = (
     (DwdObservationMetadata.subdaily.wind, DwdObservationMetadata.subdaily.wind.wind_direction.name_original, None),
     (
         DwdObservationMetadata.hourly.urban_wind,
-        DwdObservationMetadata.hourly.urban_wind.wind_direction.name_original,
+        DwdObservationMetadata.hourly.urban_wind.wind_direction_mean.name_original,
         None,
     ),
     (
         DwdObservationMetadata.minute_10.wind,
-        DwdObservationMetadata.minute_10.wind.wind_direction.name_original,
-        DwdObservationMetadata.minute_10.wind.wind_speed.name_original,
+        DwdObservationMetadata.minute_10.wind.wind_direction_mean.name_original,
+        DwdObservationMetadata.minute_10.wind.wind_speed_mean.name_original,
     ),
     (
         DwdObservationMetadata.minute_10.wind_extreme,
@@ -226,8 +226,8 @@ CALM_WIND_DIRECTION_PARAMETERS = (
     ),
     (
         DwdObservationMetadata.minute_10.urban_wind,
-        DwdObservationMetadata.minute_10.urban_wind.wind_direction.name_original,
-        DwdObservationMetadata.minute_10.urban_wind.wind_speed.name_original,
+        DwdObservationMetadata.minute_10.urban_wind.wind_direction_mean.name_original,
+        DwdObservationMetadata.minute_10.urban_wind.wind_speed_mean.name_original,
     ),
 )
 

@@ -160,8 +160,8 @@ def _stub_stations(station_ids: tuple[str, ...] = ("A006",), settings: Settings 
     return StationsResult(
         request=request,
         df=df_stations,
-        df_all=df_stations,
-        stations_filter=StationsFilter.BY_STATION_ID,
+        _df_all=df_stations,
+        _stations_filter=StationsFilter.BY_STATION_ID,
     )
 
 
