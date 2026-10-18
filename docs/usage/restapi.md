@@ -250,6 +250,10 @@ tools return the REST answer, and so the block.
 `/openapi.json` (and `/docs`, the interactive reference) is the contract of the API. `tests/ui/openapi.snapshot.json`
 is that document as last reviewed: a test fails when the served document is not it, and
 `uv run poe openapi:snapshot` writes it anew, for the diff to be read in the pull request that changes the contract.
+A second test holds the served document to `tests/ui/openapi.baseline.json`, the document of the last release: a path, a
+parameter, a status, a member or an enum member that release offered must still be there, with its type, so a change
+that would break a client written against it fails even where the snapshot was regenerated with it. The baseline is
+refreshed in the release commit, with `uv run poe openapi:baseline`.
 
 - **`info`** is the project's: the title, the MIT licence, the issue tracker as the contact, and the `version` of
   wetterdienst that serves the document, and `info.x-api-version` is the version of the API (`1`, the same as
