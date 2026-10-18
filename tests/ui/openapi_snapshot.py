@@ -35,15 +35,15 @@ GENERATED_WITH = "x-generated-with"
 LOCK = Path(__file__).parents[2] / "uv.lock"
 
 
-def installed_versions() -> dict[str, str]:
+def installed_versions(names: tuple[str, ...] = _SHAPED_BY) -> dict[str, str]:
     """Give the versions of the packages that shape the document, as installed."""
-    return {name: importlib.metadata.version(name) for name in _SHAPED_BY}
+    return {name: importlib.metadata.version(name) for name in names}
 
 
-def locked_versions() -> dict[str, str]:
+def locked_versions(names: tuple[str, ...] = _SHAPED_BY) -> dict[str, str]:
     """Give the versions of those packages that `uv.lock` pins, which the snapshot is written with."""
     packages = tomllib.loads(LOCK.read_text(encoding="utf-8"))["package"]
-    return {package["name"]: package["version"] for package in packages if package["name"] in _SHAPED_BY}
+    return {package["name"]: package["version"] for package in packages if package["name"] in names}
 
 
 @contextlib.contextmanager

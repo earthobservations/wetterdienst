@@ -70,6 +70,10 @@ than the section for the version being released.
 #    [Unreleased] one, then at the foot of the file add the [x.y.z] compare link and repoint
 #    [Unreleased] at the new version (tests/test_changelog.py enforces both)
 # 3. Update version and date-released in CITATION.cff (tests/test_citation.py enforces this)
+# 3b. Refresh the contract baseline: the OpenAPI document of this release, which later pull requests
+#    are checked against (tests/ui/test_openapi_baseline.py enforces that x-release is the version
+#    of pyproject.toml). Empty ACCEPTED_BREAKS in tests/ui/openapi_diff.py in the same commit
+uv run poe openapi:baseline
 # 4. Commit changes
 git commit -am "chore(backend): release 0.118.0"
 git push
@@ -100,6 +104,32 @@ git push origin app-v1.1.0
 # 4. Create GitHub release
 gh release create app-v1.1.0 --title "App v1.1.0" --notes "Release notes..."
 ```
+
+### The contract checks
+
+Three contracts are held by tests, so that a change to one is a diff in the pull request that makes it:
+
+| Contract | Snapshot | Regenerate after an intended change |
+| --- | --- | --- |
+| the OpenAPI document of the REST API | `tests/ui/openapi.snapshot.json` | `uv run poe openapi:snapshot` |
+| the `--help` of every command | `tests/ui/cli/help.snapshot.txt` | `uv run poe cli:snapshot` |
+| the public surface of the Python API | `tests/public_surface.snapshot.json` | `uv run poe surface:snapshot` |
+
+`uv run poe contracts:snapshot` does all three. A snapshot shows a change; it does not refuse one. The REST contract
+is also checked against what the last release offered: `tests/ui/openapi.baseline.json` is the OpenAPI document as
+released, and `tests/ui/test_openapi_baseline.py` fails when the served document no longer offers something it did
+(a removed or renamed path, parameter, enum member or response member, a changed type, a status that is gone, a
+member of a response that is no longer always there, or a request that asks for more). Additions pass.
+
+- **A break is not made by regenerating the snapshot.** The baseline stays the document of the last release, so it
+  fails whether or not the snapshot moved. A break that is meant (before 1.0, or an error of the document such as a
+  wrong media type) is named in `ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py`, with its reason, together with a
+  **Breaking** entry in the changelog that says what to do instead. From 1.0 a break of `/api/v1` is not made: it is
+  `/api/v2`.
+- **At a release** the baseline is refreshed in the release commit (step 3b above): `uv run poe openapi:baseline`
+  writes the served document with `x-release` set to the version of `pyproject.toml`, and `ACCEPTED_BREAKS` is emptied,
+  as the baseline now holds what those entries changed. The test `test_the_baseline_is_the_document_of_the_release_in_pyproject`
+  fails a release that forgot it.
 
 ## Version Management
 
