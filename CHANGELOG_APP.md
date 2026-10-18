@@ -16,6 +16,30 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Accessibility]` The keyboard focus is shown by a solid 2 px outline in the primary colour
+  (4.9:1 on light, 10:1 on dark; the map keeps the light one), where Nuxt UI's own halo was 1.2:1
+  to 2.2:1 on white and the search fields of the menus showed none (WCAG 2.4.7, 1.4.11; GH-2559)
+- `[Accessibility]` Every page has a title of its own (`Explorer - Wetterdienst`; the tab, the
+  history and a screen reader's page list all said just `Wetterdienst`), and a screen reader is
+  told which page a navigation within the app has arrived at (WCAG 2.4.2, 4.1.3; GH-2559)
+- `[Accessibility]` The menu of the narrow layout is a dialog: the focus stays in it, Escape
+  closes it and gives the focus back to the menu button, which says whether the menu is open, and
+  the page behind is hidden from a screen reader while it is. Tab used to walk on into the page
+  behind the overlay. Its top bar shows "Menu" and a close button, no longer the logo (WCAG 2.1.2,
+  2.4.3, 4.1.2; GH-2976)
+- `[Accessibility]` Text that changes colour under the pointer stays readable: the chips of the home
+  page (2.2:1 hovered in light mode, now 4.9:1), every link button (3.4:1, now 7.1:1) and the
+  day cards of the compact forecast (4.4:1, now 6.9:1) (GH-2991)
+- `[Accessibility]` A station marker of the map that takes the focus by Tab is brought into the
+  map's view, and is named by its station, not "Marker", for a screen reader (WCAG 2.4.11;
+  GH-2559)
+- `[Accessibility]` The weather emoji of the compact forecast cards bounce once, and only for a
+  visitor who has not asked for reduced motion, not for ever (WCAG 2.2.2; GH-2559)
+- `[Accessibility]` The list of selected stations has a heading of the level below its section's
+  (`h3`, was `h4`) (GH-2559)
+
 ## [0.24.0] - 2026-10-18
 
 

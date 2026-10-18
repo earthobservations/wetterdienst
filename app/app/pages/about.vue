@@ -1,6 +1,9 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('about.title') })
+
 // Counted rather than written down: an age is wrong from the next birthday onwards, and nobody
 // remembers to edit it. Kept as parts rather than a Date, so parsing never lands on the wrong side
 // of a timezone boundary and turns the birthday into the day before.

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 const { t, locale, setLocale } = useI18n()
+
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('settings.title') })
 const colorMode = useColorMode()
 const { settings, reset } = useSettings()
 

@@ -12,6 +12,9 @@ const id = computed(() => String(route.params.provider ?? '').toLowerCase())
 const provider = computed(() => data.value?.providers.find(candidate => candidate.provider === id.value))
 const failure = computed(() => error.value ? describeFetchError(error.value) : '')
 
+// the title says which provider this is (WCAG 2.4.2), once the provider is known
+useHead({ title: () => provider.value?.name_english })
+
 // the networks that have stations and values, which the explorer can be opened on
 const TIMESERIES: NetworkKind[] = ['observation', 'forecast', 'derived']
 

@@ -1,8 +1,7 @@
 # Accessibility
 
-The app aims at **WCAG 2.2 level AA** (tracking issue: #2559). This file is a stub: it says what is
-measured and how to run it. What was checked by hand, and the known limits, are added when the
-baseline is empty.
+The app aims at **WCAG 2.2 level AA** (tracking issue: #2559). This file says what is measured, how to run
+it, what was checked by hand, and what is known not to conform.
 
 ## What is measured
 
@@ -12,13 +11,35 @@ baseline is empty.
 
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
-  stations, a drawn chart (explorer, stripes, meteogram, widget), an open menu or popover, and an error
-  notice.
+  stations, a drawn chart (explorer, stripes, meteogram, widget), the meteogram's compact day cards, an open
+  menu or popover, and an error notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
 answered with a transparent pixel or refused. The icons are the app's own (`/_nuxt_icon`, GH-3111), so
 they are drawn in the scans.
+
+### What axe does not see, measured anyway
+
+The same pages and states (in light/English and dark/German) are scanned twice more
+(`tests/e2e/accessibility/interact.ts`), and a rule broken is held to the baseline like any other:
+
+- **hover**: every link, button, tab, option, menu item and element with a `hover:` style is hovered, once
+  for each look (the same classes under a parent of the same classes are one), and axe's `color-contrast` is
+  run on it (1.4.3; the scans at rest never hover, GH-2991),
+- **keyboard**: the page is walked Tab by Tab from its top to where the order comes round (an open menu or
+  dialog, from where it holds the focus). Each stop is checked for a focus indicator, an outline, a ring
+  (`box-shadow`, also on `::before` and `::after`) or Reka's highlight (2.4.7, `focus-not-visible`); for that
+  indicator having 3:1 against what it lies on (1.4.11, `focus-indicator-contrast`); for not being hidden
+  behind other content or outside what a map shows, sampled at five points of the part in the window and
+  again half a second later (2.4.11, `focus-obscured`); for the focus leaving the page at once (2.1.2,
+  `focus-lost`); and for the contrast of the text with the focus on it. Reka's invisible focus guards are not
+  stops. The rules are the app's own ids, in `CUSTOM_RULES` of `interact.ts`.
+
+Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
+picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
+it back), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
+4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
 
 ## The baseline
 
@@ -34,7 +55,7 @@ What is left in it, and why it is not fixed in the app's own markup:
 - `aria-required-children` and `scrollable-region-focusable`, the open station list: Nuxt UI's
   `USelectMenu` puts the search field and a focus scope inside the element with `role="listbox"`, and
   its scrolling viewport is not focusable. The app has no way to set either attribute; the fix is in
-  Nuxt UI / Reka UI.
+  Nuxt UI / Reka UI. Nuxt UI 4.12.0 moves the role to the viewport (nuxt/ui#7096); the app is on 4.11.3.
 - `aria-hidden-focus`, the error toast: the two focus proxies in Reka UI's toast viewport are
   `aria-hidden` and focusable. Also upstream.
 
@@ -42,14 +63,27 @@ There is no `color-contrast` entry left. The brand green, `#00c950`, stays the f
 button; its label is `#0f172b` (`--app-text-on-primary` in `app/assets/css/main.css`, set for the
 button in `app/app.config.ts`), 8.0:1 on the fill and 9.5:1 hovered in light mode, where the white
 label it replaces was 2.2:1 and 1.9:1. Dark mode has the same label on its lighter fill, as Nuxt UI
-already had it (10.0:1, and 6.1:1 hovered). The scans do not hover a button, so
-`tests/unit/button-contrast.test.ts` computes the hovered ratio, as 75 % of the fill over the page. A
-disabled button is exempt from 1.4.3 and from the scans; its label is at 75 % opacity with its fill
-(4.2:1 in light mode).
+already had it (10.0:1, and 6.1:1 hovered). A disabled button is exempt from 1.4.3 and from the scans; its
+label is at 75 % opacity with its fill (4.2:1 in light mode). Text in the primary colour on white is
+shade 700 and a fifth of the way to 800 (`.text-primary`), a hovered link button shade 800 (7.1:1; Nuxt UI's
+75 % of the first was 3.4:1), and a hovered chip of the home page shade 700 (4.9:1; shade 500 was 2.2:1).
+`tests/unit/button-contrast.test.ts` computes the hovered ratio of a solid button, as 75 % of the fill over
+the page; the hover scan measures the rest.
+
+The focus indicator is one solid 2 px outline for everything a keyboard reaches (`--app-focus-ring` in
+`main.css`: shade 700 of the primary colour on light, 4.9:1 on white, shade 400 on dark, 10:1; the map takes
+the light one in both modes). Nuxt UI's own is an outline at 25 % of the primary colour (1.2:1 to 1.7:1 on
+white) and a ring in the primary colour (2.2:1), and its menu search fields draw none; they stay, beside it.
+
+There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
+nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
+three). It was removed (GH-2991): it could not be reached, its dimmed text was 4.1:1 and 3.6:1 on two of its own
+panels, the brand green was 4.2:1 on its page, and most of the app's colours are `bg-white dark:bg-gray-900`
+classes it would not have changed.
 
 ## On request, not by default
 
-The scan takes ten minutes and more, so it is not part of `pnpm test:e2e` or of the App E2E workflow
+The scan takes half an hour and more, so it is not part of `pnpm test:e2e` or of the App E2E workflow
 (`playwright.config.ts` ignores the spec unless `A11Y=1`). It runs
 
 - from the Actions tab: *App accessibility*, *Run workflow*, or
@@ -74,15 +108,56 @@ pnpm test:a11y:baseline    # regenerate the baseline from what the scans find no
 ```
 
 The scripts set `CI=true`, which makes Playwright build and preview the production build, as CI does (stop
-any server on port 4000 first, as it is no longer reused): the
+any server on the port first, as it is no longer reused): the
 baseline is of that build, as the dev server adds its own overlay. It was recorded in Firefox on Linux
 (the `mcr.microsoft.com/playwright` image of the Playwright version in `package.json`), and rules that
 depend on layout (`target-size`, `scrollable-region-focusable`) can differ on another system, so
 regenerate it there. Regenerate it only when a violation has been fixed, to shrink it; a new violation is
 fixed, not recorded.
 
-## Not covered by the scans
+Two variables for a machine that is not CI: `E2E_PORT` serves the app on another port than 4000 (beside a
+dev server that holds it), and `E2E_BROWSER=chrome` uses the system's Chrome where Playwright's Firefox does not
+start. Chrome found the same violations as Firefox in the first-paint and state scans (on 2026-10-18), but
+its layout is not the baseline's: use it to look, and Firefox on Linux to record.
 
-Automated checks find only part of what WCAG asks for; a green suite is not an accessible app. Keyboard
-use, a screen reader pass, reflow and zoom, text alternatives for the charts and the language of the page
-are checked by hand, and written down here once the baseline is empty.
+## Checked by hand
+
+On 2026-10-18, in Chrome 151 on macOS, by the scans above and by reading the components. The criteria new in
+WCAG 2.2 first, as axe has no rule for most of them.
+
+| Criterion | Result |
+| --- | --- |
+| 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
+| 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). |
+| 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. |
+| 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
+| 3.2.6 Consistent help | The support and documentation links are in the header (icons) and the footer of every page, in the same order; the narrow layout has them in its menu. The widget has no header or footer by design. |
+| 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
+| 3.3.8 Accessible authentication | The app has no log-in and no cognitive test. |
+| 2.4.2 Page titled | **Was failing**: every page was titled `Wetterdienst`. Each page names itself now, and a navigation is announced (`NuxtRouteAnnouncer`). |
+| 2.2.2 Pause, stop, hide | **Was failing**: the emoji of the forecast's compact cards bounced for ever. They bounce once, and not at all under `prefers-reduced-motion`. Loading placeholders pulse while loading, which is a progress indication. |
+| 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
+| 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
+
+### Known not to conform
+
+The first three, on the charts, are #3145.
+
+- **Charts, 1.1.1 and 1.3.1**: the climate stripes and the meteogram are a `figure` with an `aria-label` and
+  no text or table alternative of what they show (the explorer's table is the alternative of its chart). Open.
+- **Plotly's modebar, 2.1.1**: its buttons are not in the tab order, so zoom, pan and reset of a chart that has
+  the modebar (explorer, stripes) cannot be done by keyboard. The charts' content does not depend on it.
+- **The meteogram's hover values, 1.4.13 and 2.1.1**: the values of the forecast appear on hover only.
+- **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
+  hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
+  their count only.
+- **Not checked**: a screen reader pass (VoiceOver, NVDA), text spacing (1.4.12), zoom to 200 % (1.4.4) and
+  the nine languages besides English and German, which the scans do not cover.
+
+## Lighthouse
+
+Lighthouse is not part of CI (#2559 asked for it as a cross-check; it runs axe underneath, so it adds a
+weighted score, its few best-practice rules, and a phone-sized viewport, not other WCAG rules). Run by hand on
+2026-10-18 (Lighthouse 13.5.0, accessibility category, mobile and desktop, 17 URLs of the production build with the
+spec's mock answers served as the backend), every page scores 100. One page did not before: the explorer with
+a restored selection scored 98 for a heading that skipped a level (`heading-order`, an `h4` under an `h2`), now an `h3`.

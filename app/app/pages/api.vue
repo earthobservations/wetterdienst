@@ -1,6 +1,9 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('api.title') })
+
 // Whether this backend serves an MCP endpoint at all: it lives behind the optional `[mcp]` extra,
 // so an instance installed without it has no MCP route and must not be told to point a client at
 // one. The backend reports it next to its version, which is the only thing the card waits for.

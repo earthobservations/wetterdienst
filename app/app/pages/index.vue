@@ -198,7 +198,7 @@ const dataKinds = computed(() => [
         <li v-for="provider in providers" :key="provider.key">
           <NuxtLink
             :to="`/providers/${provider.key}`"
-            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+            class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
           >
             <span aria-hidden="true">{{ provider.flag }}</span>
             {{ provider.name }}
@@ -274,7 +274,7 @@ const dataKinds = computed(() => [
           external
           target="_blank"
           :title="entry.title"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
         >
           <UIcon :name="entry.icon" class="size-4 shrink-0" />
           {{ entry.label }}
@@ -310,7 +310,7 @@ const dataKinds = computed(() => [
           target="_blank"
           :title="supporter.detail"
           :aria-label="`${supporter.name} — ${supporter.detail}`"
-          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-500 transition-colors"
+          class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
         >
           <UIcon :name="supporter.icon" class="size-4 shrink-0" />
           {{ supporter.name }}

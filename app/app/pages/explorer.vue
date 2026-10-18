@@ -15,6 +15,9 @@ import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
 const { t, te } = useI18n()
 
+// the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
+useHead({ title: () => t('explorer.title') })
+
 const stationTableColumns = computed<TableColumn<Station>[]>(() => [
   { accessorKey: 'station_id', header: t('stationTable.stationId') },
   { accessorKey: 'name', header: t('stationTable.name') },
