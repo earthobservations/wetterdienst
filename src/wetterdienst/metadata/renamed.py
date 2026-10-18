@@ -223,6 +223,9 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
     # its precipitationLastHour the METAR's amount since the last routine report. ECCC's
     # hourly direction, now `wind_direction_last_2min`, is not listed: `wind_direction` is also the source's own field
     # name there, so a request for it still selects the row
+    # GH-2838: the wind of the hourly weather table is the SYNOP's and the METAR's mean of the last 10 minutes. Only the
+    # gust is listed: `wind_speed` and `wind_direction` are also the source's own field names there, so a request for
+    # them still selects the row (answered as `wind_speed_last_10min` and `wind_direction_last_10min`)
     "MetOfficeObservationMetadata": {("hourly", "weather"): _GUST_LAST_10MIN},
     "NwsObservationMetadata": {
         ("hourly", "data"): {

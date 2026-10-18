@@ -38,8 +38,8 @@
 
 | name                                  | original name    | description                                                                                                                                              | unit |
 |---------------------------------------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| {term}`wind_direction`                | wind_direction   | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180.                                                  | °    |
-| {term}`wind_speed`                    | wind_speed       | Wind speed, knots.                                                                                                                                       | kn   |
+| {term}`wind_direction_last_10min`     | wind_direction   | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table". | °    |
+| {term}`wind_speed_last_10min`         | wind_speed       | Wind speed, knots. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table". | kn   |
 | {term}`wind_gust_max_last_10min`      | q10mnt_mxgst_spd | Maximum gust speed over 10 minutes, knots.                                                                                                               | kn   |
 | {term}`visibility`                    | visibility       | Visibility, decametres.                                                                                                                                  | m    |
 | {term}`pressure_air_sea_level`        | msl_pressure     | Mean sea level air pressure, to the nearest 0.1 hPa.                                                                                                     | hPa  |

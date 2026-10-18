@@ -1907,9 +1907,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "weather", "visibility"): "Visibility, decametres.",
         ("hourly", "weather", "wind_direction"): (
-            "Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180."
+            "Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. "
+            'The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in '
+            'SYNOPs and METARs - they are stored in the UK Hourly Weather table".'
         ),
-        ("hourly", "weather", "wind_speed"): "Wind speed, knots.",
+        ("hourly", "weather", "wind_speed"): (
+            'Wind speed, knots. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute '
+            'winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table".'
+        ),
         ("hourly", "weather", "wmo_hr_sun_dur"): (
             "Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder."
         ),

@@ -720,12 +720,14 @@ def test_nws_eccc_and_the_gust_rows_name_their_windows() -> None:
     assert fmi["wg_10min"] == "wind_gust_max_last_10min"
     metoffice = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["weather"]}
     assert metoffice["q10mnt_mxgst_spd"] == "wind_gust_max_last_10min"
-    # the hourly weather wind says no window of its own (the WM page says the SYNOP and METAR winds are kept here,
-    # which no data could be checked against without a CEDA login), and the whole-hour gust of the wind table is plain
-    assert metoffice["wind_speed"] == "wind_speed"
-    assert metoffice["wind_direction"] == "wind_direction"
+    # the WM page says the 10-minute winds of SYNOPs and METARs are kept in the hourly weather table (GH-2838), where
+    # the mean wind table holds the whole-hour means
+    assert metoffice["wind_speed"] == "wind_speed_last_10min"
+    assert metoffice["wind_direction"] == "wind_direction_last_10min"
     metoffice_wind = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["wind"]}
     assert metoffice_wind["max_gust_speed"] == "wind_gust_max"
+    assert metoffice_wind["mean_wind_speed"] == "wind_speed"
+    assert metoffice_wind["mean_wind_dir"] == "wind_direction"
 
 
 def test_dwd_road_wind_keeps_the_names_of_its_interval() -> None:

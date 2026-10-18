@@ -18,12 +18,12 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
-  every provider that lists) that fails on TLS, a certificate that does not verify or a handshake
-  that fails, raises a `DownloadError` naming the URL, with the `ssl.SSLError` as its `__cause__`,
-  as a download does, not the bare `ssl.SSLError` (REST: 500, now 502). Code that caught
-  `ssl.SSLError` around a listing catches `DownloadError` and reads `__cause__` now; a TLS failure
-  is still asked for once (GH-3099)
+- **Breaking**: `metoffice/observation` hourly `weather` wind speed and direction come back as
+  `wind_speed_last_10min` and `wind_direction_last_10min`, not `wind_speed` / `wind_direction`: the
+  mean wind table says the "Ten minute winds recorded in SYNOPs and METARs" are kept in this table,
+  so they are not the hour's mean. Filter on the new names in the `parameter` column; a request for
+  `wind_speed` there still selects the row, as it is the source's field name. The `wind` dataset
+  (whole-hour means) keeps `wind_speed` (GH-2838)
 
 ### Fixed
 
