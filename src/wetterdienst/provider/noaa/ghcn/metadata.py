@@ -238,31 +238,31 @@ _NoaaGhcnMetadataSpec = {
                         # additional parameters
                         # Average cloudiness midnight to midnight from 30-second ceilometer data (percent)
                         {
-                            "name": "cloud_cover_total_midnight_to_midnight",
+                            "name": "cloud_cover_total_mean_midnight_to_midnight",
                             "name_original": "acmc",
                             "unit": "percent",
                         },
                         # Average cloudiness midnight to midnight from manual observation (percent)
                         {
-                            "name": "cloud_cover_total_midnight_to_midnight_manual",
+                            "name": "cloud_cover_total_mean_midnight_to_midnight_manual",
                             "name_original": "acmh",
                             "unit": "percent",
                         },
                         # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
                         {
-                            "name": "cloud_cover_total_sunrise_to_sunset",
+                            "name": "cloud_cover_total_mean_sunrise_to_sunset",
                             "name_original": "acsc",
                             "unit": "percent",
                         },
                         # Average cloudiness sunrise to sunset from manual observation (percent)
                         {
-                            "name": "cloud_cover_total_sunrise_to_sunset_manual",
+                            "name": "cloud_cover_total_mean_sunrise_to_sunset_manual",
                             "name_original": "acsh",
                             "unit": "percent",
                         },
                         # Average daily wind speed (meters per second or miles per hour as per user preference)
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "awnd",
                             "unit": "meter_per_second",
                         },
@@ -1350,7 +1350,7 @@ DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_mean_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed_mean.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_max.name_original: 1 / 10,

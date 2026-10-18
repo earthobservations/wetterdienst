@@ -132,12 +132,12 @@ _MetnoFrostMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "wind_speed",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "wind_from_direction",
                             "unit": "degree",
                         },
@@ -157,7 +157,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "mean(surface_downwelling_shortwave_flux_in_air PT1H)",
                             "unit": "watt_per_square_meter",
                         },
@@ -227,7 +227,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "mean(wind_speed P1D)",
                             "unit": "meter_per_second",
                         },
@@ -237,22 +237,22 @@ _MetnoFrostMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "mean(relative_humidity P1D)",
                             "unit": "percent",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "mean(air_pressure_at_sea_level P1D)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "mean(surface_air_pressure P1D)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "mean(surface_downwelling_shortwave_flux_in_air P1D)",
                             "unit": "watt_per_square_meter",
                         },
@@ -307,7 +307,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "mean(wind_speed P1M)",
                             "unit": "meter_per_second",
                         },
@@ -317,27 +317,27 @@ _MetnoFrostMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "mean(relative_humidity P1M)",
                             "unit": "percent",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "mean(air_pressure_at_sea_level P1M)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "mean(surface_air_pressure P1M)",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "mean(cloud_area_fraction P1M)",
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "snow_depth",
+                            "name": "snow_depth_mean",
                             "name_original": "mean(surface_snow_thickness P1M)",
                             "unit": "centimeter",
                         },
@@ -382,7 +382,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "mean(cloud_area_fraction P1Y)",
                             "unit": "one_eighth",
                         },

@@ -47,17 +47,17 @@
 
 | name                                | original name | description                                             | unit | constraints |
 |-------------------------------------|---------------|---------------------------------------------------------|------|-------------|
-| {term}`quality_general` | qn_4 | Quality flag published by the source, applying to the dataset as a whole. | -             | - |
-| {term}`cloud_cover_total` | ja_n | Annual mean of cloud cover. | 1/8 | >=0,<=8 |
+| {term}`quality_general` | qn_4 | Quality flag published by the source, applying to the dataset as a whole. | - | - |
+| {term}`cloud_cover_total_mean` | ja_n | Annual mean of cloud cover. | 1/8 | >=0,<=8 |
 | {term}`temperature_air_mean_2m` | ja_tt | Annual mean of daily temperature means in 2m height. | °C | - |
 | {term}`temperature_air_max_2m_mean` | ja_tx | Annual mean of daily temperature maxima in 2m height. | °C | - |
 | {term}`temperature_air_min_2m_mean` | ja_tn | Annual mean of daily temperature minima in 2m height. | °C | - |
 | {term}`sunshine_duration` | ja_sd_s | Annual sum of sunshine duration. | h | >=0 |
-| {term}`wind_force_beaufort` | ja_fk | Annual mean of the wind force in Beaufort (DWD: "Jahresmittel der Windstaerke"), the arithmetic mean of the monthly means. | Bft | >=0 |
+| {term}`wind_force_beaufort_mean` | ja_fk | Annual mean of the wind force in Beaufort (DWD: "Jahresmittel der Windstaerke"), the arithmetic mean of the monthly means. | Bft | >=0 |
 | {term}`temperature_air_max_2m` | ja_mx_tx | Annual maximum of daily temperature maxima in 2m height. | °C | - |
 | {term}`wind_gust_max` | ja_mx_fx | Annual maximum of the daily wind peaks (Windspitze). | m/s | >=0 |
 | {term}`temperature_air_min_2m` | ja_mx_tn | Annual minimum of daily temperature minima in 2m height. | °C | - |
-| {term}`quality_precipitation` | qn_6 | Quality flag published by the source for `precipitation` in the same dataset. | -             | - |
+| {term}`quality_precipitation` | qn_6 | Quality flag published by the source for `precipitation` in the same dataset. | - | - |
 | {term}`precipitation_amount` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
 | {term}`precipitation_amount_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 

@@ -2538,14 +2538,14 @@ describe('dataViewer date range', () => {
 })
 
 // A parameter with a long id, which the glossary names in every locale: the label the page showed
-// instead was the id prettified, "Wind Direction Last 10min" (GH-2865). The chart's legend and the
+// instead was the id prettified, "Wind Direction Mean Last 10min" (GH-2865). The chart's legend and the
 // facets took the raw id from the rows, so each place the viewer names a parameter, a dataset or a
 // resolution is drawn here in a locale that is not English, and must say what that locale's
 // glossary says
 describe('dataViewer names what it shows in the active locale', () => {
-  const longId = { resolution: '10_minutes', dataset: 'urban_wind', parameter: 'wind_direction_last_10min' }
+  const longId = { resolution: '10_minutes', dataset: 'urban_wind', parameter: 'wind_direction_mean_last_10min' }
   const direction = { ...row, ...longId }
-  const speed = { ...direction, parameter: 'wind_speed_last_10min', value: 2.5 }
+  const speed = { ...direction, parameter: 'wind_speed_mean_last_10min', value: 2.5 }
 
   // what each locale's glossary says of the ids above, spelled out rather than read from the
   // glossary the page is held to
@@ -2602,7 +2602,7 @@ describe('dataViewer names what it shows in the active locale', () => {
 
   // the id of the row in any form: raw, or prettified as the fallback does
   function idsIn(text: string) {
-    return ['wind_direction_last_10min', 'wind_speed_last_10min', 'urban_wind', '10_minutes', 'Wind Direction Last 10min', 'Wind Speed Last 10min', 'Urban Wind', '10 Minutes'].filter(id => text.includes(id))
+    return ['wind_direction_mean_last_10min', 'wind_speed_mean_last_10min', 'urban_wind', '10_minutes', 'Wind Direction Mean Last 10min', 'Wind Speed Mean Last 10min', 'Urban Wind', '10 Minutes'].filter(id => text.includes(id))
   }
 
   describe.each(locales)('in %s', (locale) => {
@@ -2647,7 +2647,7 @@ describe('dataViewer names what it shows in the active locale', () => {
         statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
       }
       const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-      const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_last_10min')!
+      const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_mean_last_10min')!
       expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2,50', '2,50', '2,50', '2,50'])
     })
   })
@@ -2659,7 +2659,7 @@ describe('dataViewer names what it shows in the active locale', () => {
       statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
     }
     const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-    const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_last_10min')!
+    const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_mean_last_10min')!
     expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2.50', '2.50', '2.50', '2.50'])
     expect(cell('mean', { mean: null })).toBe('-')
   })
@@ -2711,9 +2711,9 @@ describe('dataViewer names what it shows in the active locale', () => {
     })
 
     it.each([
-      { format: 'parameter', ids: ['wind_direction_last_10min', 'wind_speed_last_10min'] },
-      { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_last_10min', 'urban_wind/wind_speed_last_10min'] },
-      { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_last_10min', '10_minutes/urban_wind/wind_speed_last_10min'] },
+      { format: 'parameter', ids: ['wind_direction_mean_last_10min', 'wind_speed_mean_last_10min'] },
+      { format: 'dataset/parameter', ids: ['urban_wind/wind_direction_mean_last_10min', 'urban_wind/wind_speed_mean_last_10min'] },
+      { format: 'resolution/dataset/parameter', ids: ['10_minutes/urban_wind/wind_direction_mean_last_10min', '10_minutes/urban_wind/wind_speed_mean_last_10min'] },
     ])('keeps the ids in the series, the facets and their axes, format $format', async ({ format, ids }) => {
       useSettings().settings.value.friendlyLabels = false
       const single = await mountIn('de', false)

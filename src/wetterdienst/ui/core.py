@@ -1669,8 +1669,8 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     """
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
-    if stations.stations_filter is StationsFilter.BY_RANK and stations.rank:
-        return replace(stations, df=stations.df.head(stations.rank))
+    if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
+        return replace(stations, df=stations.df.head(stations._rank))  # noqa: SLF001
     return stations
 
 

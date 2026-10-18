@@ -18,6 +18,40 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the mean of the irradiances, the soil moisture, the snow depth, the precipitation
+  intensity and the Beaufort wind force carries its statistic in the name (GH-3151, last of three
+  families): where the source states a mean of the row's interval they are
+  `radiation_global_intensity_mean`, `radiation_sky_long_wave_intensity_mean`,
+  `radiation_sky_short_wave_diffuse_intensity_mean`, `precipitation_intensity_mean`,
+  `snow_depth_mean`, `wind_force_beaufort_mean` and `soil_moisture_mean_<cover>_<soil>_<depth>`
+  (35 rows, 6 networks: MeteoSwiss, KNMI, MET Norway, RMI, DWD derived and observation). The old
+  name is refused with the new one named; `wsv/pegel` stays as it was until WSV confirms its
+  "average". All rows are in the parameters page of the docs. Release the app after this backend
+- **Breaking**: the mean of humidity, pressure, cloud cover and visibility carries its statistic in
+  the name (GH-3151, second of three families): where the source states a mean of the row's interval
+  `humidity_relative`, `pressure_air_site`, `pressure_air_sea_level`, `pressure_vapor`,
+  `cloud_cover_total` and `visibility` are `<name>_mean` (81 rows, 14 networks, e.g. DWD daily and
+  monthly, MeteoSwiss, DMI, IMGW, MET Norway), and NOAA GHCN's average cloudiness is
+  `cloud_cover_total_mean_midnight_to_midnight` etc. Rows whose source states no statistic or a
+  reading at one moment keep the plain name. The old name is refused with the new one named: change
+  the `parameter` you request and filter on, wide column names, SQL filters and
+  `geo_station_distance` keys. All rows are in the parameters page of the docs. Release the app
+  after this backend
+- **Breaking**: the mean wind carries its statistic in the name, as `temperature_air_mean_2m` does
+  (GH-3151, first of three families): where the source states a mean of the row's interval the name
+  is `wind_speed_mean` / `wind_direction_mean` (46 rows, 13 networks), and a mean of a shorter
+  window is `wind_speed_mean_last_10min` etc. (were `wind_speed_last_10min`; the Met Office hourly
+  `weather` rows were `wind_speed`, GH-2838). Rows whose source states no statistic keep
+  `wind_speed` / `wind_direction`. The old name is refused with the new one named: change the
+  `parameter` you request and filter on, wide column names, SQL filters and `geo_station_distance`
+  keys. All rows are in "The statistic in a name" of the docs' parameters page. Release the app
+  after this backend
+- **Breaking**: `knmi/observation` `hourly` values are stamped with the end of their hour, KNMI's own
+  timestamp, where they were stamped with its start: the air temperature KNMI gives for 12:00 UTC
+  was returned as 11:00, the hourly sums and means as the hour that begins at the stamp. Every
+  hourly `timestamp` moves 1 hour later, and a request for `start`..`end` returns the hours that
+  end in it, so `start` = `end` = 12:00 returns the hour 11-12. `10_minutes` (the file name is its
+  end) and `daily` are unchanged (GH-2824)
 - **Breaking**: a remote listing (`list_remote_files_fsspec`, `list_remote_directory_fsspec`, so
   every provider that lists) that fails on TLS, a certificate that does not verify or a handshake
   that fails, raises a `DownloadError` naming the URL, with the `ssl.SSLError` as its `__cause__`,
@@ -32,6 +66,19 @@ Types of changes:
   `components.responses`, where the 400 and 502-504 of the data routes were inline. 13 parameters
   have descriptions. A client that reads `responses` of the document has to resolve `$ref` in them
   (GH-3129)
+- **Breaking**: `Settings(ts_shape=...)` and the other `ts_*` settings are gone, with reading or
+  assigning `settings.ts_*` and a `settings={"ts_...": ...}` dict, which warned since 0.148.0; they
+  are a `ValidationError` that names the option to pass instead: `options=Options(shape=...)` (or
+  `options={"shape": ...}`) on the request. The `WD_TS_*` variables are unchanged (GH-3128)
+- **Breaking**: the fields `df_all`, `stations_filter` and `rank` of `StationsResult`, which say how
+  `df` was selected, are private: `_df_all`, `_stations_filter` and `_rank`, also as the keywords of
+  its constructor. A caller that read them reads `df`; the frozen public surface leaves them out
+  (GH-3128)
+- **Breaking**: a `start` or `end` of a request that is a date without a time (`"2026-01-31"`, a
+  `datetime.date`) is the whole day, as the REST `timestamp` always read it: `end="2026-01-31"`
+  includes the 31st to 23:59:59.999999, where it ended at midnight and left out the day. A date
+  alone is the whole day too. A `datetime` or a string with a time stays that exact instant; end a
+  window at midnight with `end="2026-01-31T00:00:00"`. A `date` is accepted as a bound (GH-3133)
 
 ### Fixed
 

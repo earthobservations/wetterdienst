@@ -49,14 +49,16 @@ _MONTHLY_ANNUAL_PARAMETERS = [
         "unit": "millimeter",
     },
     {
-        "name": "humidity_relative",
+        "name": "humidity_relative_mean",
         "name_original": "hr",
         "unit": "percent",
     },
 ]
 
 # AEMET's annual aggregate doesn't include a humidity field at all (unlike monthly).
-_ANNUAL_PARAMETERS = [parameter for parameter in _MONTHLY_ANNUAL_PARAMETERS if parameter["name"] != "humidity_relative"]
+_ANNUAL_PARAMETERS = [
+    parameter for parameter in _MONTHLY_ANNUAL_PARAMETERS if parameter["name"] != "humidity_relative_mean"
+]
 
 _AemetObservationMetadataSpec = {
     "name_short": "AEMET",
@@ -113,7 +115,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "dv",
                             "unit": "degree",
                         },
@@ -123,7 +125,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "vv",
                             "unit": "meter_per_second",
                         },
@@ -190,7 +192,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "velmedia",
                             "unit": "meter_per_second",
                         },
@@ -210,7 +212,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "hrmedia",
                             "unit": "percent",
                         },
