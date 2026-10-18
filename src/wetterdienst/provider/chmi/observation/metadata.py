@@ -44,7 +44,7 @@ _DAILY_PARAMETERS = [
     *_DAILY_CLIMATE_PARAMETERS,
     {"name": "humidity_relative", "name_original": "H", **_HUMIDITY},
     {"name": "pressure_air_site", "name_original": "P", **_PRESSURE},
-    {"name": "wind_speed", "name_original": "F", **_WIND_SPEED},
+    {"name": "wind_speed_mean", "name_original": "F", **_WIND_SPEED},
     {"name": "wind_gust_max", "name_original": "Fmax", **_WIND_SPEED},
     {"name": "snow_depth", "name_original": "SCE", "unit": "centimeter"},
     {"name": "sunshine_duration", "name_original": "SSV", "unit": "hour"},

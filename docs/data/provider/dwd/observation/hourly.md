@@ -369,8 +369,8 @@ Codes (precipitation_form):
 
 | name                   | original name       | description         | unit | constraints |
 |------------------------|---------------------|---------------------|------|-------------|
-| {term}`wind_speed` | windgeschwindigkeit | Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | m/s | >=0 |
-| {term}`wind_direction` | windrichtung | Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). The source's 0 comes with a wind speed above 0 and with six 10-minute directions spread over the compass, so it is neither a calm nor north (written 360) and is null. | ° | >=0,<=360 |
+| {term}`wind_speed_mean` | windgeschwindigkeit | Mean wind speed, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). | m/s | >=0 |
+| {term}`wind_direction_mean` | windrichtung | Mean wind direction, the average of the six 10-minute intervals of the previous hour (at UTC 11 the average during UTC10-UTC11). DWD's sheet: measured at 368 m on Berlin's television tower (the other urban stations have their own sensor heights). The source's 0 comes with a wind speed above 0 and with six 10-minute directions spread over the compass, so it is neither a calm nor north (written 360) and is null. | ° | >=0,<=360 |
 
 ### visibility
 
@@ -431,8 +431,8 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed` | f | Mean wind speed. | m/s | >=0 |
-| {term}`wind_direction` | d | Mean wind direction. The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |
+| {term}`wind_speed_mean` | f | Mean wind speed. | m/s | >=0 |
+| {term}`wind_direction_mean` | d | Mean wind direction. The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |
 
 ### wind_extreme
 
@@ -466,5 +466,5 @@ weather codes and descriptions: [here](https://opendata.dwd.de/climate_environme
 
 | name                   | original name | description         | unit | constraints |
 |------------------------|---------------|---------------------|------|-------------|
-| {term}`wind_speed_last_10min` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
+| {term}`wind_speed_mean_last_10min` | ff | 10-minute mean of the wind speed (DWD: "10-Min-Mittel der Windgeschwindigkeit"). | m/s | >=0 |
 | {term}`wind_direction` | dd | Wind direction (DWD: "Windrichtung uml.,windstill DD=00"). The source's 0 (a calm or variable wind) is null. | ° | >=0,<=360 |

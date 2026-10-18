@@ -139,9 +139,11 @@ def test_dwd_poi_values() -> None:
 @pytest.mark.remote
 def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     """DWD publishes km/h and km; wetterdienst reports m/s and m."""
-    request = DwdPoiRequest(parameters=[("hourly", "data", "wind_speed_last_10min"), ("hourly", "data", "visibility")])
+    request = DwdPoiRequest(
+        parameters=[("hourly", "data", "wind_speed_mean_last_10min"), ("hourly", "data", "visibility")]
+    )
     df = request.filter_by_station_id(["10147"]).values().all().df.drop_nulls("value")
-    wind = df.filter(pl.col("parameter") == "wind_speed_last_10min").get_column("value")
+    wind = df.filter(pl.col("parameter") == "wind_speed_mean_last_10min").get_column("value")
     visibility = df.filter(pl.col("parameter") == "visibility").get_column("value")
     assert wind.is_between(0.0, 60.0).all()
     # in kilometres this would be at most a two-digit number
@@ -168,7 +170,10 @@ def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(m
     ).encode("latin-1")
     serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
     request = DwdPoiRequest(
-        parameters=[("hourly", "data", "wind_direction_last_10min"), ("hourly", "data", "wind_speed_last_10min")],
+        parameters=[
+            ("hourly", "data", "wind_direction_mean_last_10min"),
+            ("hourly", "data", "wind_speed_mean_last_10min"),
+        ],
         start=dt.datetime(2026, 10, 11, tzinfo=UTC),
         end=dt.datetime(2026, 10, 13, tzinfo=UTC),
         settings=Settings(cache_disable=True),
@@ -176,9 +181,9 @@ def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(m
     )
     df = stations_result(request, "hourly", "data", "10147").values().all().df
     df = df.sort("timestamp")
-    direction = df.filter(pl.col("parameter") == "wind_direction_last_10min")
+    direction = df.filter(pl.col("parameter") == "wind_direction_mean_last_10min")
     assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (None, "raw:0"), (360.0, None)]
-    speeds = df.filter(pl.col("parameter") == "wind_speed_last_10min")
+    speeds = df.filter(pl.col("parameter") == "wind_speed_mean_last_10min")
     assert speeds.select("value", "quality_flags").rows() == [(0.0, None), (1.1111, None), (3.0556, None)]
 
 

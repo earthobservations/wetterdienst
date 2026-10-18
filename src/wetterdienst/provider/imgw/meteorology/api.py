@@ -147,7 +147,7 @@ _ImgwMeteorologyMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "średnia dobowa prędkość wiatru",
                             "unit": "meter_per_second",
                         },
@@ -246,7 +246,7 @@ _ImgwMeteorologyMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "średnia dobowa prędkość wiatru",
                             "unit": "meter_per_second",
                         },
@@ -321,7 +321,7 @@ _ImgwMeteorologyMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "średnia miesięczna prędkość wiatru",
                             "unit": "meter_per_second",
                         },
@@ -430,7 +430,7 @@ _ImgwMeteorologyMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "średnia miesięczna prędkość wiatru",
                             "unit": "meter_per_second",
                         },

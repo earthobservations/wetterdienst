@@ -49,7 +49,7 @@ _BASE_PARAMETERS = [
         "unit": "millimeter",
     },
     {
-        "name": "wind_speed",
+        "name": "wind_speed_mean",
         "name_original": "mean_wind_speed",
         "unit": "meter_per_second",
     },
@@ -66,7 +66,7 @@ _BASE_PARAMETERS = [
         "unit": "meter_per_second",
     },
     {
-        "name": "wind_direction",
+        "name": "wind_direction_mean",
         "name_original": "mean_wind_dir",
         "unit": "degree",
     },

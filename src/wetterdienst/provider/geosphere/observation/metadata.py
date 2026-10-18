@@ -347,7 +347,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "vv_mittel",
                             "unit": "meter_per_second",
                         },
@@ -543,7 +543,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "vv_mittel",
                             "unit": "meter_per_second",
                         },

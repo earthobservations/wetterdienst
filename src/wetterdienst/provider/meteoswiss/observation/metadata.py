@@ -31,12 +31,12 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dkl010z0",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010z0",
                             "unit": "meter_per_second",
                         },
@@ -141,12 +141,12 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dkl010h0",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010h0",
                             "unit": "meter_per_second",
                         },
@@ -266,12 +266,12 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dkl010d0",
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010d0",
                             "unit": "meter_per_second",
                         },
@@ -396,7 +396,7 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010m0",
                             "unit": "meter_per_second",
                         },
@@ -506,7 +506,7 @@ _MeteoswissObservationMetadataSpec = {
                     "grouped": True,
                     "parameters": [
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "fkl010y0",
                             "unit": "meter_per_second",
                         },

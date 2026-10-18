@@ -179,7 +179,7 @@ def test_aemet_observation_values_daily(monkeypatch: pytest.MonkeyPatch) -> None
     assert value_on("temperature_air_max_2m", day1) == pytest.approx(11.2)
     assert value_on("temperature_air_min_2m", day1) == pytest.approx(1.9)
     assert value_on("precipitation_amount", day1) == pytest.approx(0.0)
-    assert value_on("wind_speed", day1) == pytest.approx(0.3)
+    assert value_on("wind_speed_mean", day1) == pytest.approx(0.3)
     assert value_on("wind_gust_max", day1) == pytest.approx(3.3)
     assert value_on("wind_direction_gust_max", day1) == pytest.approx(50.0)
     assert value_on("pressure_air_site_max", day1) == pytest.approx(954.2)
@@ -298,7 +298,7 @@ def test_aemet_observation_values_hourly_realtime(monkeypatch: pytest.MonkeyPatc
     assert 0.0 <= latest("humidity_relative") <= 1.0
     # unlike the daily endpoint's coded 0-36 direction, real-time direction is already in
     # plain degrees — this would fail if the daily parser's *10 scaling was wrongly reused.
-    assert 0 <= latest("wind_direction_last_10min") <= 360
+    assert 0 <= latest("wind_direction_mean_last_10min") <= 360
     assert 800 < latest("pressure_air_site") < 1100
 
 
