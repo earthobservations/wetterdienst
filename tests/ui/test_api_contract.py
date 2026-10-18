@@ -413,3 +413,150 @@ def test_stations_does_not_take_with_stations(client: TestClient) -> None:
         422,
     )
     assert "with_stations" in body["detail"]
+
+
+# --- the errors in the OpenAPI document (GH-3129) ----------------------------------------------
+
+#: every exception of the table above, which each route that reads from a provider is made to raise
+_EACH_EXCEPTION = pytest.mark.parametrize("error", [pytest.param(case.values[0], id=case.id) for case in STATUS_TABLE])
+
+_SERIES = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
+_STRIPES = {"kind": "temperature", "station": "01048"}
+
+#: each route that reads from a provider: the path under `/api/v1`, what it asks for a reader to raise, its query
+_READERS = [
+    pytest.param("stations", "get_stations", _STATIONS, id="stations"),
+    pytest.param("values", "get_values", _VALUES, id="values"),
+    pytest.param("interpolate", "get_interpolate", {**_SERIES, "station": "01048", "timestamp": "2020-06-30"}, id="i"),
+    pytest.param("summarize", "get_summarize", {**_SERIES, "station": "01048", "timestamp": "2020-06-30"}, id="s"),
+    pytest.param("history", "get_stations", {**_SERIES, "stations": "01048"}, id="history"),
+    pytest.param("issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
+    pytest.param("stripes/values", "_get_stripes_data", _STRIPES, id="stripes-values"),
+    pytest.param("stripes/image", "_plot_stripes", _STRIPES, id="stripes-image"),
+    pytest.param("stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
+]
+
+
+def _declared(client: TestClient, route: str) -> dict[str, Any]:
+    """Give the responses the OpenAPI document declares for a route under `/api/v1`."""
+    return client.get("/openapi.json").json()["paths"][f"/api/v1/{route}"]["get"]["responses"]
+
+
+def _is_declared(client: TestClient, route: str, status: int) -> bool:
+    """Tell whether a route declares a status, as a problem that exists."""
+    document = client.get("/openapi.json").json()
+    response = _declared(client, route).get(str(status))
+    if response is None:
+        return False
+    if "$ref" in response:
+        response = document["components"]["responses"][response["$ref"].rsplit("/", 1)[1]]
+    return "application/problem+json" in response["content"]
+
+
+@_EACH_EXCEPTION
+@pytest.mark.parametrize(("route", "reader", "query"), _READERS)
+def test_a_route_declares_each_status_its_handler_answers(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    route: str,
+    reader: str,
+    query: dict[str, str],
+    error: BaseException,
+) -> None:
+    """A status a failure is answered with is in the OpenAPI document of the route, by every exception of the table."""
+    monkeypatch.setattr(f"wetterdienst.ui.restapi.{reader}", _raising(error))
+
+    answered = client.get(f"/api/v1/{route}", params=query).status_code
+
+    assert _is_declared(client, route, answered), f"{route} answers {answered} and does not declare it"
+
+
+@_EACH_EXCEPTION
+def test_alerts_declares_each_status_its_handler_answers(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, error: BaseException
+) -> None:
+    """The same for `alerts`, which has the provider's request in place of a reader."""
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _AlertsRaising(error))
+
+    answered = client.get("/api/v1/alerts").status_code
+
+    assert _is_declared(client, "alerts", answered)
+
+
+@pytest.mark.parametrize(
+    ("route", "query"),
+    [
+        pytest.param("stations", {**_STATIONS, "all": None, "sql": "SELECT * FROM df"}, id="stations"),
+        pytest.param("values", {**_VALUES, "sql_values": "SELECT * FROM df"}, id="values"),
+        pytest.param(
+            "interpolate",
+            {**_SERIES, "station": "01048", "timestamp": "2020-06-30", "sql_values": "SELECT * FROM df"},
+            id="interpolate",
+        ),
+        pytest.param(
+            "summarize",
+            {**_SERIES, "station": "01048", "timestamp": "2020-06-30", "sql_values": "SELECT * FROM df"},
+            id="summarize",
+        ),
+    ],
+)
+def test_the_routes_that_take_sql_declare_the_403(client: TestClient, route: str, query: dict[str, str]) -> None:
+    """A server that does not enable SQL answers the 403 of the kind `sql-disabled`, which these routes declare."""
+    query = {key: value for key, value in query.items() if value is not None}
+
+    _is_a_problem(client.get(f"/api/v1/{route}", params=query), 403, "sql-disabled")
+
+    assert _is_declared(client, route, 403)
+
+
+@pytest.mark.parametrize(
+    ("route", "query", "status"),
+    [
+        pytest.param("coverage", {"provider": "dwd"}, 400, id="coverage-400"),
+        pytest.param("coverage", {"provider": "nope", "network": "nope"}, 404, id="coverage-404"),
+        pytest.param("auth", {"provider": "nope", "network": "nope"}, 404, id="auth-404"),
+        pytest.param("providers", {"provider": "nope"}, 404, id="providers-404"),
+        pytest.param("settings", {"unit_targets": '{"nope": "nope"}'}, 400, id="settings-400"),
+    ],
+)
+def test_the_catalogue_and_the_settings_declare_what_they_refuse(
+    client: TestClient, route: str, query: dict[str, str], status: int
+) -> None:
+    """The routes with no reader refuse by what they are asked, and say so."""
+    _is_a_problem(client.get(f"/api/v1/{route}", params=query), status)
+
+    assert _is_declared(client, route, status)
+
+
+def test_every_route_declares_the_host_check_the_cap_the_timeout_and_the_defect(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The middleware answers every route under `/api/v1` with a 400 for its `Host`, and the 500, 503 and 504."""
+    document = client.get("/openapi.json").json()
+    routes = [path.removeprefix("/api/v1/") for path in document["paths"] if path.startswith("/api/v1/")]
+    declared = {
+        route: [status for status in (400, 500, 503, 504) if _is_declared(client, route, status)] for route in routes
+    }
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "localhost")
+    refused = TestClient(restapi.app, base_url="http://evil.example", raise_server_exceptions=False)
+
+    assert routes
+    for route in routes:
+        _is_a_problem(refused.get(f"/api/v1/{route}"), 400, "host-not-allowed")
+    assert all(statuses == [400, 500, 503, 504] for statuses in declared.values()), declared
+
+
+def test_the_routes_of_the_document_are_the_routes_of_the_table_of_answers() -> None:
+    """A route added to the API is given the statuses it can answer, or the document cannot be built."""
+    paths = {path.removeprefix("/api/v1/") for path in restapi.app.openapi()["paths"] if path.startswith("/api/v1/")}
+
+    assert paths == set(restapi._ROUTE_ANSWERS)  # noqa: SLF001
+
+
+def test_a_status_with_a_retry_is_declared_with_its_header(client: TestClient) -> None:
+    """The 502, 503 and 504 say after how long a request may be repeated, as they are answered."""
+    components = client.get("/openapi.json").json()["components"]["responses"]
+
+    for name in ("BadGateway", "Unavailable", "GatewayTimeout"):
+        assert components[name]["headers"]["Retry-After"]["schema"] == {"type": "integer"}
+    assert not any("headers" in components[name] for name in ("BadRequest", "NotFound", "InternalError"))

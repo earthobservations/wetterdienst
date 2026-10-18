@@ -8,11 +8,14 @@ See `tests/ui/openapi_snapshot.py` for what the snapshot is and the command that
 from __future__ import annotations
 
 import json
+import tomllib
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from tests.ui.openapi_snapshot import GENERATED_WITH, SNAPSHOT, build_document, installed_versions, locked_versions
+from wetterdienst import __version__
 
 _REGENERATE = (
     "The OpenAPI document served by the REST API is not tests/ui/openapi.snapshot.json. If the change is "
@@ -24,6 +27,15 @@ _REGENERATE = (
 
 def _snapshot() -> dict[str, Any]:
     return json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+
+
+def _unversioned(document: dict[str, Any]) -> dict[str, Any]:
+    """Give a document without `info.version`, which is the version of the package and so changes at each release.
+
+    The snapshot is not rewritten for a release: `test_the_document_is_of_the_version_that_serves_it` holds the
+    served `info.version` to the package's.
+    """
+    return {**document, "info": {key: value for key, value in document["info"].items() if key != "version"}}
 
 
 def _changes(served: object, committed: object, where: str = "#") -> list[str]:
@@ -54,7 +66,7 @@ def test_the_served_openapi_document_is_the_committed_snapshot() -> None:
     if installed_versions() != locked_versions():
         pytest.skip(f"the snapshot is written with {locked_versions()}, and {installed_versions()} is installed")
 
-    changes = _changes(build_document(), committed)
+    changes = _changes(_unversioned(build_document()), _unversioned(committed))
 
     assert not changes, f"{_REGENERATE}\n" + "\n".join(changes[:40])
 
@@ -89,4 +101,89 @@ def test_the_two_prefixes_are_one_contract() -> None:
     assert paths
     assert {path for path in paths if path.startswith("/api")} == {
         path for path in paths if path.startswith("/api/v1/")
+    }
+
+
+# --- the document is complete (GH-3129) --------------------------------------------------------
+
+_PYPROJECT = tomllib.loads((Path(__file__).parents[2] / "pyproject.toml").read_text(encoding="utf-8"))
+
+
+def test_the_document_is_of_the_version_that_serves_it() -> None:
+    """`info.version` is the version of wetterdienst, whichever release the snapshot was written in."""
+    assert build_document()["info"]["version"] == __version__
+
+
+def test_the_info_is_the_projects_own() -> None:
+    """The title, licence, contact and servers are what `pyproject.toml` says, not FastAPI's default."""
+    document = build_document()
+    info, urls = document["info"], _PYPROJECT["project"]["urls"]
+
+    assert info["title"] == "Wetterdienst"
+    assert info["summary"] == _PYPROJECT["project"]["description"]
+    assert info["description"].strip()
+    assert info["license"]["identifier"] == _PYPROJECT["project"]["license-expression"] == "MIT"
+    assert info["license"]["url"].startswith(urls["Repository"])
+    assert info["contact"]["url"] == urls["Issues"]
+    assert urls["Restapi"].rstrip("/") in [server["url"] for server in document["servers"]]
+    assert all(server["description"] for server in document["servers"])
+
+
+def test_every_operation_is_in_a_tag_that_is_described() -> None:
+    """A group of the document says what it is for, and every operation is in one."""
+    document = build_document()
+    tags = {tag["name"]: tag["description"] for tag in document["tags"]}
+
+    assert tags
+    assert all(tags.values())
+    operations = [operation for item in document["paths"].values() for operation in item.values()]
+    assert operations
+    assert all(operation["tags"] and set(operation["tags"]) <= set(tags) for operation in operations)
+    assert {name for operation in operations for name in operation["tags"]} == set(tags), "a tag nothing is in"
+
+
+def test_every_operation_is_described_and_has_an_id_of_its_own() -> None:
+    """Each has a description, a unique `operationId`, and a description for each query parameter."""
+    document = build_document()
+    operations = [(path, operation) for path, item in document["paths"].items() for operation in item.values()]
+
+    ids = [operation["operationId"] for _, operation in operations]
+    assert len(ids) == len(set(ids))
+    for path, operation in operations:
+        assert operation["description"].strip(), path
+        missing = [
+            parameter["name"] for parameter in operation.get("parameters", []) if not parameter.get("description")
+        ]
+        assert not missing, f"{path}: {missing} have no description"
+
+
+def test_every_json_answer_has_a_schema() -> None:
+    """No route documents its JSON as `{}`: the health check and the version have a model, as the others have."""
+    document = build_document()
+
+    bare = [
+        path
+        for path, item in document["paths"].items()
+        for operation in item.values()
+        for media, content in operation["responses"]["200"].get("content", {}).items()
+        if media == "application/json" and not content.get("schema")
+    ]
+    assert not bare, bare
+    health = document["paths"]["/health"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert health == {"$ref": "#/components/schemas/Health"}
+    version = document["paths"]["/api/v1/version"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert version == {"$ref": "#/components/schemas/VersionAnswer"}
+
+
+def test_the_pages_and_the_image_say_their_media_type() -> None:
+    """The index is HTML, `robots.txt` text, and the stripes image an image of each format it renders."""
+    paths = build_document()["paths"]
+
+    assert set(paths["/"]["get"]["responses"]["200"]["content"]) == {"text/html"}
+    assert set(paths["/robots.txt"]["get"]["responses"]["200"]["content"]) == {"text/plain"}
+    assert set(paths["/api/v1/stripes/image"]["get"]["responses"]["200"]["content"]) == {
+        "image/png",
+        "image/jpeg",
+        "image/svg+xml",
+        "application/pdf",
     }

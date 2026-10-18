@@ -20,7 +20,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
@@ -113,6 +113,7 @@ from wetterdienst.ui.middleware import RequestContextMiddleware, request_timeout
 from wetterdienst.ui.problems import (
     PROBLEM_MEDIA_TYPE,
     PROBLEMS,
+    RETRY_AFTER_STATUSES,
     ProblemError,
     ProblemKind,
     current_request_id,
@@ -178,13 +179,76 @@ if TYPE_CHECKING:
 
 info = Info()
 
+# the groups of operations in the OpenAPI document, see `app`
+TAG_CATALOGUE = "Catalogue"
+TAG_STATIONS = "Stations"
+TAG_VALUES = "Values"
+TAG_STRIPES = "Climate stripes"
+TAG_ALERTS = "Alerts"
+TAG_SERVER = "Server"
+
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
 # export from `OTEL_EXPORTER_OTLP_*` is off: it would set up providers where the OpenTelemetry SDK
 # is installed and none is, add a second exporter to one the operator set up, and where it cannot
 # export (no SDK, gRPC) warn on fastapi 0.142.2 and refuse to start on 0.142.0 and 0.142.1. To
 # export, set up the provider, e.g. with `opentelemetry-instrument` (GH-2407). An MCP tool's
 # in-process request to this app is left out, see `is_tool_request` (GH-2432)
-app = FastAPI(debug=False, telemetry={"auto_configure": False, "exclude": is_tool_request})
+#
+# The `info` of the OpenAPI document is the project's, from `pyproject.toml` and the README (GH-3129): the version is
+# the package's, the API version is in the path (`/api/v1`) and is the first thing the description says.
+app = FastAPI(
+    title="Wetterdienst",
+    summary="Open weather data for humans",
+    description=dedent(
+        f"""\
+        Weather, climate and hydrology data from national weather services (DWD, NOAA, ECCC and many more) through
+        one interface: find a station with `stations`, read its measurements with `values`, or estimate a point
+        between stations with `interpolate` and `summarize`.
+
+        **Version.** This document describes version {API_VERSION} of the API, served under `/api/v{API_VERSION}`;
+        `/api` is an alias of the current version. `info.version` is the version of wetterdienst that serves it.
+        The `operationId` of an operation is stable: the name of its handler, then its path without the version and
+        its method (`values_api_values_get`), and the MCP tools are found by it. A change to one is a break of the
+        API version, as a removed path, parameter or member is.
+
+        **Answers.** The JSON and GeoJSON of the data routes carry a `metadata` block next to the data: the
+        provider with its licence and the credit line to give, the request as resolved, counts and warnings.
+
+        **Errors.** Every error is an `application/problem+json` document as RFC 9457 describes it (`Problem`),
+        whose `type` names the kind of error: read that, not the `detail`. A 502, 503 or 504 carries `Retry-After`.
+
+        **Licence.** The code is MIT. The data is published under the terms of its provider, which the `metadata`
+        of every answer and `providers` state.
+        """
+    ),
+    version=__version__,
+    contact={"name": "wetterdienst", "url": "https://github.com/earthobservations/wetterdienst/issues"},
+    license_info={
+        "name": "MIT",
+        "identifier": "MIT",
+        "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md",
+    },
+    servers=[
+        {"url": "https://wetterdienst.eobs.org", "description": "The hosted instance."},
+        {"url": "http://127.0.0.1:7890", "description": "A local server, as `wetterdienst restapi` starts it."},
+    ],
+    openapi_tags=[
+        {
+            "name": TAG_CATALOGUE,
+            "description": "What the server offers: providers, networks, parameters, and credentials.",
+        },
+        {"name": TAG_STATIONS, "description": "Find stations and read their history and the runs of a forecast."},
+        {"name": TAG_VALUES, "description": "Measurements of stations, or estimated for a point between them."},
+        {
+            "name": TAG_STRIPES,
+            "description": "Climate stripes of a station in Germany: stations, values and the image.",
+        },
+        {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
+        {"name": TAG_SERVER, "description": "This instance: its version and limits, its settings, and its health."},
+    ],
+    debug=False,
+    telemetry={"auto_configure": False, "exclude": is_tool_request},
+)
 
 #: where the current version is served; OpenAPI documents this prefix (GH-2561)
 API_PREFIX = f"/api/v{API_VERSION}"
@@ -675,7 +739,12 @@ class _StripesValuesWithMetadataDict(TypedDict):
     values: list[_StripesValue]
 
 
-@app.get("/")
+@app.get(
+    "/",
+    response_class=HTMLResponse,
+    tags=[TAG_SERVER],
+    responses={200: {"content": {"text/html": {"schema": {"type": "string"}}}}},
+)
 def index() -> HTMLResponse:
     """Provide index page."""
 
@@ -822,7 +891,12 @@ def index() -> HTMLResponse:
     )
 
 
-@app.get("/robots.txt")
+@app.get(
+    "/robots.txt",
+    response_class=PlainTextResponse,
+    tags=[TAG_SERVER],
+    responses={200: {"content": {"text/plain": {"schema": {"type": "string"}}}}},
+)
 def robots() -> PlainTextResponse:
     """Provide robots.txt."""
     return PlainTextResponse(
@@ -835,14 +909,57 @@ def robots() -> PlainTextResponse:
     )
 
 
-@app.get("/health")
-def health() -> JSONResponse:
-    """Health check."""
-    return JSONResponse(content={"status": "OK"})
+class Health(BaseModel):
+    """The answer of the liveness probe."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"status": "OK"}]})
+
+    status: Literal["OK"] = Field(description="Always `OK`: the server is up and answers. It reads no setting.")
 
 
-@router.get("/version")
-def version() -> JSONResponse:
+@app.get("/health", response_model=Health, tags=[TAG_SERVER])
+def health() -> Health:
+    """Health check: liveness, for a probe. It is `OK` as long as the server answers; it checks nothing else."""
+    return Health(status="OK")
+
+
+class VersionAnswer(BaseModel):
+    """What an instance is: the versions it serves, whether it serves MCP, and the limits it holds requests to."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "version": "0.159.0",
+                    "api_version": "1",
+                    "mcp_enabled": True,
+                    "mcp_path": "/mcp/v1",
+                    "mcp_alias_path": "/mcp",
+                    "limits": {
+                        "max_stations": 100,
+                        "max_rows": 500000,
+                        "max_stream_rows": 10000000,
+                        "timeout": 60.0,
+                        "max_concurrent": 32,
+                    },
+                }
+            ]
+        },
+    )
+
+    version: str = Field(description="The version of wetterdienst this instance runs, e.g. `0.159.0`.")
+    api_version: str = Field(description="The version of the REST API contract, the `v1` of `/api/v1`.")
+    mcp_enabled: bool = Field(description="Whether the MCP endpoint is served: it needs the `mcp` extra.")
+    mcp_path: str | None = Field(description="The MCP endpoint of the contract version (`/mcp/v1`); null without MCP.")
+    mcp_alias_path: str | None = Field(
+        description="The MCP endpoint that follows the current version (`/mcp`); null without MCP."
+    )
+    limits: Limits = Field(description="The limits and the timeout this instance holds requests to.")
+
+
+@router.get("/version", response_model=VersionAnswer, tags=[TAG_SERVER])
+def version() -> VersionAnswer:
     """Get version information, what this instance serves, and the limits it holds requests to.
 
     `api_version` is the version of the REST API contract the routes are served under
@@ -862,15 +979,13 @@ def version() -> JSONResponse:
     `csv`, and the `timeout` in seconds. A request that passes one is a 400 problem of the kind
     `limit-exceeded`, the timeout a 504; 0 means the instance sets none.
     """
-    return JSONResponse(
-        content={
-            "version": __version__,
-            "api_version": API_VERSION,
-            "mcp_enabled": mcp_enabled,
-            "mcp_path": MCP_PREFIX if mcp_enabled else None,
-            "mcp_alias_path": MCP_ALIAS_PREFIX if mcp_enabled else None,
-            "limits": limits_of(Settings()).model_dump(),
-        },
+    return VersionAnswer(
+        version=__version__,
+        api_version=API_VERSION,
+        mcp_enabled=mcp_enabled,
+        mcp_path=MCP_PREFIX if mcp_enabled else None,
+        mcp_alias_path=MCP_ALIAS_PREFIX if mcp_enabled else None,
+        limits=limits_of(Settings()),
     )
 
 
@@ -882,7 +997,7 @@ _ENDPOINT_SETTINGS: tuple[tuple[str, type[BaseModel], type[_AppliedSettings]], .
 )
 
 
-@router.get("/settings", response_model=ServerSettings)
+@router.get("/settings", response_model=ServerSettings, tags=[TAG_SERVER])
 def server_settings(request: Annotated[SettingsRequest, Query()], http_request: Request) -> Response:
     """Get the settings `/api/values`, `/api/interpolate` and `/api/summarize` take, for the query parameters given.
 
@@ -924,8 +1039,48 @@ def server_settings(request: Annotated[SettingsRequest, Query()], http_request: 
     return Response(content=content.model_dump_json(), media_type="application/json")
 
 
-#: the routes whose answers can be a limit's 400 or the timeout's 504 (GH-3065)
-_LIMITED_ROUTES = ("stations", "values", "interpolate", "summarize", "history")
+#: what a route can answer beyond its 200 and the 422 of a malformed request, by the path under `API_PREFIX`. The
+#: statuses are the table of `docs/usage/restapi.md`, and `tests/ui/test_openapi_snapshot.py` holds each route to what
+#: its handler answers. A route that reads from a provider can answer all that `_failure` does: a 400 for a request
+#: it refuses (a limit, a window, an image too large), a 404, a 501 for what this server lacks or does not implement
+#: and a 502 for a provider that failed; the 403 is `sql` and `sql_values` where the server does not enable them
+_DATA_ANSWERS = (400, 404, 501, 502)
+_ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
+    "version": (),
+    "settings": (400,),
+    "auth": (404, 501),
+    "coverage": (400, 404, 501),
+    "providers": (404,),
+    "glossary": (),
+    "stations": (403, *_DATA_ANSWERS),
+    "issues": _DATA_ANSWERS,
+    "history": _DATA_ANSWERS,
+    "values": (403, *_DATA_ANSWERS),
+    "interpolate": (403, *_DATA_ANSWERS),
+    "summarize": (403, *_DATA_ANSWERS),
+    "stripes/stations": (501, 502),
+    "stripes/values": _DATA_ANSWERS,
+    "stripes/image": _DATA_ANSWERS,
+    "alerts": _DATA_ANSWERS,
+}
+#: what every route under `API_PREFIX` can answer: a `Host` that is not allowed (400), a defect (500), the cap on
+#: requests served at once (503) and the request timeout (504), see `ui.middleware`
+_EVERY_ROUTE_ANSWERS = (400, 500, 503, 504)
+#: the routes outside it that the host check holds to: the index and `robots.txt`; `/health` answers to any host
+_HOST_CHECKED_ROUTES = ("/", "/robots.txt")
+
+#: the component each status of a problem is described in, with the text of its title, spelt out so that the
+#: document is the same on every Python. The 422 is not here: FastAPI adds it, `_declare_problem_schema` completes it
+_PROBLEM_COMPONENTS = {
+    400: ("BadRequest", "Bad Request"),
+    403: ("Forbidden", "Forbidden"),
+    404: ("NotFound", "Not Found"),
+    500: ("InternalError", "Internal Server Error"),
+    501: ("NotImplemented", "Not Implemented"),
+    502: ("BadGateway", "Bad Gateway"),
+    503: ("Unavailable", "Service Unavailable"),
+    504: ("GatewayTimeout", "Gateway Timeout"),
+}
 
 _RETRY_AFTER_HEADER = {
     "Retry-After": {
@@ -935,15 +1090,34 @@ _RETRY_AFTER_HEADER = {
 }
 
 
+def _problem_components() -> dict[str, dict[str, Any]]:
+    """Describe each status a problem is answered with, and the kinds of problem it is, from `PROBLEMS`."""
+    problem = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
+    components: dict[str, dict[str, Any]] = {}
+    for status, (name, title) in _PROBLEM_COMPONENTS.items():
+        kinds = "\n".join(
+            f"- `{kind.value}`: {spec.description}" for kind, spec in PROBLEMS.items() if spec.status == status
+        )
+        components[name] = {
+            "description": f"{title}. The body is a problem (`Problem`) of one of the kinds:\n\n{kinds}",
+            "content": problem,
+        }
+        if status in RETRY_AFTER_STATUSES:
+            components[name]["headers"] = _RETRY_AFTER_HEADER
+    return components
+
+
 def _declare_problem_schema(schema: dict[str, Any]) -> None:
-    """Describe the error body in the schema: the 422 of each operation is the `Problem` of `_problem_response`.
+    """Describe the error body in the schema: the problem of `_problem_response`, and the routes that can answer it.
 
     FastAPI documents the 422 it adds to every operation with a query as `HTTPValidationError`,
     `{"detail": [ValidationError]}`, which this API no longer answers: its `detail` is text and the
-    entries are under `errors`. Changed in place, and the same when it runs again. The data routes also list the
-    400 of a limit and the 502, 503 and 504 of a provider that fails or a request that takes too long (GH-3065).
+    entries are under `errors`. Changed in place, and the same when it runs again. Each route also lists the statuses it
+    can answer beyond its 200 (`_ROUTE_ANSWERS`, `_EVERY_ROUTE_ANSWERS`), each a reference to the component of that
+    status, which lists the kinds of problem it is (GH-3065, GH-3129).
     """
-    schemas = schema.setdefault("components", {}).setdefault("schemas", {})
+    components = schema.setdefault("components", {})
+    schemas = components.setdefault("schemas", {})
     schemas.pop("HTTPValidationError", None)
     kinds = ", ".join(f"`{kind.value}`" for kind in PROBLEMS)
     schemas["Problem"] = {
@@ -981,26 +1155,39 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             },
         },
         "required": ["type", "title", "status", "detail", "instance", "request_id"],
+        "examples": [
+            {
+                "type": "urn:wetterdienst:problem:request-refused",
+                "title": "Bad Request",
+                "status": 400,
+                "detail": "the interval in timestamp ends before it starts",
+                "instance": "urn:wetterdienst:request:4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+                "request_id": "4f1f6c5c0f4e4e2b9a1d7c1c0d9b7a11",
+            }
+        ],
     }
-    problem = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
+    components["responses"] = _problem_components()
     for path, item in schema.get("paths", {}).items():
-        limited = path.removeprefix(API_PREFIX).strip("/") in _LIMITED_ROUTES
+        route = path.removeprefix(API_PREFIX).strip("/") if path.startswith(f"{API_PREFIX}/") else None
+        if route is not None:
+            answers = {*_EVERY_ROUTE_ANSWERS, *_ROUTE_ANSWERS[route]}
+        elif path in _HOST_CHECKED_ROUTES:
+            answers = {400}
+        else:
+            answers = set()
         for operation in item.values():
             responses = operation.get("responses", {})
-            if (response := responses.get("422")) is not None:
-                response["content"] = problem
-            if not limited:
-                continue
-            responses["400"] = {
-                "description": "The request is refused, or passes a limit of the server.",
-                "content": problem,
-            }
-            for status, text in (
-                (502, "The data provider failed."),
-                (503, "The server could not reach the data provider."),
-                (504, "The data provider, or the server's own request timeout, did not answer in time."),
-            ):
-                responses[str(status)] = {"description": text, "content": problem, "headers": _RETRY_AFTER_HEADER}
+            if (invalid := responses.get("422")) is not None:
+                # the one status that FastAPI adds, kept as it describes it, with the problem as its content
+                invalid["content"] = {PROBLEM_MEDIA_TYPE: {"schema": {"$ref": "#/components/schemas/Problem"}}}
+            declared = {key: value for key, value in responses.items() if key not in map(str, _PROBLEM_COMPONENTS)}
+            declared.update(
+                {
+                    str(status): {"$ref": f"#/components/responses/{_PROBLEM_COMPONENTS[status][0]}"}
+                    for status in sorted(answers)
+                }
+            )
+            operation["responses"] = declared
 
 
 def _declare_list_parameters(schema: dict[str, Any]) -> None:
@@ -1138,7 +1325,7 @@ def _resolve_listed_network(provider: str, network: str, what: str) -> type[Time
         ) from e
 
 
-@router.get("/auth", response_model=AuthAnswer)
+@router.get("/auth", response_model=AuthAnswer, tags=[TAG_CATALOGUE])
 def auth(
     request: Annotated[AuthRequest, Query()],
 ) -> AuthAnswer:
@@ -1179,7 +1366,7 @@ CoverageResolutions = dict[Resolution, CoverageResolution]
 CoverageAnswer = dict[str, dict[str, CoverageNetwork] | CoverageResolution]
 
 
-@router.get("/coverage", response_model=CoverageAnswer)
+@router.get("/coverage", response_model=CoverageAnswer, tags=[TAG_CATALOGUE])
 def coverage(
     request: Annotated[CoverageRequest, Query()],
 ) -> Response:
@@ -1236,7 +1423,7 @@ def coverage(
     return Response(content=json.dumps(cov, indent=4 if request.pretty else None), media_type="application/json")
 
 
-@router.get("/providers", response_model=ProvidersAnswer)
+@router.get("/providers", response_model=ProvidersAnswer, tags=[TAG_CATALOGUE])
 def providers(
     request: Annotated[ProvidersRequest, Query()],
 ) -> Response:
@@ -1266,7 +1453,7 @@ def providers(
     )
 
 
-@router.get("/glossary", response_model=list[GlossaryEntry])
+@router.get("/glossary", response_model=list[GlossaryEntry], tags=[TAG_CATALOGUE])
 def glossary(
     request: Annotated[GlossaryRequest, Query()],
 ) -> list[GlossaryEntry]:
@@ -1489,6 +1676,7 @@ def _stream_values(
     "/stations",
     response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
     responses=_STREAM_RESPONSES,
+    tags=[TAG_STATIONS],
 )
 def stations(
     request: Annotated[StationsRequest, Query()],
@@ -1547,7 +1735,7 @@ def stations(
     return _answer(content, request.format, metadata)
 
 
-@router.get("/issues", response_model=_IssuesWithMetadataDict)
+@router.get("/issues", response_model=_IssuesWithMetadataDict, tags=[TAG_STATIONS])
 def issues(
     request: Annotated[IssuesRequest, Query()],
 ) -> Response:
@@ -1584,6 +1772,7 @@ def issues(
     "/values",
     response_model=_ValuesWithSettingsDict | _ValuesWithSettingsOgcFeatureCollection | str,
     responses=_STREAM_RESPONSES,
+    tags=[TAG_VALUES],
 )
 def values(
     request: Annotated[ValuesRequest, Query()],
@@ -1896,6 +2085,7 @@ def _geo_values(
 @router.get(
     "/interpolate",
     response_model=_InterpolatedValuesWithSettingsDict | _InterpolatedValuesWithSettingsOgcFeatureCollection | str,
+    tags=[TAG_VALUES],
 )
 def interpolate(
     request: Annotated[InterpolationRequest, Query()],
@@ -1938,6 +2128,7 @@ def interpolate(
 @router.get(
     "/summarize",
     response_model=_SummarizedValuesWithSettingsDict | _SummarizedValuesWithSettingsOgcFeatureCollection | str,
+    tags=[TAG_VALUES],
 )
 def summarize(
     request: Annotated[SummaryRequest, Query()],
@@ -1976,6 +2167,7 @@ def summarize(
 @router.get(
     "/stripes/stations",
     response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
+    tags=[TAG_STRIPES],
 )
 def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
@@ -1998,7 +2190,7 @@ def stripes_stations(
     return _answer(render_stripes_stations(stations, request, metadata), request.format, metadata)
 
 
-@router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str)
+@router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
 def stripes_values(
     request: Annotated[StripesValuesRequest, Query()],
 ) -> Response:
@@ -2029,7 +2221,21 @@ def stripes_values(
     return _answer(content, request.format, metadata)
 
 
-@router.get("/stripes/image")
+@router.get(
+    "/stripes/image",
+    response_class=Response,
+    tags=[TAG_STRIPES],
+    responses={
+        200: {
+            "description": "The image, in the media type of its `format`.",
+            "content": {
+                # no schema: one makes the MCP tool declare an output it does not structure
+                _MEDIA_TYPES[format_]: {}
+                for format_ in ("png", "jpg", "svg", "pdf")
+            },
+        }
+    },
+)
 def stripes_image(
     request: Annotated[StripesImageRequest, Query()],
 ) -> Response:
@@ -2054,7 +2260,7 @@ def stripes_image(
     )
 
 
-@router.get("/history", response_model=_HistoryWithMetadataDict)
+@router.get("/history", response_model=_HistoryWithMetadataDict, tags=[TAG_STATIONS])
 def history(
     request: Annotated[HistoryRequest, Query()],
 ) -> Response:
@@ -2104,6 +2310,7 @@ def history(
 @router.get(
     "/alerts",
     response_model=_AlertsWithMetadataDict | _AlertsWithMetadataOgcFeatureCollection | str,
+    tags=[TAG_ALERTS],
 )
 def alerts(
     request: Annotated[AlertsRequest, Query()],
