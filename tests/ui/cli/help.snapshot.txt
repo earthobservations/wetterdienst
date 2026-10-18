@@ -1,0 +1,932 @@
+# generated with click 8.5.0
+
+$ wetterdienst --help
+
+Usage: wetterdienst [OPTIONS] COMMAND [ARGS]...
+
+  Weather, climate and hydrology data from national weather services, in one interface.
+
+  A typical session finds a provider's network, then a station, then reads its data:
+
+      wetterdienst about coverage
+      wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden-Klotzsche
+      wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --stations=01048 --timestamp=2020-05
+
+  Run `wetterdienst COMMAND --help` for a command's options and examples.
+
+Options:
+  -v, --version  Show the version and exit.
+  --help         Show this message and exit.
+
+Commands:
+  about        Get information about the data.
+  alerts       Acquire DWD weather alerts (CAP warnings).
+  cache        Display cache location.
+  history      Acquire station history.
+  info         Display project information.
+  interpolate  Interpolate data for a point from the stations around it.
+  issues       List available issue (model-run) datetimes for a station.
+  radar        List radar stations.
+  restapi      Start the Wetterdienst REST API web service.
+  stations     Acquire stations.
+  stripes      Climate stripes.
+  summarize    Summarize data for a point: the nearest station's value.
+  values       Acquire data.
+
+
+$ wetterdienst about --help
+
+Usage: wetterdienst about [OPTIONS] COMMAND [ARGS]...
+
+  Get information about the data.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  auth       Check whether the credentials for a provider and network are present and accepted.
+  coverage   Get coverage information.
+  fields     Describe the fields of a dataset's files, from the provider's own documentation.
+  glossary   Look up what a parameter measures and which unit it is returned in.
+  providers  Describe what each data provider is: its name, country, licence, credit line,...
+
+
+$ wetterdienst about auth --help
+
+Usage: wetterdienst about auth [OPTIONS]
+
+  Check whether the credentials for a provider and network are present and accepted.
+
+  Prints `{"provider", "network", "auth", "configured", "valid"}`. `auth` is whether the network
+  needs credentials, `configured` whether they are present, and `valid` whether the provider
+  accepted (true) or rejected (false) them. `valid` is false where they are not configured, and null
+  where the check could not tell (no network, a timeout, a rate limit, an outage of the provider):
+  unknown, not rejected. A network that needs none is configured and valid.
+
+  This is the one command that probes the provider, for the one network asked about: a single
+  attempt that gives up after a few seconds. `about coverage` does not probe and has no `valid`,
+  only whether the credentials are `configured`. The exit code is 0 whatever `valid` is: read the
+  answer.
+
+Options:
+  --provider TEXT  Data provider/organisation. List the provider/network combinations with:
+                   wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv, ea, eaufrance, nws,
+                   geosphere  [required]
+  --network TEXT   Data network of the provider. Examples: observation, mosmix, radar, ghcn, pegel,
+                   hydrology  [required]
+  --debug BOOLEAN  Log at debug level. Default: false
+  --help           Show this message and exit.
+
+  Examples:
+
+  # whether the credentials this installation holds for a provider are present and accepted
+  wetterdienst about auth --provider=aemet --network=observation
+
+  # a network that needs none is configured and valid without a request
+  wetterdienst about auth --provider=dwd --network=observation
+
+
+$ wetterdienst about coverage --help
+
+Usage: wetterdienst about coverage [OPTIONS]
+
+  Get coverage information.
+
+  Without --provider and --network, every provider and network with its `name_short`, `country`,
+  `url` and `kind`, and whether it needs credentials and has them. `kind` is `observation`,
+  `forecast` or `derived` for a timeseries network, which has stations and values, and `radar` or
+  `alerts` for a standalone one (dwd/radar, dwd/alerts), which `stations` and `values` refuse. With
+  them, the resolutions, datasets and parameters of that network.
+
+Options:
+  --provider TEXT     Data provider. Without it and --network, every combination.
+  --network TEXT      Data network of the provider.
+  --resolutions TEXT  Only these resolutions, comma-separated. Needs --provider and --network.
+                      Example: daily,hourly
+  --datasets TEXT     Only these datasets, comma-separated. Needs --provider and --network. Example:
+                      climate_summary
+  --debug BOOLEAN     Log at debug level. Default: false
+  --help              Show this message and exit.
+
+  Examples:
+
+  # every provider and network
+  wetterdienst about coverage
+
+  # the resolutions, datasets and parameters of one network, or of part of it
+  wetterdienst about coverage --provider=dwd --network=observation
+  wetterdienst about coverage --provider=dwd --network=observation --resolutions=1_minute
+  wetterdienst about coverage --provider=dwd --network=observation --datasets=climate_summary
+
+
+$ wetterdienst about fields --help
+
+Usage: wetterdienst about fields [OPTIONS]
+
+  Describe the fields of a dataset's files, from the provider's own documentation.
+
+  DWD observation only: no other provider publishes such a description.
+
+Options:
+  --provider TEXT     Data provider/organisation. List the provider/network combinations with:
+                      wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv, ea, eaufrance,
+                      nws, geosphere  [required]
+  --network TEXT      Data network of the provider. Examples: observation, mosmix, radar, ghcn,
+                      pegel, hydrology  [required]
+  --resolution TEXT   Resolution name, e.g. daily or hourly.  [required]
+  --dataset TEXT      Dataset name, e.g. climate_summary or precipitation.  [required]
+  --period TEXT       Period name, e.g. historical, recent or now.  [required]
+  --language [en|de]  Language of the field descriptions. Default: en
+  --debug BOOLEAN     Log at debug level. Default: false
+  --help              Show this message and exit.
+
+
+$ wetterdienst about glossary --help
+
+Usage: wetterdienst about glossary [OPTIONS]
+
+  Look up what a parameter measures and which unit it is returned in.
+
+  The unit shown is the one a values request would return, including any WD_TS_UNIT_TARGETS
+  override.
+
+Options:
+  --parameter TEXT                Match canonical parameter names containing this text, e.g.
+                                  radiation.
+  --unit-type [angle|concentration|conductivity|degree_day|degree_hour|dimensionless|energy_per_area|fraction|length_long|length_medium|length_short|mass_per_volume|power_per_area|precipitation|precipitation_intensity|pressure|significant_weather|speed|temperature|time|turbidity|volume_per_time|wind_scale]
+                                  Restrict to one quantity, e.g. temperature.
+  --limit INTEGER RANGE           Return at most this many entries; the full vocabulary runs to
+                                  several hundred parameters.  [x>=1]
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+
+$ wetterdienst about providers --help
+
+Usage: wetterdienst about providers [OPTIONS]
+
+  Describe what each data provider is: its name, country, licence, credit line, source and networks.
+
+  Per provider: the names it goes by, its country and ISO 3166-1 alpha-2 `country_code`, the terms
+  it publishes its data under (`license`, null where it states none), the credit line to give
+  (`attribution`), and its networks with their `kind`, source `url`, whether they need credentials
+  and the resolutions and datasets they offer. Nothing is downloaded and no credential is read.
+  `about coverage` lists the parameters of a network.
+
+Options:
+  --provider TEXT  Only this provider. Without it, every provider. Example: dwd
+  --debug BOOLEAN  Log at debug level. Default: false
+  --help           Show this message and exit.
+
+
+$ wetterdienst alerts --help
+
+Usage: wetterdienst alerts [OPTIONS]
+
+  Acquire DWD weather alerts (CAP warnings).
+
+  Returns all warnings active at the selected time (the latest snapshot by default), one row per
+  alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+
+Options:
+  --granularity [community|district]
+                                  Spatial granularity: 'community' (per Gemeinde, default) or
+                                  'district' (per Landkreis).
+  --language [de|en|es|fr|mul]    Language of the warning texts. Default: en
+  --timestamp TEXT                Point in time (ISO 8601, UTC if no offset) to select the active-
+                                  warnings snapshot for. Defaults to the latest snapshot. Must fall
+                                  within DWD's rolling ~48-hour window.
+  --format [json|geojson|csv]     Output format. Default: json
+  --target TEXT                   Write output to this file instead of stdout. Example:
+                                  file://alerts.geojson
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # current warnings per community (Gemeinde), as JSON
+  wetterdienst alerts
+
+  # per district (Landkreis), as GeoJSON, in German
+  wetterdienst alerts --granularity=district --language=de --format=geojson
+
+  # the warnings active at a past time: replace YYYY-MM-DDTHH:MM with one within the last
+  # ~48 hours, all DWD keeps
+  wetterdienst alerts --granularity=district --timestamp=YYYY-MM-DDTHH:MM
+
+  # to a GeoJSON file
+  wetterdienst alerts --format=geojson --target=file://alerts.geojson
+
+
+$ wetterdienst cache --help
+
+Usage: wetterdienst cache [OPTIONS]
+
+  Display cache location.
+
+Options:
+  --help  Show this message and exit.
+
+
+$ wetterdienst history --help
+
+Usage: wetterdienst history [OPTIONS]
+
+  Acquire station history.
+
+  Select the stations with exactly one of --all or --stations.
+
+Options:
+  --provider TEXT          Data provider/organisation. List the provider/network combinations with:
+                           wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv, ea,
+                           eaufrance, nws, geosphere  [required]
+  --network TEXT           Data network of the provider. Examples: observation, mosmix, radar, ghcn,
+                           pegel, hydrology  [required]
+  --parameters TEXT        Parameters as resolution/dataset or resolution/dataset/parameter, comma-
+                           separated. Examples: daily/kl, daily/climate_summary/precipitation_amount
+                           [required]
+  --all BOOLEAN            Select all stations. Default: false
+  --stations TEXT          Select stations by id, comma-separated. Example: 01048,04411
+  --sections TEXT          History sections to include, comma-separated: name, parameter, device,
+                           geography, missing_data. Default: all. Each history gives its station_id,
+                           resolution and dataset, whichever are included
+  --format [json]          Output format. Default: json
+  --target TEXT            Write the output to this .json file instead of stdout. Example:
+                           file://history.json
+  --pretty BOOLEAN         Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                           Default: false
+  --with-metadata BOOLEAN  Add the units and the quality flags to the metadata block of JSON/GeoJSON
+                           output, which is always there. Default: false
+  --with-stations BOOLEAN  Include the stations in JSON/GeoJSON output. Default: false
+  --debug BOOLEAN          Log at debug level. Default: false
+  --help                   Show this message and exit.
+
+  Examples:
+
+  wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --stations=1048
+
+  # only the name and geography sections
+  wetterdienst history --provider=dwd --network=observation --parameters=daily/kl --stations=1048 \
+      --sections=name,geography
+
+
+$ wetterdienst info --help
+
+Usage: wetterdienst info [OPTIONS]
+
+  Display project information.
+
+Options:
+  --help  Show this message and exit.
+
+
+$ wetterdienst interpolate --help
+
+Usage: wetterdienst interpolate [OPTIONS]
+
+  Interpolate data for a point from the stations around it.
+
+  Give the point as exactly one of --station or --latitude/--longitude.
+
+Options:
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv,
+                                  ea, eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --parameters TEXT               Parameters as resolution/dataset or resolution/dataset/parameter,
+                                  comma-separated. Examples: daily/kl,
+                                  daily/climate_summary/precipitation_amount  [required]
+  --periods TEXT                  Dataset periods, comma-separated. Inferred from the timestamp when
+                                  one is given, else every period the requested datasets publish;
+                                  one they are not published under is rejected. Examples:
+                                  historical, recent, now
+  --timestamp TEXT                Single date or interval in ISO 8601 format, covering everything it
+                                  names: 2020-05-01 is that whole day, 2020-05 the month and 2020
+                                  the year, while a date carrying a time (2020-05-01T12) is that one
+                                  instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05
+  --start TEXT                    Start of a time window, instead of --timestamp. Given alone, it is
+                                  read as --timestamp.
+  --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
+  --lead-time [short|long]        DWD DMO forecast lead time; ignored by other networks. Default:
+                                  short
+  --issue TEXT                    DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with:
+                                  wetterdienst issues. Default: the latest
+  --station TEXT                  Station id whose location to estimate for, instead of
+                                  --latitude/--longitude.
+  --latitude FLOAT                Latitude of the reference point.
+  --longitude FLOAT               Longitude of the reference point.
+  --elevation FLOAT               Elevation of the reference point in metres above sea level. Given,
+                                  a quantity that falls with height -- air temperature, dew point --
+                                  is brought from each station's altitude to this one, which is what
+                                  tells a valley reading from a summit one. Applies to --station as
+                                  well, where it is the elevation asked about rather than the
+                                  station's own.
+  --interpolation-station-distance TEXT
+                                  Per-parameter maximum station distance in km as JSON, overriding
+                                  the radii. Example: {"precipitation_amount":10}
+  --interpolation-station-distance-homogeneous FLOAT
+                                  Maximum station distance in km for a parameter that varies slowly,
+                                  such as air temperature. Default:
+                                  WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40
+  --interpolation-station-distance-heterogeneous FLOAT
+                                  The same for one that decorrelates faster, such as precipitation,
+                                  at hourly resolution. Default:
+                                  WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20
+  --min-gain-of-value-pairs FLOAT RANGE
+                                  Minimum relative gain in value pairs required to add another
+                                  station. Default: WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else
+                                  0.1  [x>=0]
+  --num-additional-stations INTEGER RANGE
+                                  Number of additional nearby stations to consider. Default:
+                                  WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3  [x>=0]
+  --use-nearby-station-distance FLOAT
+                                  Use a station's own values when it is within this many km of the
+                                  point. Default: WD_TS_GEO_USE_NEARBY_STATION_DISTANCE if set, else
+                                  1
+  --sql-values TEXT               SQL WHERE clause applied to the values. Example:
+                                  parameter='wind_gust_max' AND value > 20
+  --convert-units BOOLEAN         Convert values to the unit targets: the defaults, overridden per
+                                  quantity by --unit-targets. Default: WD_TS_CONVERT_UNITS if set,
+                                  else true
+  --unit-targets TEXT             Unit targets as a JSON map of quantity to unit. Example:
+                                  {"temperature":"degree_fahrenheit"}
+  --humanize BOOLEAN              Use canonical parameter names instead of the provider's own codes.
+                                  Default: WD_TS_HUMANIZE if set, else true
+  --format [json|geojson|csv|html|png|jpg|webp|svg|pdf]
+                                  Output format: json, geojson or csv for data, html, png, jpg,
+                                  webp, svg or pdf for a chart. Default: json
+  --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
+  --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
+  --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
+  --target TEXT                   Export target URI, instead of stdout. Examples: file://data.csv,
+                                  duckdb:///obs.duckdb?table=weather
+  --if-exists [replace|append|fail|skip]
+                                  What to do when --target already holds data: 'replace' (drop and
+                                  rewrite, default), 'append' (add to it), 'fail' or 'skip'. Not
+                                  every sink takes every value: files refuse 'append', and InfluxDB
+                                  refuses 'fail' and 'skip' and accumulates under both of the
+                                  others, nothing there clearing a measurement. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
+                                  JSON/GeoJSON output, which is always there. Default: false
+  --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # daily precipitation where a station stands, from the stations around it
+  wetterdienst interpolate --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 --station=01048
+
+  # the same for a point
+  wetterdienst interpolate --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 \
+      --latitude=49.9195 --longitude=8.9671
+
+
+$ wetterdienst issues --help
+
+Usage: wetterdienst issues [OPTIONS]
+
+  List available issue (model-run) datetimes for a station.
+
+  Currently supported: --provider dwd --network mosmix|dmo|swsmos
+
+  A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
+  default to what a `values` request defaults to, which is what makes the answer one that request
+  accepts.
+
+Options:
+  --provider TEXT           Data provider/organisation. List the provider/network combinations with:
+                            wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv, ea,
+                            eaufrance, nws, geosphere  [required]
+  --network TEXT            Data network of the provider. Examples: observation, mosmix, radar,
+                            ghcn, pegel, hydrology  [required]
+  --station TEXT            Station id to list the model runs of.  [required]
+  --dataset [icon|icon_eu]  DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon
+  --lead-time [short|long]  DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS.
+                            Default: short
+  --debug BOOLEAN           Log at debug level. Default: false
+  --help                    Show this message and exit.
+
+
+$ wetterdienst radar --help
+
+Usage: wetterdienst radar [OPTIONS]
+
+  List radar stations.
+
+  Select the sites with exactly one of --dwd, --all, --odim-code, --wmo-code or --country-name.
+
+Options:
+  --dwd BOOLEAN        Select the radar sites DWD operates. Default: false
+  --all BOOLEAN        Select all OPERA radar sites. Default: false
+  --odim-code TEXT     Select the site with this ODIM code. Example: deasb
+  --wmo-code INTEGER   Select the site with this WMO code. Example: 10103
+  --country-name TEXT  Select the sites in this country. Example: france
+  --indent INTEGER     JSON indentation. Default: 4
+  --help               Show this message and exit.
+
+  Examples:
+
+  wetterdienst radar --all
+  wetterdienst radar --dwd
+  wetterdienst radar --country-name=france
+  wetterdienst radar --odim-code=deasb
+  wetterdienst radar --wmo-code=10103
+
+
+$ wetterdienst restapi --help
+
+Usage: wetterdienst restapi [OPTIONS]
+
+  Start the Wetterdienst REST API web service.
+
+Options:
+  --listen TEXT     Listen address as host:port. Default: 127.0.0.1:7890
+  --reload BOOLEAN  Reload the service when a source file changes, for development. Default: false
+  --debug BOOLEAN   Log at debug level. Default: false
+  --help            Show this message and exit.
+
+  Examples:
+
+  # listen on http://127.0.0.1:7890; with the mcp extra, it also serves MCP at /mcp/v1 (and /mcp)
+  wetterdienst restapi
+
+  # listen on every interface, and reload on source changes
+  wetterdienst restapi --listen=0.0.0.0:8890 --reload
+
+
+$ wetterdienst stations --help
+
+Usage: wetterdienst stations [OPTIONS]
+
+  Acquire stations.
+
+  Select them with exactly one of --all, --stations, --name, --latitude/--longitude with --rank or
+  --distance, --left/--bottom/--right/--top, or --sql. Given a window, with --timestamp or --start /
+  --end, only the stations whose record overlaps it are listed.
+
+  A selection that finds no station is no failure: the list is empty, the command says so on stderr
+  and exits 0. A station id of --stations the network has no station for is named in a warning and
+  left out.
+
+Options:
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv,
+                                  ea, eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --parameters TEXT               Parameters as resolution/dataset or resolution/dataset/parameter,
+                                  comma-separated. Examples: daily/kl,
+                                  daily/climate_summary/precipitation_amount  [required]
+  --periods TEXT                  Dataset periods, comma-separated. Inferred from the timestamp when
+                                  one is given, else every period the requested datasets publish;
+                                  one they are not published under is rejected. Examples:
+                                  historical, recent, now
+  --timestamp TEXT                Single date or interval in ISO 8601 format, covering everything it
+                                  names: 2020-05-01 is that whole day, 2020-05 the month and 2020
+                                  the year, while a date carrying a time (2020-05-01T12) is that one
+                                  instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05.
+                                  Given, only the stations whose record overlaps it are listed: one
+                                  that started after the window is left out, and so is one that
+                                  ended before it by more than two readings of its resolution (two
+                                  days up to daily), the end a source publishes lagging a station
+                                  still reporting
+  --start TEXT                    Start of a time window, instead of --timestamp. Given alone, it is
+                                  read as --timestamp.
+  --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
+  --all BOOLEAN                   Select all stations. Default: false
+  --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
+  --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
+                                  which lists candidates, the best one for `values`, unless --rank
+                                  says. Example: Dresden-Klotzsche
+  --name-threshold FLOAT RANGE    Minimum fuzzy-match score for --name (0 = any match, 1 = exact).
+                                  Default: 0.8  [0<=x<=1]
+  --latitude FLOAT                Latitude of the reference point.
+  --longitude FLOAT               Longitude of the reference point.
+  --rank INTEGER                  The N stations closest to --latitude/--longitude, or the N best
+                                  --name matches.
+  --distance FLOAT                The stations within this many km of --latitude/--longitude.
+  --left FLOAT                    Select stations in a bounding box: its west longitude.
+  --bottom FLOAT                  South latitude of the bounding box.
+  --right FLOAT                   East longitude of the bounding box.
+  --top FLOAT                     North latitude of the bounding box.
+  --sql TEXT                      Select stations by a SQL WHERE clause over their metadata.
+                                  Example: region='Sachsen'
+  --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
+                                  Output format: json, geojson, csv or ndjson (the metadata, a line
+                                  for each row, then the end) for data, html, png, jpg, webp, svg or
+                                  pdf for a chart. Default: json
+  --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
+  --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
+  --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
+  --target TEXT                   Export target URI, instead of stdout. Examples: file://data.csv,
+                                  duckdb:///obs.duckdb?table=weather
+  --if-exists [replace|append|fail|skip]
+                                  What to do when --target already holds data: 'replace' (drop and
+                                  rewrite, default), 'append' (add to it), 'fail' or 'skip'. Not
+                                  every sink takes every value: files refuse 'append', and InfluxDB
+                                  refuses 'fail' and 'skip' and accumulates under both of the
+                                  others, nothing there clearing a measurement. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
+                                  JSON/GeoJSON output, which is always there. Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # all stations with daily climate summaries, as JSON, CSV or GeoJSON
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all --format=csv
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all --format=geojson
+
+  # stations by id, or by fuzzy name
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden
+
+  # the five stations closest to a point, or those within 25 km of it
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
+      --latitude=49.9195 --longitude=8.9671 --rank=5
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
+      --latitude=49.9195 --longitude=8.9671 --distance=25
+
+  # only the stations with a record in a window, so the closest are not ones that closed long ago
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
+      --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-05
+
+  # stations by region, or by a pattern in their name
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --sql="region='Sachsen'"
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
+      --sql="lower(name) LIKE lower('%dresden%')"
+
+  # MOSMIX forecast stations
+  wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --all
+
+  # export to a spreadsheet
+  wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all \
+      --target=file://stations.xlsx
+
+
+$ wetterdienst stripes --help
+
+Usage: wetterdienst stripes [OPTIONS] COMMAND [ARGS]...
+
+  Climate stripes.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  image     Create the climate stripes image for a specific station.
+  stations  List stations for climate stripes.
+  values    Create the climate stripes image for a specific station. (DEPRECATED: Use `stripes
+            image`, which writes the image.)
+
+
+$ wetterdienst stripes image --help
+
+Usage: wetterdienst stripes image [OPTIONS]
+
+  Create the climate stripes image for a specific station.
+
+  Select the station with exactly one of --station or --name.
+
+Options:
+  --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
+  --station TEXT                  Station id, instead of --name.
+  --name TEXT                     Station name, matched fuzzily, instead of --station.
+  --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
+  --start-year INTEGER            First year. Default: the station's first
+  --end-year INTEGER              Last year. Default: the station's last
+  --show-title BOOLEAN            Show the station name. Default: true
+  --show-years BOOLEAN            Show the first and last year. Default: true
+  --show-data-availability BOOLEAN
+                                  Mark the years without data. Default: true
+  --format [png|jpg|svg|pdf]      Image format. Default: png
+  --dpi INTEGER RANGE             Resolution. Default: 300  [x>0]
+  --target FILE                   Write the image to this local file instead of stdout.
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # warming stripes for a station, by id or by name
+  wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
+  wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
+
+  # for the years 2000 to 2020
+  wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
+      > warming_stripes.png
+
+  # precipitation stripes, to a file
+  wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
+
+
+$ wetterdienst stripes stations --help
+
+Usage: wetterdienst stripes stations [OPTIONS]
+
+  List stations for climate stripes.
+
+Options:
+  --kind TEXT                  Kind of stripes: temperature or precipitation.  [required]
+  --active BOOLEAN             Only stations still reporting. Default: true
+  --format [json|geojson|csv]  Output format. Default: json
+  --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                               Default: false
+  --debug BOOLEAN              Log at debug level. Default: false
+  --help                       Show this message and exit.
+
+
+$ wetterdienst stripes values --help
+
+Usage: wetterdienst stripes values [OPTIONS]
+
+  Create the climate stripes image for a specific station.
+
+  Select the station with exactly one of --station or --name. (DEPRECATED: Use `stripes image`,
+  which writes the image.)
+
+Options:
+  --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
+  --station TEXT                  Station id, instead of --name.
+  --name TEXT                     Station name, matched fuzzily, instead of --station.
+  --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
+  --start-year INTEGER            First year. Default: the station's first
+  --end-year INTEGER              Last year. Default: the station's last
+  --show-title BOOLEAN            Show the station name. Default: true
+  --show-years BOOLEAN            Show the first and last year. Default: true
+  --show-data-availability BOOLEAN
+                                  Mark the years without data. Default: true
+  --format [png|jpg|svg|pdf]      Image format. Default: png
+  --dpi INTEGER RANGE             Resolution. Default: 300  [x>0]
+  --target FILE                   Write the image to this local file instead of stdout.
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # warming stripes for a station, by id or by name
+  wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
+  wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
+
+  # for the years 2000 to 2020
+  wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
+      > warming_stripes.png
+
+  # precipitation stripes, to a file
+  wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
+
+
+$ wetterdienst summarize --help
+
+Usage: wetterdienst summarize [OPTIONS]
+
+  Summarize data for a point: the nearest station's value.
+
+  Give the point as exactly one of --station or --latitude/--longitude.
+
+Options:
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv,
+                                  ea, eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --parameters TEXT               Parameters as resolution/dataset or resolution/dataset/parameter,
+                                  comma-separated. Examples: daily/kl,
+                                  daily/climate_summary/precipitation_amount  [required]
+  --periods TEXT                  Dataset periods, comma-separated. Inferred from the timestamp when
+                                  one is given, else every period the requested datasets publish;
+                                  one they are not published under is rejected. Examples:
+                                  historical, recent, now
+  --timestamp TEXT                Single date or interval in ISO 8601 format, covering everything it
+                                  names: 2020-05-01 is that whole day, 2020-05 the month and 2020
+                                  the year, while a date carrying a time (2020-05-01T12) is that one
+                                  instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05
+  --start TEXT                    Start of a time window, instead of --timestamp. Given alone, it is
+                                  read as --timestamp.
+  --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
+  --lead-time [short|long]        DWD DMO forecast lead time; ignored by other networks. Default:
+                                  short
+  --issue TEXT                    DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with:
+                                  wetterdienst issues. Default: the latest
+  --station TEXT                  Station id whose location to estimate for, instead of
+                                  --latitude/--longitude.
+  --latitude FLOAT                Latitude of the reference point.
+  --longitude FLOAT               Longitude of the reference point.
+  --elevation FLOAT               Elevation of the reference point in metres above sea level. Given,
+                                  a quantity that falls with height -- air temperature, dew point --
+                                  is brought from each station's altitude to this one, which is what
+                                  tells a valley reading from a summit one. Applies to --station as
+                                  well, where it is the elevation asked about rather than the
+                                  station's own.
+  --summary-station-distance TEXT
+                                  Per-parameter maximum station distance in km as JSON, overriding
+                                  the radii. Example: {"precipitation_amount":10}
+  --summary-station-distance-homogeneous FLOAT
+                                  Maximum station distance in km for a parameter that varies slowly,
+                                  such as air temperature. Default:
+                                  WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40
+  --summary-station-distance-heterogeneous FLOAT
+                                  The same for one that decorrelates faster, such as precipitation,
+                                  at hourly resolution. Default:
+                                  WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20
+  --min-gain-of-value-pairs FLOAT RANGE
+                                  Minimum relative gain in value pairs required to add another
+                                  station. Default: WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else
+                                  0.1  [x>=0]
+  --num-additional-stations INTEGER RANGE
+                                  Number of additional nearby stations to consider. Default:
+                                  WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3  [x>=0]
+  --sql-values TEXT               SQL WHERE clause applied to the values. Example:
+                                  parameter='wind_gust_max' AND value > 20
+  --convert-units BOOLEAN         Convert values to the unit targets: the defaults, overridden per
+                                  quantity by --unit-targets. Default: WD_TS_CONVERT_UNITS if set,
+                                  else true
+  --unit-targets TEXT             Unit targets as a JSON map of quantity to unit. Example:
+                                  {"temperature":"degree_fahrenheit"}
+  --humanize BOOLEAN              Use canonical parameter names instead of the provider's own codes.
+                                  Default: WD_TS_HUMANIZE if set, else true
+  --format [json|geojson|csv|html|png|jpg|webp|svg|pdf]
+                                  Output format: json, geojson or csv for data, html, png, jpg,
+                                  webp, svg or pdf for a chart. Default: json
+  --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
+  --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
+  --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
+  --target TEXT                   Export target URI, instead of stdout. Examples: file://data.csv,
+                                  duckdb:///obs.duckdb?table=weather
+  --if-exists [replace|append|fail|skip]
+                                  What to do when --target already holds data: 'replace' (drop and
+                                  rewrite, default), 'append' (add to it), 'fail' or 'skip'. Not
+                                  every sink takes every value: files refuse 'append', and InfluxDB
+                                  refuses 'fail' and 'skip' and accumulates under both of the
+                                  others, nothing there clearing a measurement. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
+                                  JSON/GeoJSON output, which is always there. Default: false
+  --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # daily precipitation where a station stands, from the nearest station with a value
+  wetterdienst summarize --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 --station=01048
+
+  # the same for a point
+  wetterdienst summarize --provider=dwd --network=observation \
+      --parameters=daily/climate_summary/precipitation_amount --timestamp=2020-06-30 \
+      --latitude=49.9195 --longitude=8.9671
+
+
+$ wetterdienst values --help
+
+Usage: wetterdienst values [OPTIONS]
+
+  Acquire data.
+
+  Select the stations with exactly one of --all, --stations, --name, --latitude/--longitude with
+  --rank or --distance, --left/--bottom/--right/--top, or --sql.
+
+Options:
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst about coverage. Examples: dwd, eccc, noaa, wsv,
+                                  ea, eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --parameters TEXT               Parameters as resolution/dataset or resolution/dataset/parameter,
+                                  comma-separated. Examples: daily/kl,
+                                  daily/climate_summary/precipitation_amount  [required]
+  --periods TEXT                  Dataset periods, comma-separated. Inferred from the timestamp when
+                                  one is given, else every period the requested datasets publish;
+                                  one they are not published under is rejected. Examples:
+                                  historical, recent, now
+  --timestamp TEXT                Single date or interval in ISO 8601 format, covering everything it
+                                  names: 2020-05-01 is that whole day, 2020-05 the month and 2020
+                                  the year, while a date carrying a time (2020-05-01T12) is that one
+                                  instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05
+  --start TEXT                    Start of a time window, instead of --timestamp. Given alone, it is
+                                  read as --timestamp.
+  --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
+  --lead-time [short|long]        DWD DMO forecast lead time; ignored by other networks. Default:
+                                  short
+  --issue TEXT                    DWD MOSMIX/DMO/SWSMOS model run (ISO 8601); list them with:
+                                  wetterdienst issues. Default: the latest
+  --all BOOLEAN                   Select all stations. Default: false
+  --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
+  --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
+                                  which lists candidates, the best one for `values`, unless --rank
+                                  says. Example: Dresden-Klotzsche
+  --name-threshold FLOAT RANGE    Minimum fuzzy-match score for --name (0 = any match, 1 = exact).
+                                  Default: 0.8  [0<=x<=1]
+  --latitude FLOAT                Latitude of the reference point.
+  --longitude FLOAT               Longitude of the reference point.
+  --rank INTEGER                  The N stations closest to --latitude/--longitude, or the N best
+                                  --name matches.
+  --distance FLOAT                The stations within this many km of --latitude/--longitude.
+  --left FLOAT                    Select stations in a bounding box: its west longitude.
+  --bottom FLOAT                  South latitude of the bounding box.
+  --right FLOAT                   East longitude of the bounding box.
+  --top FLOAT                     North latitude of the bounding box.
+  --sql TEXT                      Select stations by a SQL WHERE clause over their metadata.
+                                  Example: region='Sachsen'
+  --sql-values TEXT               SQL WHERE clause applied to the values. Example:
+                                  parameter='wind_gust_max' AND value > 20
+  --shape [long|wide]             Output shape: 'long' (one row per value) or 'wide' (one column per
+                                  parameter). Default: WD_TS_SHAPE if set, else long
+  --convert-units BOOLEAN         Convert values to the unit targets: the defaults, overridden per
+                                  quantity by --unit-targets. Default: WD_TS_CONVERT_UNITS if set,
+                                  else true
+  --unit-targets TEXT             Unit targets as a JSON map of quantity to unit. Example:
+                                  {"temperature":"degree_fahrenheit"}
+  --humanize BOOLEAN              Use canonical parameter names instead of the provider's own codes.
+                                  Default: WD_TS_HUMANIZE if set, else true
+  --skip-empty BOOLEAN            Skip stations whose coverage falls below --skip-threshold.
+                                  Default: WD_TS_SKIP_EMPTY if set, else false
+  --skip-criteria [min|mean|max]  Aggregation over the requested parameters' coverage: min, mean or
+                                  max. Default: WD_TS_SKIP_CRITERIA if set, else min
+  --skip-threshold FLOAT RANGE    Coverage fraction below which --skip-empty skips a station.
+                                  Default: WD_TS_SKIP_THRESHOLD if set, else 0.95  [0<x<=1]
+  --drop-nulls BOOLEAN            Drop rows with null values from the output. Default:
+                                  WD_TS_DROP_NULLS if set, else true
+  --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
+                                  Output format: json, geojson, csv or ndjson (the metadata, a line
+                                  for each row, then the end) for data, html, png, jpg, webp, svg or
+                                  pdf for a chart. Default: json
+  --width INTEGER RANGE           Width of a rendered chart in pixels.  [x>=1]
+  --height INTEGER RANGE          Height of a rendered chart in pixels.  [x>=1]
+  --scale FLOAT RANGE             Scale factor of a rendered chart image.  [x>0]
+  --target TEXT                   Export target URI, instead of stdout. Examples: file://data.csv,
+                                  duckdb:///obs.duckdb?table=weather
+  --if-exists [replace|append|fail|skip]
+                                  What to do when --target already holds data: 'replace' (drop and
+                                  rewrite, default), 'append' (add to it), 'fail' or 'skip'. Not
+                                  every sink takes every value: files refuse 'append', and InfluxDB
+                                  refuses 'fail' and 'skip' and accumulates under both of the
+                                  others, nothing there clearing a measurement. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Add the units and the quality flags to the metadata block of
+                                  JSON/GeoJSON output, which is always there. Default: false
+  --with-stations BOOLEAN         Include the stations in JSON/GeoJSON output. Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # recent daily climate summaries for two stations, or for one found by name
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+      --stations=1048,4411
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+      --name=Dresden-Hosterwitz
+
+  # a date covers everything it names: a day, a month, a year
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+      --timestamp=2020-05-01 --stations=1048
+  wetterdienst values --provider=dwd --network=observation --parameters=monthly/kl \
+      --timestamp=2020-05 --stations=1048
+  wetterdienst values --provider=dwd --network=observation --parameters=annual/kl \
+      --timestamp=2019 --stations=1048,4411
+
+  # a range, as an ISO 8601 interval or as --start/--end; historical and recent data are joined
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+      --timestamp=1969-01-01/2020-06-11 --stations=1048
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+      --start=2020-05-01 --end=2020-05-05 --stations=1048
+
+  # two parameters from different datasets, hourly, one column each
+  wetterdienst values --provider=dwd --network=observation \
+      --parameters=hourly/precipitation/precipitation_amount,hourly/air_temperature/temperature_air_2m \
+      --timestamp=2020-06-15T12/2020-06-16T12 --stations=1048,4411 --shape=wide
+
+  # the days with a wind gust above 20 m/s, one row per value or, filtering on the column, one per day
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+      --stations=1048,4411 --sql-values="parameter='wind_gust_max' AND value > 20.0"
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+      --stations=1048,4411 --shape=wide --sql-values="wind_gust_max > 20.0"
+
+  # the five stations closest to a point that have data for the date
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl \
+      --latitude=49.9195 --longitude=8.9671 --rank=5 --timestamp=2020-06-30
+
+  # MOSMIX and DMO forecasts
+  wetterdienst values --provider=dwd --network=mosmix --parameters=hourly/large/ttt,hourly/large/ff --stations=65510
+  wetterdienst values --provider=dwd --network=dmo --parameters=hourly/icon/ttt --stations=65510 --lead-time=long
+
+  # export to a file or a database
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+      --stations=1048,4411 --target=file://observations.parquet
+  wetterdienst values --provider=dwd --network=observation --parameters=daily/kl --periods=recent \
+      --stations=1048,4411 --target="duckdb:///observations.duckdb?table=weather"
+
+

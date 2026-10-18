@@ -338,6 +338,19 @@ coverage = [
 # the OpenAPI document as committed (tests/ui/openapi.snapshot.json), which a test holds the served one to: run after a
 # change to the contract, and read the diff
 "openapi:snapshot" = "uv run python -m tests.ui.openapi_snapshot"
+# the OpenAPI document of the last release, which a test holds the served one to (nothing it offered may be gone):
+# run once for a release, in the release commit, see .github/RELEASE_STRATEGY.md
+"openapi:baseline" = "uv run python -m tests.ui.openapi_baseline"
+# the `--help` of every command (tests/ui/cli/help.snapshot.txt) and the public surface of the Python API
+# (tests/public_surface.snapshot.json), each held by a test: run after an intended change, and read the diff
+"cli:snapshot" = "uv run python -m tests.ui.cli.help_snapshot"
+"surface:snapshot" = "uv run python -m tests.public_surface"
+# all three snapshots of the contract
+"contracts:snapshot" = [
+    "openapi:snapshot",
+    "cli:snapshot",
+    "surface:snapshot",
+]
 typecheck = "uv run ty check src/wetterdienst"
 # what a caller's checker makes of the wheel: builds it, installs it into clean environments and checks
 # `tests/typed_caller.py` against it, which `typecheck` (the checkout, read as first-party code) cannot say
