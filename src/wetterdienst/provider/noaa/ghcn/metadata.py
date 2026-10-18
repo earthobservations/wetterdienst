@@ -238,25 +238,25 @@ _NoaaGhcnMetadataSpec = {
                         # additional parameters
                         # Average cloudiness midnight to midnight from 30-second ceilometer data (percent)
                         {
-                            "name": "cloud_cover_total_midnight_to_midnight",
+                            "name": "cloud_cover_total_mean_midnight_to_midnight",
                             "name_original": "acmc",
                             "unit": "percent",
                         },
                         # Average cloudiness midnight to midnight from manual observation (percent)
                         {
-                            "name": "cloud_cover_total_midnight_to_midnight_manual",
+                            "name": "cloud_cover_total_mean_midnight_to_midnight_manual",
                             "name_original": "acmh",
                             "unit": "percent",
                         },
                         # Average cloudiness sunrise to sunset from 30-second ceilometer data (percent)
                         {
-                            "name": "cloud_cover_total_sunrise_to_sunset",
+                            "name": "cloud_cover_total_mean_sunrise_to_sunset",
                             "name_original": "acsc",
                             "unit": "percent",
                         },
                         # Average cloudiness sunrise to sunset from manual observation (percent)
                         {
-                            "name": "cloud_cover_total_sunrise_to_sunset_manual",
+                            "name": "cloud_cover_total_mean_sunrise_to_sunset_manual",
                             "name_original": "acsh",
                             "unit": "percent",
                         },

@@ -33,13 +33,13 @@ _BASE_PARAMETERS = [
         "unit": "degree_celsius",
     },
     {
-        "name": "humidity_relative",
+        "name": "humidity_relative_mean",
         "name_original": "mean_relative_hum",
         "unit": "percent",
     },
     {
         # DMI's mean_pressure is reduced to mean sea level (observed parameter "pressure_at_sea").
-        "name": "pressure_air_sea_level",
+        "name": "pressure_air_sea_level_mean",
         "name_original": "mean_pressure",
         "unit": "hectopascal",
     },

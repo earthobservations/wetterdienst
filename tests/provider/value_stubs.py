@@ -1045,7 +1045,7 @@ def _knmi_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
             ("daily", "data", "temperature_air_mean_2m"),
             ("daily", "data", "precipitation_amount"),
             ("daily", "data", "sunshine_duration"),
-            ("daily", "data", "cloud_cover_total"),
+            ("daily", "data", "cloud_cover_total_mean"),
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
@@ -1515,12 +1515,12 @@ STUBS = [
         _knmi_daily,
         reading=("temperature_air_mean_2m", 3.2),
         # the sunshine duration is converted from hours to seconds and the cloud cover from octants to a fraction
-        sentinels=(("precipitation_amount", -1.0), ("sunshine_duration", -3600.0), ("cloud_cover_total", 1.125)),
+        sentinels=(("precipitation_amount", -1.0), ("sunshine_duration", -3600.0), ("cloud_cover_total_mean", 1.125)),
         tokens=(
             ("temperature_air_mean_2m", "NaN", None),
             ("precipitation_amount", "-1", 0.0),
             ("sunshine_duration", "-1", 0.0),
-            ("cloud_cover_total", "9", None),
+            ("cloud_cover_total_mean", "9", None),
         ),
     ),
     ValueStub(

@@ -101,7 +101,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "visibility",
+                            "name": "visibility_mean",
                             "name_original": "vv",
                             "unit": "meter",
                         },
@@ -221,7 +221,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "UG",
                             "unit": "percent",
                         },
@@ -261,7 +261,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "joule_per_square_centimeter",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "NG",
                             "unit": "one_eighth",
                         },

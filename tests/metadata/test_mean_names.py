@@ -21,7 +21,16 @@ from tests.metadata.test_parameter_statistics import _source_description, _state
 from tests.test_api import ALL_METADATA
 
 # the plain names of the quantities named by the rule so far, each with its `_mean` beside it
-MEAN_NAMED = ("wind_direction", "wind_speed")
+MEAN_NAMED = (
+    "cloud_cover_total",
+    "humidity_relative",
+    "pressure_air_sea_level",
+    "pressure_air_site",
+    "pressure_vapor",
+    "visibility",
+    "wind_direction",
+    "wind_speed",
+)
 
 _MEAN_IN_THE_FIELD_NAME = re.compile(r"mittel|średni|media\b|moyen|gemiddeld|medel", re.IGNORECASE)
 
@@ -37,14 +46,20 @@ _PLAIN_ON_PURPOSE = {
 _NOT_EVIDENCE = {"WsvPegelMetadata"}
 
 
+def _quantity(name: str) -> str:
+    """Return the plain name a name is made from: `wind_speed_mean` and `cloud_cover_total_mean_sunrise_to_sunset`."""
+    return re.sub(r"_mean(?=_|$)", "", name, count=1)
+
+
 def _rows() -> Iterator[tuple[str, str, str, str, str, bool]]:
     """Yield `(metadata, resolution, dataset, name, name_original, states_a_mean)` for the rows of `MEAN_NAMED`."""
     for metadata in ALL_METADATA:
         for resolution in metadata:
             for dataset in resolution:
                 for parameter in dataset.parameters:
-                    base = parameter.name.removesuffix("_mean")
-                    if base not in MEAN_NAMED:
+                    base = _quantity(parameter.name)
+                    if base not in MEAN_NAMED or "_mean_last_" in parameter.name:
+                        # the means of a window shorter than the interval are held by test_parameter_statistics
                         continue
                     description = _source_description(metadata.name, resolution.name, dataset.name, parameter)
                     evidence = f"{description} {parameter.name_original}".strip()
@@ -72,7 +87,7 @@ def test_a_mean_name_needs_a_source_that_states_a_mean() -> None:
     wrong = [
         f"{metadata} {resolution}/{dataset}/{name} [{original}]: named a mean, but the source states none"
         for metadata, resolution, dataset, name, original, states in _rows()
-        if name.endswith("_mean") and not states
+        if name not in MEAN_NAMED and not states
     ]
     assert not wrong, "\n".join(wrong)
 

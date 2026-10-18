@@ -32,7 +32,7 @@ def test_meteofrance_observation_api_interleaved_datasets_no_duplicate_stations(
     request = MeteoFranceObservationRequest(
         parameters=[
             ("daily", "core", "precipitation_amount"),
-            ("daily", "others", "humidity_relative"),
+            ("daily", "others", "humidity_relative_mean"),
             ("daily", "core", "wind_speed_mean"),
         ],
     ).filter_by_station_id("31069001")
@@ -68,7 +68,7 @@ def test_meteofrance_observation_api_daily_stations() -> None:
         ("core", "wind_gust_max"),
         ("core", "wind_direction_gust_max"),
         ("others", "radiation_global"),
-        ("others", "humidity_relative"),
+        ("others", "humidity_relative_mean"),
     ],
 )
 def test_meteofrance_observation_api_daily(dataset: str, parameter: str) -> None:

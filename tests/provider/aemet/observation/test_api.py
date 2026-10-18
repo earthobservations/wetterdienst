@@ -185,7 +185,7 @@ def test_aemet_observation_values_daily(monkeypatch: pytest.MonkeyPatch) -> None
     assert value_on("pressure_air_site_max", day1) == pytest.approx(954.2)
     assert value_on("pressure_air_site_min", day1) == pytest.approx(952.0)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
-    assert value_on("humidity_relative", day1) == pytest.approx(0.65)
+    assert value_on("humidity_relative_mean", day1) == pytest.approx(0.65)
     assert value_on("humidity_relative_max", day1) == pytest.approx(0.80)
     assert value_on("humidity_relative_min", day1) == pytest.approx(0.48)
 
@@ -225,7 +225,7 @@ def test_aemet_observation_values_monthly(monkeypatch: pytest.MonkeyPatch) -> No
     assert value_of("precipitation_amount") == pytest.approx(16.4)
     assert value_of("precipitation_amount_max") == pytest.approx(5.4)
     # humidity is reported by AEMET as percent, wetterdienst stores it as fraction
-    assert value_of("humidity_relative") == pytest.approx(0.66)
+    assert value_of("humidity_relative_mean") == pytest.approx(0.66)
 
 
 @pytest.mark.remote
@@ -262,7 +262,7 @@ def test_aemet_observation_values_annual(monkeypatch: pytest.MonkeyPatch) -> Non
     assert value_of("precipitation_amount") == pytest.approx(474.4)
     assert value_of("precipitation_amount_max") == pytest.approx(37.8)
     # AEMET's annual aggregate doesn't include a humidity field at all
-    assert df.filter(pl.col("parameter").eq("humidity_relative")).is_empty()
+    assert df.filter(pl.col("parameter").eq("humidity_relative_mean")).is_empty()
 
 
 @pytest.mark.remote

@@ -31,10 +31,10 @@
 | {term}`temperature_air_max_2m` | tmax | Maximum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths on Daily Form pdf file | °C | - |
 | {term}`temperature_air_min_2m` | tmin | Minimum  temperature  (Fahrenheit  or  Celsius  as per  user  preference, Fahrenheit  to tenths  on Daily Form pdf file | °C | - |
 | {term}`temperature_air_mean_2m` | tavg | Average daily temperature. From source 'S' an average of hourly readings for the period ending at 2400 UTC; from other sources computed in a variety of ways, including traditional fixed hours of the day. | °C | - |
-| {term}`cloud_cover_total_midnight_to_midnight` | acmc | Average cloudiness midnight to midnight from 30-second ceilometer data (percent) | % | >=0,<=100 |
-| {term}`cloud_cover_total_midnight_to_midnight_manual` | acmh | Average cloudiness midnight to midnight from manual observation (percent) | % | >=0,<=100 |
-| {term}`cloud_cover_total_sunrise_to_sunset` | acsc | Average cloudiness sunrise to sunset from 30-second ceilometer data (percent) | % | >=0,<=100 |
-| {term}`cloud_cover_total_sunrise_to_sunset_manual` | acsh | Average cloudiness sunrise to sunset from manual observation (percent) | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean_midnight_to_midnight` | acmc | Average cloudiness midnight to midnight from 30-second ceilometer data (percent) | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean_midnight_to_midnight_manual` | acmh | Average cloudiness midnight to midnight from manual observation (percent) | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean_sunrise_to_sunset` | acsc | Average cloudiness sunrise to sunset from 30-second ceilometer data (percent) | % | >=0,<=100 |
+| {term}`cloud_cover_total_mean_sunrise_to_sunset_manual` | acsh | Average cloudiness sunrise to sunset from manual observation (percent) | % | >=0,<=100 |
 | {term}`wind_speed_mean` | awnd | Average daily wind speed (meters per second or miles per hour as per user preference) | m/s | >=0 |
 | {term}`count_days_multiday_evaporation` | daev | Number of days included in the multiday evaporation total (MDEV) | - | >=0 |
 | {term}`count_days_multiday_precipitation` | dapr | Number of days included in the multiday precipitation total (MDPR) | - | >=0 |

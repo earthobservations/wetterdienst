@@ -55,7 +55,7 @@ _SmhiObservationMetadataSpec = {
                             "unit": "meter",
                         },
                         {
-                            "name": "visibility",
+                            "name": "visibility_mean",
                             "name_original": "51",
                             "unit": "meter",
                         },

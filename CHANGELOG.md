@@ -18,6 +18,16 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the mean of humidity, pressure, cloud cover and visibility carries its statistic in
+  the name (GH-3151, second of three families): where the source states a mean of the row's interval
+  `humidity_relative`, `pressure_air_site`, `pressure_air_sea_level`, `pressure_vapor`,
+  `cloud_cover_total` and `visibility` are `<name>_mean` (81 rows, 14 networks, e.g. DWD daily and
+  monthly, MeteoSwiss, DMI, IMGW, MET Norway), and NOAA GHCN's average cloudiness is
+  `cloud_cover_total_mean_midnight_to_midnight` etc. Rows whose source states no statistic or a
+  reading at one moment keep the plain name. The old name is refused with the new one named: change
+  the `parameter` you request and filter on, wide column names, SQL filters and
+  `geo_station_distance` keys. All rows are in the parameters page of the docs. Release the app
+  after this backend
 - **Breaking**: the mean wind carries its statistic in the name, as `temperature_air_mean_2m` does
   (GH-3151, first of three families): where the source states a mean of the row's interval the name
   is `wind_speed_mean` / `wind_direction_mean` (46 rows, 13 networks), and a mean of a shorter

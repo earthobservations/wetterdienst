@@ -1290,17 +1290,17 @@ _DwdObservationMetadataSpec = {
                             "unit": "centimeter",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "nm",
                             "unit": "one_eighth",
                         },
                         {
-                            "name": "pressure_vapor",
+                            "name": "pressure_vapor_mean",
                             "name_original": "vpm",
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "pm",
                             "unit": "hectopascal",
                         },
@@ -1309,7 +1309,7 @@ _DwdObservationMetadataSpec = {
                             "name_original": "tmk",
                             "unit": "degree_celsius",
                         },
-                        {"name": "humidity_relative", "name_original": "upm", "unit": "percent"},
+                        {"name": "humidity_relative_mean", "name_original": "upm", "unit": "percent"},
                         {
                             "name": "temperature_air_max_2m",
                             "name_original": "txk",
@@ -1605,7 +1605,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "mo_n",
                             "unit": "one_eighth",
                         },
@@ -1858,7 +1858,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "cloud_cover_total",
+                            "name": "cloud_cover_total_mean",
                             "name_original": "ja_n",
                             "unit": "one_eighth",
                         },
