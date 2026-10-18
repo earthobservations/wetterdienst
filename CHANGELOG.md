@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `start` and `end` of a request take a month and a year as strings, `"2020-05"` and `"2020"`, as
+  the whole span they name, as the REST, CLI and MCP `timestamp` always read them: `start="2020-05"`
+  begins at the first instant of May and `end="2020-05"` ends at 23:59:59.999999 UTC of the 31st. A
+  bound given alone is the span. A `datetime` and a string with a time stay exact. A string that is
+  none of day, month, year or time is refused with the forms listed (GH-3155)
+
 ### Changed
 
 - **Breaking**: the mean of the irradiances, the soil moisture, the snow depth, the precipitation

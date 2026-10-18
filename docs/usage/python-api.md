@@ -198,17 +198,19 @@ DwdObservationRequest(
 ```
 
 ``start`` and ``end`` are an ISO 8601 string, a ``date`` or a ``datetime``; anything else, a year as
-an integer such as ``start=2020`` among it, is a ``TypeError``. A bound that is a date without a time,
-a ``datetime.date`` or a string such as ``"2026-01-31"``, is the whole day, as the ``timestamp`` of the
-REST API, the command line and MCP reads it: ``start="2026-01-31"`` is the first instant of the 31st
-and ``end="2026-01-31"`` its last (23:59:59.999999 UTC), so ``end="2026-01-31"`` includes all 24 readings
-of the 31st of hourly data and not midnight alone. A ``datetime`` and a string with a time
+an integer such as ``start=2020`` among it, is a ``TypeError``. A bound that names a span and nothing
+finer is the whole span, as the ``timestamp`` of the REST API, the command line and MCP reads it: a
+``datetime.date`` or a string such as ``"2026-01-31"`` is the day, ``"2026-01"`` the month and ``"2026"``
+the year. ``start`` is the first instant of the span and ``end`` its last (23:59:59.999999 UTC), so
+``end="2026-01-31"`` includes all 24 readings of the 31st of hourly data and not midnight alone, and
+``end="2026-01"`` runs to the end of January. A ``datetime`` and a string with a time
 (``"2026-01-31T00:00"``) are that instant and no more, so ``end=datetime(2026, 1, 31)`` ends at
 midnight. A bound given alone is the whole window: ``end`` without ``start`` is the same window as
-``start`` without ``end``, the day of a date and the single instant of an instant, so
+``start`` without ``end``, the span of a date, a month or a year and the single instant of an instant, so
 ``end="2020-01-05"`` asks for that day, not for everything up to it. Pass both for a range. The
-command line reads ``--end`` alone the same way. Only a day is read this way: the ``"2020-08"`` and
-``"2020"`` that the REST API takes for a month and a year are not a ``start`` or ``end`` here.
+command line reads ``--end`` alone the same way. A string that is none of these, an interval
+``"2020-05/2020-07"`` among it (pass the two bounds), is an ``InvalidTimeIntervalError`` (a
+``ValueError``) that lists what is accepted.
 
 Every request takes ``periods``, the release the data is read from. Valid periods are
 ``historical``, ``recent``, ``now`` and ``future``, and which of them a dataset is published under

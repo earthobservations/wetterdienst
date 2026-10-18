@@ -22,6 +22,7 @@ from rapidfuzz import utils as fuzz_utils
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
     InvalidParameterError,
+    InvalidTimeIntervalError,
     LocationOutOfRangeError,
     MetadataNotFoundError,
     MissingTimeIntervalError,
@@ -55,7 +56,7 @@ from wetterdienst.model.schema import INTERPOLATED_SCHEMA, STATIONS_SCHEMA, SUMM
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
-from wetterdienst.util.datetime import date_only, parse_date_window
+from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.python import to_list
@@ -88,6 +89,11 @@ _PARAMETER_TYPE_SINGULAR = (
 )
 _PARAMETER_TYPE = _PARAMETER_TYPE_SINGULAR | Sequence[_PARAMETER_TYPE_SINGULAR]
 _DATETIME_TYPE = str | dt.date | dt.datetime | None
+# what `start` and `end` accept, for the error that refuses one
+_BOUND_FORMS = (
+    'a day ("2020-05-01" or a datetime.date), a month ("2020-05") or a year ("2020") is the whole span, '
+    'a time ("2020-05-01T12:00", with an offset or without) or a datetime.datetime is that instant'
+)
 # either of
 # str: "recent"  # noqa: ERA001
 # Period: Period.RECENT  # noqa: ERA001
@@ -295,22 +301,31 @@ class TimeseriesRequest:
         """Read one bound as the first and the last instant it names, in UTC, or None where none was given.
 
         A bound that names an instant -- a `datetime`, or a string carrying a time -- names that instant
-        alone, so its first and last are one. A bound that names a day and nothing else -- a `date`, or a
-        string such as ``"2026-01-31"`` -- names the whole day, as it does as the ``timestamp`` of the REST
-        API, the command line and MCP (`parse_date_window`, GH-3133).
+        alone, so its first and last are one. A bound that names a span and nothing finer -- a `date`, or
+        a string such as ``"2026-01-31"``, ``"2026-01"`` or ``"2026"`` -- names the whole day, month or
+        year, as it does as the ``timestamp`` of the REST API, the command line and MCP, through the same
+        `parse_date_window` (GH-3133).
         """
         if bound is not None and not isinstance(bound, str | dt.date):
-            msg = f"{name} must be a str, a date or a datetime, got {type(bound).__name__} {bound!r}"
+            msg = f"{name} must be a str, a date or a datetime, got {type(bound).__name__} {bound!r}; {_BOUND_FORMS}"
             raise TypeError(msg)
         if not bound:
             return None
-        if not isinstance(bound, dt.datetime):
-            day = bound if isinstance(bound, dt.date) else date_only(bound)
-            if day is not None:
-                return parse_date_window(day.isoformat())
-            bound = dt.datetime.fromisoformat(cast("str", bound))
-        instant = bound.replace(tzinfo=ZoneInfo("UTC")) if not bound.tzinfo else bound.astimezone(ZoneInfo("UTC"))
-        return instant, instant
+        if isinstance(bound, dt.datetime):
+            window = (bound, bound)
+        elif isinstance(bound, dt.date):
+            window = parse_date_window(bound.isoformat())
+        else:
+            try:
+                window = parse_date_window(bound)
+            except InvalidTimeIntervalError as e:
+                msg = f"{name}={bound!r} is refused: {e}; {_BOUND_FORMS}"
+                raise InvalidTimeIntervalError(msg) from e
+        first, last = (
+            instant.replace(tzinfo=ZoneInfo("UTC")) if not instant.tzinfo else instant.astimezone(ZoneInfo("UTC"))
+            for instant in window
+        )
+        return first, last
 
     @staticmethod
     def convert_timestamps(
@@ -325,14 +340,15 @@ class TimeseriesRequest:
         provider that formats or floors a bound -- by its year, its date -- would do so in the
         caller's zone rather than the one the values are in.
 
-        A bound that is a date without a time -- a `datetime.date`, or a string such as
-        ``"2026-01-31"`` -- is the whole day, as the ``timestamp`` of the REST API, the command line and
-        MCP reads it (GH-3133): ``start`` is the first instant of the day and ``end`` the last,
-        ``23:59:59.999999`` UTC, so ``end="2026-01-31"`` includes the readings of the 31st. A `datetime`,
+        A bound that names a span and nothing finer is the whole span, as the ``timestamp`` of the REST API,
+        the command line and MCP reads it (`parse_date_window`, GH-3133): a `datetime.date` or a string such
+        as ``"2026-01-31"`` is the day, ``"2026-01"`` the month and ``"2026"`` the year. ``start`` is the
+        first instant of the span and ``end`` the last, ``23:59:59.999999`` UTC, so ``end="2026-01-31"``
+        includes the readings of the 31st and ``end="2026-01"`` those of the whole of January. A `datetime`,
         or a string with a time (``"2026-01-31T00:00"``), is that instant and no more.
 
         A bound given alone is the whole window, ``start`` as much as ``end``: an instant is a window of
-        one instant (``start == end``) and a date is the whole day. It is not an open end.
+        one instant (``start == end``) and a date, month or year is the whole span. It is not an open end.
 
         Args:
             start: Start of the request, an ISO 8601 string, a date or a datetime.
@@ -343,6 +359,7 @@ class TimeseriesRequest:
 
         Raises:
             TypeError: a bound is neither a string, a date nor a datetime, an int such as ``2020`` among them.
+            InvalidTimeIntervalError: a string is no day, month, year or time (a `ValueError`).
 
         """
         start_window = TimeseriesRequest._bound_to_window("start", start)
