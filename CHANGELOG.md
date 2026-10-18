@@ -58,6 +58,14 @@ Types of changes:
   as a download does, not the bare `ssl.SSLError` (REST: 500, now 502). Code that caught
   `ssl.SSLError` around a listing catches `DownloadError` and reads `__cause__` now; a TLS failure
   is still asked for once (GH-3099)
+- The OpenAPI document of the REST API is complete: `info` names Wetterdienst with its version,
+  licence and contact (it was FastAPI's "FastAPI 0.1.0"), and `info.x-api-version` is the API
+  version, `1`. There are `servers` and described `tags`. `/health` and `/version` have response
+  schemas, the index, `robots.txt` and the stripes image their media types, and each route declares
+  the problems it can answer (400, 403, 404, 500, 501, 502, 503, 504) as references to
+  `components.responses`, where the 400 and 502-504 of the data routes were inline. 13 parameters
+  have descriptions. A client that reads `responses` of the document has to resolve `$ref` in them
+  (GH-3129)
 - **Breaking**: `Settings(ts_shape=...)` and the other `ts_*` settings are gone, with reading or
   assigning `settings.ts_*` and a `settings={"ts_...": ...}` dict, which warned since 0.148.0; they
   are a `ValidationError` that names the option to pass instead: `options=Options(shape=...)` (or

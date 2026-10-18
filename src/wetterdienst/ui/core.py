@@ -1093,8 +1093,8 @@ class AuthRequest(_RefusesRenamedParameters):
 
     model_config = {"extra": "forbid"}
 
-    provider: str
-    network: str
+    provider: _ProviderField
+    network: _NetworkField
     debug: _DebugField = False
 
 
@@ -1103,8 +1103,17 @@ class CoverageRequest(_RefusesRenamedParameters):
 
     model_config = {"extra": "forbid"}
 
-    provider: str | None = None
-    network: str | None = None
+    provider: Annotated[
+        str | None,
+        Field(
+            description="Data provider, e.g. 'dwd'. Give it with network to list that network's resolutions, "
+            "datasets and parameters; with neither, every provider and its networks are listed."
+        ),
+    ] = None
+    network: Annotated[
+        str | None,
+        Field(description="Data network of the provider, e.g. 'observation'. Needs provider."),
+    ] = None
     resolutions: Annotated[
         list[str] | None,
         Field(description="Only these resolutions, comma-separated, e.g. 'daily,hourly'. Needs provider and network."),
@@ -1141,8 +1150,14 @@ class GlossaryRequest(_RefusesRenamedParameters):
 
     model_config = {"extra": "forbid"}
 
-    parameter: str | None = None
-    unit_type: UnitType | None = None
+    parameter: Annotated[
+        str | None,
+        Field(description="Only the parameters whose name contains this text, e.g. 'radiation'. Not case-sensitive."),
+    ] = None
+    unit_type: Annotated[
+        UnitType | None,
+        Field(description="Only the parameters of this quantity, e.g. 'temperature'. Combines with parameter."),
+    ] = None
     limit: Annotated[int | None, Field(ge=1, description="Return at most this many entries.")] = None
     debug: _DebugField = False
 
@@ -1152,10 +1167,30 @@ class AlertsRequest(_RefusesRenamedParameters):
 
     model_config = {"extra": "forbid"}
 
-    granularity: Literal["community", "district"] = "community"
-    language: Literal["de", "en", "es", "fr", "mul"] = "en"
-    timestamp: str | None = None
-    format: Literal["json", "geojson", "csv"] = "json"
+    granularity: Annotated[
+        Literal["community", "district"],
+        Field(
+            description="Spatial unit of the warnings: 'community' (per municipality) or 'district' (per Landkreis)."
+        ),
+    ] = "community"
+    language: Annotated[
+        Literal["de", "en", "es", "fr", "mul"],
+        Field(
+            description="Language of the warnings. 'mul' bundles every language in one file, of which only the "
+            "first is read: prefer a single language."
+        ),
+    ] = "en"
+    timestamp: Annotated[
+        str | None,
+        Field(
+            description="Instant in ISO 8601 (UTC if no offset) of a snapshot from DWD's rolling window of about "
+            "48 hours. Without it, the latest snapshot."
+        ),
+    ] = None
+    format: Annotated[
+        Literal["json", "geojson", "csv"],
+        Field(description="Output format: json, geojson (a feature collection) or csv."),
+    ] = "json"
     pretty: _PrettyField = False
     debug: _DebugField = False
 
@@ -1768,9 +1803,17 @@ class StripesStationsRequest(_RefusesRenamedParameters):
 
     model_config = {"extra": "forbid"}
 
-    kind: StripesKind
-    active: bool = True
-    format: Literal["json", "geojson", "csv"] = "json"
+    kind: Annotated[
+        StripesKind,
+        Field(description="temperature (annual mean air temperature) or precipitation (annual amount)."),
+    ]
+    active: Annotated[
+        bool, Field(description="Only the stations that still report, i.e. have data in the recent period.")
+    ] = True
+    format: Annotated[
+        Literal["json", "geojson", "csv"],
+        Field(description="Output format: json, geojson (a feature collection) or csv."),
+    ] = "json"
     pretty: _PrettyField = False
     debug: _DebugField = False
 

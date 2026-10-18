@@ -85,7 +85,7 @@ not exist (`/api/v2/...`) is a 404.
 
 The MCP endpoint is versioned alike, see [MCP endpoint](#mcp-endpoint). The operation ids of the
 OpenAPI document (`values_api_values_get`) and the names of the MCP tools (`values`) do not carry
-the version.
+the version, see [The OpenAPI document](#the-openapi-document).
 
 ### Deprecation
 
@@ -245,9 +245,38 @@ carry, is percent-encoded UTF-8;
 The command line prints the block in its JSON and GeoJSON, as REST does, and nothing of it in CSV; the MCP
 tools return the REST answer, and so the block.
 
-The OpenAPI document is the contract of the API, and `tests/ui/openapi.snapshot.json` is that document as
-last reviewed: a test fails when the served document is not it, and `uv run poe openapi:snapshot` writes it
-anew, for the diff to be read in the pull request that changes the contract.
+## The OpenAPI document
+
+`/openapi.json` (and `/docs`, the interactive reference) is the contract of the API. `tests/ui/openapi.snapshot.json`
+is that document as last reviewed: a test fails when the served document is not it, and
+`uv run poe openapi:snapshot` writes it anew, for the diff to be read in the pull request that changes the contract.
+
+- **`info`** is the project's: the title, the MIT licence, the issue tracker as the contact, and the `version` of
+  wetterdienst that serves the document, and `info.x-api-version` is the version of the API (`1`, the same as
+  the `v1` of the paths, `api_version` of `GET /api/version` and of the `metadata` block, and the
+  `X-Wetterdienst-API-Version` header). The `servers` are the hosted instance and the address `wetterdienst restapi` listens on.
+  There are no terms of service: the data is published under the terms of each provider, which the `metadata` of an
+  answer and `providers` state.
+- **Tags** group the operations: `Catalogue` (`coverage`, `providers`, `glossary`, `auth`), `Stations` (`stations`,
+  `issues`, `history`), `Values` (`values`, `interpolate`, `summarize`), `Climate stripes`, `Alerts` and `Server`
+  (`version`, `settings`, `health`, the index and `robots.txt`).
+- **`operationId`** is the name of the handler, then the path without the version, then the method, with every
+  non-word character an underscore: `values_api_values_get`, `stripes_image_api_stripes_image_get`. It does not carry the version, so
+  a client generated from the document keeps its method names when the version moves, and the MCP tools are found by it (`values`, `stripes_image`, see [MCP endpoint](#mcp-endpoint)). Changing one is a
+  break of the API version, as a removed path or parameter is.
+- **Answers** have a schema everywhere: the health check (`Health`), the version (`VersionAnswer`) and the data
+  routes (the response models above), and a media type of their own for the index (`text/html`), `robots.txt`
+  (`text/plain`) and the stripes image (`image/png`, `image/jpeg`, `image/svg+xml`, `application/pdf`).
+- **Errors** are declared by status where the route can answer them, as references to the `responses` of
+  `components`, each listing the kinds of problem that status is (see [Errors](#errors)). Every route under `/api/v1`
+  can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
+  requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
+  routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
+  `stripes/values`, `stripes/image`, `alerts`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
+  `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
+  `auth` a 404 and 501, `providers` a 404, `settings` a 400, and `stripes/stations` a 501 and 502. A test makes each
+  of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
+  what the document declares.
 
 ## One vocabulary
 
