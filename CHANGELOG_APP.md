@@ -18,6 +18,10 @@ Types of changes:
 
 ### Changed
 
+- `[Glossary]` The mean wind has labels in all eleven languages for the backend names that carry the
+  statistic (GH-3151): `wind_speed_mean`, `wind_direction_mean` and the `_mean_last_10min` /
+  `_mean_last_2min` ones, which replace the `_last_10min` / `_last_2min` ones. Needs the backend
+  that serves them: release the backend first, as this renames the parameters it lists
 - `[Home]` The home page no longer says "no rate limit", which the app's rate limit made untrue
   (GH-3093): its data section promises "No key, no account." in all eleven languages (GH-2610)
 - `[Translations]` Review of the eleven catalogs: Spanish speaks to the reader as "tú" throughout

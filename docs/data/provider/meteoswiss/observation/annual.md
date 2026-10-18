@@ -24,7 +24,7 @@
 
 | name                                      | original name | description                                                    | unit                  |
 |-------------------------------------------|---------------|----------------------------------------------------------------|-----------------------|
-| {term}`wind_speed`                        | fkl010y0      | Wind speed scalar; annual mean in m/s                          | meter_per_second      |
+| {term}`wind_speed_mean`                   | fkl010y0      | Wind speed scalar; annual mean in m/s                          | meter_per_second      |
 | {term}`wind_gust_max`                     | fkl010y1      | Gust peak (one second); annual maximum in m/s                  | meter_per_second      |
 | {term}`precipitation_amount`              | rre150y0      | Precipitation; annual total                                    | millimeter            |
 | {term}`pressure_air_site`                 | prestay0      | Atmospheric pressure at barometric altitude (QFE); annual mean | hectopascal           |

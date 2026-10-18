@@ -132,12 +132,12 @@ _MetnoFrostMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "wind_speed",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "wind_from_direction",
                             "unit": "degree",
                         },
@@ -227,7 +227,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "mean(wind_speed P1D)",
                             "unit": "meter_per_second",
                         },
@@ -307,7 +307,7 @@ _MetnoFrostMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "mean(wind_speed P1M)",
                             "unit": "meter_per_second",
                         },

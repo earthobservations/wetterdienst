@@ -24,6 +24,7 @@ from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
+from wetterdienst.provider.lhmt.observation import LhmtObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopMetadata
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationMetadata
@@ -190,7 +191,7 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
         (
             KnmiObservationMetadata,
             "hourly/data/wind_direction",
-            "It was renamed to 'wind_direction_last_10min' in this dataset.",
+            "It was renamed to 'wind_direction_mean_last_10min' in this dataset.",
         ),
         # GH-2836: the 10-minute gust of four providers, whose plain `wind_gust_max` is the interval's
         (
@@ -217,12 +218,12 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
         (
             NwsObservationMetadata,
             "hourly/data/wind_speed",
-            "It was renamed to 'wind_speed_last_2min' in this dataset.",
+            "It was renamed to 'wind_speed_mean_last_2min' in this dataset.",
         ),
         (
             NwsObservationMetadata,
             "hourly/data/wind_direction",
-            "It was renamed to 'wind_direction_last_2min' in this dataset.",
+            "It was renamed to 'wind_direction_mean_last_2min' in this dataset.",
         ),
         # GH-2840, GH-2842: the altimeter setting and the reduced pressure of MOSMIX and DMO
         (
@@ -362,7 +363,7 @@ def test_a_name_a_dataset_lacks_is_answered_with_the_name_it_has(
         (DwdMosmixMetadata, "hourly/small/error_absolute_temperature_air_mean_2m"),
         # `error_absolute_` is the error of a quantity, not the quantity: the wind speed is no wind gust
         (DwdMosmixMetadata, "hourly/large/error_absolute_wind_gust_max"),
-        # GH-3009: the direction of the hour's gust is no direction of the mean wind (`wind_direction_last_10min`, DD),
+        # GH-3009: the direction of the hour's gust is no direction of the mean wind (`wind_direction_mean_last_10min`),
         # which is all that is left of it since the hourly DXY is no longer served (GH-2836)
         (MeteoFranceObservationMetadata, "hourly/core/wind_direction_gust_max"),
     ],
@@ -382,13 +383,13 @@ def test_a_name_of_another_quantity_is_not_guessed_at(
         ("daily/kl/temperature_air_mean_200", "temperature_air_mean_2m"),
         # a misspelled token in the part that names the quantity is still a typo of it
         ("daily/kl/temperatur_air_mean_2m", "temperature_air_mean_2m"),
-        ("daily/kl/wind_sped", "wind_speed"),
+        ("daily/kl/wind_sped", "wind_speed_mean"),
         ("daily/kl/humidity_realtive", "humidity_relative"),
         # the source's own name is a candidate too, and a code has no quantity to compare
         ("daily/kl/tmkk", "tmk"),
         ("daily/kl/rsx", "rsk"),
         # a missing underscore is a typo of the whole name
-        ("daily/kl/windspeed", "wind_speed"),
+        ("daily/kl/windspeed", "wind_speed_mean"),
         ("daily/kl/wind_gustmax", "wind_gust_max"),
         # a misspelled gust is still a gust
         ("daily/kl/wind_gsut_max", "wind_gust_max"),
@@ -421,8 +422,8 @@ def test_a_rename_in_a_dataset_answers_attribute_and_item_access_too() -> None:
 
 def test_a_rename_in_a_dataset_leaves_the_name_alone_in_a_dataset_that_has_it() -> None:
     """The old name still resolves where it is the parameter's own, which is why it is a rename per dataset."""
-    assert [p.name for p in parse_parameters("daily/data/wind_speed", AemetObservationMetadata)] == ["wind_speed"]
-    assert [p.name for p in parse_parameters("daily/data/wind_speed", KnmiObservationMetadata)] == ["wind_speed"]
+    assert [p.name for p in parse_parameters("hourly/data/wind_speed", GeosphereObservationMetadata)] == ["wind_speed"]
+    assert [p.name for p in parse_parameters("hourly/data/wind_speed", LhmtObservationMetadata)] == ["wind_speed"]
     assert parse_parameters("hourly/data/wind_speed", AemetObservationMetadata, on_unknown="warn") == []
 
 
@@ -553,3 +554,43 @@ def test_a_renamed_resolution_is_refused_with_the_new_value_named() -> None:
         Options(geo_station_distance_resolution_factors={"6_hour": 1.0})
     options = Options(geo_station_distance_resolution_factors={"6_hours": 1.0})
     assert options.geo_station_distance_resolution_factors == {"6_hours": 1.0}
+
+
+@pytest.mark.parametrize(
+    ("metadata", "old", "new"),
+    [
+        (FmiObservationMetadata, "wind_speed_last_10min", "wind_speed_mean_last_10min"),
+        (FmiObservationMetadata, "wind_direction_last_10min", "wind_direction_mean_last_10min"),
+        (NwsObservationMetadata, "wind_speed_last_2min", "wind_speed_mean_last_2min"),
+        (NwsObservationMetadata, "wind_direction_last_2min", "wind_direction_mean_last_2min"),
+    ],
+)
+def test_the_wind_windows_before_the_mean_rule_are_refused_with_the_name_to_use(
+    metadata: MetadataModel, old: str, new: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A `_last_10min` / `_last_2min` wind name of the releases before GH-3151 names the one that carries the mean."""
+    assert RENAMED_PARAMETERS[old] == new
+    assert PARAMETERS[new].unit_type == ("speed" if "speed" in new else "angle")
+    assert parse_parameters(f"hourly/data/{old}", metadata, on_unknown="warn") == []
+    assert f"It was renamed to '{new}'." in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("metadata", "value", "new"),
+    [
+        (DwdObservationMetadata, "daily/climate_summary/wind_speed", "wind_speed_mean"),
+        (DwdObservationMetadata, "hourly/wind/wind_direction", "wind_direction_mean"),
+        (DwdObservationMetadata, "10_minutes/urban_wind/wind_speed", "wind_speed_mean"),
+        (MeteoFranceObservationMetadata, "daily/core/wind_speed", "wind_speed_mean"),
+        (MeteoFranceObservationMetadata, "hourly/core/wind_speed", "wind_speed_mean_last_10min"),
+        (KnmiObservationMetadata, "10_minutes/data/wind_direction", "wind_direction_mean"),
+        (MetOfficeObservationMetadata, "hourly/wind/wind_speed", "wind_speed_mean"),
+        (NwsObservationMetadata, "hourly/data/wind_speed", "wind_speed_mean_last_2min"),
+    ],
+)
+def test_a_plain_wind_name_is_refused_in_a_dataset_whose_source_states_the_mean(
+    metadata: MetadataModel, value: str, new: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The plain name stays for the datasets that state no statistic and names the mean one in the others (GH-3151)."""
+    assert parse_parameters(value, metadata, on_unknown="warn") == []
+    assert f"It was renamed to '{new}' in this dataset." in caplog.text

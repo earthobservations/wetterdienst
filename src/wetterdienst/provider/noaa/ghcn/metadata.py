@@ -262,7 +262,7 @@ _NoaaGhcnMetadataSpec = {
                         },
                         # Average daily wind speed (meters per second or miles per hour as per user preference)
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "awnd",
                             "unit": "meter_per_second",
                         },
@@ -1350,7 +1350,7 @@ DAILY_PARAMETER_MULTIPLICATION_FACTORS = {
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_min_2m_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_air_mean_2m.name_original: 1 / 10,
-    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed.name_original: 1 / 10,
+    NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].wind_speed_mean.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].evaporation_amount_multiday.name_original: 1 / 10,
     NoaaGhcnMetadata.daily[DATASET_NAME_DEFAULT].temperature_water_evaporation_pan_max.name_original: 1 / 10,

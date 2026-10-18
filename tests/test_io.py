@@ -3527,7 +3527,7 @@ def _plot_of(result: ValuesResult) -> tuple[list, list[tuple]]:
         ),
         pytest.param(
             {"humanize": False},
-            ["hourly/wind/wind_speed", "hourly/wind_extreme/wind_gust_max"],
+            ["hourly/wind/wind_speed_mean", "hourly/wind_extreme/wind_gust_max"],
             ["f", "fx_911"],
             id="one-dataset-name-beginning-another",
         ),

@@ -33,7 +33,7 @@ def test_meteofrance_observation_api_interleaved_datasets_no_duplicate_stations(
         parameters=[
             ("daily", "core", "precipitation_amount"),
             ("daily", "others", "humidity_relative"),
-            ("daily", "core", "wind_speed"),
+            ("daily", "core", "wind_speed_mean"),
         ],
     ).filter_by_station_id("31069001")
     df = request.df
@@ -114,7 +114,7 @@ def test_meteofrance_observation_api_monthly(parameter: str) -> None:
     [
         ("core", "temperature_air_2m"),
         ("core", "precipitation_amount"),
-        ("core", "wind_direction_last_10min"),
+        ("core", "wind_direction_mean_last_10min"),
         ("others", "cloud_cover_total"),
         ("others", "visibility"),
     ],
@@ -376,9 +376,9 @@ def test_meteofrance_observation_api_hourly_ten_minute_wind_is_named_for_its_win
     hourly = [{"NUM_POSTE": "31069001", "AAAAMMJJHH": "2025010102", "FF": "2.2", "DD": "10"}]
     _serve_climate(monkeypatch, {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "core", hourly)})
     start, end = _utc(2025, 1, 1), _utc(2025, 1, 2)
-    df = _values("hourly", "core", "wind_speed_last_10min", "31069001", start, end)
+    df = _values("hourly", "core", "wind_speed_mean_last_10min", "31069001", start, end)
     assert df.get_column("value").to_list() == [2.2]
-    df = _values("hourly", "core", "wind_direction_last_10min", "31069001", start, end)
+    df = _values("hourly", "core", "wind_direction_mean_last_10min", "31069001", start, end)
     assert df.get_column("value").to_list() == [10.0]
     for old in ("wind_speed", "wind_direction"):
         with pytest.raises(InvalidParameterError):
@@ -423,10 +423,10 @@ def test_meteofrance_observation_api_hourly_calm_wind_has_no_direction(monkeypat
     ]
     _serve_climate(monkeypatch, {"HOR_departement_31_periode_2025-2026": _climate_gz("hourly", "core", latest)})
     start, end = _utc(2025, 1, 1), _utc(2025, 2, 1)
-    df = _values("hourly", "core", "wind_direction_last_10min", "31069001", start, end)
+    df = _values("hourly", "core", "wind_direction_mean_last_10min", "31069001", start, end)
     assert df.get_column("timestamp").to_list() == [_utc(2025, 1, 1, 2), _utc(2025, 1, 3, 7)]
     assert df.get_column("value").to_list() == [10.0, 360.0]
-    assert _values("hourly", "core", "wind_direction_last_10min", "31042012", start, end).is_empty()
+    assert _values("hourly", "core", "wind_direction_mean_last_10min", "31042012", start, end).is_empty()
     with pytest.raises(InvalidParameterError):
         MeteoFranceObservationRequest(parameters=[("hourly", "core", "wind_direction_gust_max")])
 
@@ -443,7 +443,7 @@ def test_meteofrance_observation_api_hourly_variable_wind_direction_is_null(monk
         {"NUM_POSTE": "98404001", "AAAAMMJJHH": "1965041802", "FF": "26.0", "DD": "240"},
     ]
     _serve_climate(monkeypatch, {"HOR_departement_984_periode_1960-1969": _climate_gz("hourly", "core", rows)})
-    df = _values("hourly", "core", "wind_direction_last_10min", "98404001", _utc(1965, 4, 17), _utc(1965, 4, 18))
+    df = _values("hourly", "core", "wind_direction_mean_last_10min", "98404001", _utc(1965, 4, 17), _utc(1965, 4, 18))
     assert df.get_column("timestamp").to_list() == [_utc(1965, 4, 17, 15), _utc(1965, 4, 17, 21)]
     assert df.get_column("value").to_list() == [240.0, 240.0]
 

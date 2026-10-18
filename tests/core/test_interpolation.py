@@ -630,7 +630,7 @@ def test_apply_interpolation_without_an_answer_gives_no_value() -> None:
 def test_not_interpolatable_parameter(default_settings: Settings, df_interpolated_empty: pl.DataFrame) -> None:
     """Test that a parameter that cannot be interpolated is handled correctly."""
     request = DwdObservationRequest(
-        parameters=[("hourly", "wind", "wind_direction")],
+        parameters=[("hourly", "wind", "wind_direction_mean")],
         start=dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
         end=dt.datetime(2022, 1, 20, tzinfo=ZoneInfo("UTC")),
         settings=default_settings,

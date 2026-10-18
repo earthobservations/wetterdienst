@@ -97,12 +97,12 @@ def test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes(monkeypatch: py
         {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "dd": "190", "ff": "2"},
         {"geo_id_wmo": "07005", "validity_time": "2024-01-01T03:00:00Z", "dd": "170", "ff": "1"},
     ]
-    df = _values(monkeypatch, rows, ["wind_direction_last_10min", "wind_speed_last_10min"])
+    df = _values(monkeypatch, rows, ["wind_direction_mean_last_10min", "wind_speed_mean_last_10min"])
     by_parameter = {
         str(parameter): group.get_column("value").to_list()
         for (parameter,), group in df.partition_by("parameter", as_dict=True).items()
     }
-    assert by_parameter == {"wind_direction_last_10min": [190.0, 170.0], "wind_speed_last_10min": [2.0, 1.0]}
+    assert by_parameter == {"wind_direction_mean_last_10min": [190.0, 170.0], "wind_speed_mean_last_10min": [2.0, 1.0]}
     for old in ("wind_speed", "wind_direction"):
         with pytest.raises(InvalidParameterError):
             MeteoFranceSynopRequest(parameters=[("subdaily", "data", old)])
@@ -140,11 +140,11 @@ def test_meteofrance_synop_api_calm_wind_direction_is_null(monkeypatch: pytest.M
         {"geo_id_wmo": "07005", "validity_time": "2024-01-01T06:00:00Z", "dd": "360", "ff": "3"},
         {"geo_id_wmo": "07005", "validity_time": "2024-01-01T09:00:00Z", "dd": "0", "ff": "1"},
     ]
-    df = _values(monkeypatch, rows, ["wind_direction_last_10min", "wind_speed_last_10min"], drop_nulls=False)
-    direction = df.filter(pl.col("parameter").eq("wind_direction_last_10min"))
+    df = _values(monkeypatch, rows, ["wind_direction_mean_last_10min", "wind_speed_mean_last_10min"], drop_nulls=False)
+    direction = df.filter(pl.col("parameter").eq("wind_direction_mean_last_10min"))
     assert direction.get_column("value").to_list() == [None, 170.0, 360.0, None]
     assert direction.get_column("quality_flags").to_list() == ["raw:0", None, None, "raw:0"]
-    speed = df.filter(pl.col("parameter").eq("wind_speed_last_10min"))
+    speed = df.filter(pl.col("parameter").eq("wind_speed_mean_last_10min"))
     assert speed.get_column("value").to_list() == [0.0, 0.0, 3.0, 1.0]
     assert speed.get_column("quality_flags").to_list() == [None, None, None, None]
 
@@ -162,11 +162,13 @@ def test_meteofrance_synop_api_dd_of_400_is_null(monkeypatch: pytest.MonkeyPatch
         {"geo_id_wmo": "07005", "validity_time": "1996-01-01T12:00:00Z", "dd": "400", "ff": "1"},
         {"geo_id_wmo": "07005", "validity_time": "1996-01-01T15:00:00Z", "dd": "0", "ff": "0"},
     ]
-    df = _values(monkeypatch, rows, ["wind_direction_last_10min", "wind_speed_last_10min"], drop_nulls=False, year=1996)
-    direction = df.filter(pl.col("parameter").eq("wind_direction_last_10min")).sort("timestamp")
+    df = _values(
+        monkeypatch, rows, ["wind_direction_mean_last_10min", "wind_speed_mean_last_10min"], drop_nulls=False, year=1996
+    )
+    direction = df.filter(pl.col("parameter").eq("wind_direction_mean_last_10min")).sort("timestamp")
     assert direction.get_column("value").to_list() == [130.0, 130.0, None, None]
     assert direction.get_column("quality_flags").to_list() == [None, None, "raw:400", "raw:0"]
-    speed = df.filter(pl.col("parameter").eq("wind_speed_last_10min")).sort("timestamp")
+    speed = df.filter(pl.col("parameter").eq("wind_speed_mean_last_10min")).sort("timestamp")
     assert speed.get_column("value").to_list() == [3.0, 2.0, 1.0, 0.0]
 
 
@@ -221,8 +223,8 @@ def test_meteofrance_synop_api_values() -> None:
 @pytest.mark.parametrize(
     "parameter",
     [
-        "wind_speed_last_10min",
-        "wind_direction_last_10min",
+        "wind_speed_mean_last_10min",
+        "wind_direction_mean_last_10min",
         "humidity_relative",
         "pressure_air_sea_level",
         "precipitation_amount_last_3h",

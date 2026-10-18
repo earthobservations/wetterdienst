@@ -36,21 +36,21 @@
 
 #### parameters
 
-| name                                  | original name    | description                                                                                                                                              | unit |
-|---------------------------------------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| {term}`wind_direction`                | wind_direction   | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180.                                                  | °    |
-| {term}`wind_speed`                    | wind_speed       | Wind speed, knots.                                                                                                                                       | kn   |
-| {term}`wind_gust_max_last_10min`      | q10mnt_mxgst_spd | Maximum gust speed over 10 minutes, knots.                                                                                                               | kn   |
-| {term}`visibility`                    | visibility       | Visibility, decametres.                                                                                                                                  | m    |
-| {term}`pressure_air_sea_level`        | msl_pressure     | Mean sea level air pressure, to the nearest 0.1 hPa.                                                                                                     | hPa  |
-| {term}`pressure_air_site`             | stn_pres         | Station air pressure, as measured at station level. No correction for altitude is applied.                                                               | hPa  |
-| {term}`temperature_air_2m`            | air_temperature  | Air temperature, to the nearest 0.1 deg C.                                                                                                               | °C   |
-| {term}`temperature_dew_point_2m`      | dewpoint         | Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect to water at its existing pressure and humidity. | °C   |
-| {term}`humidity_relative`             | rltv_hum         | Calculated relative humidity.                                                                                                                            | %    |
-| {term}`sunshine_duration`             | wmo_hr_sun_dur   | Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder.                                                           | h    |
-| {term}`snow_depth`                    | snow_depth       | Snow depth, cm.                                                                                                                                          | cm   |
-| {term}`cloud_cover_total`             | cld_ttl_amt_id   | Total cloud amount code.                                                                                                                                 | 1/8  |
-| {term}`weather`                       | prst_wx_id       | Present weather code.                                                                                                                                    | -    |
+| name                                   | original name    | description                                                                                                                                                                                                                                                                          | unit |
+|----------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
+| {term}`wind_direction_mean_last_10min` | wind_direction   | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table". | °    |
+| {term}`wind_speed_mean_last_10min`     | wind_speed       | Wind speed, knots. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table".                                                                                      | kn   |
+| {term}`wind_gust_max_last_10min`       | q10mnt_mxgst_spd | Maximum gust speed over 10 minutes, knots.                                                                                                                                                                                                                                           | kn   |
+| {term}`visibility`                     | visibility       | Visibility, decametres.                                                                                                                                                                                                                                                              | m    |
+| {term}`pressure_air_sea_level`         | msl_pressure     | Mean sea level air pressure, to the nearest 0.1 hPa.                                                                                                                                                                                                                                 | hPa  |
+| {term}`pressure_air_site`              | stn_pres         | Station air pressure, as measured at station level. No correction for altitude is applied.                                                                                                                                                                                           | hPa  |
+| {term}`temperature_air_2m`             | air_temperature  | Air temperature, to the nearest 0.1 deg C.                                                                                                                                                                                                                                           | °C   |
+| {term}`temperature_dew_point_2m`       | dewpoint         | Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect to water at its existing pressure and humidity.                                                                                                                             | °C   |
+| {term}`humidity_relative`              | rltv_hum         | Calculated relative humidity.                                                                                                                                                                                                                                                        | %    |
+| {term}`sunshine_duration`              | wmo_hr_sun_dur   | Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder.                                                                                                                                                                                       | h    |
+| {term}`snow_depth`                     | snow_depth       | Snow depth, cm.                                                                                                                                                                                                                                                                      | cm   |
+| {term}`cloud_cover_total`              | cld_ttl_amt_id   | Total cloud amount code.                                                                                                                                                                                                                                                             | 1/8  |
+| {term}`weather`                        | prst_wx_id       | Present weather code.                                                                                                                                                                                                                                                                | -    |
 
 ### wind
 
@@ -65,8 +65,8 @@
 
 | name                            | original name   | description                                                    | unit |
 |---------------------------------|-----------------|----------------------------------------------------------------|------|
-| {term}`wind_direction` | mean_wind_dir | Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. | ° |
-| {term}`wind_speed` | mean_wind_speed | Mean wind speed, knots. | kn |
+| {term}`wind_direction_mean` | mean_wind_dir | Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. | ° |
+| {term}`wind_speed_mean` | mean_wind_speed | Mean wind speed, knots. | kn |
 | {term}`wind_direction_gust_max` | max_gust_dir | Direction of the maximum gust, degrees true. | ° |
 | {term}`wind_gust_max` | max_gust_speed | Speed of the maximum gust, knots. | kn |
 

@@ -8,11 +8,11 @@ import GlossaryPage from '~/pages/glossary.vue'
 
 // Where the app names a parameter, a resolution or a dataset outside the data viewer, drawn in
 // locales other than English with an id that has no short word for it. The label the app showed
-// where one went round the glossary was the id prettified -- "Wind Direction Last 10min" (GH-2865)
+// where one went round the glossary was the id prettified -- "Wind Direction Mean Last 10min" (GH-2865)
 // -- which reads as English in every language. The viewer's own places are in
 // components/DataViewer.test.ts, the lookup itself in composables/composables.test.ts.
 
-const ids = { resolution: '10_minutes', dataset: 'urban_wind', parameter: 'wind_direction_last_10min' }
+const ids = { resolution: '10_minutes', dataset: 'urban_wind', parameter: 'wind_direction_mean_last_10min' }
 
 // what each locale's glossary says of the ids above, spelled out rather than read from the
 // glossary the page is held to
@@ -24,7 +24,7 @@ const names = {
 const locales = Object.keys(names) as (keyof typeof names)[]
 
 // the id as the fallback writes it, and as the backend does: none may reach the page
-const fallbacks = ['Wind Direction Last 10min', 'Urban Wind', '10 Minutes', ids.parameter, ids.dataset, ids.resolution]
+const fallbacks = ['Wind Direction Mean Last 10min', 'Urban Wind', '10 Minutes', ids.parameter, ids.dataset, ids.resolution]
 
 async function setLocale(locale: string) {
   const harness = await mountSuspended(defineComponent({
@@ -108,6 +108,6 @@ describe('glossary page names ids in the active locale', () => {
     await vi.waitFor(() => expect((wrapper.vm as any).pending).toBe(false), { timeout: 5000 })
     // the label is the entry's heading; the id stays beside it, for whoever needs the API's name
     expect(wrapper.text()).toContain(names[locale].parameter)
-    expect(wrapper.text()).not.toContain('Wind Direction Last 10min')
+    expect(wrapper.text()).not.toContain('Wind Direction Mean Last 10min')
   })
 })

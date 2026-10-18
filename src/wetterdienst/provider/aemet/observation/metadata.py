@@ -113,7 +113,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "dv",
                             "unit": "degree",
                         },
@@ -123,7 +123,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed_last_10min",
+                            "name": "wind_speed_mean_last_10min",
                             "name_original": "vv",
                             "unit": "meter_per_second",
                         },
@@ -190,7 +190,7 @@ _AemetObservationMetadataSpec = {
                             "unit": "degree",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "velmedia",
                             "unit": "meter_per_second",
                         },

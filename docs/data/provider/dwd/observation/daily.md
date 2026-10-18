@@ -25,10 +25,10 @@
 
 | name                              | original name | description                                          | unit | constraints |
 |-----------------------------------|---------------|------------------------------------------------------|------|-------------|
-| {term}`quality_wind` | qn_3 | Quality level of the following columns. | -             | - |
+| {term}`quality_wind` | qn_3 | Quality level of the following columns. | - | - |
 | {term}`wind_gust_max` | fx | Daily maximum of windgust. | m/s | >=0 |
-| {term}`wind_speed` | fm | Daily mean of wind velocity. | m/s | >=0 |
-| {term}`quality_general` | qn_4 | Quality level of the following columns. | -             | - |
+| {term}`wind_speed_mean` | fm | Daily mean of wind velocity. | m/s | >=0 |
+| {term}`quality_general` | qn_4 | Quality level of the following columns. | - | - |
 | {term}`precipitation_amount` | rsk | Daily precipitation height. | mm | >=0 |
 | {term}`precipitation_form` | rskf | Precipitation form. | - | ∈ {0, 1, 2, 3, 4, 5, 6, 7, 8, 9} |
 | {term}`sunshine_duration` | sdk | Daily sunshine duration. | h | >=0 |

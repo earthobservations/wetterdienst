@@ -123,7 +123,7 @@ def test_dwd_observation_data_whole_dataset(default_settings: Settings) -> None:
     )
     assert given.parameters == [
         DwdObservationMetadata.daily.climate_summary.wind_gust_max,
-        DwdObservationMetadata.daily.climate_summary.wind_speed,
+        DwdObservationMetadata.daily.climate_summary.wind_speed_mean,
         DwdObservationMetadata.daily.climate_summary.precipitation_amount,
         DwdObservationMetadata.daily.climate_summary.precipitation_form,
         DwdObservationMetadata.daily.climate_summary.sunshine_duration,

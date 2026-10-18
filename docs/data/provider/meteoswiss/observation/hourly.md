@@ -24,8 +24,8 @@
 
 | name                                               | original name | description                                                    | unit                  |
 |----------------------------------------------------|---------------|----------------------------------------------------------------|-----------------------|
-| {term}`wind_direction`                             | dkl010h0      | Wind direction; hourly mean                                    | degree                |
-| {term}`wind_speed`                                 | fkl010h0      | Wind speed scalar; hourly mean in m/s                          | meter_per_second      |
+| {term}`wind_direction_mean`                        | dkl010h0      | Wind direction; hourly mean                                    | degree                |
+| {term}`wind_speed_mean`                            | fkl010h0      | Wind speed scalar; hourly mean in m/s                          | meter_per_second      |
 | {term}`wind_gust_max`                              | fkl010h1      | Gust peak (one second); hourly maximum in m/s                  | meter_per_second      |
 | {term}`precipitation_amount`                       | rre150h0      | Precipitation; hourly total                                    | millimeter            |
 | {term}`pressure_air_site`                          | prestah0      | Atmospheric pressure at barometric altitude (QFE); hourly mean | hectopascal           |

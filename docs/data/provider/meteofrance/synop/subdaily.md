@@ -25,8 +25,8 @@
 
 | name                                    | original name | description                                                                                                                               | unit             |
 |-----------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|------------------|
-| {term}`wind_direction_last_10min`       | dd            | Direction of the mean wind over 10 minutes, in steps of 10 degrees, north being 360. The source's 0 (a calm wind, or no bearing) is null. | degree           |
-| {term}`wind_speed_last_10min`           | ff            | Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).                                                       | meter_per_second |
+| {term}`wind_direction_mean_last_10min`       | dd            | Direction of the mean wind over 10 minutes, in steps of 10 degrees, north being 360. The source's 0 (a calm wind, or no bearing) is null. | degree           |
+| {term}`wind_speed_mean_last_10min`           | ff            | Speed of the mean wind over 10 minutes, in whole m/s (the mean cut to the integer).                                                       | meter_per_second |
 | {term}`wind_gust_max_last_10min`        | raf10         | Gusts over the last 10 minutes, in m/s.                                                                                                   | meter_per_second |
 | {term}`temperature_air_2m`              | t             | Temperature.                                                                                                                              | degree_kelvin    |
 | {term}`temperature_dew_point_2m`        | td            | Dew point at 2 m above ground, the temperature at which the air would become saturated.                                                   | degree_kelvin    |

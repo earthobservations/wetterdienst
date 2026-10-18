@@ -61,12 +61,12 @@ _KnmiObservationMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dd",
                             "unit": "degree",
                         },
@@ -146,12 +146,12 @@ _KnmiObservationMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "FH",
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_direction_last_10min",
+                            "name": "wind_direction_mean_last_10min",
                             "name_original": "DD",
                             "unit": "degree",
                         },
@@ -226,7 +226,7 @@ _KnmiObservationMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "FG",
                             "unit": "meter_per_second",
                         },

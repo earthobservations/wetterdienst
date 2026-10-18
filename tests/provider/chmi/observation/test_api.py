@@ -259,7 +259,7 @@ def test_chmi_observation_values_daily() -> None:
     assert _value_of(df, "temperature_air_max_2m", when) == pytest.approx(1.5)
     assert _value_of(df, "temperature_air_min_2m", when) == pytest.approx(-6.9)
     assert _value_of(df, "precipitation_amount", when) == pytest.approx(0.0)
-    assert _value_of(df, "wind_speed", when) == pytest.approx(0.8)
+    assert _value_of(df, "wind_speed_mean", when) == pytest.approx(0.8)
     assert _value_of(df, "wind_gust_max", when) == pytest.approx(3.7)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(974.9)
     assert _value_of(df, "snow_depth", when) == pytest.approx(0.0)
