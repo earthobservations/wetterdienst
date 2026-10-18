@@ -112,7 +112,13 @@ def test_the_tokens_a_stubbed_source_gets_are_told_by_the_legend(
     told = {kind.kind for kind in quality_legend(*network.split("/"))}
     df = stub.build(monkeypatch, drop_nulls=False)
     tokens = (
-        df.get_column("quality_flags").drop_nulls().str.split(",").explode().drop_nulls().unique().to_list()
+        df.get_column("quality_flags")
+        .drop_nulls()
+        .str.split(",")
+        .explode(empty_as_null=False)
+        .drop_nulls()
+        .unique()
+        .to_list()
         if "quality_flags" in df.columns
         else []
     )
