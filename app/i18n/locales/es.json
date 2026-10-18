@@ -25,7 +25,7 @@
     "stripesDesc": "El calentamiento de tu región mostrado como franjas de colores.",
     "explorerTitle": "Explorar datos",
     "explorerDesc": "Encuentra estaciones en el mapa y obtén mediciones.",
-    "featuresTitle": "Qué puedes hacer con ellos",
+    "featuresTitle": "Qué puedes hacer con esto",
     "featureExportTitle": "Exportación flexible",
     "featureExportDesc": "Descarga los datos en formato CSV, JSON o GeoJSON.",
     "featureAnalysisTitle": "Interpolación y resumen",
@@ -36,12 +36,12 @@
     "supportedByTitle": "Con el apoyo de",
     "supportedByJetbrains": "una licencia de PyCharm a través de su programa de apoyo al código abierto",
     "supportedByAnthropic": "una suscripción a Claude Max para mantenedores de código abierto",
-    "dataTitle": "Qué datos obtiene",
-    "dataIntro": "Mediciones oficiales de los servicios meteorológicos nacionales. Sin clave, sin cuenta, sin límite.",
+    "dataTitle": "Qué datos obtienes",
+    "dataIntro": "Mediciones oficiales de los servicios meteorológicos nacionales. Sin clave, sin cuenta.",
     "statProviders": "servicios meteorológicos",
     "statParameters": "parámetros",
     "statResolutions": "resoluciones",
-    "statPrice": "de uso",
+    "statPrice": "por usarlo",
     "dataProvidersTitle": "Servicios meteorológicos",
     "dataProvidersDesc": "Una misma forma de consulta para todos. El GHCN de la NOAA añade estaciones de todo el mundo, mucho más allá de los países aquí listados.",
     "glossaryHint": "Cada parámetro está explicado en el glosario.",
@@ -59,7 +59,7 @@
     "kindAlertsDesc": "Avisos oficiales del DWD por tormenta, calor, helada e inundación, por distrito.",
     "kindRoadTitle": "Meteorología vial",
     "kindRoadDesc": "Estado y temperatura del firme de las estaciones viales del DWD, junto con sus predicciones.",
-    "aboutLink": "Sobre el proyecto y quienes están detrás"
+    "aboutLink": "Sobre el proyecto y las personas que lo hacen posible"
   },
   "values": {
     "title": "Lo que defendemos",
@@ -70,12 +70,12 @@
   },
   "about": {
     "title": "Acerca de",
-    "subtitle": "El proyecto y quienes están detrás.",
+    "subtitle": "El proyecto y las personas que lo hacen posible.",
     "projectTitle": "Acerca de Wetterdienst",
     "projectText1": "Wetterdienst comenzó como un paquete de Python robusto que ofrece una interfaz coherente y bien probada a los datos de observación meteorológicos y medioambientales de varios proveedores (DWD, NOAA y otros). Con el tiempo se convirtió en un ecosistema completo: una herramienta de línea de comandos, una API REST y esta aplicación web.",
     "projectText2": "En conjunto, hacen que Wetterdienst sea útil tanto como biblioteca para desarrolladores como aplicación lista para usar para personas que no programan. Tareas habituales como la conversión de unidades, la interpolación y el resumen las gestiona el backend.",
     "projectText3": "Es software libre con licencia MIT, desarrollado abiertamente en GitHub y de uso gratuito, incluida esta aplicación alojada.",
-    "peopleTitle": "Las personas detrás",
+    "peopleTitle": "Las personas detrás del proyecto",
     "maintainerRole": "Creador y mantenedor",
     "maintainerAge": "{age} años",
     "maintainerText2": "También gestiona la instancia alojada en wetterdienst.eobs.org, que ofrece gratuitamente esta aplicación, la API y el punto de acceso MCP.",
@@ -113,7 +113,7 @@
   },
   "language": {
     "switch": "Cambiar idioma",
-    "inclusiveHint": "Bienvenidas y bienvenidos todas las personas"
+    "inclusiveHint": "Bienvenidas todas las personas"
   },
   "settings": {
     "title": "Ajustes",
@@ -239,10 +239,10 @@
   "api": {
     "title": "API REST",
     "subtitle": "Accede a los datos meteorológicos mediante programación",
-    "endpointsTitle": "Endpoints",
+    "endpointsTitle": "Puntos de acceso",
     "examplesTitle": "Ejemplos",
     "formatsTitle": "Formatos de respuesta",
-    "formatsText": "Todos los endpoints admiten varios formatos de salida mediante el parámetro de consulta {format}:",
+    "formatsText": "Todos los puntos de acceso admiten varios formatos de salida mediante el parámetro de consulta {format}:",
     "formatJson": "Formato JSON (predeterminado)",
     "formatCsv": "Formato CSV",
     "formatGeojson": "Formato GeoJSON para mapas",
@@ -666,7 +666,7 @@
     "noColumns": "La consulta no devolvió ninguna columna",
     "missingColumns": "A los resultados de la consulta les faltan columnas esperadas: {missing}. Columnas esperadas: {expected}",
     "extraColumns": "Los resultados de la consulta contienen columnas adicionales: {extra}",
-    "misreadTypes": "DuckDB en el navegador lee mal BIT, TIME WITH TIME ZONE (se pierde el desfase) y los valores UHUGEINT desde 2^127 (se vuelven negativos) y muestra una GEOMETRY como sus bytes WKB. Convierta esa columna a texto: CAST(columna AS VARCHAR)."
+    "misreadTypes": "DuckDB en el navegador lee mal BIT, TIME WITH TIME ZONE (se pierde el desfase) y los valores UHUGEINT desde 2^127 (se vuelven negativos) y muestra una GEOMETRY como sus bytes WKB. Convierte esa columna a texto: CAST(columna AS VARCHAR)."
   },
   "history": {
     "title": "Historial de estaciones",
@@ -674,7 +674,7 @@
     "aboutButton": "Acerca del historial de estaciones",
     "about1": "El historial de una estación recoge los cambios administrativos y físicos que ha experimentado a lo largo de su vida. Una estación puede haber cambiado de nombre, de operador, haberse reubicado, haber sustituido sus instrumentos o haber tenido periodos con datos faltantes, todo lo cual se registra como entradas con marca de tiempo.",
     "about2": "El historial solo está disponible actualmente para la red de observación del DWD. Selecciona una resolución y un conjunto de datos para filtrar las estaciones disponibles y luego elige una o varias estaciones para obtener su historial.",
-    "about3": "Están disponibles las siguientes secciones del historial: nombre (cambios de nombre de la estación y del operador), parámetro (parámetros medidos a lo largo del tiempo), dispositivo (cambios de instrumentos y métodos de medición), geografía (cambios de ubicación y altura) y datos faltantes (huecos en el registro de mediciones).",
+    "about3": "Están disponibles las siguientes secciones del historial: nombre (cambios de nombre de la estación y del operador), parámetro (parámetros medidos a lo largo del tiempo), dispositivo (cambios de instrumentos y métodos de medición), geografía (cambios de ubicación y altitud) y datos faltantes (huecos en el registro de mediciones).",
     "datasetSelectionTitle": "Selección del conjunto de datos",
     "datasetHint": "El historial solo está disponible para los conjuntos de datos de observación del DWD",
     "providerLabel": "Proveedor",
@@ -695,12 +695,12 @@
     "colName": "Nombre",
     "colLatitude": "Latitud",
     "colLongitude": "Longitud",
-    "colElevationM": "Altura (m)",
+    "colElevationM": "Altitud (m)",
     "colRegion": "Región",
     "stationHistoryTitle": "Historial de la estación",
     "stationIdPrefix": "ID de estación",
     "rowStationName": "Nombre de la estación",
-    "rowStationElevation": "Altura de la estación",
+    "rowStationElevation": "Altitud de la estación",
     "nameHistory": "Historial de nombres",
     "stationNames": "Nombres de la estación",
     "operatorNames": "Nombres de los operadores",

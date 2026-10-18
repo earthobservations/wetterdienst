@@ -37,7 +37,7 @@
     "supportedByJetbrains": "licencja PyCharm w ramach ich programu wsparcia open source",
     "supportedByAnthropic": "subskrypcja Claude Max dla opiekunów projektów open source",
     "dataTitle": "Jakie dane otrzymasz",
-    "dataIntro": "Oficjalne pomiary krajowych służb meteorologicznych. Bez klucza, bez konta, bez limitu.",
+    "dataIntro": "Oficjalne pomiary krajowych służb meteorologicznych. Bez klucza, bez konta.",
     "statProviders": "służb meteorologicznych",
     "statParameters": "parametrów",
     "statResolutions": "rozdzielczości",
@@ -272,7 +272,7 @@
       "stripesImage": "Obraz pasków klimatycznych (temperatura)"
     },
     "mcpTitle": "Punkt końcowy MCP",
-    "mcpText": "Wetterdienst mówi także w Model Context Protocol, dzięki czemu asystenci AI mogą pobierać dane pogodowe jako narzędzia: znaleźć stację, a potem odczytać jej pomiary. Udostępnione są te same punkty końcowe co powyżej, przez transport streamable HTTP.",
+    "mcpText": "Wetterdienst obsługuje także Model Context Protocol, dzięki czemu asystenci AI mogą pobierać dane pogodowe jako narzędzia: znaleźć stację, a potem odczytać jej pomiary. Udostępnione są te same punkty końcowe co powyżej, przez transport streamable HTTP.",
     "mcpUrlLabel": "URL punktu końcowego",
     "mcpClientLabel": "Konfiguracja klienta",
     "mcpNoAuth": "Nie jest potrzebny klucz API ani konto.",
@@ -580,7 +580,7 @@
     "errStartRequired": "Data początkowa jest wymagana",
     "errEndRequired": "Data końcowa jest wymagana",
     "errEndAfterStart": "Data końcowa musi być późniejsza niż data początkowa",
-    "errExceedsLimit": "Szacowane {count} wartości przekracza limit {max}. Zawęź zakres dat."
+    "errExceedsLimit": "Szacowana liczba wartości ({count}) przekracza limit {max}. Zawęź zakres dat."
   },
   "map": {
     "centerAll": "Wyśrodkuj na wszystkich stacjach",

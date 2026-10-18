@@ -37,7 +37,7 @@
     "supportedByJetbrains": "een PyCharm-Lizenz över ehr Open-Source-Förderprogramm",
     "supportedByAnthropic": "een Claude-Max-Abo för Open-Source-Maintainers",
     "dataTitle": "Wat för Daten du kriggst",
-    "dataIntro": "Amtliche Meetweerten vun de nationalen Wedderdeenste. Keen Slötel, keen Konto, keen Limit.",
+    "dataIntro": "Amtliche Meetweerten vun de nationalen Wedderdeenste. Keen Slötel, keen Konto.",
     "statProviders": "Wedderdeenste",
     "statParameters": "Parameter",
     "statResolutions": "Oplösungen",
@@ -306,7 +306,7 @@
     "kindDerived": "Afleidde Daten",
     "shown": "{shown} vun {count} wiest",
     "noResults": "Keen Anbeder passt to de Söök.",
-    "notFound": "Dat gifft keen Anbeder mit’n Naam „{provider}“.",
+    "notFound": "Dat gifft keen Anbeder mit'n Naam „{provider}“.",
     "multinational": "Mehr Länner",
     "networksCount": "Nettwarken: {count}",
     "parametersCount": "Parameter: {count}",
@@ -323,7 +323,7 @@
     "networksTitle": "Nettwarken",
     "source": "Quell",
     "noResolutions": "Keen Tietreeg: hier is nix to wiesen.",
-    "openExplorer": "In’n Explorer apenmaken"
+    "openExplorer": "In'n Explorer apenmaken"
   },
   "meteogram": {
     "title": "Wedderutsicht",

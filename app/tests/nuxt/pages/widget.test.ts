@@ -300,7 +300,7 @@ describe('widget Page failures in the active language', () => {
   it.each([
     ['en', 'Backend error 404: No forecast', 'Backend error 502 Bad Gateway'],
     ['de', 'Backend-Fehler 404: No forecast', 'Backend-Fehler 502 Bad Gateway'],
-    ['fr', 'Erreur du backend 404 : No forecast', 'Erreur du backend 502 Bad Gateway'],
+    ['fr', 'Erreur du backend 404\u00A0: No forecast', 'Erreur du backend 502 Bad Gateway'],
     ['pl', 'Błąd backendu 404: No forecast', 'Błąd backendu 502 Bad Gateway'],
   ])('names the backend\'s error in %s', async (language, withDetail, withStatus) => {
     await inLanguage(language)
