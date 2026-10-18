@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.160.0] - 2026-10-18
+
 ### Added
 
 - `start` and `end` of a request take a month and a year as strings, `"2020-05"` and `"2020"`, as
@@ -5845,7 +5847,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.159.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.160.0...HEAD
+[0.160.0]: https://github.com/earthobservations/wetterdienst/compare/v0.159.0...v0.160.0
 [0.159.0]: https://github.com/earthobservations/wetterdienst/compare/v0.158.0...v0.159.0
 [0.158.0]: https://github.com/earthobservations/wetterdienst/compare/v0.157.0...v0.158.0
 [0.157.0]: https://github.com/earthobservations/wetterdienst/compare/v0.156.0...v0.157.0

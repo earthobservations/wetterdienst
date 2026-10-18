@@ -32,20 +32,7 @@ import json
 from typing import Any
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {
-    "GET / 200: media type application/json was removed": (
-        "GH-3129: the index is HTML. The document declared it application/json with an empty schema, which it never "
-        "was, and now declares text/html"
-    ),
-    "GET /robots.txt 200: media type application/json was removed": (
-        "GH-3129: robots.txt is text. The document declared it application/json with an empty schema, which it never "
-        "was, and now declares text/plain"
-    ),
-    "GET /api/v1/stripes/image 200: media type application/json was removed": (
-        "GH-3129: the stripes image is png, jpeg, svg or pdf. The document declared it application/json with an empty "
-        "schema, which it never was, and now declares the image types"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

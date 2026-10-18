@@ -274,8 +274,9 @@ def test_a_recursive_schema_ends() -> None:
     assert breaking_changes(baseline, copy.deepcopy(baseline)) == []
 
 
-def test_an_approved_break_is_left_out() -> None:
+def test_an_approved_break_is_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
     """A finding named in `ACCEPTED_BREAKS` does not fail the check, and any other still does."""
-    finding = next(iter(ACCEPTED_BREAKS))
+    finding = "GET /y 200: media type application/json was removed"
+    monkeypatch.setitem(ACCEPTED_BREAKS, finding, "a reason")
 
     assert unaccepted([finding, "GET /x was removed"]) == ["GET /x was removed"]

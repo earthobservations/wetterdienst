@@ -133,8 +133,8 @@ member of a response that is no longer always there, or a request that asks for 
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.159.0`)
-- **App**: Version in `app/package.json` (currently `0.24.0`; the package is also marked `private`)
+- **Backend**: Version in `pyproject.toml` (currently `0.160.0`)
+- **App**: Version in `app/package.json` (currently `0.25.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 

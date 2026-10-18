@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-18
+
 ### Changed
 
 - `[Glossary]` The means of the irradiances, the soil moisture (twelve names), the snow depth, the
@@ -1390,7 +1392,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.24.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.25.0...HEAD
+[0.25.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.24.0...app-v0.25.0
 [0.24.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.23.0...app-v0.24.0
 [0.23.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.22.0...app-v0.23.0
 [0.22.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.21.0...app-v0.22.0
