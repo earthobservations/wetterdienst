@@ -1075,8 +1075,9 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
             ("hourly", "data", "wind_direction_last_10min"),
             ("hourly", "data", "cloud_cover_total"),
         ],
-        start=_day(2024, 1, 1),
-        end=_day(2024, 1, 1, 2),
+        # the files of the hours 00 to 03 are stamped with the end of their hour (GH-2824)
+        start=_day(2024, 1, 1, 1),
+        end=_day(2024, 1, 1, 3),
         settings=_settings(auth={"knmi": "stub"}),
         options=_options(drop_nulls),
     )
