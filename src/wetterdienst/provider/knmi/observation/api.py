@@ -106,16 +106,33 @@ def _resolution_of(parameter_or_dataset: ParameterModel | DatasetModel) -> Resol
     return dataset.resolution.value
 
 
+def _ceil(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
+    """Snap a moment up to its resolution's interval boundary, the moment itself if it is on one."""
+    floored = _floor(moment, resolution)
+    return floored if floored == moment else floored + _STEP_BY_RESOLUTION[resolution]
+
+
+def _stamp(moment: dt.datetime, resolution: Resolution) -> dt.datetime:
+    """Return the `timestamp` of the values in the file that is named for `moment`.
+
+    KNMI names a 10-minute or hourly file for the START of the interval it covers (`...202501022350.nc` is
+    23:50 to 24:00) and stamps the values in it with the END: "The timestamp in the files indicates the end of the
+    measuring interval preceding that timestamp" (GH-2824). The instantaneous parameters ("Past minute mean air
+    temperature", "Past 1 minute air pressure") belong to that end, the aggregates (FH, RH, Q, ...) cover the
+    interval before it. The daily file is named for the date and holds the UTC day of that date: its value is
+    stamped with the date, as for every provider.
+    """
+    return moment if resolution == Resolution.DAILY else moment + _STEP_BY_RESOLUTION[resolution]
+
+
 def _moments(start_date: dt.datetime, end_date: dt.datetime, resolution: Resolution) -> Iterator[dt.datetime]:
+    """Yield the moments that name the files whose values are stamped within [start_date, end_date]."""
     step = _STEP_BY_RESOLUTION[resolution]
-    # 10-minute filenames encode the minute, so an unaligned start would not resolve -- floor
-    # it (the over-fetched pre-start file is trimmed by the framework's [start, end] filter).
-    # Hourly/daily filenames truncate to the hour/day and are left unfloored here: flooring
-    # them would date the value before an unaligned start_date and drop the first period. When
-    # the whole request is a single resolution, __post_init__ has already floored start so
-    # the moments are aligned; a mixed request keeps the (harmless) unaligned label.
-    current = _floor(start_date, resolution) if resolution == Resolution.MINUTE_10 else start_date
-    while current <= end_date:
+    # a daily file is stamped with its own date. When the whole request is daily, __post_init__ has already floored
+    # start to the day so the moments are aligned; a mixed request keeps the (harmless) unaligned label. Otherwise
+    # the first stamp at or after start_date, and the file of the interval that ends there
+    current = start_date if resolution == Resolution.DAILY else _ceil(start_date, resolution) - step
+    while _stamp(current, resolution) <= end_date:
         yield current
         current += step
 
@@ -278,7 +295,7 @@ class KnmiObservationValues(TimeseriesValues):
                 # shouldn't sink the whole range
                 log.warning(f"Failed to acquire KNMI data for station {station_id}, file {filename}: {payload}")
                 continue
-            df = parse_knmi_netcdf(payload, station_id, parameter_names, moment)
+            df = parse_knmi_netcdf(payload, station_id, parameter_names, _stamp(moment, resolution))
             if not df.is_empty():
                 frames.append(df)
         if not frames:
@@ -341,22 +358,20 @@ class KnmiObservationRequest(TimeseriesRequest):
                 "or Settings(auth={'knmi': '<api_key>'}) (Python)."
             )
             raise CredentialMissingError(msg)
-        # When the whole request targets a single hourly/daily resolution, snap start down
-        # to that resolution's interval boundary. Those are period aggregates labelled at the
-        # period start, so a query beginning mid-period should include that period; flooring
-        # start here (the one filter the framework shares across resolutions) keeps value
-        # dates on the true boundary AND keeps the start-containing period in range -- correct
-        # timestamps with no dropped period. 10-minute is excluded: its values are end-labelled
-        # sub-hour intervals, so an unaligned start correctly excludes the pre-start interval
-        # (the framework's [start, end] filter handles that, with _moments flooring only to
-        # resolve filenames). A mixed-resolution request has no single boundary and is left as-is.
+        # When the whole request targets the daily resolution, snap start down to the day: a daily value is stamped
+        # with its date, so a query beginning mid-day should include that day, and flooring start here (the one
+        # filter the framework shares across resolutions) keeps the stamp on the date AND the day in range. The
+        # 10-minute and the hourly values are stamped with the END of their interval (`_stamp`), so an unaligned
+        # start correctly excludes the interval that ends before it (the framework's [start, end] filter does
+        # that, and `_moments` starts at the first stamp at or after it). A mixed-resolution request has no
+        # single boundary and is left as-is.
         resolutions = {
             _resolution_of(parameter_or_dataset)
             for parameter_or_dataset in self.parameters
             if isinstance(parameter_or_dataset, (ParameterModel, DatasetModel))
         }
-        if self.start and resolutions in ({Resolution.HOURLY}, {Resolution.DAILY}):
-            self.start = _floor(cast("dt.datetime", self.start), next(iter(resolutions)))
+        if self.start and resolutions == {Resolution.DAILY}:
+            self.start = _floor(cast("dt.datetime", self.start), Resolution.DAILY)
 
     def _all(self) -> pl.LazyFrame:
         """Enumerate stations per requested resolution.

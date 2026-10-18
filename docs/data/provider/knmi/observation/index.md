@@ -22,9 +22,13 @@ wetterdienst.
 The "validated" datasets lag real time (observed: ~1–2 days for hourly), so only
 historical data is available; there is no real-time/`now` period.
 
-KNMI's internal NetCDF `time` coordinate marks the *end* of the aggregation period (the
-file for 2020-01-01 carries an internal time of 2020-01-02). wetterdienst dates each
-value to the requested moment instead, matching KNMI's legacy CSV service.
+KNMI's NetCDF `time` coordinate marks the *end* of the measuring interval: the 10-minute file
+for 23:50 to 24:00 and the hourly file for 23:00 to 24:00 carry the time 00:00 of the next day,
+the daily file for 2020-01-01 carries 2020-01-02. wetterdienst stamps the 10-minute and the
+hourly values with that end, so the air temperature of 12:00 UTC (the "past minute" before it) is
+at 12:00 and an hourly sum is at the end of its hour, and the daily values with the date of
+their UTC day, matching KNMI's legacy CSV service. Before GH-2824 the 10-minute and hourly
+values were stamped with the start of the interval.
 
 Requests hitting a transient failure (rate limiting, dropped connections) are retried
 automatically with a short backoff — a couple of retries, a few seconds each. This is
