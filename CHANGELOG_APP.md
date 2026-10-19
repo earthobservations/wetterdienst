@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-19
+
 ### Changed
 
 - `[Translations]` German, French, Czech and Luxembourgish address you informally, as the other
@@ -1400,7 +1402,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.25.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.26.0...HEAD
+[0.26.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.25.0...app-v0.26.0
 [0.25.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.24.0...app-v0.25.0
 [0.24.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.23.0...app-v0.24.0
 [0.23.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.22.0...app-v0.23.0

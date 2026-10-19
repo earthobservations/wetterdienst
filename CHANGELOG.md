@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.161.0] - 2026-10-19
+
 ### Changed
 
 - **Breaking**: the stations of a `name` come back best match first, not in the order of the station
@@ -5887,7 +5889,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.160.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.161.0...HEAD
+[0.161.0]: https://github.com/earthobservations/wetterdienst/compare/v0.160.0...v0.161.0
 [0.160.0]: https://github.com/earthobservations/wetterdienst/compare/v0.159.0...v0.160.0
 [0.159.0]: https://github.com/earthobservations/wetterdienst/compare/v0.158.0...v0.159.0
 [0.158.0]: https://github.com/earthobservations/wetterdienst/compare/v0.157.0...v0.158.0

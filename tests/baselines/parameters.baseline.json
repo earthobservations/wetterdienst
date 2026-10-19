@@ -3057,6 +3057,8 @@
           "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude"
         },
         "monthly/soil": {
+          "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
+          "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude",
           "soil_moisture_corn_loamy_silt_00cm_60cm": "soil_moisture_mean_corn_loamy_silt_00cm_60cm",
           "soil_moisture_corn_sand_00cm_60cm": "soil_moisture_mean_corn_sand_00cm_60cm",
           "soil_moisture_grass_loamy_silt_00cm_10cm": "soil_moisture_mean_grass_loamy_silt_00cm_10cm",
@@ -3145,6 +3147,12 @@
       "dwd/swsmos": {
         "hourly/data": {
           "precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h"
+        }
+      },
+      "ea/hydrology": {
+        "daily/data": {
+          "groundwater_level_max": "stage_max",
+          "groundwater_level_min": "stage_min"
         }
       },
       "eccc/observation": {
@@ -3380,5 +3388,5 @@
       "6_hour": "6_hours"
     }
   },
-  "x-release": "0.160.0"
+  "x-release": "0.161.0"
 }

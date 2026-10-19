@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.160.0",
+    "version": "0.161.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -1071,10 +1071,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'.",
+              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
           },
           {
             "name": "name_threshold",
@@ -1145,10 +1145,10 @@
                   "type": "null"
                 }
               ],
-              "description": "With latitude/longitude, the N closest stations; with name, at most N matches (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
+              "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N matches (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
           },
           {
             "name": "distance",
@@ -1782,10 +1782,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'.",
+              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'."
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id."
           },
           {
             "name": "name_threshold",
@@ -1856,10 +1856,10 @@
                   "type": "null"
                 }
               ],
-              "description": "With latitude/longitude, the N closest stations; with name, at most N matches (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
+              "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`).",
               "title": "Rank"
             },
-            "description": "With latitude/longitude, the N closest stations; with name, at most N matches (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
+            "description": "With latitude/longitude, the N closest stations; with name, at most N stations (default 5 for `stations`, which lists candidates, and 1 for `values`, the best match, as the library's `filter_by_name`)."
           },
           {
             "name": "distance",
@@ -7621,5 +7621,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.160.0"
+  "x-release": "0.161.0"
 }
