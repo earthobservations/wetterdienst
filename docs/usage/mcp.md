@@ -105,6 +105,7 @@ argument, the answer) comes with `/mcp/v2`, and `/mcp/v1` keeps serving the tool
 minor releases, announced in the changelog. `/mcp` is an alias of the current version, the same endpoint with the
 same tools, as `/api` is for `/api/v1`: it is not deprecated and it moves with the next version, so a
 client that must not move with it is configured with `/mcp/v1`. Until `/mcp/v2` exists, it is a 404. A new tool, an optional argument and a new member of
-an answer are not breaking and come to `/mcp/v1` as they come to the REST API. The app reads `/api/version` before
+an answer are not breaking and come to `/mcp/v1` as they come to the REST API. The
+[Compatibility](compatibility.md) page has the rules of every surface in one place. The app reads `/api/version` before
 offering an MCP client configuration, so an instance without the extra is never advertised as serving an endpoint
 it does not.

@@ -22,6 +22,9 @@
 > [!WARNING]
 > This library is a work in progress!
 > Breaking changes should be expected until a 1.0 release, so version pinning is recommended.
+> What 1.0 promises, and what to change to upgrade, is in
+> [Compatibility](https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html) and
+> [Migrating from 0.139.0](https://wetterdienst.readthedocs.io/en/latest/usage/migrating.html).
 
 Wetterdienst gives you weather, climate and hydrology data from 22 national services through one
 interface: one way to find a station, one way to ask for values, one shape of result. It is a
@@ -172,6 +175,9 @@ Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io
   [how to run your own](https://wetterdienst.readthedocs.io/en/latest/usage/app.html).
 - **The data**: [providers, parameters and licences](https://wetterdienst.readthedocs.io/en/latest/data/index.html),
   [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html).
+- **Upgrade**: [compatibility](https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html), what
+  is stable and how a break is announced, and the
+  [migration note from 0.139.0](https://wetterdienst.readthedocs.io/en/latest/usage/migrating.html).
 - **Something fails**: [troubleshooting](https://wetterdienst.readthedocs.io/en/latest/usage/troubleshooting.html)
   and [known issues](https://wetterdienst.readthedocs.io/en/latest/known_issues.html).
 - **Contribute**: [contribution guide](https://wetterdienst.readthedocs.io/en/latest/contribution/),

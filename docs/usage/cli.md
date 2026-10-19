@@ -14,6 +14,9 @@ same output, the `metadata` block of the [response metadata](restapi.md#response
 
 ## Exit codes
 
+What the command line promises across releases, its options and exit codes among it, is on the
+[Compatibility](compatibility.md#command-line) page.
+
 The exit code of a command is part of its contract, for the script, the scheduler and the CI job that branch on
 it: it is `0`, `1` or `2`, and no command has another. A test holds every explicit exit and every error the
 command line raises to these three, and each failure of the library to the status the REST API answers it with.
