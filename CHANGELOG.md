@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Deprecated
+
+- `Wetterdienst(provider, network)` and the CLI command `wetterdienst stripes values` are removed in
+  1.0.0, as the `DeprecationWarning` and the command's notice now say: use
+  `Wetterdienst.resolve(provider, network)` (`resolve_standalone` for `dwd/radar` and
+  `dwd/alerts`) and `wetterdienst stripes image`. Both work unchanged until then (GH-3128)
+
 ### Fixed
 
 - `ea/hydrology` daily `groundwater_level_max` and `groundwater_level_min`, which became `stage_max`
@@ -29,6 +36,12 @@ Types of changes:
 - The CLI no longer answers an unknown option with a refused one: `wetterdienst stations
   --lead-time=long` suggested `--end-date`, which is itself refused in favour of `--end`. Refused
   options are left out of "Did you mean", and a renamed option still names the new one (GH-3167)
+- **Breaking**: reading a `dwd/mosmix` or `dwd/dmo` run that fails raises the `DownloadError` of
+  every other download, or the `NoInternetError` where no connection could be made, with the failure
+  as `__cause__`, where a TLS failure was a bare `ssl.SSLError`, a reset, timeout, 5xx or cut-short
+  body the aiohttp or fsspec error, and a missing run (or any failure with the cache disabled) a
+  `FileNotFoundError`. The REST API answers 502, 503 or 504 for them, not 500. Catch `DownloadError`
+  and `NoInternetError` instead of those (GH-3120)
 
 ## [0.160.0] - 2026-10-18
 

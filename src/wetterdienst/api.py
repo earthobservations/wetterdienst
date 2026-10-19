@@ -252,10 +252,10 @@ class Wetterdienst:
     def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
         """Resolve provider and network to API request class.
 
-        Deprecated: a class constructed is no instance of it, and the return type cannot say which kind of
-        class comes back. Use `Wetterdienst.resolve(provider, network)` for a timeseries network and
+        Deprecated, removed in 1.0.0: a class constructed is no instance of it, and the return type cannot say
+        which kind of class comes back. Use `Wetterdienst.resolve(provider, network)` for a timeseries network and
         `Wetterdienst.resolve_standalone(provider, network)` for `dwd/radar` and `dwd/alerts` (GH-3045).
-        It still returns the class of either kind.
+        It still returns the class of either kind until then.
 
         Args:
             provider: Provider name
@@ -266,8 +266,9 @@ class Wetterdienst:
 
         """
         warnings.warn(
-            "Wetterdienst(provider, network) is deprecated: use Wetterdienst.resolve(provider, network), or "
-            "Wetterdienst.resolve_standalone(provider, network) for dwd/radar and dwd/alerts",
+            "Wetterdienst(provider, network) is deprecated and will be removed in 1.0.0: use "
+            "Wetterdienst.resolve(provider, network), or Wetterdienst.resolve_standalone(provider, network) for "
+            "dwd/radar and dwd/alerts",
             DeprecationWarning,
             stacklevel=2,
         )
