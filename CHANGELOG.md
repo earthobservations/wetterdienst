@@ -21,6 +21,11 @@ Types of changes:
 - The dependency is now `polars[calamine]>=1.43.2,<3` (it was `>=1.43.0`): 1.43.0 and 1.43.1 are
   yanked on PyPI, so no installer resolved them by default and 1.43.2 is the oldest polars a caller
   can get. Pinned environments that still hold 1.43.0 or 1.43.1 upgrade polars (GH-3138)
+- IMGW: the `attribution` in the `metadata` block of its answers carries both statements the
+  terms prescribe, the source of the data (§ 5 ust. 3) and that the data were processed (§ 5
+  ust. 4), and `license.url` links the terms' PDF, not the portal. The docs say that the data
+  are free for private use only, since IMGW has declared none high-value, and that a business
+  use needs an agreement with IMGW (GH-2567)
 
 ## [0.161.0] - 2026-10-19
 
