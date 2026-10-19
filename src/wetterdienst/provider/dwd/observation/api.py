@@ -174,9 +174,11 @@ class DwdObservationValues(TimeseriesValues):
         parameter_df = parameter_df.sort([_PERIOD_RANK, _HAS_VALUE], descending=[False, True], maintain_order=True)
         parameter_df = parameter_df.unique(subset=["timestamp"], keep="first")
         parameter_df = parameter_df.drop(_PERIOD_RANK, _HAS_VALUE)
-        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which
-        # takes the `datetime_ranges` + `explode` of the historical 1 minute precipitation 13 times (one
-        # station-year) to 200 times (ten) as long as the in-memory engine does
+        # the in-memory engine on purpose: polars 2 collects with the streaming engine by default, which is
+        # slower here. Measured with polars 2.0.0 (benchmarks/dwd_observation_minute_1_precipitation.py, ten
+        # stations): the `datetime_ranges` + `explode` of the historical 1 minute precipitation takes 2.2 times
+        # as long, and the whole values run of the recent files 1.2 to 1.4 times, though the parse of those
+        # files alone is 2.3 times faster on streaming
         result = parameter_df.collect(engine="in-memory", background=False)
         if not isinstance(result, pl.DataFrame):
             msg = "Expected DataFrame from collect()"
