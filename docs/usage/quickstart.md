@@ -38,7 +38,7 @@ pip install "wetterdienst[interpolation,export]"
 | `knmi` | the KNMI observations, which come as NetCDF |
 | `radar` | the DWD radar products that are HDF5 or NetCDF |
 | `radarplus` | the packages that radar data is worked with (wradlib, xradar), as in the radar examples |
-| `bufr`, `eccodes` | decoding BUFR, which DWD road weather and some radar products are (`bufr` brings the reader, `eccodes` only the library) |
+| `bufr`, `eccodes` | decoding BUFR, which DWD road weather and some radar products are (`bufr` brings the reader, `eccodes` only the library); on Linux see the [crash at exit](../known_issues.md#crash-at-exit-with-eccodes-and-pyproj-on-linux) for code that imports ecCodes itself |
 | `pdf` | reading the field descriptions of DWD's PDF documents (`describe_fields`) |
 
 Check the installation with `wetterdienst --help`. The [Docker image](docker.md) ships with most of them. A request that
