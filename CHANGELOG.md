@@ -36,15 +36,21 @@ Types of changes:
   `quality_flags`, where the feed writes a 0 beside a mean speed of 0, a calm (112 of its 114 zeros;
   north is 360): it was 0 degrees. A 0 beside a speed above 0 stays (GH-3135)
 - `metoffice/observation` hourly `wind_direction_mean_last_10min`, `wind_direction_mean` and
-  `wind_direction_gust_max` are null, with `raw:0`, where the file holds a 0, a calm (the table says
-  zero direction and speed mean no wind; north is 360), and `cloud_cover_total` where it holds a 9,
-  the sky obscured: they were 0 degrees and 1.125 (GH-3135)
+  `wind_direction_gust_max` are null, with `raw:0`, where the file holds a 0 beside a speed of 0 (the
+  gust direction beside the gust speed), a calm: the table says zero direction and speed mean no
+  wind, and north is 360. A 0 beside a speed above 0 stays. `cloud_cover_total` is null where the
+  file holds a 9, the sky obscured. They were 0 degrees and 1.125 (GH-3135)
 - `metoffice/observation` hourly `rain`, `wind` and `radiation` keep only the readings of one hour
   (`ob_hour_count` 1): the 12 hour rain totals ending 09:00 and 21:00 and the 24 hour radiation
   totals, which are in the same files, replaced the reading of their hour with the maximum (GH-3137)
 - The `wsv/pegel` parameter descriptions no longer say "average ... during time scale": the values
   are the raw readings PEGELONLINE publishes (`... ROHDATEN`) at the recording interval of each
   series. The data are those of the last 31 days, not 30 (GH-3136)
+- The `metoffice/observation` docs and the descriptions of the daily temperatures say that a day is
+  the date of `ob_end_time` (the source's 09Z day) and that 24-hour 09-09Z rows (2,962 of 14,334)
+  fall on the day after most of their coverage, where the docs said the true daily extreme was
+  recovered; `dwd/mosmix` `TM` is described as probably the previous UTC day, not confirmed by DWD
+  (GH-3137)
 
 ## [0.161.0] - 2026-10-19
 

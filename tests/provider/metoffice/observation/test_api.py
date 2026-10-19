@@ -228,22 +228,37 @@ def test_parse_values_keeps_the_hourly_reading_and_not_the_12_and_24_hour_total_
 
 
 def test_parse_values_reads_a_calm_wind_direction_as_no_bearing() -> None:
-    """A direction of 0 is a calm, written with a speed of 0, and north is 360 (GH-3135)."""
+    """A direction of 0 beside a speed of 0 is a calm; beside a speed above 0 it stays, north is 360 (GH-3135)."""
     content = _badc(
         b"Conventions,G,BADC-CSV,1\n",
         "ob_time,wind_direction,wind_direction_q,wind_speed,wind_speed_q",
-        b"2023-01-01 00:00:00,0,0,0,0\n2023-01-01 01:00:00,360,0,5,0\n2023-01-01 02:00:00,90,0,8,0\n",
+        b"2023-01-01 00:00:00,0,0,0,0\n2023-01-01 01:00:00,360,0,5,0\n2023-01-01 02:00:00,0,0,1,0\n"
+        b"2023-01-01 03:00:00,0,0,NA,NA\n",
     )
-    df = parse_values(content, time_column="ob_time", columns=["wind_direction", "wind_speed"], granularity="1h").sort(
-        "parameter", "timestamp"
+    df = parse_values(content, time_column="ob_time", columns=["wind_direction"], granularity="1h").sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(None, "0,raw:0"), (360.0, "0"), (0.0, "0"), (0.0, "0")]
+
+
+def test_parse_values_judges_the_gust_direction_against_the_gust_speed() -> None:
+    """The 0 of the gust direction is a calm beside a gust speed of 0, whatever the mean speed is (GH-3135)."""
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_end_time,ob_hour_count,mean_wind_dir,mean_wind_speed,max_gust_dir,max_gust_speed",
+        b"2023-01-01 01:00:00,1,0,0,0,0\n2023-01-01 02:00:00,1,90,4,0,0\n2023-01-01 03:00:00,1,0,4,0,9\n",
     )
+    df = parse_values(
+        content,
+        time_column="ob_end_time",
+        columns=["mean_wind_dir", "max_gust_dir"],
+        granularity="1h",
+    ).sort("parameter", "timestamp")
     assert df.select("parameter", "value", "quality_flags").rows() == [
-        ("wind_direction", None, "0,raw:0"),
-        ("wind_direction", 360.0, "0"),
-        ("wind_direction", 90.0, "0"),
-        ("wind_speed", 0.0, "0"),
-        ("wind_speed", 5.0, "0"),
-        ("wind_speed", 8.0, "0"),
+        ("max_gust_dir", None, "raw:0"),
+        ("max_gust_dir", None, "raw:0"),
+        ("max_gust_dir", 0.0, None),
+        ("mean_wind_dir", None, "raw:0"),
+        ("mean_wind_dir", 90.0, None),
+        ("mean_wind_dir", 0.0, None),
     ]
 
 

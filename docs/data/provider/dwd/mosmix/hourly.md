@@ -177,7 +177,7 @@
 | {term}`temperature_air_max_2m_last_12h`                                   | tx            | Maximum temperature - within the last 12 hours                                      | K     | -           |
 | {term}`temperature_air_0_05m`                                    | t5cm          | Temperature 5cm above surface                                                       | K     | -           |
 | {term}`temperature_air_2m`                                       | ttt           | Temperature 2m above surface                                                        | K     | -           |
-| {term}`temperature_air_mean_2m_last_24h`                         | tm            | Mean temperature during the last 24 hours                                           | K     | -           |
+| {term}`temperature_air_mean_2m_last_24h` | tm | Mean temperature during the last 24 hours. DWD gives no window beyond that; measured against the hourly TTT of the run of 2026-10-19 (100 values of 10 stations) it fits the previous UTC day best, with a mean error of 0.33 K, against 0.55 K for the 24 hours ending at the stamp and 1.1 K for the stamp's own UTC day. Not confirmed by DWD. | K | - |
 | {term}`temperature_air_min_0_05m_last_12h`                       | tg            | Minimum surface temperature at 5cm within the last 12 hours                         | K     | -           |
 | {term}`temperature_air_min_2m_last_12h`                                   | tn            | Minimum temperature - within the last 12 hours                                      | K     | -           |
 | {term}`temperature_dew_point_2m`                                 | td            | Dewpoint 2m above surface                                                           | K     | -           |

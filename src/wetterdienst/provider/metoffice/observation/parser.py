@@ -42,8 +42,15 @@ _MISSING = "NA"
 # (https://artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/WH_Table.html). Over 75 station-years of 2022 (25 stations of
 # each of hourly weather, mean wind and daily temperature), the direction of the hourly weather was 0 in 1,574 of
 # 137,423 readings, all but one at a speed of 0, of the mean wind 381 of 207,174 (all at a speed of 0) and of the
-# direction of the gust 97 of 207,639 (a gust speed of 0 or none), where 2,210, 3,024 and 2,630 were 360 (GH-3135)
-_CALM_DIRECTION_COLUMNS = frozenset({"wind_direction", "mean_wind_dir", "max_gust_dir"})
+# direction of the gust 97 of 207,639 (a gust speed of 0 in 55, none in 42), where 2,210, 3,024 and 2,630 were 360
+# (GH-3135). One rule for every provider: the 0 is null only beside a speed of 0, and the speed that is judged is the
+# one of the same reading: the gust direction against the gust speed `max_gust_speed`, not the mean speed (the 42
+# gusts without a speed have no mean speed either, so a 0 beside no speed stays, as a 0 beside a speed above 0 does)
+_CALM_SPEED_COLUMNS = {
+    "wind_direction": "wind_speed",
+    "mean_wind_dir": "mean_wind_speed",
+    "max_gust_dir": "max_gust_speed",
+}
 _CALM = "0"
 
 # the total cloud amount is in oktas, and a 9 is the sky obscured, no amount (9 was 1.125 once converted): 397 of
@@ -100,6 +107,18 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
         .dt.replace_time_zone("UTC")
         .alias("end_timestamp"),
     )
+
+
+def _code_sentinels(raw_column: str, columns: list[str]) -> list[Sentinel]:
+    """Give the codes of a column that are no reading: a 0 of a direction beside a speed of 0, the 9 of the sky."""
+    codes = []
+    speed = _CALM_SPEED_COLUMNS.get(raw_column)
+    if speed in columns:
+        calm = pl.col(speed).str.strip_chars().cast(pl.Float64, strict=False) == 0
+        codes.append(Sentinel(_CALM, where=calm.fill_null(value=False)))
+    if raw_column in _SKY_OBSCURED_COLUMNS:
+        codes.append(Sentinel(_SKY_OBSCURED))
+    return codes
 
 
 def parse_values(
@@ -175,9 +194,9 @@ def parse_values(
         quality_column = f"{raw_column}_q"
         # an `NA`, and a text that is no number, is null with its text kept as `raw:` (GH-2759)
         # (a calm direction and a sky obscured are a 0 and a 9 that are no reading of their column, GH-3135)
-        codes = [Sentinel(_CALM)] if raw_column in _CALM_DIRECTION_COLUMNS else []
-        codes += [Sentinel(_SKY_OBSCURED)] if raw_column in _SKY_OBSCURED_COLUMNS else []
-        value, sentinel = null_sentinels(pl.col(raw_column), Sentinel(_MISSING), *codes, non_numeric=True)
+        value, sentinel = null_sentinels(
+            pl.col(raw_column), Sentinel(_MISSING), *_code_sentinels(raw_column, df.columns), non_numeric=True
+        )
         if raw_column in scale:
             value = value * scale[raw_column]
         sub = df.select(

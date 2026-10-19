@@ -104,6 +104,15 @@ _WSV_PEGEL_PARAMETERS = {
 }
 
 
+# The daily temperature file of MIDAS Open mixes the 12 hour rows ending 09:00 (night) and 21:00 (day) with 24 hour rows
+# ending 09:00 (2,962 of the 14,334 rows of the daily temperature files of 25 stations, 2022), and the reader stamps
+# a row by the date of its `ob_end_time`, the source's 09Z climatological day (GH-3137)
+_MO_DAILY_STAMP = (
+    "Stamped by the date of ob_end_time (the 09Z climatological day of the source). The file mixes 12 hour rows ending "
+    "09:00 and 21:00 with 24 hour rows ending 09:00 (2,962 of 14,334 rows), so a 24 hour 09-09Z row falls on the day "
+    "after most of its coverage."
+)
+
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
         (resolution, "data", name_original): description
@@ -442,7 +451,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "large", "td"): "Dewpoint 2m above surface",
         ("hourly", "large", "tg"): "Minimum surface temperature at 5cm within the last 12 hours",
-        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours",
+        ("hourly", "large", "tm"): (
+            "Mean temperature during the last 24 hours. DWD gives no window beyond that; measured against the hourly "
+            "TTT of the run of 2026-10-19 (100 values of 10 stations) it fits the previous UTC day best, with a mean "
+            "error of 0.33 K, against 0.55 K for the 24 hours ending at the stamp and 1.1 K for the stamp's own UTC "
+            "day. Not confirmed by DWD."
+        ),
         ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours",
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
         ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours",
@@ -1873,9 +1887,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "MetOfficeObservationMetadata": {
         ("daily", "rain", "prcp_amt"): "Precipitation amount, reported to the nearest 0.1 mm.",
-        ("daily", "temperature", "max_air_temp"): "Maximum air temperature, to the nearest 0.1 deg C.",
-        ("daily", "temperature", "min_air_temp"): "Minimum air temperature, to the nearest 0.1 deg C.",
-        ("daily", "temperature", "min_grss_temp"): "Minimum grass temperature, to the nearest 0.1 deg C.",
+        (
+            "daily",
+            "temperature",
+            "max_air_temp",
+        ): f"Maximum air temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}",
+        (
+            "daily",
+            "temperature",
+            "min_air_temp",
+        ): f"Minimum air temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}",
+        ("daily", "temperature", "min_grss_temp"): (
+            f"Minimum grass temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}"
+        ),
         ("daily", "weather", "drv_24hr_sun_dur"): (
             "Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global "
             "radiation values to derive it."
@@ -1899,7 +1923,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "soil_temperature", "q50cm_soil_temp"): "50 cm soil temperature, to the nearest 0.1 deg C.",
         ("hourly", "soil_temperature", "q5cm_soil_temp"): "5 cm soil temperature, to the nearest 0.1 deg C.",
         ("hourly", "weather", "air_temperature"): "Air temperature, to the nearest 0.1 deg C.",
-        ("hourly", "weather", "cld_ttl_amt_id"): "Total cloud amount code.",
+        ("hourly", "weather", "cld_ttl_amt_id"): (
+            "Total cloud amount code, in oktas. The source's 9, the sky obscured (the tables name no code for it), is "
+            "null."
+        ),
         ("hourly", "weather", "dewpoint"): (
             "Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect "
             "to water at its existing pressure and humidity."
@@ -1916,7 +1943,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "weather", "wind_direction"): (
             "Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. "
             'The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in '
-            'SYNOPs and METARs - they are stored in the UK Hourly Weather table".'
+            'SYNOPs and METARs - they are stored in the UK Hourly Weather table". '
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "weather", "wind_speed"): (
             'Wind speed, knots. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute '
@@ -1925,11 +1953,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "weather", "wmo_hr_sun_dur"): (
             "Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder."
         ),
-        ("hourly", "wind", "max_gust_dir"): "Direction of the maximum gust, degrees true.",
+        ("hourly", "wind", "max_gust_dir"): (
+            "Direction of the maximum gust, degrees true. "
+            "The source's 0 beside a gust speed of 0 (a calm wind) is null."
+        ),
         ("hourly", "wind", "max_gust_speed"): "Speed of the maximum gust, knots.",
         ("hourly", "wind", "mean_wind_dir"): (
             "Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind "
-            "180."
+            "180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "wind", "mean_wind_speed"): "Mean wind speed, knots.",
     },
