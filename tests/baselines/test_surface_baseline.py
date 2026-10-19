@@ -31,10 +31,10 @@ def _surface() -> dict[str, Any]:
             "dwd/observation": "(parameters, start=None, *, options=None)",
             "eccc/observation": "(parameters)",
         },
-        "request_exports": [
-            "wetterdienst.provider.dwd.observation.DwdObservationRequest",
-            "wetterdienst.provider.eccc.observation.EcccObservationRequest",
-        ],
+        "request_exports": {
+            "dwd/observation": "wetterdienst.provider.dwd.observation.DwdObservationRequest",
+            "eccc/observation": "wetterdienst.provider.eccc.observation.EcccObservationRequest",
+        },
     }
 
 
@@ -97,15 +97,15 @@ def test_a_surface_is_not_a_break_of_itself() -> None:
             id="request-default",
         ),
         pytest.param(
-            lambda s: s["request_exports"].remove("wetterdienst.provider.dwd.observation.DwdObservationRequest"),
-            "request_exports: wetterdienst.provider.dwd.observation.DwdObservationRequest was removed",
+            lambda s: s["request_exports"].pop("dwd/observation"),
+            "request_exports: dwd/observation was removed",
             id="request-export",
         ),
         pytest.param(
             lambda s: s["request_exports"].__setitem__(
-                0, "wetterdienst.provider.dwd.observation.api.DwdObservationRequest"
+                "dwd/observation", "not exported: wetterdienst.provider.dwd.observation.api"
             ),
-            "DwdObservationRequest was removed",
+            "request_exports.dwd/observation: changed from",
             id="request-export-moved-into-an-internal-module",
         ),
     ],
@@ -136,7 +136,9 @@ def test_a_break_is_found(edit: Any, expected: str) -> None:  # noqa: ANN401
             lambda s: s["requests"].update({"dwd/observation": "(parameters, start=None, options=None)"}),
             id="keyword-only-becomes-positional",
         ),
-        pytest.param(lambda s: s["request_exports"].append("wetterdienst.provider.x.y.Z"), id="request-export"),
+        pytest.param(
+            lambda s: s["request_exports"].update({"x/y": "wetterdienst.provider.x.y.Z"}), id="request-export"
+        ),
         pytest.param(lambda s: s["requests"].pop("eccc/observation"), id="constructor-of-a-network-without-its-extra"),
     ],
 )
@@ -155,10 +157,11 @@ def test_an_approved_break_is_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_every_request_class_is_exported_by_its_provider_package() -> None:
     """The class of each registry path is a class of that package and listed in its `__all__`, not only of `api`."""
-    paths = build_surface()["request_exports"]
+    exports = build_surface()["request_exports"]
 
-    assert len(paths) == sum(len(networks) for networks in Wetterdienst.registry.values())
-    for path in paths:
+    assert len(exports) == sum(len(networks) for networks in Wetterdienst.registry.values())
+    assert not [network for network, path in exports.items() if path.startswith("not exported")]
+    for path in exports.values():
         module_name, name = path.rsplit(".", 1)
         try:
             module = importlib.import_module(module_name)

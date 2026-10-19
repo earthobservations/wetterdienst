@@ -109,6 +109,21 @@ def test_sleet_as_a_station_distance_key_names_graupel() -> None:
         Options(geo_station_distance={"count_weather_type_sleet": 10.0})
 
 
+def test_a_name_renamed_in_one_dataset_is_still_a_station_distance_key() -> None:
+    """`wind_speed` is a canonical parameter of the datasets that keep it, so as a key it is no error (GH-3008).
+
+    Only a name that is no canonical parameter at all is refused with its successor; `docs/usage/interpolation.md`
+    says that the new name is the key for the renamed parameter.
+    """
+    assert Options(geo_station_distance={"wind_speed": 30.0}).geo_station_distance["wind_speed"] == 30.0
+    assert (
+        Options(geo_station_distance={"wind_speed_mean_last_10min": 30.0}).geo_station_distance[
+            "wind_speed_mean_last_10min"
+        ]
+        == 30.0
+    )
+
+
 def _find_dataset(metadata_name: str, resolution: str, dataset: str) -> DatasetModel:
     """Find the dataset a rename is declared for, by the metadata declaration's name."""
     metadata = next(metadata for metadata in ALL_METADATA if metadata.name == metadata_name)

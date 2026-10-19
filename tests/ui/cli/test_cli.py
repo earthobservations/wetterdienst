@@ -1548,3 +1548,58 @@ def test_a_network_that_fails_to_import_is_the_import_error_not_an_unknown_netwo
     assert "lxml.etree not found" in str(result.exception)
     assert "Usage:" not in result.output
     assert "lists the available ones" not in result.output
+
+
+def _cli_commands() -> dict[str, click.Command]:
+    """Give the plain commands of the CLI by name, the groups left aside."""
+    return {name: command for name, command in cli.commands.items() if not isinstance(command, click.Group)}
+
+
+def _options(command: click.Command, *, hidden: bool | None = None) -> set[str]:
+    """Give the long options of a command, only the hidden ones or only the offered ones if `hidden` is given."""
+    return {
+        opt
+        for param in command.params
+        if isinstance(param, click.Option) and (hidden is None or bool(param.hidden) is hidden)
+        for opt in (*param.opts, *param.secondary_opts)
+        if opt.startswith("--")
+    }
+
+
+@pytest.mark.parametrize("name", sorted(_cli_commands()))
+def test_cli_usage_error_never_suggests_an_option_it_refuses(name: str) -> None:
+    """A refused option is not offered by "Did you mean", and a renamed one is refused with the new one (GH-3167).
+
+    `--end-date` is hidden, so as to be refused by its new name, but click guessed among every option a
+    command registered, and answered `--lead-time` with `--end-date`, which says it is gone. Every long option
+    any command has is given to every command as well: the ones it lacks (`--lead-time` for `stations`) must
+    get no refused option as a suggestion, and the hidden ones must name an option the command offers.
+    """
+    command = _cli_commands()[name]
+    refused = _options(command, hidden=True)
+    offered = _options(command, hidden=False)
+    every = {opt for other in _cli_commands().values() for opt in _options(other)} - {"--help", "--version"}
+    assert refused.isdisjoint(offered)
+    for option in sorted(every - offered):
+        result = CliRunner().invoke(cli, [name, option])
+        assert result.exit_code == 2, f"{name} {option}: {result.output}"
+        error = result.output.split("Error:", 1)[1]
+        if option in refused:
+            match = re.search(rf"{re.escape(option)} was renamed to (--[a-z-]+)\.", error)
+            assert match, f"{name} {option}: {error}"
+            assert match.group(1) in offered, f"{name} {option} names {match.group(1)}, which is not offered"
+        else:
+            suggested = (
+                set(re.findall(r"'(--[a-z-]+)'", error.split("Did you mean", 1)[-1]))
+                if "Did you mean" in error
+                else set()
+            )
+            assert not suggested & refused, f"{name} {option} suggests a refused option: {error}"
+
+
+def test_cli_stations_lead_time_is_not_answered_with_end_date() -> None:
+    """The case of GH-3167: `stations --lead-time` names no refused option."""
+    result = CliRunner().invoke(cli, ["stations", "--lead-time=long"])
+    assert result.exit_code == 2, result.output
+    assert "No such option '--lead-time'" in result.output
+    assert "--end-date" not in result.output

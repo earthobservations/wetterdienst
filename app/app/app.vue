@@ -91,16 +91,16 @@ const items = computed<NavigationMenuItem[]>(() =>
       active: route.path.startsWith('/history'),
     },
     {
-      label: t('nav.providers'),
-      icon: 'i-lucide-building-2',
-      to: '/providers',
-      active: route.path.startsWith('/providers'),
-    },
-    {
       label: t('nav.api'),
       icon: 'i-lucide-code',
       to: '/api',
       active: route.path.startsWith('/api'),
+    },
+    {
+      label: t('nav.providers'),
+      icon: 'i-lucide-building-2',
+      to: '/providers',
+      active: route.path.startsWith('/providers'),
     },
     {
       label: t('nav.glossary'),

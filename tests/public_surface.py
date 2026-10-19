@@ -10,10 +10,10 @@ internals are not. `tests/public_surface.snapshot.json` holds, of the frozen par
 - the names of the fields of `Settings` and of `Options`, which are the `WD_*` and `WD_TS_*` variables;
 - the signatures of `Wetterdienst`'s public methods, of `TimeseriesRequest` and its public methods, and of the
   constructor of each request class the registry resolves, with the standalone ones, and the networks of the registry.
-  The constructor of a network whose extra is not installed cannot be read and is left out of the comparison.
-- the request class each provider package exports, by the path it is imported from
-  (`wetterdienst.provider.dwd.observation.DwdObservationRequest`). The packages are frozen with it, `api.py`,
-  `values.py` and the rest of what is below a package are not (GH-3131).
+  The constructor of a network whose extra is not installed cannot be read and is left out of the comparison;
+- the import path of each request class: the package of its network (`wetterdienst.provider.dwd.observation`) exports
+  it under its name, which `Wetterdienst.resolve` is the other way to. The `api.py` and `values.py` behind it are not
+  frozen.
 
 The results (their fields, public methods and the signatures the guide shows) are pinned by
 `tests/model/test_results.py`, the exceptions by `tests/test_exceptions.py`, and the types by `tests/typed_caller.py`.
@@ -76,8 +76,8 @@ def _public(cls: type) -> dict[str, str]:
     return surface
 
 
-def _requests() -> dict[str, str]:
-    """Give the constructor of each request class the registry resolves, but of a network whose extra is missing."""
+def _resolved() -> dict[str, type]:
+    """Give the request class the registry resolves for each network, but of a network whose extra is missing."""
     from wetterdienst import Wetterdienst  # noqa: PLC0415
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
@@ -90,22 +90,27 @@ def _requests() -> dict[str, str]:
                     if Wetterdienst.is_standalone(provider, network)
                     else Wetterdienst.resolve
                 )
-                found[f"{provider}/{network}"] = signature_of(resolve(provider, network))
+                found[f"{provider}/{network}"] = resolve(provider, network)
             except (MissingDependencyError, ImportError):
                 continue
     return found
 
 
-def _request_exports() -> list[str]:
-    """Give the request class each provider package exports, as the dotted path a caller imports it from.
+def _requests() -> dict[str, str]:
+    """Give the constructor of each request class the registry resolves."""
+    return {network: signature_of(request) for network, request in _resolved().items()}
 
-    These are the paths the registry names (`wetterdienst.provider.dwd.observation.DwdObservationRequest`): the
-    class is imported from the package, not from its `api` module, which is an internal. That the package does export
-    it is held by `tests/test_public_surface.py`, where the package can be imported.
-    """
-    from wetterdienst import Wetterdienst  # noqa: PLC0415
 
-    return sorted(path for networks in Wetterdienst.registry.values() for path in networks.values())
+def _request_exports() -> dict[str, str]:
+    """Give the import path of each request class, as the package of its network exports it."""
+    from importlib import import_module  # noqa: PLC0415
+
+    found = {}
+    for network, request in _resolved().items():
+        package = request.__module__.rpartition(".")[0]
+        exported = getattr(import_module(package), request.__name__, None) is request
+        found[network] = f"{package}.{request.__name__}" if exported else f"not exported: {request.__module__}"
+    return found
 
 
 def build_surface() -> dict[str, Any]:

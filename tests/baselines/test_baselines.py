@@ -108,7 +108,7 @@ def test_the_baseline_is_not_empty(name: str) -> None:
         "Python surface": lambda b: (
             "Wetterdienst" in b["__all__"]
             and "dwd/observation" in b["requests"]
-            and "wetterdienst.provider.dwd.observation.DwdObservationRequest" in b["request_exports"]
+            and b["request_exports"]["dwd/observation"] == "wetterdienst.provider.dwd.observation.DwdObservationRequest"
         ),
         "MCP tools": lambda b: (
             {"stations", "values"} <= set(b["tools"]) and "provider" in b["tools"]["values"]["properties"]

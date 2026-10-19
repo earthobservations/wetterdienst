@@ -66,7 +66,9 @@ def test_the_snapshot_holds_the_entry_points_of_the_guide() -> None:
         committed["TimeseriesRequest"]
     )
     assert "dwd/observation" in committed["requests"]
-    assert "wetterdienst.provider.dwd.observation.DwdObservationRequest" in committed["request_exports"]
+    assert (
+        committed["request_exports"]["dwd/observation"] == "wetterdienst.provider.dwd.observation.DwdObservationRequest"
+    )
     assert {"cache_dir", "auth"} <= set(committed["Settings"])
     assert committed["Options"]
 

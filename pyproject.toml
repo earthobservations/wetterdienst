@@ -358,6 +358,9 @@ coverage = [
 "cli:snapshot" = "uv run python -m tests.ui.cli.help_snapshot"
 "surface:snapshot" = "uv run python -m tests.public_surface"
 # all three snapshots of the contract
+# the parameters of release 0.139.0 that are gone (tests/metadata/gone_since_0_139_0.json), which a test holds to a
+# replacement or a reason; regenerated from the tag `v0.139.0` (`git fetch --tags`), only if a name is back in a dataset
+"renames:baseline" = "uv run python -m tests.metadata.baseline_0_139_0"
 "contracts:snapshot" = [
     "openapi:snapshot",
     "cli:snapshot",

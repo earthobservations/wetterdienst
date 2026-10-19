@@ -37,7 +37,11 @@ What the endpoints share about which stations a request names:
 
 - **A name** (`name=Dresden`) is matched fuzzily. `stations` lists the best five matches, to choose
   from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
-  number, for either.
+  number of stations, for either; a station is one match however many datasets it has, and two
+  stations that share a name are two. The best match comes first, equal matches in the order of their
+  station ids. With a `timestamp` the name is matched among the stations that have a record in that
+  window, for `values` as for `stations`, so the best match is not a station that closed before it
+  while one of the same name is open; a window no station of that name covers is an empty result.
 - **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
   goes on with the others. When none exists the result is empty. The ids left out are named in a
   warning of the response's `metadata`, and in the server's log. The one reference station
@@ -81,7 +85,8 @@ examples on this page and the web app use the alias.
 requests before it is refused; 0 means the instance sets none.
 
 `api_version` is raised with a change a client has to follow. A path under a version that does
-not exist (`/api/v2/...`) is a 404.
+not exist (`/api/v2/...`) is a 404. What counts as a change a client has to follow, for this API and
+for the other surfaces, is on the [Compatibility](compatibility.md) page.
 
 The MCP endpoint is versioned alike, see [MCP endpoint](#mcp-endpoint). The operation ids of the
 OpenAPI document (`values_api_values_get`) and the names of the MCP tools (`values`) do not carry
@@ -102,7 +107,9 @@ a removal is announced in the changelog under `Deprecated` when it is deprecated
 A response that uses several deprecated things says the earliest of each date. A client that logs the
 `Deprecation` header of the answers it gets is told before anything is removed.
 
-Nothing is deprecated today. The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
+From 1.0.0 an endpoint or a parameter of `/api/v1` is removed only with the next version of the API: `/api/v1`
+is served for at least two minor releases after `/api/v2` appears, and announced by these headers, with `Sunset`
+set to the day it stops. Nothing is deprecated today. The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
 for an endpoint, `mark_deprecated(...)` in the handler that reads a parameter.
 
 ## Response metadata

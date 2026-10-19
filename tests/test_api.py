@@ -207,7 +207,9 @@ def test_the_constructor_form_is_deprecated_and_still_returns_the_class(
     provider: str, network: str, expected: type | None
 ) -> None:
     """`Wetterdienst(provider, network)` warns of `resolve` at the caller and returns the class (GH-3045)."""
-    with pytest.warns(DeprecationWarning, match=r"Wetterdienst\(provider, network\) is deprecated") as warned:
+    with pytest.warns(
+        DeprecationWarning, match=r"Wetterdienst\(provider, network\) is deprecated and will be removed in 1\.0\.0"
+    ) as warned:
         api = Wetterdienst(provider, network)
     assert api is (expected or resolve_network(provider, network))
     assert warned[0].filename == __file__

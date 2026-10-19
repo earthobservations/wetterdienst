@@ -229,7 +229,8 @@ name_opt = click.option(
     type=click.STRING,
     help=(
         "Select stations by fuzzy name match: the best five for `stations`, which lists candidates, "
-        "the best one for `values`, unless --rank says. Example: Dresden-Klotzsche"
+        "the best one for `values`, unless --rank says, among the stations with a record in --timestamp "
+        "if given. Example: Dresden-Klotzsche"
     ),
 )
 name_threshold_opt = click.option(
@@ -244,7 +245,7 @@ longitude_opt = click.option("--longitude", type=click.FLOAT, help="Longitude of
 rank_opt = click.option(
     "--rank",
     type=click.INT,
-    help="The N stations closest to --latitude/--longitude, or the N best --name matches.",
+    help="The N stations closest to --latitude/--longitude, or the N best --name matches, best first.",
 )
 distance_opt = click.option(
     "--distance",
@@ -1027,7 +1028,11 @@ class _Command(click.Command):
         except click.NoSuchOption as e:
             renamed = _renamed_to(self, e.option_name)
             if renamed is None:
-                raise
+                # click guesses among every option the command registered, the hidden refusals too (GH-3167): one
+                # of them as a suggestion would send the caller to an option that says it was renamed
+                refused = {opt for param in self.params if getattr(param, "hidden", False) for opt in param.opts}
+                possibilities = [option for option in e.possibilities or () if option not in refused]
+                raise click.NoSuchOption(e.option_name, e.message, possibilities, e.ctx) from e
             msg = f"{e.option_name} was renamed to {renamed}."
             raise click.UsageError(msg, ctx) from e
 
@@ -2491,7 +2496,7 @@ def stripes_image(
 
 # `stripes values` wrote the image, while `/api/stripes/values` and the tool `stripes_values` answer the data of
 # the stripes. The image has its own command now, named as its endpoint and tool are (GH-3035); the old name still
-# writes it, and says so, until it is decided whether it is to answer the data
+# writes it, and says so, until 1.0.0, which removes it (GH-3128)
 stripes.add_command(
     _Command(
         "values",
@@ -2499,7 +2504,7 @@ stripes.add_command(
         params=stripes_image.params,
         help=stripes_image.help,
         epilog=stripes_image.epilog,
-        deprecated="Use `stripes image`, which writes the image.",
+        deprecated="Use `stripes image`, which writes the image. It is removed in 1.0.0.",
     )
 )
 

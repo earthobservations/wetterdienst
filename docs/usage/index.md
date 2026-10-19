@@ -26,6 +26,13 @@ to do.
 | [MCP server](mcp.md) | the same data as tools for an assistant |
 | [Web app](app.md) | the explorer, forecasts, stripes, providers and glossary, and how to run your own |
 
+## Upgrading and compatibility
+
+| Page | What it is for |
+| --- | --- |
+| [Compatibility](compatibility.md) | what is stable on every surface, what counts as breaking, how a deprecation and a break are announced |
+| [Migrating from 0.139.0](migrating.md) | what to change in your code, scripts and deployment to move to the current release |
+
 ## Running it
 
 | Page | What it is for |
@@ -54,4 +61,6 @@ mcp.md
 app.md
 docker.md
 scheduling.md
+compatibility.md
+migrating.md
 ```
