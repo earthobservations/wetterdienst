@@ -114,11 +114,16 @@ MOISTURE_MISSING_PARAMETERS = {
 # reduction over the constant reflects the station, not the weather.
 #
 # Judged per file, here, before the files of the periods are put together: a file of at least
-# `STATION_CONSTANT_MIN_READINGS` readings with exactly one distinct value has it nulled, and the value stays as the
-# text of `quality_flags`' `raw` token (`raw:997.3`). Fewer readings are no evidence (a file of 24 rows is one day).
-# A constant that changed once in the file (953.1 and then 954.8 from 2026-10-13 at station 00142; 55 files) is two
-# distinct values and is not caught.
+# `STATION_CONSTANT_MIN_READINGS` readings with at most `STATION_CONSTANT_MAX_VALUES` distinct values has them nulled,
+# and each value stays as the text of `quality_flags`' `raw` token (`raw:997.3`). Fewer readings are no evidence (a
+# file of 24 rows is one day). A constant that changed once is two values (953.1 and then 954.8 from 2026-10-13 at
+# station 00142; 55 files, GH-3139, all without a barometer list; 00091's historical file holds 977.1 and then 977.6
+# from 2024-03-25). Read on the same 1314 files on 2026-10-19: of the 1,305 files with 500 or more readings
+# none holds 3 to 46 distinct values; the constants hold 1 (752) or 2 (55), the fewest of any other file is 47
+# (stundenwerte_TF_19271_akt.zip, a barometer in 7,643 readings) and the next 50, 53, 54, 57, 58, ... A threshold of
+# three sits in that gap, with room for a second step.
 STATION_CONSTANT_MIN_READINGS = 500
+STATION_CONSTANT_MAX_VALUES = 3
 STATION_CONSTANT_PARAMETERS = (
     (DwdObservationMetadata.hourly.moisture, DwdObservationMetadata.hourly.moisture.pressure_air_site.name_original),
 )
@@ -278,7 +283,7 @@ CODED_STRING_PARAMETERS = {
 
 
 def _null_station_constant(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
-    """Null a column of one file that holds a single value, keeping the text of it as `raw` (GH-2699).
+    """Null a column of one file that holds at most a few values, keeping the text of each as `raw` (GH-2699).
 
     A file is the unit: this runs on one file before the files are put together, so a station whose
     recent file is constant and whose historical file is not is judged on each. The value is judged
@@ -286,7 +291,7 @@ def _null_station_constant(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
     """
     value = pl.col(column)
     readings = value.cast(pl.Float64, strict=False).drop_nulls()
-    constant = (readings.len() >= STATION_CONSTANT_MIN_READINGS) & (readings.n_unique() == 1)
+    constant = (readings.len() >= STATION_CONSTANT_MIN_READINGS) & (readings.n_unique() <= STATION_CONSTANT_MAX_VALUES)
     raw = pl.when(constant & value.is_not_null()).then(value)
     if raw_column(column) in df.collect_schema():
         raw = pl.coalesce(pl.col(raw_column(column)), raw)

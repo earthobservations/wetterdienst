@@ -68,7 +68,7 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | DWD mosmix, dmo | `-` for a value the run does not have (null) |
 | DWD poi | `---`, and any text that is no number (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
-| AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
+| AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); `Ip` in the precipitation of the daily, monthly and annual values, a trace (0.0); any other text that is no number in the daily, monthly and annual values (null) |
 | DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
 | Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
@@ -82,6 +82,11 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | SMHI | `0` in the wind directions, a calm wind (null); `113` in the hourly cloud cover, the sky is obscured (null) |
 | RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
+
+A trace of precipitation or snow, an amount below what the gauge reads, is 0.0 in every provider. Where the
+source writes it as a code in the value (KNMI `-1`, Météo-France synop `-0.1`, AEMET `Ip`) the code is the `raw:`
+token; where the source writes 0 and flags it, the flag stays as the source's own (ECCC `T`, GHCN `measurement:T`,
+CHMI `element:T`).
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code
 already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
