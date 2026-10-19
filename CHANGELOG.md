@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- IMGW: the `attribution` in the `metadata` block of its answers carries both statements the
+  terms prescribe, the source of the data (§ 5 ust. 3) and that the data were processed (§ 5
+  ust. 4), and `license.url` links the terms' PDF, not the portal. The docs say that the data
+  are free for private use only, since IMGW has declared none high-value, and that a business
+  use needs an agreement with IMGW (GH-2567)
+
 ### Fixed
 
 - `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is also null in a file of at
