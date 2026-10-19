@@ -576,7 +576,8 @@ def test_eccc_request_for_the_first_or_last_day_of_a_station_is_not_skipped(
     [
         # a date or month is stamped at 00:00 UTC of it, as the values are, whatever the zone
         ("daily", dt.datetime(2013, 6, 11, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 8, tzinfo=ZoneInfo("UTC"))),
-        ("monthly", dt.datetime(2013, 6, 1, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 10, 1, tzinfo=ZoneInfo("UTC"))),
+        # MLY_LAST_DATE is no end of the rows (GH-3026): the monthly end is not published
+        ("monthly", dt.datetime(2013, 6, 1, tzinfo=ZoneInfo("UTC")), None),
         # an hour is an instant, so the station's Local Standard Time applies: EST, -5 h, in June as well (GH-2693)
         (
             "hourly",
@@ -590,7 +591,7 @@ def test_eccc_station_list_dates_are_stamped_like_the_values(
     options_convert_units_false: Options,
     resolution: str,
     start: dt.datetime,
-    end: dt.datetime,
+    end: dt.datetime | None,
 ) -> None:
     """Test that the first and last date of a station are the stamps of its first and last value (GH-2730)."""
     _serve_eccc(monkeypatch, [], _FIRST_AND_LAST_DAY_STATION)
@@ -640,7 +641,7 @@ def test_eccc_each_resolution_of_a_station_has_the_dates_of_its_own_collection(
     utc = ZoneInfo("UTC")
     assert request.df.sort("resolution").select("resolution", "start_timestamp", "end_timestamp").rows() == [
         ("daily", dt.datetime(1984, 7, 1, tzinfo=utc), dt.datetime(1996, 11, 30, tzinfo=utc)),
-        ("monthly", dt.datetime(1984, 1, 1, tzinfo=utc), dt.datetime(1996, 11, 1, tzinfo=utc)),
+        ("monthly", dt.datetime(1984, 1, 1, tzinfo=utc), None),
     ]
 
 
@@ -770,6 +771,39 @@ def _years_requested(
         window = url.split("UTC_YEAR=")[1] if "UTC_YEAR=" in url else url.split("datetime=")[1]
         years.setdefault(collection, []).append(int(window[:4]))
     return years, edges
+
+
+def test_eccc_a_window_of_recent_months_keeps_a_station_whose_monthly_list_dates_stopped_years_ago(
+    monkeypatch: pytest.MonkeyPatch, options_convert_units_false: Options
+) -> None:
+    """Test that the stations of a recent window are not those whose MLY_LAST_DATE is recent (GH-3026).
+
+    The monthly dates of the list stop at 2018-02 for every station (read 2026-10-19), White Rock has 2007-02 and
+    monthly rows to 2026-09, so reading them as the end of the record left no station for a window after 2018 and a
+    name matched among them found none. The daily and hourly ends of the list are the station's and still decide.
+    """
+    from wetterdienst.ui.core import limit_stations_to_window  # noqa: PLC0415
+
+    _serve_eccc(monkeypatch, [], _WHITE_ROCK_STATION)
+    kept = {}
+    for resolution in ("monthly", "daily", "hourly"):
+        for window in (("2026-08-01", "2026-09-30"), ("2020-01-01", "2020-12-31")):
+            request = EcccObservationRequest(
+                parameters=[(resolution, "data")],
+                start=window[0],
+                end=window[1],
+                options=options_convert_units_false,
+            )
+            kept[resolution, window[0]] = limit_stations_to_window(request.all()).df.height
+    # the station is listed for each; its daily and hourly ends are of 2026-10, a window of 2020 is covered too
+    assert kept == {
+        ("monthly", "2026-08-01"): 1,
+        ("monthly", "2020-01-01"): 1,
+        ("daily", "2026-08-01"): 1,
+        ("daily", "2020-01-01"): 1,
+        ("hourly", "2026-08-01"): 1,
+        ("hourly", "2020-01-01"): 1,
+    }
 
 
 def test_eccc_years_of_a_request_without_dates_are_those_of_the_rows_of_each_collection(

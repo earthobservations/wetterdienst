@@ -34,6 +34,10 @@ Types of changes:
 
 ### Fixed
 
+- ECCC `monthly` stations have no `end_timestamp` any more: the station list's `MLY_LAST_DATE` stops
+  at 2018-02 for every station while the monthly rows run to 2026-09, so a `timestamp` after 2018
+  left out every station with monthly values, and with it `stations` and `values` with a `name`
+  found none. The daily and hourly ends are unchanged (GH-3026)
 - `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is also null in a file of at
   least 500 readings that holds two or three distinct values, the pressure of a station without a
   barometer whose constant changed (55 files, e.g. 953.1 then 954.8 at 00142, 977.1 then 977.6 at
