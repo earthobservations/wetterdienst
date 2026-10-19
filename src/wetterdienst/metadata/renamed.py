@@ -183,6 +183,10 @@ _EXTREMES_MEAN_OF_DAILY = {
 }
 # GH-2839: a mean computed from the daily extremes, (max + min) / 2, is no mean of the day's readings
 _MIDRANGE_MEAN = {"temperature_air_mean_2m": "temperature_air_mean_minmax_2m"}
+_POTENTIAL_EVAPOTRANSPIRATION_TOTALS = {
+    "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
+    "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude",
+}
 
 #: canonical parameter names renamed inside one dataset, for a name that another dataset of the
 #: provider still has, so that `RENAMED_PARAMETERS` cannot hold it. Keyed by the name of the
@@ -191,7 +195,10 @@ _MIDRANGE_MEAN = {"temperature_air_mean_2m": "temperature_air_mean_minmax_2m"}
 #: as the global renames are, instead of a guess at a near spelling. Not every such rename is listed
 #: (the sub-daily `_mean_` temperatures follow a rule, `model.metadata._spot_name`), but each one
 #: that is has the old name in the table and the new one in the dataset, which
-#: `tests/metadata/test_renamed.py` holds it to.
+#: `tests/metadata/test_renamed.py` holds it to. The old name stays a canonical parameter, which is why
+#: a key of `Options(geo_station_distance=...)` that is one is accepted, and sets the radius of the
+#: datasets that still have it; a SQL column of a wide frame that is one is answered with the new
+#: name where the frame holds it (`renamed_column`).
 RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
     # GH-2614, GH-2644
     "AemetObservationMetadata": {
@@ -263,10 +270,13 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         },
     },
     "DwdDerivedMetadata": {
-        ("daily", "soil"): {
-            "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
-            "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude",
-        },
+        ("daily", "soil"): _POTENTIAL_EVAPOTRANSPIRATION_TOTALS,
+        # GH-3168: the monthly ones were renamed before the daily ones, and the 0.139.0 names went unanswered
+        ("monthly", "soil"): _POTENTIAL_EVAPOTRANSPIRATION_TOTALS,
+    },
+    # GH-2632, GH-3168: the river level the Environment Agency measures was `groundwater_level_max` and `_min`
+    "EAHydrologyMetadata": {
+        ("daily", "data"): {"groundwater_level_max": "stage_max", "groundwater_level_min": "stage_min"}
     },
 }
 
@@ -744,6 +754,10 @@ def renamed_column(old: str, columns: Collection[str]) -> str | None:
     Looked up regardless of case, as DuckDB matches identifiers. And only where the frame has the
     new name: a values frame never had `height`, and pointing its caller at an `elevation` it lacks
     as well would send them the wrong way.
+
+    A rename inside one dataset (`RENAMED_PARAMETERS_IN_DATASET`) is answered the same way, but only
+    where the frame holds a name that rename leads to: a column is not tied to a dataset, so the
+    frame is what says which one the caller means.
     """
     columns_by_lower = {column.lower(): column for column in columns}
     key = old.lower()
@@ -751,7 +765,54 @@ def renamed_column(old: str, columns: Collection[str]) -> str | None:
     if new is None:
         new = _renamed_wide_column(key)
     # a name that was not renamed is no hint at all: DuckDB's own error says more (GH-2032)
-    return columns_by_lower.get(new) if new and new != key else None
+    if new and new != key and new in columns_by_lower:
+        return columns_by_lower[new]
+    # a rename inside one dataset, for a name another dataset still has (GH-3008): known only by the frame having
+    # the new name, as a frame is of one provider's dataset and its columns do not say which
+    for candidate in _renamed_in_dataset_column(key):
+        if candidate in columns_by_lower:
+            return columns_by_lower[candidate]
+    return None
+
+
+def _in_dataset_successors() -> dict[str, list[str]]:
+    """Collect, for each name renamed in some dataset, the names it became in any, sorted."""
+    successors: dict[str, set[str]] = {}
+    for datasets in RENAMED_PARAMETERS_IN_DATASET.values():
+        for renames in datasets.values():
+            for old, new in renames.items():
+                successors.setdefault(old, set()).add(new)
+    return {old: sorted(news) for old, news in successors.items()}
+
+
+def _renamed_in_dataset_column(key: str) -> list[str]:
+    """List the columns a wide frame's column may be called now after a rename inside one dataset.
+
+    The frame's column follows its parameter, its quality flags column follows that, and a dataset prefix
+    stays in front, as `_renamed_wide_column` has it; the candidates are every name the parameter became
+    in some dataset, of which the caller keeps the one the frame holds.
+    """
+    base, suffix = _split_quality(key)
+    candidates: list[str] = []
+    for old, news in _in_dataset_successors().items():
+        if base == old:
+            prefix = ""
+        elif base.endswith(f"_{old}"):
+            prefix = base.removesuffix(old)
+        else:
+            continue
+        candidates.extend(f"{prefix}{new}{suffix}" for new in news)
+    return candidates
+
+
+def _split_quality(key: str) -> tuple[str, str]:
+    """Split a wide column's name into the parameter's and the quality flags suffix it is now called by, if any."""
+    if key.startswith("qn_"):
+        return key.removeprefix("qn_"), "_quality_flags"
+    for old_suffix in ("_quality_flags", "_quality_flag", "_quality"):
+        if key.endswith(old_suffix):
+            return key.removesuffix(old_suffix), "_quality_flags"
+    return key, ""
 
 
 def _renamed_wide_column(key: str) -> str:
@@ -763,14 +824,7 @@ def _renamed_wide_column(key: str) -> str:
     `<parameter>_quality_flag` its names before the two became one `<parameter>_quality_flags`
     (GH-2758).
     """
-    base, suffix = key, ""
-    if key.startswith("qn_"):
-        base, suffix = key.removeprefix("qn_"), "_quality_flags"
-    else:
-        for old_suffix in ("_quality_flags", "_quality_flag", "_quality"):
-            if key.endswith(old_suffix):
-                base, suffix = key.removesuffix(old_suffix), "_quality_flags"
-                break
+    base, suffix = _split_quality(key)
     if base in RENAMED_PARAMETERS:
         return f"{RENAMED_PARAMETERS[base]}{suffix}"
     # `<dataset>_<parameter>`: the longest renamed name the column ends in, after an underscore

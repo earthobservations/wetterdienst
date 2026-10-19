@@ -25,6 +25,17 @@ Types of changes:
 
 ### Fixed
 
+- `ea/hydrology` daily `groundwater_level_max` and `groundwater_level_min`, which became `stage_max`
+  and `stage_min` (GH-2632), are refused with the new names, as `dwd/derived` monthly
+  `evapotranspiration_potential_grass_fao_last_24h` and `..._haude_last_24h` are now with
+  `evapotranspiration_potential_grass_fao` and `..._haude`; they said only "not found" (GH-3168)
+- A `filter_by_sql` on a wide frame names the new column for a parameter that was renamed in one
+  dataset only (`wind_speed` for `wind_speed_mean_last_10min`) when the frame has it, as it does
+  for the other renames. A key of `geo_station_distance` for such a name is still accepted, as the
+  name is a parameter of the datasets that keep it; key the new name for the renamed one (GH-3008)
+- The CLI no longer answers an unknown option with a refused one: `wetterdienst stations
+  --lead-time=long` suggested `--end-date`, which is itself refused in favour of `--end`. Refused
+  options are left out of "Did you mean", and a renamed option still names the new one (GH-3167)
 - **Breaking**: reading a `dwd/mosmix` or `dwd/dmo` run that fails raises the `DownloadError` of
   every other download, or the `NoInternetError` where no connection could be made, with the failure
   as `__cause__`, where a TLS failure was a bare `ssl.SSLError`, a reset, timeout, 5xx or cut-short

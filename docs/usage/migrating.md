@@ -175,7 +175,7 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | Name in 0.139.0 | Now | Release, issue |
 | --- | --- | --- |
 | `dwd/observation` `daily/temperature_soil/temperature_soil_mean_1m` (`v_te100m`) | not offered: DWD publishes no 100 cm column. A request that names it warns and drops it, or fails if it names nothing else | 0.151.0, GH-2700 |
-| `dwd/mosmix` large `h_bsc` (`cloud_base_convective`), `rr1`, `rr3`, `rr6`, `rrh`, `rrd` (`precipitation_amount_last_1h` to `_24h`), `rads3` (`radiation_global_last_3h`), `radl3` (`radiation_sky_long_wave_last_3h`) | not declared: MOSMIX-L never delivers them. The precipitation totals are `rr1c`, `rr3c`, `rr6c`, `rrhc`, `rrdc`, i.e. `precipitation_amount_significant_weather_last_1h` to `_24h` | 0.155.0, GH-2851 |
+| `dwd/mosmix` large `h_bsc` (`cloud_base_convective`), `rr1`, `rr3`, `rr6`, `rrh`, `rrd` (`precipitation_amount_last_1h` to `_24h`), `rads3` (`radiation_global_last_3h`), `radl3` (`radiation_sky_long_wave_last_3h`) | not declared: MOSMIX-L never delivers them. The precipitation totals have the nearest elements in `rr1c`, `rr3c`, `rr6c`, `rrhc`, `rrdc` (the totals consistent with the significant weather), `precipitation_amount_significant_weather_last_1h` to `_24h`, which the error names only as a guess | 0.155.0, GH-2851 |
 
 ### The resolution
 
@@ -295,17 +295,16 @@ arguments are the query parameters. In addition:
 ## Verified
 
 The parameter tables above were checked against the code of both releases. 361 parameters that a dataset of 0.139.0
-has are not in 0.160.0 under the same name; each was requested from 0.160.0. 343 of the refusals name a replacement,
-and that replacement exists in the same network, resolution and dataset. The other 18 are:
+has are not in the current release under the same name; each is requested from it, and a test
+(`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below. 347 of the refusals name a replacement,
+and that replacement exists in the same network, resolution and dataset. The other 14 are:
 
-- the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily, the three MOSMIX-L parameters
-  `cloud_base_convective`, `radiation_global_last_3h` and `radiation_sky_long_wave_last_3h`, the daily
-  `groundwater_level_max` and `groundwater_level_min` of the Environment Agency (the error lists the available
-  parameters and names none), and `wind_direction_gust_max` of Météo-France hourly;
-- the two monthly `evapotranspiration_potential_grass_fao_last_24h` and `..._haude_last_24h` of DWD derived, whose error
-  offers `evapotranspiration_potential_grass_fao` and `..._haude`, which are the replacements;
-- the five MOSMIX-L precipitation totals, whose error offers the near spelling `precipitation_amount_significant_weather_last_1h`
-  (and `_3h` to `_24h`), which is the replacement;
+- the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily (GH-2700), `wind_direction_gust_max` of
+  Météo-France hourly (GH-2836), and the eight MOSMIX-L elements that the files never carry (GH-2851):
+  `cloud_base_convective`, `radiation_global_last_3h`, `radiation_sky_long_wave_last_3h` and the five precipitation
+  totals `precipitation_amount_last_1h`, `_3h`, `_6h`, `_12h` and `_24h`. The near spelling the error offers for the
+  totals, `precipitation_amount_significant_weather_last_1h` and so on, is another element (`RR1c`, the total
+  consistent with the significant weather) and a guess, not a rename;
 - the names the source itself uses, which still select their row and come back under the new name:
   `wind_speed` and `wind_direction` of the Met Office hourly weather, `wind_direction` of ECCC, and `wind_speed`
   of `metno/frost` (a request for it needs the met.no credential, so it was not run).
