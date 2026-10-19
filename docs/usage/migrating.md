@@ -16,6 +16,11 @@ before 0.139.0, read the **Breaking** entries up to it first.
 The web app is released as a pair with the backend: `app-v0.25.0` goes with 0.160.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
+Two things still work in 0.160.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
+`wetterdienst stripes values`. Move to `Wetterdienst.resolve(provider, network)` and `wetterdienst stripes image` now
+(both are in [The request](#the-request) and [Command line](#command-line) below). The import path of a request class
+(`from wetterdienst.provider.dwd.observation import DwdObservationRequest`) does not move: it is frozen from 1.0.
+
 ## Installation
 
 | Before | Now | Release, issue |
@@ -36,7 +41,7 @@ The web app is released as a pair with the backend: `app-v0.25.0` goes with 0.16
 | `DwdWeatherAlertRequest(date=...)`, `.date` | `timestamp=...`, `.timestamp` | 0.142.0, GH-2438 |
 | `end="2026-01-31"` or a `datetime.date` ended at midnight and left the day out | a date without a time is the whole day, to 23:59:59.999999 UTC, as REST's `timestamp` always read it. A `datetime` or a string with a time is still that instant: end a window at midnight with `end="2026-01-31T00:00:00"`. `start="2020-05"` and `end="2020-05"` name the month and `"2020"` the year | 0.160.0, GH-3133, GH-3155 |
 | `start=2020` (an int) raised `AttributeError` | a `TypeError` | 0.155.0, GH-2636 |
-| `Wetterdienst(provider, network)`, the constructor form that returns a class | still works and warns with a `DeprecationWarning`: write `Wetterdienst.resolve(provider, network)`. `dwd/radar` and `dwd/alerts` are no `TimeseriesRequest`: `Wetterdienst.resolve` refuses them with an `ApiNotFoundError` that names `Wetterdienst.resolve_standalone(provider, network)`; `Wetterdienst.is_standalone(provider, network)` tells which is which | 0.156.0, GH-3045 |
+| `Wetterdienst(provider, network)`, the constructor form that returns a class | still works and warns with a `DeprecationWarning`, and is removed in 1.0.0: write `Wetterdienst.resolve(provider, network)`. `dwd/radar` and `dwd/alerts` are no `TimeseriesRequest`: `Wetterdienst.resolve` refuses them with an `ApiNotFoundError` that names `Wetterdienst.resolve_standalone(provider, network)`; `Wetterdienst.is_standalone(provider, network)` tells which is which | 0.156.0, GH-3045 |
 | `Wetterdienst.get_network_names("foo")` raised `KeyError`, `discover()` returned `{}` for a resolution or dataset the network lacks | `ApiNotFoundError` and `MetadataNotFoundError`, both a `NotFoundError` and a `LookupError`; catch those instead of `KeyError` | 0.155.0, GH-2636 |
 | a parameter the provider does not have was logged and skipped | `InvalidParameterError` (a `RequestError`) naming each with its close match. Fix the name, or pass `on_unknown="warn"` for the old behaviour. When none resolves it is the same error, no longer `NoParametersFoundError`: catch `RequestError` for both | 0.155.0, GH-2636 |
 | `DwdDmoRequest.available_issues` listed every lead time | lists `lead_time="short"`; pass `lead_time="long"`, or `lead_time=None` for all | 0.140.0, GH-2009 |
@@ -127,6 +132,10 @@ rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name)
 
 Moves of the same parameter between 0.145.0 and 0.160.0 are shown from the name of 0.139.0 to the name of 0.160.0.
 
+These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
+the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
+release ([Parameter names](compatibility.md#parameter-names-units-and-timestamps)).
+
 ### The statistic in the name
 
 | Name in 0.139.0 | Name now | Where | Release, issue |
@@ -185,7 +194,9 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 ## Values, units and timestamps
 
 These keep their names and their request, and give other numbers or other stamps. Nothing refuses your code, so a
-series you stored before does not join the new one.
+series you stored before does not join the new one. From 1.0 a correction of this kind is marked
+**Breaking** and made in a minor release, with an entry that says what to do with stored values
+([Compatibility](compatibility.md#what-counts-as-breaking)).
 
 ### Units and meaning
 
@@ -230,7 +241,7 @@ series you stored before does not join the new one.
 | `--convert_units`, `--unit_targets`, `--sql_values`, `--skip_empty`, `--skip_criteria`, `--skip_threshold`, `--drop_nulls`, `--if_exists`, `--with_metadata`, `--with_stations`, `--lead_time`, `--start_year`, `--end_year`, `--name_threshold`, `--show_title`, `--show_years`, `--show_data_availability`, `--wmo_code`, `--country_name` and the `--interpolation_station_distance*`, `--summary_station_distance*` | the same with hyphens (`--convert-units`); the underscored name is refused with an error naming the hyphenated one | 0.156.0, GH-2561 |
 | `--station` (a list) | `--stations`; the singular `--parameter`, `--period`, `--resolution`, `--dataset` of a list are refused naming the plural. `interpolate`, `summarize`, `issues` and `stripes` keep their one reference `--station` | 0.156.0, GH-2561 |
 | `wetterdienst summarize --use_nearby_station_distance` | gone: leave it out (a summary takes the nearest station with data); `interpolate` keeps its own | 0.158.0, GH-3077 |
-| `wetterdienst stripes values` wrote the image | `wetterdienst stripes image` writes it; `stripes values` still does and warns on stderr (deprecated, no removal version) | 0.159.0, GH-3035 |
+| `wetterdienst stripes values` wrote the image | `wetterdienst stripes image` writes it; `stripes values` still does and warns on stderr (deprecated, removed in 1.0.0, and the name is not reused) | 0.159.0, GH-3035 |
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
