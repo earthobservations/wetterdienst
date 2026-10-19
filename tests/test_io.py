@@ -4243,3 +4243,46 @@ def test_driver_missing_names_the_driver_the_postgresql_extra_installs(
 
     assert missing is not None
     assert str(missing) == expected
+
+
+@pytest.mark.sql
+@pytest.mark.parametrize(
+    ("columns", "old", "new"),
+    [
+        # a name another dataset still has, renamed in the one the frame is from (GH-3008)
+        (["wind_speed_mean_last_10min"], "wind_speed", "wind_speed_mean_last_10min"),
+        (["WIND_SPEED_MEAN_LAST_10MIN"], "Wind_Speed", "WIND_SPEED_MEAN_LAST_10MIN"),
+        # the quality column follows its parameter
+        (
+            ["wind_speed_mean_last_10min", "wind_speed_mean_last_10min_quality_flags"],
+            "qn_wind_speed",
+            "wind_speed_mean_last_10min_quality_flags",
+        ),
+        (
+            ["wind_speed_mean_last_10min", "wind_speed_mean_last_10min_quality_flags"],
+            "wind_speed_quality",
+            "wind_speed_mean_last_10min_quality_flags",
+        ),
+        # several datasets prefix each column with its dataset
+        (["hourly_wind_gust_max_last_10min"], "hourly_wind_gust_max", "hourly_wind_gust_max_last_10min"),
+        # the new name that the frame holds is the one named, whichever dataset it is of
+        (["wind_speed_mean_last_2min"], "wind_speed", "wind_speed_mean_last_2min"),
+    ],
+)
+def test_filter_by_sql_names_a_column_renamed_inside_a_dataset(columns: list[str], old: str, new: str) -> None:
+    """A column named after a parameter renamed in one dataset says what it is now, where the frame has it (GH-3008)."""
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({column: [1.5] for column in columns})
+    with pytest.raises(duckdb.BinderException, match=f'column "{old}" was renamed to "{new}"'):
+        ExportMixin(df=df).filtered_by_sql(f"{old} > 1")
+
+
+@pytest.mark.sql
+def test_filter_by_sql_keeps_duckdbs_error_for_an_in_dataset_name_the_frame_has_no_successor_of() -> None:
+    """A frame that holds none of the names a rename leads to is not sent anywhere (GH-3008)."""
+    import duckdb  # noqa: PLC0415
+
+    df = pl.DataFrame({"wind_gust": [1.5], "temperature_air_mean_2m": [1.0]})
+    with pytest.raises(duckdb.BinderException, match='Referenced column "wind_speed" not found'):
+        ExportMixin(df=df).filtered_by_sql("wind_speed > 1")

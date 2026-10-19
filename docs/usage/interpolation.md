@@ -211,6 +211,11 @@ longer leaves the parameter you meant at its default radius without saying so, a
 distance is rejected too. A radius set for a parameter that is never interpolated is a warning: the
 name is real, but interpolation skips the parameter before the distance is ever compared.
 
+A name that was renamed in one dataset only (`wind_speed`, which is `wind_speed_mean_last_10min` in
+the hourly data of several providers) is still a canonical parameter of the datasets that keep it,
+so it is accepted as a key and sets the radius of those. Key the new name to set the radius of the
+renamed parameter.
+
 #### The heterogeneous radius follows the resolution
 
 A quantity that decorrelates fast in space does so less the longer it is accumulated. Gauge studies
