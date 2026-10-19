@@ -536,12 +536,25 @@ def test_the_licence_a_provider_states_is_the_one_declared(network: tuple[str, s
 
 
 def test_imgw_asks_for_its_own_words() -> None:
-    """§ 5 of IMGW-PIB's terms prescribes the credit line, in Polish, and the model carries it as written."""
-    attribution = Wetterdienst.resolve("imgw", "meteorology").metadata.attribution
-
-    assert attribution == (
-        "Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy"  # noqa: RUF001 -- the dash the terms write
+    """§ 5 ust. 3 and 4 of IMGW-PIB's terms prescribe two statements, in Polish, carried as written."""
+    source = "Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy"  # noqa: RUF001 -- the dash the terms write
+    processed = (
+        "Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone"  # noqa: RUF001
     )
+
+    for network in ("meteorology", "hydrology"):
+        attribution = Wetterdienst.resolve("imgw", network).metadata.attribution
+
+        assert attribution == f"{source}. {processed}."
+
+
+def test_imgw_licence_points_at_its_terms() -> None:
+    """The licence URL is the PDF of the terms, not the portal they are offered on."""
+    for network in ("meteorology", "hydrology"):
+        license_ = Wetterdienst.resolve("imgw", network).metadata.license
+
+        assert license_ is not None
+        assert license_.url == "https://danepubliczne.imgw.pl/docs/regulamin_udostepniania_danych.pdf"
 
 
 def _timeseries_networks() -> list[tuple[str, str]]:
