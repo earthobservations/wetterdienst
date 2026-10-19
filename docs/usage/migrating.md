@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.160.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.160.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.161.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.161.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,10 +13,10 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.25.0` goes with 0.160.0. Upgrade both
+The web app is released as a pair with the backend: `app-v0.26.0` goes with 0.161.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
-Two things still work in 0.160.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
+Two things still work in 0.161.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
 `wetterdienst stripes values`. Move to `Wetterdienst.resolve(provider, network)` and `wetterdienst stripes image` now
 (both are in [The request](#the-request) and [Command line](#command-line) below). The import path of a request class
 (`from wetterdienst.provider.dwd.observation import DwdObservationRequest`) does not move: it is frozen from 1.0.
@@ -115,6 +115,7 @@ needs a new `except`. The classes are those of [Errors](python-api.md#errors).
 | the token exchange of `metoffice/observation` that did not answer was a warning and an empty result | `DownloadError` | 0.158.0, GH-3022 |
 | AEMET's rate limit that outlasts the retries (429) skipped the chunk | `DownloadError`, the 429 its `__cause__`; retry later | 0.159.0, GH-2989 |
 | a remote listing that was reset, dropped, timed out or was refused raised the raw aiohttp error; a TLS failure the bare `ssl.SSLError` | `DownloadError` naming the URL, the original on `__cause__`. A connection that cannot be made stays `NoInternetError` | 0.159.0 (GH-3004), 0.160.0 (GH-3099) |
+| reading a `dwd/mosmix` or `dwd/dmo` run that failed raised a bare `ssl.SSLError` (TLS), the aiohttp or fsspec error (a reset, timeout, 5xx or cut-short body) or `FileNotFoundError` (a missing run, or any failure with the cache disabled) | `DownloadError`, or `NoInternetError` where no connection could be made, the failure on `__cause__`; REST answers 502, 503 or 504, not 500 | 0.161.0, GH-3120 |
 | a credential the provider rejects (401, 403) gave an empty result and a warning | `CredentialRejectedError`, a `ConfigurationError` and a `PermissionError`, in the values and station lists of `metno/frost`, `aemet`, `knmi`, `metoffice` | 0.157.0, GH-3018 |
 | no connection gave an empty frame, for `dwd/observation` a bare `FileNotFoundError`; `knmi`, `aemet`, `lhmt`, `dmi` returned what they had read before the connection dropped | `NoInternetError`, naming the URL, the connection error on `__cause__`, for every provider; catch it where an empty result is wanted offline | 0.155.0, GH-2640 |
 | `DwdWeatherAlertRequest` raised `OSError` for a snapshot that did not download or is no zip | `DownloadError`; a granularity, language or timestamp it cannot read is a `RequestError` | 0.156.0, GH-2985 |
@@ -128,9 +129,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.160.0 renames by network, resolution and dataset.
+0.161.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.160.0 are shown from the name of 0.139.0 to the name of 0.160.0.
+Moves of the same parameter between 0.145.0 and 0.161.0 are shown from the name of 0.139.0 to the name of 0.161.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -230,6 +231,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | `noaa/ghcn` `hourly` | every report of the file under its own minute (up to seven an hour) | one reading for each parameter and full hour, the nearest to the hour, stamped with it: the METAR of 14:53 is 15:00 | 0.158.0, GH-3000, GH-3016 |
 | `noaa/ghcn` `hourly` precipitation | every report | the one report of each UTC hour at the station's routine minute, else the last that is no SPECI | 0.156.0, GH-2841 |
 | `values` with a `name` on the command line, REST and MCP | the best five stations, with the values of all five | the one best match, as `filter_by_name` does; pass `--rank` or `rank` for another number | 0.155.0, GH-2635 |
+| the stations of a `name` (`filter_by_name`, `stations`, `values`), and `rank` | in the order of the station list; `rank` counted rows, so a station with several datasets used up the rank with its own rows, and two stations of the same name both came back | best match first, equal scores by `station_id`, and `rank` counts stations: `rank=3` is at most three stations, with all their rows. Sort the result yourself where you relied on the order of the list. `values` matches the name among the stations that have a record in the window | 0.161.0, GH-3025, GH-3026 |
 | `values` of a station the provider does not publish a record for, no `timestamp` | not counted by `WD_RESTAPI_MAX_ROWS` | counted: from 1950 for historical data, two years for recent, two days for current. Can be a 400 `limit-exceeded`: give a `timestamp`, or use `format=ndjson` or `csv` | 0.159.0, GH-3089 |
 
 ## Command line
@@ -245,7 +247,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
-| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.160.0, as under [Failures](#failures) |
+| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.161.0, as under [Failures](#failures) |
 
 ## REST API
 
