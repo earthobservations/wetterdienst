@@ -71,30 +71,36 @@ _DMI_MEAN_WIND_DIRECTION = (
     "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
 )
 
-# Pegelonline names each timeseries in German; the meaning below is the API's own ``longname`` for
-# that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
+# Pegelonline names each timeseries in German (``longname``), e.g. HL is LUFTFEUCHTE and SIGH
+# SIGNIFIKANTEWELLENHÖHE, and publishes "tagesaktuelle Rohdaten" (https://www.pegelonline.wsv.de/webservice/ueberblick):
+# the unchecked readings of the series, one at every ``equidistance`` minutes of that series ("Abstand der
+# Messwerte in Minuten", the REST documentation), which is what the resolution of a request names. They are no
+# average over a time scale, which these descriptions said before GH-3136. The longnames below are those of the
+# series on the stations list of 2026-10-19; CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT had no series that day, so
+# their longname is not quoted.
+_WSV_PEGEL_READING = "a reading at the recording interval of the series"
 _WSV_PEGEL_PARAMETERS = {
-    "CL": "average chloride concentration during time scale",
-    "DFH": "average clearance height during time scale",
-    "GRU": "average groundwater level during time scale",
-    "HL": "average relative humidity of the air during time scale",
-    "LF": "average electric conductivity during time scale",
-    "LT": "air temperature (LUFTTEMPERATUR; LUFTTEMPERATUR ROHDATEN for the raw series)",
-    "MAXH": "max wave height during time scale",
-    "NIEDERSCHLAG": "average precipitation height during time scale",
-    "NIEDERSCHLAGSINTENSITÄT": "average precipitation intensity during time scale",
-    "O2": "average oxygen level during time scale",
-    "PH": "average pH during time scale",
-    "Q": "average discharge during time scale",
-    "R": "direction of the water current",
-    "SIGH": "average significant wave height during time scale",
-    "TP": "average wave period during time scale",
-    "TR": "average turbidity during time scale",
-    "VA": "average flow speed during time scale",
-    "W": "average water level during time scale",
-    "WG": "average wind speed during time scale",
-    "WR": "average wind direction during time scale",
-    "WT": "average water temperature during time scale",
+    "CL": f"Chloride concentration, {_WSV_PEGEL_READING}.",
+    "DFH": f"Clearance height (DURCHFAHRTSHÖHE), {_WSV_PEGEL_READING}.",
+    "GRU": f"Groundwater level (GRUNDWASSER ROHDATEN), {_WSV_PEGEL_READING}.",
+    "HL": f"Relative humidity of the air (LUFTFEUCHTE), {_WSV_PEGEL_READING}.",
+    "LF": f"Electric conductivity (ELEKTRISCHE_LEITFÄHIGKEIT_ROHDATEN), {_WSV_PEGEL_READING}.",
+    "LT": (f"Air temperature (LUFTTEMPERATUR; LUFTTEMPERATUR ROHDATEN for the raw series), {_WSV_PEGEL_READING}."),
+    "MAXH": f"Maximum wave height (MAXIMALEWELLENHÖHE), {_WSV_PEGEL_READING}.",
+    "NIEDERSCHLAG": f"Precipitation height, {_WSV_PEGEL_READING}.",
+    "NIEDERSCHLAGSINTENSITÄT": f"Precipitation intensity, {_WSV_PEGEL_READING}.",
+    "O2": f"Oxygen level (SAUERSTOFFGEHALT; SAUERSTOFFGEHALT ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
+    "PH": f"pH (PH-WERT), {_WSV_PEGEL_READING}.",
+    "Q": f"Discharge (ABFLUSS; ABFLUSS_ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
+    "R": f"Direction of the water current (RICHTUNGSTROM), {_WSV_PEGEL_READING}.",
+    "SIGH": f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), {_WSV_PEGEL_READING}.",
+    "TP": f"Wave period (WELLENPERIODE), {_WSV_PEGEL_READING}.",
+    "TR": f"Turbidity (TRÜBUNG; TRÜBUNG_ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
+    "VA": f"Flow speed (FLIESSGESCHWINDIGKEIT_ROHDATEN), {_WSV_PEGEL_READING}.",
+    "W": f"Water level (WASSERSTAND ROHDATEN; WASSERSTAND at two gauges), {_WSV_PEGEL_READING}.",
+    "WG": f"Wind speed (WINDGESCHWINDIGKEIT), {_WSV_PEGEL_READING}.",
+    "WR": f"Wind direction (WINDRICHTUNG), {_WSV_PEGEL_READING}.",
+    "WT": f"Water temperature (WASSERTEMPERATUR; WASSERTEMPERATUR ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
 }
 
 
@@ -2562,7 +2568,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "WsvPegelMetadata": {
         (resolution, "data"): (
-            "Recent data (last 30 days) of German waterways including water level and discharge for "
+            "Recent data (last 31 days) of German waterways including water level and discharge for "
             "most stations but may also include chemical, meteorologic and other types of values."
         )
         for resolution in _WSV_PEGEL_RESOLUTIONS
