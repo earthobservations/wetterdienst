@@ -7124,7 +7124,7 @@ requires-dist = [
     { name = "pdbufr", marker = "extra == 'bufr'", specifier = ">=0.10.2,<1" },
     { name = "platformdirs", specifier = ">=4,<5" },
     { name = "plotly", marker = "extra == 'plotting'", specifier = ">=6.1.1" },
-    { name = "polars", extras = ["calamine"], specifier = ">=1.43.0,<3" },
+    { name = "polars", extras = ["calamine"], specifier = ">=1.43.2,<3" },
     { name = "portion", specifier = ">=2.4.2,<3" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgresql'", specifier = ">=3.0.2,<4" },
     { name = "pyarrow", specifier = ">=22.0.0" },

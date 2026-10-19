@@ -861,8 +861,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "moisture", "absf_std"): "Computed hourly value of absolute humidity.",
         ("hourly", "moisture", "p_std"): (
             "Hourly value of barometric pressure. A station without a barometer carries one station constant in every "
-            "row of a file, which is no reading: where a file of at least 500 readings holds a single value it is "
-            "null (a constant that changed within a file is not caught), and the value stays in quality_flags as the "
+            "row of a file, which is no reading: where a file of at least 500 readings holds at most three distinct "
+            "values (a constant that changed once or twice) it is null, and the value stays in quality_flags as the "
             "last token, e.g. raw:997.3."
         ),
         ("hourly", "moisture", "rf_std"): "Relative humidity.",
