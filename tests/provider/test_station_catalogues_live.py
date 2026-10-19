@@ -65,7 +65,14 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
             where=lambda row: row["station_id"] == "151",
         ),
     ),
-    "metno/frost": (Accepted("coordinates_missing", "Frost lists 26 sources without a position (GH-2655)"),),
+    "metno/frost": (
+        Accepted(
+            "coordinates_missing",
+            "24 of the 2235 SensorSystem sources have no geometry and no position in any other field: ships, "
+            "rigs and gliders (SN76999 SCARABEO 8, SN20930 POLARSTERN, SN20957 SG644 GLIDER), 20 with "
+            "shipCodes, which move; they stay in the list and no search picks them (GH-2655)",
+        ),
+    ),
     "noaa/ghcn": (GHCN_NO_POSITION, GHCN_NAMES),
     "wsv/pegel": (WSV_NO_POSITION, WSV_TIEL),
 }

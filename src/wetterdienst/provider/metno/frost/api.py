@@ -963,7 +963,10 @@ class MetnoFrostRequest(TimeseriesRequest):
         df = pl.read_json(file.content)
         df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
-        # geometry.coordinates: [longitude, latitude, elevation?]
+        # geometry.coordinates: [longitude, latitude, elevation?]. 24 of the 2235 sources (2026-10-19) have
+        # no geometry and no position in any other field: ships, rigs and gliders (SN76999 SCARABEO 8,
+        # SN20930 POLARSTERN, SN20957 SG644 GLIDER), which move. They stay in the list with a null position,
+        # as the GHCN placeholders do (GH-2655): no distance search, interpolation or summary picks them
         df = df.with_columns(
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),

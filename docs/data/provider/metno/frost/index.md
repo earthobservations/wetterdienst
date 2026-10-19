@@ -9,6 +9,16 @@ free at [frost.met.no](https://frost.met.no/auth/requestCredentials.html).
 Set the client ID via the `WD_AUTH__METNO_FROST=<client_id>` environment variable or the
 `Settings(auth={"metno_frost": "<client_id>"})` argument.
 
+## Stations
+
+The station list is Frost's catalogue of `SensorSystem` sources, about 2,200 entries. 24 of
+them have no position: Frost gives them no `geometry`, and no latitude or longitude in any other
+field. They are mobile platforms, such as ships (`SN76999` SCARABEO 8, `SN77049` MS ASTERIX,
+`SN20930` POLARSTERN), rigs (`SN76946` ROSS RIG) and gliders (`SN20957` SG644 GLIDER), 20 of them
+with ship codes, so there is no fixed place to state. They stay in the list with a null
+`latitude` and `longitude`, and a search by distance or bounding box, an interpolation or a
+summary never picks them.
+
 ## License
 
 Data is © Norwegian Meteorological Institute (MET Norway). See
