@@ -264,7 +264,7 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "sum(duration_of_sunshine P1D)",
-                            "unit": "second",
+                            "unit": "hour",
                         },
                     ],
                 },
@@ -344,7 +344,7 @@ _MetnoFrostMetadataSpec = {
                         {
                             "name": "sunshine_duration",
                             "name_original": "sum(duration_of_sunshine P1M)",
-                            "unit": "second",
+                            "unit": "hour",
                         },
                     ],
                 },

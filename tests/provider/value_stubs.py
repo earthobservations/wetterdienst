@@ -207,7 +207,12 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
             "properties": {"idEstacao": 1200579, "localEstacao": "Lisboa (Geofísico)"},
         }
     ]
-    # `(valor "-99.0" = nodata)` in every numeric field, and wind direction is a code of eight points
+    # `(valor "-99.0" = nodata)` in every numeric field, and wind direction is a code of eight points.
+    # A judgement left as a value (GH-3135): the feed of 2026-10-19 (130 stations at 12 UTC, median `radiacao`
+    # 2,170 kJ/m2, the clear sky of that noon at 38.7 N about 2,600) has three stations above the extraterrestrial
+    # 3,260 kJ/m2 of the hour: 6211217 (3,867), 6211213 (3,752) and 1200512 (3,257), and 6211217 reads 3,961 at
+    # 13 UTC. That is a station that reads high, not a code, so the value is not touched. IPMA's open-data page lists
+    # the files only and defines none of the fields
     reading = {
         "temperatura": 21.5,
         "humidade": 64.0,
@@ -923,6 +928,11 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
     # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and `Ip`
     # (inapreciable) for a precipitation below what the gauge reads, a trace, which is 0.0 with its text beside it
+    # Read live on 2026-10-19 with a key (GH-3135): the daily records of Madrid Retiro, A Coruña, Málaga airport and
+    # Palma in 2024 (1,646 rows) hold `Ip` as the only text of `prec` (43), `dir` 1 to 36 with 99 in 152 rows and no 0,
+    # no value outside the physical range, and the hours as `Varias` (several) in the `hora*` fields, which are not
+    # read; the hourly observation feed of 9,759 reports writes a calm as a `dv` of 0 (see `_aemet_hourly`), and has a
+    # 37.7 degC at 04 UTC at Palencia (hr 76 %), one station's fault, not a sentinel
     records = [
         {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
         {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
@@ -937,6 +947,30 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "3195").values().all().df
+
+
+def _aemet_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the observation feed of 2026-10-19 (GH-3135), as numbers: the mean wind direction `dv` is 0 in 112 of its 114
+    # zeros beside a mean speed `vv` of 0, a calm, where the north is 360 (50 of them); the other two zeros have a speed
+    # of 2.8 and 5.7 m/s and stay
+    records = [
+        {"fint": "2026-10-10T12:00:00+0000", "ta": 14.2, "dv": 250.0, "vv": 3.1},
+        {"fint": "2026-10-10T13:00:00+0000", "ta": 14.0, "dv": 0.0, "vv": 0.0},
+        {"fint": "2026-10-10T14:00:00+0000", "ta": 13.8, "dv": 360.0, "vv": 2.0},
+    ]
+    payload = json.dumps(records).encode("latin-1")
+    monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *args, **kwargs: payload)  # noqa: ARG005
+    request = AemetObservationRequest(
+        parameters=[
+            ("hourly", "data", "wind_direction_mean_last_10min"),
+            ("hourly", "data", "wind_speed_mean_last_10min"),
+        ],
+        start=_day(2026, 10, 10, 12),
+        end=_day(2026, 10, 10, 14),
+        settings=_settings(auth={"aemet": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "3195").values().all().df
 
 
 def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -971,6 +1005,45 @@ def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tr
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "rain", "00001").values().all().df
+
+
+def _metoffice_hourly_weather(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # worded after the files of the 25 station-years of 2022 read from the archive on 2026-10-19 (GH-3135): the WH page
+    # says "zero values in both wind speec and wind direction fields indicate that there was no wind blowing" and north
+    # is written 360, and the total cloud amount, in oktas, is 9 for the sky obscured (397 of 120,393 readings, at a
+    # median visibility of 100 m); the page names no code for it
+    def badc(columns: str, rows: str) -> bytes:
+        return f"Conventions,G,BADC-CSV,1\ndata\n{columns}\n{rows}end data\n".encode()
+
+    stations = badc(
+        "src_id,station_name,station_file_name,historic_county,authority,"
+        "station_latitude,station_longitude,station_elevation,first_year,last_year",
+        "00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n",
+    )
+    values = badc(
+        "ob_time,wind_direction,wind_direction_q,wind_speed,wind_speed_q,cld_ttl_amt_id,cld_ttl_amt_id_q",
+        "2000-01-01 00:00:00,250,0,12,0,6,0\n2000-01-01 01:00:00,0,0,0,0,9,0\n2000-01-01 02:00:00,360,0,3,0,8,0\n",
+    )
+
+    def download(_self: object, url: str, *_args: object, **_kwargs: object) -> bytes | None:
+        if "station-metadata" in url:
+            return stations
+        return values if "qcv-1" in url else None
+
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_token", lambda _self, _settings: "token")
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_download", download)
+    monkeypatch.setattr(metoffice_api, "latest_release_version", lambda *_args, **_kwargs: "202507")
+    request = MetOfficeObservationRequest(
+        parameters=[
+            ("hourly", "weather", "wind_direction_mean_last_10min"),
+            ("hourly", "weather", "cloud_cover_total"),
+        ],
+        start=_day(2000, 1, 1),
+        end=_day(2000, 1, 1, 3),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "weather", "00001").values().all().df
 
 
 def _metno_frost_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1089,6 +1162,33 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     return stations_result(request, "hourly", "data", "06260").values().all().df
 
 
+def _knmi_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the 10-minute total cloud cover `n` is in okta ("units": "okta") like the hourly N, and a 9 is in the files:
+    # 128 of the 11,293 readings of the 336 files of 05:00 to 08:50 UTC from 2026-10-05 to 2026-10-18 (GH-3135), at a
+    # mean horizontal visibility `vv` of 130 m (median) to 998 m, so the sky invisible of the hourly and daily
+    # export; the wind direction `dd` of the same files holds no code (8 zeros in 23,388 readings, at 7 to 11 m/s)
+    _knmi_serve(
+        monkeypatch,
+        {
+            "202401010010": _knmi_netcdf({"n": 6.0, "dd": 250.0}),
+            "202401010020": _knmi_netcdf({"n": 9.0, "dd": float("nan")}),
+            "202401010030": _knmi_netcdf({"n": 8.0, "dd": 0.0}),
+        },
+    )
+    request = KnmiObservationRequest(
+        parameters=[
+            ("10_minutes", "data", "cloud_cover_total"),
+            ("10_minutes", "data", "wind_direction_mean"),
+        ],
+        # the files are stamped with the end of their interval, which their name is
+        start=dt.datetime(2024, 1, 1, 0, 10, tzinfo=_UTC),
+        end=dt.datetime(2024, 1, 1, 0, 30, tzinfo=_UTC),
+        settings=_settings(auth={"knmi": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "10_minutes", "data", "06260").values().all().df
+
+
 def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # the WFS answers a flat list of Time / ParameterName / ParameterValue triples: `NaN` for a reading it does not have
     # and, for the precipitation and the snow depth, `-1.0` for none (the fixture of tests/provider/fmi)
@@ -1162,6 +1262,9 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 
 
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # The hourly `Sikt` (parameter 12, "momentanvärde, 1 gång/tim", meter) tops at 99999 m at some stations (809 and
+    # 1,169 hours at two of them, GH-3135); the parameter's page names no code for it (2026-10-19), so it is read as
+    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles)
     # parameter 3 of station 188790 (Abisko Aut) as SMHI writes it (read 2026-10-12), "Vindriktning, medelvärde 10 min":
     # 0 at 2019-01-18 04:00, where the wind speed is 0.0, and 360 for north at 2019-03-15 11:00 (GH-2794)
     csv = (
@@ -1511,6 +1614,14 @@ STUBS = [
         empty_at=_day(2000, 1, 2),
     ),
     ValueStub(
+        "metoffice/observation hourly/weather",
+        _metoffice_hourly_weather,
+        reading=("wind_direction_mean_last_10min", 250.0),
+        # the oktas are converted to a fraction on their way
+        sentinels=(("wind_direction_mean_last_10min", 0.0), ("cloud_cover_total", 1.125)),
+        tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "9", None)),
+    ),
+    ValueStub(
         "metno/frost hourly/data",
         _metno_frost_hourly,
         reading=("cloud_cover_total", 0.5),
@@ -1530,6 +1641,14 @@ STUBS = [
             ("sunshine_duration", "-1", 0.0),
             ("cloud_cover_total_mean", "9", None),
         ),
+    ),
+    ValueStub(
+        "knmi/observation 10_minutes/data",
+        _knmi_10_minutes,
+        reading=("wind_direction_mean", 250.0),
+        # the octants are converted to a fraction on their way
+        sentinels=(("cloud_cover_total", 1.125),),
+        tokens=(("cloud_cover_total", "9", None), ("wind_direction_mean", "NaN", None)),
     ),
     ValueStub(
         "knmi/observation hourly/data",
@@ -1633,6 +1752,14 @@ STUBS = [
         # a calm has no direction; the speed of 0 is a reading
         sentinels=(("wind_direction_mean_last_2min", 0.0),),
         tokens=(("wind_direction_mean_last_2min", "0", None),),
+    ),
+    ValueStub(
+        "aemet/observation hourly/data",
+        _aemet_hourly,
+        reading=("wind_direction_mean_last_10min", 250.0),
+        # a calm, the 0 beside a mean speed of 0
+        sentinels=(("wind_direction_mean_last_10min", 0.0),),
+        tokens=(("wind_direction_mean_last_10min", "0", None),),
     ),
     ValueStub(
         "aemet/observation daily/data",
@@ -1758,7 +1885,9 @@ NO_STUB = {
         "files of 14 stations (0-20000-0-11406, 11433, 11457, 11502, 11519, 11546, 11609, 11636, 11653, 11679, "
         "11693, 11723, 11766, 11787) have 41,993 of 1,410,190 rows empty, all of them with QUALITY 4, and no cell "
         "holds text that is no number. The extremes of every daily, monthly, yearly, 10 minute and hourly element "
-        "sampled (station 0-20000-0-11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm)"
+        "sampled (station 0-20000-0-11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm). The "
+        "10 minute T, H, P and F of Cheb (0-20000-0-11406, 2024-01-01 to 2024-01-07, 4,036 rows) and the hourly Td, "
+        "SRA1H and P of January 2024 (2,235 rows) hold no value outside the physical range (2026-10-19)"
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (
@@ -1788,7 +1917,11 @@ NO_STUB = {
         "`quality_flags` carries verbatim: the cell of the value holds `.0` or nothing, no sentinel. The daily "
         "climate, synop and precipitation files (249180010, 252190030, 249190090, 349190600, 249180020; "
         "2010 to 2011) and the monthly climate and synop files (1990 to 2020) have no value that is no reading "
-        "(2026-10-12)"
+        "(2026-10-12). Read again through the reader on 2026-10-19 for the same five stations: the daily synop "
+        "2010 to 2011 (10,234 rows), the monthly synop 2000 to 2011 (2,465) and the monthly climate (4,238) hold "
+        "no value outside the physical range, and no value repeated at the end of its parameter's range; the daily "
+        "climate files timed out at danepubliczne.imgw.pl that day (FSTimeoutError), so they stay read as on "
+        "2026-10-12 only"
     ),
     "lhmt/observation": (
         "no sentinel: the source writes null, and the hourly values of vilniaus-ams, kauno-ams and klaipedos-ams "

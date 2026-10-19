@@ -130,6 +130,10 @@ _REALTIME_VALUE_COLUMNS = (
 )
 
 
+# how the hourly feed writes a calm, as the text the raw token carries
+_CALM = "0"
+
+
 class AemetKeyRejectedError(Exception):
     """AEMET refused the API key (HTTP or envelope status 401 or 403), as opposed to any other failure."""
 
@@ -491,7 +495,16 @@ class AemetObservationValues(TimeseriesValues):
             if column not in df.columns:
                 df = df.with_columns(pl.lit(None, pl.Float64).alias(column))
         df = df.with_columns(pl.col(column).cast(pl.Float64, strict=False) for column in _REALTIME_VALUE_COLUMNS)
-        df = df.unpivot(index="fint", on=list(_REALTIME_VALUE_COLUMNS), variable_name="parameter", value_name="value")
+        # a mean wind direction of 0 beside a mean speed of 0 is a calm, not north, which the feed writes 360: 112 of
+        # the 114 zeros of `dv` in the 9,759 reports of 2026-10-19 have a speed of 0, the other two 2.8 and 5.7 m/s,
+        # which stay as the bearing they may be, as the DMI and the SMHI readers do. It is null and keeps its text
+        # as the `raw` token of `quality_flags` (GH-3135, GH-2759)
+        calm = (pl.col("dv") == 0) & (pl.col("vv") == 0)
+        df = df.with_columns(
+            pl.when(calm).then(None).otherwise(pl.col("dv")).alias("dv"),
+            pl.when(calm).then(pl.lit(_CALM)).otherwise(None).cast(pl.String).alias(raw_column("dv")),
+        )
+        df = unpivot_with_raw(df, index=["fint"], on=list(_REALTIME_VALUE_COLUMNS))
         return df.select(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
@@ -499,6 +512,7 @@ class AemetObservationValues(TimeseriesValues):
             pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("fint").str.to_datetime("%Y-%m-%dT%H:%M:%S%z").dt.convert_time_zone("UTC").alias("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
     def _collect_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:

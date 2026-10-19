@@ -193,6 +193,86 @@ def test_parse_values_empty_input() -> None:
     assert df.columns == ["timestamp", "parameter", "value", "quality_flags"]
 
 
+def test_parse_values_keeps_the_hourly_reading_and_not_the_12_and_24_hour_total_of_its_hour() -> None:
+    """A 12 hour rain total ending 09:00 and a 24 hour radiation total are no value of their hour (GH-3137).
+
+    The hourly files hold them beside the readings of their hour, and `max` per hour kept the total: 719 12 hour rows
+    and 6 24 hour rows of the 9,299 of Tyndrum 2023, 364 24 hour rows of the 9,084 radiation rows of Kinloss.
+    """
+    rain = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_end_time,ob_hour_count,prcp_amt,prcp_amt_q",
+        b"2023-01-01 09:00:00,1,0.2,1\n2023-01-01 09:00:00,12,5.4,1\n2023-01-01 10:00:00,1,0.0,1\n",
+    )
+    df = parse_values(
+        rain,
+        time_column="ob_end_time",
+        columns=["prcp_amt"],
+        granularity="1h",
+        period_count_column="ob_hour_count",
+    ).sort("timestamp")
+    assert df.get_column("value").to_list() == [0.2, 0.0]
+    radiation = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_end_time,ob_hour_count,glbl_irad_amt,glbl_irad_amt_q",
+        b"2023-06-01 23:00:00,1,0.0,1\n2023-06-01 23:59:00,24,19000.0,1\n",
+    )
+    df = parse_values(
+        radiation,
+        time_column="ob_end_time",
+        columns=["glbl_irad_amt"],
+        granularity="1h",
+        period_count_column="ob_hour_count",
+    )
+    assert df.get_column("value").to_list() == [0.0]
+
+
+def test_parse_values_reads_a_calm_wind_direction_as_no_bearing() -> None:
+    """A direction of 0 beside a speed of 0 is a calm; beside a speed above 0 it stays, north is 360 (GH-3135)."""
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_time,wind_direction,wind_direction_q,wind_speed,wind_speed_q",
+        b"2023-01-01 00:00:00,0,0,0,0\n2023-01-01 01:00:00,360,0,5,0\n2023-01-01 02:00:00,0,0,1,0\n"
+        b"2023-01-01 03:00:00,0,0,NA,NA\n",
+    )
+    df = parse_values(content, time_column="ob_time", columns=["wind_direction"], granularity="1h").sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(None, "0,raw:0"), (360.0, "0"), (0.0, "0"), (0.0, "0")]
+
+
+def test_parse_values_judges_the_gust_direction_against_the_gust_speed() -> None:
+    """The 0 of the gust direction is a calm beside a gust speed of 0, whatever the mean speed is (GH-3135)."""
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_end_time,ob_hour_count,mean_wind_dir,mean_wind_speed,max_gust_dir,max_gust_speed",
+        b"2023-01-01 01:00:00,1,0,0,0,0\n2023-01-01 02:00:00,1,90,4,0,0\n2023-01-01 03:00:00,1,0,4,0,9\n",
+    )
+    df = parse_values(
+        content,
+        time_column="ob_end_time",
+        columns=["mean_wind_dir", "max_gust_dir"],
+        granularity="1h",
+    ).sort("parameter", "timestamp")
+    assert df.select("parameter", "value", "quality_flags").rows() == [
+        ("max_gust_dir", None, "raw:0"),
+        ("max_gust_dir", None, "raw:0"),
+        ("max_gust_dir", 0.0, None),
+        ("mean_wind_dir", None, "raw:0"),
+        ("mean_wind_dir", 90.0, None),
+        ("mean_wind_dir", 0.0, None),
+    ]
+
+
+def test_parse_values_reads_a_sky_obscured_as_no_cloud_amount() -> None:
+    """A total cloud amount of 9 is the sky obscured (fog), and 0 to 8 are oktas (GH-3135)."""
+    content = _badc(
+        b"Conventions,G,BADC-CSV,1\n",
+        "ob_time,cld_ttl_amt_id,cld_ttl_amt_id_q",
+        b"2023-01-01 00:00:00,8,0\n2023-01-01 01:00:00,9,0\n2023-01-01 02:00:00,0,0\n",
+    )
+    df = parse_values(content, time_column="ob_time", columns=["cld_ttl_amt_id"], granularity="1h").sort("timestamp")
+    assert df.select("value", "quality_flags").rows() == [(8.0, "0"), (None, "0,raw:9"), (0.0, "0")]
+
+
 def _fake_jwt(exp: float) -> str:
     """Build a minimal unsigned JWT string carrying just an ``exp`` claim (base64url payload)."""
     import base64  # noqa: PLC0415

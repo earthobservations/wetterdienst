@@ -38,7 +38,7 @@
 
 | name                                   | original name    | description                                                                                                                                                                                                                                                                          | unit |
 |----------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|
-| {term}`wind_direction_mean_last_10min` | wind_direction   | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table". | °    |
+| {term}`wind_direction_mean_last_10min` | wind_direction | Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table". The source's 0 beside a wind speed of 0 (a calm wind) is null. | ° |
 | {term}`wind_speed_mean_last_10min`     | wind_speed       | Wind speed, knots. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in SYNOPs and METARs - they are stored in the UK Hourly Weather table".                                                                                      | kn   |
 | {term}`wind_gust_max_last_10min`       | q10mnt_mxgst_spd | Maximum gust speed over 10 minutes, knots.                                                                                                                                                                                                                                           | kn   |
 | {term}`visibility`                     | visibility       | Visibility, decametres.                                                                                                                                                                                                                                                              | m    |
@@ -49,7 +49,7 @@
 | {term}`humidity_relative`              | rltv_hum         | Calculated relative humidity.                                                                                                                                                                                                                                                        | %    |
 | {term}`sunshine_duration`              | wmo_hr_sun_dur   | Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder.                                                                                                                                                                                       | h    |
 | {term}`snow_depth`                     | snow_depth       | Snow depth, cm.                                                                                                                                                                                                                                                                      | cm   |
-| {term}`cloud_cover_total`              | cld_ttl_amt_id   | Total cloud amount code.                                                                                                                                                                                                                                                             | 1/8  |
+| {term}`cloud_cover_total` | cld_ttl_amt_id | Total cloud amount code, in oktas. The source's 9, the sky obscured (the tables name no code for it), is null. | 1/8 |
 | {term}`weather`                        | prst_wx_id       | Present weather code.                                                                                                                                                                                                                                                                | -    |
 
 ### wind
@@ -65,9 +65,9 @@
 
 | name                            | original name   | description                                                    | unit |
 |---------------------------------|-----------------|----------------------------------------------------------------|------|
-| {term}`wind_direction_mean` | mean_wind_dir | Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. | ° |
+| {term}`wind_direction_mean` | mean_wind_dir | Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null. | ° |
 | {term}`wind_speed_mean` | mean_wind_speed | Mean wind speed, knots. | kn |
-| {term}`wind_direction_gust_max` | max_gust_dir | Direction of the maximum gust, degrees true. | ° |
+| {term}`wind_direction_gust_max` | max_gust_dir | Direction of the maximum gust, degrees true. The source's 0 beside a gust speed of 0 (a calm wind) is null. | ° |
 | {term}`wind_gust_max` | max_gust_speed | Speed of the maximum gust, knots. | kn |
 
 ### radiation

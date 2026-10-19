@@ -20,6 +20,7 @@ from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedE
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
+from wetterdienst import Options
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation import api as aemet_api
@@ -750,6 +751,33 @@ def test_values_or_skip_hands_out_what_aemet_answered(monkeypatch: pytest.Monkey
     _fake_fetch_datos(monkeypatch, records)
     df = _not_skipped(monkeypatch)
     assert df.filter(pl.col("parameter").eq("wind_direction_gust_max")).get_column("value").to_list() == [50.0]
+
+
+def test_aemet_hourly_wind_direction_of_a_calm_is_no_bearing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A direction of 0 beside a speed of 0 is a calm, null with its text; one beside a speed above 0 stays (GH-3135).
+
+    In the 9,759 reports of the feed on 2026-10-19 the 0 of `dv` had a speed of 0 in 112 of 114 cases, the north is
+    written 360.
+    """
+    records = [
+        {"fint": "2026-10-10T12:00:00+0000", "dv": 0.0, "vv": 0.0},
+        {"fint": "2026-10-10T13:00:00+0000", "dv": 0.0, "vv": 2.8},
+        {"fint": "2026-10-10T14:00:00+0000", "dv": 360.0, "vv": 2.0},
+    ]
+    _fake_fetch_datos(monkeypatch, json.dumps(records).encode("latin-1"))
+    df = (
+        AemetObservationRequest(
+            parameters=[("hourly", "data", "wind_direction_mean_last_10min")],
+            settings=Settings(auth={"aemet": "dummy-key-for-test"}),
+            options=Options(drop_nulls=False),
+        )
+        .filter_by_station_id(MADRID_RETIRO)
+        .values()
+        .all()
+        .df
+    )
+    rows = df.sort("timestamp").select("value", "quality_flags").rows()
+    assert rows == [(None, "raw:0"), (0.0, None), (360.0, None)]
 
 
 _OUTAGES = [

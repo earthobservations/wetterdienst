@@ -23,10 +23,16 @@ the historic county the catalogue files it under, as published (`shetland`). Obs
 BADC-CSV file per station and year. A station may transmit several report types for the same period
 (for example an overnight and a daytime 12-hour reading alongside a 24-hour one); these are
 collapsed to a single value per calendar day (maximum for max-type parameters such as
-`temperature_air_max_2m`, minimum for min-type ones). For the daily temperature extremes this
-recovers the true daily extreme regardless of which report types a station transmits; the other
-daily quantities (sunshine, snow depth, precipitation) are reported once per day, so the aggregation
-is effectively a de-duplication there. Hourly datasets carry one reading per hour.
+`temperature_air_max_2m`, minimum for min-type ones). The day is the date of the row's
+`ob_end_time`, the source's 09Z climatological day, and the daily temperature file mixes 12-hour
+rows (ending 09:00 and 21:00) with 24-hour rows ending 09:00 (2,962 of the 14,334 rows of the
+daily temperature files of 25 stations, 2022), so a 24-hour 09-09Z row falls on the day after most
+of its coverage and the daily extremes of stations that transmit different report types do not
+cover the same hours. The other daily quantities (sunshine, snow depth, precipitation) are reported
+once per day, so the aggregation is effectively a de-duplication there. Hourly datasets keep only
+the readings of one hour (`ob_hour_count` 1): the files of the rain and radiation datasets also
+hold 12 and 24-hour totals. A wind direction of 0 beside a wind speed of 0 (a calm) and a total
+cloud amount of 9 (the sky obscured) are null, with the text the file wrote in `quality_flags`.
 
 Not every station measures every parameter — a station/parameter combination MIDAS doesn't have
 simply contributes no rows.

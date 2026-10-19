@@ -13,8 +13,9 @@ Provider-specific handling, each established by live testing against the real ar
   ``parser.parse_values`` collapses these to one value per calendar day (``max`` for max-type
   parameters, ``min`` for ``_MIN_COLUMNS``), which is idempotent over the 12h/24h duplication.
   Hourly datasets have one reading per hour, so the aggregation is a no-op there.
-- **Multi-day accumulations.** Daily rain gauges read every N days post an N-day accumulated total
-  on the read date with ``ob_day_cnt=N``; only ``ob_day_cnt==1`` rows are kept (see
+- **Multi-period accumulations.** Daily rain gauges read every N days post an N-day accumulated total
+  on the read date with ``ob_day_cnt=N``, and the hourly rain and radiation files hold 12 and 24 hour
+  totals beside the hourly readings (``ob_hour_count``); only the rows with a count of 1 are kept (see
   ``_DATASET_CONFIG``).
 - **Units.** Verified against real values / the Met Office GL-table docs -- wind in knots,
   temperatures °C, pressure hPa, precipitation mm, radiation kJ/m². ``visibility`` is native
@@ -56,18 +57,21 @@ _EMPTY_VALUES_SCHEMA = {
     "quality_flags": pl.String,
 }
 
-# per MIDAS dataset slug: the timestamp column and the ``ob_day_cnt``-style multi-period-accumulation
-# column (only daily rain has one -- see parser.parse_values). ``granularity`` is derived from the
-# resolution in _collect_year. The timestamp columns were read off the real file headers during
-# scoping; the uk-daily-rain-obs ob_day_cnt=1 filter is confirmed live.
+# per MIDAS dataset slug: the timestamp column and the column that counts the periods of a reading
+# (``ob_day_cnt`` of daily rain, ``ob_hour_count`` of the hourly rain, radiation and mean wind datasets), of which only
+# a count of 1 is kept -- see parser.parse_values. ``granularity`` is derived from the resolution in _collect_year.
+# The timestamp columns were read off the real file headers during scoping; the uk-daily-rain-obs ob_day_cnt=1 filter
+# is confirmed live. The hourly files of 2023 (three stations each) hold, besides the 1 hour readings, 12 hour rain
+# totals ending 09:00 and 21:00 (719 of 9,299 rows at Tyndrum) and 24 hour radiation totals (364 of 9,084 at
+# Kinloss), which `max` per hour kept in place of the hour's own reading (GH-3137).
 _DATASET_CONFIG: dict[str, dict] = {
     "uk-daily-rain-obs": {"time_column": "ob_date", "period_count_column": "ob_day_cnt"},
     "uk-daily-temperature-obs": {"time_column": "ob_end_time", "period_count_column": None},
     "uk-daily-weather-obs": {"time_column": "ob_end_time", "period_count_column": None},
-    "uk-hourly-rain-obs": {"time_column": "ob_end_time", "period_count_column": None},
+    "uk-hourly-rain-obs": {"time_column": "ob_end_time", "period_count_column": "ob_hour_count"},
     "uk-hourly-weather-obs": {"time_column": "ob_time", "period_count_column": None},
-    "uk-mean-wind-obs": {"time_column": "ob_end_time", "period_count_column": None},
-    "uk-radiation-obs": {"time_column": "ob_end_time", "period_count_column": None},
+    "uk-mean-wind-obs": {"time_column": "ob_end_time", "period_count_column": "ob_hour_count"},
+    "uk-radiation-obs": {"time_column": "ob_end_time", "period_count_column": "ob_hour_count"},
     "uk-soil-temperature-obs": {"time_column": "ob_time", "period_count_column": None},
 }
 

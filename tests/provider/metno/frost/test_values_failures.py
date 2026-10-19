@@ -640,3 +640,40 @@ def test_metno_frost_discovered_daily_series_starting_on_the_end_date_is_asked_f
     df = values.all().df.filter(pl.col("parameter") == "snow_depth")
     assert df["timestamp"].to_list() == [END]
     assert any("referencetime=2020-01-02T06:00:00/2020-01-03T00:00:00" in url for url in seen)
+
+
+@pytest.mark.parametrize(
+    ("resolution", "element", "hours"),
+    [
+        ("daily", "sum(duration_of_sunshine P1D)", 10.4),
+        ("monthly", "sum(duration_of_sunshine P1M)", 258.3),
+    ],
+)
+def test_metno_frost_sunshine_duration_is_read_as_hours(
+    monkeypatch: pytest.MonkeyPatch,
+    resolution: str,
+    element: str,
+    hours: float,
+) -> None:
+    """Test that the sunshine duration, which Frost answers in hours, comes back in seconds (GH-3137).
+
+    The metadata said seconds for the element, so 10.4 hours came back as 10.4 seconds, 3,600 times too small.
+    """
+    payload = {
+        "data": [
+            {
+                "sourceId": "SN18700:0",
+                "referenceTime": "2020-01-01T00:00:00.000Z",
+                "observations": [{"elementId": element, "value": hours, "unit": "hours", "qualityCode": 2}],
+            },
+        ],
+    }
+    values, _ = _values(
+        monkeypatch,
+        lambda url: _ok(url, payload),
+        [(resolution, "data", "sunshine_duration")],
+        start=START,
+        end=dt.datetime(2020, 2, 1, tzinfo=ZoneInfo("UTC")),
+    )
+    df = values.all().df
+    assert df["value"].to_list() == [pytest.approx(hours * 3600)]

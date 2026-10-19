@@ -37,6 +37,28 @@ _EMPTY_VALUES_SCHEMA = {
 # how the files write a value they do not have
 _MISSING = "NA"
 
+# a wind direction of 0 is no bearing but a calm: the WH page says "zero values in both wind speec[sic] and wind
+# direction fields indicate that there was no wind blowing at the time of observation", and north is written 360
+# (https://artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/WH_Table.html). Over 75 station-years of 2022 (25 stations of
+# each of hourly weather, mean wind and daily temperature), the direction of the hourly weather was 0 in 1,574 of
+# 137,423 readings, all but one at a speed of 0, of the mean wind 381 of 207,174 (all at a speed of 0) and of the
+# direction of the gust 97 of 207,639 (a gust speed of 0 in 55, none in 42), where 2,210, 3,024 and 2,630 were 360
+# (GH-3135). One rule for every provider: the 0 is null only beside a speed of 0, and the speed that is judged is the
+# one of the same reading: the gust direction against the gust speed `max_gust_speed`, not the mean speed (the 42
+# gusts without a speed have no mean speed either, so a 0 beside no speed stays, as a 0 beside a speed above 0 does)
+_CALM_SPEED_COLUMNS = {
+    "wind_direction": "wind_speed",
+    "mean_wind_dir": "mean_wind_speed",
+    "max_gust_dir": "max_gust_speed",
+}
+_CALM = "0"
+
+# the total cloud amount is in oktas, and a 9 is the sky obscured, no amount (9 was 1.125 once converted): 397 of
+# 120,393 readings in the 25 hourly weather station-years of 2022, at a median visibility of 100 m and at most 1.6 km.
+# The documentation of the GL and WH tables names the unit but no code (GH-3135)
+_SKY_OBSCURED_COLUMNS = frozenset({"cld_ttl_amt_id"})
+_SKY_OBSCURED = "9"
+
 
 def _data_section(content: bytes, *, na_is_null: bool = True) -> pl.DataFrame:
     """Split off the CSV table between the bare ``data`` and ``end data`` lines.
@@ -87,6 +109,18 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
     )
 
 
+def _code_sentinels(raw_column: str, columns: list[str]) -> list[Sentinel]:
+    """Give the codes of a column that are no reading: a 0 of a direction beside a speed of 0, the 9 of the sky."""
+    codes = []
+    speed = _CALM_SPEED_COLUMNS.get(raw_column)
+    if speed in columns:
+        calm = pl.col(speed).str.strip_chars().cast(pl.Float64, strict=False) == 0
+        codes.append(Sentinel(_CALM, where=calm.fill_null(value=False)))
+    if raw_column in _SKY_OBSCURED_COLUMNS:
+        codes.append(Sentinel(_SKY_OBSCURED))
+    return codes
+
+
 def parse_values(
     content: bytes,
     time_column: str,
@@ -128,12 +162,14 @@ def parse_values(
             declared in ``metadata.py``. Confirmed live: MIDAS ``visibility`` is stored in
             *decametres* (max ~7500 = 75 km at Heathrow), so it is scaled by 10 to metres -- there
             is no decametre unit in the shared unit converter to declare instead.
-        period_count_column: the dataset's period-count column (``ob_day_cnt`` for daily rain), if
-            it has one. Confirmed live: rain gauges are not always read every day -- a station read
-            every 31 days posts its *31-day accumulated total* on the read date with this column set
-            to 31, not 1. Rows where it isn't exactly 1 are dropped so a multi-day accumulation is
-            never mistaken for a single-day value. (Not the same as temperature's ``ob_hour_count``,
-            which is the 12/24-hour observation window, not a count of accumulated periods.)
+        period_count_column: the dataset's period-count column (``ob_day_cnt`` for daily rain,
+            ``ob_hour_count`` for the hourly rain, radiation and mean wind), if it has one. Confirmed
+            live: rain gauges are not always read every day -- a station read every 31 days posts its
+            *31-day accumulated total* on the read date with this column set to 31, not 1 -- and the
+            hourly rain and radiation files hold 12 and 24 hour totals beside the hourly readings.
+            Rows where it isn't exactly 1 are dropped so an accumulation is never mistaken for the
+            value of one day or hour. (Not applied to the daily temperature, whose ``ob_hour_count``
+            of 12 or 24 is the window of the extreme, which is no accumulation.)
 
     """
     df = _data_section(content, na_is_null=False)
@@ -157,7 +193,10 @@ def parse_values(
             continue
         quality_column = f"{raw_column}_q"
         # an `NA`, and a text that is no number, is null with its text kept as `raw:` (GH-2759)
-        value, sentinel = null_sentinels(pl.col(raw_column), Sentinel(_MISSING), non_numeric=True)
+        # (a calm direction and a sky obscured are a 0 and a 9 that are no reading of their column, GH-3135)
+        value, sentinel = null_sentinels(
+            pl.col(raw_column), Sentinel(_MISSING), *_code_sentinels(raw_column, df.columns), non_numeric=True
+        )
         if raw_column in scale:
             value = value * scale[raw_column]
         sub = df.select(
