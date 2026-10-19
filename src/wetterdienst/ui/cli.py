@@ -229,7 +229,8 @@ name_opt = click.option(
     type=click.STRING,
     help=(
         "Select stations by fuzzy name match: the best five for `stations`, which lists candidates, "
-        "the best one for `values`, unless --rank says. Example: Dresden-Klotzsche"
+        "the best one for `values`, unless --rank says, among the stations with a record in --timestamp "
+        "if given. Example: Dresden-Klotzsche"
     ),
 )
 name_threshold_opt = click.option(
@@ -244,7 +245,7 @@ longitude_opt = click.option("--longitude", type=click.FLOAT, help="Longitude of
 rank_opt = click.option(
     "--rank",
     type=click.INT,
-    help="The N stations closest to --latitude/--longitude, or the N best --name matches.",
+    help="The N stations closest to --latitude/--longitude, or the N best --name matches, best first.",
 )
 distance_opt = click.option(
     "--distance",

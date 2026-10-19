@@ -505,13 +505,14 @@ Options:
   --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
-                                  says. Example: Dresden-Klotzsche
+                                  says, among the stations with a record in --timestamp if given.
+                                  Example: Dresden-Klotzsche
   --name-threshold FLOAT RANGE    Minimum fuzzy-match score for --name (0 = any match, 1 = exact).
                                   Default: 0.8  [0<=x<=1]
   --latitude FLOAT                Latitude of the reference point.
   --longitude FLOAT               Longitude of the reference point.
   --rank INTEGER                  The N stations closest to --latitude/--longitude, or the N best
-                                  --name matches.
+                                  --name matches, best first.
   --distance FLOAT                The stations within this many km of --latitude/--longitude.
   --left FLOAT                    Select stations in a bounding box: its west longitude.
   --bottom FLOAT                  South latitude of the bounding box.
@@ -826,13 +827,14 @@ Options:
   --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
-                                  says. Example: Dresden-Klotzsche
+                                  says, among the stations with a record in --timestamp if given.
+                                  Example: Dresden-Klotzsche
   --name-threshold FLOAT RANGE    Minimum fuzzy-match score for --name (0 = any match, 1 = exact).
                                   Default: 0.8  [0<=x<=1]
   --latitude FLOAT                Latitude of the reference point.
   --longitude FLOAT               Longitude of the reference point.
   --rank INTEGER                  The N stations closest to --latitude/--longitude, or the N best
-                                  --name matches.
+                                  --name matches, best first.
   --distance FLOAT                The stations within this many km of --latitude/--longitude.
   --left FLOAT                    Select stations in a bounding box: its west longitude.
   --bottom FLOAT                  South latitude of the bounding box.

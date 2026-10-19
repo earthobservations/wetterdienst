@@ -121,7 +121,11 @@ _StationIdOptField = Annotated[
 ]
 _NameField = Annotated[
     str | None,
-    Field(description="Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'."),
+    Field(
+        description="Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` "
+        "the name is matched among the stations that have a record in that window. The best match is first, "
+        "equal matches ordered by station id."
+    ),
 ]
 _NameThresholdField = Annotated[
     float,
@@ -143,7 +147,7 @@ _RankField = Annotated[
     Field(
         ge=1,
         le=MAX_COUNT,
-        description="With latitude/longitude, the N closest stations; with name, at most N matches (default "
+        description="With latitude/longitude, the N closest stations; with name, at most N stations (default "
         f"{DEFAULT_NAME_RANK_LISTING} for `stations`, which lists candidates, and {DEFAULT_NAME_RANK} for "
         "`values`, the best match, as the library's `filter_by_name`).",
     ),
@@ -1588,9 +1592,14 @@ def get_stations(
         # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
         default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
         name_rank: int = getattr(request, "rank", None) or default_rank
-        # a listing for a window matches the name among the stations that have a record in it, so that
-        # the best few are not ones that closed long ago while a current station matches as well
-        df_all = limit_stations_to_window(r.all()).df if isinstance(request, StationsRequest) and timestamp else None
+        # a request for a window matches the name among the stations that have a record in it, so that
+        # the best match is not one that closed long ago while a current station of the same name has
+        # the readings, and the best few of a listing are not ones that closed either (GH-3026)
+        df_all = (
+            limit_stations_to_window(r.all()).df
+            if isinstance(request, StationsRequest | ValuesRequest) and timestamp
+            else None
+        )
         return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8), df_all=df_all)
 
     latitude: float | None = getattr(request, "latitude", None)
@@ -1640,9 +1649,11 @@ def limit_stations_to_window(stations: StationsResult) -> StationsResult:
     provider does not publish states nothing either way, so the row is kept. Without a window the
     listing is returned as it is.
 
-    Applied to a listing only, and before `limit_stations_to_rank`, so that the N closest are the N
-    closest of those that overlap. `values` does not use it: it walks the stations and reads what each
-    holds inside the window, which is the better judge than an index.
+    Applied before `limit_stations_to_rank`, so that the N closest are the N closest of those that
+    overlap, and before a `name` is matched, in a listing and in `values` alike (`get_stations`), so that
+    the best match is one that can have a reading in the window (GH-3026). A `values` request that names
+    stations by id, or by distance, does not use it: it walks the stations and reads what each holds
+    inside the window, which is the better judge than an index.
     """
     start, end = stations.start, stations.end
     df = stations.df
