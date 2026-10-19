@@ -27,7 +27,9 @@ into a [polars](https://pola.rs/) DataFrame. Enable the `read_bufr` setting and 
 frame with one row per grid pixel: station/grid metadata plus the pixel `value`, with missing
 pixels as null); the raw payload remains available on `.data`. This requires the optional
 `bufr` dependency extra — without it, or with `read_bufr` disabled, `.df`
-stays `None`.
+stays `None`. On Linux, see the
+[crash at exit](../../../../known_issues.md#crash-at-exit-with-eccodes-and-pyproj-on-linux) of code
+that imports ecCodes itself.
 
 ```python
 from wetterdienst import Settings

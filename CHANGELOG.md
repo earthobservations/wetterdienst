@@ -18,6 +18,14 @@ Types of changes:
 
 ### Changed
 
+- The dependency is now `polars[calamine]>=1.43.2,<3` (it was `>=1.43.0`): 1.43.0 and 1.43.1 are
+  yanked on PyPI, so no installer resolved them by default and 1.43.2 is the oldest polars a caller
+  can get. Pinned environments that still hold 1.43.0 or 1.43.1 upgrade polars (GH-3138)
+- AEMET: the `Ip` (inapreciable) of a precipitation below what the gauge reads is 0.0, with
+  `raw:Ip` as the last token of `quality_flags`, in `precipitation_amount` (daily, monthly,
+  annual) and `precipitation_amount_max` (monthly, annual); it was null. A day of trace now
+  counts in a sum, as in KNMI (`-1`) and Météo-France synop (`-0.1`), which already read a
+  trace as 0.0. Every other text that is no number stays null with its text (GH-3188)
 - IMGW: the `attribution` in the `metadata` block of its answers carries both statements the
   terms prescribe, the source of the data (§ 5 ust. 3) and that the data were processed (§ 5
   ust. 4), and `license.url` links the terms' PDF, not the portal. The docs say that the data
@@ -26,6 +34,12 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is also null in a file of at
+  least 500 readings that holds two or three distinct values, the pressure of a station without a
+  barometer whose constant changed (55 files, e.g. 953.1 then 954.8 at 00142, 977.1 then 977.6 at
+  00091); no other file holds fewer than 47. Each value stays as the last
+  `quality_flags` token (`raw:954.8`). Take the pressure of another source for such a station
+  (GH-3139)
 - `metno/frost` daily and monthly `sunshine_duration` is in hours, as Frost's `unit` of every
   observation says, and comes back as the seconds of those hours: it was read as seconds, so the
   values were 3,600 times too small (10.4 hours of sunshine came back as 10.4 s) (GH-3137)

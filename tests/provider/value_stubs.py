@@ -330,15 +330,17 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
     # (stundenwerte_TF_03735_19490101_19511231_hist.zip, 1949-01-28 06:00; station 14006, 2025-01-05 01:00,
     # in stundenwerte_TF_14006_20201104_20251231_hist.zip). That file holds 995.9 in P_STD in all of its 44531 rows, the
     # pressure of a station without a barometer: the sheet ("Stundenwerte Luftdruck") says nothing of it, the reader
-    # nulls a constant from 500 readings on (GH-2699), so the file is served with 500 rows
+    # nulls a constant from 500 readings on (GH-2699), so the file is served with 500 rows. The constant that changed
+    # once is two values, as at 00091 (977.1, then 977.6 from 2024-03-25) and 54 more files (GH-3139): the second half
+    # of the rows write 996.4, which the file of 14006 does not, so that the rule that nulls both is the one served
     rows = [
         "   14006;2025010500;    3;   4.6;   5.8;  -0.3;  995.9;  -0.1;  95.7;  -0.7;eor",
         "   14006;2025010501;    3; -99.9; -99.9; -99.9;  995.9;  -0.7; -99.9; -99.9;eor",
     ]
     start = dt.datetime(2025, 1, 5, 2, tzinfo=_UTC)
     rows += [
-        f"   14006;{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;   4.0;   5.0;  -0.5;  995.9;"
-        "  -0.2;  90.0;  -0.9;eor"
+        f"   14006;{start + dt.timedelta(hours=hour):%Y%m%d%H};    3;   4.0;   5.0;  -0.5;"
+        f"  {'995.9' if hour < 250 else '996.4'};  -0.2;  90.0;  -0.9;eor"
         for hour in range(498)
     ]
     product = (
@@ -924,13 +926,13 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
 
 def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
-    # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and the
-    # reader takes a text that is no number (the second precipitation) for none. Read live on 2026-10-19 with a key
-    # (GH-3135): the daily records of Madrid Retiro, A Coruña, Málaga airport and Palma in 2024 (1,646 rows) hold `Ip`
-    # as the only text of `prec` (43), `dir` 1 to 36 with 99 in 152 rows and no 0, no value outside the physical
-    # range, and the hours as `Varias` (several) in the `hora*` fields, which are not read; the hourly observation
-    # feed of 9,759 reports writes a calm as a `dv` of 0 (see `_aemet_hourly`), and has a 37.7 degC at 04 UTC at
-    # Palencia (hr 76 %), one station's fault, not a sentinel
+    # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and `Ip`
+    # (inapreciable) for a precipitation below what the gauge reads, a trace, which is 0.0 with its text beside it
+    # Read live on 2026-10-19 with a key (GH-3135): the daily records of Madrid Retiro, A Coruña, Málaga airport and
+    # Palma in 2024 (1,646 rows) hold `Ip` as the only text of `prec` (43), `dir` 1 to 36 with 99 in 152 rows and no 0,
+    # no value outside the physical range, and the hours as `Varias` (several) in the `hora*` fields, which are not
+    # read; the hourly observation feed of 9,759 reports writes a calm as a `dv` of 0 (see `_aemet_hourly`), and has a
+    # 37.7 degC at 04 UTC at Palencia (hr 76 %), one station's fault, not a sentinel
     records = [
         {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
         {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
@@ -1133,13 +1135,14 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # a variable wind at 01 UTC (hourly-observations-validated-20261012-08.nc has Horst at 990 with FF 1.0 m/s) and the
     # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue. The cloud cover N is in octants and "9=sky
     # invisible" (GH-3123): 941 of the 87,696 hours of the stations 260, 240 and 344 from 2015 to 2024 in the hourly
-    # export of https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, read 2026-10-18
+    # export of https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, read 2026-10-18. The same header gives the
+    # precipitation RH "(-1 for <0.05 mm)" and the sunshine duration SQ "(-1 for <0.05 hour)", a trace in both
     _knmi_serve(
         monkeypatch,
         {
-            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0, "N": 6.0}),
-            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0, "N": 9.0}),
-            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0, "N": 8.0}),
+            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0, "N": 6.0, "RH": 0.4, "SQ": 0.3}),
+            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0, "N": 9.0, "RH": -1.0, "SQ": -1.0}),
+            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0, "N": 8.0, "RH": 0.0, "SQ": 0.0}),
         },
     )
     request = KnmiObservationRequest(
@@ -1147,6 +1150,8 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
             ("hourly", "data", "temperature_air_2m"),
             ("hourly", "data", "wind_direction_mean_last_10min"),
             ("hourly", "data", "cloud_cover_total"),
+            ("hourly", "data", "precipitation_amount"),
+            ("hourly", "data", "sunshine_duration"),
         ],
         # the files of the hours 00 to 03 are stamped with the end of their hour (GH-2824)
         start=_day(2024, 1, 1, 1),
@@ -1482,8 +1487,10 @@ STUBS = [
         tokens=(
             ("humidity_absolute", "-99.9", None),
             ("humidity_relative", "-99.9", None),
-            # the pressure of a file that holds one value, null with the text the file wrote (GH-2699)
+            # GH-2699, GH-3139: the pressure of a file that holds one value, or one that changed once, is null
+            # with the text the file wrote
             ("pressure_air_site", "995.9", None),
+            ("pressure_air_site", "996.4", None),
             ("pressure_vapor", "-99.9", None),
             ("temperature_dew_point_2m", "-99.9", None),
             ("temperature_wet_2m", "-99.9", None),
@@ -1653,12 +1660,17 @@ STUBS = [
             ("wind_direction_mean_last_10min", 0.0),
             ("wind_direction_mean_last_10min", 990.0),
             ("cloud_cover_total", 1.125),
+            ("precipitation_amount", -1.0),
+            ("sunshine_duration", -3600.0),
         ),
+        # a trace of precipitation or of sunshine is 0.0 with the code beside it
         tokens=(
             ("temperature_air_2m", "NaN", None),
             ("wind_direction_mean_last_10min", "0", None),
             ("wind_direction_mean_last_10min", "990", None),
             ("cloud_cover_total", "9", None),
+            ("precipitation_amount", "-1", 0.0),
+            ("sunshine_duration", "-1", 0.0),
         ),
     ),
     ValueStub(
@@ -1754,7 +1766,8 @@ STUBS = [
         _aemet_daily,
         reading=("temperature_air_mean_2m", 5.3),
         sentinels=(("wind_direction_gust_max", 990.0),),
-        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", None)),
+        # a trace is 0.0 with the code beside it; a calm or variable wind has no direction
+        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", 0.0)),
     ),
     ValueStub(
         "dwd/derived hourly/radiation_global",

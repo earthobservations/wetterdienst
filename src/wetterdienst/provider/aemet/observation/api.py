@@ -552,12 +552,13 @@ class AemetObservationValues(TimeseriesValues):
         for column in ("fecha", *_VALUE_COLUMNS):
             if column not in df.columns:
                 df = df.with_columns(pl.lit(None, pl.String).alias(column))
-        # a value that is no number is null and keeps its text beside it as `raw:` (GH-2759)
+        # a value that is no number is null and keeps its text beside it as `raw:` (GH-2759), but the `Ip` of a
+        # precipitation is a trace, 0.0 (GH-3188)
         parsed = {
             "tmed": parse_decimal_comma("tmed"),
             "tmax": parse_decimal_comma("tmax"),
             "tmin": parse_decimal_comma("tmin"),
-            "prec": parse_decimal_comma("prec"),
+            "prec": parse_decimal_comma("prec", trace=True),
             "dir": parse_wind_direction("dir"),
             "velmedia": parse_decimal_comma("velmedia"),
             "racha": parse_decimal_comma("racha"),
@@ -633,8 +634,8 @@ class AemetObservationValues(TimeseriesValues):
             "tm_min": parse_monthly_value("tm_min"),
             "ta_max": parse_monthly_value("ta_max"),
             "ta_min": parse_monthly_value("ta_min"),
-            "p_mes": parse_monthly_value("p_mes"),
-            "p_max": parse_monthly_value("p_max"),
+            "p_mes": parse_monthly_value("p_mes", trace=True),
+            "p_max": parse_monthly_value("p_max", trace=True),
             "hr": parse_decimal_comma("hr"),
         }
         df = df.with_columns(
