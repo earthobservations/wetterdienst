@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Translations]` German, French, Czech and Luxembourgish address you informally, as the other
+  languages already do (GH-3157): `du`, `tu`, `ty` (singular) and `du` instead of `Sie`, `vous`, `vy`
+  and `Dir`, with `Wähle`, `Choisis`, `Vyber` and `Wiel`. The text is not reviewed by a native speaker
+- `[Navigation]` The Providers tab sits right of API, so the tabs read History, API, Providers,
+  Glossary, in the header and in the narrow menu (GH-3164)
+
 ## [0.25.0] - 2026-10-18
 
 ### Changed

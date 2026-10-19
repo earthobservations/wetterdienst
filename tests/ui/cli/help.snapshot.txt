@@ -589,7 +589,7 @@ Commands:
   image     Create the climate stripes image for a specific station.
   stations  List stations for climate stripes.
   values    Create the climate stripes image for a specific station. (DEPRECATED: Use `stripes
-            image`, which writes the image.)
+            image`, which writes the image. It is removed in 1.0.0.)
 
 
 $ wetterdienst stripes image --help
@@ -654,7 +654,7 @@ Usage: wetterdienst stripes values [OPTIONS]
   Create the climate stripes image for a specific station.
 
   Select the station with exactly one of --station or --name. (DEPRECATED: Use `stripes image`,
-  which writes the image.)
+  which writes the image. It is removed in 1.0.0.)
 
 Options:
   --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]

@@ -1621,15 +1621,30 @@ def download_file(
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
                 log.info(f"Read file {url} from cache" if served_from_cache else f"Downloaded file {url}")
                 return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
-        msg = "unreachable"
-        raise AssertionError(msg)
-    except FileNotFoundError as e:
+    except Exception as e:
+        failed = _failed_file(url, e, sent_credentials=sent_credentials)
+        if failed is None:
+            raise
+        return failed
+    msg = "unreachable"
+    raise AssertionError(msg)
+
+
+def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) -> File | None:
+    """Say what a download that failed with ``error`` stores: the one place that tells a failure by its kind.
+
+    The `File` a failed `download_file` returns, whose `raise_if_exception` raises the `NoInternetError` or
+    `DownloadError` of it. A reader that fetches through fsspec itself and not through `download_file` (`KMLReader`)
+    asks it too, so that the same failure is the same error whichever of them met it. None for what is no failed
+    download: a programming error, which is raised as it is.
+    """
+    if isinstance(error, FileNotFoundError):
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=404)
-    except FSTimeoutError as e:
+        return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=404)
+    if isinstance(error, FSTimeoutError):
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
-    except ClientSSLError as e:
+        return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=408)
+    if isinstance(error, ClientSSLError):
         # a certificate that does not verify, or a TLS protocol failure such as an alert: the host
         # answered, so this is not being offline. (A connection the server drops mid-handshake is
         # a plain `ClientConnectorError` and stays the offline answer.) A subclass of
@@ -1640,26 +1655,32 @@ def download_file(
         log.info(f"Failed to download file {url}.")
         return File(
             url=url,
-            content=e.os_error.with_traceback(None),
+            content=error.os_error.with_traceback(None),
             status=500,
         )
-    except ClientConnectorError as e:
+    if isinstance(error, ClientConnectorError):
         log.info(f"No internet connection while downloading file {url}.")
-        return File(url=url, content=_no_internet_error(url, e), status=503)
-    except ClientResponseError as e:
+        return File(url=url, content=_no_internet_error(url, error), status=503)
+    if isinstance(error, ClientResponseError):
         log.info(f"Failed to download file {url}.")
         return File(
             url=url,
-            content=_without_credentials(e, sent_credentials=sent_credentials),
-            status=e.status or 500,
+            content=_without_credentials(error, sent_credentials=sent_credentials),
+            status=error.status or 500,
         )
-    except ClientError as e:
+    if isinstance(error, ClientError):
         # ClientPayloadError among them, and every other aiohttp client failure -- a dropped
         # keep-alive connection (ServerDisconnectedError), a reset, too many redirects. Caught as
         # the base class so that none of them leaves by way of a traceback through this frame, where
         # the caller's client kwargs, credentials included, are a local
         log.info(f"Failed to download file {url}.")
-        return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
+        return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=500)
+    if isinstance(error, TimeoutError):
+        # the builtin one, which a whole-request timeout of the client raises as it is (`ServerTimeoutError`, a
+        # `ClientError`, is the one above)
+        log.info(f"Failed to download file {url}.")
+        return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=408)
+    return None
 
 
 def drop_cached_file(

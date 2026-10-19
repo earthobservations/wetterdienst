@@ -222,11 +222,15 @@ def test_the_kml_reader_of_an_offline_library_raises_no_internet() -> None:
 
 
 def test_the_kml_reader_keeps_a_tls_failure_apart_from_being_offline() -> None:
-    """A certificate that does not verify is the host answering: the bare `ssl.SSLError`, not `NoInternetError`."""
+    """A certificate that does not verify is the host answering: a `DownloadError`, not `NoInternetError` (GH-3120).
+
+    The `ssl.SSLError` underneath is its `__cause__`, as `File.raise_if_exception` raises it for a download.
+    """
     import ssl  # noqa: PLC0415
 
     from aiohttp import ClientConnectorCertificateError  # noqa: PLC0415
 
+    from wetterdienst.exceptions import DownloadError  # noqa: PLC0415
     from wetterdienst.provider.dwd.mosmix.access import KMLReader  # noqa: PLC0415
 
     failure = ssl.SSLCertVerificationError("CERTIFICATE_VERIFY_FAILED")
@@ -237,10 +241,14 @@ def test_the_kml_reader_keeps_a_tls_failure_apart_from_being_offline() -> None:
     reader = KMLReader(station_ids=["01001"], settings=Settings(cache_disable=True))
     reader._filesystem_for = lambda _url: SimpleNamespace(open=fail)  # type: ignore[method-assign]  # noqa: SLF001
 
-    with pytest.raises(ssl.SSLError) as raised:
+    with pytest.raises(DownloadError, match=r"example\.invalid/run\.kmz") as raised:
         reader.download("https://example.invalid/run.kmz")
 
     assert not isinstance(raised.value, NoInternetError)
+    assert raised.value.__cause__ is failure
+    # no aiohttp error, which holds the connection key and so a proxy's password, is left in the chain
+    assert raised.value.__context__ is None
+    assert failure.__context__ is None
 
 
 def test_the_kml_reader_serves_a_cached_run_whose_size_cannot_be_asked_for() -> None:

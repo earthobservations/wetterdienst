@@ -69,8 +69,9 @@ from wetterdienst import Wetterdienst
 Wetterdienst.resolve_standalone(provider="dwd", network="radar")
 ```
 
-`Wetterdienst(provider, network)` is deprecated: it warns, and returns the class as it always did, but it
-constructs no `Wetterdienst`, and a type checker cannot tell which kind of class it returns.
+`Wetterdienst(provider, network)` is deprecated and removed in 1.0.0: until then it warns, and returns the class
+as it always did, but it constructs no `Wetterdienst`, and a type checker cannot tell which kind of class it
+returns.
 
 ## Request arguments
 
@@ -670,7 +671,8 @@ to write instead. `StationsResult.stations` (and the `stations=` argument) is `r
 `stations.values()` for a reader; `values.filter_by_date(date)` and `values.filter_by_sql(sql)`, which changed
 the result and returned its frame, are `values.filtered_by_date(date)` and `values.filtered_by_sql(sql)`, which
 return a new result (`.df` is its frame). Code that wrote `values.filter_by_sql(sql)` and went on with `values`
-now continues with `values = values.filtered_by_sql(sql)`.
+now continues with `values = values.filtered_by_sql(sql)`. Everything else that changed since 0.139.0 is in
+[Migrating from 0.139.0](migrating.md).
 ```
 
 ### Interpolation & Summary

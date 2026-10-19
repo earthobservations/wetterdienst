@@ -3397,6 +3397,109 @@ def test_geo_a_failure_that_is_not_a_refusal_is_a_500(
 _OBSERVATION = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
 
 
+def _raw_network_failures() -> list[tuple[Exception, str]]:
+    """Give each exception a network library can raise unmapped, with the text of it that must not be answered."""
+    import ssl  # noqa: PLC0415
+
+    from aiohttp import ClientOSError, ClientPayloadError, ClientResponseError  # noqa: PLC0415
+    from yarl import URL  # noqa: PLC0415
+
+    secret_url = "https://api.example.invalid/v1/data?apikey=SECRET-KEY"  # noqa: S105
+    request_info = SimpleNamespace(url=URL(secret_url), real_url=URL(secret_url), method="GET", headers={})
+    return [
+        (ssl.SSLError(1, "[SSL: CERTIFICATE_VERIFY_FAILED] verify failed, bundle /srv/wd/certs/ca.pem"), "/srv/wd"),
+        (ssl.SSLCertVerificationError(1, "unable to get local issuer certificate (/srv/wd/certs/ca.pem)"), "/srv/wd"),
+        (ConnectionResetError(104, "Connection reset by peer, socket of /srv/wd/run/wd.sock"), "/srv/wd"),
+        (TimeoutError("timed out reading /srv/wd/cache/blob"), "/srv/wd"),
+        (FileNotFoundError(2, "No such file or directory", "/srv/wd/cache/blob"), "/srv/wd"),
+        (ClientOSError(104, "Connection reset by peer from /srv/wd"), "/srv/wd"),
+        (ClientPayloadError("Response payload is not completed for /srv/wd/cache"), "/srv/wd"),
+        (ClientResponseError(request_info, (), status=503, message="Service Unavailable"), "SECRET-KEY"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "entry_point", "query"),
+    [
+        pytest.param("/api/stations", "get_stations", {**_OBSERVATION, "all": "true"}, id="stations"),
+        pytest.param("/api/values", "get_values", {**_OBSERVATION, "stations": "01048"}, id="values"),
+        pytest.param(
+            "/api/interpolate",
+            "get_interpolate",
+            {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"},
+            id="interpolate",
+        ),
+        pytest.param(
+            "/api/summarize",
+            "get_summarize",
+            {**_OBSERVATION, "station": "01048", "timestamp": "2020-06-30"},
+            id="summarize",
+        ),
+        pytest.param("/api/history", "get_stations", {**_OBSERVATION, "stations": "01048"}, id="history"),
+        pytest.param(
+            "/api/issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "01048"}, id="issues"
+        ),
+        pytest.param("/api/stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
+        pytest.param(
+            "/api/stripes/values",
+            "_get_stripes_data",
+            {"kind": "temperature", "station": "01048"},
+            id="stripes-values",
+        ),
+    ],
+)
+def test_a_raw_network_exception_is_a_500_that_does_not_repeat_it(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    endpoint: str,
+    entry_point: str,
+    query: dict[str, str],
+) -> None:
+    """A network exception no provider mapped is the server's defect and answers a 500 that says only its type.
+
+    The providers raise `DownloadError` and `NoInternetError` (502, 503, 504), so an `ssl.SSLError`, an `OSError` or an
+    aiohttp error that gets as far as the API is a leak of the library underneath (GH-3120). The API still must not
+    pass its text on: it names a file of the server, or the URL of the request with the key it carried. Both stay in
+    the server log (GH-2767).
+    """
+
+    def failing(error: Exception) -> Callable[..., None]:
+        def fail(*_args: object, **_kwargs: object) -> None:
+            raise error
+
+        return fail
+
+    api = TestClient(restapi.app, raise_server_exceptions=False)
+    for error, hides in _raw_network_failures():
+        monkeypatch.setattr(restapi, entry_point, failing(error))
+        caplog.clear()
+
+        with caplog.at_level(logging.ERROR, logger="wetterdienst.ui.restapi"):
+            response = api.get(endpoint, params=query)
+
+        _is_a_500_naming_only(response, type(error).__name__, hides=hides)
+        assert hides in caplog.text, f"{type(error).__name__} is in the log, with its text"
+
+
+def test_a_raw_network_exception_of_the_alerts_feed_is_a_500_that_does_not_repeat_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The alerts endpoint reads its feed outside `get_values`, and answers a raw exception as the others do."""
+    from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
+
+    api = TestClient(restapi.app, raise_server_exceptions=False)
+    for error, hides in _raw_network_failures():
+
+        def fail(*_args: object, _error: Exception = error, **_kwargs: object) -> None:
+            raise _error
+
+        monkeypatch.setattr(DwdWeatherAlertRequest, "query", fail)
+
+        response = api.get("/api/alerts")
+
+        _is_a_500_naming_only(response, type(error).__name__, hides=hides)
+
+
 # the alternatives a station selection names, in the error of one that is made twice
 _STATION_SELECTIONS = [
     ["all"],

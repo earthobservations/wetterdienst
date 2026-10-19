@@ -29,6 +29,33 @@ Types of changes:
   an empty result. The Python `filter_by_name` still matches all stations: pass the stations of the
   window as `df_all` (GH-3026)
 
+### Deprecated
+
+- `Wetterdienst(provider, network)` and the CLI command `wetterdienst stripes values` are removed in
+  1.0.0, as the `DeprecationWarning` and the command's notice now say: use
+  `Wetterdienst.resolve(provider, network)` (`resolve_standalone` for `dwd/radar` and
+  `dwd/alerts`) and `wetterdienst stripes image`. Both work unchanged until then (GH-3128)
+
+### Fixed
+
+- `ea/hydrology` daily `groundwater_level_max` and `groundwater_level_min`, which became `stage_max`
+  and `stage_min` (GH-2632), are refused with the new names, as `dwd/derived` monthly
+  `evapotranspiration_potential_grass_fao_last_24h` and `..._haude_last_24h` are now with
+  `evapotranspiration_potential_grass_fao` and `..._haude`; they said only "not found" (GH-3168)
+- A `filter_by_sql` on a wide frame names the new column for a parameter that was renamed in one
+  dataset only (`wind_speed` for `wind_speed_mean_last_10min`) when the frame has it, as it does
+  for the other renames. A key of `geo_station_distance` for such a name is still accepted, as the
+  name is a parameter of the datasets that keep it; key the new name for the renamed one (GH-3008)
+- The CLI no longer answers an unknown option with a refused one: `wetterdienst stations
+  --lead-time=long` suggested `--end-date`, which is itself refused in favour of `--end`. Refused
+  options are left out of "Did you mean", and a renamed option still names the new one (GH-3167)
+- **Breaking**: reading a `dwd/mosmix` or `dwd/dmo` run that fails raises the `DownloadError` of
+  every other download, or the `NoInternetError` where no connection could be made, with the failure
+  as `__cause__`, where a TLS failure was a bare `ssl.SSLError`, a reset, timeout, 5xx or cut-short
+  body the aiohttp or fsspec error, and a missing run (or any failure with the cache disabled) a
+  `FileNotFoundError`. The REST API answers 502, 503 or 504 for them, not 500. Catch `DownloadError`
+  and `NoInternetError` instead of those (GH-3120)
+
 ## [0.160.0] - 2026-10-18
 
 ### Added

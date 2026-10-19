@@ -85,7 +85,8 @@ examples on this page and the web app use the alias.
 requests before it is refused; 0 means the instance sets none.
 
 `api_version` is raised with a change a client has to follow. A path under a version that does
-not exist (`/api/v2/...`) is a 404.
+not exist (`/api/v2/...`) is a 404. What counts as a change a client has to follow, for this API and
+for the other surfaces, is on the [Compatibility](compatibility.md) page.
 
 The MCP endpoint is versioned alike, see [MCP endpoint](#mcp-endpoint). The operation ids of the
 OpenAPI document (`values_api_values_get`) and the names of the MCP tools (`values`) do not carry
@@ -106,7 +107,9 @@ a removal is announced in the changelog under `Deprecated` when it is deprecated
 A response that uses several deprecated things says the earliest of each date. A client that logs the
 `Deprecation` header of the answers it gets is told before anything is removed.
 
-Nothing is deprecated today. The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
+From 1.0.0 an endpoint or a parameter of `/api/v1` is removed only with the next version of the API: `/api/v1`
+is served for at least two minor releases after `/api/v2` appears, and announced by these headers, with `Sunset`
+set to the day it stops. Nothing is deprecated today. The code marks one with `ui.deprecation`: `deprecated_route(Deprecation(since=...))` in the decorator of a route
 for an endpoint, `mark_deprecated(...)` in the handler that reads a parameter.
 
 ## Response metadata
