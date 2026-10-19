@@ -432,21 +432,41 @@ def test_parse_dwd_hourly_moisture_pressure_constant_is_a_number_not_a_text() ->
     assert _raw_pressure(df) == ["997.3"] * 250 + ["997.30"] * 250
 
 
+def test_parse_dwd_hourly_moisture_nulls_a_constant_that_changed_once() -> None:
+    """Test that 953.1 and then 954.8 (station 00142, from 2026-10-13) is a constant of two values, each kept as text.
+
+    55 of the 1314 files of DWD hold two values, all of stations without a barometer list; the fewest values of any
+    file with a barometer, with 500 or more readings, is 47 (GH-3139).
+    """
+    stepped = ["953.1"] * 250 + ["954.8"] * 250
+    df = _parse_moisture(_moisture_rows(stepped, "142"))
+    assert df.get_column("p_std").null_count() == 500
+    assert _raw_pressure(df) == stepped
+    # three values are the limit, still a station's constant
+    three = ["977.1"] * 200 + ["977.6"] * 200 + ["977.9"] * 100
+    df = _parse_moisture(_moisture_rows(three))
+    assert df.get_column("p_std").null_count() == 500
+    assert _raw_pressure(df) == three
+    # a constant that went back and forth is the same values
+    flipped = ["977.1"] * 100 + ["977.6"] * 100 + ["977.1"] * 300
+    assert _parse_moisture(_moisture_rows(flipped)).get_column("p_std").null_count() == 500
+
+
 def test_parse_dwd_hourly_moisture_keeps_a_pressure_that_moves_or_is_short() -> None:
-    """Test that a P_STD with two values, or a constant of 499 readings, is left as it is."""
+    """Test that a P_STD with more than three values, or a constant of 499 readings, is left as it is."""
     # a barometer: a hundred values, none of them held
     moving = [f"{990 + hour % 100 / 10:.1f}" for hour in range(500)]
     df = _parse_moisture(_moisture_rows(moving))
     assert df.get_column("p_std").to_list() == moving
     assert _raw_pressure(df) == [None] * 500
-    # a station constant that changed once is two values (953.1, then 954.8 at station 00142), not caught
-    stepped = ["953.1"] * 250 + ["954.8"] * 250
-    assert _parse_moisture(_moisture_rows(stepped)).get_column("p_std").to_list() == stepped
-    # one reading short: no evidence yet
-    short = ["997.3"] * 499
-    df = _parse_moisture(_moisture_rows(short))
-    assert df.get_column("p_std").to_list() == short
-    assert _raw_pressure(df) == [None] * 499
+    # four values are a pressure that moves
+    four = ["977.1"] * 125 + ["977.6"] * 125 + ["977.9"] * 125 + ["978.2"] * 125
+    assert _parse_moisture(_moisture_rows(four)).get_column("p_std").to_list() == four
+    # one reading short: no evidence yet, however few the values
+    for short in (["997.3"] * 499, ["953.1"] * 250 + ["954.8"] * 249):
+        df = _parse_moisture(_moisture_rows(short))
+        assert df.get_column("p_std").to_list() == short
+        assert _raw_pressure(df) == [None] * 499
 
 
 def test_parse_dwd_hourly_moisture_pressure_constant_counts_readings_not_rows() -> None:

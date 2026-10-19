@@ -212,7 +212,7 @@ jobs:
         polars: [ "" ]
         include:
           # the lock resolves the newest polars (2.x), which every other leg runs; the floor the
-          # project claims (`polars[calamine]>=1.43.0`) is run here, so that code only the newest
+          # project claims (`polars[calamine]>=1.43.2`) is run here, so that code only the newest
           # polars understands fails a job that blocks, not the "Minimum dependency versions" one
           # that cannot (it is `continue-on-error` and runs the remote tests). 1.43.0 and 1.43.1 are
           # yanked on PyPI, so 1.43.2 is the oldest an install can get
