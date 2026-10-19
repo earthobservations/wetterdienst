@@ -13,7 +13,8 @@
     "stationSearch": "Nach Name oder Stations-ID suchen (z. B. München, 10738)",
     "requestFailed": "Anfrage fehlgeschlagen",
     "backendError": "Backend-Fehler {status}",
-    "backendErrorDetail": "Backend-Fehler {status}: {detail}"
+    "backendErrorDetail": "Backend-Fehler {status}: {detail}",
+    "chartTableHint": "Die Werte stehen in der Tabelle unter dem Diagramm."
   },
   "home": {
     "tagline": "Offene Wetterdaten für Menschen",
@@ -391,7 +392,10 @@
       "axisPrecip": "Niederschlag mm",
       "axisCloud": "Bewölkung %",
       "axisTemp": "Temperatur °C",
-      "axisPressure": "Luftdruck hPa"
+      "axisPressure": "Luftdruck hPa",
+      "tableTime": "Zeit ({zone})",
+      "summaryRange": "Vorhersage von {from} bis {to}.",
+      "summaryTemperature": "Temperatur von {min} bis {max} °C."
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station auf der Karte auswählen",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Auf der Karte auswählen",
     "mapHint": "Tippe auf einen Punkt auf der Karte, um diese Station zu wählen.",
     "hoverValue": "Wert",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "Von {from} bis {to}. Niedrigster Wert {min} im Jahr {minYear}, höchster Wert {max} im Jahr {maxYear}.",
+    "table": {
+      "year": "Jahr",
+      "value": "Wert",
+      "class": "Klasse",
+      "note": {
+        "temperature": "Klasse: Wo das Jahr zwischen dem kühlsten und dem wärmsten gezeigten Jahr liegt, in Fünfteln. Das ist die Farbe seines Streifens, von Dunkelblau (kühlstes) bis Dunkelrot (wärmstes).",
+        "precipitation": "Klasse: Wo das Jahr zwischen dem trockensten und dem nassesten gezeigten Jahr liegt, in Fünfteln. Das ist die Farbe seines Streifens, von Braun (trockenstes) bis Dunkelgrün (nassestes)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Viel kühler",
+          "low": "Kühler",
+          "middle": "Mittel",
+          "high": "Wärmer",
+          "veryHigh": "Viel wärmer"
+        },
+        "precipitation": {
+          "veryLow": "Viel trockener",
+          "low": "Trockener",
+          "middle": "Mittel",
+          "high": "Nasser",
+          "veryHigh": "Viel nasser"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Explorer",

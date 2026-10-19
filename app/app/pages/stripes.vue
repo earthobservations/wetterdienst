@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { describeFetchError } from '~/utils/api-error'
-import { plotlySeparators } from '~/utils/format'
+import { formatNumber, plotlySeparators } from '~/utils/format'
+import { stripeYears } from '~/utils/stripes'
+import { unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale } = useI18n()
 
@@ -119,6 +121,45 @@ function plotTitle(data: StripesValuesResponse) {
 }
 // the stripes' accessible name, their title
 const plotLabel = computed(() => lastFetchedData.value ? plotTitle(lastFetchedData.value) : undefined)
+
+// What the stripes say, for a reader who does not see their colours (WCAG 1.1.1, 1.3.1): a sentence the figure
+// is described by, and every year with its value and class in a table
+const summaryId = useId()
+// read defensively: an answer that lacks its values or its unit still draws what it can, and a table that
+// cannot be made must not take the page down with it
+const stripeRows = computed(() => stripeYears(lastFetchedData.value?.values ?? []))
+const valueUnit = computed(() => {
+  const unit = lastFetchedData.value?.series.unit
+  return unit ? unitSymbol(unit) : ''
+})
+function formatValue(value: number) {
+  return `${formatNumber(value, locale.value, 2)} ${valueUnit.value}`.trim()
+}
+const plotSummary = computed(() => {
+  const years = stripeRows.value
+  if (!years.length)
+    return undefined
+  const lowest = years.reduce((low, year) => year.value < low.value ? year : low)
+  const highest = years.reduce((high, year) => year.value > high.value ? year : high)
+  return `${t('stripes.summary', {
+    from: Math.min(...years.map(year => year.year)),
+    to: Math.max(...years.map(year => year.year)),
+    min: formatValue(lowest.value),
+    minYear: lowest.year,
+    max: formatValue(highest.value),
+    maxYear: highest.year,
+  })} ${t('common.chartTableHint')}`
+})
+const tableColumns = computed(() => [
+  t('stripes.table.year'),
+  valueUnit.value ? `${t('stripes.table.value')} (${valueUnit.value})` : t('stripes.table.value'),
+  t('stripes.table.class'),
+])
+const tableRows = computed(() => stripeRows.value.map(year => [
+  String(year.year),
+  formatNumber(year.value, locale.value, 2),
+  t(`stripes.table.classes.${kind.value}.${year.class}`),
+]))
 // The stripes' drawings, numbered as they start. Failed: the newest threw -- Plotly's import or its
 // drawing -- and the chart area says so; failures counted, so a Retry that fails too is told again
 let plotsStarted = 0
@@ -887,8 +928,17 @@ onMounted(() => {
         </div>
         <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
         <div
-          ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel" :class="{ hidden: !hasPlot }"
+          ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
+          :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
           class="w-full overflow-hidden" style="min-height: 400px;"
+        />
+        <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
+          {{ plotSummary }}
+        </p>
+        <ChartTable
+          v-if="hasPlot && !plotFailed && tableRows.length"
+          :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
+          :note="t(`stripes.table.note.${kind}`)"
         />
         <div v-if="hasPlot && !plotFailed" class="mt-4">
           <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its

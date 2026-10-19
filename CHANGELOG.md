@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- The app's climate stripes and forecast chart (also the embeddable widget) have a text alternative: the
+  chart is described by a sentence, and "Show as table" below it lists what it draws, every year with
+  its value and class for the stripes, every time with the values of the shown panels for the
+  forecast, so a screen reader or a keyboard reads the data that colour and shape carry. Plotly's
+  modebar buttons were found keyboard-operable already and are now held so by a test (GH-3145)
+
 ## [0.161.0] - 2026-10-19
 
 ### Changed

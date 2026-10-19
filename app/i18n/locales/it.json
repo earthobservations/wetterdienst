@@ -13,7 +13,8 @@
     "stationSearch": "Cerca per nome o ID stazione (es. München, 10738)",
     "requestFailed": "Richiesta non riuscita",
     "backendError": "Errore del backend {status}",
-    "backendErrorDetail": "Errore del backend {status}: {detail}"
+    "backendErrorDetail": "Errore del backend {status}: {detail}",
+    "chartTableHint": "I valori sono nella tabella sotto il grafico."
   },
   "home": {
     "tagline": "Dati meteo aperti per le persone",
@@ -391,7 +392,10 @@
       "axisPrecip": "Precip. mm",
       "axisCloud": "Nubi %",
       "axisTemp": "Temp. °C",
-      "axisPressure": "Pressione hPa"
+      "axisPressure": "Pressione hPa",
+      "tableTime": "Ora ({zone})",
+      "summaryRange": "Previsione dal {from} al {to}.",
+      "summaryTemperature": "Temperatura da {min} a {max} °C."
     },
     "orChooseMap": "o",
     "chooseOnMap": "Scegli una stazione sulla mappa",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Scegli sulla mappa",
     "mapHint": "Tocca un punto sulla mappa per scegliere quella stazione.",
     "hoverValue": "Valore",
-    "hoverTrend": "Tendenza"
+    "hoverTrend": "Tendenza",
+    "summary": "Da {from} a {to}. Valore più basso: {min} nel {minYear}; valore più alto: {max} nel {maxYear}.",
+    "table": {
+      "year": "Anno",
+      "value": "Valore",
+      "class": "Classe",
+      "note": {
+        "temperature": "Classe: dove si colloca l'anno tra il più fresco e il più caldo mostrati, in quinti. È il colore della sua banda, dal blu scuro (più fresco) al rosso scuro (più caldo).",
+        "precipitation": "Classe: dove si colloca l'anno tra il più secco e il più piovoso mostrati, in quinti. È il colore della sua banda, dal marrone (più secco) al verde scuro (più piovoso)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Molto più fresco",
+          "low": "Più fresco",
+          "middle": "Medio",
+          "high": "Più caldo",
+          "veryHigh": "Molto più caldo"
+        },
+        "precipitation": {
+          "veryLow": "Molto più secco",
+          "low": "Più secco",
+          "middle": "Medio",
+          "high": "Più piovoso",
+          "veryHigh": "Molto più piovoso"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Esploratore",
