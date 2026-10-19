@@ -46,26 +46,36 @@ are in `glossary/<locale>.ts`).
 
 ## Address and spelling
 
-How each locale speaks to the reader, as the catalogs have it now. A new string follows this.
+Every locale speaks to the reader in the **informal singular**, as one person talks to another, and
+not in the polite form, which sounds like an office. The app is a free tool made by a person for people
+(see the "values" on the about page), and one register in every language means a text read in a second
+language does not change tone. A new string follows this; a translation that slips back into the polite
+form is a defect (GH-3157).
 
 | Locale | Address | Quotation marks | Spelling and notes |
 | --- | --- | --- | --- |
-| `en` | no direct address needed | “…” | British spelling (`humanised`, `colour`), as `en-GB` in `nuxt.config.ts` |
-| `de` | Sie | „…“ | |
+| `en` | you, your | “…” | British spelling (`humanised`, `colour`), as `en-GB` in `nuxt.config.ts`; English has no other form to choose |
+| `de` | du, dein, dir | „…“ | `Wähle`, `Tippe`, `Öffne` (singular imperative, no `Sie`) |
 | `de-hh` | du | „…“ | Plattdüütsch (Low German, Hamburg), in the UI text and in the glossary alike |
-| `fr` | vous | « … » | a no-break space before `: ; ? !` and inside the guillemets |
+| `fr` | tu, ton/ta/tes, te | « … » | a no-break space before `: ; ? !` and inside the guillemets; `Choisis`, `Touche`, `Que souhaites-tu` (a verb of the first group has no `-s` in the imperative except before `y`/`en`) |
 | `es` | tú | «…» | `periodo`, not `período` |
 | `it` | tu | «…» | |
 | `nl` | je | “…” | |
 | `pl` | imperative, second person singular | „…” | |
-| `cs` | vy | „…“ | |
+| `cs` | ty (singular: `chceš`, `tvůj`/`tvoje`) | „…“ | the singular imperative has no `-te` (`Vyber`, `Zkus`), a text that names no one and needs no gender is preferred over `-l`/`-la` (`Našla se chyba?`, as `Našel jsi` would be masculine) |
 | `da` | du | “…” | |
-| `lb` | Dir (second person plural) | „…“ | |
+| `lb` | du, dir, deng/däin | „…“ | the plural `Dir`/`Är` the catalog used before GH-3157 is gone; the singular imperative is the stem (`Wiel`, `Kuck`, `Ruff … of`, `Gëff … an`) |
 
 The apostrophe is the straight `'` in every locale, and `«…»` in the legal page's operator note is the
 marker of a field to fill in, not a quotation. `tests/unit/i18n-quality.test.ts` holds the catalogs to
-the quotation marks and the apostrophe, to the French spacing, and to one register of address (the
-pronouns and possessives of the other one, which it can find; a verb form alone it cannot).
+the quotation marks and the apostrophe, to the French spacing, and to the informal address: it looks for
+the formal pronouns and possessives of every locale that has them (`Sie`/`Ihr…`/`Ihnen`,
+`vous`/`votre`/`vos`, `vy`/`vás`/`váš…`, `Dir`/`Är…`, `usted`, `Lei`, `u`/`uw`, `Pan`/`Pani`, `Dem`/`Deres`)
+and for the formal imperative of de, fr, cs and lb (`-ez`, `-te`, a list of Luxembourgish plural
+imperatives). A place where such a word is right (a plural "you" that addresses several people, a thing
+that only looks like one) is listed in that test with its reason. What it cannot find is a verb form
+without such a marker (Spanish `obtiene` for `obtienes`, an `lb` plural imperative that is also a
+third-person form), so a new text is read through once as a whole.
 
 ## Counts
 
@@ -111,6 +121,14 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `Datensatz` is kept as Low German shares the word; `Anbeder`, `Nettwark`, `Oplösung` and `Tietruum`
   are the words chosen for provider, network, resolution and date range.
 
+- The informal address of GH-3157, in **all four locales it changed** (`de`, `fr`, `cs`, `lb`): each
+  line that spoke to the reader was rewritten by hand and read through, not by a native speaker. Least
+  certain: `cs` `support.reportText` (`Našla se chyba?`, chosen to avoid a gendered `Našel jsi`);
+  `lb` imperatives of verbs the catalog had not used in the singular (`Kréi` for `kréien` in
+  `api.subtitle` and the `api.endpoints.*` lines, `Gëff … an` in `query.placeholder`, `Rechen … ëm` in
+  `settings.convertUnitsHint`, `Fro … of` in `query.hint`) and `iwwerlee dir` in `support.donateText`;
+  the `lb` and `cs` informal forms in general.
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 
@@ -120,8 +138,6 @@ Not decided here, and the text is left as it is. The review table with the propo
 request that added this file, and the issue it belongs to is
 [GH-2610](https://github.com/earthobservations/wetterdienst/issues/2610).
 
-- `lb`: the four map hints (`mapHint`, `mapHintMultiple`) address the reader with "du" ("Tipp op
-  ...") where the rest of the locale uses "Dir".
 - `nl`: `waarneming` (glossary, one label) and `observatie` (the UI) are both used for "observation".
 - `nl`: `Colofon` for the legal notice (`footer.legal`, `impressum.title`) names the publisher's
   imprint; a Dutch reader may expect `Juridische informatie`.

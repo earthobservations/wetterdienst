@@ -19,9 +19,9 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 | Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure. `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
 | Climate stripes | The warming stripes of a DWD station for temperature or precipitation, see [Climate Stripes](stripes.md). |
 | History | The station history of DWD observation, see [Station history](station_history.md). |
+| API | The endpoints, the formats and the [MCP](mcp.md) endpoint of the instance, with examples. |
 | Providers | Who publishes the data: the country, the licence and the credit line to give, and what the networks offer, with a link into the explorer. |
 | Glossary | What each parameter measures and the unit it comes back in, searchable by name and quantity. |
-| API | The endpoints, the formats and the [MCP](mcp.md) endpoint of the instance, with examples. |
 | Settings | Kept in the browser: the language, light or dark, plain-language labels for the parameters, and whether and in which units the values are converted. |
 
 The settings of a request that the explorer offers are the [options](settings.md#options) of the library
