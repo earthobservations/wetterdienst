@@ -14,6 +14,13 @@ An endpoint is marked where it is declared::
 A parameter is marked by the handler that reads it, when the request gives it: `mark_deprecated(...)`. The
 headers are written by the middleware (`ui.middleware`), from what the request marked, so a handler that
 returns any kind of response needs to do nothing else. Outside a request nothing is recorded.
+
+The rule from 1.0.0 (GH-3128): nothing is removed in a minor version. Before the tag a deprecation names the
+version that removes it (`removed in 1.0.0`), in the warning, the notice and the docs; after it, what is deprecated
+keeps working until the next major version. For REST that is `/api/v2`: a deprecated endpoint or parameter of
+`/api/v1` goes with `/api/v1`, which is served for at least two minor releases after `/api/v2` appears, and `sunset`
+is the day it stops. The mechanism below does not enforce the rule: no test holds a removal to a deprecation, or to
+a major version.
 """
 
 from __future__ import annotations

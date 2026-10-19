@@ -69,8 +69,9 @@ from wetterdienst import Wetterdienst
 Wetterdienst.resolve_standalone(provider="dwd", network="radar")
 ```
 
-`Wetterdienst(provider, network)` is deprecated: it warns, and returns the class as it always did, but it
-constructs no `Wetterdienst`, and a type checker cannot tell which kind of class it returns.
+`Wetterdienst(provider, network)` is deprecated and removed in 1.0.0: until then it warns, and returns the class
+as it always did, but it constructs no `Wetterdienst`, and a type checker cannot tell which kind of class it
+returns.
 
 ## Request arguments
 
