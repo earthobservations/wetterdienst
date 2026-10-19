@@ -1601,5 +1601,7 @@ def test_cli_stations_lead_time_is_not_answered_with_end_date() -> None:
     """The case of GH-3167: `stations --lead-time` names no refused option."""
     result = CliRunner().invoke(cli, ["stations", "--lead-time=long"])
     assert result.exit_code == 2, result.output
-    assert "No such option '--lead-time'" in result.output
+    # click 8.2.0 writes `No such option: --lead-time`, later versions `No such option '--lead-time'`
+    assert "No such option" in result.output
+    assert "--lead-time" in result.output
     assert "--end-date" not in result.output
