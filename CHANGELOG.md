@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Breaking**: reading a `dwd/mosmix` or `dwd/dmo` run that fails raises the `DownloadError` of
+  every other download, or the `NoInternetError` where no connection could be made, with the failure
+  as `__cause__`, where a TLS failure was a bare `ssl.SSLError`, a reset, timeout, 5xx or cut-short
+  body the aiohttp or fsspec error, and a missing run (or any failure with the cache disabled) a
+  `FileNotFoundError`. The REST API answers 502, 503 or 504 for them, not 500. Catch `DownloadError`
+  and `NoInternetError` instead of those (GH-3120)
+
 ## [0.160.0] - 2026-10-18
 
 ### Added

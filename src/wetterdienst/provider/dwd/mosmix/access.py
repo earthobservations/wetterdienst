@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from zipfile import BadZipFile
 
 import polars as pl
-from aiohttp import ClientConnectorError, ClientSSLError
+from aiohttp import ClientConnectorError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.zip import ZipFileSystem
 from lxml.etree import iterparse
@@ -25,12 +25,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import raw_column
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
-from wetterdienst.util.network import (
-    NetworkFilesystemManager,
-    _bare_tls_failure,
-    _no_internet_error,
-    _scrubbed_connector_error,
-)
+from wetterdienst.util.network import NetworkFilesystemManager, _failed_file
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -38,7 +33,7 @@ if TYPE_CHECKING:
     from xml.etree.ElementTree import Element
 
     from wetterdienst.settings import Settings
-    from wetterdienst.util.network import HTTPFileSystem
+    from wetterdienst.util.network import File, HTTPFileSystem
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +53,19 @@ def _local_size(response: BinaryIO) -> int | None:
     except (AttributeError, OSError, ValueError):
         # `io.UnsupportedOperation` is an `OSError` and a `ValueError` both
         return None
+
+
+def _failure_under_fsspec(error: Exception) -> Exception:
+    """Give the failure of the request under an fsspec filesystem that raised ``error`` for it.
+
+    The plain HTTP filesystem asks for the size of a file before it opens it and answers a request that failed, of
+    whatever kind -- a refused connection, a reset, a timeout, a 5xx -- with a `FileNotFoundError` naming the URL,
+    the failure as its ``__cause__``. So a missing file is the one without a cause, and for any other the cause is
+    what happened.
+    """
+    if isinstance(error, FileNotFoundError) and isinstance(error.__cause__, Exception):
+        return error.__cause__
+    return error
 
 
 class KMLReader:
@@ -121,23 +129,34 @@ class KMLReader:
         """Download kml file as bytes.
 
         https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
+
+        Raises:
+            NoInternetError: If no connection could be made, naming the URL (GH-2640).
+            DownloadError: If the server answered badly: a TLS check that fails, a connection reset, a timeout, a
+                body cut short or an HTTP error status, a missing run among them, naming the URL with the failure
+                as its ``__cause__``, as `File.raise_if_exception` raises it for a download (GH-3120).
+
         """
         dwdfs = self._filesystem_for(url)
-        failure: OSError | None = None
+        failed: File | None = None
+        buffer = BytesIO()
         try:
-            response = dwdfs.open(url, block_size=0)
-        except ClientSSLError as e:
-            # the host answered, so a certificate or handshake failure is not being offline: the bare
-            # `ssl.SSLError`, as `download_file` keeps it (GH-2553)
-            failure = _bare_tls_failure(e)
-        except ClientConnectorError as e:
-            # the place this reader meets the network, through fsspec and not `download_file`:
-            # raised as every other failed connection is, not as the aiohttp error (GH-2640)
-            failure = _no_internet_error(url, _scrubbed_connector_error(e))
-        # raised outside the `except`, so that the aiohttp error, which holds a proxy's key, is no
-        # `__context__`
-        if failure is not None:
-            raise failure
+            buffer = self._read(dwdfs, url)
+        except Exception as e:
+            # the place this reader meets the network, through fsspec and not `download_file`: told by the same
+            # function, so that a failure is the same error whichever of them met it (GH-2640, GH-3120)
+            failed = _failed_file(url, _failure_under_fsspec(e))
+            if failed is None:
+                raise
+        # raised outside the `except`, so that the aiohttp error, which holds a proxy's key, is no `__context__`
+        if failed is not None:
+            failed.raise_if_exception()
+        return buffer
+
+    @staticmethod
+    def _read(dwdfs: HTTPFileSystem | WholeFileCacheFileSystem, url: str) -> BytesIO:
+        """Open a run and read it whole, showing how far it is."""
+        response = dwdfs.open(url, block_size=0)
         # the size only sizes the progress bar
         total = _local_size(response)
         if total is None:
