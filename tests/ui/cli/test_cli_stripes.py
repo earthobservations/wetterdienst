@@ -26,7 +26,8 @@ def test_cli_stripes() -> None:
           image     Create the climate stripes image for a specific station.
           stations  List stations for climate stripes.
           values    Create the climate stripes image for a specific station.
-                    (DEPRECATED: Use `stripes image`, which writes the image.)
+                    (DEPRECATED: Use `stripes image`, which writes the image. It is
+                    removed in 1.0.0.)
         """,
     )
     assert commands in result.output
@@ -366,6 +367,7 @@ def test_stripes_values_is_the_deprecated_name_of_the_image(monkeypatch: pytest.
     assert old.stdout_bytes == new.stdout_bytes == b"svg"
     assert "'values' is deprecated" in old.stderr
     assert "stripes image" in old.stderr
+    assert "removed in 1.0.0" in old.stderr
     assert "deprecated" not in new.stderr
     # the old name takes the options of the new one, and refuses what it refuses
     refused = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature"])
