@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 import pytest
 
+from tests.provider import frames
 from tests.provider.physical_ranges import describe, out_of_range
 from tests.provider.timestamps import timestamp_problem
 from wetterdienst.model import result as results
@@ -29,6 +30,34 @@ if TYPE_CHECKING:
 INTERMEDIATE_STATION_COLUMNS: dict[str, frozenset[str]] = {}
 
 _RESULT_CLASSES = (results.ValuesResult, results.InterpolatedValuesResult, results.SummarizedValuesResult)
+
+# what a write run of the frame snapshot (`uv run poe frames:snapshot`) has recorded so far: the frames of each test
+_WRITTEN: dict[str, dict[str, Any]] = {"values": {}, "stations": {}, "schemas": {}}
+
+
+def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001
+    """Refuse a write run of the frame snapshot in a worker: each would write the file with its own tests alone."""
+    if frames.writing() and os.environ.get("PYTEST_XDIST_WORKER"):
+        pytest.exit(f"{frames.WRITE} writes the whole snapshot, so it runs in one process: pass `-n0`", returncode=4)
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """Write the frame snapshot, if this run was asked to and every test of it passed."""
+    if not frames.writing() or os.environ.get("PYTEST_XDIST_WORKER") or not _WRITTEN["values"]:
+        return
+    if session.testsfailed:
+        sys.stderr.write("the frame snapshot is not written: a test failed\n")
+        return
+    frames.write(_WRITTEN["values"], _WRITTEN["stations"], _WRITTEN["schemas"])
+    sys.stderr.write(f"wrote {frames.SNAPSHOT}\n")
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> Generator[None, Any, Any]:  # noqa: ARG001
+    """Keep each phase's report on the test, for the fixture that decides at teardown whether the test passed."""
+    report = yield
+    setattr(item, f"report_{report.when}", report)
+    return report
 
 
 @pytest.fixture(autouse=True)
@@ -104,6 +133,66 @@ def station_column_findings() -> Generator[list[str]]:
         pytest.fail(
             "a station column that the reader builds and `all()` drops, because the request's `_base_columns` do not "
             f"list it (add it there, or drop it in the reader): {' | '.join(sorted(set(found)))}",
+            pytrace=False,
+        )
+
+
+@pytest.fixture(autouse=True)
+def recorded_frames(request: pytest.FixtureRequest) -> Generator[None]:
+    """Record the frames the core produces in an offline test, and hold them to the snapshot (GH-2627).
+
+    See `tests/provider/frames.py`. The values are taken where `_process_dataset` returns them and the stations where
+    `TimeseriesRequest.all` does, which is after the shaping the core does and the providers do too: what is to move
+    from the providers into the core must leave them as they are. A test marked `remote` is not recorded. The
+    comparison is made when the test ends, and only for a test that passed, so that the failure that is the cause is
+    not buried under the one it makes.
+    """
+    if request.node.get_closest_marker("remote"):
+        yield
+        return
+    recorder = frames.Recorder()
+    process_dataset = TimeseriesValues._process_dataset  # noqa: SLF001
+    all_stations = TimeseriesRequest.all
+
+    def recording_process_dataset(
+        self: TimeseriesValues,
+        station_id: str,
+        dataset: DatasetModel,
+        parameters: Sequence[ParameterModel],
+    ) -> pl.DataFrame:
+        df = process_dataset(self, station_id, dataset, parameters)
+        recorder.record("values", f"{type(self).__name__} {dataset.resolution.name}/{dataset.name}", df)
+        return df
+
+    def recording_all(self: TimeseriesRequest) -> Any:  # noqa: ANN401
+        result = all_stations(self)
+        recorder.record("stations", type(self).__name__, result.df)
+        return result
+
+    # patched by hand rather than through `monkeypatch`, which a test may undo as a whole
+    TimeseriesValues._process_dataset = recording_process_dataset  # noqa: SLF001
+    TimeseriesRequest.all = recording_all  # ty: ignore[invalid-assignment]
+    try:
+        yield
+    finally:
+        TimeseriesValues._process_dataset = process_dataset  # noqa: SLF001
+        TimeseriesRequest.all = all_stations  # ty: ignore[invalid-assignment]
+    passed = all(
+        getattr(getattr(request.node, f"report_{phase}", None), "passed", False) for phase in ("setup", "call")
+    )
+    if not passed or recorder.empty():
+        return
+    if frames.writing():
+        for kind in ("values", "stations"):
+            if getattr(recorder, kind):
+                _WRITTEN[kind][request.node.nodeid] = getattr(recorder, kind)
+        _WRITTEN["schemas"].update(recorder.schemas)
+        return
+    found = frames.compare(request.node.nodeid, recorder)
+    if found:
+        pytest.fail(
+            "the frames of this test are not those of `tests/provider/frames.snapshot.json`; if the change is "
+            "intended, regenerate it with `uv run poe frames:snapshot` and read the diff: " + " | ".join(found),
             pytrace=False,
         )
 

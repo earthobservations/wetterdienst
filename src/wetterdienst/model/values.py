@@ -326,7 +326,48 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         station_id: str,
         parameter_or_dataset: _UnitT,
     ) -> pl.DataFrame:
-        """Collect data for a station and a single parameter or dataset."""
+        """Collect data for a station and a single parameter or dataset.
+
+        This is what a provider hands to the core, and `_process_dataset` is what the core makes of it (GH-2627). The
+        contract is what the core reads today; the shaping it does not do yet (adding the identity columns, coercing
+        the dtypes) is still the provider's, and moves into the core in phases, so what is listed as required is
+        required until then.
+
+        Called once per parameter, with a `ParameterModel`, or, for a dataset declared `grouped`, once per dataset,
+        with the `DatasetModel`: the frame may then hold every parameter of the dataset, and the core keeps the
+        requested ones.
+
+        Returns:
+            One long-form frame of the readings of the station for that parameter or dataset, with the columns
+
+            - ``resolution`` (String): the name of the dataset's resolution, `dataset.resolution.name`. Required;
+              `unique` runs on it before the core writes its own.
+            - ``dataset`` (String): the lower-cased name of the dataset, `dataset.name.lower()`. Required, as above.
+            - ``parameter`` (String): the source's own name of the parameter, `name_original`, which the unit
+              conversion looks up case-insensitively and a grouped dataset's filter matches exactly. Required. A
+              non-grouped call returns the one parameter it was asked for: nothing filters the others out.
+            - ``timestamp`` (Datetime("us", "UTC")): the instant of the reading, a UTC timestamp to the microsecond
+              and not null on a row that has a value. The core does not convert it, and `tests/provider/conftest.py`
+              fails a test whose frame has another type. Required.
+            - ``value`` (Float64): the reading in the unit the metadata declares for the parameter, which the core
+              converts unless `convert_units` is off, or null where the source has none: the core drops the null
+              rows unless the caller asked for them. A sentinel is mapped to null here, before any unit conversion,
+              with `null_sentinels`, and a NaN is the provider's to turn into null. Required.
+            - ``quality_flags`` (String): the flags of the source for the reading, built with `join_quality_flags`.
+              Optional: the core adds a typed null column to a frame without it.
+            - ``station_id`` (String): optional, and whatever it holds is replaced by the `station_id` argument.
+
+            Any other column is not part of the contract: the core keeps it in the output, behind the long form's
+            columns and in no defined order, and no provider returns one. A frame without a row, whatever its
+            columns (a station without data for the parameter, a bare `pl.DataFrame()`), is skipped by the core. The
+            rows may come in any order, more than once (the core keeps the first of the rows that share
+            `resolution`, `dataset`, `parameter` and `timestamp`), and outside the requested window (the core cuts it
+            after, so a provider is free to narrow what it downloads by it, not obliged to).
+
+        Raises:
+            NoInternetError: a connection that cannot be made, which is never answered by an empty frame.
+
+        """
 
     def _widen_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Widen a dataframe with each row having one timestamp, parameter, value and quality flags.
