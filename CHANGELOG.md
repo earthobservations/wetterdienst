@@ -18,6 +18,9 @@ Types of changes:
 
 ### Changed
 
+- The dependency is now `polars[calamine]>=1.43.2,<3` (it was `>=1.43.0`): 1.43.0 and 1.43.1 are
+  yanked on PyPI, so no installer resolved them by default and 1.43.2 is the oldest polars a caller
+  can get. Pinned environments that still hold 1.43.0 or 1.43.1 upgrade polars (GH-3138)
 - AEMET: the `Ip` (inapreciable) of a precipitation below what the gauge reads is 0.0, with
   `raw:Ip` as the last token of `quality_flags`, in `precipitation_amount` (daily, monthly,
   annual) and `precipitation_amount_max` (monthly, annual); it was null. A day of trace now
