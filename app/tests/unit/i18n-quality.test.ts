@@ -219,31 +219,61 @@ describe('typography', () => {
 })
 
 describe('address', () => {
-  // The way each locale speaks to the reader is written down in i18n/TERMS.md ("Address and spelling"):
-  // du/Sie, tu/vous. A pronoun of the other register in a locale is a text that was translated by
-  // itself. This sees pronouns and possessives only: a verb form alone (Spanish "obtiene" for
-  // "obtienes") has no word to find, so the read-through has to catch it. Luxembourgish and Low German
-  // are left out: the sign there is the imperative (lb `mapHint`, which TERMS.md lists as open), not a
-  // pronoun.
+  // Every locale speaks to the reader in the informal singular (GH-3157): du, tu, tú, je, ty, "du" in lb,
+  // the singular imperative in pl, and "you" in en, which has no other. It is written down in
+  // i18n/TERMS.md ("Address and spelling"). A formal pronoun or possessive, or the formal imperative that
+  // goes with one, is a text that was translated by itself. This sees the forms that have a word or an
+  // ending to find: a verb form that has neither (Spanish "obtiene" for "obtienes") it does not, so the
+  // read-through of a new text has to catch it. Low German is left out: it has no formal address to slip
+  // into.
   // whole words, letters being any letter (JavaScript's \b sees only ASCII ones: it finds "tě" in "návštěvami")
-  const word = (alternatives: string) => new RegExp(`(?<![\\p{L}\\p{N}/])(${alternatives})(?![\\p{L}\\p{N}])`, 'iu')
-  const OTHER_REGISTER: Record<string, RegExp> = {
-    cs: word('ty|tvůj|tvoje|tvé|tvého|tobě|tě'),
-    // "De" is also the plural article, at the start of a sentence, so it is left out
+  const word = (alternatives: string, flags = 'iu') =>
+    new RegExp(`(?<![\\p{L}\\p{N}/])(${alternatives})(?![\\p{L}\\p{N}])`, flags)
+  const FORMAL: Record<string, RegExp> = {
+    // "Sie" is also "she" and "they", and "ihr" "her" and "their": only the capitalised forms are
+    // looked at, and one in the middle of a sentence is a formal one
+    de: word('Sie|Ihr|Ihre|Ihrem|Ihren|Ihrer|Ihres|Ihnen', 'u'),
+    // the imperative of the second person plural ends in -ez ("Choisissez"); the singular of a verb
+    // of the first group has -e, the others -s
+    fr: word('vous|votre|vos|\\p{L}+-vous|(?!chez|assez|nez)\\p{L}{4,}ez|veuillez'),
+    // "vy", "vás", "vám", "váš…" and the imperative plural, which ends in -te ("Vyberte", "Zkuste";
+    // the singular has no -te)
+    cs: word('vy|vás|vámi|vám|váš\\p{L}*|vaš\\p{L}*|byste|jste|\\p{L}{2,}te'),
+    // "Dir" and "Är…" are the second person plural, which lb used for a polite "you"; the singular is
+    // "du", "dir", "deng", "däin…". The imperative of the plural ends in -t where the singular has none
+    // ("Wielt", "Kuckt", "Gitt"): of those verbs only the ones that are no other form of the verb are
+    // listed, and a capitalised one only at the start of a sentence
+    lb: word('Dir|Är|Ären|Ärem|Ärer|Äre|Iech|[Ww]ielt|[Kk]uckt|Rufft|Maacht|Setzt|Probéiert|Schränkt|Follegt|Entdeckt|Fannt|[Gg]itt|[Ll]uet|[Kk]lickt|Wiesselt|Generéiert|Interpoléiert|Visualiséiert|Konvertéiert|Iwwerschreift|Frot|Benotzt|Kritt|Sicht|Rechent', 'u'),
     da: /(?<=\s)(Dem|Deres)(?!\p{L})/u,
-    de: word('du|dich|dir|dein\\w*'),
     es: word('usted|ustedes'),
-    fr: word('tu|toi|ton|ta|tes'),
     it: /(?<!\p{L})(Lei|Suo|Sua|Suoi|Sue)(?!\p{L})/u,
     nl: /(^|\s)(uw|u)(?=\s)/i,
     pl: /(?<!\p{L})(Pan|Pani|Państwo|Państwa)(?!\p{L})/u,
   }
 
-  it.each(Object.keys(OTHER_REGISTER))('speaks to the reader of %s in one register', (locale) => {
+  // The few places where a word of the list is right: a plural "you" that addresses several people, or a
+  // word that only looks like one. An entry that no longer matches is stale and fails.
+  const FORMAL_OK: Record<string, Record<string, string>> = {
+    cs: { 'language.inclusiveHint': 'a welcome to everyone, which is a plural by meaning ("Vítejte všichni")' },
+  }
+
+  const prose = (text: string) => text.replace(/\{[^{}]*\}/g, '')
+
+  it.each(Object.keys(FORMAL))('speaks to the reader of %s in the informal singular', (locale) => {
+    const allowed = FORMAL_OK[locale] ?? {}
     const off = Object.entries(ui[locale]!)
-      .filter(([, text]) => OTHER_REGISTER[locale]!.test(text.replace(/\{[^{}]*\}/g, '')))
+      .filter(([key, text]) => !(key in allowed) && FORMAL[locale]!.test(prose(text)))
       .map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
     expect(off).toEqual([])
+  })
+
+  it('has no stale entry in the list of allowed formal forms', () => {
+    const stale = Object.entries(FORMAL_OK).flatMap(([locale, keys]) =>
+      Object.keys(keys)
+        .filter(key => !(key in ui[locale]!) || !FORMAL[locale]!.test(prose(ui[locale]![key]!)))
+        .map(key => `${locale}: ${key}`),
+    )
+    expect(stale).toEqual([])
   })
 })
 
