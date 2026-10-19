@@ -663,7 +663,8 @@ to write instead. `StationsResult.stations` (and the `stations=` argument) is `r
 `stations.values()` for a reader; `values.filter_by_date(date)` and `values.filter_by_sql(sql)`, which changed
 the result and returned its frame, are `values.filtered_by_date(date)` and `values.filtered_by_sql(sql)`, which
 return a new result (`.df` is its frame). Code that wrote `values.filter_by_sql(sql)` and went on with `values`
-now continues with `values = values.filtered_by_sql(sql)`.
+now continues with `values = values.filtered_by_sql(sql)`. Everything else that changed since 0.139.0 is in
+[Migrating from 0.139.0](migrating.md).
 ```
 
 ### Interpolation & Summary

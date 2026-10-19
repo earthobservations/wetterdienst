@@ -81,7 +81,8 @@ examples on this page and the web app use the alias.
 requests before it is refused; 0 means the instance sets none.
 
 `api_version` is raised with a change a client has to follow. A path under a version that does
-not exist (`/api/v2/...`) is a 404.
+not exist (`/api/v2/...`) is a 404. What counts as a change a client has to follow, for this API and
+for the other surfaces, is on the [Compatibility](compatibility.md) page.
 
 The MCP endpoint is versioned alike, see [MCP endpoint](#mcp-endpoint). The operation ids of the
 OpenAPI document (`values_api_values_get`) and the names of the MCP tools (`values`) do not carry
