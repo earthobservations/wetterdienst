@@ -19,6 +19,7 @@ from __future__ import annotations
 import ast
 import socket
 import struct
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -132,7 +133,18 @@ _TOTAL_TIMEOUT_KWARGS = {"timeout": ClientTimeout(total=_PATIENCE_SECONDS)}
 
 def _assert_the_documented_error(url: str, expected: type[Exception], raised: Exception, *, mode: str) -> None:
     """Check that the caller sees the library's error for the failure, naming the URL, not the library underneath."""
-    assert type(raised) is expected, f"{type(raised).__module__}.{type(raised).__qualname__}: {raised}"
+    described = f"{type(raised).__module__}.{type(raised).__qualname__}: {raised}"
+    if mode == "refused" and sys.platform == "win32":
+        # Windows does not answer a connection to a closed local port with an immediate refusal: it retries the
+        # connect for about two seconds first, so the client's timeout of a third of a second is what ends it. The
+        # caller then sees what it sees for any silent host, a `DownloadError` caused by a timeout (504), and a
+        # refusal that arrives in time is still a `NoInternetError` (503). Both are the library's own errors, which
+        # is what is held here; the refusal proper is held on the platforms that give one
+        assert type(raised) in {NoInternetError, DownloadError}, described
+        assert failure_status(raised) == (503 if type(raised) is NoInternetError else 504), described
+        assert url.split("/", 3)[2] in str(raised), "the error names the host it was raised for"
+        return
+    assert type(raised) is expected, described
     assert url.split("/", 3)[2] in str(raised), "the error names the host it was raised for"
     # the cause is what the server did, which the REST API reads the status from
     assert raised.__cause__ is not None
