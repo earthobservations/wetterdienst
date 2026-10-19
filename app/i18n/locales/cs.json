@@ -580,7 +580,7 @@
     "errStartRequired": "Počáteční datum je povinné",
     "errEndRequired": "Koncové datum je povinné",
     "errEndAfterStart": "Koncové datum musí být pozdější než počáteční datum",
-    "errExceedsLimit": "Odhadovaných {count} hodnot překračuje limit {max}. Zúži prosím rozsah dat."
+    "errExceedsLimit": "Odhadovaných {count} hodnot překračuje limit {max}. Zuž prosím rozsah dat."
   },
   "map": {
     "centerAll": "Vycentrovat na všechny stanice",

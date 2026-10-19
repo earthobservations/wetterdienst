@@ -231,19 +231,22 @@ describe('address', () => {
     new RegExp(`(?<![\\p{L}\\p{N}/])(${alternatives})(?![\\p{L}\\p{N}])`, flags)
   const FORMAL: Record<string, RegExp> = {
     // "Sie" is also "she" and "they", and "ihr" "her" and "their": only the capitalised forms are
-    // looked at, and one in the middle of a sentence is a formal one
+    // looked at, which is where the polite address is written. One at the start of a sentence is flagged
+    // as well, though it may mean "they" or "their": such a text is listed in FORMAL_OK with its reason
     de: word('Sie|Ihr|Ihre|Ihrem|Ihren|Ihrer|Ihres|Ihnen', 'u'),
     // the imperative of the second person plural ends in -ez ("Choisissez"); the singular of a verb
     // of the first group has -e, the others -s
-    fr: word('vous|votre|vos|\\p{L}+-vous|(?!chez|assez|nez)\\p{L}{4,}ez|veuillez'),
+    fr: word('vous|votre|vos|\\p{L}+-vous|(?!chez|assez|nez)\\p{L}{3,}ez|veuillez'),
     // "vy", "vás", "vám", "váš…" and the imperative plural, which ends in -te ("Vyberte", "Zkuste";
-    // the singular has no -te)
+    // the singular has no -te). Any word of three letters or more that ends in -te is taken for one, so
+    // a foreign word that does (date, byte, SQLite, update) would need an entry in FORMAL_OK
     cs: word('vy|vás|vámi|vám|váš\\p{L}*|vaš\\p{L}*|byste|jste|\\p{L}{2,}te'),
     // "Dir" and "Är…" are the second person plural, which lb used for a polite "you"; the singular is
     // "du", "dir", "deng", "däin…". The imperative of the plural ends in -t where the singular has none
-    // ("Wielt", "Kuckt", "Gitt"): of those verbs only the ones that are no other form of the verb are
-    // listed, and a capitalised one only at the start of a sentence
-    lb: word('Dir|Är|Ären|Ärem|Ärer|Äre|Iech|[Ww]ielt|[Kk]uckt|Rufft|Maacht|Setzt|Probéiert|Schränkt|Follegt|Entdeckt|Fannt|[Gg]itt|[Ll]uet|[Kk]lickt|Wiesselt|Generéiert|Interpoléiert|Visualiséiert|Konvertéiert|Iwwerschreift|Frot|Benotzt|Kritt|Sicht|Rechent', 'u'),
+    // ("Wielt", "Kuckt", "Gitt"), but that -t is also the third person singular ("wielt", "kuckt"). So
+    // only the verbs that are no other form of the verb are listed, a capitalised one only for the start
+    // of a sentence, and a verb whose singular imperative is the same word ("Luet": lueden) not at all
+    lb: word('Dir|Är|Äre|Ären|Ärem|Ärer|Äert|Iech|Wielt|Kuckt|Rufft|Maacht|Setzt|Probéiert|Schränkt|Follegt|Entdeckt|Fannt|[Gg]itt|Klickt|Wiesselt|Generéiert|Interpoléiert|Visualiséiert|Konvertéiert|Iwwerschreift|Frot|Benotzt|Kritt|Sicht|Rechent', 'u'),
     da: /(?<=\s)(Dem|Deres)(?!\p{L})/u,
     es: word('usted|ustedes'),
     it: /(?<!\p{L})(Lei|Suo|Sua|Suoi|Sue)(?!\p{L})/u,
@@ -265,6 +268,26 @@ describe('address', () => {
       .filter(([key, text]) => !(key in allowed) && FORMAL[locale]!.test(prose(text)))
       .map(([key, text]) => `${key}: ${JSON.stringify(text)}`)
     expect(off).toEqual([])
+  })
+
+  // The patterns are held to a line that is formal on purpose (and to one that is not), so a pattern that
+  // is loosened or broken until it finds nothing fails here rather than letting a formal text through
+  const FORMAL_SAMPLES: Record<string, string[]> = {
+    de: ['Wählen Sie eine Station.', 'In Ihrem Browser gespeichert.', 'Wenn Ihnen das hilft.'],
+    fr: ['Notez le résultat.', 'Tapez une requête.', 'Choisissez une station.', 'Que souhaitez-vous faire ?', 'Allez voir.', 'Lisez la page.'],
+    cs: ['Vyberte stanici.', 'Zkuste to znovu.', 'Co chcete vidět, jste si vybrali.', 'Pro vás.'],
+    lb: ['Äert Browser huet et gespäichert.', 'Är Géigend.', 'Wann Dir wëllt.', 'Wielt eng Statioun.', 'Kuckt d\'Dokumentatioun.', 'Gitt hei an.'],
+  }
+  const INFORMAL_SAMPLES: Record<string, string[]> = {
+    de: ['Wähle eine Station.', 'In deinem Browser gespeichert.'],
+    fr: ['Chez nous, c\'est assez simple.', 'Notre nez le sait.', 'Choisis une station.'],
+    cs: ['Vyber stanici.', 'Zkus to znovu.'],
+    lb: ['Wiel eng Statioun.', 'Luet d\'Säit nei.', 'Deng Géigend.', 'Wann du wëlls.'],
+  }
+
+  it.each(Object.keys(FORMAL_SAMPLES))('finds the formal sample lines of %s, and none of the informal ones', (locale) => {
+    expect(FORMAL_SAMPLES[locale]!.filter(text => !FORMAL[locale]!.test(text))).toEqual([])
+    expect(INFORMAL_SAMPLES[locale]!.filter(text => FORMAL[locale]!.test(text))).toEqual([])
   })
 
   it('has no stale entry in the list of allowed formal forms', () => {

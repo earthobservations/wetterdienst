@@ -124,9 +124,9 @@ meant to be understood, not to be the last word, and **a review by a native spea
 - The informal address of GH-3157, in **all four locales it changed** (`de`, `fr`, `cs`, `lb`): each
   line that spoke to the reader was rewritten by hand and read through, not by a native speaker. Least
   certain: `cs` `support.reportText` (`Našla se chyba?`, chosen to avoid a gendered `Našel jsi`);
-  `lb` imperatives of verbs the catalog had not used in the singular (`Kréi` for `kréien` in the
-  `api.endpoints.*` lines, `Gëff` in `api.subtitle` and `query.placeholder`, `Rechen … ëm` in
-  `settings.convertUnitsHint`, `Fro … of` in `query.hint`) and `iwwerleeg dir` in `support.donateText`;
+  `lb` imperatives of verbs the catalog had not used in the singular (`Kréi` for `kréien` in
+  `api.subtitle` and the `api.endpoints.*` lines, `Gëff … an` in `query.placeholder`, `Rechen … ëm` in
+  `settings.convertUnitsHint`, `Fro … of` in `query.hint`) and `iwwerlee dir` in `support.donateText`;
   the `lb` and `cs` informal forms in general.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
