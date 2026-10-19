@@ -49,8 +49,7 @@ Types of changes:
 - The `metoffice/observation` docs and the descriptions of the daily temperatures say that a day is
   the date of `ob_end_time` (the source's 09Z day) and that 24-hour 09-09Z rows (2,962 of 14,334)
   fall on the day after most of their coverage, where the docs said the true daily extreme was
-  recovered; `dwd/mosmix` `TM` is described as probably the previous UTC day, not confirmed by DWD
-  (GH-3137)
+  recovered (GH-3137)
 
 ## [0.161.0] - 2026-10-19
 

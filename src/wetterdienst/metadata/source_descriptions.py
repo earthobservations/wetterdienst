@@ -451,12 +451,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "large", "td"): "Dewpoint 2m above surface",
         ("hourly", "large", "tg"): "Minimum surface temperature at 5cm within the last 12 hours",
-        ("hourly", "large", "tm"): (
-            "Mean temperature during the last 24 hours. DWD gives no window beyond that; measured against the hourly "
-            "TTT of the run of 2026-10-19 (100 values of 10 stations) it fits the previous UTC day best, with a mean "
-            "error of 0.33 K, against 0.55 K for the 24 hours ending at the stamp and 1.1 K for the stamp's own UTC "
-            "day. Not confirmed by DWD."
-        ),
+        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours",
         ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours",
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
         ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours",
