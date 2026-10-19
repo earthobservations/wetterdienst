@@ -919,8 +919,8 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
 
 def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
-    # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and the
-    # reader takes a text that is no number (the second precipitation) for none
+    # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and `Ip`
+    # (inapreciable) for a precipitation below what the gauge reads, a trace, which is 0.0 with its text beside it
     records = [
         {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
         {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
@@ -1060,13 +1060,14 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # a variable wind at 01 UTC (hourly-observations-validated-20261012-08.nc has Horst at 990 with FF 1.0 m/s) and the
     # one for a calm at 02 UTC; a missing temperature is the NaN _FillValue. The cloud cover N is in octants and "9=sky
     # invisible" (GH-3123): 941 of the 87,696 hours of the stations 260, 240 and 344 from 2015 to 2024 in the hourly
-    # export of https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, read 2026-10-18
+    # export of https://www.daggegevens.knmi.nl/klimatologie/uurgegevens, read 2026-10-18. The same header gives the
+    # precipitation RH "(-1 for <0.05 mm)" and the sunshine duration SQ "(-1 for <0.05 hour)", a trace in both
     _knmi_serve(
         monkeypatch,
         {
-            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0, "N": 6.0}),
-            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0, "N": 9.0}),
-            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0, "N": 8.0}),
+            "20240101-00": _knmi_netcdf({"T": 3.2, "DD": 250.0, "N": 6.0, "RH": 0.4, "SQ": 0.3}),
+            "20240101-01": _knmi_netcdf({"T": float("nan"), "DD": 990.0, "N": 9.0, "RH": -1.0, "SQ": -1.0}),
+            "20240101-02": _knmi_netcdf({"T": 3.0, "DD": 0.0, "N": 8.0, "RH": 0.0, "SQ": 0.0}),
         },
     )
     request = KnmiObservationRequest(
@@ -1074,6 +1075,8 @@ def _knmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
             ("hourly", "data", "temperature_air_2m"),
             ("hourly", "data", "wind_direction_mean_last_10min"),
             ("hourly", "data", "cloud_cover_total"),
+            ("hourly", "data", "precipitation_amount"),
+            ("hourly", "data", "sunshine_duration"),
         ],
         # the files of the hours 00 to 03 are stamped with the end of their hour (GH-2824)
         start=_day(2024, 1, 1, 1),
@@ -1534,12 +1537,17 @@ STUBS = [
             ("wind_direction_mean_last_10min", 0.0),
             ("wind_direction_mean_last_10min", 990.0),
             ("cloud_cover_total", 1.125),
+            ("precipitation_amount", -1.0),
+            ("sunshine_duration", -3600.0),
         ),
+        # a trace of precipitation or of sunshine is 0.0 with the code beside it
         tokens=(
             ("temperature_air_2m", "NaN", None),
             ("wind_direction_mean_last_10min", "0", None),
             ("wind_direction_mean_last_10min", "990", None),
             ("cloud_cover_total", "9", None),
+            ("precipitation_amount", "-1", 0.0),
+            ("sunshine_duration", "-1", 0.0),
         ),
     ),
     ValueStub(
@@ -1627,7 +1635,8 @@ STUBS = [
         _aemet_daily,
         reading=("temperature_air_mean_2m", 5.3),
         sentinels=(("wind_direction_gust_max", 990.0),),
-        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", None)),
+        # a trace is 0.0 with the code beside it; a calm or variable wind has no direction
+        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", 0.0)),
     ),
     ValueStub(
         "dwd/derived hourly/radiation_global",

@@ -1194,6 +1194,34 @@ def test_aemet_observation_monthly_value_keeps_the_text_of_what_is_no_number() -
     assert df.get_column("raw").to_list() == [None, None, None, "Ip", None, None]
 
 
+def test_aemet_observation_monthly_precipitation_reads_ip_as_a_trace() -> None:
+    """Test that the `Ip` (inapreciable) of a monthly or annual precipitation is 0.0 with `raw:Ip` (GH-3188)."""
+    value, raw = parse_monthly_value("v", trace=True)
+    df = pl.DataFrame({"v": ["24.2", "39.4(27)", "Ip", " Ip ", "ip", "mq", "", None]}).select(
+        value.alias("value"), raw.alias("raw")
+    )
+    # only the code AEMET writes, as it writes it; any other text stays null with its text
+    assert df.get_column("value").to_list() == [24.2, 39.4, 0.0, 0.0, None, None, None, None]
+    assert df.get_column("raw").to_list() == [None, None, "Ip", "Ip", "ip", "mq", None, None]
+
+
+def test_aemet_observation_daily_precipitation_reads_ip_as_a_trace() -> None:
+    """Test that the `Ip` (inapreciable) of the daily precipitation is 0.0 with `raw:Ip`, and only there (GH-3188)."""
+    precipitation, precipitation_raw = parse_decimal_comma("v", trace=True)
+    temperature, temperature_raw = parse_decimal_comma("v")
+    df = pl.DataFrame({"v": ["0,0", "Ip", "3,4", "Ip(1)", None]}).select(
+        precipitation.alias("precipitation"),
+        precipitation_raw.alias("precipitation_raw"),
+        temperature.alias("temperature"),
+        temperature_raw.alias("temperature_raw"),
+    )
+    assert df.get_column("precipitation").to_list() == [0.0, 0.0, 3.4, None, None]
+    assert df.get_column("precipitation_raw").to_list() == [None, "Ip", None, "Ip(1)", None]
+    # a code of the precipitation is no reading of a temperature
+    assert df.get_column("temperature").to_list() == [0.0, None, 3.4, None, None]
+    assert df.get_column("temperature_raw").to_list() == [None, "Ip", None, "Ip(1)", None]
+
+
 def test_aemet_observation_daily_values_keep_the_text_of_what_is_no_number() -> None:
     """Test the decimal comma, the wind direction in tens of degrees with its 99, and a text that is no number."""
     value, raw = parse_decimal_comma("v")

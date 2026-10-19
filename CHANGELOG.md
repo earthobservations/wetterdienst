@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- AEMET: the `Ip` (inapreciable) of a precipitation below what the gauge reads is 0.0, with
+  `raw:Ip` as the last token of `quality_flags`, in `precipitation_amount` (daily, monthly,
+  annual) and `precipitation_amount_max` (monthly, annual); it was null. A day of trace now
+  counts in a sum, as in KNMI (`-1`) and Météo-France synop (`-0.1`), which already read a
+  trace as 0.0. Every other text that is no number stays null with its text (GH-3188)
 - IMGW: the `attribution` in the `metadata` block of its answers carries both statements the
   terms prescribe, the source of the data (§ 5 ust. 3) and that the data were processed (§ 5
   ust. 4), and `license.url` links the terms' PDF, not the portal. The docs say that the data

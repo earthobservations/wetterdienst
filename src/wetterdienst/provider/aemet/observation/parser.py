@@ -8,6 +8,10 @@ import polars as pl
 
 from wetterdienst.model.quality_flags import Sentinel, null_sentinels
 
+# AEMET writes `Ip` ("inapreciable") for a precipitation below what the gauge reads, 0.1 mm, in place of a number. It is
+# a trace, so 0.0, and keeps its text as the `raw` token of `quality_flags` (GH-3188)
+_TRACE = Sentinel("Ip", to=0.0)
+
 
 def parse_dms_coordinate(column: str) -> pl.Expr:
     """Parse an AEMET DMS coordinate string, e.g. "394924N" or "025309E", to decimal degrees."""
@@ -20,13 +24,17 @@ def parse_dms_coordinate(column: str) -> pl.Expr:
     return pl.when(hemisphere.is_in(["S", "W"])).then(-decimal).otherwise(decimal)
 
 
-def parse_decimal_comma(column: str) -> tuple[pl.Expr, pl.Expr]:
+def parse_decimal_comma(column: str, *, trace: bool = False) -> tuple[pl.Expr, pl.Expr]:
     """Parse an AEMET number string using a comma as decimal separator, e.g. "28,0", into a float.
 
     Returns the value and the ``raw`` text for ``quality_flags`` (GH-2759): a text that is no number is null and
-    keeps its text.
+    keeps its text. With ``trace`` the ``Ip`` of a precipitation below the gauge's reading is 0.0 and keeps its text.
     """
-    return null_sentinels(pl.col(column).cast(pl.String).str.replace(",", "."), non_numeric=True)
+    return null_sentinels(
+        pl.col(column).cast(pl.String).str.replace(",", "."),
+        *((_TRACE,) if trace else ()),
+        non_numeric=True,
+    )
 
 
 def parse_wind_direction(column: str) -> tuple[pl.Expr, pl.Expr]:
@@ -38,14 +46,14 @@ def parse_wind_direction(column: str) -> tuple[pl.Expr, pl.Expr]:
     return code * 10, raw
 
 
-def parse_monthly_value(column: str) -> tuple[pl.Expr, pl.Expr]:
+def parse_monthly_value(column: str, *, trace: bool = False) -> tuple[pl.Expr, pl.Expr]:
     """Parse an AEMET monthly/annual value, e.g. "24.2(20)" or "39.4(27/jul)", into a float.
 
     Unlike the daily endpoint, monthly/annual values use a plain decimal point, but may
     carry a trailing day-of-occurrence annotation in parentheses that needs stripping.
     Returns the value and the ``raw`` text for ``quality_flags``: a text with no number in front is null and keeps
-    its text.
+    its text. With ``trace`` the ``Ip`` of a precipitation below the gauge's reading is 0.0 and keeps its text.
     """
     cell = pl.col(column).cast(pl.String)
     number = cell.str.extract(r"^(-?\d+(?:\.\d+)?)", 1)
-    return null_sentinels(pl.coalesce(number, cell), non_numeric=True)
+    return null_sentinels(pl.coalesce(number, cell), *((_TRACE,) if trace else ()), non_numeric=True)
