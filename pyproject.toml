@@ -338,9 +338,21 @@ coverage = [
 # the OpenAPI document as committed (tests/ui/openapi.snapshot.json), which a test holds the served one to: run after a
 # change to the contract, and read the diff
 "openapi:snapshot" = "uv run python -m tests.ui.openapi_snapshot"
-# the OpenAPI document of the last release, which a test holds the served one to (nothing it offered may be gone):
-# run once for a release, in the release commit, see .github/RELEASE_STRATEGY.md
+# the surfaces of the last release, which a test holds the code to (nothing they offered may be gone): the OpenAPI
+# document, the `--help` of every command, the public surface of the Python API, the MCP tools and the parameters of
+# every dataset. Run `contracts:baseline` once for a release, in the release commit, see .github/RELEASE_STRATEGY.md
 "openapi:baseline" = "uv run python -m tests.ui.openapi_baseline"
+"cli:baseline" = "uv run python -m tests.baselines.cli"
+"surface:baseline" = "uv run python -m tests.baselines.surface"
+"mcp:baseline" = "uv run python -m tests.baselines.mcp"
+"parameters:baseline" = "uv run python -m tests.baselines.parameters"
+"contracts:baseline" = [
+    "openapi:baseline",
+    "cli:baseline",
+    "surface:baseline",
+    "mcp:baseline",
+    "parameters:baseline",
+]
 # the `--help` of every command (tests/ui/cli/help.snapshot.txt) and the public surface of the Python API
 # (tests/public_surface.snapshot.json), each held by a test: run after an intended change, and read the diff
 "cli:snapshot" = "uv run python -m tests.ui.cli.help_snapshot"

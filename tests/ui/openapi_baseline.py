@@ -9,7 +9,9 @@ was regenerated with it (see `tests/ui/openapi_diff.py` for what is compared).
 
 The baseline is refreshed once for each release, in the release commit, with
 
-    uv run poe openapi:baseline
+    uv run poe contracts:baseline
+
+(all the baselines of `tests/baselines/common.py` at once; `uv run poe openapi:baseline` does this one)
 
 and `x-release` in it must be the version of `pyproject.toml`, which the same test enforces, so a release that
 does not refresh it fails. Until then it stays the document of the release before: a change that breaks it is
@@ -19,35 +21,26 @@ removed when the baseline is refreshed.
 
 from __future__ import annotations
 
-import json
-import tomllib
 from pathlib import Path
 from typing import Any
 
+from tests.baselines.common import RELEASE, project_version, read, write
 from tests.ui.openapi_snapshot import build_document
 
 BASELINE = Path(__file__).parent / "openapi.baseline.json"
-#: where the baseline says which release it is the document of
-RELEASE = "x-release"
-PYPROJECT = Path(__file__).parents[2] / "pyproject.toml"
 
-
-def project_version() -> str:
-    """Give the version `pyproject.toml` declares, which is that of the last release until the release commit."""
-    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
+__all__ = ["BASELINE", "RELEASE", "project_version", "read_baseline", "write_baseline"]
 
 
 def read_baseline() -> dict[str, Any]:
     """Read the committed baseline."""
-    return json.loads(BASELINE.read_text(encoding="utf-8"))
+    return read(BASELINE)
 
 
 def write_baseline() -> None:
     """Write the served document as the baseline of the version in `pyproject.toml`."""
-    document = {**build_document(), RELEASE: project_version()}
-    BASELINE.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write(BASELINE, build_document())
 
 
 if __name__ == "__main__":
     write_baseline()
-    print(f"wrote {BASELINE} for {project_version()}")  # noqa: T201

@@ -16,12 +16,22 @@ What is offered is, by operation:
   their types, enum members, union alternatives, and which of them are required.
 
 A request is asked more of when a parameter is newly required, or becomes required, or a member of an object it takes
-does. Everything else is additive and passes: a new path, operation, optional parameter, member, status, enum member
-or media type.
+does, and when a parameter or a member of a request body takes **less** than it did:
 
-Not compared: titles, descriptions, examples, defaults, bounds, patterns and formats, which describe more than they
-promise, and what an answer means. A change of meaning is in the changelog, and the contract tests of the routes.
-`info`, `servers` and `tags` are the document's own and are not the contract either.
+- a changed `default`, as what an omitted parameter means is part of the contract (a missing default and a null one
+  are the same);
+- a tighter bound: a larger `minimum`, `exclusiveMinimum`, `minLength` or `minItems`, a smaller `maximum`,
+  `exclusiveMaximum`, `maxLength` or `maxItems`, or a bound where there was none;
+- a `pattern` that was added or changed (which of two patterns is the tighter cannot be told);
+- an enum that dropped members, or one where there was none.
+
+Everything else is additive and passes: a new path, operation, optional parameter, member, status, enum member or
+media type, and a looser bound or no pattern. The by-convention rule of the compatibility policy is that a tighter
+default or bound is a break, and this is what holds it.
+
+Not compared: titles, descriptions, examples and formats, which describe more than they promise, the defaults and
+bounds of an answer, and what an answer means. A change of meaning is in the changelog, and the contract tests of the
+routes. `info`, `servers` and `tags` are the document's own and are not the contract either.
 
 An approved break is an entry of `ACCEPTED_BREAKS`, with its reason, and is cleared when the baseline is refreshed.
 """
@@ -78,6 +88,16 @@ def breaking_changes(baseline: dict[str, Any], current: dict[str, Any]) -> list[
                 continue
             found += _operation(old, new, where, old_operation, new_operation)
     return sorted(found)
+
+
+def schema_breaks(
+    baseline: dict[str, Any], current: dict[str, Any], where: str, old_node: dict[str, Any], new_node: dict[str, Any]
+) -> list[str]:
+    """Compare a schema a caller sends, as a request's: the MCP tools take their arguments as one (GH-3131).
+
+    The two documents resolve the `$ref` of the nodes, so that a schema with its own `$defs` is compared whole.
+    """
+    return _schema(_Document(baseline), _Document(current), where, old_node, new_node, asked=True)
 
 
 def unaccepted(findings: list[str]) -> list[str]:
@@ -209,28 +229,64 @@ def _schema(
     old_node, new_node = old.resolve(old_node), new.resolve(new_node)
     old_alternatives = old_node.get("anyOf") or old_node.get("oneOf")
     new_alternatives = new_node.get("anyOf") or new_node.get("oneOf")
+    found = _default(where, old_node, new_node) if asked else []
     if old_alternatives or new_alternatives:
-        # each alternative that was offered is still offered by one: the others of a union are additions
-        found = []
-        for alternative in old_alternatives or [old_node]:
-            candidates = new_alternatives or [new_node]
-            if not any(not _schema(old, new, where, alternative, c, asked=asked, seen=seen) for c in candidates):
-                found.append(f"{where}: {_label(alternative)} is no longer one of the alternatives")
-        return found
-    found = []
+        return found + _union(
+            old, new, where, old_alternatives or [old_node], new_alternatives or [new_node], asked=asked, seen=seen
+        )
     old_type, new_type = old_node.get("type"), new_node.get("type")
     if old_type is not None and new_type is not None and _as_set(old_type) != _as_set(new_type):
-        found.append(f"{where}: type changed from {old_type} to {new_type}")
-        return found
+        return [*found, f"{where}: type changed from {old_type} to {new_type}"]
+    found += _members(where, old_node, new_node, asked=asked)
+    found += _object(old, new, where, old_node, new_node, asked=asked, seen=seen)
+    if isinstance(old_node.get("items"), dict) and isinstance(new_node.get("items"), dict):
+        found += _schema(old, new, f"{where}[]", old_node["items"], new_node["items"], asked=asked, seen=seen)
+    return found
+
+
+def _union(
+    old: _Document,
+    new: _Document,
+    where: str,
+    old_alternatives: list[dict[str, Any]],
+    new_alternatives: list[dict[str, Any]],
+    *,
+    asked: bool,
+    seen: frozenset[tuple[str, str]],
+) -> list[str]:
+    """Find each alternative that was offered and is not any more; the others of a union are additions."""
+    found = []
+    for alternative in old_alternatives:
+        results = [_schema(old, new, where, alternative, c, asked=asked, seen=seen) for c in new_alternatives]
+        if not all(results):
+            continue
+        # an alternative that has a single counterpart of its type says what changed of it
+        old_type = _as_set(old.resolve(alternative).get("type", ""))
+        same_type = [
+            result
+            for candidate, result in zip(new_alternatives, results, strict=True)
+            if old_type == _as_set(new.resolve(candidate).get("type", ""))
+        ]
+        found += (
+            same_type[0]
+            if len(same_type) == 1
+            else [f"{where}: {_label(alternative)} is no longer one of the alternatives"]
+        )
+    return found
+
+
+def _members(where: str, old_node: dict[str, Any], new_node: dict[str, Any], *, asked: bool) -> list[str]:
+    """Compare what a value of the schema may be: its enum members and, of a request's, its bounds and its pattern."""
+    found = []
     old_members = _enum(old_node)
     new_members = _enum(new_node)
     if old_members and new_members and (gone := sorted(old_members - new_members)):
         found.append(f"{where}: enum members {', '.join(gone)} were removed")
     elif asked and not old_members and new_members:
         found.append(f"{where}: now takes only the enum members {', '.join(sorted(new_members))}")
-    found += _object(old, new, where, old_node, new_node, asked=asked, seen=seen)
-    if isinstance(old_node.get("items"), dict) and isinstance(new_node.get("items"), dict):
-        found += _schema(old, new, f"{where}[]", old_node["items"], new_node["items"], asked=asked, seen=seen)
+    if asked:
+        found += _bounds(where, old_node, new_node)
+        found += _pattern(where, old_node, new_node)
     return found
 
 
@@ -273,6 +329,82 @@ def _object(
             seen=seen,
         )
     return found
+
+
+def _default(where: str, old_node: dict[str, Any], new_node: dict[str, Any]) -> list[str]:
+    """Find a default that changed: a request that leaves the parameter out means something else now."""
+    before, after = old_node.get("default"), new_node.get("default")
+    if json.dumps(before, sort_keys=True) == json.dumps(after, sort_keys=True):
+        return []
+    return [f"{where}: default changed from {json.dumps(before)} to {json.dumps(after)}"]
+
+
+#: the bounds of a schema from below and from above, each with the keyword that holds an exclusive one
+_LOWER = (("minimum", False), ("exclusiveMinimum", True))
+_UPPER = (("maximum", False), ("exclusiveMaximum", True))
+_COUNTS = (("minLength", "maxLength"), ("minItems", "maxItems"), ("minProperties", "maxProperties"))
+
+
+def _limit(node: dict[str, Any], keywords: tuple[tuple[str, bool], ...], *, lower: bool) -> tuple[float, bool] | None:
+    """Give the bound a schema sets as its value and whether the value itself is out, or None where there is none.
+
+    OpenAPI 3.0 writes an exclusive bound as a boolean beside `minimum`; 3.1 as a number, which is read here.
+    """
+    found = [
+        (node[keyword], exclusive)
+        for keyword, exclusive in keywords
+        if isinstance(node.get(keyword), (int, float)) and not isinstance(node.get(keyword), bool)
+    ]
+    if not found:
+        return None
+    # the tightest of them: the largest lower bound, the smallest upper one, an exclusive one winning a tie
+    return max(found, key=lambda bound: (bound[0] if lower else -bound[0], bound[1]))
+
+
+def _bounds(where: str, old_node: dict[str, Any], new_node: dict[str, Any]) -> list[str]:
+    """Find a bound that became tighter, or was added: a value that was taken may be refused now."""
+    found = []
+    for lower, keywords in ((True, _LOWER), (False, _UPPER)):
+        before, after = _limit(old_node, keywords, lower=lower), _limit(new_node, keywords, lower=lower)
+        if after is None:
+            continue
+        if before is None:
+            tighter = True
+        elif lower:
+            tighter = after[0] > before[0] or (after[0] == before[0] and after[1] and not before[1])
+        else:
+            tighter = after[0] < before[0] or (after[0] == before[0] and after[1] and not before[1])
+        if tighter:
+            word = "minimum" if lower else "maximum"
+            found.append(f"{where}: {word} became {_bound(after, lower=lower)}" + _was(before, lower=lower))
+    for minimum, maximum in _COUNTS:
+        for keyword, lower in ((minimum, True), (maximum, False)):
+            before, after = old_node.get(keyword), new_node.get(keyword)
+            if (
+                after is None
+                or (lower and after == 0)
+                or (before is not None and (after <= before if lower else after >= before))
+            ):
+                continue
+            found.append(f"{where}: {keyword} became {after}" + (f" (was {before})" if before is not None else ""))
+    return found
+
+
+def _bound(bound: tuple[float, bool], *, lower: bool) -> str:
+    value, exclusive = bound
+    return f"{'>' if lower else '<'}{'' if exclusive else '='} {value}"
+
+
+def _was(bound: tuple[float, bool] | None, *, lower: bool) -> str:
+    return "" if bound is None else f" (was {_bound(bound, lower=lower)})"
+
+
+def _pattern(where: str, old_node: dict[str, Any], new_node: dict[str, Any]) -> list[str]:
+    """Find a pattern that was added or changed; which of two is the tighter cannot be told, so a change is one."""
+    before, after = old_node.get("pattern"), new_node.get("pattern")
+    if after is None or before == after:
+        return []
+    return [f"{where}: pattern changed from {before} to {after}" if before else f"{where}: now has the pattern {after}"]
 
 
 def _as_set(type_: Any) -> frozenset[str]:  # noqa: ANN401

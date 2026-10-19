@@ -1,0 +1,1660 @@
+{
+  "tools": {
+    "alerts": {
+      "type": "object",
+      "properties": {
+        "granularity": {
+          "type": "string",
+          "enum": [
+            "community",
+            "district"
+          ],
+          "default": "community"
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "de",
+            "en",
+            "es",
+            "fr",
+            "mul"
+          ],
+          "default": "en"
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "provider",
+        "network"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "network": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolutions": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "datasets": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
+    "glossary": {
+      "type": "object",
+      "properties": {
+        "parameter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "angle",
+                "concentration",
+                "conductivity",
+                "degree_day",
+                "degree_hour",
+                "dimensionless",
+                "energy_per_area",
+                "fraction",
+                "length_long",
+                "length_medium",
+                "length_short",
+                "mass_per_volume",
+                "power_per_area",
+                "precipitation",
+                "precipitation_intensity",
+                "pressure",
+                "significant_weather",
+                "speed",
+                "temperature",
+                "time",
+                "turbidity",
+                "volume_per_time",
+                "wind_scale"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
+    "history": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "all": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false
+        },
+        "stations": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string",
+                "enum": [
+                  "name",
+                  "parameter",
+                  "device",
+                  "geography",
+                  "missing_data"
+                ]
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "with_metadata": {
+          "type": "boolean",
+          "default": false
+        },
+        "with_stations": {
+          "type": "boolean",
+          "default": false
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "parameters"
+      ]
+    },
+    "interpolate": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "periods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "lead_time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "short",
+                "long"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql_values": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "humanize": {
+          "type": "boolean",
+          "default": true
+        },
+        "convert_units": {
+          "type": "boolean",
+          "default": true
+        },
+        "unit_targets": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interpolation_station_distance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0.0
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interpolation_station_distance_homogeneous": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interpolation_station_distance_heterogeneous": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "use_nearby_station_distance": {
+          "type": "number",
+          "minimum": 0.0,
+          "default": 1.0
+        },
+        "min_gain_of_value_pairs": {
+          "type": "number",
+          "minimum": 0.0,
+          "default": 0.1
+        },
+        "num_additional_stations": {
+          "type": "integer",
+          "maximum": 1000000.0,
+          "minimum": 0.0,
+          "default": 3
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv",
+            "html",
+            "png",
+            "jpg",
+            "webp",
+            "svg",
+            "pdf"
+          ],
+          "default": "json"
+        },
+        "with_metadata": {
+          "type": "boolean",
+          "default": false
+        },
+        "with_stations": {
+          "type": "boolean",
+          "default": false
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "parameters",
+        "timestamp"
+      ]
+    },
+    "issues": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "station": {
+          "type": "string"
+        },
+        "dataset": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "icon",
+                "icon_eu"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lead_time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "short",
+                "long"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "station"
+      ]
+    },
+    "providers": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
+    "stations": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "periods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "all": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false
+        },
+        "stations": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name_threshold": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "default": 0.8
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 1000000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "left": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "with_metadata": {
+          "type": "boolean",
+          "default": false
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv",
+            "ndjson",
+            "html",
+            "png",
+            "jpg",
+            "webp",
+            "svg",
+            "pdf"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "parameters"
+      ]
+    },
+    "stripes_image": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "temperature",
+            "precipitation"
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name_threshold": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "default": 0.8
+        },
+        "start_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        },
+        "show_title": {
+          "type": "boolean",
+          "default": true
+        },
+        "show_years": {
+          "type": "boolean",
+          "default": true
+        },
+        "show_data_availability": {
+          "type": "boolean",
+          "default": true
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "png",
+            "jpg",
+            "svg",
+            "pdf"
+          ],
+          "default": "png"
+        },
+        "dpi": {
+          "type": "integer",
+          "exclusiveMinimum": 0.0,
+          "default": 300
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "stripes_stations": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "temperature",
+            "precipitation"
+          ]
+        },
+        "active": {
+          "type": "boolean",
+          "default": true
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "stripes_values": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "temperature",
+            "precipitation"
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name_threshold": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "default": 0.8
+        },
+        "start_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "summarize": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "periods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "lead_time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "short",
+                "long"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql_values": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "humanize": {
+          "type": "boolean",
+          "default": true
+        },
+        "convert_units": {
+          "type": "boolean",
+          "default": true
+        },
+        "unit_targets": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary_station_distance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0.0
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary_station_distance_homogeneous": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary_station_distance_heterogeneous": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_gain_of_value_pairs": {
+          "type": "number",
+          "minimum": 0.0,
+          "default": 0.1
+        },
+        "num_additional_stations": {
+          "type": "integer",
+          "maximum": 1000000.0,
+          "minimum": 0.0,
+          "default": 3
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv",
+            "html",
+            "png",
+            "jpg",
+            "webp",
+            "svg",
+            "pdf"
+          ],
+          "default": "json"
+        },
+        "with_metadata": {
+          "type": "boolean",
+          "default": false
+        },
+        "with_stations": {
+          "type": "boolean",
+          "default": false
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "parameters",
+        "timestamp"
+      ]
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "periods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lead_time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "short",
+                "long"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "all": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false
+        },
+        "stations": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name_threshold": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "default": 0.8
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 1000000.0,
+              "minimum": 1.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "left": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "with_metadata": {
+          "type": "boolean",
+          "default": false
+        },
+        "with_stations": {
+          "type": "boolean",
+          "default": false
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv",
+            "ndjson",
+            "html",
+            "png",
+            "jpg",
+            "webp",
+            "svg",
+            "pdf"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql_values": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "humanize": {
+          "type": "boolean",
+          "default": true
+        },
+        "shape": {
+          "type": "string",
+          "enum": [
+            "long",
+            "wide"
+          ],
+          "default": "long"
+        },
+        "convert_units": {
+          "type": "boolean",
+          "default": true
+        },
+        "unit_targets": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skip_empty": {
+          "type": "boolean",
+          "default": false
+        },
+        "skip_threshold": {
+          "type": "number",
+          "maximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "default": 0.95
+        },
+        "skip_criteria": {
+          "type": "string",
+          "enum": [
+            "min",
+            "mean",
+            "max"
+          ],
+          "default": "min"
+        },
+        "drop_nulls": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "provider",
+        "network",
+        "parameters"
+      ]
+    }
+  },
+  "x-release": "0.160.0"
+}

@@ -70,10 +70,13 @@ than the section for the version being released.
 #    [Unreleased] one, then at the foot of the file add the [x.y.z] compare link and repoint
 #    [Unreleased] at the new version (tests/test_changelog.py enforces both)
 # 3. Update version and date-released in CITATION.cff (tests/test_citation.py enforces this)
-# 3b. Refresh the contract baseline: the OpenAPI document of this release, which later pull requests
-#    are checked against (tests/ui/test_openapi_baseline.py enforces that x-release is the version
-#    of pyproject.toml). Empty ACCEPTED_BREAKS in tests/ui/openapi_diff.py in the same commit
-uv run poe openapi:baseline
+# 3b. Refresh the contract baselines: the OpenAPI document, the CLI options, the Python surface, the
+#    MCP tools and the parameters of every dataset as of this release, which later pull requests are
+#    checked against (tests/ui/test_openapi_baseline.py and tests/baselines/test_baselines.py enforce
+#    that x-release in each is the version of pyproject.toml, and that no ACCEPTED_BREAKS entry is
+#    left that the refreshed baseline does not need). Empty every ACCEPTED_BREAKS (tests/ui/openapi_diff.py
+#    and tests/baselines/{cli,surface,mcp,parameters}.py) in the same commit
+uv run poe contracts:baseline
 # 4. Commit changes
 git commit -am "chore(backend): release 0.118.0"
 git push
@@ -107,7 +110,7 @@ gh release create app-v1.1.0 --title "App v1.1.0" --notes "Release notes..."
 
 ### The contract checks
 
-Three contracts are held by tests, so that a change to one is a diff in the pull request that makes it:
+Three contracts are held by snapshots, so that a change to one is a diff in the pull request that makes it:
 
 | Contract | Snapshot | Regenerate after an intended change |
 | --- | --- | --- |
@@ -115,21 +118,33 @@ Three contracts are held by tests, so that a change to one is a diff in the pull
 | the `--help` of every command | `tests/ui/cli/help.snapshot.txt` | `uv run poe cli:snapshot` |
 | the public surface of the Python API | `tests/public_surface.snapshot.json` | `uv run poe surface:snapshot` |
 
-`uv run poe contracts:snapshot` does all three. A snapshot shows a change; it does not refuse one. The REST contract
-is also checked against what the last release offered: `tests/ui/openapi.baseline.json` is the OpenAPI document as
-released, and `tests/ui/test_openapi_baseline.py` fails when the served document no longer offers something it did
-(a removed or renamed path, parameter, enum member or response member, a changed type, a status that is gone, a
-member of a response that is no longer always there, or a request that asks for more). Additions pass.
+`uv run poe contracts:snapshot` does all three. A snapshot shows a change; it does not refuse one. So each contract
+is also checked against what the **last release** offered: a baseline is that surface as released, a test fails when
+the code no longer offers something the baseline does, and additions always pass.
 
-- **A break is not made by regenerating the snapshot.** The baseline stays the document of the last release, so it
-  fails whether or not the snapshot moved. A break that is meant (before 1.0, or an error of the document such as a
-  wrong media type) is named in `ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py`, with its reason, together with a
-  **Breaking** entry in the changelog that says what to do instead. From 1.0 a break of `/api/v1` is not made: it is
-  `/api/v2`.
-- **At a release** the baseline is refreshed in the release commit (step 3b above): `uv run poe openapi:baseline`
-  writes the served document with `x-release` set to the version of `pyproject.toml`, and `ACCEPTED_BREAKS` is emptied,
-  as the baseline now holds what those entries changed. The test `test_the_baseline_is_the_document_of_the_release_in_pyproject`
-  fails a release that forgot it.
+| Baseline | File | What must still be offered |
+| --- | --- | --- |
+| the OpenAPI document | `tests/ui/openapi.baseline.json` | paths, operations, parameters and their types, enum members, members of requests and answers, statuses, headers; a request must not be asked more of: a new required parameter, a changed default, a tighter bound, a new pattern |
+| the command line | `tests/baselines/cli.baseline.json` | commands, every spelling of every option, its type, choices, range, default, `nargs`, `multiple`, flag and required-ness, and the exit codes |
+| the Python surface | `tests/baselines/surface.baseline.json` | what `tests/public_surface.snapshot.json` holds: `__all__`, `Period`, `Resolution`, the fields of `Settings` and `Options`, the signatures of `Wetterdienst` and `TimeseriesRequest`, the registry's networks and request constructors, and the request class each provider package exports |
+| the MCP tools | `tests/baselines/mcp.baseline.json` | each tool and each argument of it, with type, enum members, default and bounds |
+| the parameters of the datasets | `tests/baselines/parameters.baseline.json` | each provider/network/resolution/dataset/parameter name, which must still be there or be renamed (`wetterdienst.metadata.renamed`), and each rename entry |
+
+The tests are `tests/ui/test_openapi_baseline.py` and `tests/baselines/test_baselines.py`; what is compared is
+described in `tests/ui/openapi_diff.py` and in the module of each surface under `tests/baselines`.
+
+- **A break is not made by regenerating the snapshot.** The baseline stays the surface of the last release, so it
+  fails whether or not the snapshot moved. A break that is meant (before 1.0, or an error such as a wrong media type)
+  is named in the `ACCEPTED_BREAKS` of that surface, with its reason, together with a **Breaking** entry in the
+  changelog that says what to do instead. From 1.0 a break of `/api/v1` is not made: it is `/api/v2`, and a rename of
+  a parameter keeps the old name (a removal is a major).
+- **At a release** the baselines are refreshed in the release commit (step 3b above): `uv run poe contracts:baseline`
+  writes each with `x-release` set to the version of `pyproject.toml`, and every `ACCEPTED_BREAKS` is emptied, as the
+  baselines now hold what those entries changed. A test per surface fails a release that forgot to refresh, and one
+  that left an entry the baseline no longer needs (`test_no_accepted_break_is_stale`).
+- The OpenAPI document, the MCP tools and the help depend on the versions of FastAPI, pydantic, FastMCP and click:
+  where the installed ones are not the locked ones, the OpenAPI, MCP and `--help` comparisons are skipped (as the
+  snapshots are).
 
 ## Version Management
 
