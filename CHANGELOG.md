@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- ECCC `monthly` stations have no `end_timestamp` any more: the station list's `MLY_LAST_DATE` stops
+  at 2018-02 for every station while the monthly rows run to 2026-09, so a `timestamp` after 2018
+  left out every station with monthly values, and with it `stations` and `values` with a `name`
+  found none. The daily and hourly ends are unchanged (GH-3026)
+
 ## [0.161.0] - 2026-10-19
 
 ### Changed
