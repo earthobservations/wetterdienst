@@ -1753,7 +1753,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Direction of the maximum wind recorded in the 60 minutes preceding the time given by 'fint' (degrees)."
         ),
         ("hourly", "data", "dv"): (
-            "Mean wind direction over the 10 minutes preceding the time given by 'fint' (degrees)."
+            "Mean wind direction over the 10 minutes preceding the time given by 'fint' (degrees). "
+            "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "data", "hr"): "Instantaneous relative humidity of the air at the time given by 'fint' (%).",
         ("hourly", "data", "prec"): (

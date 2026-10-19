@@ -24,6 +24,9 @@ Types of changes:
 - `knmi/observation` 10-minute `cloud_cover_total` is null, with `raw:9` in `quality_flags`, where
   the file holds a 9, the sky obscured by fog (128 of 11,293 readings in two weeks of October
   mornings): it was 1.125, as the hourly and daily cloud cover were before (GH-3135)
+- `aemet/observation` hourly `wind_direction_mean_last_10min` is null, with `raw:0` in
+  `quality_flags`, where the feed writes a 0 beside a mean speed of 0, a calm (112 of its 114 zeros;
+  north is 360): it was 0 degrees. A 0 beside a speed above 0 stays (GH-3135)
 - `metoffice/observation` hourly `wind_direction_mean_last_10min`, `wind_direction_mean` and
   `wind_direction_gust_max` are null, with `raw:0`, where the file holds a 0, a calm (the table says
   zero direction and speed mean no wind; north is 360), and `cloud_cover_total` where it holds a 9,

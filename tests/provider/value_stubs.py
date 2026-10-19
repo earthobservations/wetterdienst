@@ -925,7 +925,12 @@ def _eccc_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
 def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # worded by the stub, as the API needs a key: the daily endpoint writes its numbers as text with a decimal
     # comma, the wind direction in tens of degrees with 99 for "calm/variable" (the reader's own comment), and the
-    # reader takes a text that is no number (the second precipitation) for none
+    # reader takes a text that is no number (the second precipitation) for none. Read live on 2026-10-19 with a key
+    # (GH-3135): the daily records of Madrid Retiro, A Coruña, Málaga airport and Palma in 2024 (1,646 rows) hold `Ip`
+    # as the only text of `prec` (43), `dir` 1 to 36 with 99 in 152 rows and no 0, no value outside the physical
+    # range, and the hours as `Varias` (several) in the `hora*` fields, which are not read; the hourly observation
+    # feed of 9,759 reports writes a calm as a `dv` of 0 (see `_aemet_hourly`), and has a 37.7 degC at 04 UTC at
+    # Palencia (hr 76 %), one station's fault, not a sentinel
     records = [
         {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
         {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
@@ -940,6 +945,30 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         options=_options(drop_nulls),
     )
     return stations_result(request, "daily", "data", "3195").values().all().df
+
+
+def _aemet_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # the observation feed of 2026-10-19 (GH-3135), as numbers: the mean wind direction `dv` is 0 in 112 of its 114
+    # zeros beside a mean speed `vv` of 0, a calm, where the north is 360 (50 of them); the other two zeros have a speed
+    # of 2.8 and 5.7 m/s and stay
+    records = [
+        {"fint": "2026-10-10T12:00:00+0000", "ta": 14.2, "dv": 250.0, "vv": 3.1},
+        {"fint": "2026-10-10T13:00:00+0000", "ta": 14.0, "dv": 0.0, "vv": 0.0},
+        {"fint": "2026-10-10T14:00:00+0000", "ta": 13.8, "dv": 360.0, "vv": 2.0},
+    ]
+    payload = json.dumps(records).encode("latin-1")
+    monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *args, **kwargs: payload)  # noqa: ARG005
+    request = AemetObservationRequest(
+        parameters=[
+            ("hourly", "data", "wind_direction_mean_last_10min"),
+            ("hourly", "data", "wind_speed_mean_last_10min"),
+        ],
+        start=_day(2026, 10, 10, 12),
+        end=_day(2026, 10, 10, 14),
+        settings=_settings(auth={"aemet": "stub"}),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "hourly", "data", "3195").values().all().df
 
 
 def _metoffice_daily_rain(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1711,6 +1740,14 @@ STUBS = [
         # a calm has no direction; the speed of 0 is a reading
         sentinels=(("wind_direction_mean_last_2min", 0.0),),
         tokens=(("wind_direction_mean_last_2min", "0", None),),
+    ),
+    ValueStub(
+        "aemet/observation hourly/data",
+        _aemet_hourly,
+        reading=("wind_direction_mean_last_10min", 250.0),
+        # a calm, the 0 beside a mean speed of 0
+        sentinels=(("wind_direction_mean_last_10min", 0.0),),
+        tokens=(("wind_direction_mean_last_10min", "0", None),),
     ),
     ValueStub(
         "aemet/observation daily/data",
