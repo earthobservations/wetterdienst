@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Deprecated
+
+- `Wetterdienst(provider, network)` and the CLI command `wetterdienst stripes values` are removed in
+  1.0.0, as the `DeprecationWarning` and the command's notice now say: use
+  `Wetterdienst.resolve(provider, network)` (`resolve_standalone` for `dwd/radar` and
+  `dwd/alerts`) and `wetterdienst stripes image`. Both work unchanged until then (GH-3128)
+
 ### Fixed
 
 - **Breaking**: reading a `dwd/mosmix` or `dwd/dmo` run that fails raises the `DownloadError` of

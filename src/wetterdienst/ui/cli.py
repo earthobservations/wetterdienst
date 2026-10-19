@@ -2491,7 +2491,7 @@ def stripes_image(
 
 # `stripes values` wrote the image, while `/api/stripes/values` and the tool `stripes_values` answer the data of
 # the stripes. The image has its own command now, named as its endpoint and tool are (GH-3035); the old name still
-# writes it, and says so, until it is decided whether it is to answer the data
+# writes it, and says so, until 1.0.0, which removes it (GH-3128)
 stripes.add_command(
     _Command(
         "values",
@@ -2499,7 +2499,7 @@ stripes.add_command(
         params=stripes_image.params,
         help=stripes_image.help,
         epilog=stripes_image.epilog,
-        deprecated="Use `stripes image`, which writes the image.",
+        deprecated="Use `stripes image`, which writes the image. It is removed in 1.0.0.",
     )
 )
 

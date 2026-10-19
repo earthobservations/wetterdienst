@@ -556,7 +556,7 @@ def _timeseries_networks() -> list[tuple[str, str]]:
 @pytest.mark.parametrize(("provider", "network"), _timeseries_networks())
 def test_every_network_declares_its_licence_or_says_why_not(provider: str, network: str) -> None:
     """A provider's licence and credit line are data of its metadata, never left out by forgetting."""
-    metadata = Wetterdienst(provider, network).metadata
+    metadata = Wetterdienst.resolve(provider, network).metadata
 
     if (provider, network) in LICENSE_NOT_STATED:
         assert metadata.license is None, f"{provider}/{network} states a licence now: drop it from LICENSE_NOT_STATED"
