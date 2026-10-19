@@ -29,6 +29,15 @@ Types of changes:
   are free for private use only, since IMGW has declared none high-value, and that a business
   use needs an agreement with IMGW (GH-2567)
 
+### Fixed
+
+- `dwd/observation` `hourly/moisture`: `pressure_air_site` (`P_STD`) is also null in a file of at
+  least 500 readings that holds two or three distinct values, the pressure of a station without a
+  barometer whose constant changed (55 files, e.g. 953.1 then 954.8 at 00142, 977.1 then 977.6 at
+  00091); no other file holds fewer than 47. Each value stays as the last
+  `quality_flags` token (`raw:954.8`). Take the pressure of another source for such a station
+  (GH-3139)
+
 ## [0.161.0] - 2026-10-19
 
 ### Changed
