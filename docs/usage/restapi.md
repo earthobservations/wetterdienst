@@ -37,7 +37,11 @@ What the endpoints share about which stations a request names:
 
 - **A name** (`name=Dresden`) is matched fuzzily. `stations` lists the best five matches, to choose
   from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
-  number, for either.
+  number of stations, for either; a station is one match however many datasets it has, and two
+  stations that share a name are two. The best match comes first, equal matches in the order of their
+  station ids. With a `timestamp` the name is matched among the stations that have a record in that
+  window, for `values` as for `stations`, so the best match is not a station that closed before it
+  while one of the same name is open; a window no station of that name covers is an empty result.
 - **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
   goes on with the others. When none exists the result is empty. The ids left out are named in a
   warning of the response's `metadata`, and in the server's log. The one reference station

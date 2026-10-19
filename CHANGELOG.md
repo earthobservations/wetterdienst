@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the stations of a `name` come back best match first, not in the order of the station
+  list, and `rank` counts stations: `filter_by_name(name, rank=3)` is at most three stations, with
+  all their rows, where a station with several datasets used up the rank with its own rows and two
+  stations of the same name both came back. Equal scores are ordered by `station_id`. Callers that
+  relied on the order of the list sort the result themselves (GH-3025)
+- `values` with a `name` and a `timestamp` (command line, REST API, MCP) matches the name among the
+  stations that have a record in the window, as `stations` does, so the best match is no station that
+  closed before it while one of the same name is open. A window that no station of the name covers is
+  an empty result. The Python `filter_by_name` still matches all stations: pass the stations of the
+  window as `df_all` (GH-3026)
+
 ## [0.160.0] - 2026-10-18
 
 ### Added

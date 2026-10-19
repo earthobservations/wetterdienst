@@ -339,6 +339,13 @@ The `threshold` parameter (0–1, default **0.8**) controls how strictly the nam
 match.  Lower values accept more typos; higher values require a closer match.  The
 `rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
 of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
+A station is one match however many datasets (rows) it has, and two stations that share a name are two.
+The rows come back best match first, equal scores in the order of their `station_id`.
+
+`filter_by_name` matches the name among all stations of the request, whatever the `start` and `end`
+of the request: a station that closed before the window can be the best match. The command line, the REST
+API and MCP leave those stations out when they are given a `timestamp`; to do the same in Python pass the
+stations that remain as `df_all`.
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two

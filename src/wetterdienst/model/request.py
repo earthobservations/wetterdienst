@@ -597,13 +597,17 @@ class TimeseriesRequest:
 
         Args:
             name: Name of the station.
-            rank: Maximum number of matches to return (default `DEFAULT_NAME_RANK`, the best match).
+            rank: Maximum number of stations to return (default `DEFAULT_NAME_RANK`, the best match).
                 The `stations` listing of the command line and the REST API takes the best
-                `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same.
+                `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same. A station is one
+                match however many datasets (rows) it has, and two stations that share a name are two.
+                The rows come back best match first, equal scores ordered by `station_id`.
             threshold: Threshold for the fuzzy search.
             df_all: The stations to match the name against, where not every station of the request: a
                 listing that has left out those without a record in its window, so that the best
-                matches are taken among the stations that remain (GH-2635). Default: all of them.
+                matches are taken among the stations that remain (GH-2635). Default: all of them. The
+                window of the request is not applied by this method: the command line, the REST API and
+                MCP apply it to `df_all` themselves (`ui.core.limit_stations_to_window`).
 
         Returns:
             StationsResult: Filtered stations.
@@ -633,20 +637,38 @@ class TimeseriesRequest:
         # "Kiel-Holtenau"/"Kiel-Kronshagen". The previous token_sort_ratio scored by full-string
         # similarity and thus penalised the length gap ("Kiel" vs "Kiel-Holtenau" ~47%), so a bare
         # city name fell below the threshold and returned nothing.
-        # limit=rank so the caller actually gets the requested number of matches; process.extract
-        # otherwise defaults to its own limit (5) and the rank argument would be silently ignored.
-        station_match = process.extract(
+        #
+        # The unit of `rank` is the station, not the row: a station has a row for every dataset asked
+        # for, and several stations may share a name. So the names are scored per station (once for
+        # each name a station goes by), the best `rank` stations are taken, and their rows come back
+        # best match first. Equal scores -- common, as WRatio tops out at 100 for any name that holds
+        # the query -- are ordered by station_id, which does not depend on how the provider sorts its
+        # list. (GH-3025)
+        candidates = (
+            df_all.select("station_id", "name").unique(maintain_order=True).sort("station_id", maintain_order=True)
+        )
+        matches = process.extract(
             query=name,
-            choices=df_all.get_column("name"),
+            choices=candidates.get_column("name"),
             scorer=fuzz.WRatio,
             score_cutoff=threshold * 100,
             processor=fuzz_utils.default_process,
-            limit=rank,
+            limit=None,
         )
+        station_ids = candidates.get_column("station_id")
+        selected = list(
+            dict.fromkeys(
+                station_ids[index] for _, _, index in sorted(matches, key=lambda match: (-match[1], match[2]))
+            )
+        )[:rank]
 
-        if station_match:
-            station_name = [station[0] for station in station_match]
-            df = df_all.filter(pl.col("name").is_in(station_name))
+        if selected:
+            position = pl.DataFrame({"station_id": selected, "_match": range(len(selected))})
+            df = (
+                df_all.join(position, on="station_id", how="inner", maintain_order="left")
+                .sort("_match", maintain_order=True)
+                .drop("_match")
+            )
         else:
             df = pl.DataFrame(schema=df_all.schema)
 
