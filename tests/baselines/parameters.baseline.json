@@ -1,0 +1,3384 @@
+{
+  "networks": [
+    "aemet/observation",
+    "chmi/observation",
+    "dmi/observation",
+    "dwd/derived",
+    "dwd/dmo",
+    "dwd/mosmix",
+    "dwd/observation",
+    "dwd/phenology",
+    "dwd/poi",
+    "dwd/road",
+    "dwd/swsmos",
+    "ea/hydrology",
+    "eaufrance/hubeau",
+    "eccc/observation",
+    "fmi/observation",
+    "geosphere/observation",
+    "imgw/hydrology",
+    "imgw/meteorology",
+    "ipma/observation",
+    "knmi/observation",
+    "lhmt/observation",
+    "meteofrance/observation",
+    "meteofrance/synop",
+    "meteoswiss/observation",
+    "metno/frost",
+    "metoffice/observation",
+    "noaa/ghcn",
+    "nws/observation",
+    "rmi/observation",
+    "smhi/observation",
+    "wsv/pegel"
+  ],
+  "parameters": {
+    "aemet/observation": {
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "temperature_air_2m",
+          "temperature_air_max_2m",
+          "temperature_air_min_2m",
+          "temperature_dew_point_2m",
+          "wind_direction_gust_max",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max",
+          "wind_speed_mean_last_10min"
+        ]
+      },
+      "daily": {
+        "data": [
+          "humidity_relative_max",
+          "humidity_relative_mean",
+          "humidity_relative_min",
+          "precipitation_amount",
+          "pressure_air_site_max",
+          "pressure_air_site_min",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_direction_gust_max",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean"
+        ]
+      },
+      "annual": {
+        "data": [
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean"
+        ]
+      }
+    },
+    "chmi/observation": {
+      "10_minutes": {
+        "data": [
+          "humidity_relative",
+          "pressure_air_site",
+          "temperature_air_2m",
+          "wind_speed"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "precipitation_amount",
+          "pressure_air_site",
+          "temperature_dew_point_2m"
+        ]
+      },
+      "daily": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_site_mean",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "precipitation_amount",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m_mean"
+        ]
+      },
+      "annual": {
+        "data": [
+          "precipitation_amount",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m_mean"
+        ]
+      }
+    },
+    "dmi/observation": {
+      "hourly": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean",
+          "wind_speed_rolling_mean_max"
+        ]
+      },
+      "daily": {
+        "data": [
+          "heating_degree_day",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "pressure_air_sea_level_mean",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean",
+          "wind_speed_rolling_mean_max"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "heating_degree_day",
+          "humidity_relative_max",
+          "humidity_relative_mean",
+          "humidity_relative_min",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "pressure_air_sea_level_mean",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean",
+          "wind_speed_rolling_mean_max"
+        ]
+      },
+      "annual": {
+        "data": [
+          "heating_degree_day",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "pressure_air_sea_level_mean",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean",
+          "wind_speed_rolling_mean_max"
+        ]
+      }
+    },
+    "dwd/derived": {
+      "hourly": {
+        "radiation_global": [
+          "radiation_global",
+          "radiation_global_uncertainty"
+        ],
+        "sunshine_duration": [
+          "sunshine_duration",
+          "sunshine_duration_uncertainty"
+        ]
+      },
+      "daily": {
+        "soil": [
+          "evaporation_amount_corn_loamy_silt",
+          "evaporation_amount_corn_sand",
+          "evaporation_amount_grass_loamy_silt",
+          "evaporation_amount_grass_sand",
+          "evaporation_amount_winter_wheat_loamy_silt",
+          "evaporation_amount_winter_wheat_sand",
+          "evapotranspiration_potential_grass_fao",
+          "evapotranspiration_potential_grass_haude",
+          "frozen_ground_layer_thickness",
+          "soil_moisture_corn_loamy_silt_00cm_60cm",
+          "soil_moisture_corn_sand_00cm_60cm",
+          "soil_moisture_grass_loamy_silt_00cm_10cm",
+          "soil_moisture_grass_loamy_silt_00cm_60cm",
+          "soil_moisture_grass_loamy_silt_10cm_20cm",
+          "soil_moisture_grass_loamy_silt_20cm_30cm",
+          "soil_moisture_grass_loamy_silt_30cm_40cm",
+          "soil_moisture_grass_loamy_silt_40cm_50cm",
+          "soil_moisture_grass_loamy_silt_50cm_60cm",
+          "soil_moisture_grass_sand_00cm_60cm",
+          "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+          "soil_moisture_winter_wheat_sand_00cm_60cm",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m",
+          "temperature_soil_mean_1m",
+          "temperature_soil_mean_loamy_sand_0_05m",
+          "temperature_soil_mean_loamy_silt_0_05m",
+          "thawing_thickness_bare_ground",
+          "thawing_thickness_plant_cover"
+        ]
+      },
+      "monthly": {
+        "heating_degreedays": [
+          "count_days_heating_degree",
+          "count_days_in_month",
+          "heating_degree_day"
+        ],
+        "cooling_degreehours_13": [
+          "cooling_degree_hour",
+          "count_days_cooling_degree",
+          "count_hours_cooling_degree",
+          "count_hours_in_month"
+        ],
+        "cooling_degreehours_16": [
+          "cooling_degree_hour",
+          "count_days_cooling_degree",
+          "count_hours_cooling_degree",
+          "count_hours_in_month"
+        ],
+        "cooling_degreehours_18": [
+          "cooling_degree_hour",
+          "count_days_cooling_degree",
+          "count_hours_cooling_degree",
+          "count_hours_in_month"
+        ],
+        "climate_correction_factor": [
+          "climate_correction_factor"
+        ],
+        "soil": [
+          "evaporation_amount_corn_loamy_silt",
+          "evaporation_amount_corn_sand",
+          "evaporation_amount_grass_loamy_silt",
+          "evaporation_amount_grass_sand",
+          "evaporation_amount_winter_wheat_loamy_silt",
+          "evaporation_amount_winter_wheat_sand",
+          "evapotranspiration_potential_grass_fao",
+          "evapotranspiration_potential_grass_haude",
+          "frozen_ground_layer_thickness_max_month",
+          "soil_moisture_mean_corn_loamy_silt_00cm_60cm",
+          "soil_moisture_mean_corn_sand_00cm_60cm",
+          "soil_moisture_mean_grass_loamy_silt_00cm_10cm",
+          "soil_moisture_mean_grass_loamy_silt_00cm_60cm",
+          "soil_moisture_mean_grass_loamy_silt_10cm_20cm",
+          "soil_moisture_mean_grass_loamy_silt_20cm_30cm",
+          "soil_moisture_mean_grass_loamy_silt_30cm_40cm",
+          "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
+          "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
+          "soil_moisture_mean_grass_sand_00cm_60cm",
+          "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
+          "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m",
+          "temperature_soil_mean_1m",
+          "temperature_soil_mean_loamy_sand_0_05m",
+          "temperature_soil_mean_loamy_silt_0_05m",
+          "thawing_thickness_bare_ground_max_month",
+          "thawing_thickness_plant_cover_max_month"
+        ]
+      }
+    },
+    "dwd/dmo": {
+      "hourly": {
+        "icon_eu": [
+          "cloud_cover_above_7km",
+          "cloud_cover_below_2km",
+          "cloud_cover_between_2km_and_7km",
+          "cloud_cover_effective",
+          "cloud_cover_total",
+          "precipitation_amount_last_1h",
+          "pressure_air_sea_level",
+          "radiation_global",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m_last_12h",
+          "temperature_dew_point_2m",
+          "water_equivalent_snow_depth_new_last_1h",
+          "weather_last_6h",
+          "weather_significant",
+          "wind_direction",
+          "wind_gust_max_last_3h",
+          "wind_speed"
+        ],
+        "icon": [
+          "cloud_cover_above_7km",
+          "cloud_cover_below_2km",
+          "cloud_cover_between_2km_and_7km",
+          "cloud_cover_effective",
+          "cloud_cover_total",
+          "precipitation_amount_last_1h",
+          "precipitation_amount_last_3h",
+          "pressure_air_sea_level",
+          "radiation_global",
+          "radiation_global_last_3h",
+          "radiation_sky_long_wave_last_3h",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m_last_12h",
+          "temperature_dew_point_2m",
+          "water_equivalent_snow_depth_new_last_1h",
+          "water_equivalent_snow_depth_new_last_3h",
+          "weather_last_6h",
+          "weather_significant",
+          "wind_direction",
+          "wind_gust_max_last_3h",
+          "wind_speed"
+        ]
+      }
+    },
+    "dwd/mosmix": {
+      "hourly": {
+        "small": [
+          "cloud_cover_above_7km",
+          "cloud_cover_below_2km",
+          "cloud_cover_below_500ft",
+          "cloud_cover_between_2km_and_7km",
+          "cloud_cover_effective",
+          "cloud_cover_total",
+          "precipitation_amount_significant_weather_last_1h",
+          "precipitation_amount_significant_weather_last_3h",
+          "pressure_air_sea_level",
+          "probability_fog_last_12h",
+          "probability_fog_last_1h",
+          "probability_fog_last_6h",
+          "probability_precipitation_amount_gt_0_0mm_last_12h",
+          "probability_precipitation_amount_gt_0_2mm_last_12h",
+          "probability_precipitation_amount_gt_0_2mm_last_24h",
+          "probability_precipitation_amount_gt_0_2mm_last_6h",
+          "probability_precipitation_amount_gt_1mm_last_12h",
+          "probability_precipitation_amount_gt_5mm_last_12h",
+          "probability_precipitation_amount_gt_5mm_last_24h",
+          "probability_precipitation_amount_gt_5mm_last_6h",
+          "probability_wind_gust_ge_25kn_last_12h",
+          "probability_wind_gust_ge_40kn_last_12h",
+          "probability_wind_gust_ge_55kn_last_12h",
+          "radiation_global",
+          "sunshine_duration",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m_last_12h",
+          "temperature_dew_point_2m",
+          "visibility",
+          "water_equivalent_snow_depth_new_last_1h",
+          "water_equivalent_snow_depth_new_last_3h",
+          "weather_last_6h",
+          "weather_significant",
+          "wind_direction",
+          "wind_gust_max_last_12h",
+          "wind_gust_max_last_1h",
+          "wind_gust_max_last_3h",
+          "wind_speed"
+        ],
+        "large": [
+          "cloud_cover_above_7km",
+          "cloud_cover_below_2km",
+          "cloud_cover_below_500ft",
+          "cloud_cover_below_7km",
+          "cloud_cover_between_2km_and_7km",
+          "cloud_cover_effective",
+          "cloud_cover_total",
+          "error_absolute_pressure_air_site",
+          "error_absolute_temperature_air_2m",
+          "error_absolute_temperature_dew_point_2m",
+          "error_absolute_wind_direction",
+          "error_absolute_wind_speed",
+          "evapotranspiration_potential_last_24h",
+          "precipitation_amount_liquid_significant_weather_last_1h",
+          "precipitation_amount_significant_weather_last_12h",
+          "precipitation_amount_significant_weather_last_1h",
+          "precipitation_amount_significant_weather_last_24h",
+          "precipitation_amount_significant_weather_last_3h",
+          "precipitation_amount_significant_weather_last_6h",
+          "precipitation_duration",
+          "pressure_air_sea_level",
+          "probability_drizzle_last_12h",
+          "probability_drizzle_last_1h",
+          "probability_drizzle_last_6h",
+          "probability_fog_last_12h",
+          "probability_fog_last_1h",
+          "probability_fog_last_24h",
+          "probability_fog_last_6h",
+          "probability_precipitation_amount_gt_0_0mm_last_12h",
+          "probability_precipitation_amount_gt_0_0mm_last_24h",
+          "probability_precipitation_amount_gt_0_0mm_last_6h",
+          "probability_precipitation_amount_gt_0_1mm_last_1h",
+          "probability_precipitation_amount_gt_0_2mm_last_12h",
+          "probability_precipitation_amount_gt_0_2mm_last_1h",
+          "probability_precipitation_amount_gt_0_2mm_last_24h",
+          "probability_precipitation_amount_gt_0_2mm_last_6h",
+          "probability_precipitation_amount_gt_0_3mm_last_1h",
+          "probability_precipitation_amount_gt_0_5mm_last_1h",
+          "probability_precipitation_amount_gt_0_7mm_last_1h",
+          "probability_precipitation_amount_gt_10mm_last_1h",
+          "probability_precipitation_amount_gt_15mm_last_1h",
+          "probability_precipitation_amount_gt_1mm_last_12h",
+          "probability_precipitation_amount_gt_1mm_last_1h",
+          "probability_precipitation_amount_gt_1mm_last_24h",
+          "probability_precipitation_amount_gt_1mm_last_6h",
+          "probability_precipitation_amount_gt_25mm_last_1h",
+          "probability_precipitation_amount_gt_2mm_last_1h",
+          "probability_precipitation_amount_gt_3mm_last_1h",
+          "probability_precipitation_amount_gt_5mm_last_12h",
+          "probability_precipitation_amount_gt_5mm_last_1h",
+          "probability_precipitation_amount_gt_5mm_last_24h",
+          "probability_precipitation_amount_gt_5mm_last_6h",
+          "probability_precipitation_convective_last_12h",
+          "probability_precipitation_convective_last_1h",
+          "probability_precipitation_convective_last_6h",
+          "probability_precipitation_freezing_last_12h",
+          "probability_precipitation_freezing_last_1h",
+          "probability_precipitation_freezing_last_6h",
+          "probability_precipitation_last_12h",
+          "probability_precipitation_last_1h",
+          "probability_precipitation_last_24h",
+          "probability_precipitation_last_6h",
+          "probability_precipitation_liquid_last_12h",
+          "probability_precipitation_liquid_last_1h",
+          "probability_precipitation_liquid_last_6h",
+          "probability_precipitation_solid_last_12h",
+          "probability_precipitation_solid_last_1h",
+          "probability_precipitation_solid_last_6h",
+          "probability_precipitation_stratiform_last_12h",
+          "probability_precipitation_stratiform_last_1h",
+          "probability_precipitation_stratiform_last_6h",
+          "probability_sunshine_duration_relative_gt_0pct_last_24h",
+          "probability_sunshine_duration_relative_gt_30pct_last_24h",
+          "probability_sunshine_duration_relative_gt_60pct_last_24h",
+          "probability_thunder_last_12h",
+          "probability_thunder_last_1h",
+          "probability_thunder_last_24h",
+          "probability_thunder_last_6h",
+          "probability_visibility_below_1000m",
+          "probability_wind_gust_ge_25kn_last_12h",
+          "probability_wind_gust_ge_25kn_last_6h",
+          "probability_wind_gust_ge_40kn_last_12h",
+          "probability_wind_gust_ge_40kn_last_6h",
+          "probability_wind_gust_ge_55kn_last_12h",
+          "probability_wind_gust_ge_55kn_last_6h",
+          "radiation_global",
+          "radiation_global_relative_last_1h",
+          "sunshine_duration",
+          "sunshine_duration_last_3h",
+          "sunshine_duration_relative_last_24h",
+          "sunshine_duration_yesterday",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_12h",
+          "temperature_air_mean_2m_last_24h",
+          "temperature_air_min_0_05m_last_12h",
+          "temperature_air_min_2m_last_12h",
+          "temperature_dew_point_2m",
+          "visibility",
+          "water_equivalent_snow_depth_new_last_1h",
+          "water_equivalent_snow_depth_new_last_3h",
+          "weather_last_6h",
+          "weather_significant",
+          "weather_significant_last_3h",
+          "weather_significant_optional_last_12h",
+          "weather_significant_optional_last_1h",
+          "weather_significant_optional_last_24h",
+          "weather_significant_optional_last_3h",
+          "weather_significant_optional_last_6h",
+          "wind_direction",
+          "wind_gust_max_last_12h",
+          "wind_gust_max_last_1h",
+          "wind_gust_max_last_3h",
+          "wind_speed"
+        ]
+      }
+    },
+    "dwd/observation": {
+      "1_minute": {
+        "precipitation": [
+          "precipitation_amount",
+          "precipitation_amount_droplet",
+          "precipitation_amount_rocker",
+          "precipitation_index"
+        ]
+      },
+      "5_minutes": {
+        "precipitation": [
+          "precipitation_amount",
+          "precipitation_amount_droplet",
+          "precipitation_amount_rocker",
+          "precipitation_index"
+        ]
+      },
+      "10_minutes": {
+        "precipitation": [
+          "precipitation_amount",
+          "precipitation_duration",
+          "precipitation_index"
+        ],
+        "solar": [
+          "radiation_global",
+          "radiation_sky_long_wave",
+          "radiation_sky_short_wave_diffuse",
+          "sunshine_duration"
+        ],
+        "temperature_air": [
+          "humidity_relative",
+          "pressure_air_site",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_dew_point_2m"
+        ],
+        "temperature_extreme": [
+          "temperature_air_max_0_05m",
+          "temperature_air_max_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m"
+        ],
+        "wind": [
+          "wind_direction_mean",
+          "wind_speed_mean"
+        ],
+        "wind_extreme": [
+          "wind_direction_gust_max",
+          "wind_gust_max",
+          "wind_speed_min",
+          "wind_speed_rolling_mean_max"
+        ],
+        "urban_temperature_air": [
+          "humidity_relative",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_radiant_2m"
+        ],
+        "urban_temperature_extreme": [
+          "temperature_air_max_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m"
+        ],
+        "urban_wind_extreme": [
+          "wind_gust_max"
+        ],
+        "urban_precipitation": [
+          "precipitation_amount"
+        ],
+        "urban_pressure": [
+          "pressure_air_sea_level",
+          "pressure_air_site"
+        ],
+        "urban_temperature_soil": [
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "temperature_soil_0_5m",
+          "temperature_soil_1m"
+        ],
+        "urban_solar": [
+          "radiation_global",
+          "sunshine_duration"
+        ],
+        "urban_wind": [
+          "wind_direction_mean",
+          "wind_speed_mean"
+        ]
+      },
+      "hourly": {
+        "cloud_type": [
+          "cloud_cover_layer1",
+          "cloud_cover_layer2",
+          "cloud_cover_layer3",
+          "cloud_cover_layer4",
+          "cloud_cover_total",
+          "cloud_cover_total_measurement_method",
+          "cloud_height_layer1",
+          "cloud_height_layer2",
+          "cloud_height_layer3",
+          "cloud_height_layer4",
+          "cloud_type_layer1",
+          "cloud_type_layer2",
+          "cloud_type_layer3",
+          "cloud_type_layer4"
+        ],
+        "cloudiness": [
+          "cloud_cover_total",
+          "cloud_cover_total_measurement_method"
+        ],
+        "dew_point": [
+          "temperature_air_2m",
+          "temperature_dew_point_2m"
+        ],
+        "moisture": [
+          "humidity_absolute",
+          "humidity_relative",
+          "pressure_air_site",
+          "pressure_vapor",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "temperature_wet_2m"
+        ],
+        "precipitation": [
+          "precipitation_amount",
+          "precipitation_form",
+          "precipitation_index"
+        ],
+        "pressure": [
+          "pressure_air_sea_level",
+          "pressure_air_site"
+        ],
+        "solar": [
+          "radiation_global",
+          "radiation_sky_long_wave",
+          "radiation_sky_short_wave_diffuse",
+          "sun_zenith_angle",
+          "sunshine_duration",
+          "true_local_time_offset"
+        ],
+        "sun": [
+          "sunshine_duration"
+        ],
+        "temperature_air": [
+          "humidity_relative",
+          "temperature_air_2m"
+        ],
+        "temperature_soil": [
+          "temperature_soil_0_02m",
+          "temperature_soil_0_05m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "temperature_soil_0_5m",
+          "temperature_soil_1m"
+        ],
+        "visibility": [
+          "visibility",
+          "visibility_measurement_method"
+        ],
+        "weather_phenomena": [
+          "weather"
+        ],
+        "wind": [
+          "wind_direction_mean",
+          "wind_speed_mean"
+        ],
+        "wind_extreme": [
+          "wind_gust_max"
+        ],
+        "wind_synoptic": [
+          "wind_direction",
+          "wind_speed_mean_last_10min"
+        ],
+        "urban_precipitation": [
+          "precipitation_amount"
+        ],
+        "urban_pressure": [
+          "pressure_air_sea_level",
+          "pressure_air_site"
+        ],
+        "urban_sun": [
+          "sunshine_duration"
+        ],
+        "urban_temperature_air": [
+          "humidity_relative",
+          "temperature_air_2m"
+        ],
+        "urban_temperature_soil": [
+          "temperature_soil_0_05m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "temperature_soil_0_5m",
+          "temperature_soil_1m"
+        ],
+        "urban_wind": [
+          "wind_direction_mean",
+          "wind_speed_mean"
+        ]
+      },
+      "subdaily": {
+        "cloudiness": [
+          "cloud_cover_total",
+          "cloud_density"
+        ],
+        "moisture": [
+          "humidity_relative",
+          "pressure_vapor",
+          "temperature_wet_2m",
+          "temperature_wet_ice_formation"
+        ],
+        "pressure": [
+          "pressure_air_site"
+        ],
+        "soil": [
+          "soil_state_index"
+        ],
+        "temperature_air": [
+          "humidity_relative",
+          "temperature_air_2m"
+        ],
+        "visibility": [
+          "visibility_index"
+        ],
+        "wind": [
+          "wind_direction",
+          "wind_force_beaufort"
+        ],
+        "wind_extreme": [
+          "wind_gust_max_last_3h",
+          "wind_gust_max_last_6h"
+        ]
+      },
+      "daily": {
+        "climate_summary": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_form",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ],
+        "precipitation_more": [
+          "precipitation_amount",
+          "precipitation_form",
+          "snow_depth",
+          "snow_depth_new"
+        ],
+        "solar": [
+          "radiation_global",
+          "radiation_sky_long_wave",
+          "radiation_sky_short_wave_diffuse",
+          "sunshine_duration"
+        ],
+        "temperature_soil": [
+          "temperature_soil_mean_0_02m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m"
+        ],
+        "water_equivalent": [
+          "snow_depth",
+          "snow_depth_sampled",
+          "water_equivalent_snow_depth",
+          "water_equivalent_snow_depth_sampled"
+        ],
+        "weather_phenomena": [
+          "count_weather_type_dew",
+          "count_weather_type_fog",
+          "count_weather_type_glaze",
+          "count_weather_type_graupel",
+          "count_weather_type_hail",
+          "count_weather_type_hoar_frost",
+          "count_weather_type_storm_stormier_wind",
+          "count_weather_type_storm_strong_wind",
+          "count_weather_type_thunder"
+        ],
+        "weather_phenomena_more": [
+          "count_weather_type_fog",
+          "count_weather_type_graupel",
+          "count_weather_type_hail",
+          "count_weather_type_thunder"
+        ]
+      },
+      "monthly": {
+        "climate_indices": [
+          "count_days_frost",
+          "count_days_hot",
+          "count_days_ice",
+          "count_days_summer",
+          "count_days_tropical_night"
+        ],
+        "climate_summary": [
+          "cloud_cover_total_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean",
+          "wind_force_beaufort_mean",
+          "wind_gust_max"
+        ],
+        "precipitation_indices": [
+          "count_days_precipitation_amount_ge_0_1mm",
+          "count_days_precipitation_amount_ge_10mm",
+          "count_days_precipitation_amount_ge_1mm",
+          "count_days_precipitation_amount_ge_20mm",
+          "count_days_precipitation_amount_ge_2_5mm",
+          "count_days_precipitation_amount_ge_5mm",
+          "count_days_snow_depth_ge_1cm",
+          "count_days_snow_depth_ge_5cm"
+        ],
+        "precipitation_more": [
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "snow_depth",
+          "snow_depth_new"
+        ],
+        "weather_phenomena": [
+          "count_weather_type_dew",
+          "count_weather_type_fog",
+          "count_weather_type_glaze",
+          "count_weather_type_graupel",
+          "count_weather_type_hail",
+          "count_weather_type_storm_stormier_wind",
+          "count_weather_type_storm_strong_wind",
+          "count_weather_type_thunder"
+        ]
+      },
+      "annual": {
+        "climate_indices": [
+          "count_days_frost",
+          "count_days_hot",
+          "count_days_ice",
+          "count_days_summer",
+          "count_days_tropical_night"
+        ],
+        "climate_summary": [
+          "cloud_cover_total_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean",
+          "wind_force_beaufort_mean",
+          "wind_gust_max"
+        ],
+        "precipitation_indices": [
+          "count_days_precipitation_amount_ge_0_1mm",
+          "count_days_precipitation_amount_ge_10mm",
+          "count_days_precipitation_amount_ge_1mm",
+          "count_days_precipitation_amount_ge_20mm",
+          "count_days_precipitation_amount_ge_2_5mm",
+          "count_days_precipitation_amount_ge_5mm",
+          "count_days_snow_depth_ge_1cm",
+          "count_days_snow_depth_ge_5cm"
+        ],
+        "precipitation_more": [
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "snow_depth",
+          "snow_depth_new"
+        ],
+        "weather_phenomena": [
+          "count_weather_type_dew",
+          "count_weather_type_fog",
+          "count_weather_type_glaze",
+          "count_weather_type_graupel",
+          "count_weather_type_hail",
+          "count_weather_type_storm_stormier_wind",
+          "count_weather_type_storm_strong_wind",
+          "count_weather_type_thunder"
+        ]
+      }
+    },
+    "dwd/phenology": {
+      "annual": {
+        "annual_beet": [
+          "phenology_emergence_beginning",
+          "phenology_harvest",
+          "phenology_sowing_beginning",
+          "phenology_stand_closed"
+        ],
+        "annual_beet_unspecified_variety": [
+          "phenology_emergence_beginning",
+          "phenology_harvest",
+          "phenology_sowing_beginning",
+          "phenology_stand_closed"
+        ],
+        "annual_fodder_beet": [
+          "phenology_emergence_beginning",
+          "phenology_harvest",
+          "phenology_sowing_beginning",
+          "phenology_stand_closed"
+        ],
+        "annual_maize": [
+          "phenology_dough_ripeness_beginning",
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_flowering_general",
+          "phenology_harvest",
+          "phenology_height_growth_beginning",
+          "phenology_milk_ripeness_beginning",
+          "phenology_sowing_beginning",
+          "phenology_tassel_tip_visible",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_oat": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_milk_ripeness_beginning",
+          "phenology_panicle_emergence_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_permanent_grassland": [
+          "phenology_hay_cut_first",
+          "phenology_hay_cut_second",
+          "phenology_hay_or_silage_cut_first",
+          "phenology_hay_or_silage_cut_second",
+          "phenology_silage_cut_first",
+          "phenology_silage_cut_second",
+          "phenology_turning_green_beginning"
+        ],
+        "annual_spring_barley": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_spring_wheat": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_sugar_beet": [
+          "phenology_emergence_beginning",
+          "phenology_harvest",
+          "phenology_sowing_beginning",
+          "phenology_stand_closed"
+        ],
+        "annual_sunflower": [
+          "phenology_bud_formation_beginning",
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_harvest",
+          "phenology_leaf_formation_beginning",
+          "phenology_sowing_beginning"
+        ],
+        "annual_tomato": [
+          "phenology_flowering_beginning",
+          "phenology_harvest",
+          "phenology_planting_beginning"
+        ],
+        "annual_white_cabbage": [
+          "phenology_harvest",
+          "phenology_planting_beginning"
+        ],
+        "annual_winter_barley": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_winter_oilseed_rape": [
+          "phenology_bud_formation_beginning",
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_height_growth_beginning",
+          "phenology_rosette_formation_beginning",
+          "phenology_sowing_beginning"
+        ],
+        "annual_winter_rye": [
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_flowering_general",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_winter_wheat": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_harvest_by_hand",
+          "phenology_heading_beginning",
+          "phenology_milk_ripeness_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "annual_field_work": [
+          "phenology_activity_beginning"
+        ],
+        "annual_grazing": [
+          "phenology_activity_beginning",
+          "phenology_activity_end"
+        ],
+        "annual_apple": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_leaf_fall_autumn",
+          "phenology_picking_ripeness_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_apple_early_ripening": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_leaf_fall_autumn",
+          "phenology_picking_ripeness_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_apple_late_ripening": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_leaf_fall_autumn",
+          "phenology_picking_ripeness_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_currant_all_varieties": [
+          "phenology_flowering_beginning",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_gooseberry": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_picking_ripeness_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_pear": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_pear_early_ripening": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_pear_late_ripening": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_plum_early_ripening": [
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_plum_late_ripening": [
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_red_currant": [
+          "phenology_flowering_beginning",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_sour_cherry": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_sweet_cherry": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_leaf_colouring_autumn",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_sweet_cherry_early_ripening": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_leaf_colouring_autumn",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_sweet_cherry_late_ripening": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_leaf_colouring_autumn",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "annual_grapevine": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_grape_harvest",
+          "phenology_grape_ripeness_beginning",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_grapevine_blue_grapes": [
+          "phenology_grape_harvest",
+          "phenology_leaf_fall_autumn"
+        ],
+        "annual_grapevine_early_ripening": [
+          "phenology_bleeding_first",
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_grape_harvest",
+          "phenology_grape_ripeness_beginning",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_grapevine_late_ripening": [
+          "phenology_bleeding_first",
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_general",
+          "phenology_grape_harvest",
+          "phenology_grape_ripeness_beginning",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_grapevine_middle_late_ripening": [
+          "phenology_grape_harvest",
+          "phenology_leaf_fall_autumn"
+        ],
+        "annual_ash": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "annual_autumn_crocus": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_bird_cherry": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_black_alder": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "annual_black_elder": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first"
+        ],
+        "annual_black_locust": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "annual_blackthorn": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_coltsfoot": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_common_hazel": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_common_heather": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_common_snowdrop": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_common_wormwood": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_cornelian_cherry": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first"
+        ],
+        "annual_dandelion": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_dog_rose": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first"
+        ],
+        "annual_european_beech": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "annual_european_larch": [
+          "phenology_flowering_beginning",
+          "phenology_needle_colouring_autumn",
+          "phenology_needle_fall_autumn",
+          "phenology_needle_unfolding_beginning"
+        ],
+        "annual_forsythia": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_goat_willow": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_horse_chestnut": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_large_leaved_lime": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "annual_lilac": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_meadow_foxtail": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_general"
+        ],
+        "annual_midland_hawthorn": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first"
+        ],
+        "annual_norway_maple": [
+          "phenology_flowering_beginning"
+        ],
+        "annual_norway_spruce": [
+          "phenology_flowering_beginning",
+          "phenology_may_sprouting"
+        ],
+        "annual_orchard_grass": [
+          "phenology_flowering_general"
+        ],
+        "annual_pedunculate_oak": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_st_johns_sprouting"
+        ],
+        "annual_rowan": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_scots_pine": [
+          "phenology_flowering_beginning",
+          "phenology_may_sprouting"
+        ],
+        "annual_silver_birch": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "annual_silver_fir": [
+          "phenology_flowering_beginning",
+          "phenology_may_sprouting"
+        ],
+        "annual_small_leaved_lime": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "annual_wood_anemone": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_beet": [
+          "phenology_emergence_beginning",
+          "phenology_sowing_beginning",
+          "phenology_stand_closed"
+        ],
+        "immediate_maize_unspecified_variety": [
+          "phenology_dough_ripeness_beginning",
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_grain_harvest_beginning",
+          "phenology_milk_ripeness_beginning",
+          "phenology_silage_harvest_beginning",
+          "phenology_silk_emergence_beginning",
+          "phenology_sowing_beginning",
+          "phenology_tassel_tip_visible"
+        ],
+        "immediate_oat": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_panicle_emergence_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "immediate_permanent_grassland": [
+          "phenology_hay_cut_first",
+          "phenology_hay_cut_second",
+          "phenology_hay_or_silage_cut_first",
+          "phenology_hay_or_silage_cut_second",
+          "phenology_silage_cut_first",
+          "phenology_silage_cut_second",
+          "phenology_turning_green_beginning"
+        ],
+        "immediate_potato": [
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_harvest",
+          "phenology_sowing_beginning",
+          "phenology_stand_closed"
+        ],
+        "immediate_spring_barley": [
+          "phenology_emergence_beginning",
+          "phenology_harvest",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "immediate_winter_barley": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "immediate_winter_oilseed_rape": [
+          "phenology_bud_formation_beginning",
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_height_growth_beginning",
+          "phenology_sowing_beginning"
+        ],
+        "immediate_winter_rye": [
+          "phenology_emergence_beginning",
+          "phenology_flowering_beginning",
+          "phenology_flowering_end_observation_area",
+          "phenology_flowering_general",
+          "phenology_harvest",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "immediate_winter_wheat": [
+          "phenology_emergence_beginning",
+          "phenology_full_ripeness_beginning",
+          "phenology_harvest",
+          "phenology_heading_beginning",
+          "phenology_shooting_beginning",
+          "phenology_sowing_beginning",
+          "phenology_yellow_ripeness_beginning"
+        ],
+        "immediate_apple": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end",
+          "phenology_flowering_end_observation_area",
+          "phenology_picking_ripeness_beginning",
+          "phenology_sprouting_beginning"
+        ],
+        "immediate_apple_late_ripening": [
+          "phenology_leaf_fall_autumn"
+        ],
+        "immediate_gooseberry": [
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "immediate_red_currant": [
+          "phenology_picking_ripeness_beginning"
+        ],
+        "immediate_sweet_cherry": [
+          "phenology_flowering_beginning",
+          "phenology_picking_ripeness_beginning"
+        ],
+        "immediate_grapevine_early_ripening": [
+          "phenology_bleeding_first",
+          "phenology_flowering_beginning",
+          "phenology_flowering_general",
+          "phenology_grape_harvest",
+          "phenology_grape_picking_ripeness",
+          "phenology_grape_ripeness_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "immediate_grapevine_late_ripening": [
+          "phenology_bleeding_first",
+          "phenology_flowering_beginning",
+          "phenology_flowering_general",
+          "phenology_grape_harvest",
+          "phenology_grape_picking_ripeness",
+          "phenology_grape_ripeness_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "immediate_grapevine_mueller_thurgau": [
+          "phenology_bleeding_first",
+          "phenology_flowering_beginning",
+          "phenology_flowering_general",
+          "phenology_grape_harvest",
+          "phenology_grape_ripeness_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "immediate_alder_all_species": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end_observation_area"
+        ],
+        "immediate_ash": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_birch_all_species": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end_observation_area"
+        ],
+        "immediate_black_alder": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_black_elder": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first"
+        ],
+        "immediate_black_locust": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_blackthorn": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_coltsfoot": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_common_hazel": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_end_observation_area"
+        ],
+        "immediate_common_snowdrop": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_common_wormwood": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_dandelion": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_european_beech": [
+          "phenology_flowering_beginning",
+          "phenology_fruit_ripe_first",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "immediate_forsythia": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_goat_willow": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_horse_chestnut": [
+          "phenology_fruit_ripe_first"
+        ],
+        "immediate_large_leaved_lime": [
+          "phenology_flowering_beginning"
+        ],
+        "immediate_meadow_foxtail": [
+          "phenology_flowering_beginning",
+          "phenology_flowering_general"
+        ],
+        "immediate_pedunculate_oak": [
+          "phenology_bud_swelling",
+          "phenology_fruit_ripe_first",
+          "phenology_leaf_colouring_autumn",
+          "phenology_leaf_fall_autumn",
+          "phenology_leaf_unfolding_beginning"
+        ],
+        "immediate_silver_birch": [
+          "phenology_flowering_beginning",
+          "phenology_leaf_unfolding_beginning"
+        ]
+      }
+    },
+    "dwd/poi": {
+      "hourly": {
+        "data": [
+          "cloud_cover_total",
+          "cloud_height_layer1",
+          "evapotranspiration_last_24h",
+          "humidity_relative",
+          "precipitation_amount_last_12h",
+          "precipitation_amount_last_1h",
+          "precipitation_amount_last_24h",
+          "precipitation_amount_last_3h",
+          "precipitation_amount_last_6h",
+          "pressure_air_sea_level",
+          "radiation_global_intensity",
+          "radiation_sky_short_wave_diffuse_intensity",
+          "radiation_sky_short_wave_direct_intensity",
+          "snow_depth",
+          "snow_depth_new",
+          "sunshine_duration",
+          "sunshine_duration_yesterday",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_12h",
+          "temperature_air_max_2m_yesterday",
+          "temperature_air_mean_2m_yesterday",
+          "temperature_air_min_0_05m_last_12h",
+          "temperature_air_min_0_05m_yesterday",
+          "temperature_air_min_2m_last_12h",
+          "temperature_air_min_2m_yesterday",
+          "temperature_dew_point_2m",
+          "temperature_water",
+          "visibility",
+          "weather",
+          "weather_past",
+          "weather_secondary_past",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max_last_1h",
+          "wind_gust_max_last_6h",
+          "wind_gust_max_yesterday",
+          "wind_speed_mean_last_10min",
+          "wind_speed_rolling_mean_max",
+          "wind_speed_rolling_mean_max_last_6h"
+        ]
+      }
+    },
+    "dwd/road": {
+      "15_minutes": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_intensity",
+          "precipitation_type_flags",
+          "road_surface_condition",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "temperature_surface",
+          "visibility",
+          "water_film_thickness",
+          "wind_direction",
+          "wind_direction_gust_max",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      }
+    },
+    "dwd/swsmos": {
+      "hourly": {
+        "data": [
+          "precipitation_amount_liquid",
+          "precipitation_amount_liquid_last_6h",
+          "probability_precipitation_amount_gt_5mm_last_6h",
+          "probability_precipitation_liquid_last_6h",
+          "road_surface_condition",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "temperature_surface"
+        ]
+      }
+    },
+    "ea/hydrology": {
+      "15_minutes": {
+        "data": [
+          "discharge",
+          "groundwater_level",
+          "stage"
+        ]
+      },
+      "daily": {
+        "data": [
+          "discharge_max",
+          "discharge_mean",
+          "discharge_min",
+          "stage_max",
+          "stage_min"
+        ]
+      }
+    },
+    "eaufrance/hubeau": {
+      "5_minutes": {
+        "data": [
+          "discharge",
+          "stage"
+        ]
+      },
+      "6_minutes": {
+        "data": [
+          "discharge",
+          "stage"
+        ]
+      },
+      "10_minutes": {
+        "data": [
+          "discharge",
+          "stage"
+        ]
+      },
+      "15_minutes": {
+        "data": [
+          "discharge",
+          "stage"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "discharge",
+          "stage"
+        ]
+      }
+    },
+    "eccc/observation": {
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_site",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "temperature_humidex",
+          "temperature_wind_chill",
+          "visibility",
+          "wind_direction_mean_last_2min",
+          "wind_speed"
+        ]
+      },
+      "daily": {
+        "data": [
+          "cooling_degree_day",
+          "heating_degree_day",
+          "humidity_relative_max",
+          "humidity_relative_min",
+          "precipitation_amount",
+          "precipitation_amount_liquid",
+          "snow_depth",
+          "snow_depth_new",
+          "temperature_air_max_2m",
+          "temperature_air_mean_minmax_2m",
+          "temperature_air_min_2m",
+          "wind_direction_gust_max",
+          "wind_gust_max"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "cooling_degree_day",
+          "count_days_precipitation_amount_ge_1mm",
+          "count_days_valid_precipitation_amount",
+          "count_days_valid_snow_depth_new",
+          "count_days_valid_sunshine_duration",
+          "count_days_valid_temperature_air_max_2m",
+          "count_days_valid_temperature_air_mean_minmax_2m",
+          "count_days_valid_temperature_air_min_2m",
+          "heating_degree_day",
+          "precipitation_amount",
+          "precipitation_amount_normal",
+          "snow_depth",
+          "snow_depth_new",
+          "snow_depth_new_normal",
+          "sunshine_duration",
+          "sunshine_duration_normal",
+          "temperature_air_max_2m",
+          "temperature_air_mean_minmax_2m",
+          "temperature_air_mean_minmax_2m_normal",
+          "temperature_air_min_2m"
+        ]
+      }
+    },
+    "fmi/observation": {
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "snow_depth",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "visibility",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max_last_10min",
+          "wind_speed_mean_last_10min"
+        ]
+      },
+      "daily": {
+        "data": [
+          "precipitation_amount",
+          "snow_depth",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m"
+        ]
+      }
+    },
+    "geosphere/observation": {
+      "10_minutes": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "precipitation_duration",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "radiation_global_intensity",
+          "radiation_sky_short_wave_diffuse_intensity",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_air_max_0_05m",
+          "temperature_air_max_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "temperature_soil_0_5m",
+          "wind_direction",
+          "wind_direction_gust_max",
+          "wind_gust_max",
+          "wind_speed",
+          "wind_speed_arithmetic"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "precipitation_duration",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "radiation_global_intensity",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_2m",
+          "temperature_air_min_0_05m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "temperature_soil_0_5m",
+          "temperature_soil_1m",
+          "temperature_soil_2m",
+          "wind_direction",
+          "wind_direction_gust_max",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      },
+      "daily": {
+        "data": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "radiation_global",
+          "snow_depth",
+          "snow_depth_manual",
+          "snow_depth_new",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_minmax_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "pressure_air_site",
+          "pressure_air_site_max",
+          "pressure_air_site_min",
+          "pressure_vapor_mean",
+          "radiation_global",
+          "snow_depth_max",
+          "snow_depth_new",
+          "snow_depth_new_max",
+          "sunshine_duration",
+          "sunshine_duration_relative",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_concrete_max_0m",
+          "temperature_concrete_mean_0m",
+          "temperature_concrete_min_0m",
+          "temperature_soil_max_0_1m",
+          "temperature_soil_max_0_2m",
+          "temperature_soil_max_0_5m",
+          "temperature_soil_max_1m",
+          "temperature_soil_max_2m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m",
+          "temperature_soil_mean_1m",
+          "temperature_soil_mean_2m",
+          "temperature_soil_min_0_1m",
+          "temperature_soil_min_0_2m",
+          "temperature_soil_min_0_5m",
+          "temperature_soil_min_1m",
+          "temperature_soil_min_2m",
+          "wind_speed_mean"
+        ]
+      }
+    },
+    "imgw/hydrology": {
+      "daily": {
+        "hydrology": [
+          "discharge",
+          "stage",
+          "temperature_water"
+        ]
+      },
+      "monthly": {
+        "hydrology": [
+          "discharge_max",
+          "discharge_mean",
+          "discharge_min",
+          "stage_max",
+          "stage_mean",
+          "stage_min",
+          "temperature_water_max",
+          "temperature_water_mean",
+          "temperature_water_min"
+        ]
+      }
+    },
+    "imgw/meteorology": {
+      "daily": {
+        "climate": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "snow_depth",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "wind_speed_mean"
+        ],
+        "precipitation": [
+          "precipitation_amount",
+          "snow_depth",
+          "snow_depth_new"
+        ],
+        "synop": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_day",
+          "precipitation_amount_night",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "snow_depth",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "wind_speed_mean"
+        ]
+      },
+      "monthly": {
+        "climate": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_max",
+          "snow_depth_max",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean",
+          "wind_speed_mean"
+        ],
+        "precipitation": [
+          "precipitation_amount",
+          "precipitation_amount_max"
+        ],
+        "synop": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_amount_day",
+          "precipitation_amount_max",
+          "precipitation_amount_night",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "snow_depth_max",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_mean",
+          "wind_speed_mean"
+        ]
+      }
+    },
+    "ipma/observation": {
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "radiation_global",
+          "temperature_air_mean_2m",
+          "wind_direction",
+          "wind_speed"
+        ]
+      }
+    },
+    "knmi/observation": {
+      "10_minutes": {
+        "data": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "precipitation_duration",
+          "precipitation_intensity_mean",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "radiation_global_intensity_mean",
+          "sunshine_duration",
+          "temperature_air_2m",
+          "temperature_air_mean_0_1m",
+          "temperature_dew_point_2m",
+          "temperature_wet_mean_2m",
+          "visibility_mean",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "precipitation_amount",
+          "precipitation_duration",
+          "pressure_air_sea_level",
+          "radiation_global",
+          "sunshine_duration",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "daily": {
+        "data": [
+          "cloud_cover_total_mean",
+          "evapotranspiration_potential_last_24h",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "precipitation_duration",
+          "pressure_air_sea_level",
+          "radiation_global",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      }
+    },
+    "lhmt/observation": {
+      "hourly": {
+        "data": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "snow_depth",
+          "temperature_air_2m",
+          "wind_direction",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      }
+    },
+    "meteofrance/observation": {
+      "daily": {
+        "core": [
+          "precipitation_amount",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_direction_gust_max",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ],
+        "others": [
+          "humidity_relative_mean",
+          "pressure_air_sea_level_mean",
+          "pressure_vapor_mean",
+          "radiation_global",
+          "snow_depth",
+          "snow_depth_new",
+          "sunshine_duration"
+        ]
+      },
+      "6_minutes": {
+        "data": [
+          "precipitation_amount"
+        ]
+      },
+      "hourly": {
+        "core": [
+          "precipitation_amount",
+          "temperature_air_2m",
+          "temperature_air_max_2m",
+          "temperature_air_min_2m",
+          "wind_direction_mean_last_10min",
+          "wind_speed_mean_last_10min",
+          "wind_speed_rolling_mean_max"
+        ],
+        "others": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "radiation_global",
+          "sunshine_duration",
+          "temperature_dew_point_2m",
+          "visibility"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_vapor_mean",
+          "radiation_global",
+          "snow_depth_new",
+          "sunshine_duration",
+          "temperature_air_max_2m_mean",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m_mean",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      }
+    },
+    "meteofrance/synop": {
+      "subdaily": {
+        "data": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "precipitation_amount_last_12h",
+          "precipitation_amount_last_1h",
+          "precipitation_amount_last_24h",
+          "precipitation_amount_last_3h",
+          "precipitation_amount_last_6h",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_24h",
+          "temperature_air_min_2m_last_24h",
+          "temperature_dew_point_2m",
+          "visibility",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max_last_10min",
+          "wind_speed_mean_last_10min"
+        ]
+      }
+    },
+    "meteoswiss/observation": {
+      "10_minutes": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "pressure_vapor",
+          "radiation_global_intensity_mean",
+          "radiation_sky_long_wave_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity_mean",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_0_05m",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "temperature_soil_0_05m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "radiation_global_intensity_mean",
+          "radiation_sky_long_wave_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity_mean",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_0_05m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_dew_point_mean_2m",
+          "temperature_soil_0_05m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "daily": {
+        "data": [
+          "evapotranspiration_potential_grass_fao",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "radiation_global_intensity_mean",
+          "radiation_sky_long_wave_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity_mean",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_max_0_05m",
+          "temperature_air_max_2m",
+          "temperature_air_mean_0_05m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "radiation_global_intensity_mean",
+          "radiation_sky_long_wave_intensity_mean",
+          "sunshine_duration",
+          "temperature_air_max_0_05m",
+          "temperature_air_max_2m",
+          "temperature_air_mean_0_05m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      },
+      "annual": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "pressure_vapor_mean",
+          "radiation_global_intensity_mean",
+          "radiation_sky_long_wave_intensity_mean",
+          "sunshine_duration",
+          "temperature_air_max_0_05m",
+          "temperature_air_max_2m",
+          "temperature_air_mean_0_05m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ]
+      }
+    },
+    "metno/frost": {
+      "10_minutes": {
+        "data": [
+          "humidity_relative_max",
+          "humidity_relative_min",
+          "precipitation_amount",
+          "temperature_air_max_2m",
+          "temperature_air_min_2m",
+          "wind_direction_gust_max",
+          "wind_gust_max"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "radiation_global_intensity_mean",
+          "snow_depth",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "wind_direction_mean_last_10min",
+          "wind_speed_mean_last_10min"
+        ]
+      },
+      "6_hours": {
+        "data": [
+          "precipitation_amount"
+        ]
+      },
+      "daily": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "radiation_global_intensity_mean",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "wind_speed_mean",
+          "wind_speed_rolling_mean_max"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "cloud_cover_total_mean",
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_sea_level_mean",
+          "pressure_air_site_mean",
+          "snow_depth_mean",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_dew_point_mean_2m",
+          "wind_speed_mean",
+          "wind_speed_rolling_mean_max"
+        ]
+      },
+      "annual": {
+        "data": [
+          "cloud_cover_total_mean",
+          "precipitation_amount",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m"
+        ]
+      }
+    },
+    "metoffice/observation": {
+      "daily": {
+        "rain": [
+          "precipitation_amount"
+        ],
+        "temperature": [
+          "temperature_air_max_2m",
+          "temperature_air_min_0_05m",
+          "temperature_air_min_2m"
+        ],
+        "weather": [
+          "snow_depth",
+          "snow_depth_new",
+          "sunshine_duration"
+        ]
+      },
+      "hourly": {
+        "rain": [
+          "precipitation_amount",
+          "precipitation_duration"
+        ],
+        "weather": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "snow_depth",
+          "sunshine_duration",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "visibility",
+          "weather",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max_last_10min",
+          "wind_speed_mean_last_10min"
+        ],
+        "wind": [
+          "wind_direction_gust_max",
+          "wind_direction_mean",
+          "wind_gust_max",
+          "wind_speed_mean"
+        ],
+        "radiation": [
+          "radiation_global",
+          "radiation_sky_short_wave_diffuse",
+          "radiation_sky_short_wave_direct"
+        ],
+        "soil_temperature": [
+          "temperature_soil_0_05m",
+          "temperature_soil_0_1m",
+          "temperature_soil_0_2m",
+          "temperature_soil_0_5m",
+          "temperature_soil_1m"
+        ]
+      }
+    },
+    "noaa/ghcn": {
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount_last_12h",
+          "precipitation_amount_last_15h",
+          "precipitation_amount_last_18h",
+          "precipitation_amount_last_21h",
+          "precipitation_amount_last_24h",
+          "precipitation_amount_last_3h",
+          "precipitation_amount_last_6h",
+          "precipitation_amount_last_9h",
+          "precipitation_amount_since_last_routine_report",
+          "pressure_air_sea_level",
+          "pressure_air_site",
+          "pressure_air_site_delta_last_3h",
+          "pressure_air_site_reduced",
+          "snow_depth",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "temperature_wet_2m",
+          "visibility",
+          "wind_direction",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      },
+      "daily": {
+        "data": [
+          "cloud_cover_total_mean_midnight_to_midnight",
+          "cloud_cover_total_mean_midnight_to_midnight_manual",
+          "cloud_cover_total_mean_sunrise_to_sunset",
+          "cloud_cover_total_mean_sunrise_to_sunset_manual",
+          "count_days_multiday_evaporation",
+          "count_days_multiday_precipitation",
+          "count_days_multiday_precipitation_amount_gt_0mm",
+          "count_days_multiday_snow_depth_new",
+          "count_days_multiday_temperature_air_max_2m",
+          "count_days_multiday_temperature_air_min_2m",
+          "count_days_multiday_wind_movement",
+          "distance_river_gauge_height",
+          "evaporation_amount",
+          "evaporation_amount_multiday",
+          "frozen_ground_layer_base",
+          "frozen_ground_layer_thickness",
+          "frozen_ground_layer_top",
+          "ice_on_water_thickness",
+          "precipitation_amount",
+          "precipitation_amount_multiday",
+          "snow_depth",
+          "snow_depth_new",
+          "snow_depth_new_multiday",
+          "sunshine_duration",
+          "sunshine_duration_relative",
+          "temperature_air_2m",
+          "temperature_air_max_2m",
+          "temperature_air_max_2m_multiday",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_air_min_2m_multiday",
+          "temperature_soil_max_bare_ground_0_05m",
+          "temperature_soil_max_bare_ground_0_1m",
+          "temperature_soil_max_bare_ground_0_2m",
+          "temperature_soil_max_bare_ground_0_5m",
+          "temperature_soil_max_bare_ground_1_5m",
+          "temperature_soil_max_bare_ground_1_8m",
+          "temperature_soil_max_bare_ground_1m",
+          "temperature_soil_max_bare_muck_0_05m",
+          "temperature_soil_max_bare_muck_0_1m",
+          "temperature_soil_max_bare_muck_0_2m",
+          "temperature_soil_max_bare_muck_0_5m",
+          "temperature_soil_max_bare_muck_1_5m",
+          "temperature_soil_max_bare_muck_1_8m",
+          "temperature_soil_max_bare_muck_1m",
+          "temperature_soil_max_brome_grass_0_05m",
+          "temperature_soil_max_brome_grass_0_1m",
+          "temperature_soil_max_brome_grass_0_2m",
+          "temperature_soil_max_brome_grass_0_5m",
+          "temperature_soil_max_brome_grass_1_5m",
+          "temperature_soil_max_brome_grass_1_8m",
+          "temperature_soil_max_brome_grass_1m",
+          "temperature_soil_max_fallow_0_05m",
+          "temperature_soil_max_fallow_0_1m",
+          "temperature_soil_max_fallow_0_2m",
+          "temperature_soil_max_fallow_0_5m",
+          "temperature_soil_max_fallow_1_5m",
+          "temperature_soil_max_fallow_1_8m",
+          "temperature_soil_max_fallow_1m",
+          "temperature_soil_max_grass_0_05m",
+          "temperature_soil_max_grass_0_1m",
+          "temperature_soil_max_grass_0_2m",
+          "temperature_soil_max_grass_0_5m",
+          "temperature_soil_max_grass_1_5m",
+          "temperature_soil_max_grass_1_8m",
+          "temperature_soil_max_grass_1m",
+          "temperature_soil_max_grass_muck_0_05m",
+          "temperature_soil_max_grass_muck_0_1m",
+          "temperature_soil_max_grass_muck_0_2m",
+          "temperature_soil_max_grass_muck_0_5m",
+          "temperature_soil_max_grass_muck_1_5m",
+          "temperature_soil_max_grass_muck_1_8m",
+          "temperature_soil_max_grass_muck_1m",
+          "temperature_soil_max_sod_0_05m",
+          "temperature_soil_max_sod_0_1m",
+          "temperature_soil_max_sod_0_2m",
+          "temperature_soil_max_sod_0_5m",
+          "temperature_soil_max_sod_1_5m",
+          "temperature_soil_max_sod_1_8m",
+          "temperature_soil_max_sod_1m",
+          "temperature_soil_max_straw_mulch_0_05m",
+          "temperature_soil_max_straw_mulch_0_1m",
+          "temperature_soil_max_straw_mulch_0_2m",
+          "temperature_soil_max_straw_mulch_0_5m",
+          "temperature_soil_max_straw_mulch_1_5m",
+          "temperature_soil_max_straw_mulch_1_8m",
+          "temperature_soil_max_straw_mulch_1m",
+          "temperature_soil_max_unknown_0_05m",
+          "temperature_soil_max_unknown_0_1m",
+          "temperature_soil_max_unknown_0_2m",
+          "temperature_soil_max_unknown_0_5m",
+          "temperature_soil_max_unknown_1_5m",
+          "temperature_soil_max_unknown_1_8m",
+          "temperature_soil_max_unknown_1m",
+          "temperature_soil_min_bare_ground_0_05m",
+          "temperature_soil_min_bare_ground_0_1m",
+          "temperature_soil_min_bare_ground_0_2m",
+          "temperature_soil_min_bare_ground_0_5m",
+          "temperature_soil_min_bare_ground_1_5m",
+          "temperature_soil_min_bare_ground_1_8m",
+          "temperature_soil_min_bare_ground_1m",
+          "temperature_soil_min_bare_muck_0_05m",
+          "temperature_soil_min_bare_muck_0_1m",
+          "temperature_soil_min_bare_muck_0_2m",
+          "temperature_soil_min_bare_muck_0_5m",
+          "temperature_soil_min_bare_muck_1_5m",
+          "temperature_soil_min_bare_muck_1_8m",
+          "temperature_soil_min_bare_muck_1m",
+          "temperature_soil_min_brome_grass_0_05m",
+          "temperature_soil_min_brome_grass_0_1m",
+          "temperature_soil_min_brome_grass_0_2m",
+          "temperature_soil_min_brome_grass_0_5m",
+          "temperature_soil_min_brome_grass_1_5m",
+          "temperature_soil_min_brome_grass_1_8m",
+          "temperature_soil_min_brome_grass_1m",
+          "temperature_soil_min_fallow_0_05m",
+          "temperature_soil_min_fallow_0_1m",
+          "temperature_soil_min_fallow_0_2m",
+          "temperature_soil_min_fallow_0_5m",
+          "temperature_soil_min_fallow_1_5m",
+          "temperature_soil_min_fallow_1_8m",
+          "temperature_soil_min_fallow_1m",
+          "temperature_soil_min_grass_0_05m",
+          "temperature_soil_min_grass_0_1m",
+          "temperature_soil_min_grass_0_2m",
+          "temperature_soil_min_grass_0_5m",
+          "temperature_soil_min_grass_1_5m",
+          "temperature_soil_min_grass_1_8m",
+          "temperature_soil_min_grass_1m",
+          "temperature_soil_min_grass_muck_0_05m",
+          "temperature_soil_min_grass_muck_0_1m",
+          "temperature_soil_min_grass_muck_0_2m",
+          "temperature_soil_min_grass_muck_0_5m",
+          "temperature_soil_min_grass_muck_1_5m",
+          "temperature_soil_min_grass_muck_1_8m",
+          "temperature_soil_min_grass_muck_1m",
+          "temperature_soil_min_sod_0_05m",
+          "temperature_soil_min_sod_0_1m",
+          "temperature_soil_min_sod_0_2m",
+          "temperature_soil_min_sod_0_5m",
+          "temperature_soil_min_sod_1_5m",
+          "temperature_soil_min_sod_1_8m",
+          "temperature_soil_min_sod_1m",
+          "temperature_soil_min_straw_mulch_0_05m",
+          "temperature_soil_min_straw_mulch_0_1m",
+          "temperature_soil_min_straw_mulch_0_2m",
+          "temperature_soil_min_straw_mulch_0_5m",
+          "temperature_soil_min_straw_mulch_1_5m",
+          "temperature_soil_min_straw_mulch_1_8m",
+          "temperature_soil_min_straw_mulch_1m",
+          "temperature_soil_min_unknown_0_05m",
+          "temperature_soil_min_unknown_0_1m",
+          "temperature_soil_min_unknown_0_2m",
+          "temperature_soil_min_unknown_0_5m",
+          "temperature_soil_min_unknown_1_5m",
+          "temperature_soil_min_unknown_1_8m",
+          "temperature_soil_min_unknown_1m",
+          "temperature_water_evaporation_pan_max",
+          "temperature_water_evaporation_pan_min",
+          "water_equivalent_snow_depth",
+          "water_equivalent_snow_depth_new",
+          "weather_type_blowing_drifting_snow",
+          "weather_type_blowing_spray",
+          "weather_type_drizzle",
+          "weather_type_dust_ash_sand",
+          "weather_type_fog",
+          "weather_type_freezing_drizzle",
+          "weather_type_freezing_rain",
+          "weather_type_glaze_rime",
+          "weather_type_ground_fog",
+          "weather_type_hail",
+          "weather_type_heavy_fog",
+          "weather_type_high_damaging_winds",
+          "weather_type_ice_fog_freezing_fog",
+          "weather_type_ice_sleet_snow_hail",
+          "weather_type_mist",
+          "weather_type_precipitation_unknown_source",
+          "weather_type_rain",
+          "weather_type_smoke_haze",
+          "weather_type_snow_pellets_snow_grains_ice_crystals",
+          "weather_type_thunder",
+          "weather_type_tornado_waterspout",
+          "weather_type_vicinity_dust_ash_sand",
+          "weather_type_vicinity_fog_any",
+          "weather_type_vicinity_rain_snow_shower",
+          "weather_type_vicinity_snow_ice_crystals",
+          "weather_type_vicinity_thunder",
+          "wind_direction_gust_max",
+          "wind_direction_gust_max_1mile",
+          "wind_direction_gust_max_1min",
+          "wind_direction_gust_max_2min",
+          "wind_direction_gust_max_5sec",
+          "wind_direction_gust_max_instant",
+          "wind_gust_max",
+          "wind_gust_max_1mile",
+          "wind_gust_max_1min",
+          "wind_gust_max_2min",
+          "wind_gust_max_5sec",
+          "wind_gust_max_instant",
+          "wind_movement",
+          "wind_movement_multiday",
+          "wind_speed_mean"
+        ]
+      }
+    },
+    "nws/observation": {
+      "hourly": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount_last_3h",
+          "precipitation_amount_last_6h",
+          "precipitation_amount_since_last_routine_report",
+          "pressure_air_sea_level",
+          "pressure_air_site_reduced",
+          "temperature_air_2m",
+          "temperature_air_max_2m_last_24h",
+          "temperature_air_min_2m_last_24h",
+          "temperature_dew_point_2m",
+          "temperature_wind_chill",
+          "visibility",
+          "wind_direction_mean_last_2min",
+          "wind_gust_max_last_10min",
+          "wind_speed_mean_last_2min"
+        ]
+      }
+    },
+    "rmi/observation": {
+      "10_minutes": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_site",
+          "radiation_global_intensity_mean",
+          "sunshine_duration",
+          "temperature_air_mean_2m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m",
+          "temperature_surface_mean",
+          "wind_direction",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_site",
+          "radiation_global_intensity_mean",
+          "sunshine_duration",
+          "temperature_air_mean_2m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m",
+          "temperature_surface_mean",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      },
+      "daily": {
+        "data": [
+          "humidity_relative_mean",
+          "precipitation_amount",
+          "pressure_air_site",
+          "radiation_global_intensity_mean",
+          "sunshine_duration",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m",
+          "temperature_soil_mean_0_05m",
+          "temperature_soil_mean_0_1m",
+          "temperature_soil_mean_0_2m",
+          "temperature_soil_mean_0_5m",
+          "temperature_surface_mean",
+          "wind_gust_max",
+          "wind_speed"
+        ]
+      }
+    },
+    "smhi/observation": {
+      "1_minute": {
+        "data": [
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "snow_depth",
+          "temperature_air_2m",
+          "visibility_mean",
+          "wind_direction_mean",
+          "wind_speed_mean"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "cloud_cover_total",
+          "humidity_relative",
+          "precipitation_amount",
+          "pressure_air_sea_level",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "visibility",
+          "wind_direction_mean_last_10min",
+          "wind_gust_max",
+          "wind_speed_mean_last_10min"
+        ]
+      },
+      "daily": {
+        "data": [
+          "precipitation_amount",
+          "snow_depth",
+          "temperature_air_max_2m",
+          "temperature_air_mean_2m",
+          "temperature_air_min_2m"
+        ]
+      },
+      "monthly": {
+        "data": [
+          "precipitation_amount",
+          "temperature_air_mean_2m"
+        ]
+      }
+    },
+    "wsv/pegel": {
+      "1_minute": {
+        "data": [
+          "chloride_concentration",
+          "clearance_height",
+          "discharge",
+          "electric_conductivity",
+          "flow_direction",
+          "flow_speed",
+          "groundwater_level",
+          "humidity_relative",
+          "oxygen_level",
+          "ph_value",
+          "precipitation_amount",
+          "precipitation_intensity",
+          "stage",
+          "temperature_air_2m",
+          "temperature_water",
+          "turbidity",
+          "wave_height_max",
+          "wave_height_significant",
+          "wave_period",
+          "wind_direction",
+          "wind_speed"
+        ]
+      },
+      "5_minutes": {
+        "data": [
+          "chloride_concentration",
+          "clearance_height",
+          "discharge",
+          "electric_conductivity",
+          "flow_direction",
+          "flow_speed",
+          "groundwater_level",
+          "humidity_relative",
+          "oxygen_level",
+          "ph_value",
+          "precipitation_amount",
+          "precipitation_intensity",
+          "stage",
+          "temperature_air_2m",
+          "temperature_water",
+          "turbidity",
+          "wave_height_max",
+          "wave_height_significant",
+          "wave_period",
+          "wind_direction",
+          "wind_speed"
+        ]
+      },
+      "10_minutes": {
+        "data": [
+          "chloride_concentration",
+          "clearance_height",
+          "discharge",
+          "electric_conductivity",
+          "flow_direction",
+          "flow_speed",
+          "groundwater_level",
+          "humidity_relative",
+          "oxygen_level",
+          "ph_value",
+          "precipitation_amount",
+          "precipitation_intensity",
+          "stage",
+          "temperature_air_2m",
+          "temperature_water",
+          "turbidity",
+          "wave_height_max",
+          "wave_height_significant",
+          "wave_period",
+          "wind_direction",
+          "wind_speed"
+        ]
+      },
+      "15_minutes": {
+        "data": [
+          "chloride_concentration",
+          "clearance_height",
+          "discharge",
+          "electric_conductivity",
+          "flow_direction",
+          "flow_speed",
+          "groundwater_level",
+          "humidity_relative",
+          "oxygen_level",
+          "ph_value",
+          "precipitation_amount",
+          "precipitation_intensity",
+          "stage",
+          "temperature_air_2m",
+          "temperature_water",
+          "turbidity",
+          "wave_height_max",
+          "wave_height_significant",
+          "wave_period",
+          "wind_direction",
+          "wind_speed"
+        ]
+      },
+      "hourly": {
+        "data": [
+          "chloride_concentration",
+          "clearance_height",
+          "discharge",
+          "electric_conductivity",
+          "flow_direction",
+          "flow_speed",
+          "groundwater_level",
+          "humidity_relative",
+          "oxygen_level",
+          "ph_value",
+          "precipitation_amount",
+          "precipitation_intensity",
+          "stage",
+          "temperature_air_2m",
+          "temperature_water",
+          "turbidity",
+          "wave_height_max",
+          "wave_height_significant",
+          "wave_period",
+          "wind_direction",
+          "wind_speed"
+        ]
+      }
+    }
+  },
+  "renamed": {
+    "parameters": {
+      "chlorid_concentration": "chloride_concentration",
+      "cloud_cover_below_1000ft": "cloud_cover_below_2km",
+      "cloud_cover_between_2km_to_7km": "cloud_cover_between_2km_and_7km",
+      "cloud_cover_total_midnight_to_midnight": "cloud_cover_total_mean_midnight_to_midnight",
+      "cloud_cover_total_midnight_to_midnight_manual": "cloud_cover_total_mean_midnight_to_midnight_manual",
+      "cloud_cover_total_sunrise_to_sunset": "cloud_cover_total_mean_sunrise_to_sunset",
+      "cloud_cover_total_sunrise_to_sunset_manual": "cloud_cover_total_mean_sunrise_to_sunset_manual",
+      "count_days_multiday_precipitation_height_gt_0mm": "count_days_multiday_precipitation_amount_gt_0mm",
+      "count_days_precipitation_height_ge_0_1mm": "count_days_precipitation_amount_ge_0_1mm",
+      "count_days_precipitation_height_ge_10mm": "count_days_precipitation_amount_ge_10mm",
+      "count_days_precipitation_height_ge_1mm": "count_days_precipitation_amount_ge_1mm",
+      "count_days_precipitation_height_ge_20mm": "count_days_precipitation_amount_ge_20mm",
+      "count_days_precipitation_height_ge_2_5mm": "count_days_precipitation_amount_ge_2_5mm",
+      "count_days_precipitation_height_ge_5mm": "count_days_precipitation_amount_ge_5mm",
+      "count_days_valid_precipitation_height": "count_days_valid_precipitation_amount",
+      "count_days_valid_temperature_air_mean_2m": "count_days_valid_temperature_air_mean_minmax_2m",
+      "count_weather_type_ripe": "count_weather_type_hoar_frost",
+      "count_weather_type_sleet": "count_weather_type_graupel",
+      "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
+      "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
+      "evaporation_height": "evaporation_amount",
+      "evaporation_height_corn_loamysilt": "evaporation_amount_corn_loamy_silt",
+      "evaporation_height_corn_sand": "evaporation_amount_corn_sand",
+      "evaporation_height_gras_loamysilt": "evaporation_amount_grass_loamy_silt",
+      "evaporation_height_gras_sand": "evaporation_amount_grass_sand",
+      "evaporation_height_multiday": "evaporation_amount_multiday",
+      "evaporation_height_winterwheat_loamysilt": "evaporation_amount_winter_wheat_loamy_silt",
+      "evaporation_height_winterwheat_sand": "evaporation_amount_winter_wheat_sand",
+      "evapotranspiration_potential_gras_fao_last_24h": "evapotranspiration_potential_grass_fao",
+      "evapotranspiration_potential_gras_haude_last_24h": "evapotranspiration_potential_grass_haude",
+      "humidity": "humidity_relative",
+      "humidity_max": "humidity_relative_max",
+      "humidity_min": "humidity_relative_min",
+      "number_of_days_per_month": "count_days_in_month",
+      "number_of_hours_per_month": "count_hours_in_month",
+      "precipitation_height": "precipitation_amount",
+      "precipitation_height_day": "precipitation_amount_day",
+      "precipitation_height_droplet": "precipitation_amount_droplet",
+      "precipitation_height_last_12h": "precipitation_amount_last_12h",
+      "precipitation_height_last_15h": "precipitation_amount_last_15h",
+      "precipitation_height_last_18h": "precipitation_amount_last_18h",
+      "precipitation_height_last_1h": "precipitation_amount_last_1h",
+      "precipitation_height_last_21h": "precipitation_amount_last_21h",
+      "precipitation_height_last_24h": "precipitation_amount_last_24h",
+      "precipitation_height_last_3h": "precipitation_amount_last_3h",
+      "precipitation_height_last_6h": "precipitation_amount_last_6h",
+      "precipitation_height_last_9h": "precipitation_amount_last_9h",
+      "precipitation_height_liquid": "precipitation_amount_liquid",
+      "precipitation_height_liquid_significant_weather_last_1h": "precipitation_amount_liquid_significant_weather_last_1h",
+      "precipitation_height_max": "precipitation_amount_max",
+      "precipitation_height_multiday": "precipitation_amount_multiday",
+      "precipitation_height_night": "precipitation_amount_night",
+      "precipitation_height_normal": "precipitation_amount_normal",
+      "precipitation_height_rocker": "precipitation_amount_rocker",
+      "precipitation_height_significant_weather_last_12h": "precipitation_amount_significant_weather_last_12h",
+      "precipitation_height_significant_weather_last_1h": "precipitation_amount_significant_weather_last_1h",
+      "precipitation_height_significant_weather_last_24h": "precipitation_amount_significant_weather_last_24h",
+      "precipitation_height_significant_weather_last_3h": "precipitation_amount_significant_weather_last_3h",
+      "precipitation_height_significant_weather_last_6h": "precipitation_amount_significant_weather_last_6h",
+      "probability_precipitation_height_gt_0_0mm_last_12h": "probability_precipitation_amount_gt_0_0mm_last_12h",
+      "probability_precipitation_height_gt_0_0mm_last_24h": "probability_precipitation_amount_gt_0_0mm_last_24h",
+      "probability_precipitation_height_gt_0_0mm_last_6h": "probability_precipitation_amount_gt_0_0mm_last_6h",
+      "probability_precipitation_height_gt_0_1mm_last_1h": "probability_precipitation_amount_gt_0_1mm_last_1h",
+      "probability_precipitation_height_gt_0_2mm_last_12h": "probability_precipitation_amount_gt_0_2mm_last_12h",
+      "probability_precipitation_height_gt_0_2mm_last_1h": "probability_precipitation_amount_gt_0_2mm_last_1h",
+      "probability_precipitation_height_gt_0_2mm_last_24h": "probability_precipitation_amount_gt_0_2mm_last_24h",
+      "probability_precipitation_height_gt_0_2mm_last_6h": "probability_precipitation_amount_gt_0_2mm_last_6h",
+      "probability_precipitation_height_gt_0_3mm_last_1h": "probability_precipitation_amount_gt_0_3mm_last_1h",
+      "probability_precipitation_height_gt_0_5mm_last_1h": "probability_precipitation_amount_gt_0_5mm_last_1h",
+      "probability_precipitation_height_gt_0_7mm_last_1h": "probability_precipitation_amount_gt_0_7mm_last_1h",
+      "probability_precipitation_height_gt_10mm_last_1h": "probability_precipitation_amount_gt_10mm_last_1h",
+      "probability_precipitation_height_gt_15mm_last_1h": "probability_precipitation_amount_gt_15mm_last_1h",
+      "probability_precipitation_height_gt_1mm_last_12h": "probability_precipitation_amount_gt_1mm_last_12h",
+      "probability_precipitation_height_gt_1mm_last_1h": "probability_precipitation_amount_gt_1mm_last_1h",
+      "probability_precipitation_height_gt_1mm_last_24h": "probability_precipitation_amount_gt_1mm_last_24h",
+      "probability_precipitation_height_gt_1mm_last_6h": "probability_precipitation_amount_gt_1mm_last_6h",
+      "probability_precipitation_height_gt_25mm_last_1h": "probability_precipitation_amount_gt_25mm_last_1h",
+      "probability_precipitation_height_gt_2mm_last_1h": "probability_precipitation_amount_gt_2mm_last_1h",
+      "probability_precipitation_height_gt_3mm_last_1h": "probability_precipitation_amount_gt_3mm_last_1h",
+      "probability_precipitation_height_gt_5mm_last_12h": "probability_precipitation_amount_gt_5mm_last_12h",
+      "probability_precipitation_height_gt_5mm_last_1h": "probability_precipitation_amount_gt_5mm_last_1h",
+      "probability_precipitation_height_gt_5mm_last_24h": "probability_precipitation_amount_gt_5mm_last_24h",
+      "probability_precipitation_height_gt_5mm_last_6h": "probability_precipitation_amount_gt_5mm_last_6h",
+      "probability_radiation_global_last_1h": "radiation_global_relative_last_1h",
+      "quality_precipitation_height": "quality_precipitation_amount",
+      "quality_precipitation_height_liquid": "quality_precipitation_amount_liquid",
+      "radiation_sky_long_wave_intensity": "radiation_sky_long_wave_intensity_mean",
+      "snow_depth_excelled": "snow_depth_sampled",
+      "soil_moisture_corn_loamysilt_00cm_60cm": "soil_moisture_corn_loamy_silt_00cm_60cm",
+      "soil_moisture_gras_loamysilt_00cm_10cm": "soil_moisture_grass_loamy_silt_00cm_10cm",
+      "soil_moisture_gras_loamysilt_00cm_60cm": "soil_moisture_grass_loamy_silt_00cm_60cm",
+      "soil_moisture_gras_loamysilt_10cm_20cm": "soil_moisture_grass_loamy_silt_10cm_20cm",
+      "soil_moisture_gras_loamysilt_20cm_30cm": "soil_moisture_grass_loamy_silt_20cm_30cm",
+      "soil_moisture_gras_loamysilt_30cm_40cm": "soil_moisture_grass_loamy_silt_30cm_40cm",
+      "soil_moisture_gras_loamysilt_40cm_50cm": "soil_moisture_grass_loamy_silt_40cm_50cm",
+      "soil_moisture_gras_loamysilt_50cm_60cm": "soil_moisture_grass_loamy_silt_50cm_60cm",
+      "soil_moisture_gras_sand_00cm_60cm": "soil_moisture_grass_sand_00cm_60cm",
+      "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+      "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_wheat_sand_00cm_60cm",
+      "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
+      "temperature_soil_mean_loamysand_0_05m": "temperature_soil_mean_loamy_sand_0_05m",
+      "temperature_soil_mean_loamysilt_0_05m": "temperature_soil_mean_loamy_silt_0_05m",
+      "thawing_thickness_bare": "thawing_thickness_bare_ground",
+      "thawing_thickness_bare_max_month": "thawing_thickness_bare_ground_max_month",
+      "thawing_thickness_plantstock": "thawing_thickness_plant_cover",
+      "thawing_thickness_plantstock_max_month": "thawing_thickness_plant_cover_max_month",
+      "visibility_range": "visibility",
+      "visibility_range_index": "visibility_index",
+      "visibility_range_measurement_method": "visibility_measurement_method",
+      "water_equivalent_snow_depth_excelled": "water_equivalent_snow_depth_sampled",
+      "wave_height_sign": "wave_height_significant",
+      "weather_last_3h": "weather_past",
+      "weather_secondary_last_3h": "weather_secondary_past",
+      "wind_direction_last_10min": "wind_direction_mean_last_10min",
+      "wind_direction_last_2min": "wind_direction_mean_last_2min",
+      "wind_movement_24h": "wind_movement",
+      "wind_speed_last_10min": "wind_speed_mean_last_10min",
+      "wind_speed_last_2min": "wind_speed_mean_last_2min",
+      "wind_speed_rolling_mean_max_yesterday": "wind_speed_rolling_mean_max_last_6h"
+    },
+    "in_dataset": {
+      "aemet/observation": {
+        "annual/data": {
+          "temperature_air_max_2m_multiday": "temperature_air_max_2m",
+          "temperature_air_min_2m_multiday": "temperature_air_min_2m"
+        },
+        "daily/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_speed": "wind_speed_mean_last_10min"
+        },
+        "monthly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "temperature_air_max_2m_multiday": "temperature_air_max_2m",
+          "temperature_air_min_2m_multiday": "temperature_air_min_2m"
+        }
+      },
+      "chmi/observation": {
+        "annual/data": {
+          "temperature_air_max_2m": "temperature_air_max_2m_mean",
+          "temperature_air_min_2m": "temperature_air_min_2m_mean"
+        },
+        "daily/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "monthly/data": {
+          "temperature_air_max_2m": "temperature_air_max_2m_mean",
+          "temperature_air_min_2m": "temperature_air_min_2m_mean"
+        }
+      },
+      "dmi/observation": {
+        "annual/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "daily/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "monthly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "dwd/derived": {
+        "daily/soil": {
+          "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
+          "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude"
+        },
+        "monthly/soil": {
+          "soil_moisture_corn_loamy_silt_00cm_60cm": "soil_moisture_mean_corn_loamy_silt_00cm_60cm",
+          "soil_moisture_corn_sand_00cm_60cm": "soil_moisture_mean_corn_sand_00cm_60cm",
+          "soil_moisture_grass_loamy_silt_00cm_10cm": "soil_moisture_mean_grass_loamy_silt_00cm_10cm",
+          "soil_moisture_grass_loamy_silt_00cm_60cm": "soil_moisture_mean_grass_loamy_silt_00cm_60cm",
+          "soil_moisture_grass_loamy_silt_10cm_20cm": "soil_moisture_mean_grass_loamy_silt_10cm_20cm",
+          "soil_moisture_grass_loamy_silt_20cm_30cm": "soil_moisture_mean_grass_loamy_silt_20cm_30cm",
+          "soil_moisture_grass_loamy_silt_30cm_40cm": "soil_moisture_mean_grass_loamy_silt_30cm_40cm",
+          "soil_moisture_grass_loamy_silt_40cm_50cm": "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
+          "soil_moisture_grass_loamy_silt_50cm_60cm": "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
+          "soil_moisture_grass_sand_00cm_60cm": "soil_moisture_mean_grass_sand_00cm_60cm",
+          "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
+          "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_wheat_sand_00cm_60cm"
+        }
+      },
+      "dwd/dmo": {
+        "hourly/icon": {
+          "pressure_air_site_reduced": "pressure_air_sea_level",
+          "temperature_air_max_2m": "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m": "temperature_air_min_2m_last_12h"
+        },
+        "hourly/icon_eu": {
+          "pressure_air_site_reduced": "pressure_air_sea_level",
+          "temperature_air_max_2m": "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m": "temperature_air_min_2m_last_12h"
+        }
+      },
+      "dwd/mosmix": {
+        "hourly/large": {
+          "pressure_air_site_reduced": "pressure_air_sea_level",
+          "temperature_air_max_2m": "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m": "temperature_air_min_2m_last_12h"
+        },
+        "hourly/small": {
+          "pressure_air_site_reduced": "pressure_air_sea_level",
+          "temperature_air_max_2m": "temperature_air_max_2m_last_12h",
+          "temperature_air_min_2m": "temperature_air_min_2m_last_12h"
+        }
+      },
+      "dwd/observation": {
+        "10_minutes/urban_wind": {
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "10_minutes/wind": {
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "annual/climate_summary": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "wind_force_beaufort": "wind_force_beaufort_mean"
+        },
+        "daily/climate_summary": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/urban_wind": {
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/wind": {
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/wind_synoptic": {
+          "wind_speed": "wind_speed_mean_last_10min"
+        },
+        "monthly/climate_summary": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "wind_force_beaufort": "wind_force_beaufort_mean"
+        }
+      },
+      "dwd/poi": {
+        "hourly/data": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_speed": "wind_speed_mean_last_10min"
+        }
+      },
+      "dwd/road": {
+        "15_minutes/data": {
+          "humidity_relative": "humidity_relative_mean"
+        }
+      },
+      "dwd/swsmos": {
+        "hourly/data": {
+          "precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h"
+        }
+      },
+      "eccc/observation": {
+        "daily/data": {
+          "temperature_air_mean_2m": "temperature_air_mean_minmax_2m"
+        },
+        "monthly/data": {
+          "temperature_air_mean_2m": "temperature_air_mean_minmax_2m"
+        }
+      },
+      "fmi/observation": {
+        "hourly/data": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_gust_max": "wind_gust_max_last_10min",
+          "wind_speed": "wind_speed_mean_last_10min"
+        }
+      },
+      "geosphere/observation": {
+        "daily/data": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "temperature_air_mean_2m": "temperature_air_mean_minmax_2m",
+          "wind_speed": "wind_speed_mean"
+        },
+        "monthly/data": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "imgw/meteorology": {
+        "daily/climate": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "daily/synop": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "monthly/climate": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "monthly/synop": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "knmi/observation": {
+        "10_minutes/data": {
+          "precipitation_intensity": "precipitation_intensity_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "visibility": "visibility_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "daily/data": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "metoffice/observation": {
+        "hourly/weather": {
+          "wind_gust_max": "wind_gust_max_last_10min"
+        },
+        "hourly/wind": {
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "meteofrance/observation": {
+        "daily/core": {
+          "wind_speed": "wind_speed_mean"
+        },
+        "daily/others": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_vapor": "pressure_vapor_mean"
+        },
+        "hourly/core": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_gust_max": "wind_speed_rolling_mean_max",
+          "wind_speed": "wind_speed_mean_last_10min"
+        },
+        "monthly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "meteofrance/synop": {
+        "subdaily/data": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_gust_max": "wind_gust_max_last_10min",
+          "wind_speed": "wind_speed_mean_last_10min"
+        }
+      },
+      "meteoswiss/observation": {
+        "10_minutes/data": {
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "annual/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "daily/data": {
+          "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "monthly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "pressure_vapor": "pressure_vapor_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "metno/frost": {
+        "annual/data": {
+          "cloud_cover_total": "cloud_cover_total_mean"
+        },
+        "daily/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "wind_direction": "wind_direction_mean_last_10min"
+        },
+        "monthly/data": {
+          "cloud_cover_total": "cloud_cover_total_mean",
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean",
+          "pressure_air_site": "pressure_air_site_mean",
+          "snow_depth": "snow_depth_mean",
+          "wind_speed": "wind_speed_mean"
+        }
+      },
+      "noaa/ghcn": {
+        "daily/data": {
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "precipitation_amount": "precipitation_amount_since_last_routine_report"
+        }
+      },
+      "nws/observation": {
+        "hourly/data": {
+          "precipitation_amount": "precipitation_amount_since_last_routine_report",
+          "pressure_air_site": "pressure_air_site_reduced",
+          "wind_direction": "wind_direction_mean_last_2min",
+          "wind_gust_max": "wind_gust_max_last_10min",
+          "wind_speed": "wind_speed_mean_last_2min"
+        }
+      },
+      "rmi/observation": {
+        "10_minutes/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "temperature_air_mean_0_05m": "temperature_surface_mean"
+        },
+        "daily/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "temperature_air_mean_0_05m": "temperature_surface_mean"
+        },
+        "hourly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "temperature_air_mean_0_05m": "temperature_surface_mean"
+        }
+      },
+      "smhi/observation": {
+        "1_minute/data": {
+          "visibility": "visibility_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
+        "hourly/data": {
+          "wind_direction": "wind_direction_mean_last_10min",
+          "wind_speed": "wind_speed_mean_last_10min"
+        }
+      }
+    },
+    "resolutions": {
+      "6_hour": "6_hours"
+    }
+  },
+  "x-release": "0.160.0"
+}

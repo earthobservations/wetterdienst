@@ -22,7 +22,7 @@ uv run poe "typecheck:installed"  # the caller script against the built wheel (n
 uv run poe unused            # deptry unused-dependency check
 uv run poe sync              # uv sync
 uv run poe "contracts:snapshot"  # regenerate the OpenAPI, CLI --help and Python-surface snapshots after an intended change
-uv run poe "openapi:baseline"    # the OpenAPI document of the last release: in a release commit only
+uv run poe "contracts:baseline"  # the baselines of the last release (OpenAPI, CLI, Python surface, MCP, parameters): in a release commit only
 uv run poe docs              # sphinx build into docs/_build/html, as Read the Docs runs it
 uv run poe "docs:clean"      # remove docs/_build
 uv run poe "docs:linkcheck"  # check the external links of the docs (needs the internet)

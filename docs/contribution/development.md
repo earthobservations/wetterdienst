@@ -83,10 +83,13 @@ fails its test until the snapshot is regenerated in the same pull request, where
 uv run poe contracts:snapshot   # all three; or openapi:snapshot, cli:snapshot, surface:snapshot
 ```
 
-The REST contract is also compared with the document of the last release (`tests/ui/openapi.baseline.json`), and a
-removed or renamed path, parameter, enum member or response member, a changed type or a status that is gone fails
-that test even with the snapshot regenerated. See `.github/RELEASE_STRATEGY.md` for how a break that is meant is
-approved and how the baseline is refreshed.
+Every contract is also compared with what the last release offered, which a snapshot does not do: the OpenAPI
+document (`tests/ui/openapi.baseline.json`), the options of the command line, the Python surface, the MCP tools and
+the parameters of every dataset (`tests/baselines/*.baseline.json`) are committed as they were released. A removed or
+renamed path, option, name, argument or parameter, a changed type, default or bound that asks more of a call, fails
+its test even with the snapshot regenerated; an addition passes. A break that is meant is named, with its reason, in
+the `ACCEPTED_BREAKS` of that surface. See `.github/RELEASE_STRATEGY.md` for what each baseline compares and for how
+they are refreshed, once in the release commit, with `uv run poe contracts:baseline`.
 
 ## Build OCI images
 

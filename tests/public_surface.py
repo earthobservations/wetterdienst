@@ -11,6 +11,9 @@ internals are not. `tests/public_surface.snapshot.json` holds, of the frozen par
 - the signatures of `Wetterdienst`'s public methods, of `TimeseriesRequest` and its public methods, and of the
   constructor of each request class the registry resolves, with the standalone ones, and the networks of the registry.
   The constructor of a network whose extra is not installed cannot be read and is left out of the comparison.
+- the request class each provider package exports, by the path it is imported from
+  (`wetterdienst.provider.dwd.observation.DwdObservationRequest`). The packages are frozen with it, `api.py`,
+  `values.py` and the rest of what is below a package are not (GH-3131).
 
 The results (their fields, public methods and the signatures the guide shows) are pinned by
 `tests/model/test_results.py`, the exceptions by `tests/test_exceptions.py`, and the types by `tests/typed_caller.py`.
@@ -93,6 +96,18 @@ def _requests() -> dict[str, str]:
     return found
 
 
+def _request_exports() -> list[str]:
+    """Give the request class each provider package exports, as the dotted path a caller imports it from.
+
+    These are the paths the registry names (`wetterdienst.provider.dwd.observation.DwdObservationRequest`): the
+    class is imported from the package, not from its `api` module, which is an internal. That the package does export
+    it is held by `tests/test_public_surface.py`, where the package can be imported.
+    """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+
+    return sorted(path for networks in Wetterdienst.registry.values() for path in networks.values())
+
+
 def build_surface() -> dict[str, Any]:
     """Describe the frozen surface of the Python API as the code has it."""
     import wetterdienst  # noqa: PLC0415
@@ -111,6 +126,7 @@ def build_surface() -> dict[str, Any]:
         ),
         "TimeseriesRequest": {"__init__": signature_of(TimeseriesRequest), **_public(TimeseriesRequest)},
         "requests": _requests(),
+        "request_exports": _request_exports(),
     }
 
 

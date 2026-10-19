@@ -22,7 +22,7 @@ _BREAK = (
     "The served OpenAPI document no longer offers what the last release did (tests/ui/openapi.baseline.json). "
     "A client written against that release breaks on it: restore it, or, for a change that is meant, name it in "
     "ACCEPTED_BREAKS of tests/ui/openapi_diff.py with the reason, add a **Breaking** entry to the changelog, and say "
-    "what to do instead. The baseline itself is refreshed only in a release commit (`uv run poe openapi:baseline`)."
+    "what to do instead. The baseline itself is refreshed only in a release commit (`uv run poe contracts:baseline`)."
 )
 
 
@@ -40,7 +40,7 @@ def test_the_document_offers_all_the_last_release_offered() -> None:
 def test_the_baseline_is_the_document_of_the_release_in_pyproject() -> None:
     """The release commit refreshes the baseline: `x-release` is the version `pyproject.toml` has when it is made."""
     assert read_baseline()[RELEASE] == project_version(), (
-        "run `uv run poe openapi:baseline` in the release commit, see .github/RELEASE_STRATEGY.md"
+        "run `uv run poe contracts:baseline` in the release commit, see .github/RELEASE_STRATEGY.md"
     )
 
 
@@ -77,7 +77,32 @@ def _document() -> dict[str, Any]:
                             "explode": False,
                             "schema": {"type": "array", "items": {"type": "string"}},
                         },
+                        {
+                            "name": "limit",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
+                        },
+                        {
+                            "name": "code",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "string", "pattern": "^[a-z]+$", "maxLength": 8},
+                        },
+                        {
+                            "name": "size",
+                            "in": "query",
+                            "required": False,
+                            "schema": {
+                                "anyOf": [{"type": "integer", "exclusiveMinimum": 0}, {"type": "null"}],
+                                "default": None,
+                            },
+                        },
                     ],
+                    "requestBody": {
+                        "required": False,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Filter"}}},
+                    },
                     "responses": {
                         "200": {
                             "description": "ok",
@@ -100,6 +125,15 @@ def _document() -> dict[str, Any]:
                         "tags": {"type": "array", "items": {"$ref": "#/components/schemas/Tag"}},
                     },
                 },
+                "Filter": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {
+                        "name": {"type": "string", "minLength": 1, "maxLength": 20},
+                        "mode": {"type": "string", "enum": ["x", "y"], "default": "x"},
+                        "ids": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+                    },
+                },
                 "Tag": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}},
             }
         },
@@ -114,6 +148,7 @@ def _changed(edit: Any) -> list[str]:  # noqa: ANN401
 
 
 _OP = ("paths", "/api/v1/things", "get")
+_FILTER = ("components", "schemas", "Filter")
 _THINGS = ("components", "schemas", "Things")
 
 
@@ -121,6 +156,11 @@ def _at(document: dict[str, Any], *path: str) -> Any:  # noqa: ANN401
     for part in path:
         document = document[part]
     return document
+
+
+def _parameter(document: dict[str, Any], name: str) -> dict[str, Any]:
+    """Give the schema of a parameter of the operation by its name."""
+    return next(p for p in _at(document, *_OP)["parameters"] if p["name"] == name)["schema"]
 
 
 def test_a_document_is_not_a_break_of_itself() -> None:
@@ -214,6 +254,80 @@ def test_a_document_is_not_a_break_of_itself() -> None:
             "type changed from object to string",
             id="items",
         ),
+        pytest.param(
+            lambda d: _parameter(d, "limit").update(default=20), "default changed from 10 to 20", id="default-changed"
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "limit").pop("default"), "default changed from 10 to null", id="default-removed"
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "kind").update(default="a"), 'default changed from null to "a"', id="default-added"
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "size").update(default=5), "default changed from null to 5", id="union-default"
+        ),
+        pytest.param(lambda d: _parameter(d, "limit").update(minimum=2), "minimum became >= 2 (was >= 1)", id="min"),
+        pytest.param(
+            lambda d: _parameter(d, "limit").update(maximum=50), "maximum became <= 50 (was <= 100)", id="max"
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "limit").update(exclusiveMinimum=1), "minimum became > 1 (was >= 1)", id="min-open"
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "kind").update(maximum=9, type="string"), "maximum became <= 9", id="bound-added"
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "code").update(maxLength=4), "maxLength became 4 (was 8)", id="max-length"
+        ),
+        pytest.param(lambda d: _parameter(d, "code").update(minLength=3), "minLength became 3", id="min-length-added"),
+        pytest.param(
+            lambda d: _parameter(d, "size")["anyOf"][0].update(exclusiveMinimum=5),
+            "minimum became > 5 (was > 0)",
+            id="bound-of-an-alternative",
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "code").update(pattern="^[a-c]+$"),
+            "pattern changed from ^[a-z]+$ to ^[a-c]+$",
+            id="pattern-changed",
+        ),
+        pytest.param(
+            lambda d: _parameter(d, "kind").update(pattern="^a"), "now has the pattern ^a", id="pattern-added"
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["name"].update(maxLength=10),
+            "request body application/json.name: maxLength became 10 (was 20)",
+            id="body-max-length",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["name"].update(minLength=2),
+            "request body application/json.name: minLength became 2 (was 1)",
+            id="body-min-length",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["mode"].update(default="y"),
+            "request body application/json.mode: default changed",
+            id="body-default",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["mode"]["enum"].remove("y"),
+            'request body application/json.mode: enum members "y" were removed',
+            id="body-enum",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["ids"].update(maxItems=5),
+            "ids: maxItems became 5 (was 50)",
+            id="body-max-items",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["ids"].update(minItems=1),
+            "ids: minItems became 1",
+            id="body-min-items",
+        ),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"]["ids"]["items"].update(pattern="^[0-9]+$"),
+            "ids[]: now has the pattern ^[0-9]+$",
+            id="body-pattern-of-the-items",
+        ),
     ],
 )
 def test_a_break_is_found(edit: Any, expected: str) -> None:  # noqa: ANN401
@@ -240,8 +354,27 @@ def test_a_break_is_found(edit: Any, expected: str) -> None:  # noqa: ANN401
         pytest.param(lambda d: _at(d, *_THINGS)["properties"]["kind"]["enum"].append("c"), id="response-enum-member"),
         pytest.param(lambda d: _at(d, *_THINGS)["properties"]["size"]["anyOf"].append({"type": "string"}), id="union"),
         pytest.param(
-            lambda d: _at(d, *_THINGS)["properties"]["id"].update(description="the id", title="Id", default="x"),
-            id="description-title-default",
+            lambda d: _at(d, *_THINGS)["properties"]["id"].update(
+                description="the id", title="Id", default="x", minLength=3, pattern="^a", examples=["abc"]
+            ),
+            id="description-title-and-constraints-of-an-answer",
+        ),
+        pytest.param(lambda d: _parameter(d, "limit").update(minimum=0), id="looser-minimum"),
+        pytest.param(lambda d: _parameter(d, "limit").update(maximum=500), id="looser-maximum"),
+        pytest.param(lambda d: _parameter(d, "limit").pop("minimum"), id="minimum-dropped"),
+        pytest.param(
+            lambda d: _parameter(d, "limit").update(exclusiveMaximum=500), id="an-exclusive-bound-beyond-the-maximum"
+        ),
+        pytest.param(lambda d: _parameter(d, "code").update(maxLength=64, minLength=0), id="looser-length"),
+        pytest.param(lambda d: _parameter(d, "code").pop("pattern"), id="pattern-dropped"),
+        pytest.param(lambda d: _parameter(d, "size")["anyOf"][0].pop("exclusiveMinimum"), id="bound-of-an-alternative"),
+        pytest.param(lambda d: _parameter(d, "limit").update(description="how many", title="Limit"), id="describing"),
+        pytest.param(lambda d: _at(d, *_FILTER)["properties"]["name"].update(maxLength=40), id="body-looser-length"),
+        pytest.param(lambda d: _at(d, *_FILTER)["properties"]["mode"]["enum"].append("z"), id="body-enum-member"),
+        pytest.param(lambda d: _at(d, *_FILTER)["properties"]["ids"].update(maxItems=500, minItems=0), id="body-items"),
+        pytest.param(
+            lambda d: _at(d, *_FILTER)["properties"].update(extra={"type": "string", "minLength": 4, "default": "q"}),
+            id="body-new-member-with-constraints",
         ),
         pytest.param(lambda d: d.update(info={"title": "Wetterdienst"}, servers=[], tags=[]), id="info"),
         pytest.param(lambda d: _at(d, *_OP).update(deprecated=True), id="deprecated"),
