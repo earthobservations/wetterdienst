@@ -538,11 +538,15 @@ class EcccObservationRequest(TimeseriesRequest):
                 listed = df_raw.filter(pl.col(first).is_not_null())
             else:
                 listed = df_raw.filter(pl.col(_HAS_MONTHLY_SUMMARY.lower()) == "Y")
+            # the monthly end is not published: MLY_LAST_DATE stops at 2018-02 for every station of the list and says
+            # nothing of the rows (2992 has it 2007-11 and monthly rows to 2026-09, read 2026-10-19), so a window of
+            # recent months would leave out every station that has them (GH-3026)
+            end = pl.lit(None, dtype=pl.Datetime) if Resolution(resolution) == Resolution.MONTHLY else pl.col(last)
             data.append(
                 self._stamp_bounds(
                     listed.with_columns(
                         pl.col(first).alias("start_timestamp"),
-                        pl.col(last).alias("end_timestamp"),
+                        end.alias("end_timestamp"),
                     ).select(pl.all().exclude(not_carried)),
                     resolution=Resolution(resolution),
                 ).with_columns(

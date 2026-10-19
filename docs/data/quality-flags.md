@@ -68,10 +68,10 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | DWD mosmix, dmo | `-` for a value the run does not have (null) |
 | DWD poi | `---`, and any text that is no number (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
-| AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); any text that is no number in the daily, monthly and annual values (null) |
+| AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); `Ip` in the precipitation of the daily, monthly and annual values, a trace (0.0); any other text that is no number in the daily, monthly and annual values (null) |
 | DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
-| Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0) |
+| Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0); a trace is written 0 and has no token |
 | IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
 | IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount` and `sunshine_duration`, a trace (0.0); `0` and `990` in the hourly wind direction, calm and variable (null); `9` in the hourly `cloud_cover_total` and the daily `cloud_cover_total_mean`, the sky is invisible (null) |
@@ -82,6 +82,17 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 | SMHI | `0` in the wind directions, a calm wind (null); `113` in the hourly cloud cover, the sky is obscured (null) |
 | RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
 | NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
+
+A trace of precipitation or snow, an amount below what the gauge reads, is 0.0 in every provider whose source
+documents a trace code. Where the source writes it as a code in the value (KNMI `-1`, Météo-France synop `-0.1`,
+AEMET `Ip`) the code is the `raw:` token; where the source writes 0 and flags it, the flag stays the source's own
+(ECCC `T`, GHCN `measurement:T`, CHMI `element:T`).
+
+Geosphere writes the trace as a plain 0 in the daily `precipitation_amount` ("0=weniger als 1/10 mm" in the
+description of `rr` in the dataset's metadata, read on 2026-10-19) and sets no flag, so it cannot be told from a
+day without precipitation; its `-1` is "kein Niederschlag", none, and not a trace. Met Office was not checked, as
+the MIDAS Open archive needs a CEDA login. For the other providers the readers and field lists have no trace code;
+that is what the code says, and not every source's documentation was read for one.
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code
 already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
