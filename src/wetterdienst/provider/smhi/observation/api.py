@@ -63,16 +63,6 @@ _WIND_DIRECTION_NOT_GIVEN = Sentinel("0")
 _CLOUD_COVER_SKY_OBSCURED = Sentinel("113")
 _CLOUD_COVER_PARAMETER = "16"
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 
 def _fetch(url: str, settings: Settings, ttl: CacheExpiry = CacheExpiry.FIVE_MINUTES) -> bytes | Exception:
     """Download an SMHI resource (CSV data or the station-list JSON), returning bytes or the error.
@@ -107,7 +97,7 @@ class SmhiObservationValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, ParameterModel):
             parameters = [parameter_or_dataset]
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         data = []
@@ -116,7 +106,7 @@ class SmhiObservationValues(TimeseriesValues):
             if not df.is_empty():
                 data.append(df)
         if not data:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         return pl.concat(data)
 
     def _collect_parameter(self, station_id: str, parameter: ParameterModel, settings: Settings) -> pl.DataFrame:
@@ -154,7 +144,7 @@ class SmhiObservationValues(TimeseriesValues):
             if not df.is_empty():
                 frames.append(df)
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.concat(frames)
         if parameter.dataset.resolution.value == Resolution.DAILY:
@@ -174,13 +164,12 @@ class SmhiObservationValues(TimeseriesValues):
         if parameter.name_original == _CLOUD_COVER_PARAMETER:
             sentinels = (_CLOUD_COVER_SKY_OBSCURED,)
         value, raw = null_sentinels(pl.col("value"), *sentinels)
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the reading of
+        # the text that is left of `value` as a number
         return df.select(
-            pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
-            value.cast(pl.Float64, strict=False).alias("value"),
+            value.alias("value"),
             join_quality_flags(pl.col("quality_flags"), raw=raw),
         )
 

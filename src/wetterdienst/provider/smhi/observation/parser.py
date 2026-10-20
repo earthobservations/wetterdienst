@@ -8,12 +8,6 @@ import io
 
 import polars as pl
 
-_EMPTY_PARSED_SCHEMA = {
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.String,
-    "quality_flags": pl.String,
-}
-
 
 def parse_smhi_csv(text: str) -> pl.DataFrame:
     """Parse an SMHI observation CSV into a (timestamp, value, quality_flags) DataFrame.
@@ -37,14 +31,14 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
     # and legend blocks contain it as part of words like "Kvalitetskontrollerade" / "Kvalitetskoderna".
     header_idx = next((i for i, line in enumerate(lines) if "Kvalitet" in line.split(";")), None)
     if header_idx is None:
-        return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
+        return pl.DataFrame()
 
     header = lines[header_idx].split(";")
     quality_idx = header.index("Kvalitet")
     if quality_idx == 0:
         # the measurement column sits immediately left of "Kvalitet"; an unexpected layout with
         # "Kvalitet" first has no value column to read.
-        return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
+        return pl.DataFrame()
     value_column = header[quality_idx - 1]
 
     # SMHI's data block reuses its trailing columns for unrelated footnote text and can have
@@ -67,7 +61,7 @@ def parse_smhi_csv(text: str) -> pl.DataFrame:
     elif "Representativ månad" in header:
         date_expr = (pl.col("Representativ månad") + "-01").str.to_datetime("%Y-%m-%d", strict=False)
     else:
-        return pl.DataFrame(schema=_EMPTY_PARSED_SCHEMA)
+        return pl.DataFrame()
 
     return (
         df.select(

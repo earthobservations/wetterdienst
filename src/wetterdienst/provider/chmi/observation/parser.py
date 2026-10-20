@@ -5,7 +5,8 @@
 Observation files come in three shapes: the ``daily`` files carry a ``TIMEFUNC``/``DT`` pair, the
 sub-daily (``10_minutes``/``hourly``) files a bare ``DT``, and the ``monthly``/``annual`` files a
 ``YEAR``(+``MONTH``)/``TIMEFUNCTION`` aggregate layout. Each parser normalises to a common
-``(timestamp, parameter, value, quality_flags)`` frame.
+``(timestamp, parameter, value, quality_flags)`` frame, whose ``value`` is the text of the file: the core reads it as
+the number it writes (``shape_provider_frame``).
 """
 
 from __future__ import annotations
@@ -25,13 +26,6 @@ _EMPTY_STATIONS_SCHEMA = {
     "elevation": pl.Float64,
     "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
     "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-}
-
-_EMPTY_VALUES_SCHEMA = {
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "parameter": pl.String,
-    "value": pl.Float64,
-    "quality_flags": pl.String,
 }
 
 
@@ -113,7 +107,7 @@ def _values(date: pl.Expr, element: str, df: pl.DataFrame) -> pl.DataFrame:
     return df.select(
         date.alias("timestamp"),
         pl.lit(element, dtype=pl.String).alias("parameter"),
-        pl.col("VALUE").cast(pl.Float64, strict=False).alias("value"),
+        pl.col("VALUE").alias("value"),
         join_quality_flags(quality, element=element_flag, repeat=repeat, interrupted=interrupted),
     )
 
@@ -127,10 +121,10 @@ def parse_chmi_values_daily(content: bytes, element: str, timefunc: str) -> pl.D
     """
     df = pl.read_csv(content, has_header=True, infer_schema_length=0)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     df = df.filter(pl.col("TIMEFUNC") == timefunc)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     date = pl.col("DT").str.to_datetime(_DATE_FORMAT, time_unit="us").dt.replace_time_zone("UTC").dt.truncate("1d")
     return _values(date, element, df)
 
@@ -143,7 +137,7 @@ def parse_chmi_values_subdaily(content: bytes, element: str) -> pl.DataFrame:
     """
     df = pl.read_csv(content, has_header=True, infer_schema_length=0)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     date = pl.col("DT").str.to_datetime(_DATE_FORMAT, time_unit="us").dt.replace_time_zone("UTC")
     return _values(date, element, df)
 
@@ -166,10 +160,10 @@ def parse_chmi_values_aggregate(
     """
     df = pl.read_csv(content, has_header=True, infer_schema_length=0)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     df = df.filter(pl.col("TIMEFUNCTION") == timefunc, pl.col("MDFUNCTION") == mdfunc)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     month = pl.col("MONTH").cast(pl.Int32) if has_month else pl.lit(1, dtype=pl.Int32)
     date = (
         pl.date(pl.col("YEAR").cast(pl.Int32), month, 1).cast(pl.Datetime(time_unit="us")).dt.replace_time_zone("UTC")

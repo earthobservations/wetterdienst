@@ -43,16 +43,6 @@ log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.chmi.cz/meteorology/climate/historical_csv"
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # monthly/annual elements as (category, TIMEFUNCTION, MDFUNCTION): the daily value that is
 # aggregated, and how it is aggregated over the period -- the climatological mean of daily means /
 # daily maxima / daily minima, and the total for precipitation.
@@ -206,13 +196,13 @@ class ChmiObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset.dataset
             parameters = [parameter_or_dataset]
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         config = _RESOLUTION_CONFIG[dataset.resolution.value]
         # the sub-daily files are partitioned by month, so a date range is required to address them
         if config["layout"] == "subdaily" and (not self.sr.start or not self.sr.end):
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         frames: list[pl.DataFrame] = []
         for parameter in parameters:
@@ -221,18 +211,10 @@ class ChmiObservationValues(TimeseriesValues):
                 continue
             frames.extend(self._collect_element(station_id, parameter.name_original, element_config, config, settings))
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
-        df = pl.concat(frames)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("quality_flags"),
-        )
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
+        return pl.concat(frames)
 
 
 @dataclass

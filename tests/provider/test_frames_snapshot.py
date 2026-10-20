@@ -25,7 +25,6 @@ ROOT = Path(__file__).parents[2]
 # marked `synthetic_values` and recorded all the same, since the shape of the frame is what is held here. A network
 # that is in neither list is covered: its tests are in the snapshot.
 NO_VALUES_FIXTURE = {
-    "chmi/observation": "no offline test collects values; the source is a key-less CSV portal with three file layouts",
     "imgw/meteorology": "no offline test collects values; the readers are tested on their files, not the collection",
     "dwd/radar": "standalone: no `TimeseriesValues`, the files are handed over as DWD wrote them",
     "dwd/alerts": "standalone: no `TimeseriesValues`, the alerts are CAP documents",
