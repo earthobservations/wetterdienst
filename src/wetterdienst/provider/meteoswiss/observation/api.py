@@ -120,16 +120,12 @@ class MeteoswissObservationValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the
+        # reading of the value as a number
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("reference_timestamp")
-            .str.to_datetime("%d.%m.%Y %H:%M", strict=False)
-            .dt.replace_time_zone("UTC")
-            .alias("timestamp"),
-            pl.col("value").cast(pl.Float64, strict=False),
+            pl.col("reference_timestamp").str.to_datetime("%d.%m.%Y %H:%M", strict=False).alias("timestamp"),
+            pl.col("value"),
         )
 
 

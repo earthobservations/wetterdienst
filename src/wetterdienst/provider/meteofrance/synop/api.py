@@ -195,15 +195,10 @@ class MeteoFranceSynopValues(TimeseriesValues):
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,
         )
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("validity_time")
-            .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False)
-            .dt.replace_time_zone("UTC")
-            .alias("timestamp"),
+            pl.col("validity_time").str.to_datetime("%Y-%m-%dT%H:%M:%SZ", strict=False).alias("timestamp"),
             value.alias("value"),
             join_quality_flags(None, raw=raw),
         )
