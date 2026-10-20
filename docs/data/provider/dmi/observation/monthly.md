@@ -30,4 +30,4 @@
 | {term}`temperature_air_min_2m_mean` | mean_daily_min_temp        | Mean of the daily minimum air temperature at 2 m above ground over the period.                                                     | °C   |
 | {term}`humidity_relative_max`       | max_relative_hum           | Highest relative humidity over the period.                                                                                         | %    |
 | {term}`humidity_relative_min`       | min_relative_hum           | Lowest relative humidity over the period.                                                                                          | %    |
-| {term}`precipitation_amount_max`    | max_precip_24h             | Greatest precipitation depth recorded in any single interval of the period.                                                        | mm   |
+| {term}`precipitation_amount_max`    | max_precip_24h             | Largest daily precipitation total of the month, the highest of the underlying daily values.                                        | mm   |

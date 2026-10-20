@@ -38,6 +38,6 @@
 | {term}`temperature_air_max_2m` | tlmax | air temperature max at 2m | °C | - |
 | {term}`temperature_air_mean_minmax_2m` | tl_mittel | air temperature mean at 2m, calculated from (tlmax + tlmin)/2 | °C | - |
 | {term}`temperature_air_min_2m` | tlmin | air temperature min at 2m | °C | - |
-| {term}`temperature_air_min_0_05m` | tsmin | air temperature min at 0.05m | °C | - |
+| {term}`temperature_air_min_0_05m_night` | tsmin | air temperature min at 0.05m at night (18 UTC of the previous day to 06 UTC) | °C | - |
 | {term}`wind_gust_max` | ffx | wind gust max | m/s | - |
 | {term}`wind_speed_mean` | vv_mittel | wind speed | m/s | - |

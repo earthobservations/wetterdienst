@@ -65,6 +65,7 @@ export const parameters: Record<string, string> = {
   // Precipitation
   precipitation_amount: 'Precipitation amount',
   precipitation_amount_max: 'Maximum precipitation amount',
+  precipitation_amount_max_30min: 'Maximum precipitation amount (30 min)',
   precipitation_form: 'Precipitation form',
   precipitation_type_flags: 'Precipitation type flags',
   precipitation_duration: 'Precipitation duration',
@@ -85,6 +86,7 @@ export const parameters: Record<string, string> = {
   // Snow
   snow_depth: 'Snow depth',
   snow_depth_mean: 'Mean snow depth',
+  snow_depth_sum: 'Sum of daily snow depths',
   snow_depth_new: 'Fresh snow depth',
   water_equivalent_snow_depth: 'Snow water equivalent',
 
@@ -567,6 +569,8 @@ export const parameters: Record<string, string> = {
   pressure_air_site_min: 'Minimum air pressure at station height',
   pressure_air_site_reduced: 'Air pressure reduced to sea level (standard atmosphere)',
   radiation_global_last_3h: 'Global radiation (last 3 h)',
+  radiation_long_wave_net_last_3h: 'Net long-wave radiation (last 3 h)',
+  radiation_short_wave_net_last_3h: 'Net short-wave radiation (last 3 h)',
   radiation_sky_long_wave_last_3h: 'Downward long-wave radiation (last 3 h)',
   radiation_sky_short_wave_direct: 'Direct short-wave radiation',
   road_surface_condition: 'Road surface condition',
@@ -598,6 +602,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_minmax_2m: 'Mean air temperature from the daily extremes (2 m)',
   temperature_air_mean_minmax_2m_normal: 'Air temperature (2 m), climate normal',
   temperature_air_min_0_05m_last_12h: 'Minimum temperature near ground (5 cm, last 12 h)',
+  temperature_air_min_0_05m_night: 'Night minimum temperature near ground (5 cm)',
   temperature_air_min_0_05m_yesterday: 'Minimum temperature near ground (5 cm), previous day',
   temperature_air_min_2m_last_24h: 'Minimum temperature (2 m, last 24 h)',
   temperature_air_min_2m_yesterday: 'Minimum temperature (2 m), previous day',

@@ -76,6 +76,9 @@ moisture ...) says in its name which statistic the number is, and the rule is th
 | `_mean_last_10min` | the mean of a window shorter than the interval, stated by the source | `wind_speed_mean_last_10min` |
 | `_max`, `_min` | the largest or smallest value of the interval | `temperature_air_max_2m`, `wind_gust_max` |
 | a statistic after the whole name | a statistic of the daily statistics | `temperature_air_max_2m_mean` |
+| `_sum` | the sum of the daily values of the period, of a quantity that is a reading at one moment: a sum with a unit of its own (cm times days), no total by nature | `snow_depth_sum` |
+| `_net` | the balance of a downward and an upward flux, positive downward into the surface: no incoming radiation | `radiation_short_wave_net_last_3h`, `radiation_long_wave_net_last_3h` |
+| a part of the day after the extreme | the extreme within 30 minutes or within the night, where the plain `_max` or `_min` is that of the whole interval | `precipitation_amount_max_30min`, `temperature_air_min_0_05m_night` |
 
 The statistic comes straight after the quantity and before the height, depth or ground cover
 (`temperature_soil_mean_loamy_sand_0_05m`), and before a window (`temperature_air_mean_2m_last_24h`). A total over
@@ -344,6 +347,30 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | rmi/observation | daily/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
 | rmi/observation | hourly/data | `short_wave_from_sky_avg` | `radiation_global_intensity` | `radiation_global_intensity_mean` |
 
+
+### Renamed for what the number is
+
+GH-2614 asked of each row whether its name says what the source's number is, and not only its statistic. Four names
+did not. A name that is no longer declared by a dataset is refused with the new one named, as above, and a dataset that
+keeps the old name for another row (`snow_depth` of the daily DWD rows, `precipitation_amount_max` of the monthly and
+annual DMI rows) still answers to it there.
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| dwd/dmo | hourly/icon | `rads3` | `radiation_global_last_3h` | `radiation_short_wave_net_last_3h` | DWD: "Short wave radiation balance during the last 3 hours" |
+| dwd/dmo | hourly/icon | `radl3` | `radiation_sky_long_wave_last_3h` | `radiation_long_wave_net_last_3h` | DWD: "Long wave radiation balance during the last 3 hours" |
+| dwd/observation | monthly/precipitation_more | `mo_sh_s` | `snow_depth` | `snow_depth_sum` | the monthly sum of the daily snow depths, in cm times days |
+| dwd/observation | annual/precipitation_more | `ja_sh_s` | `snow_depth` | `snow_depth_sum` | the annual sum of the daily snow depths |
+| geosphere/observation | daily/data | `tsmin` | `temperature_air_min_0_05m` | `temperature_air_min_0_05m_night` | Geosphere: "Lufttemperatur 5cm Nachtminimum (18 UTC Vortag bis 6 UTC)" |
+| dmi/observation | daily/data | `max_precip_30m` | `precipitation_amount_max` | `precipitation_amount_max_30min` | the largest 30 minutes of the day, counted from 23:31 local time of the previous day |
+
+The two DMO names are net balances, positive downward into the surface. Read off the 3-hourly ICON run of
+2026-10-20 00 UTC (5,894 stations): `RadS3` is 0.87 of the global radiation `Rad3h` at the median where that is above
+50 J/cm² (never more than 0.95), which is the share the surface absorbs, and 99.7 % of the 182,714 values of `RadL3` are
+negative, down to -3,573 kJ/m², because the surface emits more long-wave radiation than the sky returns. The unit of
+each stays as it was declared, `rads3` in J/cm² and `radl3` in kJ/m², which differ inside one file; with the default
+unit targets both come back in J/cm². The 10-minute and hourly `tsmin` of Geosphere stay
+`temperature_air_min_0_05m`: they are the minimum of their interval.
 
 ## Glossary
 

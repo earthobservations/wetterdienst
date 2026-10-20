@@ -1252,7 +1252,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "tl_mittel"): "air temperature mean at 2m, calculated from (tlmax + tlmin)/2",
         ("daily", "data", "tlmax"): "air temperature max at 2m",
         ("daily", "data", "tlmin"): "air temperature min at 2m",
-        ("daily", "data", "tsmin"): "air temperature min at 0.05m",
+        ("daily", "data", "tsmin"): "air temperature min at 0.05m at night (18 UTC of the previous day to 06 UTC)",
         ("daily", "data", "vv_mittel"): "wind speed",
         ("hourly", "data", "cglo"): "global radiation",
         ("hourly", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
@@ -2752,6 +2752,20 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "TL"): "Temperature 2m above surface.",
     },
     "DmiObservationMetadata": {
+        # DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data): "Maximum 30 minutes intensity in
+        # 24 hours with date", "is found by inspecting the period from 23:31 local time to the previous day to 24.00
+        # local time of the respective day"; "Maximum 24-hour precipitation with associated date", "the highest of
+        # the underlying daily values of acc_precip" (GH-2614)
+        ("daily", "data", "max_precip_30m"): (
+            "Largest precipitation depth in any 30 minutes of the day, found from 23:31 local time of the previous "
+            "day to 24:00 local time of the day."
+        ),
+        ("monthly", "data", "max_precip_24h"): (
+            "Largest daily precipitation total of the month, the highest of the underlying daily values."
+        ),
+        ("annual", "data", "max_precip_24h"): (
+            "Largest daily precipitation total of the year, the highest of the underlying daily values."
+        ),
         ("annual", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
         ("daily", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,
         ("hourly", "data", "mean_wind_dir"): _DMI_MEAN_WIND_DIRECTION,

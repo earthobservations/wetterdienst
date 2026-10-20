@@ -13,7 +13,7 @@ short one ends -- it is not a 3-hourly grid over the whole 168 hours.
 Which parameters a run carries depends on that lead time. Each run carries the same 21 elements, except that the
 3-hourly run substitutes the 3-hourly radiation and precipitation fields for their 1-hourly counterparts. `icon`
 declares both families, so with the default `lead_time="short"` the four 3-hourly parameters
-(`precipitation_amount_last_3h`, `radiation_global_last_3h`, `radiation_sky_long_wave_last_3h` and
+(`precipitation_amount_last_3h`, `radiation_short_wave_net_last_3h`, `radiation_long_wave_net_last_3h` and
 `water_equivalent_snow_depth_new_last_3h`) are not carried, and with `lead_time="long"` the three 1-hourly ones
 (`precipitation_amount_last_1h`, `radiation_global` and `water_equivalent_snow_depth_new_last_1h`) are not
 either. Asking for the values of one of those by name raises a `ParameterNotCarriedError` naming the lead time

@@ -1739,7 +1739,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "snow_depth",
+                            "name": "snow_depth_sum",
                             "name_original": "mo_sh_s",
                             "unit": "centimeter",
                         },
@@ -1992,7 +1992,7 @@ _DwdObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "snow_depth",
+                            "name": "snow_depth_sum",
                             "name_original": "ja_sh_s",
                             "unit": "centimeter",
                         },

@@ -337,7 +337,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "temperature_air_min_0_05m",
+                            "name": "temperature_air_min_0_05m_night",
                             "name_original": "tsmin",
                             "unit": "degree_celsius",
                         },

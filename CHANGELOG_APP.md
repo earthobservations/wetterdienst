@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` Five parameters have labels in all eleven languages (GH-2614):
+  `radiation_short_wave_net_last_3h`, `radiation_long_wave_net_last_3h`, `snow_depth_sum`,
+  `temperature_air_min_0_05m_night`, `precipitation_amount_max_30min`. Needs the backend that
+  serves them: release the backend first. The Low German and Luxembourgish labels are not reviewed
+  by a native speaker
+
 ## [0.27.0] - 2026-10-20
 
 ### Changed

@@ -82,8 +82,8 @@ _HEATING_DEGREE_DAY = {
 _DAILY_PARAMETERS = [
     *_BASE_PARAMETERS,
     {
-        # maximum 30-minute precipitation within the day
-        "name": "precipitation_amount_max",
+        # maximum 30-minute precipitation within the day, from 23:31 local time of the previous day (GH-2614)
+        "name": "precipitation_amount_max_30min",
         "name_original": "max_precip_30m",
         "unit": "millimeter",
     },

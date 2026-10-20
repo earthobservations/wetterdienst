@@ -104,7 +104,7 @@
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`snow_depth_new` | mo_nsh | Monthly sum of daily fresh snow. | cm | >=0 |
 | {term}`precipitation_amount` | mo_rr | Monthly sum of precipitation height. | mm | >=0 |
-| {term}`snow_depth` | mo_sh_s | Monthly sum of daily height of snow pack. | cm | >=0 |
+| {term}`snow_depth_sum` | mo_sh_s | Monthly sum of daily height of snow pack. | cm | >=0 |
 | {term}`precipitation_amount_max` | mx_rs | Monthly maximum of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena

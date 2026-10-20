@@ -680,7 +680,34 @@ _MEAN_REST_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
 }
 
 
-_merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET, _MEAN_REST_IN_DATASET)
+# GH-2614: a name that says what the source's number is, for a name another dataset of the provider keeps
+_WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    # DMO's `RadS3` and `RadL3` are the "short wave" and "long wave radiation balance during the last 3 hours"
+    # (MetElementDefinition.xml), net balances, no global radiation and no radiation from the sky. The old names stay
+    # in the table: `radiation_global_last_3h` is what the global radiation of the same 3 hours (`Rad3h`) is called
+    "DwdDmoMetadata": {
+        ("hourly", "icon"): {
+            "radiation_global_last_3h": "radiation_short_wave_net_last_3h",
+            "radiation_sky_long_wave_last_3h": "radiation_long_wave_net_last_3h",
+        },
+    },
+    # `max_precip_30m` is the largest 30 minutes of the day, `max_precip_24h` of the monthly and annual rows the largest
+    # day of the month or the year: both were `precipitation_amount_max`
+    "DmiObservationMetadata": {("daily", "data"): {"precipitation_amount_max": "precipitation_amount_max_30min"}},
+    # `MO_SH_S` and `JA_SH_S` are the monthly and the annual sum of the daily snow depths ("Monatssumme der taegl.
+    # Schneehoehe"), no depth of snow
+    "DwdObservationMetadata": {
+        ("monthly", "precipitation_more"): {"snow_depth": "snow_depth_sum"},
+        ("annual", "precipitation_more"): {"snow_depth": "snow_depth_sum"},
+    },
+    # `tsmin` of the daily file is the night minimum, 18:10 UTC of the previous day to 06:00 UTC; the 10-minute and the
+    # hourly ones are readings of their interval
+    "GeosphereObservationMetadata": {
+        ("daily", "data"): {"temperature_air_min_0_05m": "temperature_air_min_0_05m_night"}
+    },
+}
+
+_merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET, _MEAN_REST_IN_DATASET, _WHAT_IT_IS_IN_DATASET)
 
 #: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
 #: value is refused with the new one named

@@ -122,6 +122,17 @@ def _phase(event: str) -> str:
     return f"Day {event}, as DWD's Jultag count (not always the day of the year)."
 
 
+# Two words of a name that say what the number is, where it is neither a reading nor the total of the interval
+# (GH-2614):
+#
+# - ``_sum``: the sum of the daily values of the period, a quantity that is a reading of a moment by nature and
+#   has no unit of its own as a sum. ``snow_depth_sum`` is the sum of the daily snow depths of a month, in cm times
+#   days. A total of the interval (``precipitation_amount``) needs no word, as it is a total by nature.
+# - ``_net``: the balance of a downward and an upward flux, positive downward into the surface, as in
+#   ``radiation_short_wave_net_last_3h``. It is no incoming radiation (``radiation_global``); the long-wave balance
+#   is mostly negative, the surface losing more than the sky returns.
+#
+# Both stand straight after the quantity and before a window (``_last_3h``), as the statistic does.
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter("chloride_concentration", "concentration", "Concentration of chloride dissolved in the water."),
     CanonicalParameter(
@@ -886,6 +897,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         zero_inflated=True,
     ),
     CanonicalParameter(
+        "precipitation_amount_max_30min",
+        "precipitation",
+        "Greatest precipitation depth recorded in any 30 minutes of the period.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+    ),
+    CanonicalParameter(
         "precipitation_amount_multiday",
         "precipitation",
         "Depth of precipitation over several days, reported as one total.",
@@ -1532,6 +1550,20 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "radiation_global_uncertainty", "energy_per_area", "Uncertainty attached to the reported global radiation."
     ),
     CanonicalParameter(
+        "radiation_long_wave_net_last_3h",
+        "energy_per_area",
+        "Net long-wave radiation balance over the preceding 3 hours: the long-wave radiation the surface "
+        "receives from the sky minus the one it emits, positive downward into the surface and mostly negative.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "radiation_short_wave_net_last_3h",
+        "energy_per_area",
+        "Net short-wave radiation balance over the preceding 3 hours: the short-wave radiation the surface "
+        "absorbs, the incoming minus the reflected, positive downward into the surface.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
         "radiation_sky_long_wave",
         "energy_per_area",
         "Downward long-wave radiation from the sky, accumulated as energy over the interval.",
@@ -1587,7 +1619,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "snow_depth",
         "length_short",
         "Depth of the snow lying on the ground, where the source states no statistic or a reading at one "
-        "moment; the stated mean is `snow_depth_mean`.",
+        "moment; the stated mean is `snow_depth_mean`, the sum of the daily depths `snow_depth_sum`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1600,6 +1632,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "snow_depth_sampled",
         "length_short",
         "Depth of the snow cut out as a sample to measure its water equivalent.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "snow_depth_sum",
+        "length_short",
+        "Sum of the daily depths of the snow lying on the ground over the days of the period, in cm times days.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1971,6 +2009,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_air_min_0_05m_last_12h",
         "temperature",
         "Minimum air temperature at 0.05 m above ground over the preceding 12 hours.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "temperature_air_min_0_05m_night",
+        "temperature",
+        "Minimum air temperature at 0.05 m above ground over the night, from 18 UTC of the previous day to 06 UTC.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
