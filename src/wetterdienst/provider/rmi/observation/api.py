@@ -367,10 +367,7 @@ class RmiObservationRequest(TimeseriesRequest):
             )
             for resolution, dataset in sorted(resolutions_and_datasets)
         ]
-        df = pl.concat(data)
-        return df.select(
-            pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns
-        ).lazy()
+        return pl.concat(data).lazy()
 
 
 def _quality_long(df: pl.DataFrame, param_names: list[str]) -> pl.DataFrame:

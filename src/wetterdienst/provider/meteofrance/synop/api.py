@@ -252,7 +252,7 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
         )
         df = df.lazy()
         df = df.with_columns(
-            pl.col("start_timestamp").str.to_datetime("%Y-%m-%d", strict=False).dt.replace_time_zone("UTC"),
+            pl.col("start_timestamp").str.to_datetime("%Y-%m-%d", strict=False),
         )
         # self.parameters is parsed at runtime to a list[ParameterModel], but the static type of
         # the attribute is a union of input forms; cast here so the typechecker understands we

@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.request import shape_stations_frame
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
@@ -123,7 +124,9 @@ def test_smhi_station_lists_that_all_arrive_are_read(monkeypatch: pytest.MonkeyP
     """The control for the failures above: the same stubs without a failure give the stations."""
     _serve_smhi(monkeypatch, {})
 
-    assert _smhi().collect()["station_id"].to_list() == ["1"]
+    # the id is whatever the list writes (a number); the core gives the stations frame, whose id is text
+    stations = shape_stations_frame(_smhi().collect(), columns=smhi_api.SmhiObservationRequest._base_columns)  # noqa: SLF001
+    assert stations["station_id"].to_list() == ["1"]
 
 
 @pytest.mark.parametrize("failing", [[0, 1], [0], [1]])
