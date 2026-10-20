@@ -42,3 +42,16 @@ export function pinnedUnitTargets(
   }
   return targets
 }
+
+const UNIT_SYMBOLS: Record<string, string> = {
+  degree_celsius: '°C',
+  degree_kelvin: 'K',
+  degree_fahrenheit: '°F',
+  millimeter: 'mm',
+  liter_per_square_meter: 'l/m²',
+}
+
+/** The symbol a unit is written with next to a number (`degree_celsius` is `°C`), the unit's name with spaces for any other */
+export function unitSymbol(unit: string): string {
+  return UNIT_SYMBOLS[unit] ?? unit.replaceAll('_', ' ')
+}

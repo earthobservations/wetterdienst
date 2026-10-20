@@ -13,7 +13,8 @@
     "stationSearch": "Rechercher par nom ou identifiant de station (p. ex. München, 10738)",
     "requestFailed": "La requête a échoué",
     "backendError": "Erreur du backend {status}",
-    "backendErrorDetail": "Erreur du backend {status} : {detail}"
+    "backendErrorDetail": "Erreur du backend {status} : {detail}",
+    "chartTableHint": "Les valeurs figurent dans le tableau sous le graphique."
   },
   "home": {
     "tagline": "Données météo ouvertes pour les humains",
@@ -391,7 +392,10 @@
       "axisPrecip": "Précip. mm",
       "axisCloud": "Nuages %",
       "axisTemp": "Temp. °C",
-      "axisPressure": "Pression hPa"
+      "axisPressure": "Pression hPa",
+      "tableTime": "Heure ({zone})",
+      "summaryRange": "Prévision du {from} au {to}.",
+      "summaryTemperature": "Température de {min} à {max} °C."
     },
     "orChooseMap": "ou",
     "chooseOnMap": "Choisir une station sur la carte",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Choisir sur la carte",
     "mapHint": "Touche un point sur la carte pour choisir cette station.",
     "hoverValue": "Valeur",
-    "hoverTrend": "Tendance"
+    "hoverTrend": "Tendance",
+    "summary": "Du {from} au {to}. Valeur la plus basse : {min} en {minYear}, la plus haute : {max} en {maxYear}.",
+    "table": {
+      "year": "Année",
+      "value": "Valeur",
+      "class": "Classe",
+      "note": {
+        "temperature": "Classe : position de l'année entre l'année la plus fraîche et la plus chaude affichées, en cinquièmes. C'est la couleur de sa bande, du bleu foncé (la plus fraîche) au rouge foncé (la plus chaude).",
+        "precipitation": "Classe : position de l'année entre l'année la plus sèche et la plus humide affichées, en cinquièmes. C'est la couleur de sa bande, du brun (la plus sèche) au vert foncé (la plus humide)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Beaucoup plus frais",
+          "low": "Plus frais",
+          "middle": "Moyen",
+          "high": "Plus chaud",
+          "veryHigh": "Beaucoup plus chaud"
+        },
+        "precipitation": {
+          "veryLow": "Beaucoup plus sec",
+          "low": "Plus sec",
+          "middle": "Moyen",
+          "high": "Plus humide",
+          "veryHigh": "Beaucoup plus humide"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Explorateur",

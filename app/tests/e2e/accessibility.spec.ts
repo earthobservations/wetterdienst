@@ -266,6 +266,27 @@ const STATES: State[] = [
     },
   },
   {
+    page: 'stripes',
+    state: 'table-shown',
+    path: '/stripes?kind=temperature&station=00011',
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(plotly(page)).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram',
+    state: 'table-shown',
+    path: '/meteogram?station=01001',
+    reach: async (page, locale) => {
+      await expect(plotly(page)).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
     page: 'meteogram',
     state: 'compact-view',
     path: '/meteogram?station=01001&compact=true',
@@ -560,6 +581,130 @@ test.describe('keyboard operation', () => {
     await expect(dialog).toBeHidden()
     await expect(hamburger).toBeFocused()
   })
+})
+
+// Plotly's modebar (zoom, pan, reset) is the keyboard's way to move around a chart (WCAG 2.1.1). Its buttons
+// are native buttons in the Plotly the app ships; this holds them to being so on an upgrade.
+test.describe('chart controls by keyboard', () => {
+  test.describe.configure({ timeout: 60_000 })
+  const variant: Variant = { mode: 'light', locale: 'en' }
+
+  test.beforeEach(async ({ context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+  })
+
+  test('the modebar of the stripes is reached by Tab, named, and operated by Enter and Space', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(plotly(page)).toBeVisible()
+
+    const buttons = page.locator('.js-plotly-plot .modebar-btn')
+    const count = await buttons.count()
+    expect(count).toBeGreaterThan(3)
+    // every one is a control in the tab order with a name of its own
+    const names = await buttons.evaluateAll(nodes => nodes.map(node => ({
+      role: node.getAttribute('role') ?? node.tagName.toLowerCase(),
+      tabindex: (node as HTMLElement).tabIndex,
+      name: node.getAttribute('aria-label'),
+    })))
+    for (const button of names) {
+      expect(['button', 'a']).toContain(button.role)
+      expect(button.tabindex).toBeGreaterThanOrEqual(0)
+      expect(button.name).toBeTruthy()
+    }
+    expect(new Set(names.map(button => button.name)).size).toBe(count)
+
+    // Tab walks through the modebar, button by button in order, and on to the download menu after the chart
+    const focusedName = () => page.evaluate(() => document.activeElement?.closest('.modebar') ? document.activeElement.getAttribute('aria-label') : null)
+    await buttons.first().focus()
+    const reached = [await focusedName()]
+    for (let stop = 1; stop < count; stop++) {
+      await page.keyboard.press('Tab')
+      reached.push(await focusedName())
+    }
+    expect(reached).toEqual(names.map(button => button.name))
+    // and on to the table of the values, below the chart
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toBeFocused()
+
+    // "Pan" is a toggle: Enter turns it on, and the button says so by its class
+    const pan = page.locator('.js-plotly-plot .modebar-btn[data-attr="dragmode"][data-val="pan"]')
+    await pan.focus()
+    await page.keyboard.press('Enter')
+    await expect(pan).toHaveClass(/active/)
+    // Reset axes by Space leaves the chart drawn
+    await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]').focus()
+    await page.keyboard.press('Space')
+    await expect(plotly(page)).toBeVisible()
+  })
+
+  test('the modebar of the explorer\'s chart is in the tab order and named', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, EXPLORER_WITH_STATION, variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(page.getByRole('table').first()).toBeVisible()
+    await page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true }).click()
+    await expect(plotly(page)).toBeVisible()
+
+    // the buttons; the Plotly logo is a link, which its icon names
+    const buttons = page.locator('.js-plotly-plot .modebar-btn:not(.modebar-btn--logo)')
+    expect(await buttons.count()).toBeGreaterThan(3)
+    const unreachable = await buttons.evaluateAll(nodes => nodes
+      .filter(node => (node as HTMLElement).tabIndex < 0 || !node.getAttribute('aria-label'))
+      .map(node => node.getAttribute('data-title') ?? node.outerHTML.slice(0, 80)))
+    expect(unreachable, 'modebar buttons outside the tab order or without a name').toEqual([])
+    // the first is reached by Tab, and takes the focus
+    await buttons.first().focus()
+    await expect(buttons.first()).toBeFocused()
+  })
+
+  // what the stripes and the forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  for (const { page: name, path, ready } of [
+    { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
+      await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+      await expect(plotly(page)).toBeVisible()
+    } },
+    { page: 'meteogram', path: '/meteogram?station=01001', ready: async (page: Page) => {
+      await expect(plotly(page)).toBeVisible()
+    } },
+  ]) {
+    test(`the chart of the ${name} page has its values as a table, opened and read by keys`, async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await open(page, path, variant)
+      await ready(page)
+
+      // the chart is described by a sentence that exists, and the table is not in the page before it is asked for
+      const figure = page.getByRole('figure')
+      await expect(figure).toHaveAttribute('aria-describedby', /\S/)
+      const described = (await figure.getAttribute('aria-describedby'))!
+      await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
+      await expect(page.getByRole('table')).toHaveCount(0)
+
+      const trigger = page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      await trigger.focus()
+      await page.keyboard.press('Enter')
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+      const table = page.getByRole('table')
+      await expect(table).toBeVisible()
+      await expect(table.getByRole('rowheader').first()).toHaveText(/\S/)
+      expect(await table.getByRole('row').count()).toBeGreaterThan(10)
+
+      // the box that scrolls takes the focus by Tab, so that the keys scroll it
+      await page.keyboard.press('Tab')
+      const region = page.getByRole('region', { name: await figure.getAttribute('aria-label') ?? '' })
+      await expect(region).toBeFocused()
+      const before = await region.evaluate(node => node.scrollTop)
+      await page.keyboard.press('PageDown')
+      await expect.poll(() => region.evaluate(node => node.scrollTop)).toBeGreaterThan(before)
+
+      await trigger.focus()
+      await page.keyboard.press('Space')
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      await expect(page.getByRole('table')).toHaveCount(0)
+    })
+  }
 })
 
 // Page titles (WCAG 2.4.2): axe only asks that a page has one. Every page names itself, in the language

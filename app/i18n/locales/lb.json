@@ -13,7 +13,8 @@
     "stationSearch": "No Numm oder Statiouns-ID sichen (z.B. München, 10738)",
     "requestFailed": "Ufro huet net geklappt",
     "backendError": "Backend-Feeler {status}",
-    "backendErrorDetail": "Backend-Feeler {status}: {detail}"
+    "backendErrorDetail": "Backend-Feeler {status}: {detail}",
+    "chartTableHint": "D'Wäerter stinn an der Tabell ënner dem Diagramm."
   },
   "home": {
     "tagline": "Oppen Wiederdaten fir d'Mënsche",
@@ -391,7 +392,10 @@
       "axisPrecip": "Néierschlag mm",
       "axisCloud": "Wolleken %",
       "axisTemp": "Temp. °C",
-      "axisPressure": "Drock hPa"
+      "axisPressure": "Drock hPa",
+      "tableTime": "Zäit ({zone})",
+      "summaryRange": "Prognos vum {from} bis {to}.",
+      "summaryTemperature": "Temperatur vun {min} bis {max} °C."
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Wiel eng Statioun op der Kaart",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Op der Kaart auswielen",
     "mapHint": "Tipp op e Punkt op der Kaart, fir déi Statioun ze wielen.",
     "hoverValue": "Wäert",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "Vun {from} bis {to}. Niddregste Wäert {min} am Joer {minYear}, héchste Wäert {max} am Joer {maxYear}.",
+    "table": {
+      "year": "Joer",
+      "value": "Wäert",
+      "class": "Klass",
+      "note": {
+        "temperature": "Klass: Wou d'Joer tëscht dem kéelste an dem waarmste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vun Donkelblo (kéelst) bis Donkelrout (waarmst).",
+        "precipitation": "Klass: Wou d'Joer tëscht dem dréchenste an dem naassste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vu Brong (dréchenst) bis Donkelgréng (naassst)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Vill méi kéel",
+          "low": "Méi kéel",
+          "middle": "Mëttel",
+          "high": "Méi waarm",
+          "veryHigh": "Vill méi waarm"
+        },
+        "precipitation": {
+          "veryLow": "Vill méi dréchen",
+          "low": "Méi dréchen",
+          "middle": "Mëttel",
+          "high": "Méi naass",
+          "veryHigh": "Vill méi naass"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Explorer",

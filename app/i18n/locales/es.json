@@ -13,7 +13,8 @@
     "stationSearch": "Buscar por nombre o ID de estación (p. ej. München, 10738)",
     "requestFailed": "La solicitud ha fallado",
     "backendError": "Error del backend {status}",
-    "backendErrorDetail": "Error del backend {status}: {detail}"
+    "backendErrorDetail": "Error del backend {status}: {detail}",
+    "chartTableHint": "Los valores están en la tabla debajo del gráfico."
   },
   "home": {
     "tagline": "Datos meteorológicos abiertos para las personas",
@@ -391,7 +392,10 @@
       "axisPrecip": "Precip. mm",
       "axisCloud": "Nubes %",
       "axisTemp": "Temp. °C",
-      "axisPressure": "Presión hPa"
+      "axisPressure": "Presión hPa",
+      "tableTime": "Hora ({zone})",
+      "summaryRange": "Pronóstico del {from} al {to}.",
+      "summaryTemperature": "Temperatura de {min} a {max} °C."
     },
     "orChooseMap": "o",
     "chooseOnMap": "Elegir una estación en el mapa",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Elegir en el mapa",
     "mapHint": "Toca un punto en el mapa para elegir esa estación.",
     "hoverValue": "Valor",
-    "hoverTrend": "Tendencia"
+    "hoverTrend": "Tendencia",
+    "summary": "De {from} a {to}. Valor más bajo: {min} en {minYear}; valor más alto: {max} en {maxYear}.",
+    "table": {
+      "year": "Año",
+      "value": "Valor",
+      "class": "Clase",
+      "note": {
+        "temperature": "Clase: dónde se sitúa el año entre el año más fresco y el más cálido mostrados, en quintos. Es el color de su franja, del azul oscuro (más fresco) al rojo oscuro (más cálido).",
+        "precipitation": "Clase: dónde se sitúa el año entre el año más seco y el más húmedo mostrados, en quintos. Es el color de su franja, del marrón (más seco) al verde oscuro (más húmedo)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Mucho más fresco",
+          "low": "Más fresco",
+          "middle": "Medio",
+          "high": "Más cálido",
+          "veryHigh": "Mucho más cálido"
+        },
+        "precipitation": {
+          "veryLow": "Mucho más seco",
+          "low": "Más seco",
+          "middle": "Medio",
+          "high": "Más húmedo",
+          "veryHigh": "Mucho más húmedo"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Explorador",

@@ -13,7 +13,8 @@
     "stationSearch": "Szukaj według nazwy lub identyfikatora stacji (np. München, 10738)",
     "requestFailed": "Żądanie nie powiodło się",
     "backendError": "Błąd backendu {status}",
-    "backendErrorDetail": "Błąd backendu {status}: {detail}"
+    "backendErrorDetail": "Błąd backendu {status}: {detail}",
+    "chartTableHint": "Wartości są w tabeli pod wykresem."
   },
   "home": {
     "tagline": "Otwarte dane pogodowe dla ludzi",
@@ -391,7 +392,10 @@
       "axisPrecip": "Opady mm",
       "axisCloud": "Chmury %",
       "axisTemp": "Temp. °C",
-      "axisPressure": "Ciśnienie hPa"
+      "axisPressure": "Ciśnienie hPa",
+      "tableTime": "Czas ({zone})",
+      "summaryRange": "Prognoza od {from} do {to}.",
+      "summaryTemperature": "Temperatura od {min} do {max} °C."
     },
     "orChooseMap": "lub",
     "chooseOnMap": "Wybierz stację na mapie",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Wybierz na mapie",
     "mapHint": "Dotknij punktu na mapie, aby wybrać tę stację.",
     "hoverValue": "Wartość",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "Od {from} do {to}. Najniższa wartość {min} w roku {minYear}, najwyższa {max} w roku {maxYear}.",
+    "table": {
+      "year": "Rok",
+      "value": "Wartość",
+      "class": "Klasa",
+      "note": {
+        "temperature": "Klasa: miejsce roku między najchłodniejszym a najcieplejszym z pokazanych lat, w piątych częściach. To kolor jego paska, od ciemnoniebieskiego (najchłodniejszy) do ciemnoczerwonego (najcieplejszy).",
+        "precipitation": "Klasa: miejsce roku między najsuchszym a najbardziej wilgotnym z pokazanych lat, w piątych częściach. To kolor jego paska, od brązowego (najsuchszy) do ciemnozielonego (najbardziej wilgotny)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Znacznie chłodniejszy",
+          "low": "Chłodniejszy",
+          "middle": "Średni",
+          "high": "Cieplejszy",
+          "veryHigh": "Znacznie cieplejszy"
+        },
+        "precipitation": {
+          "veryLow": "Znacznie suchszy",
+          "low": "Suchszy",
+          "middle": "Średni",
+          "high": "Bardziej wilgotny",
+          "veryHigh": "Znacznie bardziej wilgotny"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Eksplorator",
