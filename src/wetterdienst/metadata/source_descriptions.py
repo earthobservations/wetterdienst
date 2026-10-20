@@ -71,32 +71,47 @@ _DMI_MEAN_WIND_DIRECTION = (
     "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
 )
 
-# Pegelonline names each timeseries in German; the meaning below is the API's own ``longname`` for
-# that shortname, e.g. HL is LUFTFEUCHTE and SIGH SIGNIFIKANTEWELLENHÖHE.
+# Pegelonline names each timeseries in German (``longname``), e.g. HL is LUFTFEUCHTE and SIGH
+# SIGNIFIKANTEWELLENHÖHE, and publishes "tagesaktuelle Rohdaten" (https://www.pegelonline.wsv.de/webservice/ueberblick):
+# the unchecked readings of the series, one at every ``equidistance`` minutes of that series ("Abstand der
+# Messwerte in Minuten", the REST documentation), which is what the resolution of a request names. They are no
+# average over a time scale, which these descriptions said before GH-3136. The longnames below are those of the
+# series on the stations list of 2026-10-19; CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT had no series that day, so
+# their longname is not quoted.
+_WSV_PEGEL_READING = "a reading at the recording interval of the series"
 _WSV_PEGEL_PARAMETERS = {
-    "CL": "average chloride concentration during time scale",
-    "DFH": "average clearance height during time scale",
-    "GRU": "average groundwater level during time scale",
-    "HL": "average relative humidity of the air during time scale",
-    "LF": "average electric conductivity during time scale",
-    "LT": "air temperature (LUFTTEMPERATUR; LUFTTEMPERATUR ROHDATEN for the raw series)",
-    "MAXH": "max wave height during time scale",
-    "NIEDERSCHLAG": "average precipitation height during time scale",
-    "NIEDERSCHLAGSINTENSITÄT": "average precipitation intensity during time scale",
-    "O2": "average oxygen level during time scale",
-    "PH": "average pH during time scale",
-    "Q": "average discharge during time scale",
-    "R": "direction of the water current",
-    "SIGH": "average significant wave height during time scale",
-    "TP": "average wave period during time scale",
-    "TR": "average turbidity during time scale",
-    "VA": "average flow speed during time scale",
-    "W": "average water level during time scale",
-    "WG": "average wind speed during time scale",
-    "WR": "average wind direction during time scale",
-    "WT": "average water temperature during time scale",
+    "CL": f"Chloride concentration, {_WSV_PEGEL_READING}.",
+    "DFH": f"Clearance height (DURCHFAHRTSHÖHE), {_WSV_PEGEL_READING}.",
+    "GRU": f"Groundwater level (GRUNDWASSER ROHDATEN), {_WSV_PEGEL_READING}.",
+    "HL": f"Relative humidity of the air (LUFTFEUCHTE), {_WSV_PEGEL_READING}.",
+    "LF": f"Electric conductivity (ELEKTRISCHE_LEITFÄHIGKEIT_ROHDATEN), {_WSV_PEGEL_READING}.",
+    "LT": (f"Air temperature (LUFTTEMPERATUR; LUFTTEMPERATUR ROHDATEN for the raw series), {_WSV_PEGEL_READING}."),
+    "MAXH": f"Maximum wave height (MAXIMALEWELLENHÖHE), {_WSV_PEGEL_READING}.",
+    "NIEDERSCHLAG": f"Precipitation height, {_WSV_PEGEL_READING}.",
+    "NIEDERSCHLAGSINTENSITÄT": f"Precipitation intensity, {_WSV_PEGEL_READING}.",
+    "O2": f"Oxygen level (SAUERSTOFFGEHALT; SAUERSTOFFGEHALT ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
+    "PH": f"pH (PH-WERT), {_WSV_PEGEL_READING}.",
+    "Q": f"Discharge (ABFLUSS; ABFLUSS_ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
+    "R": f"Direction of the water current (RICHTUNGSTROM), {_WSV_PEGEL_READING}.",
+    "SIGH": f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), {_WSV_PEGEL_READING}.",
+    "TP": f"Wave period (WELLENPERIODE), {_WSV_PEGEL_READING}.",
+    "TR": f"Turbidity (TRÜBUNG; TRÜBUNG_ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
+    "VA": f"Flow speed (FLIESSGESCHWINDIGKEIT_ROHDATEN), {_WSV_PEGEL_READING}.",
+    "W": f"Water level (WASSERSTAND ROHDATEN; WASSERSTAND at two gauges), {_WSV_PEGEL_READING}.",
+    "WG": f"Wind speed (WINDGESCHWINDIGKEIT), {_WSV_PEGEL_READING}.",
+    "WR": f"Wind direction (WINDRICHTUNG), {_WSV_PEGEL_READING}.",
+    "WT": f"Water temperature (WASSERTEMPERATUR; WASSERTEMPERATUR ROHDATEN for the raw series), {_WSV_PEGEL_READING}.",
 }
 
+
+# The daily temperature file of MIDAS Open mixes the 12 hour rows ending 09:00 (night) and 21:00 (day) with 24 hour rows
+# ending 09:00 (2,962 of the 14,334 rows of the daily temperature files of 25 stations, 2022), and the reader stamps
+# a row by the date of its `ob_end_time`, the source's 09Z climatological day (GH-3137)
+_MO_DAILY_STAMP = (
+    "Stamped by the date of ob_end_time (the 09Z climatological day of the source). The file mixes 12 hour rows ending "
+    "09:00 and 21:00 with 24 hour rows ending 09:00 (2,962 of 14,334 rows), so a 24 hour 09-09Z row falls on the day "
+    "after most of its coverage."
+)
 
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
@@ -1747,7 +1762,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Direction of the maximum wind recorded in the 60 minutes preceding the time given by 'fint' (degrees)."
         ),
         ("hourly", "data", "dv"): (
-            "Mean wind direction over the 10 minutes preceding the time given by 'fint' (degrees)."
+            "Mean wind direction over the 10 minutes preceding the time given by 'fint' (degrees). "
+            "The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "data", "hr"): "Instantaneous relative humidity of the air at the time given by 'fint' (%).",
         ("hourly", "data", "prec"): (
@@ -1866,9 +1882,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "MetOfficeObservationMetadata": {
         ("daily", "rain", "prcp_amt"): "Precipitation amount, reported to the nearest 0.1 mm.",
-        ("daily", "temperature", "max_air_temp"): "Maximum air temperature, to the nearest 0.1 deg C.",
-        ("daily", "temperature", "min_air_temp"): "Minimum air temperature, to the nearest 0.1 deg C.",
-        ("daily", "temperature", "min_grss_temp"): "Minimum grass temperature, to the nearest 0.1 deg C.",
+        (
+            "daily",
+            "temperature",
+            "max_air_temp",
+        ): f"Maximum air temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}",
+        (
+            "daily",
+            "temperature",
+            "min_air_temp",
+        ): f"Minimum air temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}",
+        ("daily", "temperature", "min_grss_temp"): (
+            f"Minimum grass temperature, to the nearest 0.1 deg C. {_MO_DAILY_STAMP}"
+        ),
         ("daily", "weather", "drv_24hr_sun_dur"): (
             "Derived 24 hour sunshine duration, for stations carrying radiation sensors only, which use the global "
             "radiation values to derive it."
@@ -1892,7 +1918,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "soil_temperature", "q50cm_soil_temp"): "50 cm soil temperature, to the nearest 0.1 deg C.",
         ("hourly", "soil_temperature", "q5cm_soil_temp"): "5 cm soil temperature, to the nearest 0.1 deg C.",
         ("hourly", "weather", "air_temperature"): "Air temperature, to the nearest 0.1 deg C.",
-        ("hourly", "weather", "cld_ttl_amt_id"): "Total cloud amount code.",
+        ("hourly", "weather", "cld_ttl_amt_id"): (
+            "Total cloud amount code, in oktas. The source's 9, the sky obscured (the tables name no code for it), is "
+            "null."
+        ),
         ("hourly", "weather", "dewpoint"): (
             "Dewpoint temperature: the temperature to which the air must be cooled to produce saturation with respect "
             "to water at its existing pressure and humidity."
@@ -1909,7 +1938,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "weather", "wind_direction"): (
             "Wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind 180. "
             'The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute winds recorded in '
-            'SYNOPs and METARs - they are stored in the UK Hourly Weather table".'
+            'SYNOPs and METARs - they are stored in the UK Hourly Weather table". '
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "weather", "wind_speed"): (
             'Wind speed, knots. The ten minute wind of a SYNOP or a METAR: the mean wind table is not for "Ten minute '
@@ -1918,11 +1948,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "weather", "wmo_hr_sun_dur"): (
             "Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder."
         ),
-        ("hourly", "wind", "max_gust_dir"): "Direction of the maximum gust, degrees true.",
+        ("hourly", "wind", "max_gust_dir"): (
+            "Direction of the maximum gust, degrees true. "
+            "The source's 0 beside a gust speed of 0 (a calm wind) is null."
+        ),
         ("hourly", "wind", "max_gust_speed"): "Speed of the maximum gust, knots.",
         ("hourly", "wind", "mean_wind_dir"): (
             "Mean wind direction, that from which the wind blows, in degrees true. An east wind is 090, a south wind "
-            "180."
+            "180. The source's 0 beside a mean wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "wind", "mean_wind_speed"): "Mean wind speed, knots.",
     },
@@ -2562,7 +2595,7 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
     },
     "WsvPegelMetadata": {
         (resolution, "data"): (
-            "Recent data (last 30 days) of German waterways including water level and discharge for "
+            "Recent data (last 31 days) of German waterways including water level and discharge for "
             "most stations but may also include chemical, meteorologic and other types of values."
         )
         for resolution in _WSV_PEGEL_RESOLUTIONS

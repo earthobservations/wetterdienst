@@ -44,6 +44,30 @@ Types of changes:
   00091); no other file holds fewer than 47. Each value stays as the last
   `quality_flags` token (`raw:954.8`). Take the pressure of another source for such a station
   (GH-3139)
+- `metno/frost` daily and monthly `sunshine_duration` is in hours, as Frost's `unit` of every
+  observation says, and comes back as the seconds of those hours: it was read as seconds, so the
+  values were 3,600 times too small (10.4 hours of sunshine came back as 10.4 s) (GH-3137)
+- `knmi/observation` 10-minute `cloud_cover_total` is null, with `raw:9` in `quality_flags`, where
+  the file holds a 9, the sky obscured by fog (128 of 11,293 readings in two weeks of October
+  mornings): it was 1.125, as the hourly and daily cloud cover were before (GH-3135)
+- `aemet/observation` hourly `wind_direction_mean_last_10min` is null, with `raw:0` in
+  `quality_flags`, where the feed writes a 0 beside a mean speed of 0, a calm (112 of its 114 zeros;
+  north is 360): it was 0 degrees. A 0 beside a speed above 0 stays (GH-3135)
+- `metoffice/observation` hourly `wind_direction_mean_last_10min`, `wind_direction_mean` and
+  `wind_direction_gust_max` are null, with `raw:0`, where the file holds a 0 beside a speed of 0 (the
+  gust direction beside the gust speed), a calm: the table says zero direction and speed mean no
+  wind, and north is 360. A 0 beside a speed above 0 stays. `cloud_cover_total` is null where the
+  file holds a 9, the sky obscured. They were 0 degrees and 1.125 (GH-3135)
+- `metoffice/observation` hourly `rain`, `wind` and `radiation` keep only the readings of one hour
+  (`ob_hour_count` 1): the 12 hour rain totals ending 09:00 and 21:00 and the 24 hour radiation
+  totals, which are in the same files, replaced the reading of their hour with the maximum (GH-3137)
+- The `wsv/pegel` parameter descriptions no longer say "average ... during time scale": the values
+  are the raw readings PEGELONLINE publishes (`... ROHDATEN`) at the recording interval of each
+  series. The data are those of the last 31 days, not 30 (GH-3136)
+- The `metoffice/observation` docs and the descriptions of the daily temperatures say that a day is
+  the date of `ob_end_time` (the source's 09Z day) and that 24-hour 09-09Z rows (2,962 of 14,334)
+  fall on the day after most of their coverage, where the docs said the true daily extreme was
+  recovered (GH-3137)
 
 ## [0.161.0] - 2026-10-19
 

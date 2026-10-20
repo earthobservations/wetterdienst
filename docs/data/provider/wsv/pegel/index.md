@@ -3,7 +3,7 @@
 ## Overview
 
 The administration of German waterways (WSV) is providing data of certain stations at german rivers
-for maximum last 30 days. Data is provided kindly over a 
+for maximum last 31 days. Data is provided kindly over a 
 [REST API](https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json). Measured parameters include
 water level and discharge for most stations but may also include chemical, meteorologic and other types
 of values. The recording interval is a property of the station rather than of the network, so the

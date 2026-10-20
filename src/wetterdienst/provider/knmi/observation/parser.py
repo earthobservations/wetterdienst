@@ -44,9 +44,10 @@ _TRACE = "-1"
 
 # the hourly cloud cover N and the daily mean NG are octants, "9=sky invisible" (the same headers: "9=bovenlucht
 # onzichtbaar"), which is no cover and was 1.125 once converted: 941 of the 87,696 hours of the stations 260, 240 and
-# 344 from 2015 to 2024. The 10-minute `n` (lowercase) is a different variable that the text export does not carry, so
-# whether it holds a 9 is not known
-_CLOUD_COVER_CODE_PARAMETERS = ("N", "NG")
+# 344 from 2015 to 2024. The 10-minute `n` (lowercase) is a different variable that the text export does not carry, but
+# the files do: 128 of the 11,293 readings of the 336 files of 05:00 to 08:50 UTC from 2026-10-05 to 2026-10-18 are a
+# 9, at a mean horizontal visibility `vv` of 130 m (median) to 998 m (maximum), the fog of the code (GH-3135)
+_CLOUD_COVER_CODE_PARAMETERS = ("N", "NG", "n")
 _SKY_INVISIBLE = "9"
 
 # the hourly wind direction DD is a bearing "360=north, 90=east, 180=south, 270=west, 0=calm, 990=variable" (KNMI's

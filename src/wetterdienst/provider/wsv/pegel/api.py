@@ -432,7 +432,7 @@ class WsvPegelRequest(TimeseriesRequest):
     """Request class for WSV Pegelonline.
 
     Pegelonline is a German river management facility and
-    provider of river-based measurements for last 30 days.
+    provider of river-based measurements for last 31 days.
     """
 
     metadata = WsvPegelMetadata
