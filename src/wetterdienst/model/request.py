@@ -512,8 +512,27 @@ class TimeseriesRequest:
     def _all(self) -> pl.LazyFrame:
         """Implement this method to get all stations.
 
+        This is what a provider hands to the core for the stations, and `all()` is what the core makes of it
+        (GH-2627). A row is a station of a dataset: a station that has two of the requested datasets has two rows.
+
         Returns:
-            pl.LazyFrame: All stations.
+            pl.LazyFrame: All stations, with the columns of `STATIONS_SCHEMA` (`wetterdienst.model.schema`):
+
+            - ``resolution``, ``dataset`` (String) and ``station_id`` (String, the id the values are collected
+              by): required. The values step finds a station's datasets by the first two and collects them by the
+              third, and the station filters key on `station_id`.
+            - ``latitude``, ``longitude``, ``elevation`` (Float64), ``name``, ``region`` (String),
+              ``start_timestamp`` and ``end_timestamp`` (Datetime("us", "UTC")): may be left out, and `all()` then
+              fills the column with null. A station with no position is listed, but no distance filter can reach it;
+              a ``start_timestamp`` left out says nothing about when the station began, which the values step reads
+              as "may have data in the window".
+            - any column of the request's own `_base_columns` (the provider adds them there, as WSV does its river
+              kilometre): kept. A column that `_base_columns` does not list is dropped without a message, and the
+              provider tests fail for it (GH-2019).
+
+            The core casts the columns of `STATIONS_SCHEMA` to their dtypes (strictly, so a value that cannot be
+            cast raises), reading a naive datetime as UTC, and orders the columns as `_base_columns` does. A
+            frame without a row, whatever its columns, is the empty stations frame.
 
         """
 

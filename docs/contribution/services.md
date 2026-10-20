@@ -195,16 +195,21 @@ class DwdObservationRequest(TimeseriesRequest):
 ```
 
 `TimeseriesRequest` has one abstract method that has to be implemented: the `_all` which manages to get a listing of
-stations for the requested datasets/parameters. The listing includes:
+stations for the requested datasets/parameters, as a `pl.LazyFrame`. A row is a station of a dataset, so a station
+that has two of the datasets has two rows. The listing has the columns of `STATIONS_SCHEMA`
+(`wetterdienst.model.schema`):
 
-- station_id
-- start_timestamp
-- end_timestamp
-- elevation
-- name
-- region
-- latitude
-- longitude
+| Column | Type | |
+| --- | --- | --- |
+| `resolution`, `dataset` | String | required: the values step finds the datasets of a station by them |
+| `station_id` | String | required: the id the values are collected by, and the station filters key on it |
+| `start_timestamp`, `end_timestamp` | Datetime (UTC) | may be left out; a missing start says nothing about when the station began |
+| `latitude`, `longitude`, `elevation` | Float64 | may be left out; a station without a position is listed but no distance filter reaches it |
+| `name`, `region` | String | may be left out |
+
+A column that is left out is filled with null, and the others are cast to their types (a naive datetime is read as
+UTC). A provider's own columns (WSV's river kilometre) are kept only if the request lists them in `_base_columns`: any
+other column is dropped without a message, and the provider tests fail for it.
 
 ## Step 3: Values class
 
@@ -212,8 +217,30 @@ The values class is based on `TimeseriesValues` and manages the acquisition of a
 request class refers to it in its `_values` attribute. It has to implement the
 `_collect_station_parameter_or_dataset` method that takes care of getting values of a parameter/dataset for a station id.
 
-The frame it returns has the columns `resolution`, `dataset`, `parameter`, `station_id`, `timestamp` and
-`value`. A source that publishes a quality flag for a reading adds the string column `quality_flags`,
+The frame it returns is the long form of the readings of that station for the parameter (or, for a `grouped`
+dataset, the dataset), and it is all the core asks of a provider: the docstring of
+`_collect_station_parameter_or_dataset` is the contract, and these are its rules.
+
+| Column | Type | |
+| --- | --- | --- |
+| `resolution` | String | required: `dataset.resolution.name` |
+| `dataset` | String | required: `dataset.name.lower()` |
+| `parameter` | String | required: the source's own name, `name_original`; a `grouped` dataset's frame is cut to the requested parameters by an exact match |
+| `timestamp` | Datetime(us, UTC) | required: the instant of the reading, not null on a row that has a value |
+| `value` | Float64 | required: in the unit the metadata declares, null where the source has no reading |
+| `quality_flags` | String | optional: a provider that publishes none leaves the column out |
+| `station_id` | String | optional: replaced by the id the values were asked for |
+
+The core does not yet coerce these types, so the provider casts to them (a time stamp the source writes in UTC is
+parsed and given the UTC zone, a source that writes local time is converted); it fills the missing column and writes
+`station_id`, `resolution` and `dataset` again after it has converted the units, removed the duplicates and dropped the
+null values. A frame with no rows, with any columns or none, is a station without data and is skipped; a connection that
+cannot be made is an error, never an empty frame. Rows may come in any order, more than once (the first of a
+`resolution`, `dataset`, `parameter` and `timestamp` is kept) and outside the requested window (the core cuts it). A
+column that is not in the table is not part of the contract. The shaping that is written in every provider today, and
+is to move into the core, is tracked in GH-2627; `tests/provider/frames.snapshot.json` holds what the core hands out for
+every offline test of a provider (`uv run poe frames:snapshot`), so that moving it can be shown to change nothing. A
+source that publishes a quality flag for a reading adds the string column `quality_flags`,
 built with `join_quality_flags` from `wetterdienst.model.quality_flags`: the source's ordinary quality
 flag as the first argument, written as the plain code, and every further kind it publishes as
 `kind=expression`, which is written `kind:code` after it, comma-separated and in the order given

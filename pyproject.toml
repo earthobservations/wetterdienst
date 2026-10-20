@@ -366,6 +366,10 @@ coverage = [
     "cli:snapshot",
     "surface:snapshot",
 ]
+# the frames the core hands out for every offline fixture of `tests/provider` (tests/provider/frames.snapshot.json),
+# which each of those tests is held to: run after an intended change, and read the diff. One process (`-n0`): the file
+# is written from the whole selection, and a failing test leaves it as it was
+"frames:snapshot" = { cmd = "uv run pytest tests/provider -m 'not (remote or explorer)' -n0 -q", env = { WD_FRAMES_SNAPSHOT = "write" } }
 typecheck = "uv run ty check src/wetterdienst"
 # what a caller's checker makes of the wheel: builds it, installs it into clean environments and checks
 # `tests/typed_caller.py` against it, which `typecheck` (the checkout, read as first-party code) cannot say
