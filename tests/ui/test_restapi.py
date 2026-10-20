@@ -3341,7 +3341,7 @@ def test_sql_passes_where_the_server_enables_it(client: TestClient, monkeypatch:
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
     stations = [
-        {"station_id": station_id, "name": name, "region": region}
+        {"resolution": "daily", "dataset": "kl", "station_id": station_id, "name": name, "region": region}
         for station_id, name, region in (("01048", "Dresden-Klotzsche", "Sachsen"), ("01975", "Hamburg", "Hamburg"))
     ]
     monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame(stations))
