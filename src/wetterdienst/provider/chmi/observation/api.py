@@ -243,6 +243,9 @@ class ChmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         stations = parse_chmi_stations(file.content.read())
+        # a frame without a column is no frame to tag: polars before 2.0 broadcasts the literals into one row
+        if stations.is_empty():
+            return pl.LazyFrame()
 
         # the catalogue is provider-wide; replicate it across each requested (resolution, dataset)
         # so stations not reporting a requested parameter simply return no values.

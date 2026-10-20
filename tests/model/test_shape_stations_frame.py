@@ -111,8 +111,9 @@ def test_a_surplus_column_is_dropped_with_a_debug_line(caplog: pytest.LogCapture
         pl.DataFrame(schema={"station_id": pl.String}),
         pl.DataFrame({"station_id": [], "latitude": [], "start_timestamp": []}),
         pl.DataFrame(schema={"resolution": pl.Int64, "start_timestamp": pl.String}),
+        pl.DataFrame(schema={"resolution": pl.String, "dataset": pl.String}),
     ],
-    ids=["bare", "one column typed", "null columns", "wrong types"],
+    ids=["bare", "one column typed", "null columns", "wrong types", "identity columns only"],
 )
 def test_a_frame_without_a_row_is_the_empty_frame_of_the_columns(empty: pl.DataFrame) -> None:
     """Whatever the frame holds, no row is no stations, and the empty frame has the dtypes of the schema."""
