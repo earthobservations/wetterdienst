@@ -143,10 +143,9 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         if df is None or df.is_empty():
             return pl.DataFrame()
         df = unpivot_with_raw(df, index=["timestamp"])
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
+        # which the core rejects, so it is read here, as the UTC its `Z` says
         return df.select(
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC"),
             "value",
