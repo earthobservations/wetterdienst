@@ -225,12 +225,10 @@ class GeosphereObservationValues(TimeseriesValues[DatasetModel]):
             for parameter, text in _NONE_IS_MINUS_ONE.get(dataset.name_original, {}).items()
         ]
         value, raw = null_sentinels(pl.col("value"), *none_coded, _CALM_WIND, text=False)
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z").dt.replace_time_zone("UTC"),
+            pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M+%Z"),
             value.alias("value"),
             # the -1 the 0.0 was made from, as the source writes it
             join_quality_flags(None, raw=raw),
