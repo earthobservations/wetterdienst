@@ -219,20 +219,22 @@ class SmhiObservationRequest(TimeseriesRequest):
             df = pl.DataFrame(stations).select(
                 pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
                 pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
-                pl.col("id").cast(pl.String).alias("station_id"),
-                pl.from_epoch("from", time_unit="ms").dt.replace_time_zone("UTC").alias("start_timestamp"),
-                pl.from_epoch("to", time_unit="ms").dt.replace_time_zone("UTC").alias("end_timestamp"),
-                pl.col("latitude").cast(pl.Float64),
-                pl.col("longitude").cast(pl.Float64),
-                pl.col("height").cast(pl.Float64).alias("elevation"),
-                pl.col("name").cast(pl.String),
+                pl.col("id").alias("station_id"),
+                pl.from_epoch("from", time_unit="ms").alias("start_timestamp"),
+                pl.from_epoch("to", time_unit="ms").alias("end_timestamp"),
+                pl.col("latitude"),
+                pl.col("longitude"),
+                pl.col("height").alias("elevation"),
+                pl.col("name"),
             )
             frames_by_group[(parameter.dataset.resolution.name, parameter.dataset.name)].append(df)
         # collapse the per-parameter station lists to one row per station within each group,
         # spanning the full reporting range (earliest start, latest end) across the requested
         # parameters at that station.
         data = [
-            pl.concat(frames)
+            # the lists of two parameters may type a column differently (a whole-number height as integer), which
+            # the core makes the declared type of once
+            pl.concat(frames, how="vertical_relaxed")
             .group_by("station_id")
             .agg(
                 pl.col("resolution").first(),
@@ -248,4 +250,4 @@ class SmhiObservationRequest(TimeseriesRequest):
         ]
         if not data:
             return pl.LazyFrame()
-        return pl.concat(data).lazy()
+        return pl.concat(data, how="vertical_relaxed").lazy()

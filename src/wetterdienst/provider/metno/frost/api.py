@@ -971,20 +971,22 @@ class MetnoFrostRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("validFrom")
             .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-            .dt.replace_time_zone("UTC")
             .alias("start_timestamp"),
-            pl.when(pl.col("validTo").is_not_null())
-            .then(
-                pl.col("validTo")
-                .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-                .dt.replace_time_zone("UTC")
-            )
-            .otherwise(pl.lit(None, dtype=pl.Datetime(time_unit="us", time_zone="UTC")))
-            .alias("end_timestamp"),
+            # a station still in service has no validTo, which parses to null
+            pl.col("validTo").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us").alias("end_timestamp"),
         )
         df = df.rename({"id": "station_id", "name": "name", "county": "region", "countryCode": "country"})
         # Frost pads some names with a blank (`KVANNDALEN `), which a comparison of the name misses
-        df = df.with_columns(pl.col("name").str.strip_chars())
+        df = df.select(
+            "station_id",
+            pl.col("name").str.strip_chars(),
+            "region",
+            "latitude",
+            "longitude",
+            "elevation",
+            "start_timestamp",
+            "end_timestamp",
+        )
         resolutions_and_datasets = {
             (parameter.dataset.resolution.name, parameter.dataset.name)
             for parameter in self.parameters
@@ -1000,4 +1002,4 @@ class MetnoFrostRequest(TimeseriesRequest):
             )
         if not data:
             return pl.LazyFrame()
-        return pl.concat(data).select(self._base_columns)
+        return pl.concat(data)

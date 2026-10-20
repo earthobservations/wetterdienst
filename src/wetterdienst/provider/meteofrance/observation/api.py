@@ -1018,21 +1018,15 @@ class MeteoFranceObservationRequest(TimeseriesRequest):
         return df.select(
             pl.col("id").alias("station_id"),
             pl.col("name"),
-            pl.col("lat").cast(pl.Float64, strict=False).alias("latitude"),
-            pl.col("lon").cast(pl.Float64, strict=False).alias("longitude"),
-            pl.col("alt").cast(pl.Float64, strict=False).alias("elevation"),
+            pl.col("lat").alias("latitude"),
+            pl.col("lon").alias("longitude"),
+            pl.col("alt").alias("elevation"),
             # the département's code, which is what the registry gives: no name, and Corsica's two départements (2A
             # and 2B) both as `20`. The registry writes it without the leading zero (`9`), the station id and the
             # official code with it (`09`)
             pl.col("department_id").str.zfill(2).alias("region"),
-            pl.col("start_date")
-            .str.to_datetime("%Y-%m-%d", strict=False)
-            .dt.replace_time_zone("UTC")
-            .alias("start_timestamp"),
+            pl.col("start_date").str.to_datetime("%Y-%m-%d", strict=False).alias("start_timestamp"),
             # nullable: still-open stations (the vast majority) have no end_date, matching how
             # the app already treats a missing end_timestamp as "still reporting"
-            pl.col("end_date")
-            .str.to_datetime("%Y-%m-%d", strict=False)
-            .dt.replace_time_zone("UTC")
-            .alias("end_timestamp"),
+            pl.col("end_date").str.to_datetime("%Y-%m-%d", strict=False).alias("end_timestamp"),
         )

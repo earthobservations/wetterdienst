@@ -590,6 +590,7 @@ class HubeauRequest(TimeseriesRequest):
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
         )
-        df = df.filter(pl.col("resolution").is_in(requested))
-        df = df.select(self._base_columns)
-        return df.lazy()
+        # what the join needed and the stations frame has no column for
+        return (
+            df.filter(pl.col("resolution").is_in(requested)).drop("code_site", "code_systeme_alti_site", "step").lazy()
+        )
