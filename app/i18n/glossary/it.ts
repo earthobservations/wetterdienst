@@ -346,8 +346,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Indicatore di qualità, raffica su 6 h',
   quality_general: 'Indicatore di qualità, generale',
   quality_precipitation: 'Indicatore di qualità, precipitazione',
-  quality_precipitation_amount: 'Indicatore di qualità, altezza di precipitazione',
-  quality_precipitation_amount_liquid: 'Indicatore di qualità, precipitazione liquida',
   quality_wind: 'Indicatore di qualità, vento',
   radiation_global_relative_last_1h: 'Radiazione globale relativa (ultima 1 h)',
   radiation_global_uncertainty: 'Radiazione globale, incertezza',

@@ -346,8 +346,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Kwaliteitsvlag, 6-uurlijkse windstoot',
   quality_general: 'Kwaliteitsvlag, algemeen',
   quality_precipitation: 'Kwaliteitsvlag, neerslag',
-  quality_precipitation_amount: 'Kwaliteitsvlag, neerslagsom',
-  quality_precipitation_amount_liquid: 'Kwaliteitsvlag, vloeibare neerslagsom',
   quality_wind: 'Kwaliteitsvlag, wind',
   radiation_global_relative_last_1h: 'Relatieve globale straling (laatste 1 u)',
   radiation_global_uncertainty: 'Globale straling, onzekerheid',

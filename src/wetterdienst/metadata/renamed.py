@@ -123,8 +123,6 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "probability_precipitation_height_gt_5mm_last_1h": "probability_precipitation_amount_gt_5mm_last_1h",
     "probability_precipitation_height_gt_5mm_last_24h": "probability_precipitation_amount_gt_5mm_last_24h",
     "probability_precipitation_height_gt_5mm_last_6h": "probability_precipitation_amount_gt_5mm_last_6h",
-    "quality_precipitation_height": "quality_precipitation_amount",
-    "quality_precipitation_height_liquid": "quality_precipitation_amount_liquid",
     # GH-2040: the range is what visibility already is
     "visibility_range": "visibility",
     "visibility_range_index": "visibility_index",

@@ -244,8 +244,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Příznak kvality, 6hodinový náraz větru',
   quality_general: 'Příznak kvality, obecný',
   quality_precipitation: 'Příznak kvality, srážky',
-  quality_precipitation_amount: 'Příznak kvality, úhrn srážek',
-  quality_precipitation_amount_liquid: 'Příznak kvality, úhrn kapalných srážek',
   quality_wind: 'Příznak kvality, vítr',
   radiation_global_relative_last_1h: 'Relativní globální záření (poslední 1 h)',
   radiation_global_uncertainty: 'Globální záření, nejistota',

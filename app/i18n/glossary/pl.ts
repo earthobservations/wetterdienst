@@ -346,8 +346,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Znacznik jakości, poryw 6-godzinny',
   quality_general: 'Znacznik jakości, ogólny',
   quality_precipitation: 'Znacznik jakości, opad',
-  quality_precipitation_amount: 'Znacznik jakości, suma opadu',
-  quality_precipitation_amount_liquid: 'Znacznik jakości, suma opadu ciekłego',
   quality_wind: 'Znacznik jakości, wiatr',
   radiation_global_relative_last_1h: 'Względne promieniowanie całkowite (ostatnia 1 h)',
   radiation_global_uncertainty: 'Promieniowanie całkowite, niepewność',

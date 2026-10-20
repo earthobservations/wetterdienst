@@ -1436,16 +1436,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Quality flag published by the source for `precipitation` in the same dataset.",
     ),
     CanonicalParameter(
-        "quality_precipitation_amount",
-        "dimensionless",
-        "Quality flag published by the source for `precipitation_amount` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_precipitation_amount_liquid",
-        "dimensionless",
-        "Quality flag published by the source for `precipitation_amount_liquid` in the same dataset.",
-    ),
-    CanonicalParameter(
         "quality_wind", "dimensionless", "Quality flag published by the source for `wind` in the same dataset."
     ),
     CanonicalParameter(

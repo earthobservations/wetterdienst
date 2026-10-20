@@ -346,8 +346,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Qualitéitskennung, 6-stënneg Wandstouss',
   quality_general: 'Qualitéitskennung, allgemeng',
   quality_precipitation: 'Qualitéitskennung, Nidderschlag',
-  quality_precipitation_amount: 'Qualitéitskennung, Nidderschlagshéicht',
-  quality_precipitation_amount_liquid: 'Qualitéitskennung, flësseg Nidderschlagshéicht',
   quality_wind: 'Qualitéitskennung, Wand',
   radiation_global_relative_last_1h: 'Relativ Globalstralung (lescht 1 h)',
   radiation_global_uncertainty: 'Globalstralung, Onsécherheet',

@@ -244,8 +244,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Kvalitetsflag, 6-timers vindstød',
   quality_general: 'Kvalitetsflag, generelt',
   quality_precipitation: 'Kvalitetsflag, nedbør',
-  quality_precipitation_amount: 'Kvalitetsflag, nedbørmængde',
-  quality_precipitation_amount_liquid: 'Kvalitetsflag, flydende nedbørmængde',
   quality_wind: 'Kvalitetsflag, vind',
   radiation_global_relative_last_1h: 'Relativ globalstråling (seneste 1 t)',
   radiation_global_uncertainty: 'Globalstråling, usikkerhed',

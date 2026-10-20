@@ -262,8 +262,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Qualitätskennung, 6-stündige Böe',
   quality_general: 'Qualitätskennung, allgemein',
   quality_precipitation: 'Qualitätskennung, Niederschlag',
-  quality_precipitation_amount: 'Qualitätskennung, Niederschlagshöhe',
-  quality_precipitation_amount_liquid: 'Qualitätskennung, flüssige Niederschlagshöhe',
   quality_wind: 'Qualitätskennung, Wind',
   radiation_global_relative_last_1h: 'Relative Globalstrahlung (letzte 1 h)',
   radiation_global_uncertainty: 'Globalstrahlung, Unsicherheit',

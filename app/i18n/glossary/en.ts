@@ -267,8 +267,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Quality flag, 6-hourly gust',
   quality_general: 'Quality flag, general',
   quality_precipitation: 'Quality flag, precipitation',
-  quality_precipitation_amount: 'Quality flag, precipitation amount',
-  quality_precipitation_amount_liquid: 'Quality flag, liquid precipitation amount',
   quality_wind: 'Quality flag, wind',
   radiation_global_relative_last_1h: 'Relative global radiation (last 1 h)',
   radiation_global_uncertainty: 'Global radiation, uncertainty',

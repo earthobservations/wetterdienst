@@ -244,8 +244,6 @@ export const parameters: Record<string, string> = {
   quality_6: 'Göödkennen, 6-stünnige Bö',
   quality_general: 'Göödkennen, allgemeen',
   quality_precipitation: 'Göödkennen, Nedderslag',
-  quality_precipitation_amount: 'Göödkennen, Nedderslaghööch',
-  quality_precipitation_amount_liquid: 'Göödkennen, flüssige Nedderslaghööch',
   quality_wind: 'Göödkennen, Wind',
   radiation_global_relative_last_1h: 'Relative Globaalstrahlen (lest 1 h)',
   radiation_global_uncertainty: 'Globaalstrahlen, Unsekerheit',

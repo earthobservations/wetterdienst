@@ -401,18 +401,6 @@ def test_parameter_table_names_unique() -> None:
     assert not duplicates, f"duplicate canonical names: {duplicates}"
 
 
-#: canonical names that no dataset declares and the table keeps all the same, each with the reason it has to. The rule
-#: is that there are none: a name that no dataset declares cannot be requested, and is gone from the table (GH-2614).
-#: `quality_precipitation_amount` and `_liquid` are what `quality_precipitation_height` and `_liquid` were renamed to
-#: (`RENAMED_PARAMETERS`), entries the baseline of 0.162.0 records and `tests/baselines/parameters.py` reports as gone
-#: when dropped, and `test_renamed.py` holds a rename to a name of the table. Both go with the release that refreshes
-#: the baselines, or with an accepted break, together with those two renames.
-UNDECLARED_BY_NECESSITY: dict[str, str] = {
-    "quality_precipitation_amount": "the target of a rename the baseline of the last release records",
-    "quality_precipitation_amount_liquid": "the target of a rename the baseline of the last release records",
-}
-
-
 def test_every_canonical_name_is_declared_by_a_dataset() -> None:
     """Test that the table holds no name that no provider declares in any dataset.
 
@@ -440,11 +428,8 @@ def test_every_canonical_name_is_declared_by_a_dataset() -> None:
                 registered.add(Wetterdienst.resolve(provider, network).metadata.name)
     assert sorted(registered - {metadata.name for metadata in ALL_METADATA}) == []
 
-    unused = sorted({p.name for p in PARAMETER_TABLE} - declared - UNDECLARED_BY_NECESSITY.keys())
+    unused = sorted({p.name for p in PARAMETER_TABLE} - declared)
     assert not unused, f"canonical names that no dataset declares, remove them from the table: {unused}"
-    # an exception that is none any more is a stale one
-    assert sorted(UNDECLARED_BY_NECESSITY.keys() & declared) == []
-    assert sorted(UNDECLARED_BY_NECESSITY.keys() - PARAMETERS.keys()) == []
 
 
 def test_parameter_model_rejects_declared_unit_type() -> None:
