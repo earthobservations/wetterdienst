@@ -115,7 +115,7 @@ def test_widen_df_gives_each_parameter_its_own_quality_flags_column() -> None:
 
 
 def test_a_provider_that_publishes_no_flag_still_returns_the_column() -> None:
-    """Test that a frame handed over without `quality_flags` leaves `_organize_df_columns` with a String null."""
+    """Test that a frame handed over without `quality_flags` leaves the core with a String null."""
     values = _dwd_values([("daily", "climate_summary")])
     dataset = values.sr.parameters[0].dataset
     df = pl.DataFrame(
@@ -126,7 +126,7 @@ def test_a_provider_that_publishes_no_flag_still_returns_the_column() -> None:
         }
     )
 
-    result = values._organize_df_columns(df, "01048", dataset)  # noqa: SLF001
+    result = values._shape(df, "01048", dataset)  # noqa: SLF001
 
     assert result.columns[-1] == "quality_flags"
     assert result.schema["quality_flags"] == pl.String

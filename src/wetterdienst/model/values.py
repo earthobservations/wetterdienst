@@ -15,6 +15,7 @@ import polars as pl
 from tqdm import tqdm
 from typing_extensions import TypeVar
 
+from wetterdienst.exceptions import ProviderContractError
 from wetterdienst.metadata.resolution import count_readings, reading_interval
 from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.quality_flags import QUALITY_FLAGS, RAW_TOKEN
@@ -23,7 +24,6 @@ from wetterdienst.model.schema import (
     LONG_SCHEMA,
     WIDE_FLAGS_DTYPE,
     WIDE_FLAGS_SUFFIX,
-    WIDE_SCHEMA,
     WIDE_VALUE_DTYPE,
 )
 from wetterdienst.model.unit import UnitConverter
@@ -51,6 +51,94 @@ log = logging.getLogger(__name__)
 # does not ask for a type argument.
 _UnitT = TypeVar("_UnitT", bound="ParameterModel | DatasetModel", default=Any)
 
+# The columns of a provider's frame that the core cannot make up. A frame without one cannot be made to fit.
+_REQUIRED_COLUMNS = ("parameter", "timestamp", "value")
+
+
+def _can_be_cast(column: str, dtype: pl.DataType) -> bool:
+    """Tell whether the core can make a column of this type the dtype the long form declares for it.
+
+    The cast would do more than it should for some types (an integer is a count of microseconds to a datetime, a
+    struct "casts" to a struct), so what is accepted is listed: a point in time for ``timestamp``, a number or a text
+    for ``value``, a text, a category or a number for the names and flags.
+    """
+    base = dtype.base_type()
+    if column == "timestamp":
+        return base in {pl.Datetime, pl.Date}
+    if column == "value":
+        return dtype.is_numeric() or base in {pl.String, pl.Null}
+    return base in {pl.String, pl.Categorical, pl.Enum, pl.Null} or dtype.is_integer()
+
+
+def shape_provider_frame(
+    df: pl.DataFrame,
+    *,
+    station_id: str,
+    dataset: DatasetModel,
+    provider: str = "the provider",
+) -> pl.DataFrame:
+    """Make the frame a provider handed the core the long form: its columns, their order and their dtypes (GH-2627).
+
+    Done once here so that a provider need not: the core writes ``station_id``, ``resolution`` and ``dataset``
+    (whatever the provider put there is replaced), casts ``parameter`` to String, ``timestamp`` to
+    ``Datetime("us", "UTC")`` and ``value`` to Float64, fills ``quality_flags`` with a String null where the
+    provider left it out, orders the columns as `LONG_SCHEMA` does and drops any other. A frame that is the long
+    form already comes out unchanged.
+
+    A ``value`` cell that is no number (a text such as ``"n/a"``) is no error: it becomes null, and one debug line per
+    frame says how many did. A naive ``timestamp`` is read as UTC, a zoned one is converted to it.
+
+    Args:
+        df: the frame of one call of ``_collect_station_parameter_or_dataset``, with rows.
+        station_id: the station the call was made for.
+        dataset: the dataset the call was made for, which names ``resolution`` and ``dataset``.
+        provider: the name to put in a message, the provider's class.
+
+    Returns:
+        The frame with exactly the columns of `LONG_SCHEMA`, in its order and with its dtypes.
+
+    Raises:
+        ProviderContractError: ``parameter``, ``timestamp`` or ``value`` is missing, or has a type that cannot be made
+            the declared one (a ``timestamp`` that is a string or an integer, a ``value`` that is a list).
+
+    """
+    missing = [column for column in _REQUIRED_COLUMNS if column not in df.columns]
+    if missing:
+        message = (
+            f"{provider} returned a frame without the column(s) {', '.join(missing)}; its columns are {df.columns}"
+        )
+        raise ProviderContractError(message)
+    for column in ("parameter", "timestamp", "value", "quality_flags"):
+        if column in df.columns and not _can_be_cast(column, df.schema[column]):
+            message = (
+                f"{provider} returned `{column}` as {df.schema[column]}, which cannot be made {LONG_SCHEMA[column]}"
+            )
+            raise ProviderContractError(message)
+    if df.schema["value"] != pl.Float64:
+        # a text is read as the number it writes, and one that writes none is null: counted, never named
+        unreadable = df.get_column("value").cast(pl.Float64, strict=False).null_count() - df["value"].null_count()
+        if unreadable:
+            log.debug("%s: %d of %d value cells are no number and are null", provider, unreadable, df.height)
+    surplus = [column for column in df.columns if column not in LONG_SCHEMA]
+    if surplus:
+        log.debug("%s: dropped the column(s) %s, which the long form does not have", provider, ", ".join(surplus))
+    identity = {
+        "station_id": station_id,
+        "resolution": dataset.resolution.name,
+        "dataset": dataset.name.lower(),
+    }
+    columns = []
+    for column, dtype in LONG_SCHEMA.items():
+        if column in identity:
+            columns.append(pl.lit(identity[column], dtype=dtype).alias(column))
+        elif column in df.columns:
+            columns.append(pl.col(column).cast(dtype, strict=column != "value"))
+        else:
+            # a column the provider did not deliver is a typed null: an untyped one would not concatenate with the
+            # String column of the providers that do deliver it
+            columns.append(pl.lit(None, dtype=dtype).alias(column))
+    return df.select(columns)
+
 
 @dataclass
 class TimeseriesValues(ABC, Generic[_UnitT]):
@@ -71,11 +159,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def from_stations(cls, stations: StationsResult) -> TimeseriesValues:
         """Create a new instance of the class from a StationsResult object."""
         return cls(stations)
-
-    @property
-    def _meta_fields(self) -> pl.Schema:
-        """Get the schema of the columns that describe a row: all of the long form, or the wide form's own."""
-        return LONG_SCHEMA if self.sr.options.tidy else WIDE_SCHEMA
 
     def _convert_units(self, df: pl.DataFrame, dataset: DatasetModel) -> pl.DataFrame:
         """Convert values to metric units with help of conversion factors."""
@@ -118,25 +201,6 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 self.unit_converter.decimals(parameter.unit, target),
             )
         return conversions
-
-    def _organize_df_columns(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
-        """Reorder columns in DataFrame to match the expected order of columns."""
-        columns = list(self._meta_fields)
-        columns.extend(set(df.columns).difference(columns))
-        # the wide form lists no value columns among the meta fields, so the flags are asked for by name
-        if "quality_flags" not in columns:
-            columns.append("quality_flags")
-        df = df.with_columns(
-            pl.lit(station_id).alias("station_id"),
-            pl.lit(dataset.resolution.name).alias("resolution"),
-            pl.lit(dataset.name.lower()).alias("dataset"),
-        )
-        # a column the provider did not deliver is a typed null where the long form declares it: the
-        # providers that publish no flag leave `quality_flags` out, and an untyped null would not
-        # concatenate with the String column of those that do
-        return df.select(
-            pl.col(col) if col in df.columns else pl.lit(None, dtype=LONG_SCHEMA.get(col)).alias(col) for col in columns
-        )
 
     def query(self) -> Iterator[ValuesResult]:
         """Query data for all stations and parameters and return a DataFrame for each station."""
@@ -287,6 +351,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 parameter_or_dataset=cast("_UnitT", dataset),
             )
             if not df.is_empty():
+                df = self._shape(df, station_id, dataset)
                 parameter_names = {parameter.name_original for parameter in parameters}
                 df = df.filter(pl.col("parameter").is_in(parameter_names))
         else:
@@ -302,7 +367,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # contributes no rows either way, so drop it rather than let one absent parameter
                 # fail the whole request.
                 if not df.is_empty():
-                    data.append(df)
+                    # shaped per call, so that the frames of the parameters have one schema to concatenate by
+                    data.append(self._shape(df, station_id, dataset))
             df = pl.concat(data) if data else pl.DataFrame()
         if df.is_empty():
             return df
@@ -318,7 +384,11 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             )
         if self.sr.options.drop_nulls_effective:
             df = df.drop_nulls(subset=["value"])
-        return self._organize_df_columns(df, station_id, dataset)
+        return df
+
+    def _shape(self, df: pl.DataFrame, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
+        """Make the frame of one provider call the long form, by `shape_provider_frame`."""
+        return shape_provider_frame(df, station_id=station_id, dataset=dataset, provider=type(self).__name__)
 
     @abstractmethod
     def _collect_station_parameter_or_dataset(
@@ -328,10 +398,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     ) -> pl.DataFrame:
         """Collect data for a station and a single parameter or dataset.
 
-        This is what a provider hands to the core, and `_process_dataset` is what the core makes of it (GH-2627). The
-        contract is what the core reads today; the shaping it does not do yet (adding the identity columns, coercing
-        the dtypes) is still the provider's, and moves into the core in phases, so what is listed as required is
-        required until then.
+        This is what a provider hands to the core, and `shape_provider_frame` is what the core makes of it (GH-2627):
+        it writes the identity columns, casts to the long form's dtypes, fills what is missing, orders the columns and
+        drops the others, so what is listed as required is all a provider has to get right. A provider that shapes its
+        frame already (many still do, and are to stop) comes out unchanged.
 
         Called once per parameter, with a `ParameterModel`, or, for a dataset declared `grouped`, once per dataset,
         with the `DatasetModel`: the frame may then hold every parameter of the dataset, and the core keeps the
@@ -340,32 +410,34 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         Returns:
             One long-form frame of the readings of the station for that parameter or dataset, with the columns
 
-            - ``resolution`` (String): the name of the dataset's resolution, `dataset.resolution.name`. Required;
-              `unique` runs on it before the core writes its own.
-            - ``dataset`` (String): the lower-cased name of the dataset, `dataset.name.lower()`. Required, as above.
             - ``parameter`` (String): the source's own name of the parameter, `name_original`, which the unit
               conversion looks up case-insensitively and a grouped dataset's filter matches exactly. Required. A
               non-grouped call returns the one parameter it was asked for: nothing filters the others out.
-            - ``timestamp`` (Datetime("us", "UTC")): the instant of the reading, a UTC timestamp to the microsecond
-              and not null on a row that has a value. The core does not convert it, and `tests/provider/conftest.py`
-              fails a test whose frame has another type. Required.
+            - ``timestamp`` (Datetime): the instant of the reading, and not null on a row that has a value. The core
+              casts it to ``Datetime("us", "UTC")``: a naive stamp is read as UTC, a zoned one is converted, so a
+              source that stamps in local time is converted by the provider, which knows the zone. A date is
+              midnight UTC. A text or a number is no timestamp and is a `ProviderContractError`. Required.
             - ``value`` (Float64): the reading in the unit the metadata declares for the parameter, which the core
               converts unless `convert_units` is off, or null where the source has none: the core drops the null
               rows unless the caller asked for them. A sentinel is mapped to null here, before any unit conversion,
-              with `null_sentinels`, and a NaN is the provider's to turn into null. Required.
+              with `null_sentinels`, and a NaN is the provider's to turn into null. The core casts a number to
+              Float64, and a text to the number it writes: a cell that is none becomes null, and the core logs one
+              debug line per frame with how many did, never one per cell. Required.
             - ``quality_flags`` (String): the flags of the source for the reading, built with `join_quality_flags`.
               Optional: the core adds a typed null column to a frame without it.
-            - ``station_id`` (String): optional, and whatever it holds is replaced by the `station_id` argument.
+            - ``station_id``, ``resolution`` and ``dataset`` are the core's: it writes the id the call was made for,
+              the name of the dataset's resolution and the lower-cased name of the dataset, over whatever the frame
+              holds, before the duplicates are removed. A provider may leave them out.
 
-            Any other column is not part of the contract: the core keeps it in the output, behind the long form's
-            columns and in no defined order, and no provider returns one. A frame without a row, whatever its
-            columns (a station without data for the parameter, a bare `pl.DataFrame()`), is skipped by the core. The
-            rows may come in any order, more than once (the core keeps the first of the rows that share
-            `resolution`, `dataset`, `parameter` and `timestamp`), and outside the requested window (the core cuts it
-            after, so a provider is free to narrow what it downloads by it, not obliged to).
+            Any other column is dropped. A frame without a row, whatever its columns (a station without data for the
+            parameter, a bare `pl.DataFrame()`), is skipped by the core. The rows may come in any order, more than
+            once (the core keeps the first of the rows that share `resolution`, `dataset`, `parameter` and
+            `timestamp`), and outside the requested window (the core cuts it after, so a provider is free to narrow
+            what it downloads by it, not obliged to).
 
         Raises:
             NoInternetError: a connection that cannot be made, which is never answered by an empty frame.
+            ProviderContractError: raised by the core, not by the provider, for a frame that cannot be made to fit.
 
         """
 

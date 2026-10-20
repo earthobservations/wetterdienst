@@ -223,23 +223,27 @@ dataset, the dataset), and it is all the core asks of a provider: the docstring 
 
 | Column | Type | |
 | --- | --- | --- |
-| `resolution` | String | required: `dataset.resolution.name` |
-| `dataset` | String | required: `dataset.name.lower()` |
 | `parameter` | String | required: the source's own name, `name_original`; a `grouped` dataset's frame is cut to the requested parameters by an exact match |
-| `timestamp` | Datetime(us, UTC) | required: the instant of the reading, not null on a row that has a value |
+| `timestamp` | Datetime | required: the instant of the reading, not null on a row that has a value; the core casts it to Datetime(us, UTC) |
 | `value` | Float64 | required: in the unit the metadata declares, null where the source has no reading |
 | `quality_flags` | String | optional: a provider that publishes none leaves the column out |
-| `station_id` | String | optional: replaced by the id the values were asked for |
+| `resolution`, `dataset`, `station_id` | String | not the provider's: the core writes them (`dataset.resolution.name`, `dataset.name.lower()`, the id the values were asked for) and replaces whatever the provider put there |
 
-The core does not yet coerce these types, so the provider casts to them (a time stamp the source writes in UTC is
-parsed and given the UTC zone, a source that writes local time is converted); it fills the missing column and writes
-`station_id`, `resolution` and `dataset` again after it has converted the units, removed the duplicates and dropped the
-null values. A frame with no rows, with any columns or none, is a station without data and is skipped; a connection that
-cannot be made is an error, never an empty frame. Rows may come in any order, more than once (the first of a
-`resolution`, `dataset`, `parameter` and `timestamp` is kept) and outside the requested window (the core cuts it). A
-column that is not in the table is not part of the contract. The shaping that is written in every provider today, and
-is to move into the core, is tracked in GH-2627; `tests/provider/frames.snapshot.json` holds what the core hands out for
-every offline test of a provider (`uv run poe frames:snapshot`), so that moving it can be shown to change nothing. A
+The core shapes the frame (`shape_provider_frame` in `wetterdienst.model.values`, GH-2627): it writes the identity
+columns, casts `parameter` to String, `timestamp` to Datetime(us, UTC) and `value` to Float64, fills `quality_flags`
+with a null where it is missing, orders the columns as the long form does and drops any other, and does so before the
+units are converted and the duplicates removed. A frame that is the long form already comes out as it went in. A
+naive timestamp is read as UTC and a zoned one is converted to it, so a source that writes local time is converted by
+the provider, which knows the zone. A `value` that is no number (a text such as `n/a`) is not an error: it becomes
+null, and the core logs one debug line per frame with the count. What cannot be made to fit is an error,
+`ProviderContractError`: a frame without `parameter`, `timestamp` or `value`, a `timestamp` that is a string or an
+integer, a `value` that is a list. Parse the text of a time stamp in the provider. A frame with no rows, with any
+columns or none, is a station without data and is skipped; a connection that cannot be made is an error, never an
+empty frame. Rows may come in any order, more than once (the first of a `resolution`, `dataset`, `parameter` and
+`timestamp` is kept) and outside the requested window (the core cuts it). A column that is not in the table is not
+part of the contract and is dropped. The shaping that is still written in every provider, and is to be removed from
+them, is tracked in GH-2627; `tests/provider/frames.snapshot.json` holds what the core hands out for every offline
+test of a provider (`uv run poe frames:snapshot`), so that removing it can be shown to change nothing. A
 source that publishes a quality flag for a reading adds the string column `quality_flags`,
 built with `join_quality_flags` from `wetterdienst.model.quality_flags`: the source's ordinary quality
 flag as the first argument, written as the plain code, and every further kind it publishes as

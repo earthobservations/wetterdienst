@@ -721,6 +721,7 @@ _STATUS_OF = {
     "NotFoundError": 404,
     "ParameterNotCarriedError": 400,
     "ProductFileNotFoundError": 502,
+    "ProviderContractError": 500,
     "ProviderNotFoundError": 404,
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
