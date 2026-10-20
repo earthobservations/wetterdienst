@@ -186,11 +186,10 @@ def test_parse_values_keeps_the_na_of_a_day_that_has_no_value() -> None:
 
 
 def test_parse_values_empty_input() -> None:
-    """A file with no data rows yields an empty frame with the expected schema."""
+    """A file with no data rows yields a frame without rows, which the core makes the empty long form of."""
     content = _badc(b"Conventions,G,BADC-CSV,1\n", "ob_date,prcp_amt", b"")
     df = parse_values(content, time_column="ob_date", columns=["prcp_amt"], granularity="1d")
     assert df.is_empty()
-    assert df.columns == ["timestamp", "parameter", "value", "quality_flags"]
 
 
 def test_parse_values_keeps_the_hourly_reading_and_not_the_12_and_24_hour_total_of_its_hour() -> None:

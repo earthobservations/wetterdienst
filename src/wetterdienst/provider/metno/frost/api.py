@@ -395,16 +395,6 @@ _MetnoFrostMetadataSpec = {
 MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMetadata")
 
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # Frost states two codes in the element descriptions it publishes and then writes them into the
 # value itself, where nothing tells them apart from a measurement:
 #
@@ -478,7 +468,7 @@ def _frost_end(value: datetime, resolution: str) -> str:
     return _frost_time(_frost_end_exclusive(value, resolution))
 
 
-def _stamp_days(df: pl.DataFrame) -> pl.DataFrame:
+def _stamp_days(df: pl.DataFrame, resolution: str) -> pl.DataFrame:
     """Stamp a daily value at 00:00 UTC of the day it belongs to (GH-2729).
 
     Frost stores a daily value with a date only, `referenceTime` `<date>T00:00`, except for an instantaneous
@@ -487,13 +477,13 @@ def _stamp_days(df: pl.DataFrame) -> pl.DataFrame:
     stamped at the time of its reading, so it sat besides the other daily parameters at a time of its own, which
     a window of whole days, as the one of a request for a day, does not keep (GH-2683 for SMHI). The reading
     on a date belongs to that date; the other daily stamps are at 00:00 UTC already.
+
+    ``resolution`` is the name of the resolution the frame was collected for: the frame has no column of it, the core
+    writes that (`shape_provider_frame`).
     """
-    return df.with_columns(
-        pl.when(pl.col("resolution") == _DAILY)
-        .then(pl.col("timestamp").dt.truncate("1d"))
-        .otherwise(pl.col("timestamp"))
-        .alias("timestamp"),
-    )
+    if resolution != _DAILY:
+        return df
+    return df.with_columns(pl.col("timestamp").dt.truncate("1d"))
 
 
 def _decode_sentinels(df: pl.DataFrame) -> pl.DataFrame:
@@ -553,12 +543,12 @@ class MetnoFrostValues(TimeseriesValues):
             dataset = parameter_or_dataset.dataset
             parameters = [parameter_or_dataset]
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = self.sr.settings
         client_kwargs = {**settings.fsspec_client_kwargs}
@@ -594,7 +584,7 @@ class MetnoFrostValues(TimeseriesValues):
         # 412: no data for this station/elements/period combination
         _raise_if_unanswered(file)
         if file.status == 412:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         # 404: one or more elements may require specific time-series parameters (e.g.
         # historical synoptic data). Fall back to resolving each requested parameter individually.
         if file.status == 404:
@@ -603,14 +593,14 @@ class MetnoFrostValues(TimeseriesValues):
             )
         if isinstance(file.content, Exception):
             log.warning(f"Failed to download {url}: {file.content}")
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.read_json(file.content)
         if "data" not in df.columns:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
@@ -625,15 +615,13 @@ class MetnoFrostValues(TimeseriesValues):
         return _stamp_days(
             _decode_sentinels(
                 df.select(
-                    pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                    pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
                     pl.col("elementId").alias("parameter"),
-                    pl.lit(station_id, dtype=pl.String).alias("station_id"),
                     pl.col("referenceTime").alias("timestamp"),
-                    pl.col("value").cast(pl.Float64),
+                    pl.col("value"),
                     pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
                 ),
-            )
+            ),
+            dataset.resolution.name,
         )
 
     def _collect_after_batch_404(
@@ -664,7 +652,7 @@ class MetnoFrostValues(TimeseriesValues):
             if parameter.name_original in requested
         ]
         frames = [frame for frame in frames if not frame.is_empty()]
-        return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
 
     def _collect_single_parameter(
         self,
@@ -701,7 +689,7 @@ class MetnoFrostValues(TimeseriesValues):
         # 412: no data for this station/element/period combination
         _raise_if_unanswered(file)
         if file.status == 412:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         # 404: element may require specific time-series parameters (e.g. historical synoptic data)
         if file.status == 404:
             return self._collect_via_time_series_discovery(
@@ -709,14 +697,14 @@ class MetnoFrostValues(TimeseriesValues):
             )
         if isinstance(file.content, Exception):
             log.warning(f"Failed to download {url}: {file.content}")
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         # a 200 with no body
         if file.is_empty:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.read_json(file.content)
         if "data" not in df.columns:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = df.select(pl.col("data").explode(empty_as_null=True))
         df = df.unnest("data")
@@ -732,15 +720,13 @@ class MetnoFrostValues(TimeseriesValues):
         return _stamp_days(
             _decode_sentinels(
                 df.select(
-                    pl.lit(parameter.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                    pl.lit(parameter.dataset.name, dtype=pl.String).alias("dataset"),
                     pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
-                    pl.lit(station_id, dtype=pl.String).alias("station_id"),
                     pl.col("referenceTime").alias("timestamp"),
-                    pl.col("value").cast(pl.Float64),
+                    pl.col("value"),
                     pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
                 ),
-            )
+            ),
+            parameter.dataset.resolution.name,
         )
 
     def _collect_via_time_series_discovery(  # noqa: C901
@@ -779,12 +765,12 @@ class MetnoFrostValues(TimeseriesValues):
         # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
         _raise_if_unanswered(avail_file)
         if avail_file.status in (404, 412):
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         if isinstance(avail_file.content, Exception):
             log.warning(f"Failed to download {avail_url}: {avail_file.content}")
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         if avail_file.is_empty:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         ts_list = json.loads(avail_file.content.read()).get("data", [])
         frames = []
@@ -845,20 +831,18 @@ class MetnoFrostValues(TimeseriesValues):
                 _stamp_days(
                     _decode_sentinels(
                         df.select(
-                            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
                             pl.lit(element, dtype=pl.String).alias("parameter"),
-                            pl.lit(station_id, dtype=pl.String).alias("station_id"),
                             pl.col("referenceTime").alias("timestamp"),
-                            pl.col("value").cast(pl.Float64),
+                            pl.col("value"),
                             pl.col("qualityCode").cast(pl.Int64).cast(pl.String).alias("quality_flags"),
                         ),
-                    )
+                    ),
+                    resolution_name,
                 )
             )
 
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         return pl.concat(frames, how="diagonal_relaxed")
 
 

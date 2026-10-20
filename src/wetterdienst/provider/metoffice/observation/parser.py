@@ -26,13 +26,6 @@ _EMPTY_STATIONS_SCHEMA = {
     "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
 
-_EMPTY_VALUES_SCHEMA = {
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "parameter": pl.String,
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 
 # how the files write a value they do not have
 _MISSING = "NA"
@@ -171,14 +164,17 @@ def parse_values(
             value of one day or hour. (Not applied to the daily temperature, whose ``ob_hour_count``
             of 12 or 24 is the window of the extreme, which is no accumulation.)
 
+    Returns:
+        The rows, or a frame without any when the file holds none: the core makes the empty long form of it.
+
     """
     df = _data_section(content, na_is_null=False)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     if period_count_column and period_count_column in df.columns:
         df = df.filter(pl.col(period_count_column).cast(pl.Float64, strict=False) == 1)
         if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
     date = (
         pl.col(time_column)
         .replace(_MISSING, None)
@@ -240,5 +236,5 @@ def parse_values(
             ),
         )
     if not frames:
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     return pl.concat(frames)

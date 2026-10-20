@@ -15,6 +15,7 @@ import pytest
 import wetterdienst.provider.rmi.observation.api as rmi_api
 from tests.provider.value_stubs import stations_result
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
@@ -227,8 +228,12 @@ def test_collect_reshapes_wide_features_to_long_utc_values() -> None:
     # bypass the network: feed the reshape a single wide page
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
 
-    df = values._collect_station_parameter_or_dataset(UCCLE, dataset)  # noqa: SLF001
-    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality_flags"]
+    # what the provider hands over is the rows, `parameter`, `timestamp`, `value` and `quality_flags`; the identity
+    # columns, the order and the dtypes are the core's (`shape_provider_frame`), so the assertions are on its frame
+    handed = values._collect_station_parameter_or_dataset(UCCLE, dataset)  # noqa: SLF001
+    assert handed.columns == ["parameter", "timestamp", "value", "quality_flags"]
+    df = values._shape(handed, UCCLE, dataset)  # noqa: SLF001
+    assert df.columns == list(LONG_SCHEMA)
     assert df.get_column("resolution").unique().to_list() == ["hourly"]
     assert df.get_column("station_id").unique().to_list() == [UCCLE]
     assert set(df.get_column("parameter").unique().to_list()) == set(names)
@@ -263,7 +268,7 @@ def _collect_wide(
         end=dt.datetime(2003, 10, 9, tzinfo=UTC),
     )
     values._iter_value_pages = lambda *_args, **_kwargs: iter([wide])  # noqa: SLF001
-    return values._collect_station_parameter_or_dataset(station, dataset)  # noqa: SLF001
+    return values._shape(values._collect_station_parameter_or_dataset(station, dataset), station, dataset)  # noqa: SLF001
 
 
 def test_collect_nulls_a_value_outside_the_range_of_its_attribute_and_keeps_what_it_was() -> None:
@@ -392,8 +397,9 @@ def test_collect_filters_a_zero_length_window_without_a_during_period() -> None:
         return []
 
     values._iter_value_pages = fake_pages  # noqa: SLF001
-    df = values._collect_station_parameter_or_dataset(UCCLE, dataset)  # noqa: SLF001
+    df = values._shape(values._collect_station_parameter_or_dataset(UCCLE, dataset), UCCLE, dataset)  # noqa: SLF001
     assert df.is_empty()
+    assert df.schema == LONG_SCHEMA
     # bounds in UTC, both inclusive, and no period the GeoServer could reject as zero-length
     assert filters == [f"code = {UCCLE} AND timestamp >= 2024-06-10T00:00:00Z AND timestamp <= 2024-06-10T00:00:00Z"]
     assert "DURING" not in filters[0]
