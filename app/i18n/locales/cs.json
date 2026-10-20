@@ -13,7 +13,8 @@
     "stationSearch": "Hledat podle názvu nebo ID stanice (např. München, 10738)",
     "requestFailed": "Požadavek selhal",
     "backendError": "Chyba backendu {status}",
-    "backendErrorDetail": "Chyba backendu {status}: {detail}"
+    "backendErrorDetail": "Chyba backendu {status}: {detail}",
+    "chartTableHint": "Hodnoty jsou v tabulce pod grafem."
   },
   "home": {
     "tagline": "Otevřená meteorologická data pro lidi",
@@ -391,7 +392,10 @@
       "axisPrecip": "Srážky mm",
       "axisCloud": "Oblačnost %",
       "axisTemp": "Teplota °C",
-      "axisPressure": "Tlak hPa"
+      "axisPressure": "Tlak hPa",
+      "tableTime": "Čas ({zone})",
+      "summaryRange": "Předpověď od {from} do {to}.",
+      "summaryTemperature": "Teplota od {min} do {max} °C."
     },
     "orChooseMap": "nebo",
     "chooseOnMap": "Vyber stanici na mapě",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Vyber na mapě",
     "mapHint": "Klepnutím na bod na mapě vyber tuto stanici.",
     "hoverValue": "Hodnota",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "Od {from} do {to}. Nejnižší hodnota {min} v roce {minYear}, nejvyšší {max} v roce {maxYear}.",
+    "table": {
+      "year": "Rok",
+      "value": "Hodnota",
+      "class": "Třída",
+      "note": {
+        "temperature": "Třída: kde rok leží mezi nejchladnějším a nejteplejším ze zobrazených let, v pětinách. Je to barva jeho pruhu, od tmavě modré (nejchladnější) po tmavě červenou (nejteplejší).",
+        "precipitation": "Třída: kde rok leží mezi nejsušším a nejvlhčím ze zobrazených let, v pětinách. Je to barva jeho pruhu, od hnědé (nejsušší) po tmavě zelenou (nejvlhčí)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Mnohem chladnější",
+          "low": "Chladnější",
+          "middle": "Střední",
+          "high": "Teplejší",
+          "veryHigh": "Mnohem teplejší"
+        },
+        "precipitation": {
+          "veryLow": "Mnohem sušší",
+          "low": "Sušší",
+          "middle": "Střední",
+          "high": "Vlhčí",
+          "veryHigh": "Mnohem vlhčí"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Průzkumník",

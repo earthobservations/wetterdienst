@@ -556,3 +556,102 @@ describe('meteogram display synced to the URL', { timeout: 15_000 }, () => {
     expect(unhandled).toEqual([])
   })
 })
+
+describe('meteogram text alternative', { timeout: 15_000 }, () => {
+  // 30 hourly values of the series the panels plot; the cloud cover as the backend gives it, a fraction
+  const hours = 30
+  const forecast = Object.entries({
+    temperature_air_2m: (hour: number) => 10 + hour / 10,
+    wind_speed: (hour: number) => 4 + hour / 10,
+    wind_direction: () => 270,
+    precipitation_amount_significant_weather_last_1h: (hour: number) => hour === 1 ? 0.5 : 0,
+    cloud_cover_total: () => 0.5,
+    pressure_air_sea_level: () => 1013.25,
+  }).flatMap(([parameter, curve]) => Array.from({ length: hours }, (_, hour) => ({
+    station_id: '10384',
+    resolution: 'hourly',
+    dataset: 'small',
+    parameter,
+    timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString().replace('.000Z', '+00:00'),
+    value: curve(hour),
+    quality_flags: null,
+  })))
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  async function showForecast(route = '/meteogram', props: Record<string, unknown> = {}) {
+    wrapper = await mountSuspended(Meteogram, { props: { values: forecast, stationName: 'Berlin', ...props }, attachTo: document.body, route })
+    return wrapper.vm as any
+  }
+  const figure = () => document.body.querySelector('[role="figure"]')!
+  const toggle = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Show as table')
+  async function openTable() {
+    toggle()!.click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    return document.body.querySelector('table')!
+  }
+  const headers = (table: Element) => [...table.querySelectorAll('thead th')].map(th => th.textContent?.trim())
+  const rows = (table: Element) => [...table.querySelectorAll('tbody tr')].map(row => [...row.children].map(cell => cell.textContent?.trim()))
+
+  it('describes the figure by the span of the forecast and its temperatures', async () => {
+    await showForecast()
+    const description = document.getElementById(figure().getAttribute('aria-describedby')!)
+    expect(description?.textContent?.trim()).toBe(
+      'Forecast from 01/10/2026, 00:00 to 02/10/2026, 05:00. Temperature from 10.0 to 12.9 °C. The values are in the table below the chart.',
+    )
+  })
+
+  it('offers the values of the plotted series as a table behind a button that says whether it is open', async () => {
+    await showForecast()
+    expect(document.body.querySelector('table')).toBeNull()
+    expect(toggle()?.getAttribute('aria-expanded')).toBe('false')
+
+    const table = await openTable()
+    expect(toggle()?.getAttribute('aria-expanded')).toBe('true')
+    expect(headers(table)).toEqual([
+      'Time (UTC)',
+      'Temperature °C',
+      'Wind m/s',
+      'Direction °',
+      'Precipitation mm',
+      'Total Cloud Cover %',
+      'Pressure hPa',
+    ])
+    expect(rows(table)).toHaveLength(hours)
+    // each time is the header of its row; the cloud cover is in percent, as the chart has it
+    expect(rows(table)[1]).toEqual(['01/10/2026, 01:00', '10.1', '4.1', '270', '0.50', '50', '1,013.3'])
+    expect(table.querySelector('caption')?.textContent?.trim()).toBe('Forecast chart for Berlin')
+    expect(table.querySelector('tbody tr')?.firstElementChild?.tagName).toBe('TH')
+  })
+
+  it('writes the times in the station\'s time zone', async () => {
+    await showForecast('/meteogram', { stationCoords: { latitude: 52.52, longitude: 13.4 } })
+    const table = await openTable()
+    expect(headers(table)[0]).toBe('Time (Europe/Berlin)')
+    // midnight UTC is two o'clock in Berlin in October, on summer time
+    expect(rows(table)[0]![0]).toBe('01/10/2026, 02:00')
+  })
+
+  it('leaves out the columns of a panel that is switched off, and the rows beyond the horizon', async () => {
+    const vm = await showForecast()
+    vm.visiblePanels = { ...vm.visiblePanels, wind: false, cloud: false, pressure: false, precip: false }
+    vm.horizonHours = 24
+    await nextTick()
+    const table = await openTable()
+    expect(headers(table)).toEqual(['Time (UTC)', 'Temperature °C'])
+    // from the first hour to the 24th after it
+    expect(rows(table)).toHaveLength(25)
+  })
+
+  it('has no table where the compact view shows day cards instead of the chart', async () => {
+    await showForecast('/meteogram?compact=true')
+    await vi.waitFor(() => expect(document.body.querySelector('[role="figure"]')).toBeNull())
+    expect(toggle()).toBeUndefined()
+    expect(document.body.querySelector('table')).toBeNull()
+  })
+})

@@ -310,6 +310,8 @@ interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
+  'stripes.table.class': { de: ['da', 'nl'], why: COGNATE },
+  'stripes.table.classes.temperature.high': { en: ['nl'], why: COGNATE },
   'common.documentation': { en: ['fr'], de: ['da'], why: COGNATE },
   'home.statParameters': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },

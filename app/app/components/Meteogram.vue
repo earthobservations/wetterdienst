@@ -365,6 +365,90 @@ const compactDays = computed(() => {
   return out
 })
 
+// The station's time zone, which the times of the table are written in, as the chart's axis is
+const stationTimeZone = computed(() => {
+  const { latitude, longitude } = props.stationCoords ?? {}
+  if (latitude == null || longitude == null)
+    return 'UTC'
+  try {
+    return tzLookup(latitude, longitude)
+  }
+  catch {
+    return 'UTC'
+  }
+})
+
+// What the chart draws, as a table and a sentence (WCAG 1.1.1, 1.3.1, and 1.4.13 for the values that appear
+// on hover only): the panels that are shown, one column for each series they plot, one row for each time
+// the forecast has a value, as far as the horizon chosen reaches. The values are the forecast's own, in
+// the units the chart labels them in, not the chart's resampled curve.
+const chartTable = computed(() => {
+  const series = seriesCache.value
+  if (!series.size)
+    return null
+  const available = new Set(series.keys())
+  const pick = (names: readonly string[]) => findFirstAvailable(names, available)
+  const panels = visiblePanels.value
+  const specs: { shown: boolean, key: string | undefined, label: string, digits: number, percent?: boolean, main?: boolean }[] = [
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperature), label: t('meteogram.chart.seriesTemperature'), digits: 1, main: true },
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMax), label: t('meteogram.chart.seriesMaxTemp'), digits: 1 },
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperatureMin), label: t('meteogram.chart.seriesMinTemp'), digits: 1 },
+    { shown: panels.temp, key: pick(METEOGRAM_SERIES.dewPoint), label: `${t('meteogram.chart.seriesDewPoint')} °C`, digits: 1 },
+    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windSpeed), label: t('meteogram.chart.seriesWind'), digits: 1 },
+    { shown: panels.wind, key: pick(METEOGRAM_SERIES.windDirection), label: `${t('meteogram.chart.seriesDirection')} °`, digits: 0 },
+    { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: t('meteogram.chart.seriesWindGust'), digits: 1 },
+    { shown: panels.precip, key: pick(METEOGRAM_SERIES.precipitation), label: `${t('meteogram.chart.panelPrecipitation')} mm`, digits: 2 },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCover), label: t('meteogram.chart.seriesTotalCloud'), digits: 0, percent: true },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverLow), label: t('meteogram.chart.seriesLowClouds'), digits: 0, percent: true },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverMid), label: t('meteogram.chart.seriesMidClouds'), digits: 0, percent: true },
+    { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverHigh), label: t('meteogram.chart.seriesHighClouds'), digits: 0, percent: true },
+    { shown: panels.pressure, key: pick(METEOGRAM_SERIES.pressure), label: t('meteogram.chart.seriesPressure'), digits: 1 },
+  ]
+  const columns = specs.filter((spec): spec is typeof spec & { key: string } => spec.shown && spec.key !== undefined)
+  if (!columns.length)
+    return null
+
+  const firstTime = Math.min(...[...series.values()].flatMap(s => s.x.map(d => d.getTime())))
+  const lastShown = horizonHours.value !== null ? firstTime + horizonHours.value * 3_600_000 : Number.POSITIVE_INFINITY
+  const byTime = new Map<number, (number | null)[]>()
+  columns.forEach((column, index) => {
+    const s = series.get(column.key)!
+    // a fraction or an oktas count is a percentage on the chart, and so here
+    const scale = column.percent ? cloudScaleFactor(s.y) : 1
+    s.x.forEach((date, i) => {
+      const ms = date.getTime()
+      if (ms > lastShown)
+        return
+      const row = byTime.get(ms) ?? Array.from<number | null>({ length: columns.length }).fill(null)
+      row[index] = s.y[i]! * scale
+      byTime.set(ms, row)
+    })
+  })
+  const times = [...byTime.keys()].sort((a, b) => a - b)
+  if (!times.length)
+    return null
+
+  const writeTime = (ms: number) => DateTime.fromMillis(ms, { zone: stationTimeZone.value }).setLocale(language.value).toLocaleString(DateTime.DATETIME_SHORT)
+  const main = columns.findIndex(column => column.main)
+  const temperatures = main < 0 ? [] : times.map(ms => byTime.get(ms)![main]).filter((v): v is number => v !== null && v !== undefined)
+  return {
+    columns: [t('meteogram.chart.tableTime', { zone: stationTimeZone.value }), ...columns.map(column => column.label)],
+    rows: times.map(ms => [
+      writeTime(ms),
+      ...byTime.get(ms)!.map((value, index) => value === null ? '–' : formatNumber(value, locale.value, columns[index]!.digits)),
+    ]),
+    summary: [
+      t('meteogram.chart.summaryRange', { from: writeTime(times[0]!), to: writeTime(times.at(-1)!) }),
+      ...(temperatures.length
+        ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale.value, 1), max: formatNumber(Math.max(...temperatures), locale.value, 1) })]
+        : []),
+      t('common.chartTableHint'),
+    ].join(' '),
+  }
+})
+const summaryId = useId()
+const chartLabel = computed(() => props.stationName ? t('meteogram.chart.label', { name: props.stationName }) : t('meteogram.chart.labelNoStation'))
+
 // Calculate summary statistics for the loaded forecast period
 const summaryStats = computed(() => {
   const series = seriesCache.value
@@ -2094,33 +2178,42 @@ watch(
       </div>
 
       <!-- Main Interactive Chart Container -->
-      <div v-if="!compact" class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-        <div
-          v-if="renderFailed"
-          ref="chartNotice"
-          class="flex flex-wrap items-center justify-center gap-3 p-4 text-red-600 dark:text-red-400"
-        >
-          <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
-               button stays, and keeps its focus -->
-          <span :key="renderFailures" role="alert" class="text-center">
-            <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-            <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
-                 a screen reader reads it, otherwise runs the two together -->
-            <template v-if="chartCodeNotLoaded">
-              <span class="sr-only">{{ '. ' }}</span>
-              <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
-            </template>
-          </span>
-          <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
-          <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+      <div v-if="!compact">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+          <div
+            v-if="renderFailed"
+            ref="chartNotice"
+            class="flex flex-wrap items-center justify-center gap-3 p-4 text-red-600 dark:text-red-400"
+          >
+            <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
+                 button stays, and keeps its focus -->
+            <span :key="renderFailures" role="alert" class="text-center">
+              <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
+              <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
+                   a screen reader reads it, otherwise runs the two together -->
+              <template v-if="chartCodeNotLoaded">
+                <span class="sr-only">{{ '. ' }}</span>
+                <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
+              </template>
+            </span>
+            <UButton :label="t('common.retry')" icon="i-lucide-rotate-cw" size="sm" color="neutral" variant="outline" @click="renderChart()" />
+            <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-lucide-refresh-cw" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
+          </div>
+          <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
+               no controls of Plotly's to keep reachable. Described by what it shows; the table has the values -->
+          <div
+            ref="chartRef" tabindex="-1" role="figure"
+            :aria-label="chartLabel"
+            :aria-describedby="chartTable ? summaryId : undefined"
+            :style="{ width: '100%', height: chartHeight, position: 'relative' }"
+          />
         </div>
-        <!-- a figure, as the app's other charts, and no landmark; drawn without Plotly's modebar, it holds
-             no controls of Plotly's to keep reachable -->
-        <div
-          ref="chartRef" tabindex="-1" role="figure"
-          :aria-label="stationName ? t('meteogram.chart.label', { name: stationName }) : t('meteogram.chart.labelNoStation')"
-          :style="{ width: '100%', height: chartHeight, position: 'relative' }"
-        />
+        <template v-if="chartTable">
+          <p :id="summaryId" class="sr-only">
+            {{ chartTable.summary }}
+          </p>
+          <ChartTable :caption="chartLabel" :columns="chartTable.columns" :rows="chartTable.rows" />
+        </template>
       </div>
 
       <!-- Premium Compact Overview Grid -->

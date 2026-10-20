@@ -13,7 +13,8 @@
     "stationSearch": "Search by name or station ID (e.g. München, 10738)",
     "requestFailed": "Request failed",
     "backendError": "Backend error {status}",
-    "backendErrorDetail": "Backend error {status}: {detail}"
+    "backendErrorDetail": "Backend error {status}: {detail}",
+    "chartTableHint": "The values are in the table below the chart."
   },
   "home": {
     "tagline": "Open weather data for humans",
@@ -391,7 +392,10 @@
       "axisPrecip": "Precip mm",
       "axisCloud": "Cloud %",
       "axisTemp": "Temp °C",
-      "axisPressure": "Pressure hPa"
+      "axisPressure": "Pressure hPa",
+      "tableTime": "Time ({zone})",
+      "summaryRange": "Forecast from {from} to {to}.",
+      "summaryTemperature": "Temperature from {min} to {max} °C."
     },
     "orChooseMap": "or",
     "chooseOnMap": "Choose a station on the map",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Choose on the map",
     "mapHint": "Tap a marker on the map to pick that station.",
     "hoverValue": "Value",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "From {from} to {to}. Lowest value {min} in {minYear}, highest value {max} in {maxYear}.",
+    "table": {
+      "year": "Year",
+      "value": "Value",
+      "class": "Class",
+      "note": {
+        "temperature": "Class: where the year lies between the coolest and the warmest year shown, in fifths. It is the colour of its stripe, from dark blue (coolest) to dark red (warmest).",
+        "precipitation": "Class: where the year lies between the driest and the wettest year shown, in fifths. It is the colour of its stripe, from brown (driest) to dark green (wettest)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Much cooler",
+          "low": "Cooler",
+          "middle": "Middle",
+          "high": "Warmer",
+          "veryHigh": "Much warmer"
+        },
+        "precipitation": {
+          "veryLow": "Much drier",
+          "low": "Drier",
+          "middle": "Middle",
+          "high": "Wetter",
+          "veryHigh": "Much wetter"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Explorer",

@@ -31,6 +31,12 @@ Types of changes:
   ust. 4), and `license.url` links the terms' PDF, not the portal. The docs say that the data
   are free for private use only, since IMGW has declared none high-value, and that a business
   use needs an agreement with IMGW (GH-2567)
+- The app's climate stripes and forecast chart (also the embeddable widget) have a text
+  alternative: the chart is described by a sentence, and "Show as table" below it lists what it
+  draws, every year with its value and class for the stripes, every time with the values of the
+  shown panels for the forecast, so a screen reader or a keyboard reads the data that colour and
+  shape carry. Plotly's modebar buttons were found keyboard-operable already and are now held so
+  by a test (GH-3145)
 
 ### Fixed
 

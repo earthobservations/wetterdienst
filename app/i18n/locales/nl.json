@@ -13,7 +13,8 @@
     "stationSearch": "Zoek op naam of station-id (bijv. München, 10738)",
     "requestFailed": "Aanvraag mislukt",
     "backendError": "Backendfout {status}",
-    "backendErrorDetail": "Backendfout {status}: {detail}"
+    "backendErrorDetail": "Backendfout {status}: {detail}",
+    "chartTableHint": "De waarden staan in de tabel onder de grafiek."
   },
   "home": {
     "tagline": "Open weerdata voor mensen",
@@ -391,7 +392,10 @@
       "axisPrecip": "Neerslag mm",
       "axisCloud": "Bewolking %",
       "axisTemp": "Temp. °C",
-      "axisPressure": "Luchtdruk hPa"
+      "axisPressure": "Luchtdruk hPa",
+      "tableTime": "Tijd ({zone})",
+      "summaryRange": "Verwachting van {from} tot {to}.",
+      "summaryTemperature": "Temperatuur van {min} tot {max} °C."
     },
     "orChooseMap": "of",
     "chooseOnMap": "Kies een station op de kaart",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Kies op de kaart",
     "mapHint": "Tik op een punt op de kaart om dat station te kiezen.",
     "hoverValue": "Waarde",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "Van {from} tot {to}. Laagste waarde {min} in {minYear}, hoogste waarde {max} in {maxYear}.",
+    "table": {
+      "year": "Jaar",
+      "value": "Waarde",
+      "class": "Klasse",
+      "note": {
+        "temperature": "Klasse: waar het jaar ligt tussen het koelste en het warmste getoonde jaar, in vijfden. Het is de kleur van de streep, van donkerblauw (koelste) tot donkerrood (warmste).",
+        "precipitation": "Klasse: waar het jaar ligt tussen het droogste en het natste getoonde jaar, in vijfden. Het is de kleur van de streep, van bruin (droogste) tot donkergroen (natste)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Veel koeler",
+          "low": "Koeler",
+          "middle": "Midden",
+          "high": "Warmer",
+          "veryHigh": "Veel warmer"
+        },
+        "precipitation": {
+          "veryLow": "Veel droger",
+          "low": "Droger",
+          "middle": "Midden",
+          "high": "Natter",
+          "veryHigh": "Veel natter"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Verkenner",

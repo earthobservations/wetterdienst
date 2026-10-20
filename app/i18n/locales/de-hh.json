@@ -13,7 +13,8 @@
     "stationSearch": "Na Naam oder Stations-ID söken (t. B. München, 10738)",
     "requestFailed": "Afraag is scheefgahn",
     "backendError": "Backend-Fehler {status}",
-    "backendErrorDetail": "Backend-Fehler {status}: {detail}"
+    "backendErrorDetail": "Backend-Fehler {status}: {detail}",
+    "chartTableHint": "De Weerten staht in de Tabell ünner dat Diagramm."
   },
   "home": {
     "tagline": "Apen Wedderdaten för de Lüüd",
@@ -391,7 +392,10 @@
       "axisPrecip": "Nedderslag mm",
       "axisCloud": "Bewölkung %",
       "axisTemp": "Temperatur °C",
-      "axisPressure": "Luftdruck hPa"
+      "axisPressure": "Luftdruck hPa",
+      "tableTime": "Tiet ({zone})",
+      "summaryRange": "Vörhersage vun {from} bit {to}.",
+      "summaryTemperature": "Temperatur vun {min} bit {max} °C."
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station op de Kaart utsöken",
@@ -445,7 +449,33 @@
     "chooseOnMap": "Op de Kaart utsöken",
     "mapHint": "Tipp op een Punkt op de Kaart, denn nimmst du de Station.",
     "hoverValue": "Weert",
-    "hoverTrend": "Trend"
+    "hoverTrend": "Trend",
+    "summary": "Vun {from} bit {to}. Leegste Weert {min} in {minYear}, hööchste Weert {max} in {maxYear}.",
+    "table": {
+      "year": "Johr",
+      "value": "Weert",
+      "class": "Klass",
+      "note": {
+        "temperature": "Klass: Wo dat Johr twüschen dat köhlste un dat wärmste wiest Johr liggt, in Fiefteln. Dat is de Klöör vun sien Streep, vun Düsterblau (köhlst) bit Düsterrot (wärmst).",
+        "precipitation": "Klass: Wo dat Johr twüschen dat dröögste un dat natste wiest Johr liggt, in Fiefteln. Dat is de Klöör vun sien Streep, vun Bruun (dröögst) bit Düstergröön (natst)."
+      },
+      "classes": {
+        "temperature": {
+          "veryLow": "Veel köhler",
+          "low": "Köhler",
+          "middle": "Middel",
+          "high": "Wärmer",
+          "veryHigh": "Veel wärmer"
+        },
+        "precipitation": {
+          "veryLow": "Veel dröger",
+          "low": "Dröger",
+          "middle": "Middel",
+          "high": "Natter",
+          "veryHigh": "Veel natter"
+        }
+      }
+    }
   },
   "explorer": {
     "title": "Explorer",

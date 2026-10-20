@@ -11,7 +11,7 @@ it, what was checked by hand, and what is known not to conform.
 
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
-  stations, a drawn chart (explorer, stripes, meteogram, widget), the meteogram's compact day cards, an open
+  stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
   menu or popover, and an error notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
@@ -38,7 +38,8 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
-it back), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
+it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
+and the meteogram, opened, reached and scrolled by keys), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
 
 ## The baseline
@@ -139,15 +140,19 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | 1.4.10 Reflow | No page scrolls sideways at 320 px (tested). A table or chart scrolls in its own box. |
 | 2.1.2, 2.4.3 on the narrow layout's menu | **Was failing**: the menu was a fixed overlay that Tab walked out of. It is a dialog. |
 
+The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19:
+
+| Criterion | Result |
+| --- | --- |
+| 1.1.1, 1.3.1 Text alternative of the climate stripes | **Was failing**: a `figure` with a name and nothing of what it shows. The figure is described (`aria-describedby`) by a sentence, the span of the years with the lowest and the highest value, and a "Show as table" button below it opens a table of every year drawn with its value and its class (the fifth of the range between the lowest and the highest year that gives its colour, named for temperature or precipitation). |
+| 1.1.1, 1.3.1 Text alternative of the meteogram (also the widget) | **Was failing**: the same. The figure is described by the span of the forecast and its temperatures, and "Show as table" opens the values of the series the shown panels plot (as far as the horizon chosen reaches), one row for each time, in the station's time zone. The compact view is day cards of text, and has no table. |
+| 2.1.1 Plotly's modebar (explorer, stripes) | Not failing in the Plotly the app ships (3.7.0): the hand audit recorded `a` elements without `href`, but its buttons are native `button`s with an `aria-label`, in the tab order, operated by Enter and Space, and the toggles (zoom, pan) say so by their `active` class. The meteogram draws none. Tested (`chart controls by keyboard`), so an upgrade that changes it fails. |
+
 ### Known not to conform
 
-The first three, on the charts, are #3145.
-
-- **Charts, 1.1.1 and 1.3.1**: the climate stripes and the meteogram are a `figure` with an `aria-label` and
-  no text or table alternative of what they show (the explorer's table is the alternative of its chart). Open.
-- **Plotly's modebar, 2.1.1**: its buttons are not in the tab order, so zoom, pan and reset of a chart that has
-  the modebar (explorer, stripes) cannot be done by keyboard. The charts' content does not depend on it.
-- **The meteogram's hover values, 1.4.13 and 2.1.1**: the values of the forecast appear on hover only.
+- **The meteogram's hover label, 1.4.13**: the values of the forecast are in the table that stands for the
+  chart (see below), so the hover is not the only way to read them, but Plotly's hover label itself cannot
+  be dismissed by a key or moved onto. The chart's controls are not affected (2.1.1 is met, below).
 - **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
   hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
   their count only.

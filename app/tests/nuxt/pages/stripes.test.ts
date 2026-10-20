@@ -4,7 +4,7 @@ import { createError, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
-import { useToast } from '#imports'
+import { clearNuxtData, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StripesPage from '~/pages/stripes.vue'
 
@@ -1087,5 +1087,105 @@ describe('stripes Page station span', () => {
     await nextTick()
 
     expect(wrapper.text().replace(/\s+/g, ' ')).toContain('Available: 1950 - 2020')
+  })
+})
+
+describe('stripes Page text alternative', () => {
+  const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  // the stripes drawn for a station, as the backend answers them: a year without a value among them
+  async function showStripes(route = '/stripes?kind=temperature') {
+    // the station lists the earlier tests fetched are kept by their request, which this one is too
+    clearNuxtData()
+    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stripes/values', () => ({
+      metadata: {},
+      series: { station, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
+      values: [
+        { timestamp: '2018-01-01T00:00:00+00:00', value: 8 },
+        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.25 },
+        { timestamp: '2020-01-01T00:00:00+00:00', value: null },
+        { timestamp: '2021-01-01T00:00:00+00:00', value: 10 },
+      ],
+    }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    plotly.newPlot.mockClear()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    await vi.waitFor(() => expect(document.body.querySelector('[role="figure"]')?.getAttribute('aria-describedby')).toBeTruthy())
+  }
+
+  const figure = () => document.body.querySelector('[role="figure"]')!
+  const toggle = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Show as table')
+
+  it('describes the figure by what the stripes show, in words a screen reader reads', async () => {
+    await showStripes()
+    const description = document.getElementById(figure().getAttribute('aria-describedby')!)
+    expect(description?.textContent?.trim()).toBe(
+      'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. The values are in the table below the chart.',
+    )
+  })
+
+  it('offers every year as a table behind a button that says whether it is open, and shows none before', async () => {
+    await showStripes()
+    expect(document.body.querySelector('table')).toBeNull()
+    expect(toggle()?.getAttribute('aria-expanded')).toBe('false')
+
+    toggle()!.click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    expect(toggle()?.getAttribute('aria-expanded')).toBe('true')
+    // a reader finds the controlled part by id
+    expect(document.getElementById(toggle()!.getAttribute('aria-controls')!)).not.toBeNull()
+
+    const table = document.body.querySelector('table')!
+    expect([...table.querySelectorAll('thead th')].map(th => [th.textContent?.trim(), th.getAttribute('scope')])).toEqual([
+      ['Year', 'col'],
+      ['Value (°C)', 'col'],
+      ['Class', 'col'],
+    ])
+    // the year with no value is not drawn, so it is not listed; each year is the header of its row
+    const rows = [...table.querySelectorAll('tbody tr')].map(row => [...row.children].map(cell => `${cell.tagName.toLowerCase()}:${cell.textContent?.trim()}`))
+    expect(rows).toEqual([
+      ['th:2018', 'td:8.00', 'td:Much cooler'],
+      ['th:2019', 'td:9.25', 'td:Warmer'],
+      ['th:2021', 'td:10.00', 'td:Much warmer'],
+    ])
+    expect(table.querySelector('caption')?.textContent?.trim()).toBe(figure().getAttribute('aria-label'))
+  })
+
+  it('puts the scrolling table in a region the keyboard reaches, and says what a class is', async () => {
+    await showStripes()
+    toggle()!.click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    const region = document.body.querySelector('[role="region"]')!
+    expect(region.getAttribute('tabindex')).toBe('0')
+    expect(region.getAttribute('aria-label')).toBe(figure().getAttribute('aria-label'))
+    expect(region.contains(document.body.querySelector('table'))).toBe(true)
+    expect(document.body.textContent).toContain('Class: where the year lies between the coolest and the warmest year shown')
+  })
+
+  it('names the classes of a precipitation series by wet and dry', async () => {
+    await showStripes('/stripes?kind=precipitation')
+    toggle()!.click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    expect([...document.body.querySelectorAll('tbody tr')].map(row => row.lastElementChild?.textContent?.trim())).toEqual(['Much drier', 'Wetter', 'Much wetter'])
+  })
+
+  it('has no table and no description once the stripes are cleared', async () => {
+    await showStripes()
+    wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
+    await vi.waitFor(() => expect(toggle()).toBeUndefined())
+    expect(figure().getAttribute('aria-describedby')).toBeNull()
   })
 })
