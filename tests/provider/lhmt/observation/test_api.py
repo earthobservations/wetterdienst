@@ -11,6 +11,7 @@ import polars as pl
 import pytest
 
 from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.lhmt.observation.parser import (
     parse_lhmt_observations,
@@ -38,6 +39,50 @@ def test_parse_lhmt_stations() -> None:
             "longitude": 25.107064,
         },
     ]
+
+
+def _stations_of(monkeypatch: pytest.MonkeyPatch, catalogue: bytes) -> pl.DataFrame:
+    """Give the stations the core hands out for a `/v1/stations` answer of this content."""
+    monkeypatch.setattr(
+        "wetterdienst.provider.lhmt.observation.api.download_file",
+        lambda url, *_args, **_kwargs: File(url=url, content=BytesIO(catalogue), status=200),
+    )
+    return LhmtObservationRequest(parameters=[("hourly", "data")]).all().df
+
+
+def test_lhmt_observation_stations_have_a_position_and_no_period_or_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The list gives a code, a name and a position: the rest of the stations frame is null (GH-2627)."""
+    df = _stations_of(
+        monkeypatch,
+        b'[{"code": "vilniaus-ams", "name": "Vilniaus AMS", '
+        b'"coordinates": {"latitude": 54.625992, "longitude": 25.107064}}]',
+    )
+    assert df.schema == STATIONS_SCHEMA
+    assert df.to_dicts() == [
+        {
+            "resolution": "hourly",
+            "dataset": "data",
+            "station_id": "vilniaus-ams",
+            "start_timestamp": None,
+            "end_timestamp": None,
+            "latitude": 54.625992,
+            "longitude": 25.107064,
+            "elevation": None,
+            "name": "Vilniaus AMS",
+            "region": None,
+        },
+    ]
+
+
+@pytest.mark.parametrize("catalogue", [b"[]", b"not json", b'{"not": "a list"}', b'[{"name": "no code"}, "garbage"]'])
+def test_lhmt_observation_stations_of_a_list_without_a_usable_entry_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    catalogue: bytes,
+) -> None:
+    """A list with no station, or none a station needs (a code and a position), is a network without stations."""
+    df = _stations_of(monkeypatch, catalogue)
+    assert df.is_empty()
+    assert df.schema == STATIONS_SCHEMA
 
 
 def test_parse_lhmt_observations() -> None:

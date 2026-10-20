@@ -3,6 +3,7 @@
 """Tests for CHMI observation provider."""
 
 import datetime as dt
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -10,8 +11,9 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.model.schema import LONG_SCHEMA, STATIONS_SCHEMA
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
+from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG, ChmiObservationValues
 from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
@@ -20,6 +22,7 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_daily,
     parse_chmi_values_subdaily,
 )
+from wetterdienst.util.network import File
 
 CHEB = "0-20000-0-11406"
 UTC = ZoneInfo("UTC")
@@ -49,6 +52,63 @@ def test_parse_chmi_stations_collapses_periods() -> None:
             "end_timestamp": None,  # END_DATE year 3999 -> active -> null
         },
     ]
+
+
+def _stations_of(monkeypatch: pytest.MonkeyPatch, catalogue: bytes) -> pl.DataFrame:
+    """Give the stations the core hands out for a catalogue `meta1.csv` of this content."""
+    monkeypatch.setattr(
+        chmi_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue), status=200),
+    )
+    return ChmiObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+
+
+def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A relocated station is one row: latest position, full extent, an active end as null (GH-2627)."""
+    df = _stations_of(
+        monkeypatch,
+        b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
+        b"0-X,GA,1961-01-01T00:00Z,2000-12-31T23:59Z,Cheb,12.30,50.00,458,\n"
+        b"0-X,GA,2001-01-01T00:00Z,3999-12-31T23:59Z,Cheb,12.391389,50.068333,483,\n"
+        b"0-Y,GA,1970-01-01T00:00Z,1999-06-30T23:59Z,Closed ,13.0,49.5,300,\n",
+    )
+    assert df.schema == STATIONS_SCHEMA
+    assert df.sort("station_id").to_dicts() == [
+        {
+            "resolution": "daily",
+            "dataset": "data",
+            "station_id": "0-X",
+            "start_timestamp": dt.datetime(1961, 1, 1, tzinfo=UTC),  # earliest BEGIN_DATE
+            "end_timestamp": None,  # END_DATE year 3999 -> active -> null
+            "latitude": 50.068333,  # GEOGR2 of the most recent (active) period
+            "longitude": 12.391389,  # GEOGR1 of the most recent period
+            "elevation": 483.0,
+            "name": "Cheb",
+            "region": None,
+        },
+        {
+            "resolution": "daily",
+            "dataset": "data",
+            "station_id": "0-Y",
+            "start_timestamp": dt.datetime(1970, 1, 1, tzinfo=UTC),
+            "end_timestamp": dt.datetime(1999, 6, 30, 23, 59, tzinfo=UTC),
+            "latitude": 49.5,
+            "longitude": 13.0,
+            "elevation": 300.0,
+            "name": "Closed",  # the trailing blank of the name is gone
+            "region": None,
+        },
+    ]
+
+
+def test_chmi_observation_stations_of_a_catalogue_without_a_row_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A catalogue with its header and no station is a network without stations, typed as the stations frame is."""
+    df = _stations_of(monkeypatch, b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n")
+    assert df.is_empty()
+    assert df.schema == STATIONS_SCHEMA
 
 
 def test_parse_chmi_values_daily_selects_timefunc_and_truncates() -> None:

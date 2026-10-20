@@ -57,6 +57,27 @@ def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.Monke
     assert df["region"].is_null().all()
 
 
+def test_imgw_meteorology_station_list_reads_the_elevation_as_a_number_and_what_is_none_as_null(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An elevation written with a blank for the thousands is that number, one that is no number is null (GH-2627)."""
+    catalogue = (
+        "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
+        "Wysokość n.p.m.\r\n"
+        "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;1 987\r\n"
+        "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;brak\r\n"
+    )
+    monkeypatch.setattr(
+        "wetterdienst.provider.imgw.meteorology.api.download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
+    )
+
+    df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    assert df.schema["elevation"] == pl.Float64
+    assert df.select("station_id", "elevation").rows() == [("249170080", 1987.0), ("249180010", None)]
+
+
 def test_imgw_meteorology_station_list_returns_every_row(monkeypatch: pytest.MonkeyPatch) -> None:
     """The first station of the list is a station, not the header (GH-2650, GH-2752).
 
