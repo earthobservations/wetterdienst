@@ -353,11 +353,10 @@ def test_knmi_parse_netcdf_hourly_wind_direction_codes_are_no_bearing(tmp_path: 
 
 
 def test_knmi_parse_netcdf_missing_station_returns_empty(netcdf_payload: bytes) -> None:
-    """A station not present in the file yields an empty (correctly-typed) frame, not an error."""
+    """A station not present in the file yields a frame without a row, not an error; the core types it."""
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "999", ["TG"], moment)
     assert df.is_empty()
-    assert df.schema["timestamp"] == pl.Datetime(time_unit="us", time_zone="UTC")
 
 
 def test_knmi_parse_netcdf_unknown_parameter_skipped(netcdf_payload: bytes) -> None:
@@ -931,6 +930,18 @@ def _station_file(path: Path, variables: dict[str, float]) -> bytes:
             variable = file.create_variable(name, ("station", "time"), dtype="f8")
             variable[:] = [[value]]
     return path.read_bytes()
+
+
+def test_knmi_values_of_a_station_the_files_do_not_hold_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A station that is in the station list but in none of the files read answers with no rows (GH-2627)."""
+    file = _station_file(tmp_path / "debilt.nc", {"T": 16.1})
+    _fake_downloads(monkeypatch, file)
+    df = _hourly_values(days=1, station_ids=(EELDE,))
+    assert df.is_empty()
+    assert df.schema["value"] == pl.Float64
 
 
 def test_knmi_hourly_values_are_stamped_with_the_end_of_their_hour(

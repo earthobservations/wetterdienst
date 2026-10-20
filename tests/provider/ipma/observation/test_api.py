@@ -3,18 +3,22 @@
 """Tests for IPMA (Portugal) observation provider."""
 
 import datetime as dt
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
+from wetterdienst.provider.ipma.observation import api as ipma_api
 from wetterdienst.provider.ipma.observation.parser import (
     extract_ipma_station_observations,
     parse_ipma_observations,
     parse_ipma_observations_feed,
     parse_ipma_stations,
 )
+from wetterdienst.settings import Settings
+from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 
@@ -115,6 +119,35 @@ def test_parse_ipma_observations_skips_absent_station() -> None:
     content = b'{"2026-07-29T14:00": {"9999999": {"temperatura": 20.0}}}'
     df = parse_ipma_observations(content, station_id="1200579")
     assert df.is_empty()
+
+
+def test_ipma_observation_values_of_a_station_absent_from_the_feed_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station the feed holds no reading of answers with no rows (GH-2627)."""
+    stations = (
+        b'[{"geometry": {"type": "Point", "coordinates": [-9.1, 38.7]}, "type": "Feature", '
+        b'"properties": {"idEstacao": 1200579, "localEstacao": "Lisboa"}}]'
+    )
+    feed = b'{"2026-10-10T12:00": {"9999999": {"temperatura": 20.0}}}'
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=BytesIO(feed if url.endswith("observations.json") else stations), status=200)
+
+    monkeypatch.setattr(ipma_api, "download_file", download_file)
+    result = (
+        IpmaObservationRequest(
+            parameters=[("hourly", "data")],
+            start=dt.datetime(2026, 10, 10, 11, tzinfo=UTC),
+            end=dt.datetime(2026, 10, 10, 14, tzinfo=UTC),
+            settings=Settings(cache_disable=True),
+        )
+        .filter_by_station_id("1200579")
+        .values()
+        .all()
+    )
+    assert result.df.is_empty()
+    assert result.df.schema["value"] == pl.Float64
 
 
 # ---------------------------------------------------------------------------
