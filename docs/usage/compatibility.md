@@ -279,7 +279,10 @@ whoever reports it. Frozen: a name that was released keeps meaning what it meant
   and the release that may end it, and is taken wherever a parameter name is: in `parameters` of a request over Python,
   the command line, REST and MCP, as an item or an attribute of a dataset, in a SQL filter and in a wide column
   (`<dataset>_<name>` and its `_quality_flags` too), and, for an alias of every dataset, in `glossary` and as a key of
-  `geo_station_distance`. It resolves to the new name, so the answer holds the new name only, and each use is a
+  `geo_station_distance` (a radius given under both the old and the new name is refused). The SQL filter takes the
+  alias in the wide shape only, where the parameter is a column; in the long shape the parameter is a value of the
+  `parameter` column, and a clause `parameter = 'old'` selects nothing, without a warning, so filter on the new name.
+  It resolves to the new name, so the answer holds the new name only, and each use is a
   `DeprecationWarning`, a `deprecated-parameter` warning in the `metadata` block and, over REST, the `Deprecation`
   header (see [Deprecation](#deprecation)). The entry also stays a rename for the hints, so that when the alias ends it
   moves into the tables of `wetterdienst.metadata.renamed` and the name is refused with its hint, as the names of 0.x

@@ -1374,13 +1374,15 @@ def get_glossary(
     unit_converter = UnitConverter()
     unit_converter.update_targets(options.unit_targets)
     needle = parameter.strip().lower() if parameter else None
+    needles = [needle] if needle else []
     if needle and needle in PARAMETER_ALIASES and needle not in PARAMETERS:
-        # the old name of a renamed parameter, which no longer holds the substring it was asked for
+        # the old name of a renamed parameter: it finds the entries of the new name as well as those that hold the
+        # old one as a substring
         use_alias(needle, PARAMETER_ALIASES[needle])
-        needle = PARAMETER_ALIASES[needle].new
+        needles.append(PARAMETER_ALIASES[needle].new)
     entries: list[GlossaryEntry] = []
     for canonical in PARAMETER_TABLE:
-        if needle and needle not in canonical.name:
+        if needles and not any(n in canonical.name for n in needles):
             continue
         if unit_type and canonical.unit_type != unit_type:
             continue

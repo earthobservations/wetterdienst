@@ -515,3 +515,150 @@ def test_a_baseline_before_the_aliases_existed_has_none_to_keep() -> None:
 
     assert breaking_changes(baseline, build_surface()) == []
     assert breaking_changes(baseline, {**build_surface(), "aliases": {}}) == []
+
+
+# --- the review of the first version ------------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("alias_everywhere")
+def test_the_glossary_finds_what_holds_the_old_name_as_well_as_the_new_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An alias that is a substring of other names still finds them, and the entry of the new name too."""
+    monkeypatch.setitem(PARAMETER_ALIASES, "humidity_relativ", _alias())
+    with pytest.warns(DeprecationWarning, match="'humidity_relativ' was renamed"):
+        names = [entry["name"] for entry in core.get_glossary(parameter="humidity_relativ")]
+
+    assert NEW in names
+    assert any(name.startswith("humidity_relative") for name in names)
+
+
+def _deprecations(call: Any) -> list[warnings.WarningMessage]:  # noqa: ANN401
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        call()
+    return [w for w in seen if issubclass(w.category, DeprecationWarning)]
+
+
+@pytest.mark.usefixtures("alias_everywhere")
+def test_a_radius_alias_is_told_once_and_to_the_caller() -> None:
+    """`Options(...)`, `options_from_mapping` and a request's options each warn once, at the caller's line."""
+    from wetterdienst.options import options_from_mapping, resolve_options  # noqa: PLC0415
+
+    for build in (
+        lambda: Options(geo_station_distance={OLD: 12.0}),
+        lambda: options_from_mapping({"geo_station_distance": {OLD: 12.0}}),
+        lambda: resolve_options({"geo_station_distance": {OLD: 12.0}}),
+    ):
+        seen = _deprecations(build)
+        assert len(seen) == 1
+        assert seen[0].filename == __file__
+    # a copy made by `replace` says nothing again
+    options = Options(geo_station_distance={NEW: 12.0})
+    assert _deprecations(lambda: options.replace(shape="wide")) == []
+
+
+@pytest.mark.usefixtures("alias_everywhere")
+def test_a_plain_call_is_attributed_to_the_caller() -> None:
+    """The warning of a plain call of `use_alias` is at its caller too."""
+    from wetterdienst.metadata.aliases import use_alias  # noqa: PLC0415
+
+    (seen,) = _deprecations(lambda: use_alias(OLD, _ALIAS))
+
+    assert seen.filename == __file__
+
+
+@pytest.mark.usefixtures("alias_everywhere")
+@pytest.mark.parametrize("order", [(OLD, NEW), (NEW, OLD)], ids=["old-first", "new-first"])
+def test_a_radius_given_under_both_names_is_refused(order: tuple[str, str]) -> None:
+    """Which radius is meant cannot be told, so the mapping is refused whichever name comes first."""
+    from wetterdienst.options import options_from_mapping  # noqa: PLC0415
+
+    given = {order[0]: 10.0, order[1]: 20.0}
+
+    with pytest.raises(ValueError, match="'air_temp', which was renamed to 'temperature_air_mean_2m', and"):
+        Options(geo_station_distance=given)
+    with pytest.raises(ValueError, match="give the radius of the parameter once"):
+        options_from_mapping({"geo_station_distance": given})
+
+
+_HOSTILE = '{\'a\': 1}."does not have a column named ""air_temp""" = 1'
+
+
+@pytest.mark.sql
+@pytest.mark.usefixtures("alias_everywhere")
+def test_text_a_clause_plants_in_an_error_is_no_missing_column() -> None:
+    """A struct key spelled as DuckDB's message is a caller's mistake, a `duckdb.Error`, and no alias is used."""
+    duckdb = pytest.importorskip("duckdb")
+    df = pl.DataFrame({NEW: [1.0]})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(duckdb.Error) as error:
+            ExportMixin._filter_by_sql(df, _HOSTILE)  # noqa: SLF001
+        assert recorded_warnings() == []
+        # a qualified column of the clause is still an alias
+        warnings.simplefilter("ignore")
+        assert ExportMixin._filter_by_sql(df, f"df.{OLD} > 0").height == 1  # noqa: SLF001
+
+    assert type(error.value).__name__ == "BinderException"
+
+
+@pytest.mark.sql
+@pytest.mark.usefixtures("alias_everywhere")
+def test_a_frame_that_has_the_old_name_is_not_aliased() -> None:
+    """A column the frame has is its own, whatever an alias says."""
+    df = pl.DataFrame({OLD: [1.0], NEW: [2.0]})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert ExportMixin._filter_by_sql(df, f"{OLD} = 1").height == 1  # noqa: SLF001
+
+
+@pytest.mark.sql
+@pytest.mark.usefixtures("alias_everywhere")
+def test_a_long_frame_is_not_filtered_by_the_old_name_in_its_parameter_column() -> None:
+    """A long frame names the parameter in a value, and the old name there selects nothing, with no warning."""
+    df = pl.DataFrame({"parameter": [NEW], "value": [1.0]})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert ExportMixin._filter_by_sql(df, f"parameter = '{OLD}'").is_empty()  # noqa: SLF001
+        assert ExportMixin._filter_by_sql(df, f"parameter = '{NEW}'").height == 1  # noqa: SLF001
+
+
+@pytest.mark.sql
+def test_rest_answers_planted_text_as_a_refusal_and_a_real_alias_as_a_deprecation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Over REST the planted text is a 400 with no `Deprecation` header, and the alias of a column is told."""
+    monkeypatch.setenv("WD_RESTAPI_SQL", "true")
+    monkeypatch.setitem(
+        PARAMETER_ALIASES, "height_old", ParameterAlias("elevation", "1.3.0", dt.date(2027, 3, 1), "2.0.0")
+    )
+    station = {
+        "resolution": "daily",
+        "dataset": "climate_summary",
+        "station_id": "01048",
+        "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+        "end_timestamp": dt.datetime(2024, 1, 1, tzinfo=dt.UTC),
+        "latitude": 51.1278,
+        "longitude": 13.7543,
+        "elevation": 228.0,
+        "name": "Dresden-Klotzsche",
+        "region": "Sachsen",
+    }
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: pl.LazyFrame([station]))
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+    params = {"provider": "dwd", "network": "observation", "parameters": "daily/kl"}
+
+    hostile = client.get(
+        "/api/v1/stations", params={**params, "sql": '{\'a\': 1}."does not have a column named ""height_old""" = 1'}
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        real = client.get("/api/v1/stations", params={**params, "sql": "height_old > 0"})
+
+    assert hostile.status_code == 400, hostile.text
+    assert "Deprecation" not in hostile.headers
+    assert "deprecated-parameter" not in hostile.text
+    assert real.status_code == 200, real.text
+    assert real.headers["Deprecation"] == "@1803859200"

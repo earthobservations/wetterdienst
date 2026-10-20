@@ -75,6 +75,14 @@ def _taken_by(method: Callable[..., object], kwargs: Mapping[str, Any]) -> dict[
     return {name: value for name, value in kwargs.items() if name in parameters}
 
 
+#: DuckDB's own message for a column the clause names and the frame lacks, anchored at its start: a clause can make
+#: DuckDB write text of its own choosing into another binder error (a struct key spelled as this message), which
+#: must not be read as a missing column
+_MISSING_COLUMN = re.compile(
+    r'Binder Error: (?:Referenced column|[A-Za-z ]+ "[^"]+" does not have a column named) "([^"]+)"',
+)
+
+
 class _AliasedColumnError(Exception):
     """A column of a SQL clause that the frame lacks, but holds under the name its parameter was renamed to.
 
@@ -352,8 +360,9 @@ class ExportMixin:
             try:
                 filtered = ExportMixin._filter_by_sql_clause(frame, sql)
             except _AliasedColumnError as e:
-                if e.name in aliased:
-                    raise
+                # the same name again: the retry did not help, and the caller's own error is the answer
+                if e.name in aliased and e.__cause__ is not None:
+                    raise e.__cause__ from None
                 use_alias(e.parameter, e.alias)
                 aliased.append(e.name)
                 frame = frame.with_columns(pl.col(e.column).alias(e.name))
@@ -439,8 +448,11 @@ class ExportMixin:
             df = con.table("df").filter(f"({clause}\n)").pl()
         except duckdb.BinderException as e:
             # unqualified (`height`) or qualified by the table (`df.height`), which DuckDB words apart
-            missing = re.search(r'(?:Referenced column|does not have a column named) "([^"]+)"', str(e))
-            aliased = aliased_column(missing.group(1), df.columns) if missing else None
+            missing = _MISSING_COLUMN.match(str(e))
+            # only a name the frame lacks is a candidate; the column is added by name through polars, so no text of
+            # an error ever reaches the SQL that is run again
+            lacking = missing and missing.group(1).lower() not in {column.lower() for column in df.columns}
+            aliased = aliased_column(missing.group(1), df.columns) if missing and lacking else None
             if missing and aliased:
                 raise _AliasedColumnError(missing.group(1), *aliased) from e
             new = renamed_column(missing.group(1), df.columns) if missing else None

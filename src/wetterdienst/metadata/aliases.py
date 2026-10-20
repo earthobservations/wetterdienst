@@ -34,7 +34,6 @@ import re
 import sys
 import warnings
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from wetterdienst.ui.deprecation import Deprecation, mark_deprecated
@@ -52,6 +51,7 @@ DEPRECATED_PARAMETER = "deprecated-parameter"
 #: where the rename is told, sent as the `Link` with `rel="deprecation"` of a REST answer
 _LINK = "https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html#parameter-names-units-and-timestamps"
 
+_SKIPPED = re.compile(r"^(wetterdienst|pydantic|pydantic_core|pydantic_settings)(\.|$)")
 _RELEASE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
@@ -139,14 +139,15 @@ def alias_message(old: str, alias: ParameterAlias) -> str:
 
 
 def _caller_level() -> int:
-    """Count the frames up to the first one outside this package, which is where a `DeprecationWarning` belongs.
+    """Count the frames up to the first one outside this package and the libraries that call into it.
 
-    The `__init__` that `dataclass` generates (`<string>`) is part of the package: a request is built by one.
+    That is where a `DeprecationWarning` belongs. A frame is the package's by the module its code lives in, which
+    the `__init__` that `dataclass` generates (file `<string>`) has too; pydantic validates `Options` and calls the
+    validators of the package, so its frames are skipped as well.
     """
-    package = str(Path(__file__).parents[1])
     level = 1
     frame = sys._getframe(1)  # noqa: SLF001
-    while frame is not None and frame.f_code.co_filename.startswith((package, "<string>")):
+    while frame is not None and _SKIPPED.match(str(frame.f_globals.get("__name__", ""))):
         frame = frame.f_back
         level += 1
     return level
