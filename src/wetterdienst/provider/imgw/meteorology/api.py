@@ -853,7 +853,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             pl.col("name").str.strip_chars(),
             convert_dms_string_to_dd(pl.col("latitude")),
             convert_dms_string_to_dd(pl.col("longitude")),
-            pl.col("elevation").str.replace(" ", "").cast(pl.Float64, strict=False),
+            pl.col("elevation").str.replace(" ", ""),
         )
         # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
         resolutions_and_datasets = {

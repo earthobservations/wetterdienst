@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
+from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.ipma.observation import IpmaObservationRequest
 from wetterdienst.provider.ipma.observation import api as ipma_api
 from wetterdienst.provider.ipma.observation.parser import (
@@ -51,6 +52,51 @@ def test_parse_ipma_stations_feature_collection() -> None:
     assert df.to_dicts() == [
         {"station_id": "1200579", "name": "Lisboa", "latitude": 38.7667, "longitude": -9.1333},
     ]
+
+
+def _stations_of(monkeypatch: pytest.MonkeyPatch, catalogue: bytes) -> pl.DataFrame:
+    """Give the stations the core hands out for a `stations.json` of this content."""
+    monkeypatch.setattr(
+        ipma_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue), status=200),
+    )
+    return IpmaObservationRequest(parameters=[("hourly", "data")], settings=Settings(cache_disable=True)).all().df
+
+
+def test_ipma_observation_stations_have_a_position_and_no_period_or_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The catalogue gives a name and a position: the rest of the stations frame is null (GH-2627)."""
+    df = _stations_of(
+        monkeypatch,
+        b'[{"geometry": {"type": "Point", "coordinates": [-9.1333, 38.7667]}, "type": "Feature", '
+        b'"properties": {"idEstacao": 1200579, "localEstacao": "Lisboa"}}]',
+    )
+    assert df.schema == STATIONS_SCHEMA
+    assert df.to_dicts() == [
+        {
+            "resolution": "hourly",
+            "dataset": "data",
+            "station_id": "1200579",
+            "start_timestamp": None,
+            "end_timestamp": None,
+            "latitude": 38.7667,
+            "longitude": -9.1333,
+            "elevation": None,
+            "name": "Lisboa",
+            "region": None,
+        },
+    ]
+
+
+@pytest.mark.parametrize("catalogue", [b"[]", b'{"type": "FeatureCollection", "features": []}', b'"nothing"'])
+def test_ipma_observation_stations_of_a_catalogue_without_a_feature_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    catalogue: bytes,
+) -> None:
+    """A catalogue that lists no station is a network without stations, typed as the stations frame is."""
+    df = _stations_of(monkeypatch, catalogue)
+    assert df.is_empty()
+    assert df.schema == STATIONS_SCHEMA
 
 
 def test_parse_ipma_observations_feed_extract_multiple_stations() -> None:

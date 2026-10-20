@@ -225,6 +225,7 @@ class FmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         stations = parse_fmi_stations(file.content.read())
+        # a frame without a column is no frame to tag: polars before 2.0 broadcasts the literals into one row
         if stations.is_empty():
             return pl.LazyFrame()
 
@@ -244,6 +245,4 @@ class FmiObservationRequest(TimeseriesRequest):
             )
             for resolution, dataset in resolutions_and_datasets
         ]
-        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (e.g.
-        # elevation) with null, so no explicit padding is needed here.
         return pl.concat(data).lazy()

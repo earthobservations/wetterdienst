@@ -38,13 +38,6 @@ _VALUE_FIELDS = (
     "radiacao",
 )
 
-_EMPTY_STATIONS_SCHEMA = {
-    "station_id": pl.String,
-    "name": pl.String,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-}
-
 
 def parse_ipma_stations(content: bytes) -> pl.DataFrame:
     """Parse ``stations.json`` into one row per station.
@@ -53,12 +46,13 @@ def parse_ipma_stations(content: bytes) -> pl.DataFrame:
     ``FeatureCollection`` wrapper (``{"type": "FeatureCollection", "features": [...]}``) is accepted
     too. Each feature carries ``properties.idEstacao`` (the numeric station id) and
     ``properties.localEstacao`` (the name), plus a ``Point`` geometry as ``[longitude, latitude]``.
-    The catalogue exposes no elevation, so ``elevation`` is left for the framework to null-fill.
+    The catalogue exposes no elevation, so ``elevation`` is left for the core to null-fill. A catalogue without a
+    feature is a frame without a row.
     """
     data = json.loads(content)
     features = data.get("features") if isinstance(data, dict) else data
     if not isinstance(features, list) or not features:
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
+        return pl.DataFrame()
     rows = [
         {
             "station_id": str(feature["properties"]["idEstacao"]),
@@ -68,7 +62,7 @@ def parse_ipma_stations(content: bytes) -> pl.DataFrame:
         }
         for feature in features
     ]
-    return pl.DataFrame(rows, schema=_EMPTY_STATIONS_SCHEMA)
+    return pl.DataFrame(rows, infer_schema_length=None)
 
 
 def parse_ipma_observations_feed(content: bytes) -> dict:

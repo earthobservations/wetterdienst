@@ -15,6 +15,7 @@ import pytest
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings, __version__
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.nws.observation import NwsObservationRequest
 from wetterdienst.provider.nws.observation import api as nws_api
 from wetterdienst.provider.nws.observation.api import _HALF_HOUR, NwsObservationValues
@@ -149,6 +150,17 @@ def test_nws_stations_reads_the_columns_of_the_metar_table_by_their_position(mon
         ("03PS", 40.85, -77.91, 320.0, "BELLEFONTE, PA"),
         ("PASY", 52.72, 174.11, None, "EARECKSON AS"),
     ]
+
+
+def test_nws_stations_of_a_table_without_an_american_station_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A table that lists no American station is a network without stations, typed as the stations frame is."""
+    table = "0000000000\tEDDF\t50.03\t   8.57\t  111\tFRANKFURT           \tDE\tMTR\n"
+    serve(monkeypatch, nws_api, {"METARTable.txt": table.encode()})
+    df = _request(Settings(cache_disable=True)).all().df
+    assert df.is_empty()
+    assert df.schema == STATIONS_SCHEMA
 
 
 @pytest.mark.remote

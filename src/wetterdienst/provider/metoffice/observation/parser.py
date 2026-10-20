@@ -14,19 +14,6 @@ import polars as pl
 
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 
-_EMPTY_STATIONS_SCHEMA = {
-    "station_id": pl.String,
-    "name": pl.String,
-    "historic_county": pl.String,
-    "station_file_name": pl.String,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-    "elevation": pl.Float64,
-    "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-}
-
-
 # how the files write a value they do not have
 _MISSING = "NA"
 
@@ -77,28 +64,24 @@ def parse_station_metadata(content: bytes) -> pl.DataFrame:
     """Parse a dataset's ``*_station-metadata.csv`` catalogue into one row per station.
 
     ``first_year``/``last_year`` mark the operational range *for this dataset*; a station may cover
-    a different range in another MIDAS Open dataset.
+    a different range in another MIDAS Open dataset. The position is the text of the file and the bounds are dates,
+    which the core reads as numbers and as midnight UTC (``shape_stations_frame``). A catalogue without a row is a
+    frame without a row.
     """
     df = _data_section(content)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
+        return pl.DataFrame()
     return df.select(
-        pl.col("src_id").cast(pl.String).alias("station_id"),
+        pl.col("src_id").alias("station_id"),
         # the catalogue pads some names with a blank (`PORTLAND `), which a comparison of the name misses
-        pl.col("station_name").cast(pl.String).str.strip_chars().alias("name"),
-        pl.col("historic_county").cast(pl.String),
-        pl.col("station_file_name").cast(pl.String),
-        pl.col("station_latitude").cast(pl.Float64, strict=False).alias("latitude"),
-        pl.col("station_longitude").cast(pl.Float64, strict=False).alias("longitude"),
-        pl.col("station_elevation").cast(pl.Float64, strict=False).alias("elevation"),
-        pl.date(pl.col("first_year").cast(pl.Int32, strict=False), 1, 1)
-        .cast(pl.Datetime(time_unit="us"))
-        .dt.replace_time_zone("UTC")
-        .alias("start_timestamp"),
-        pl.date(pl.col("last_year").cast(pl.Int32, strict=False), 12, 31)
-        .cast(pl.Datetime(time_unit="us"))
-        .dt.replace_time_zone("UTC")
-        .alias("end_timestamp"),
+        pl.col("station_name").str.strip_chars().alias("name"),
+        pl.col("historic_county"),
+        pl.col("station_file_name"),
+        pl.col("station_latitude").alias("latitude"),
+        pl.col("station_longitude").alias("longitude"),
+        pl.col("station_elevation").alias("elevation"),
+        pl.date(pl.col("first_year").cast(pl.Int32, strict=False), 1, 1).alias("start_timestamp"),
+        pl.date(pl.col("last_year").cast(pl.Int32, strict=False), 12, 31).alias("end_timestamp"),
     )
 
 

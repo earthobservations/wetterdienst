@@ -21,27 +21,20 @@ _VALUE_FIELDS = (
     "snowDepth",
 )
 
-_EMPTY_STATIONS_SCHEMA = {
-    "station_id": pl.String,
-    "name": pl.String,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-}
-
 
 def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
     """Parse ``/v1/stations`` into one row per station.
 
     Each entry carries ``code`` (a slug used as the station id and in observation URLs), ``name``
     and ``coordinates`` (``latitude``/``longitude``). The API exposes no elevation, so ``elevation`` is
-    left for the framework to null-fill.
+    left for the core to null-fill. A list without a usable entry is a frame without a row.
     """
     try:
         stations = json.loads(content)
     except json.JSONDecodeError:
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
+        return pl.DataFrame()
     if not isinstance(stations, list) or not stations:
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
+        return pl.DataFrame()
     rows = []
     for station in stations:
         # skip a malformed entry rather than crash the whole listing: a station needs at least a
@@ -58,9 +51,7 @@ def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
         rows.append(
             {"station_id": code, "name": station.get("name"), "latitude": latitude, "longitude": longitude},
         )
-    if not rows:
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
-    return pl.DataFrame(rows, schema=_EMPTY_STATIONS_SCHEMA)
+    return pl.DataFrame(rows, infer_schema_length=None)
 
 
 def parse_lhmt_observations(content: bytes) -> pl.DataFrame:

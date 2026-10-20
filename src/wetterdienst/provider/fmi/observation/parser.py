@@ -14,16 +14,6 @@ from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_
 if TYPE_CHECKING:
     from lxml.etree import _Element
 
-_EMPTY_STATIONS_SCHEMA = {
-    "station_id": pl.String,
-    "name": pl.String,
-    "region": pl.String,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-    "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-}
-
 # FMI encodes "no precipitation" / "no snow cover" as the sentinel -1 (rather than 0) for these
 # parameter codes; normalise it to 0.0 so aggregations are not corrupted by negative amounts
 # (mirroring the KNMI trace-precipitation handling).
@@ -117,7 +107,9 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
     region as ``gml:name`` entries in the ``.../locationcode/name`` and ``.../location/region``
     code spaces, its position as a ``gml:pos`` (``lat lon``), and its operational period as a
     ``gml:beginPosition``/``gml:endPosition`` pair. Elevation is not exposed by this catalogue,
-    so ``elevation`` is left for the request layer to fill with null.
+    so ``elevation`` is left for the core to fill with null. The coordinates are the text of the catalogue and
+    the stamps are naive: the core reads them as numbers and as UTC (``shape_stations_frame``). A catalogue without
+    a facility is a frame without a row.
     """
     root = fromstring(content, parser=_XML_PARSER)
     rows = [
@@ -127,23 +119,12 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
         and (row := _parse_facility(facility)) is not None
     ]
     if not rows:
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
-    return pl.DataFrame(rows, infer_schema_length=None).select(
-        pl.col("station_id").cast(pl.String),
-        pl.col("name").cast(pl.String),
-        pl.col("region").cast(pl.String),
-        pl.col("latitude").cast(pl.Float64, strict=False),
-        pl.col("longitude").cast(pl.Float64, strict=False),
+        return pl.DataFrame()
+    return pl.DataFrame(rows, infer_schema_length=None).with_columns(
         # cast to String first: when every station is still active (or the field is absent) the
         # column is inferred as Null dtype, which str.to_datetime rejects.
-        pl.col("start_timestamp")
-        .cast(pl.String)
-        .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
-        .dt.replace_time_zone("UTC"),
-        pl.col("end_timestamp")
-        .cast(pl.String)
-        .str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us")
-        .dt.replace_time_zone("UTC"),
+        pl.col("start_timestamp").cast(pl.String).str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us"),
+        pl.col("end_timestamp").cast(pl.String).str.to_datetime("%Y-%m-%dT%H:%M:%SZ", time_unit="us"),
     )
 
 

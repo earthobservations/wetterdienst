@@ -3,18 +3,22 @@
 """Tests for FMI observation provider."""
 
 import datetime as dt
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 
+from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.fmi.observation import FmiObservationRequest
+from wetterdienst.provider.fmi.observation import api as fmi_api
 from wetterdienst.provider.fmi.observation.api import FmiObservationValues
 from wetterdienst.provider.fmi.observation.parser import (
     extract_exception_text,
     parse_fmi_observations,
     parse_fmi_stations,
 )
+from wetterdienst.util.network import File
 
 HELSINKI_KAISANIEMI = "100971"
 UTC = ZoneInfo("UTC")
@@ -148,9 +152,111 @@ def test_parse_fmi_stations_active_station_end_timestamp_null() -> None:
     assert df.height == 1
     row = df.to_dicts()[0]
     assert row["station_id"] == "100971"
-    assert row["start_timestamp"] == dt.datetime(1844, 1, 1, tzinfo=UTC)
+    # the stamp is naive, the core reads it as UTC (see the test of the operational period below)
+    assert row["start_timestamp"] == dt.datetime(1844, 1, 1)  # noqa: DTZ001
     # active station: the indeterminate operational endPosition wins over the later concrete one
     assert row["end_timestamp"] is None
+
+
+_CATALOGUE_HEAD = b"""<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection
+    xmlns:wfs="http://www.opengis.net/wfs/2.0"
+    xmlns:gml="http://www.opengis.net/gml/3.2"
+    xmlns:ef="http://inspire.ec.europa.eu/schemas/ef/4.0">
+"""
+_CATALOGUE_FOOT = b"</wfs:FeatureCollection>"
+
+
+def _facility(station_id: str, name: str, begin: str, end: bytes) -> bytes:
+    return (
+        b"<wfs:member><ef:EnvironmentalMonitoringFacility>"
+        b'<gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">%s</gml:identifier>'
+        b'<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">%s</gml:name>'
+        b'<gml:name codeSpace="http://xml.fmi.fi/namespace/location/region">Uusimaa</gml:name>'
+        b"<gml:pos>60.17523 24.94459</gml:pos>"
+        b"<ef:operationalActivityPeriod><gml:TimePeriod>"
+        b"<gml:beginPosition>%s</gml:beginPosition>%s"
+        b"</gml:TimePeriod></ef:operationalActivityPeriod>"
+        b"</ef:EnvironmentalMonitoringFacility></wfs:member>"
+    ) % (station_id.encode(), name.encode(), begin.encode(), end)
+
+
+def _stations_of(monkeypatch: pytest.MonkeyPatch, *facilities: bytes) -> pl.DataFrame:
+    """Give the stations the core hands out for a catalogue of these facilities."""
+    catalogue = _CATALOGUE_HEAD + b"".join(facilities) + _CATALOGUE_FOOT
+    monkeypatch.setattr(
+        fmi_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue), status=200),
+    )
+    return FmiObservationRequest(parameters=[("hourly", "data", "temperature_air_2m")]).all().df
+
+
+def test_fmi_observation_stations_read_the_operational_period_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The period of a station is UTC, an indeterminate end (a station still reporting) is null (GH-2627)."""
+    df = _stations_of(
+        monkeypatch,
+        _facility(
+            "100971", "Helsinki Kaisaniemi", "1844-01-01T00:00:00Z", b'<gml:endPosition indeterminatePosition="now"/>'
+        ),
+        _facility(
+            "100972", "Closed", "1950-03-01T06:30:00Z", b"<gml:endPosition>1999-12-31T23:00:00Z</gml:endPosition>"
+        ),
+    )
+    assert df.schema == STATIONS_SCHEMA
+    assert df.sort("station_id").to_dicts() == [
+        {
+            "resolution": "hourly",
+            "dataset": "data",
+            "station_id": "100971",
+            "start_timestamp": dt.datetime(1844, 1, 1, tzinfo=UTC),
+            "end_timestamp": None,
+            "latitude": 60.17523,
+            "longitude": 24.94459,
+            "elevation": None,  # the catalogue has none
+            "name": "Helsinki Kaisaniemi",
+            "region": "Uusimaa",
+        },
+        {
+            "resolution": "hourly",
+            "dataset": "data",
+            "station_id": "100972",
+            "start_timestamp": dt.datetime(1950, 3, 1, 6, 30, tzinfo=UTC),
+            "end_timestamp": dt.datetime(1999, 12, 31, 23, tzinfo=UTC),
+            "latitude": 60.17523,
+            "longitude": 24.94459,
+            "elevation": None,
+            "name": "Closed",
+            "region": "Uusimaa",
+        },
+    ]
+
+
+def test_fmi_observation_stations_of_a_catalogue_without_a_facility_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A catalogue that lists no facility is a network without stations, typed as the stations frame is."""
+    df = _stations_of(monkeypatch)
+    assert df.is_empty()
+    assert df.schema == STATIONS_SCHEMA
+
+
+def test_fmi_observation_stations_of_a_catalogue_without_any_period_keep_their_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A facility that states no period has no start and no end (the columns are all null, not missing)."""
+    facility = (
+        b"<wfs:member><ef:EnvironmentalMonitoringFacility>"
+        b'<gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/fmisid">100971</gml:identifier>'
+        b'<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Helsinki Kaisaniemi</gml:name>'
+        b"<gml:pos>60.17523 24.94459</gml:pos>"
+        b"</ef:EnvironmentalMonitoringFacility></wfs:member>"
+    )
+    df = _stations_of(monkeypatch, facility)
+    assert df.schema == STATIONS_SCHEMA
+    assert df.select("station_id", "start_timestamp", "end_timestamp", "region").rows() == [
+        ("100971", None, None, None)
+    ]
 
 
 @pytest.mark.remote

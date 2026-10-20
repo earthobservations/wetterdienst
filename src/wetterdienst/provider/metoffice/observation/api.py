@@ -156,6 +156,8 @@ class MetOfficeObservationValues(TimeseriesValues):
         if content is None:
             return None
         stations = parse_station_metadata(content)
+        if stations.is_empty():
+            return None
         row = stations.filter(pl.col("station_id") == station_id)
         if row.is_empty():
             return None

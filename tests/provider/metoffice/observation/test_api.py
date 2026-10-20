@@ -30,8 +30,8 @@ def _badc(header_rows: bytes, columns: str, data_rows: bytes) -> bytes:
     return header_rows + b"data\n" + columns.encode() + b"\n" + data_rows + b"end data\n"
 
 
-def test_parse_station_metadata() -> None:
-    """The station-metadata catalogue maps to one row per station with year-bounded dates."""
+def test_parse_station_metadata_keeps_the_path_components_of_a_stations_files() -> None:
+    """The catalogue's own columns, which the values step resolves a station's files by, stay in the frame."""
     content = _badc(
         b"Conventions,G,BADC-CSV,1\ntitle,G,Midas-open: Station site metadata\n",
         "src_id,station_name,station_file_name,historic_county,authority,"
@@ -39,19 +39,10 @@ def test_parse_station_metadata() -> None:
         b"00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n",
     )
     df = parse_station_metadata(content)
-    assert df.to_dicts() == [
-        {
-            "station_id": "00001",
-            "name": "FOULA",
-            "historic_county": "shetland",
-            "station_file_name": "foula",
-            "latitude": 60.154,
-            "longitude": -2.074,
-            "elevation": 22.0,
-            "start_timestamp": dt.datetime(1989, 1, 1, tzinfo=UTC),
-            "end_timestamp": dt.datetime(2003, 12, 31, tzinfo=UTC),
-        },
+    assert df.select("station_id", "name", "historic_county", "station_file_name").rows() == [
+        ("00001", "FOULA", "shetland", "foula"),
     ]
+    assert parse_station_metadata(_badc(b"Conventions,G,BADC-CSV,1\n", "src_id", b"")).is_empty()
 
 
 def test_parse_values_collapses_multiple_report_types() -> None:
@@ -457,6 +448,92 @@ def test_metoffice_station_list_gives_the_historic_county_as_region(monkeypatch:
         ("00036", "KEW GARDENS", "surrey"),
     ]
     assert "station_file_name" not in df.columns
+
+
+def _stations_of(monkeypatch: pytest.MonkeyPatch, content: bytes) -> pl.DataFrame:
+    """Give the stations the core hands out for a `station-metadata.csv` of this content."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.metoffice.observation import api  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    monkeypatch.setattr(api, "get_ceda_token", lambda _settings: "token")
+    monkeypatch.setattr(api, "latest_release_version", lambda _settings, _token: "202507")
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
+    )
+    return MetOfficeObservationRequest(parameters=[("daily", "rain", "precipitation_amount")]).all().df
+
+
+def test_metoffice_station_list_bounds_a_station_by_the_years_of_its_first_and_last_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station starts on 1 January of its first year and ends on 31 December of its last, in UTC (GH-2627)."""
+    from wetterdienst.model.schema import STATIONS_SCHEMA  # noqa: PLC0415
+
+    df = _stations_of(
+        monkeypatch,
+        _badc(
+            b"Conventions,G,BADC-CSV,1\ntitle,G,Midas-open: Station site metadata\n",
+            "src_id,station_name,station_file_name,historic_county,authority,"
+            "station_latitude,station_longitude,station_elevation,first_year,last_year",
+            b"00001,FOULA ,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n"
+            b"00002,NO POSITION,nowhere,shetland,Met Office,,,,1990,\n",
+        ),
+    )
+    assert df.schema == STATIONS_SCHEMA
+    assert df.sort("station_id").to_dicts() == [
+        {
+            "resolution": "daily",
+            "dataset": "rain",
+            "station_id": "00001",
+            "start_timestamp": dt.datetime(1989, 1, 1, tzinfo=UTC),
+            "end_timestamp": dt.datetime(2003, 12, 31, tzinfo=UTC),
+            "latitude": 60.154,
+            "longitude": -2.074,
+            "elevation": 22.0,
+            "name": "FOULA",  # the blank the catalogue pads the name with is gone
+            "region": "shetland",
+        },
+        {
+            "resolution": "daily",
+            "dataset": "rain",
+            "station_id": "00002",
+            "start_timestamp": dt.datetime(1990, 1, 1, tzinfo=UTC),
+            "end_timestamp": None,
+            "latitude": None,
+            "longitude": None,
+            "elevation": None,
+            "name": "NO POSITION",
+            "region": "shetland",
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        _badc(
+            b"Conventions,G,BADC-CSV,1\n",
+            "src_id,station_name,station_file_name,historic_county,authority,"
+            "station_latitude,station_longitude,station_elevation,first_year,last_year",
+            b"",
+        ),
+        b"Conventions,G,BADC-CSV,1\n",
+    ],
+    ids=["header-only", "no-data-section"],
+)
+def test_metoffice_station_list_without_a_row_is_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch, content: bytes
+) -> None:
+    """A dataset whose catalogue lists no station is a network without stations, typed as the stations frame is."""
+    from wetterdienst.model.schema import STATIONS_SCHEMA  # noqa: PLC0415
+
+    df = _stations_of(monkeypatch, content)
+    assert df.is_empty()
+    assert df.schema == STATIONS_SCHEMA
 
 
 @pytest.mark.parametrize("status", [401, 403])
