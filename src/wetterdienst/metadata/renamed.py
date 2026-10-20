@@ -125,8 +125,6 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "probability_precipitation_height_gt_5mm_last_1h": "probability_precipitation_amount_gt_5mm_last_1h",
     "probability_precipitation_height_gt_5mm_last_24h": "probability_precipitation_amount_gt_5mm_last_24h",
     "probability_precipitation_height_gt_5mm_last_6h": "probability_precipitation_amount_gt_5mm_last_6h",
-    "quality_precipitation_height": "quality_precipitation_amount",
-    "quality_precipitation_height_liquid": "quality_precipitation_amount_liquid",
     # GH-2040: the range is what visibility already is
     "visibility_range": "visibility",
     "visibility_range_index": "visibility_index",
@@ -159,6 +157,10 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "cloud_cover_total_sunrise_to_sunset": "cloud_cover_total_mean_sunrise_to_sunset",
     "cloud_cover_total_sunrise_to_sunset_manual": "cloud_cover_total_mean_sunrise_to_sunset_manual",
     "radiation_sky_long_wave_intensity": "radiation_sky_long_wave_intensity_mean",
+    # GH-2614: DMO's RadS3 and RadL3, the radiation balances of the last 3 hours, which the two old names read as global
+    # and sky radiation. No dataset declares either of them, so they are no table entries either
+    "radiation_global_last_3h": "radiation_short_wave_net_last_3h",
+    "radiation_sky_long_wave_last_3h": "radiation_long_wave_net_last_3h",
 }
 
 _WIND_LAST_10MIN = {
@@ -196,11 +198,13 @@ _POTENTIAL_EVAPOTRANSPIRATION_TOTALS = {
 #: `{old name: new name}`. A request for the old name in that dataset is answered with the new one,
 #: as the global renames are, instead of a guess at a near spelling. Not every such rename is listed
 #: (the sub-daily `_mean_` temperatures follow a rule, `model.metadata._spot_name`), but each one
-#: that is has the old name in the table and the new one in the dataset, which
-#: `tests/metadata/test_renamed.py` holds it to. The old name stays a canonical parameter, which is why
-#: a key of `Options(geo_station_distance=...)` that is one is accepted, and sets the radius of the
-#: datasets that still have it; a SQL column of a wide frame that is one is answered with the new
-#: name where the frame holds it (`renamed_column`).
+#: that is has the old name in the table (or in the short list of names that left it) and the new one in the
+#: dataset, which `tests/metadata/test_renamed.py` holds it to. The old name stays a canonical parameter where
+#: another dataset still declares it, which is why a key of `Options(geo_station_distance=...)` that is one is
+#: accepted, and sets the radius of the datasets that still have it; a name that no dataset declares any more is no
+#: table entry, and its rename stays here, as the baseline of a release records it and
+#: `tests/baselines/parameters.py` reports an entry that is gone. A SQL column of a wide frame that is one is
+#: answered with the new name where the frame holds it (`renamed_column`).
 RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
     # GH-2614, GH-2644
     "AemetObservationMetadata": {
@@ -684,15 +688,6 @@ _MEAN_REST_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
 
 # GH-2614: a name that says what the source's number is, for a name another dataset of the provider keeps
 _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
-    # DMO's `RadS3` and `RadL3` are the "short wave" and "long wave radiation balance during the last 3 hours"
-    # (MetElementDefinition.xml), net balances, no global radiation and no radiation from the sky. The old names stay
-    # in the table: `radiation_global_last_3h` is what the global radiation of the same 3 hours (`Rad3h`) is called
-    "DwdDmoMetadata": {
-        ("hourly", "icon"): {
-            "radiation_global_last_3h": "radiation_short_wave_net_last_3h",
-            "radiation_sky_long_wave_last_3h": "radiation_long_wave_net_last_3h",
-        },
-    },
     # `max_precip_30m` is the largest 30 minutes of the day, `max_precip_24h` of the monthly and annual rows the largest
     # day of the month or the year: both were `precipitation_amount_max`
     "DmiObservationMetadata": {("daily", "data"): {"precipitation_amount_max": "precipitation_amount_max_30min"}},

@@ -26,6 +26,16 @@ Types of changes:
   `temperature_air_min_0_05m_night`. `dmi` daily: `precipitation_amount_max` is
   `precipitation_amount_max_30min`. The old name is refused with the new one named, values and
   units are unchanged: request, filter and key by the new name. Release the app after this backend
+- **Breaking**: 19 canonical names that no dataset of any provider declares are gone from the
+  parameter table, so the glossary of the docs, the API and the app no longer lists them and
+  `geo_station_distance` no longer takes them as a key (GH-2614). No dataset could be asked for
+  them. A request for `radiation_global_last_3h` or `radiation_sky_long_wave_last_3h` is refused
+  with the name to use, `radiation_short_wave_net_last_3h` or `radiation_long_wave_net_last_3h`;
+  for `groundwater_level_max`, `groundwater_level_min` and the two
+  `evapotranspiration_potential_grass_*_last_24h` as before, in their dataset. The rest, among
+  them `cloud_base_convective`, `temperature_radiant_mean_2m` and eleven `quality_*` flags, is an
+  unknown parameter, and so is `quality_precipitation_height` (and `_liquid`): its rename to
+  `quality_precipitation_amount`, which no dataset declared either, is gone with it
 
 ## [0.162.0] - 2026-10-20
 

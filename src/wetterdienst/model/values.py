@@ -475,7 +475,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
 
         Each flags column is named after its parameter with a `_quality_flags` suffix rather than a
         `quality_` prefix, which is how the table names a source's own quality flags
-        (`quality_temperature_air_max_2m` and ten more like it); those never become value columns,
+        (`quality_wind` and others like it); those never become value columns,
         but a column named like one would read as one.
 
         Args:
