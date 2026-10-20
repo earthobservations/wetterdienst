@@ -3,6 +3,7 @@
 """Tests for the API."""
 
 import collections
+import contextlib
 import importlib
 import logging
 import os
@@ -398,6 +399,52 @@ def test_parameter_table_names_unique() -> None:
     """
     duplicates = sorted({p.name for p in PARAMETER_TABLE if [q.name for q in PARAMETER_TABLE].count(p.name) > 1})
     assert not duplicates, f"duplicate canonical names: {duplicates}"
+
+
+#: canonical names that no dataset declares and the table keeps all the same, each with the reason it has to. The rule
+#: is that there are none: a name that no dataset declares cannot be requested, and is gone from the table (GH-2614).
+#: `quality_precipitation_amount` and `_liquid` are what `quality_precipitation_height` and `_liquid` were renamed to
+#: (`RENAMED_PARAMETERS`), entries the baseline of 0.162.0 records and `tests/baselines/parameters.py` reports as gone
+#: when dropped, and `test_renamed.py` holds a rename to a name of the table. Both go with the release that refreshes
+#: the baselines, or with an accepted break, together with those two renames.
+UNDECLARED_BY_NECESSITY: dict[str, str] = {
+    "quality_precipitation_amount": "the target of a rename the baseline of the last release records",
+    "quality_precipitation_amount_liquid": "the target of a rename the baseline of the last release records",
+}
+
+
+def test_every_canonical_name_is_declared_by_a_dataset() -> None:
+    """Test that the table holds no name that no provider declares in any dataset.
+
+    A name no dataset declares cannot be requested, yet it was listed by the table, the glossary of the docs and the app
+    and accepted as a key of `geo_station_distance`: `groundwater_level_max` after the Environment Agency's river level
+    became `stage_max`, `radiation_global_last_3h` after DMO's balances were named for what they are, and quality flags
+    of a provider that has long stopped declaring them. When the last dataset to declare a name drops it, the name goes
+    from the table with it; a rename of it stays as the hint that says what it is called now (`renamed.py`).
+    """
+    declared = {
+        parameter.name
+        for metadata in ALL_METADATA
+        for resolution in metadata
+        for dataset in resolution
+        # the quality flags are no part of iterating a dataset, but are declared by it
+        for parameter in dataset.parameters
+    }
+    # a provider that is registered but missing here would make a name it declares look unused
+    registered = set()
+    for provider, networks in Wetterdienst.registry.items():
+        for network in networks:
+            if Wetterdienst.is_standalone(provider, network):
+                continue
+            with contextlib.suppress(ImportError):  # the extra of that network is not installed
+                registered.add(Wetterdienst.resolve(provider, network).metadata.name)
+    assert sorted(registered - {metadata.name for metadata in ALL_METADATA}) == []
+
+    unused = sorted({p.name for p in PARAMETER_TABLE} - declared - UNDECLARED_BY_NECESSITY.keys())
+    assert not unused, f"canonical names that no dataset declares, remove them from the table: {unused}"
+    # an exception that is none any more is a stale one
+    assert sorted(UNDECLARED_BY_NECESSITY.keys() & declared) == []
+    assert sorted(UNDECLARED_BY_NECESSITY.keys() - PARAMETERS.keys()) == []
 
 
 def test_parameter_model_rejects_declared_unit_type() -> None:

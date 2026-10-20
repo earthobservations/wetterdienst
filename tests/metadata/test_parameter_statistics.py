@@ -532,7 +532,10 @@ def test_a_spot_name_behaves_as_the_mean_name_beside_it() -> None:
             else re.sub(r"^(temperature_(?:air|dew_point|wet|soil|radiant))_", r"\1_mean_", name)
         )
         if counterpart not in PARAMETERS:
-            wrong.append(f"{name}: has no {counterpart}")
+            # no dataset declares the mean radiant temperature, so the table has no entry to be kept in step with:
+            # DWD's urban 10-minute set only has the reading (GH-2614, GH-2651)
+            if name != "temperature_radiant_2m":
+                wrong.append(f"{name}: has no {counterpart}")
             continue
         for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
             if getattr(PARAMETERS[name], field) != getattr(PARAMETERS[counterpart], field):

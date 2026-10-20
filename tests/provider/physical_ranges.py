@@ -113,7 +113,6 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "ice_on_water_thickness": Bounds(0.0, 500.0),  # cm
     "visibility": Bounds(0.0, 200_000.0),  # m
     "visibility_mean": Bounds(0.0, 200_000.0),  # m
-    "cloud_base_convective": Bounds(0.0, 25_000.0),  # m
     "temperature_humidex": Bounds(-90.0, 80.0),  # °C
     # the net long-wave balance of 3 hours is negative where the surface loses more than the sky returns: DWD's RadL3
     # runs down to -3,573 kJ/m² (-357 J/cm²) in the DMO data, which the -100 of the unit type would call a sentinel

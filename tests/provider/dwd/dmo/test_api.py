@@ -1242,10 +1242,11 @@ _DMO_RUN_NAME = r"ptp_[a-z]+_{station_id}(\d{{3}})_(\d+)_(\d{{6}})\.kmz"
     # rather than skipped, so that declaring one makes this test say so. `radl1` and `rads1` are the
     # 1-hourly radiation *balances*, which `radiation_long_wave_net_last_1h` and
     # `radiation_short_wave_net_last_1h` would name, as `rads3` and `radl3` are named for their 3 hours
-    # (GH-2614); no such name is in the table yet. `rad3h` is the global radiation of the 3 hours, which
-    # `radiation_global_last_3h` names exactly now that `rads3` is no longer declared under it (GH-1977),
-    # and is not declared yet. It is also only in the 3-hourly run, which is why `icon_eu`,
-    # publishing 078 alone, does not see it.
+    # (GH-2614); no such name is in the table yet. `rad3h` is the global radiation of the 3 hours, and is not
+    # declared yet; `radiation_global_last_3h` would name it exactly (GH-1977) but is no table entry while no dataset
+    # declares it, and is a rename of `radiation_short_wave_net_last_3h` in `RENAMED_PARAMETERS`, so it needs
+    # another name once released. It is also only in the 3-hourly run, which is why `icon_eu`, publishing 078
+    # alone, does not see it.
     ("dataset", "lead_times", "without_a_canonical_name"),
     [
         pytest.param("icon", ("078", "168"), {"rad3h", "radl1", "rads1"}, id="icon"),
