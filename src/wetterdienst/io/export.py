@@ -18,7 +18,8 @@ import polars as pl
 import polars.selectors as cs
 
 from wetterdienst.exceptions import ExportRefusedError, ImageTooLargeError, MissingDependencyError
-from wetterdienst.metadata.renamed import renamed_column, renamed_result_member
+from wetterdienst.metadata.aliases import use_alias
+from wetterdienst.metadata.renamed import aliased_column, renamed_column, renamed_result_member
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import as_missing_dependency, import_optional, missing_dependency_message
 from wetterdienst.util.url import ConnectionString, redact_password
@@ -28,6 +29,8 @@ if TYPE_CHECKING:
 
     import plotly.graph_objs as go
     import sqlalchemy
+
+    from wetterdienst.metadata.aliases import ParameterAlias
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +73,20 @@ def _taken_by(method: Callable[..., object], kwargs: Mapping[str, Any]) -> dict[
     if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
         return dict(kwargs)
     return {name: value for name, value in kwargs.items() if name in parameters}
+
+
+class _AliasedColumnError(Exception):
+    """A column of a SQL clause that the frame lacks, but holds under the name its parameter was renamed to.
+
+    Never leaves `ExportMixin._filter_by_sql`, which adds the column under the old name and runs the clause again.
+    """
+
+    def __init__(self, name: str, column: str, parameter: str, alias: ParameterAlias) -> None:
+        super().__init__(name)
+        self.name = name
+        self.column = column
+        self.parameter = parameter
+        self.alias = alias
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -323,6 +340,28 @@ class ExportMixin:
 
     @staticmethod
     def _filter_by_sql(df: pl.DataFrame, sql: str) -> pl.DataFrame:
+        """Filter df using an SQL query WHERE clause, a column named by an alias of its parameter taken as the new one.
+
+        A column that the frame lacks and that is the old name of a renamed parameter (`wetterdienst.metadata.aliases`)
+        is read from the column it was renamed to, with the warning of every alias; the answer holds the frame's own
+        columns only.
+        """
+        frame = df
+        aliased: list[str] = []
+        while True:
+            try:
+                filtered = ExportMixin._filter_by_sql_clause(frame, sql)
+            except _AliasedColumnError as e:
+                if e.name in aliased:
+                    raise
+                use_alias(e.parameter, e.alias)
+                aliased.append(e.name)
+                frame = frame.with_columns(pl.col(e.column).alias(e.name))
+                continue
+            return filtered.drop(aliased)
+
+    @staticmethod
+    def _filter_by_sql_clause(df: pl.DataFrame, sql: str) -> pl.DataFrame:
         """Filter df using an SQL query WHERE clause.
 
         This implementation is based on DuckDB, so please
@@ -401,6 +440,9 @@ class ExportMixin:
         except duckdb.BinderException as e:
             # unqualified (`height`) or qualified by the table (`df.height`), which DuckDB words apart
             missing = re.search(r'(?:Referenced column|does not have a column named) "([^"]+)"', str(e))
+            aliased = aliased_column(missing.group(1), df.columns) if missing else None
+            if missing and aliased:
+                raise _AliasedColumnError(missing.group(1), *aliased) from e
             new = renamed_column(missing.group(1), df.columns) if missing else None
             if missing and new:
                 msg = f'column "{missing.group(1)}" was renamed to "{new}"'

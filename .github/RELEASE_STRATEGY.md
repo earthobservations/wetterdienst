@@ -161,7 +161,8 @@ the image"), so its release after this one is `app-v0.28.0`, not `app-v1.0.0`.
 - [ ] The compatibility page (`docs/usage/compatibility.md`), the migration note (`docs/usage/migrating.md`) and the
   links from `README.md` and `docs/usage/index.md` exist (#3130); the three contract checks exist (#3131):
   `tests/ui/test_openapi_baseline.py`, `tests/ui/cli/help.snapshot.txt`, `tests/baselines/test_baselines.py`.
-- [ ] The decisions the page leaves open are made and written down (see "Decisions" below).
+- [ ] The decisions the page leaves open are made and written down (see "Decisions" below). The alias for renames and
+  the floor of Python are made and are on the page.
 - [ ] No pull request that changes a frozen surface is open or planned for the tag: the `ACCEPTED_BREAKS` of
   `tests/ui/openapi_diff.py` and `tests/baselines/{cli,surface,mcp,parameters}.py` are empty, apart from the one
   step 1 adds.
@@ -252,14 +253,14 @@ The files `chore: release 0.162.0 and app 0.27.0` touched, plus the 1.0 ones. Ba
   | 27 | column "Frozen from 1.0" | "Frozen" |
   | 73 | "and from 1.0 it is the rule" (a correction of data is marked Breaking) | "and it is the rule" |
   | 80 | "From 1.0.0 a break of a frozen surface takes a **major** release" | "A break of a frozen surface takes a **major** release" |
-  | 213 | "From 1.0.0 a break of `/api/v1` is not made" | "A break of `/api/v1` is not made" |
-  | 264 | "**Until 1.0 a rename is a hard break, with a hint.**" | "**A rename made in a 0.x release is a hard break, with a hint.**" |
-  | 272 | "**From 1.0 a rename keeps the old name as an alias.** ... Nothing implements the alias yet and no test holds it." | "**A rename keeps the old name as an alias.**" only once the alias exists (see "Decisions") |
-  | 293 | "Not yet held by a test: the alias after 1.0 ..." | "the alias ..." |
-  | 329 | "from 1.0 it is made only in a major release" | "it is made only in a major release" |
-  | 358 | "and that a removal after 1.0 is in a major release" | "and that a removal is in a major release" |
-  | 369 | "(until 1.0; after it the old name is an alias with a warning ...)" | "(for the names renamed in 0.x; since then the old name is an alias ...)" |
-  | 381 | "Which version number it takes after 1.0 is not written down." (raising the floor of Python) | the decision (see "Decisions") |
+  | 215 | "From 1.0.0 a break of `/api/v1` is not made" | "A break of `/api/v1` is not made" |
+  | 266 | "**Until 1.0 a rename is a hard break, with a hint.**" | "**A rename made in a 0.x release is a hard break, with a hint.**" |
+  | 274 | "**From 1.0 a rename keeps the old name as an alias.** ..." (the alias is built, `wetterdienst.metadata.aliases`; no alias is declared yet) | "**A rename keeps the old name as an alias.**" |
+  | 304 | "The alias is held by `tests/metadata/test_aliases.py`, with an alias declared in the test, since none is declared yet: ..." | unchanged: it stays true until the first real alias is declared |
+  | 346 | "from 1.0 it is made only in a major release" | "it is made only in a major release" |
+  | 375 | "and that a removal after 1.0 is in a major release" | "and that a removal is in a major release" |
+  | 386 | "(until 1.0; after it the old name is an alias with a warning ...)" | "(for the names renamed in 0.x; since then the old name is an alias ...)" |
+  | 398 | "From 1.0 it is made in a **minor** release, ..." (raising the floor of Python: the decision is written) | unchanged: it is not dated by the tag |
 
   The same wording is in `docs/usage/restapi.md` (line 110, "From 1.0.0 an endpoint or a parameter of `/api/v1` is
   removed only ..."), and `docs/usage/migrating.md` (lines 6 and 22 "frozen from 1.0", line 136 "after 1.0");
@@ -348,11 +349,6 @@ released after step 3, never in the same PR as the backend.
 
 Not decided anywhere this checklist could read, and each changes a line above.
 
-- **The alias for renames after 1.0**: `docs/usage/compatibility.md` promises that a rename keeps the old name as an
-  alias for two minor releases, and says "Nothing implements the alias yet and no test holds it". Either build it
-  before the tag, or reword the promise to what exists (a rename is announced and is a major).
-- **Raising the floor of Python**: "Which version number it takes after 1.0 is not written down". Write it down
-  (recommendation of the page: a break, so a major).
 - **The app number**: `docs/usage/compatibility.md` says the app stays 0.x. The examples of this file used
   `app-v1.0.0` and are changed to 0.x here; if the app is to be 1.0 as well, step 6 and the compatibility page change.
 - **Whether a 0.x release goes between step 1 and step 2**: the page says the shims go "with the tag"; a release in

@@ -77,17 +77,19 @@ is not marked; it is not held by a test.
 
 ### Which release a break takes
 
-From 1.0.0 a break of a frozen surface takes a **major** release, announced as **Breaking**, with two exceptions that
+From 1.0.0 a break of a frozen surface takes a **major** release, announced as **Breaking**, with three exceptions that
 are made in a minor release, each with a **Breaking** entry:
 
 - **A correction of data** (above).
 - **An upstream source that has ended**: a provider, a network or a parameter whose source no longer exists, so that
   nothing is left to serve, is removed in a minor release. It is the one exception to "a removal is only in a major
   release" (see [Deprecation](#deprecation)).
+- **Raising the floor of Python**, announced one minor release before (see
+  [Dependencies and platforms](#dependencies-and-platforms)).
 
 A rename is no break in a minor: the old name keeps working as an alias, with a warning, for at least two minor
-releases, and is removed only in a major (see [Parameter names](#parameter-names-units-and-timestamps)). The floor
-of Python is a promise and the floor of a library is not, see [Dependencies and platforms](#dependencies-and-platforms).
+releases, and is removed only in a major (see [Parameter names](#parameter-names-units-and-timestamps)). The floor of
+a library is no break at all, see [Dependencies and platforms](#dependencies-and-platforms).
 
 ## What is not promised
 
@@ -270,9 +272,18 @@ whoever reports it. Frozen: a name that was released keeps meaning what it meant
   that is gone to one that exists, and `tests/metadata/test_gone_since_0_139_0.py` holds each parameter of 0.139.0 that
   is gone to the answer the [migration note](migrating.md) gives.
 - **From 1.0 a rename keeps the old name as an alias.** The old name still works, with a warning that names the new
-  one, for at least two minor releases, and is removed only in a major release. The hints above stay for the names
-  that are already gone: they are not aliases and are not brought back. Nothing implements the alias yet and no test
-  holds it.
+  one, the release that renamed it and the major release that may remove it, for at least two minor releases, and is
+  removed only in a major release. The hints above stay for the names that are already gone: they are not aliases and
+  are not brought back. An alias is declared in `wetterdienst.metadata.aliases` (`PARAMETER_ALIASES_IN_DATASET`, and
+  `PARAMETER_ALIASES` for a name that is gone from every dataset) with the new name, the release and day of the rename
+  and the release that may end it, and is taken wherever a parameter name is: in `parameters` of a request over Python,
+  the command line, REST and MCP, as an item or an attribute of a dataset, in a SQL filter and in a wide column
+  (`<dataset>_<name>` and its `_quality_flags` too), and, for an alias of every dataset, in `glossary` and as a key of
+  `geo_station_distance`. It resolves to the new name, so the answer holds the new name only, and each use is a
+  `DeprecationWarning`, a `deprecated-parameter` warning in the `metadata` block and, over REST, the `Deprecation`
+  header (see [Deprecation](#deprecation)). The entry also stays a rename for the hints, so that when the alias ends it
+  moves into the tables of `wetterdienst.metadata.renamed` and the name is refused with its hint, as the names of 0.x
+  are. No alias is declared today: the first rename after 1.0.0 declares the first one.
 - **A name that is removed** because the provider no longer publishes it, or never did, is refused as any name the
   provider does not have; the request is refused whole, naming each unknown parameter, and `on_unknown="warn"` asks
   for the older behaviour of dropping it with a warning.
@@ -290,8 +301,14 @@ parameter that is neither in its dataset any more nor renamed, through the table
 since, to one that is, and an entry of the rename tables that was there. A new name or rename passes. A parameter
 removed because its upstream source has ended is named in `ACCEPTED_BREAKS` of `tests/baselines/parameters.py`.
 
-Not yet held by a test: the alias after 1.0, that it lasts two minor releases, and that a removal is in a major release
-(the baseline counts a renamed name as kept, and does not know how long ago it was renamed).
+The alias is held by `tests/metadata/test_aliases.py`, with an alias declared in the test, since none is declared
+yet: it is taken by every surface above and resolves to the new name, a name that is no alias is refused as before, and
+each declaration is checked (`check_alias`): from 1.0.0, ending in a major release after the one that renamed it. The
+baseline carries the aliases of the last release, and one that is gone is a break named in `ACCEPTED_BREAKS` with the
+release it was to end in, which is where a removal in a major release is made. Not held by a test: that two minor
+releases lie between the rename and the end of an alias (the releases between are not known when the removal is made, so
+a reviewer counts them from the changelog), and a removal of a name that is not an alias (the baseline counts a renamed
+name as kept, and does not know how long ago it was renamed).
 
 ## Provider metadata, licence and credit line
 
@@ -378,7 +395,11 @@ The supported Python is `>=3.11` (`requires-python`), and the dependency ranges 
 
 - **The floor of Python is a promise.** Raising it is a break, announced as **Breaking** in the changelog (Python 3.10
   was dropped in 0.145.0, **Breaking**), and pip on an older Python keeps resolving the last release that supports it.
-  Which version number it takes after 1.0 is not written down.
+  From 1.0 it is made in a **minor** release, not a major, with a **Breaking** entry, and is announced one minor release
+  before: the changelog of that release says under **Deprecated** which Python is dropped and in which release. The
+  reason is that a major release is kept for the surface a caller writes against, and a caller on the old Python is
+  not left without a release: pip keeps resolving the last one that supports it. Nothing detects a raised floor
+  (`requires-python`) that was not announced; a reviewer does.
 - **The floor of a library is not.** Raising it is a **Changed** entry and not **Breaking** (polars was raised from 1.15
   to 1.43 in 0.132.0, not marked), because what a caller writes does not change, only what the resolver may install.
 
