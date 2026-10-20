@@ -104,7 +104,7 @@
 | {term}`quality` | qn_6 | Quality flag published by the source for the values in the same dataset. | -             | - |
 | {term}`snow_depth_new` | ja_nsh | Annual sum of daily fresh snow. | cm | >=0 |
 | {term}`precipitation_amount` | ja_rr | Annual sum of daily precipitation height. | mm | >=0 |
-| {term}`snow_depth` | ja_sh_s | Annual sum of daily height of snow pack. | cm | >=0 |
+| {term}`snow_depth_sum` | ja_sh_s | Annual sum of daily height of snow pack. | cm | >=0 |
 | {term}`precipitation_amount_max` | ja_mx_rs | Annual max of daily precipitation height. | mm | >=0 |
 
 ### weather_phenomena

@@ -13,14 +13,14 @@ check to the remote tests as well, which is how a leak the offline fixtures do n
 The ranges are in the unit a value is returned in (`UnitConverter.targets`, the default of `Settings`; a unit type
 converted to another unit is not checked) and are generous on purpose. They describe one reading, so a parameter whose
 span grows with the resolution has a range per resolution (`RESOLUTION_RANGES`: the rain of a minute and of a day, the
-sunshine of an hour and of a month, the sums of the daily snow depths over a month or a year, which every provider's
-`snow_depth` of those resolutions is held to, though only DWD sums it). They catch -999, not a cold night and not a hot
-road: a value outside is a sentinel, a unit that was not converted or a column read from the wrong place, never a
-record. What they cannot catch is a sentinel that looks like data, such as 99.9 % relative humidity, a -1 for "no snow"
-in a depth that may be read from a gauge, or 0 for "not measured"; that part of #2615 is read off the source's own
-documentation, not off the numbers. Nor do they catch -999 where the range has to reach below it: a discharge (a tidal
-river runs backwards by thousands of cubic metres a second), and a value that is converted on its way, such as
--999 kJ/m² of radiation (-99.9 J/cm²) or -9999 mm of a depth (-999.9 cm).
+sunshine of an hour and of a month, the sums of the daily snow depths over a month or a year, `snow_depth_sum`, which
+only DWD has). They catch -999, not a cold night and not a hot road: a value outside is a sentinel, a unit that was
+not converted or a column read from the wrong place, never a record. What they cannot catch is a sentinel that looks
+like data, such as 99.9 % relative humidity, a -1 for "no snow" in a depth that may be read from a gauge, or 0 for "not
+measured"; that part of #2615 is read off the source's own documentation, not off the numbers. Nor do they catch -999
+where the range has to reach below it: a discharge (a tidal river runs backwards by thousands of cubic metres a
+second), and a value that is converted on its way, such as -999 kJ/m² of radiation (-99.9 J/cm²) or -9999 mm of a depth
+(-999.9 cm).
 
 A range is looked up by canonical parameter name: first the one the parameter has at its resolution, then the
 parameters that need their own, then a prefix, then the unit type. A parameter or unit type held to no range at all is
@@ -115,6 +115,9 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "visibility_mean": Bounds(0.0, 200_000.0),  # m
     "cloud_base_convective": Bounds(0.0, 25_000.0),  # m
     "temperature_humidex": Bounds(-90.0, 80.0),  # °C
+    # the net long-wave balance of 3 hours is negative where the surface loses more than the sky returns: DWD's RadL3
+    # runs down to -3,573 kJ/m² (-357 J/cm²) in the DMO data, which the -100 of the unit type would call a sentinel
+    "radiation_long_wave_net_last_3h": Bounds(-1_000.0, 500.0),  # J/cm²
 }
 
 # a family of canonical parameters, by the start of its name; the first match wins
@@ -164,7 +167,7 @@ PREFIX_RANGES: tuple[tuple[str, Bounds | None], ...] = (
 # 401 (Shangdi, 1975), in a day 1,825 (Foc-Foc, 1966); a month and a year keep the 6,000 mm of the unit type. Sunshine
 # cannot last longer than the span it is measured over, give or take a tenth for what a source rounds (DWD's urban
 # 10-minute sunshine is written in hours with two decimals, 0.17 h for a full interval, which is 612 s). Snow: DWD's
-# monthly and annual `snow_depth` are the sum of the daily depths, `snow_depth_new` the sum of the new snow of the
+# monthly and annual `snow_depth_sum` are the sum of the daily depths, `snow_depth_new` the sum of the new snow of the
 # days; an Alpine station adds up to thousands of cm.
 _DAY = 86_400.0
 
@@ -182,12 +185,12 @@ RESOLUTION_RANGES: dict[str, dict[str, Bounds]] = {
     "hourly": {"precipitation_amount": Bounds(0.0, 600.0), "sunshine_duration": _sunshine(3_600.0)},
     "daily": {"precipitation_amount": Bounds(0.0, 2_000.0), "sunshine_duration": _sunshine(_DAY)},
     "monthly": {
-        "snow_depth": Bounds(-50.0, 200_000.0),
+        "snow_depth_sum": Bounds(-50.0, 200_000.0),
         "snow_depth_new": Bounds(0.0, 200_000.0),
         "sunshine_duration": _sunshine(31 * _DAY),
     },
     "annual": {
-        "snow_depth": Bounds(-50.0, 200_000.0),
+        "snow_depth_sum": Bounds(-50.0, 200_000.0),
         "snow_depth_new": Bounds(0.0, 200_000.0),
     },
 }

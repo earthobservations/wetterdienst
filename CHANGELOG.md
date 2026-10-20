@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: four parameters are named for what their source's value is (GH-2614).
+  `dwd/dmo` `icon`: `radiation_global_last_3h` (`rads3`) is `radiation_short_wave_net_last_3h` and
+  `radiation_sky_long_wave_last_3h` (`radl3`) is `radiation_long_wave_net_last_3h`, DWD's radiation
+  balances, positive downward. `dwd/observation` monthly and annual: `snow_depth` (`mo_sh_s`,
+  `ja_sh_s`) is `snow_depth_sum`. `geosphere` daily: `temperature_air_min_0_05m` is
+  `temperature_air_min_0_05m_night`. `dmi` daily: `precipitation_amount_max` is
+  `precipitation_amount_max_30min`. The old name is refused with the new one named, values and
+  units are unchanged: request, filter and key by the new name. Release the app after this backend
+
 ## [0.162.0] - 2026-10-20
 
 ### Changed

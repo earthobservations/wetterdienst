@@ -1240,9 +1240,11 @@ _DMO_RUN_NAME = r"ptp_[a-z]+_{station_id}(\d{{3}})_(\d+)_(\d{{6}})\.kmz"
 @pytest.mark.parametrize(
     # `without_a_canonical_name`: upstream serves these and the metadata does not declare them. Named
     # rather than skipped, so that declaring one makes this test say so. `radl1` and `rads1` are the
-    # 1-hourly radiation *balances* and no canonical parameter describes a net flux. `rad3h` is the
-    # different case: `radiation_global_last_3h` describes it exactly, but that name is taken by
-    # `rads3`, a balance -- GH-1977. It is also only in the 3-hourly run, which is why `icon_eu`,
+    # 1-hourly radiation *balances*, which `radiation_long_wave_net_last_1h` and
+    # `radiation_short_wave_net_last_1h` would name, as `rads3` and `radl3` are named for their 3 hours
+    # (GH-2614); no such name is in the table yet. `rad3h` is the global radiation of the 3 hours, which
+    # `radiation_global_last_3h` names exactly now that `rads3` is no longer declared under it (GH-1977),
+    # and is not declared yet. It is also only in the 3-hourly run, which is why `icon_eu`,
     # publishing 078 alone, does not see it.
     ("dataset", "lead_times", "without_a_canonical_name"),
     [
@@ -1956,7 +1958,7 @@ def test_dmo_coverage_names_the_lead_times_whose_run_carries_each_parameter() ->
     ("parameter", "element", "lead_time"),
     [
         pytest.param("radiation_global", "Rad1h", "short", id="rad1h"),
-        pytest.param("radiation_global_last_3h", "RadS3", "long", id="rads3"),
+        pytest.param("radiation_short_wave_net_last_3h", "RadS3", "long", id="rads3"),
     ],
 )
 def test_dmo_radiation_is_read_in_joule_per_square_centimeter(

@@ -28,4 +28,4 @@
 | {term}`heating_degree_day`          | acc_heating_degree_days_17 | Heating degree days, the temperature shortfall below a base value summed over each day.                                            | °Cd  |
 | {term}`temperature_air_max_2m_mean` | mean_daily_max_temp        | Mean of the daily maximum air temperature at 2 m above ground over the period.                                                     | °C   |
 | {term}`temperature_air_min_2m_mean` | mean_daily_min_temp        | Mean of the daily minimum air temperature at 2 m above ground over the period.                                                     | °C   |
-| {term}`precipitation_amount_max`    | max_precip_24h             | Greatest precipitation depth recorded in any single interval of the period.                                                        | mm   |
+| {term}`precipitation_amount_max`    | max_precip_24h             | Largest daily precipitation total of the year, the highest of the underlying daily values.                                         | mm   |

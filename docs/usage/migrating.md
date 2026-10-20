@@ -175,6 +175,11 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | `precipitation_amount_last_6h` | `precipitation_amount_liquid_last_6h` | `dwd/swsmos` (`RR6`) | 0.155.0, GH-2845 |
 | `probability_radiation_global_last_1h` | `radiation_global_relative_last_1h` | `dwd/mosmix` large (`rrad1`) | 0.155.0, GH-2843 |
 | `weather_last_3h`, `weather_secondary_last_3h` | `weather_past`, `weather_secondary_past` | `dwd/poi` | 0.155.0, GH-2844 |
+| `radiation_global_last_3h` | `radiation_short_wave_net_last_3h` | `dwd/dmo` `icon` (`rads3`, DWD's short-wave radiation balance of the last 3 hours, positive downward into the surface); the values and the unit are unchanged | 0.163.0, GH-2614 |
+| `radiation_sky_long_wave_last_3h` | `radiation_long_wave_net_last_3h` | `dwd/dmo` `icon` (`radl3`, DWD's long-wave radiation balance of the last 3 hours, negative in almost every value); the values and the unit are unchanged | 0.163.0, GH-2614 |
+| `snow_depth` | `snow_depth_sum` | `dwd/observation` monthly and annual `precipitation_more` (`mo_sh_s`, `ja_sh_s`: the sum of the daily depths, in cm times days); `snow_depth` of the daily rows is a depth | 0.163.0, GH-2614 |
+| `temperature_air_min_0_05m` | `temperature_air_min_0_05m_night` | `geosphere/observation` daily (`tsmin`, the night minimum from 18 UTC of the previous day to 06 UTC); the 10-minute and hourly rows keep the name | 0.163.0, GH-2614 |
+| `precipitation_amount_max` | `precipitation_amount_max_30min` | `dmi/observation` daily (`max_precip_30m`, the largest 30 minutes of the day); the monthly and annual rows (`max_precip_24h`, the largest day) keep the name | 0.163.0, GH-2614 |
 | `cloud_cover_below_1000ft` | `cloud_cover_below_2km` | `dwd/mosmix`, `dwd/dmo` (`nl`) | 0.140.0, GH-1977 |
 | `count_weather_type_sleet` | `count_weather_type_graupel` | `dwd/observation` daily, monthly, annual `weather_phenomena` and `weather_phenomena_more` | 0.145.0, GH-2696 |
 | `evapotranspiration_potential_grass_fao_last_24h`, `..._haude_last_24h` | `evapotranspiration_potential_grass_fao`, `evapotranspiration_potential_grass_haude` | the daily and monthly totals: `dwd/derived`, `meteoswiss/observation` daily | 0.140.0 (GH-2042), 0.155.0 (GH-2847) |

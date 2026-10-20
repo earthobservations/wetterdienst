@@ -177,13 +177,13 @@ _DwdDmoMetadataSpec = {
                             "unit": "joule_per_square_centimeter",
                         },
                         {
-                            "name": "radiation_global_last_3h",
+                            "name": "radiation_short_wave_net_last_3h",
                             "name_original": "rads3",
                             # J/cm2 like rad1h: 0.9 of the global radiation rad3h of the same run (GH-2821)
                             "unit": "joule_per_square_centimeter",
                         },
                         {
-                            "name": "radiation_sky_long_wave_last_3h",
+                            "name": "radiation_long_wave_net_last_3h",
                             "name_original": "radl3",
                             "unit": "kilojoule_per_square_meter",
                         },

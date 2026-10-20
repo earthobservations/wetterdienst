@@ -60,6 +60,7 @@ export const parameters: Record<string, string> = {
   // Precipitation
   precipitation_amount: 'Niederschlagsmenge',
   precipitation_amount_max: 'Maximale Niederschlagsmenge',
+  precipitation_amount_max_30min: 'Maximale Niederschlagsmenge (30 min)',
   precipitation_form: 'Niederschlagsart',
   precipitation_type_flags: 'Niederschlagsart-Kennungen',
   precipitation_duration: 'Niederschlagsdauer',
@@ -80,6 +81,7 @@ export const parameters: Record<string, string> = {
   // Snow
   snow_depth: 'Schneehöhe',
   snow_depth_mean: 'Mittlere Schneehöhe',
+  snow_depth_sum: 'Summe der täglichen Schneehöhen',
   snow_depth_new: 'Neuschneehöhe',
   water_equivalent_snow_depth: 'Wasseräquivalent der Schneedecke',
 
@@ -562,6 +564,8 @@ export const parameters: Record<string, string> = {
   pressure_air_site_min: 'Niedrigster Luftdruck in Stationshöhe',
   pressure_air_site_reduced: 'Luftdruck auf Meereshöhe reduziert (Standardatmosphäre)',
   radiation_global_last_3h: 'Globalstrahlung (letzte 3 h)',
+  radiation_long_wave_net_last_3h: 'Langwellige Strahlungsbilanz (letzte 3 h)',
+  radiation_short_wave_net_last_3h: 'Kurzwellige Strahlungsbilanz (letzte 3 h)',
   radiation_sky_long_wave_last_3h: 'Atmosphärische Gegenstrahlung (letzte 3 h)',
   radiation_sky_short_wave_direct: 'Direkte Sonnenstrahlung',
   road_surface_condition: 'Fahrbahnzustand',
@@ -593,6 +597,7 @@ export const parameters: Record<string, string> = {
   temperature_air_mean_minmax_2m: 'Mittlere Lufttemperatur aus den Tagesextremen (2 m)',
   temperature_air_mean_minmax_2m_normal: 'Lufttemperatur (2 m), Klimanormalwert',
   temperature_air_min_0_05m_last_12h: 'Tiefsttemperatur am Boden (5 cm, letzte 12 h)',
+  temperature_air_min_0_05m_night: 'Nachttiefsttemperatur am Boden (5 cm)',
   temperature_air_min_0_05m_yesterday: 'Tiefsttemperatur am Boden (5 cm), Vortag',
   temperature_air_min_2m_last_24h: 'Tiefsttemperatur (2 m, letzte 24 h)',
   temperature_air_min_2m_yesterday: 'Tiefsttemperatur (2 m), Vortag',

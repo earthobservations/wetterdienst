@@ -170,9 +170,11 @@ def test_a_prefix_does_not_shadow_a_later_one() -> None:
 
 def test_a_sum_over_a_month_or_a_year_may_exceed_the_depth_of_one_reading() -> None:
     """DWD's monthly and annual snow depth are sums of the daily depths, which an Alpine station takes to thousands."""
-    assert not out_of_range(_frame("snow_depth", 2194.0), resolution="daily").is_empty()
-    assert out_of_range(_frame("snow_depth", 2194.0), resolution="annual").is_empty()
-    assert out_of_range(_frame("snow_depth", 2194.0), resolution="monthly").is_empty()
+    assert not out_of_range(_frame("snow_depth_sum", 2194.0), resolution="daily").is_empty()
+    assert out_of_range(_frame("snow_depth_sum", 2194.0), resolution="annual").is_empty()
+    assert out_of_range(_frame("snow_depth_sum", 2194.0), resolution="monthly").is_empty()
+    # a depth is a reading at any resolution, only the sum of the daily depths is no reading
+    assert not out_of_range(_frame("snow_depth", 2194.0), resolution="annual").is_empty()
     assert out_of_range(_frame("snow_depth_new", 1500.0), resolution="annual").is_empty()
     assert not out_of_range(_frame("snow_depth_new", 1500.0), resolution="daily").is_empty()
     # a maximum or a reading of the day is no sum, and keeps the range of one reading
