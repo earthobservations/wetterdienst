@@ -28,7 +28,7 @@
 
 Wetterdienst gives you weather, climate and hydrology data from 22 national services through one
 interface: one way to find a station, one way to ask for values, one shape of result. It is a
-[polars](https://www.pola.rs/)-based Python library, a command line client, a REST API, an MCP
+[polars](https://pola.rs/)-based Python library, a command line client, a REST API, an MCP
 endpoint and a web app, all serving the same data.
 
 Contributions and feedback are very welcome — we do not use most of this data ourselves, so what
@@ -59,7 +59,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
 | [NWS](https://www.weather.gov/)                                                                | 🇺🇸 USA         | observations                                                          |
 | [RMI](https://www.meteo.be/)                                                                   | 🇧🇪 Belgium     | observations                                                          |
 | [SMHI](https://www.smhi.se/)                                                                   | 🇸🇪 Sweden      | observations                                                          |
-| [WSV](https://www.pegelonline.wsv.de/)                                                         | 🇩🇪 Germany     | hydrology (Pegelonline)                                               |
+| [WSV](https://pegelonline.wsv.de/)                                                             | 🇩🇪 Germany     | hydrology (Pegelonline)                                               |
 
 Across those: **over 600 canonical parameters**, resolutions from **1 minute to annual**, and archives
 reaching back centuries where the service keeps them. Every provider is reached the same way, and a
