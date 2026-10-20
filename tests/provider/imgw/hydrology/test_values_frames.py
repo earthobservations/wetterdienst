@@ -13,15 +13,18 @@ from __future__ import annotations
 import datetime as dt
 import zipfile
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import polars as pl
-import pytest
 
 from tests.provider.value_stubs import _day, _options, _settings, stations_result
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.imgw.hydrology import ImgwHydrologyRequest
 from wetterdienst.provider.imgw.hydrology import api as imgw_hydrology_api
 from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    import pytest
 
 UTC = dt.UTC
 STATION = "149180020"
@@ -86,3 +89,18 @@ def test_imgw_hydrology_a_station_without_a_row_comes_out_as_the_empty_long_form
     df = _values("daily", _day(2023, 1, 1), _day(2023, 1, 31))
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
+
+
+def test_imgw_hydrology_a_value_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cell of the file that is a text, not a number, is no reading: null, and the other readings stay (GH-2627).
+
+    The reader cast the value to a number itself and raised on the first cell that was none, which lost the station
+    with it. The core reads the text as the number it writes and a cell that writes none as null, one debug line
+    for the frame.
+    """
+    csv = "149180020,CHALUPKI,Odra,2023,03,15,141,12.5,9.9\n149180020,CHALUPKI,Odra,2023,03,16,n/a,13.5,9.9\n"
+    _serve(monkeypatch, "codz_2023_03.zip", "codz_2023_03.csv", csv)
+    df = _values("daily", _day(2023, 1, 1), _day(2023, 1, 31), drop_nulls=False)
+    stage = df.filter(pl.col("parameter").eq("stage")).sort("timestamp")
+    assert stage["value"].to_list() == [141.0, None]
+    assert df.filter(pl.col("parameter").eq("discharge")).sort("timestamp")["value"].to_list() == [12.5, 13.5]

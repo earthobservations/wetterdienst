@@ -287,6 +287,8 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
     )
     df = values._collect_station_parameter_or_dataset("149180020", ImgwHydrologyMetadata.daily.hydrology)  # noqa: SLF001
     # 9999 is the missing temperature of the second day
+    # the reader hands over the text of the cell, the core makes the number of it
+    df = df.with_columns(pl.col("value").cast(pl.Float64, strict=False))
     assert df.sort("parameter", "timestamp").select("parameter", "value").rows() == [
         ("przepływ", 12.5),
         ("przepływ", 13.5),

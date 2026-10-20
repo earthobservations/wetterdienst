@@ -696,3 +696,39 @@ def test_api_hourly_measurement_and_source_codes_follow_the_quality_code(monkeyp
     assert got["ACM00078861", "wind_direction", "1942-01-17 02:00"] == (None, "1,measurement:C,source:220,raw:999")
     # `Null` is the source's way of writing no code: the reading has no flag but the source
     assert got["CAMU0019904", "temperature_air_2m", "1940-01-01 12:00"] == (-28.9, "source:245")
+
+
+def test_api_hourly_a_value_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cell of the file that is a text, not a number, is no reading: null, and the other readings stay (GH-2627).
+
+    The file is read as text and the value was cast to a number by the provider, which raised on the first cell
+    that was none and lost the station with it. The core now reads the text as the number it writes and a cell that
+    writes none as null, with one debug line for the frame.
+    """
+    from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
+    from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
+
+    stations = (
+        b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+        b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
+    )
+    settings = Settings(cache_disable=True)
+    metadata = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=settings).metadata
+    columns = [parameter.name_original for parameter in metadata["hourly"]["data"]]
+    rows = {
+        2: {"temperature": "n/a", "wind_speed": "2.0"},
+        3: {"temperature": "21.5", "wind_speed": "1.0"},
+    }
+    body = ghcnh_psv("ACM00078861", columns, [(f"1942-01-17T{hour:02d}:00:00", row) for hour, row in rows.items()])
+    serve(monkeypatch, api, {"ghcnh-station-list": stations, "GHCNh_ACM00078861": body})
+    request = NoaaGhcnRequest(
+        parameters=[("hourly", "data")],
+        start=dt.datetime(1942, 1, 17, tzinfo=ZoneInfo("UTC")),
+        end=dt.datetime(1942, 1, 18, tzinfo=ZoneInfo("UTC")),
+        settings=settings,
+        options=Options(drop_nulls=False),
+    ).filter_by_station_id("ACM00078861")
+    df = request.values().all().df
+    temperature = df.filter(pl.col("parameter").eq("temperature_air_2m")).sort("timestamp")
+    assert temperature.get_column("value").to_list() == [None, 21.5]
+    assert df.filter(pl.col("parameter").eq("wind_speed")).get_column("value").drop_nulls().to_list() == [2.0, 1.0]

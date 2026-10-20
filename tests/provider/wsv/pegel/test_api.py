@@ -578,6 +578,46 @@ def test_wsv_a_values_download_that_is_offline_raises(monkeypatch: pytest.Monkey
         WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
 
 
+def test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cell of a gauge in metres above sea level that is a text is no reading: null, the others stay (GH-2627).
+
+    The stage of such a gauge is scaled to centimetres, which multiplied the value column as a number, so one text
+    among the readings made polars raise out of the whole station. The core reads a text as the number it writes and
+    as null where it writes none, one debug line per frame says how many, and the scaling no longer decides it.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    station = {
+        "number": "garbled",
+        "shortname": "garbled",
+        "km": 1.0,
+        "latitude": 50.0,
+        "longitude": 10.0,
+        "water": {"shortname": "TEST"},
+        "timeseries": [{"shortname": "W", "equidistance": 15, "unit": "m+NN", "characteristicValues": []}],
+    }
+    listing = json.dumps([station]).encode()
+    measurements = json.dumps(
+        [
+            {"timestamp": "2025-06-10T10:00:00+02:00", "value": "n/a"},
+            {"timestamp": "2025-06-10T10:15:00+02:00", "value": 1.5},
+            {"timestamp": "2025-06-10T10:30:00+02:00", "value": "2.5"},
+        ]
+    ).encode()
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        content = measurements if url.endswith("measurements.json") else listing
+        return File(url=url, content=BytesIO(content), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    values = WsvPegelRequest(parameters=[("15_minutes", "data", "stage")]).all().values().all()
+    assert values.df.sort("timestamp").get_column("value").to_list() == [150.0, 250.0]
+
+
 def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Exception, status: int) -> None:
     """Serve a one-station listing, and fail the measurements request with the given error."""
     from io import BytesIO  # noqa: PLC0415

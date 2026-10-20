@@ -5,8 +5,8 @@
 No offline test collected values of this network: its tests read the files (`_parse_file`, `_parse_csv`) and the
 collection was held by remote tests alone. The files are the shapes IMGW writes (a status beside every value, the
 `8` of no measurement and the `9` of no phenomenon, the days `o_d` leaves out), served as the zips the provider
-downloads, and `tests/provider/frames.snapshot.json` records what the core made of each: the net under moving the shaping
-of the frame out of the provider.
+downloads, and `tests/provider/frames.snapshot.json` records what the core made of each: the net under moving the
+shaping of the frame out of the provider.
 """
 
 from __future__ import annotations
@@ -14,15 +14,18 @@ from __future__ import annotations
 import datetime as dt
 import zipfile
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import polars as pl
-import pytest
 
 from tests.provider.value_stubs import _day, _options, _settings, stations_result
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyRequest
 from wetterdienst.provider.imgw.meteorology import api as imgw_meteorology_api
 from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    import pytest
 
 UTC = dt.UTC
 STATION = "249180020"
@@ -168,3 +171,19 @@ def test_imgw_meteorology_a_station_without_a_row_comes_out_as_the_empty_long_fo
     df = _values("daily", "precipitation", STATION, _day(2010, 2, 1), _day(2010, 2, 28))
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
+
+
+def test_imgw_meteorology_a_value_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cell of the file that is a text, not a number, is no reading: null, and the other days stay (GH-2627).
+
+    The reader cast the value to a number itself and raised on the first cell that was none, which lost the station
+    with it. The core reads the text as the number it writes and a cell that writes none as null, one debug line
+    for the frame; the status of the cell is kept beside it.
+    """
+    lines = [_o_d_line(1, ".2", ""), _o_d_line(3, "n/a", ""), _o_d_line(5, "2.1", "")]
+    _serve(monkeypatch, "2010_02_o.zip", {"o_d_02_2010.csv": "\n".join(lines)})
+    start, end = _day(2010, 2, 1), _day(2010, 2, 5)
+    df = _values("daily", "precipitation", STATION, start, end, drop_nulls=False)
+    precipitation = df.filter(pl.col("parameter").eq("precipitation_amount")).sort("timestamp")
+    assert precipitation["timestamp"].dt.day().to_list() == [1, 2, 3, 4, 5]
+    assert precipitation["value"].to_list() == [0.2, 0.0, None, 0.0, 2.1]

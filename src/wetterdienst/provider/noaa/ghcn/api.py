@@ -195,7 +195,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     ) -> pl.DataFrame:
         if parameter_or_dataset.resolution.value == Resolution.HOURLY:
             return self._collect_station_parameter_for_hourly(station_id=station_id, dataset=parameter_or_dataset)
-        return self._collect_station_parameter_for_daily(station_id=station_id, dataset=parameter_or_dataset)
+        return self._collect_station_parameter_for_daily(station_id=station_id)
 
     def _collect_station_parameter_for_hourly(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         from typing import cast  # noqa: PLC0415
@@ -275,8 +275,6 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("value").struct.field("measurement"),
             pl.col("value").struct.field("source"),
             pl.col("value").struct.field("value"),
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
         )
         # a wind direction is 1 to 360 degrees and 0 for a calm wind ("000" is calm, per the documentation), which
@@ -295,15 +293,11 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             Sentinel(GHCNH_PRECIPITATION_MISSING, where=pl.col("parameter").eq("precipitation")),
         )
         return df.with_columns(
-            value.cast(pl.Float64).alias("value"),
+            value.alias("value"),
             join_quality_flags(pl.col("quality"), measurement=pl.col("measurement"), source=pl.col("source"), raw=raw),
         ).drop("quality", "measurement", "source")
 
-    def _collect_station_parameter_for_daily(
-        self,
-        station_id: str,
-        dataset: DatasetModel,
-    ) -> pl.DataFrame:
+    def _collect_station_parameter_for_daily(self, station_id: str) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         from typing import cast  # noqa: PLC0415
 
@@ -370,38 +364,28 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("station").alias("station_id"),
             pl.col("timestamp").str.to_date("%Y-%m-%d"),
             pl.col("parameter").str.to_lowercase(),
-            pl.col("value").str.strip_chars().cast(float),
+            pl.col("value").str.strip_chars(),
             "quality_flags",
         )
-        # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in.
-        # The date is the station's own observing day, which the readme gives no zone for, and a stamp shifted by the
-        # station's offset (Tokyo 15:00 UTC the day before) was dropped by a request for that one day, whose bounds
-        # are 00:00 UTC (GH-2683).
-        df = df.with_columns(pl.col("timestamp").cast(pl.Datetime(time_zone="UTC")))
-        df = self._apply_daily_factors(df)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            "parameter",
-            "station_id",
-            "timestamp",
-            "value",
-            "quality_flags",
-        )
+        # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in:
+        # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
+        # observing day, which the readme gives no zone for, and a stamp shifted by the station's offset (Tokyo 15:00
+        # UTC the day before) was dropped by a request for that one day, whose bounds are 00:00 UTC (GH-2683).
+        return self._apply_daily_factors(df)
 
     @staticmethod
     def _apply_daily_factors(df: pl.DataFrame) -> pl.DataFrame:
         """Apply given factors on parameters that have been converted to integers.
 
         Make their unit one tenth e.g. 2.0 [°C] becomes 20 [1/10 °C]
+
+        The value is the text the file wrote and is read as a number here only because it is multiplied: a cell that
+        is no number is null, as the core makes of it, so no value of the file raises.
         """
-        data = []
-        for (parameter,), df_group in df.group_by(["parameter"]):
-            factor = DAILY_PARAMETER_MULTIPLICATION_FACTORS.get(parameter)
-            if factor:
-                df_group = df_group.with_columns(pl.col("value").cast(float).mul(factor))
-            data.append(df_group)
-        return pl.concat(data)
+        factor = pl.col("parameter").replace_strict(
+            DAILY_PARAMETER_MULTIPLICATION_FACTORS, default=1.0, return_dtype=pl.Float64
+        )
+        return df.with_columns((pl.col("value").cast(pl.Float64, strict=False) * factor).alias("value"))
 
 
 @dataclass

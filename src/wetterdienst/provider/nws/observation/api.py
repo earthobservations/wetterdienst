@@ -322,7 +322,7 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: DatasetModel,
+        parameter_or_dataset: DatasetModel,  # noqa: ARG002
     ) -> pl.DataFrame:
         settings = cast("Settings", self.sr.request.settings)
         pages = []
@@ -358,10 +358,8 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
             value_name="value",
         )
         # the 0 of a calm wind is mapped before anything is made of the value, and stays as `raw:0` (GH-2794)
-        value, raw = null_sentinels(pl.col("value").struct.field("value").cast(pl.Float64), _CALM_WIND, text=False)
+        value, raw = null_sentinels(pl.col("value").struct.field("value"), _CALM_WIND, text=False)
         return df.with_columns(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             # the MADIS flag of the quantity (Z, C, S, V, X, Q, G, B, T), verbatim (GH-2018), then the `raw:` token
             join_quality_flags(pl.col("value").struct.field("qualityControl"), raw=raw),
             value.alias("value"),

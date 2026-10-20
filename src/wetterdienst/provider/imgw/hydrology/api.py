@@ -272,15 +272,8 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
             return pl.DataFrame()
         if df.is_empty():
             return pl.DataFrame()
-        return df.select(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.col("station_id"),
-            pl.col("timestamp").dt.replace_time_zone("UTC"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("quality_flags"),
-        )
+        # the dates are IMGW's own, read as UTC by the core
+        return df
 
     def _parse_file(
         self,
@@ -351,7 +344,7 @@ class ImgwHydrologyValues(TimeseriesValues[DatasetModel]):
         df = df.unpivot(index=index, variable_name="parameter", value_name="value")
         # the values the files write for a reading they do not have, nulled with their text kept as `raw:` (GH-2759)
         value, raw = null_sentinels(pl.col("value"), *_MISSING)
-        df = df.with_columns(value.cast(pl.Float64).alias("value"), join_quality_flags(None, raw=raw))
+        df = df.with_columns(value.alias("value"), join_quality_flags(None, raw=raw))
         if dataset.resolution.value == Resolution.MONTHLY:
             df = df.select(
                 pl.col("station_id"),

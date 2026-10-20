@@ -415,15 +415,15 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
             factor = factors[source_unit]
 
         return df.with_columns(
-            pl.lit(requested_resolution, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             # not lowercased: `_create_humanized_parameters_mapping` keys on `name_original` as
             # declared, so a lowercased value never matched and WSV silently never humanized --
             # values came back as `sigh` and `r` rather than `wave_height_significant` and
             # `flow_direction`. Unit conversion keys case-insensitively and is unaffected.
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
             pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
-            (pl.col("value") * factor) if factor != 1.0 else pl.col("value"),
+            # a text in the cell is no reading: read as the number it writes, which only the scaling needs, and as
+            # null where it writes none, as the core does for the value it is handed unscaled
+            (pl.col("value").cast(pl.Float64, strict=False) * factor) if factor != 1.0 else pl.col("value"),
         )
 
 

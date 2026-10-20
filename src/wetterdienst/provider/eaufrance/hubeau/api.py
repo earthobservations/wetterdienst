@@ -377,20 +377,16 @@ class HubeauValues(TimeseriesValues[ParameterModel]):
         df = pl.concat(data)
         df = df.rename(
             mapping={
-                "code_station": "station_id",
                 "date_obs": "timestamp",
                 "resultat_obs": "value",
                 "code_qualification_obs": "quality_flags",
             },
         )
         return df.select(
-            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             # not lowercased: `_create_humanized_parameters_mapping` and the skip-criteria check
             # both key on `name_original` as declared, so a lowercased value never matched --
             # Hubeau silently never humanized and every station counted as having no data
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
-            "station_id",
             pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%SZ").dt.replace_time_zone("UTC"),
             "value",
             # the qualification code as Hubeau writes it, a whole number: "12", not "12.0"

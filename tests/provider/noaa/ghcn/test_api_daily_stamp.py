@@ -135,3 +135,30 @@ def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPa
         ("temperature_air_max_2m", "G,source:7"),
         ("temperature_air_max_2m", "measurement:H,source:S"),
     ]
+
+
+def test_ghcn_daily_a_value_that_is_no_number_is_null_and_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cell of the file that is a text is no reading: null, and the days around it stay (GH-2627).
+
+    The value was read as a number by the provider, which raised on a cell that was none and lost the station with
+    it. The cell is null now, and so is the row, which the core drops unless the caller asked for the nulls.
+    """
+    body = _TOKYO.replace('"   82"', '"n/a"').encode("utf8")
+    serve(
+        monkeypatch,
+        api,
+        {
+            "ghcnd-stations": _STATIONS.encode("utf8"),
+            "ghcnd-inventory": _INVENTORY.encode("utf8"),
+            "access/JA000047662": body,
+        },
+    )
+    request = NoaaGhcnRequest(
+        parameters=[("daily", "data", "temperature_air_max_2m")],
+        start="1951-01-01",
+        end="1951-01-03",
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    ).filter_by_station_id("JA000047662")
+    df = request.values().all().df.sort("timestamp")
+    assert df.get_column("value").to_list() == [7.0, None, 8.1]
