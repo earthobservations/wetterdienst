@@ -13,7 +13,7 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.26.0` goes with 0.162.0. Upgrade both
+The web app is released as a pair with the backend: `app-v0.27.0` goes with 0.162.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things still work in 0.162.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and

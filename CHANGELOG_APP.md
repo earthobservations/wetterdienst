@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-20
+
+### Changed
+
+- `[Accessibility]` The climate stripes and the forecast chart (also the embeddable widget) have a
+  text alternative: the chart is described by a sentence, and "Show as table" below it lists what it
+  draws, every year with its value and class for the stripes, every time with the values of the
+  shown panels for the forecast, so a screen reader or a keyboard reads the data that colour and
+  shape carry. The strings are in all eleven languages; Polish, Czech, Luxembourgish and Hamburg
+  German are not reviewed by a native speaker (WCAG 1.1.1, 1.3.1; GH-3145)
+
 ## [0.26.0] - 2026-10-19
 
 ### Changed
@@ -1402,7 +1413,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.26.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.27.0...HEAD
+[0.27.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.26.0...app-v0.27.0
 [0.26.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.25.0...app-v0.26.0
 [0.25.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.24.0...app-v0.25.0
 [0.24.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.23.0...app-v0.24.0
