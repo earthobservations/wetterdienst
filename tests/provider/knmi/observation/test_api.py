@@ -933,6 +933,18 @@ def _station_file(path: Path, variables: dict[str, float]) -> bytes:
     return path.read_bytes()
 
 
+def test_knmi_values_of_a_station_the_files_do_not_hold_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A station that is in the station list but in none of the files read answers with no rows (GH-2627)."""
+    file = _station_file(tmp_path / "debilt.nc", {"T": 16.1})
+    _fake_downloads(monkeypatch, file)
+    df = _hourly_values(days=1, station_ids=(EELDE,))
+    assert df.is_empty()
+    assert df.schema["value"] == pl.Float64
+
+
 def test_knmi_hourly_values_are_stamped_with_the_end_of_their_hour(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

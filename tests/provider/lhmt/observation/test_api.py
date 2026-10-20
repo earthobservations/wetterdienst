@@ -275,6 +275,21 @@ def test_lhmt_observation_values_missing_day_does_not_stop_the_loop(monkeypatch:
     assert len(attempted) == 5
 
 
+def test_lhmt_observation_values_of_days_without_observations_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Days the API answers (200) with no observation, or with no JSON, are no rows (GH-2627)."""
+    attempted = _fake_download_file(
+        monkeypatch,
+        b'{"station": {"code": "vilniaus-ams"}, "observations": []}',
+        b"<html>rate limited</html>",
+    )
+    df = _lhmt_values(days=3)
+    assert df.is_empty()
+    assert df.schema["value"] == pl.Float64
+    assert len(attempted) == 3
+
+
 def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     """A failure that is neither a missing day nor a missing network raises, as before (GH-2461)."""
     attempted = _fake_download_file(monkeypatch, Exception("server error"), status=500)
