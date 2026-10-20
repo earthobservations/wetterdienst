@@ -96,8 +96,11 @@ html_title = "Wetterdienst Documentation"
 linkcheck_exclude_documents = ["changelog"]
 linkcheck_timeout = 60
 linkcheck_retries = 2
-# Reachable in a browser, refused to the checker: each is named so that nothing else is waved through.
+# Reachable in a browser, refused to the checker, or the address of the reader's own machine: each is named
+# so that nothing else is waved through.
 linkcheck_ignore = [
+    # where the app and the backend are served once the reader has started them; nothing runs here
+    r"http://localhost:\d+.*",
     # answers 403 to a request that is not a browser ("Please respect our robot policy")
     r"https://en\.wikipedia\.org/.*",
     # 400 to a request without the session its form belongs to; howto.html of the site links this very URL
