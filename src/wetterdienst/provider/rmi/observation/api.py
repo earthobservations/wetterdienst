@@ -51,16 +51,6 @@ _PAGE_LIMIT = 500_000
 # omits numberMatched (which would otherwise loop forever fetching duplicate full pages).
 _MAX_PAGES = 10_000
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # The range of a reading per attribute and resolution, in the unit RMI writes it in, outside which no sensor can have
 # produced it: the physical ranges of `tests/provider/physical_ranges.py`, generous on purpose, in the unit of the
 # source and no wider than they are (`test_physical_ranges.py` holds them to it). The gust is held to a range of
@@ -258,13 +248,13 @@ class RmiObservationValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, ParameterModel):
             dataset = parameter_or_dataset.dataset
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         # Every RMI timestamp is a true UTC instant (label == the value CQL filters on), so the
         # window needs no margin; the request's bounds are UTC, which the "Z" says.
@@ -280,7 +270,7 @@ class RmiObservationValues(TimeseriesValues):
         schema = _values_schema(dataset.parameters)
         frames = list(self._iter_value_pages(layer, cql_filter, schema, settings))
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.concat(frames)
         param_names = [parameter.name_original for parameter in dataset.parameters]
@@ -315,14 +305,13 @@ class RmiObservationValues(TimeseriesValues):
             pl.col("value").is_not_null() | pl.col("raw").is_not_null()
         )
         if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
+        # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
+        # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             _parse_utc_z(pl.col("timestamp")).alias("timestamp"),
-            pl.col("value").cast(pl.Float64),
+            pl.col("value"),
             join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")),
         )
 

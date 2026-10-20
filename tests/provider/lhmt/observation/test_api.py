@@ -69,11 +69,10 @@ def test_parse_lhmt_observations() -> None:
 
 
 def test_parse_lhmt_observations_empty() -> None:
-    """A day with no observations yields an empty frame with the expected schema."""
+    """A day with no observations yields a frame without a row; the core makes of it the empty long form."""
     content = b'{"station": {"code": "vilniaus-ams"}, "observations": []}'
     df = parse_lhmt_observations(content)
     assert df.is_empty()
-    assert df.columns == ["timestamp", "parameter", "value"]
 
 
 def test_parse_lhmt_malformed_json_yields_empty() -> None:
@@ -273,6 +272,21 @@ def test_lhmt_observation_values_missing_day_does_not_stop_the_loop(monkeypatch:
     df = _lhmt_values(days=5)
     assert df.is_empty()
     assert len(attempted) == 5
+
+
+def test_lhmt_observation_values_of_days_without_observations_are_the_empty_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Days the API answers (200) with no observation, or with no JSON, are no rows (GH-2627)."""
+    attempted = _fake_download_file(
+        monkeypatch,
+        b'{"station": {"code": "vilniaus-ams"}, "observations": []}',
+        b"<html>rate limited</html>",
+    )
+    df = _lhmt_values(days=3)
+    assert df.is_empty()
+    assert df.schema["value"] == pl.Float64
+    assert len(attempted) == 3
 
 
 def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:

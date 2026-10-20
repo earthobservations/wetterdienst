@@ -282,13 +282,13 @@ class KnmiObservationValues(TimeseriesValues):
             dataset = parameter_or_dataset.dataset
             parameter_names = [parameter_or_dataset.name_original]
         else:
-            return self._empty_df()
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date or not settings.auth.knmi:
-            return self._empty_df()
+            return pl.DataFrame()
 
         resolution = dataset.resolution.value
         dataset_name, version = _DATASET_BY_RESOLUTION[resolution]
@@ -314,33 +314,8 @@ class KnmiObservationValues(TimeseriesValues):
             df = parse_knmi_netcdf(payload, station_id, parameter_names, _stamp(moment, resolution))
             if not df.is_empty():
                 frames.append(df)
-        if not frames:
-            return self._empty_df()
-
         # every frame from parse_knmi_netcdf shares the same (timestamp, parameter, value, quality_flags) schema
-        df = pl.concat(frames)
-        return df.select(
-            pl.lit(resolution.value, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("quality_flags"),
-        )
-
-    @staticmethod
-    def _empty_df() -> pl.DataFrame:
-        return pl.DataFrame(
-            schema={
-                "resolution": pl.String,
-                "dataset": pl.String,
-                "parameter": pl.String,
-                "station_id": pl.String,
-                "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-                "value": pl.Float64,
-            },
-        )
+        return pl.concat(frames) if frames else pl.DataFrame()
 
 
 @dataclass

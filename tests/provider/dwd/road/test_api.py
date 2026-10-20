@@ -15,7 +15,10 @@ import pytest
 from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest, DwdRoadStationGroup
 from wetterdienst.util.network import File, download_files, list_remote_files_fsspec
 
@@ -26,6 +29,13 @@ _PARSED_SCHEMA_FOR_TEST = {
     "value": pl.Float64,
     "quality": pl.Float64,
 }
+
+
+def _collected(values: object, station_id: str, dataset: DatasetModel | None = None) -> pl.DataFrame:
+    """Collect one station's frame as the core hands it out: the provider's rows, shaped by the core."""
+    dataset = dataset or DwdRoadRequest.metadata["15_minutes"]["data"]
+    df = values._collect_station_parameter_or_dataset(station_id, dataset)  # noqa: SLF001
+    return shape_provider_frame(df, station_id=station_id, dataset=dataset, provider="DwdRoadValues")
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -755,8 +765,7 @@ def test_dwd_road_weather_parses_a_group_once_for_all_its_stations(monkeypatch: 
         ],
     )
     values = _stub_stations(("A006", "B999", "C111")).values()
-    dataset = DwdRoadRequest.metadata["15_minutes"]["data"]
-    answers = [values._collect_station_parameter_or_dataset(sid, dataset) for sid in ("A006", "B999", "C111")]  # noqa: SLF001
+    answers = [_collected(values, sid) for sid in ("A006", "B999", "C111")]
 
     assert len(parses) == 1, "the group's one file should be decoded once, not once per station"
     # and each station still gets its own reading out of it
@@ -1356,12 +1365,14 @@ def test_dwd_road_weather_empty_is_one_shape(
     files_upstream_has: list[str],
     case: str,
 ) -> None:
-    """Nothing to answer with comes back in the shape something to answer with comes back in.
+    """Nothing to answer with comes back as the empty long form, whatever the provider handed the core.
 
     There were three shapes for this: no columns where the group published no file, five where the
     files it published held nothing, and the seven columns a reading has. All three were handed to
     a caller that reads the first as "this station had nothing" and would meet either of the others
-    with a width it did not expect or a column that is not there.
+    with a width it did not expect or a column that is not there. The core makes every frame without
+    a row the one of `LONG_SCHEMA`, so the provider's own is no shape to pin: this asserts what the
+    core hands out.
     """
     import pandas as pd  # noqa: PLC0415
 
@@ -1373,15 +1384,9 @@ def test_dwd_road_weather_empty_is_one_shape(
     monkeypatch.setattr(api, "download_files", lambda **_kwargs: [file] if files_upstream_has else [])
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: pd.DataFrame())
 
-    values = _stub_stations().values()
-    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
-        station_id="A006",
-        parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
-    )
+    df = _collected(_stub_stations().values(), "A006")
     assert df.is_empty(), case
-    assert df.columns == ["resolution", "dataset", "parameter", "station_id", "timestamp", "value", "quality_flags"], (
-        case
-    )
+    assert df.schema == LONG_SCHEMA, case
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1410,11 +1415,7 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
             File(url="swis2-ISXD70_DWDD_131200-2609131200-DD---bin", content=BytesIO(b"x" * 500), status=200)
         ],
     )
-    values = _stub_stations().values()
-    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
-        station_id="A006",
-        parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
-    )
+    df = _collected(_stub_stations().values(), "A006")
     readings = df.drop_nulls("value").select("station_id", "parameter", "value").rows()
     # the station asked for, and only it -- the other station's reading is in the same file
     assert readings == [("A006", "airTemperature", 12.0)]
@@ -1446,11 +1447,7 @@ def test_dwd_road_weather_returns_the_verdict_as_a_quality_flag_string(monkeypat
     monkeypatch.setattr(
         api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
     )
-    values = _stub_stations(("P034",)).values()
-    df = values._collect_station_parameter_or_dataset(  # noqa: SLF001
-        station_id="P034",
-        parameter_or_dataset=DwdRoadRequest.metadata["15_minutes"]["data"],
-    )
+    df = _collected(_stub_stations(("P034",)).values(), "P034")
     assert df.schema["quality_flags"] == pl.String
     assert "quality" not in df.columns
     flags = dict(df.drop_nulls("value").select("parameter", "quality_flags").iter_rows())

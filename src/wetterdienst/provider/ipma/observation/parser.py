@@ -45,13 +45,6 @@ _EMPTY_STATIONS_SCHEMA = {
     "longitude": pl.Float64,
 }
 
-_EMPTY_VALUES_SCHEMA = {
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "parameter": pl.String,
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 
 def parse_ipma_stations(content: bytes) -> pl.DataFrame:
     """Parse ``stations.json`` into one row per station.
@@ -108,7 +101,7 @@ def extract_ipma_station_observations(feed: dict, station_id: str) -> pl.DataFra
             value = record.get(field)
             rows.append({"timestamp": timestamp, "parameter": field, "value": None if value is None else float(value)})
     if not rows:
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     cleaned, raw = null_sentinels(pl.col("value"), _MISSING, text=False)
     # a wind direction is a code of eight points, and code 0 is "no direction (calm)" or a code no table lists: no
     # direction either way, and the code is kept as its text

@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.ipma.observation.metadata import IpmaObservationMetadata
@@ -31,20 +30,12 @@ from wetterdienst.provider.ipma.observation.parser import (
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
 _BASE_URL = "https://api.ipma.pt/open-data/observation/meteorology/stations"
 _STATIONS_URL = f"{_BASE_URL}/stations.json"
 _OBSERVATIONS_URL = f"{_BASE_URL}/observations.json"
-
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-}
 
 
 class IpmaObservationValues(TimeseriesValues):
@@ -85,30 +76,12 @@ class IpmaObservationValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel | DatasetModel,
+        parameter_or_dataset: ParameterModel | DatasetModel,  # noqa: ARG002
     ) -> pl.DataFrame:
-        if isinstance(parameter_or_dataset, ParameterModel):
-            dataset = parameter_or_dataset.dataset
-        elif isinstance(parameter_or_dataset, DatasetModel):
-            dataset = parameter_or_dataset
-        else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-
         feed = self._observations_feed()
         if feed is None:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        df = extract_ipma_station_observations(feed, station_id=station_id)
-        if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("quality_flags"),
-        )
+            return pl.DataFrame()
+        return extract_ipma_station_observations(feed, station_id=station_id)
 
 
 @dataclass

@@ -55,16 +55,6 @@ class _OffsetCapReachedError(Exception):
     """Raised when a window holds more records than the pages below DMI's offset cap can carry."""
 
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # DMI writes a mean wind direction of 0 for an aggregate whose mean wind speed is 0, and north as 360 or 0. Over the
 # hourly records of 2020 and 2021 of stations 06180, 06070, 04339, 06058 and 06096 (read 2026-10-12), 1530 of the 1616
 # hours with a speed of 0 have a direction of 0 (the other 86 are at 04339), while at a speed of 1 m/s or more a
@@ -337,13 +327,13 @@ class DmiObservationValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, ParameterModel):
             dataset = parameter_or_dataset.dataset
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         resolution = dataset.resolution.value
         time_resolution = self._resolution_to_time_resolution[resolution]
         # DMI matches its datetime filter against each aggregate's `from` *instant*. For
@@ -377,21 +367,20 @@ class DmiObservationValues(TimeseriesValues):
                 break
             window_start = window_end
         if not records:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.concat(records).filter(pl.col("parameterId").is_in(known_parameters)).unique(maintain_order=True)
         if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         # the 0 of a calm wind and a value outside the range of its parameter are mapped before anything is made of the
         # value, and stay as `raw:0` (GH-2794) and `raw:17802` (GH-2797)
         value, raw = null_sentinels(pl.col("value"), _CALM_WIND, *_OUT_OF_RANGE[dataset.resolution.name], text=False)
+        # the station, resolution and dataset, the order of the columns and the dtypes are the core's to write
+        # (`shape_provider_frame`); a frame without a row is the empty long form there, whatever it holds
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameterId").alias("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             self._date_expression(resolution).alias("timestamp"),
-            value.cast(pl.Float64).alias("value"),
+            value.alias("value"),
             _quality_flags(raw),
         )
 
