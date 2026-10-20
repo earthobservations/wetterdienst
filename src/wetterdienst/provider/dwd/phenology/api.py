@@ -58,14 +58,6 @@ _STATIONS_FILE = {"annual_reporters": "Jahresmelder", "immediate_reporters": "So
 # one loses observations outright, and the overlap is deduplicated downstream anyway.
 _RECENT_YEARS = 4
 
-_EMPTY_VALUES_SCHEMA = {
-    "station_id": pl.String,
-    "parameter": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # The files head their columns inconsistently: most write ``Stations_id``, the two beet files
 # shout ``STATIONS_ID`` and one of them writes ``REFERENZ_JAHR`` where every other file has
 # ``REFERENZJAHR``. Names are upper-cased on read and the odd one out is aliased here.
@@ -142,7 +134,7 @@ def _parse_values(content: bytes, object_id: int) -> pl.DataFrame:
     """
     df = _read_phenology_file(content)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     df = df.select(
         # station ids are written unpadded here and zero-padded to five in the catalogue
         pl.col("STATIONS_ID").str.strip_chars().cast(pl.Int64, strict=False).alias("station_id"),
@@ -240,7 +232,7 @@ class DwdPhenologyValues(TimeseriesValues):
             return self._files[key]
         settings = cast("Settings", self.sr.request.settings)
         url = _file_url(dataset, period, settings)
-        df = pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        df = pl.DataFrame()
         if url:
             file = download_file(
                 url=url,
@@ -260,7 +252,8 @@ class DwdPhenologyValues(TimeseriesValues):
             file.raise_if_exception()
             if not isinstance(file.content, Exception):
                 df = _parse_values(file.content.read(), DWD_PHENOLOGY_OBJECT_IDS[dataset.name])
-                df = df.filter(pl.col("station_id").is_in(self._requested_station_ids()))
+                if not df.is_empty():
+                    df = df.filter(pl.col("station_id").is_in(self._requested_station_ids()))
         self._files[key] = df
         return df
 
@@ -279,23 +272,16 @@ class DwdPhenologyValues(TimeseriesValues):
         # oldest period first: where the periods overlap -- and recent reaches back into the years
         # the last historical release already covers -- `_process_dataset` keeps the first row for a
         # (parameter, timestamp), and the historical file is the one carrying the final quality marks
-        frames = [
-            df
-            for period in sorted(periods)
-            if not (df := self._load(dataset, period).filter(pl.col("station_id").eq(station_id))).is_empty()
-        ]
+        frames = []
+        for period in sorted(periods):
+            loaded = self._load(dataset, period)
+            # a file with nothing in it for the request has no columns to filter by
+            if not loaded.is_empty() and not (df := loaded.filter(pl.col("station_id").eq(station_id))).is_empty():
+                frames.append(df)
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-        df = pl.concat(frames)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.col("station_id"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("quality_flags"),
-        )
+            return pl.DataFrame()
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
+        return pl.concat(frames).select("parameter", "timestamp", "value", "quality_flags")
 
 
 @dataclass

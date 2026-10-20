@@ -26,7 +26,6 @@ ROOT = Path(__file__).parents[2]
 # that is in neither list is covered: its tests are in the snapshot.
 NO_VALUES_FIXTURE = {
     "chmi/observation": "no offline test collects values; the source is a key-less CSV portal with three file layouts",
-    "dwd/phenology": "no offline test collects values; the parsing is tested (`test_api.py`), not the collection",
     "imgw/meteorology": "no offline test collects values; the readers are tested on their files, not the collection",
     "dwd/radar": "standalone: no `TimeseriesValues`, the files are handed over as DWD wrote them",
     "dwd/alerts": "standalone: no `TimeseriesValues`, the alerts are CAP documents",

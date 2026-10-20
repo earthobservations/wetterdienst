@@ -195,10 +195,8 @@ def test_parse_values_latin1() -> None:
 
 
 def test_parse_values_empty() -> None:
-    """A header-only or empty file yields an empty frame with the expected schema."""
-    df = _parse_values(b"", object_id=113)
-    assert df.is_empty()
-    assert df.columns == ["station_id", "parameter", "timestamp", "value", "quality_flags"]
+    """A header-only or empty file yields an empty frame, which the core skips and which has no schema to keep."""
+    assert _parse_values(b"", object_id=113).is_empty()
 
 
 def test_file_url_recent() -> None:
