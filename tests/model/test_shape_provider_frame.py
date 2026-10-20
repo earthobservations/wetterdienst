@@ -205,3 +205,38 @@ def test_the_error_is_the_librarys_and_a_defect_not_a_request_error() -> None:
 
     assert issubclass(ProviderContractError, WetterdienstError)
     assert not issubclass(ProviderContractError, RequestError | NotFoundError)
+
+
+@pytest.mark.parametrize(
+    "empty",
+    [
+        pl.DataFrame(),
+        pl.DataFrame({"parameter": [], "timestamp": [], "value": []}),
+        pl.DataFrame(schema={"parameter": pl.String, "timestamp": pl.Datetime("ms"), "value": pl.Int64}),
+        pl.DataFrame(schema={"station_id": pl.String, "something": pl.Float32}),
+        pl.DataFrame(schema=LONG_SCHEMA),
+    ],
+    ids=["no-columns", "null-dtypes", "other-dtypes", "other-columns", "long-form"],
+)
+def test_a_frame_without_rows_is_the_empty_long_form(empty: pl.DataFrame, dataset: DatasetModel) -> None:
+    """Whatever columns a provider hands over with no row, the core answers the empty frame of the long form."""
+    result = _shape(empty, dataset)
+
+    assert result.is_empty()
+    assert result.schema == LONG_SCHEMA
+
+
+def test_a_frame_without_rows_of_a_wrong_type_is_no_contract_error(dataset: DatasetModel) -> None:
+    """There is no cell to cast, so a `timestamp` typed as a string with no row is not the provider's mistake."""
+    empty = pl.DataFrame(schema={"parameter": pl.String, "timestamp": pl.String, "value": pl.List(pl.Float64)})
+
+    assert _shape(empty, dataset).schema == LONG_SCHEMA
+
+
+def test_the_empty_long_form_concatenates_with_a_shaped_frame(dataset: DatasetModel) -> None:
+    """A parameter without data and one with data are one schema, which is why the core shapes both."""
+    shaped = _shape(_frame(), dataset)
+
+    result = pl.concat([_shape(pl.DataFrame(), dataset), shaped])
+
+    assert_frame_equal(result, shaped)

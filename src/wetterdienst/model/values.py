@@ -70,6 +70,22 @@ def _can_be_cast(column: str, dtype: pl.DataType) -> bool:
     return base in {pl.String, pl.Categorical, pl.Enum, pl.Null} or dtype.is_integer()
 
 
+def _check_provider_columns(df: pl.DataFrame, provider: str) -> None:
+    """Raise `ProviderContractError` for a frame that lacks a required column or has one that cannot be cast."""
+    missing = [column for column in _REQUIRED_COLUMNS if column not in df.columns]
+    if missing:
+        message = (
+            f"{provider} returned a frame without the column(s) {', '.join(missing)}; its columns are {df.columns}"
+        )
+        raise ProviderContractError(message)
+    for column in ("parameter", "timestamp", "value", "quality_flags"):
+        if column in df.columns and not _can_be_cast(column, df.schema[column]):
+            message = (
+                f"{provider} returned `{column}` as {df.schema[column]}, which cannot be made {LONG_SCHEMA[column]}"
+            )
+            raise ProviderContractError(message)
+
+
 def shape_provider_frame(
     df: pl.DataFrame,
     *,
@@ -85,35 +101,33 @@ def shape_provider_frame(
     provider left it out, orders the columns as `LONG_SCHEMA` does and drops any other. A frame that is the long
     form already comes out unchanged.
 
+    A frame without a row is no data and is the same answer whatever it holds: a station without data for the
+    parameter may be handed over as a bare ``pl.DataFrame()``, as a frame with the columns and none of the rows, or
+    with columns of ``Null`` dtype (what polars makes of an empty list). All of them come out as the empty frame of
+    `LONG_SCHEMA`, so that nothing downstream has to ask which empty frame it got, and no columns are required of it.
+
     A ``value`` cell that is no number (a text such as ``"n/a"``) is no error: it becomes null, and one debug line per
     frame says how many did. A naive ``timestamp`` is read as UTC, a zoned one is converted to it.
 
     Args:
-        df: the frame of one call of ``_collect_station_parameter_or_dataset``, with rows.
+        df: the frame of one call of ``_collect_station_parameter_or_dataset``, with or without rows.
         station_id: the station the call was made for.
         dataset: the dataset the call was made for, which names ``resolution`` and ``dataset``.
         provider: the name to put in a message, the provider's class.
 
     Returns:
-        The frame with exactly the columns of `LONG_SCHEMA`, in its order and with its dtypes.
+        The frame with exactly the columns of `LONG_SCHEMA`, in its order and with its dtypes; with no row, the empty
+        frame of `LONG_SCHEMA`.
 
     Raises:
         ProviderContractError: ``parameter``, ``timestamp`` or ``value`` is missing, or has a type that cannot be made
-            the declared one (a ``timestamp`` that is a string or an integer, a ``value`` that is a list).
+            the declared one (a ``timestamp`` that is a string or an integer, a ``value`` that is a list). A frame
+            without a row is never one.
 
     """
-    missing = [column for column in _REQUIRED_COLUMNS if column not in df.columns]
-    if missing:
-        message = (
-            f"{provider} returned a frame without the column(s) {', '.join(missing)}; its columns are {df.columns}"
-        )
-        raise ProviderContractError(message)
-    for column in ("parameter", "timestamp", "value", "quality_flags"):
-        if column in df.columns and not _can_be_cast(column, df.schema[column]):
-            message = (
-                f"{provider} returned `{column}` as {df.schema[column]}, which cannot be made {LONG_SCHEMA[column]}"
-            )
-            raise ProviderContractError(message)
+    if df.is_empty():
+        return pl.DataFrame(schema=LONG_SCHEMA)
+    _check_provider_columns(df, provider)
     if df.schema["value"] != pl.Float64:
         # a text is read as the number it writes, and one that writes none is null: counted, never named
         unreadable = df.get_column("value").cast(pl.Float64, strict=False).null_count() - df["value"].null_count()
@@ -324,7 +338,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     def _collect_station_data(self, station_id: str, available_datasets: list[DatasetModel]) -> pl.DataFrame:
         """Collect and process data for a single station."""
         if not available_datasets:
-            return pl.DataFrame()
+            return pl.DataFrame(schema=LONG_SCHEMA)
         data = []
         # self.sr.request.parameters is parsed at runtime to a list[ParameterModel],
         # but the static type of the attribute is a union of input forms. Cast here so
@@ -337,7 +351,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             df = self._process_dataset(station_id, dataset, parameters)
             if not df.is_empty():
                 data.append(df)
-        return pl.concat(data) if data else pl.DataFrame()
+        return pl.concat(data) if data else pl.DataFrame(schema=LONG_SCHEMA)
 
     def _process_dataset(
         self, station_id: str, dataset: DatasetModel, parameters: Sequence[ParameterModel]
@@ -350,10 +364,9 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 # saying so, and the type parameter is what it said it would be handed
                 parameter_or_dataset=cast("_UnitT", dataset),
             )
-            if not df.is_empty():
-                df = self._shape(df, station_id, dataset)
-                parameter_names = {parameter.name_original for parameter in parameters}
-                df = df.filter(pl.col("parameter").is_in(parameter_names))
+            df = self._shape(df, station_id, dataset)
+            parameter_names = {parameter.name_original for parameter in parameters}
+            df = df.filter(pl.col("parameter").is_in(parameter_names))
         else:
             data = []
             for parameter in parameters:
@@ -361,16 +374,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                     station_id=station_id,
                     parameter_or_dataset=cast("_UnitT", parameter),
                 )
-                # a parameter with no data for this station yields a bare frame with no columns,
-                # which cannot be concatenated with the populated ones -- polars raises
-                # "unable to append to a DataFrame of width 6 with a DataFrame of width 0". It
-                # contributes no rows either way, so drop it rather than let one absent parameter
-                # fail the whole request.
-                if not df.is_empty():
-                    # shaped per call, so that the frames of the parameters have one schema to concatenate by
-                    data.append(self._shape(df, station_id, dataset))
-            df = pl.concat(data) if data else pl.DataFrame()
+                # shaped per call, so that the frames of the parameters have one schema to concatenate by: a parameter
+                # with no data for this station is the empty frame of that schema, whatever the provider handed over
+                # (a bare frame with no columns would raise "unable to append to a DataFrame of width 6 with a
+                # DataFrame of width 0"), and it contributes no rows
+                data.append(self._shape(df, station_id, dataset))
+            df = pl.concat(data) if data else pl.DataFrame(schema=LONG_SCHEMA)
         if df.is_empty():
+            # the empty frame of `LONG_SCHEMA`, as `shape_provider_frame` makes it of any provider frame without rows
             return df
         if self.sr.options.convert_units:
             df = self._convert_units(df, dataset)
@@ -429,8 +440,14 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
               the name of the dataset's resolution and the lower-cased name of the dataset, over whatever the frame
               holds, before the duplicates are removed. A provider may leave them out.
 
-            Any other column is dropped. A frame without a row, whatever its columns (a station without data for the
-            parameter, a bare `pl.DataFrame()`), is skipped by the core. The rows may come in any order, more than
+            Any other column is dropped.
+
+            For no data (a station without readings for the parameter) return a frame without a row, whatever its
+            columns: a bare `pl.DataFrame()` is right, and so is the frame with the columns and none of the rows. The
+            core makes of it the empty frame of `LONG_SCHEMA` and contributes no rows; a provider need not build an
+            empty schema of its own, and none is read.
+
+            The rows may come in any order, more than
             once (the core keeps the first of the rows that share `resolution`, `dataset`, `parameter` and
             `timestamp`), and outside the requested window (the core cuts it after, so a provider is free to narrow
             what it downloads by it, not obliged to).
