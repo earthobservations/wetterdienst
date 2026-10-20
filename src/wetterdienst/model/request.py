@@ -28,6 +28,7 @@ from wetterdienst.exceptions import (
     MissingTimeIntervalError,
     NoParametersFoundError,
     NoPeriodsFoundError,
+    ProviderContractError,
     ReversedTimeIntervalError,
     StationNotFoundError,
 )
@@ -52,7 +53,13 @@ from wetterdienst.model.result import (
     StationsResult,
     SummarizedValuesResult,
 )
-from wetterdienst.model.schema import INTERPOLATED_SCHEMA, STATIONS_SCHEMA, SUMMARIZED_SCHEMA, coerce
+from wetterdienst.model.schema import (
+    INTERPOLATED_SCHEMA,
+    STATIONS_SCHEMA,
+    SUMMARIZED_SCHEMA,
+    TIMESTAMP_DTYPE,
+    coerce,
+)
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
 from wetterdienst.settings import Settings
@@ -105,6 +112,111 @@ _PERIODS_TYPE = _PERIOD_TYPE_SINGULAR | Iterable[_PERIOD_TYPE_SINGULAR] | None
 def _format_periods(periods: Iterable[Period]) -> str:
     """Name periods the way they are requested, oldest first."""
     return ", ".join(period.value for period in sorted(periods))
+
+
+# The columns of a provider's stations frame that the core cannot make up: the values step finds a station's datasets
+# by the first two and collects them by the third.
+_REQUIRED_STATIONS_COLUMNS = ("resolution", "dataset", "station_id")
+
+
+def _stations_column_can_be_cast(dtype: pl.DataType, target: pl.DataType) -> bool:
+    """Tell whether the core can make a column of this type the dtype `STATIONS_SCHEMA` declares for it.
+
+    The cast would do more than it should for some types (an integer is a count of microseconds to a datetime, a
+    float is a text), so what is accepted is listed: a point in time for the timestamps, a number or a text for the
+    coordinates and the elevation, a text, a category or an integer for the names.
+    """
+    base = dtype.base_type()
+    if target == TIMESTAMP_DTYPE:
+        return base in {pl.Datetime, pl.Date, pl.Null}
+    if target == pl.Float64:
+        return dtype.is_numeric() or base in {pl.String, pl.Null}
+    return base in {pl.String, pl.Categorical, pl.Enum, pl.Null} or dtype.is_integer()
+
+
+def _check_provider_stations(df: pl.DataFrame, provider: str) -> None:
+    """Raise `ProviderContractError` for a frame that lacks a required column or has one that cannot be cast."""
+    missing = [column for column in _REQUIRED_STATIONS_COLUMNS if column not in df.columns]
+    if missing:
+        message = (
+            f"{provider} returned stations without the column(s) {', '.join(missing)}; its columns are {df.columns}"
+        )
+        raise ProviderContractError(message)
+    for column, dtype in df.schema.items():
+        target = STATIONS_SCHEMA.get(column)
+        if target is not None and not _stations_column_can_be_cast(dtype, target):
+            message = f"{provider} returned `{column}` as {dtype}, which cannot be made {target}"
+            raise ProviderContractError(message)
+
+
+def _count_unreadable_numbers(df: pl.DataFrame, column: str, provider: str) -> None:
+    """Say in one debug line how many cells of a number column are a text that is no number: counted, never named."""
+    if df.schema[column] == pl.Float64:
+        return
+    series = df.get_column(column)
+    unreadable = series.cast(pl.Float64, strict=False).null_count() - series.null_count()
+    if unreadable:
+        log.debug("%s: %d of %d %s cells are no number and are null", provider, unreadable, df.height, column)
+
+
+def shape_stations_frame(
+    df: pl.DataFrame,
+    *,
+    columns: Sequence[str],
+    provider: str = "the provider",
+) -> pl.DataFrame:
+    """Make the frame a provider handed the core as its stations the stations frame (GH-2627).
+
+    Done once here so that a provider need not: the columns are the ones named, in their order (a column the
+    provider left out is null, typed where `STATIONS_SCHEMA` declares it, and any other is dropped, with a debug
+    line naming it); a column of `STATIONS_SCHEMA` is cast to its dtype, a naive ``start_timestamp`` or
+    ``end_timestamp`` being read as UTC and a zoned one converted to it, and a column the schema does not know (a
+    provider's own) is kept as it is handed. A frame that is the stations frame already comes out unchanged.
+
+    A frame without a row is no stations and is the same answer whatever it holds: a bare ``pl.DataFrame()``, a
+    frame with the columns and none of the rows, or with columns of ``Null`` dtype (what polars makes of an empty
+    list). All of them come out as the empty frame of the columns, whose dtypes are those of `STATIONS_SCHEMA`
+    (a String for a column that is not in it), and no columns are required of it.
+
+    A cell of ``latitude``, ``longitude`` or ``elevation`` that is no number (a text such as ``"n/a"``) is no error:
+    it becomes null, and one debug line per column says how many did.
+
+    Args:
+        df: what ``_all`` collected, with or without rows.
+        columns: the columns of the stations frame, which are the request's ``_base_columns``.
+        provider: the name to put in a message, the provider's class.
+
+    Returns:
+        The frame with exactly the named columns, in their order.
+
+    Raises:
+        ProviderContractError: ``resolution``, ``dataset`` or ``station_id`` is missing, or a column of
+            `STATIONS_SCHEMA` has a type that cannot be made the declared one (a timestamp that is a string or an
+            integer, a latitude that is a list). A frame without a row is never one.
+
+    """
+    if df.is_empty():
+        return pl.DataFrame(schema={column: STATIONS_SCHEMA.get(column, pl.String) for column in columns})
+    _check_provider_stations(df, provider)
+    surplus = [column for column in df.columns if column not in columns]
+    if surplus:
+        log.debug("%s: dropped the column(s) %s, which the stations frame does not have", provider, ", ".join(surplus))
+    expressions = []
+    for column in columns:
+        target = STATIONS_SCHEMA.get(column)
+        if column not in df.columns:
+            # a column of the schema has its dtype; one of the provider's own, which no schema declares, is an untyped
+            # null as it always was (the frames snapshot of KNMI's `wigos_id` holds it), where a frame without a row
+            # has a String for it. Typing it String is a change of that snapshot, left for a change of its own
+            expressions.append(pl.lit(None, dtype=target).alias(column))
+        elif target is None:
+            expressions.append(pl.col(column))
+        elif target == pl.Float64:
+            _count_unreadable_numbers(df, column, provider)
+            expressions.append(pl.col(column).cast(pl.Float64, strict=False))
+        else:
+            expressions.append(pl.col(column).cast(target))
+    return df.select(expressions)
 
 
 @dataclass
@@ -503,11 +615,6 @@ class TimeseriesRequest:
             }
         return data
 
-    @classmethod
-    def _coerce_meta_fields(cls, df: pl.DataFrame) -> pl.DataFrame:
-        """Coerce the station columns to the dtypes of `STATIONS_SCHEMA`."""
-        return coerce(df, STATIONS_SCHEMA)
-
     @abstractmethod
     def _all(self) -> pl.LazyFrame:
         """Implement this method to get all stations.
@@ -520,19 +627,25 @@ class TimeseriesRequest:
 
             - ``resolution``, ``dataset`` (String) and ``station_id`` (String, the id the values are collected
               by): required. The values step finds a station's datasets by the first two and collects them by the
-              third, and the station filters key on `station_id`.
+              third, and the station filters key on `station_id`. A frame with rows that lacks one is a
+              `ProviderContractError`.
             - ``latitude``, ``longitude``, ``elevation`` (Float64), ``name``, ``region`` (String),
               ``start_timestamp`` and ``end_timestamp`` (Datetime("us", "UTC")): may be left out, and `all()` then
               fills the column with null. A station with no position is listed, but no distance filter can reach it;
               a ``start_timestamp`` left out says nothing about when the station began, which the values step reads
               as "may have data in the window".
             - any column of the request's own `_base_columns` (the provider adds them there, as WSV does its river
-              kilometre): kept. A column that `_base_columns` does not list is dropped without a message, and the
-              provider tests fail for it (GH-2019).
+              kilometre): kept as it is handed. A column that `_base_columns` does not list is dropped (a debug
+              line names it), and the provider tests fail for it (GH-2019).
 
-            The core casts the columns of `STATIONS_SCHEMA` to their dtypes (strictly, so a value that cannot be
-            cast raises), reading a naive datetime as UTC, and orders the columns as `_base_columns` does. A
-            frame without a row, whatever its columns, is the empty stations frame.
+            What a provider need not do, because `shape_stations_frame` does it: cast the columns of
+            `STATIONS_SCHEMA` to their dtypes (a text that is no number in ``latitude``, ``longitude`` or
+            ``elevation`` becomes null, with a debug line counting them; a naive datetime is read as UTC and a zoned
+            one converted to it; a timestamp that is a text or a number, or a column of any other type that cannot
+            be made the declared one, is a `ProviderContractError`), order the columns as `_base_columns` does,
+            fill a column it has not got, drop one it should not hand over, and answer a station-less catalogue with
+            the right empty frame: a frame without a row, a bare ``pl.DataFrame()`` included, is the empty stations
+            frame.
 
         """
 
@@ -551,15 +664,7 @@ class TimeseriesRequest:
             raise TypeError(msg)
         df = result
 
-        if not df.is_empty():
-            df = df.select(pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns)
-        else:
-            # a column of the schema has its dtype, any other the provider declared is a String as before
-            df = pl.DataFrame(
-                schema={column: STATIONS_SCHEMA.get(column, pl.String) for column in self._base_columns}, orient="col"
-            )
-
-        df = self._coerce_meta_fields(df)
+        df = shape_stations_frame(df, columns=self._base_columns, provider=type(self).__name__)
 
         return StationsResult(
             request=self,
