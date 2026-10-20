@@ -201,15 +201,31 @@ that has two of the datasets has two rows. The listing has the columns of `STATI
 
 | Column | Type | |
 | --- | --- | --- |
-| `resolution`, `dataset` | String | required: the values step finds the datasets of a station by them |
+| `resolution`, `dataset` | String | both or neither: the values step finds the datasets of a station by them, and the core adds them to a frame that has neither |
 | `station_id` | String | required: the id the values are collected by, and the station filters key on it |
 | `start_timestamp`, `end_timestamp` | Datetime (UTC) | may be left out; a missing start says nothing about when the station began |
 | `latitude`, `longitude`, `elevation` | Float64 | may be left out; a station without a position is listed but no distance filter reaches it |
 | `name`, `region` | String | may be left out |
 
-A column that is left out is filled with null, and the others are cast to their types (a naive datetime is read as
-UTC). A provider's own columns (WSV's river kilometre) are kept only if the request lists them in `_base_columns`: any
-other column is dropped without a message, and the provider tests fail for it.
+The provider hands over the stations of its catalogue and the core shapes them (`add_resolution_and_dataset` and
+`shape_stations_frame` in `wetterdienst.model.request`, GH-2627):
+
+- `station_id` is the one column every frame must have. A provider with one catalogue for all its datasets leaves
+  `resolution` and `dataset` out, and the core copies the frame once per requested resolution and dataset, in the order
+  of the request. A provider whose stations differ per dataset (their bounds, a catalogue per product) hands a frame
+  with both, one row per station and dataset, and it is left as it is. A frame with only one of the two is a
+  `ProviderContractError`: the core cannot tell which half of a pair is missing.
+- A column that is left out is filled with null, and the others are cast to their types (a naive datetime is read as
+  UTC, a zoned one is converted to it). A coordinate or elevation that is a text and no number is null, and the core
+  logs one debug line per column with the count; a timestamp that is a string or an integer, or a missing `station_id`,
+  is a `ProviderContractError`.
+- A column the request does not list in `_base_columns` is dropped, with a debug line naming it. A provider's own
+  columns (WSV's river kilometre) are kept only if the request lists them there, and a reader may not build one that
+  `_base_columns` leaves out: the `station_column_findings` fixture of `tests/provider/conftest.py` fails the provider
+  tests for it (a column the reader keeps on purpose and drops itself is named in `INTERMEDIATE_STATION_COLUMNS`).
+- A frame with no rows is no stations, and a bare `pl.DataFrame()` is right: the core makes of it the empty frame of the
+  columns. A provider whose catalogue can come back empty still returns early with an empty frame, because on polars
+  before 2.0 a frame without columns given a `pl.lit` column has one row, not none.
 
 ## Step 3: Values class
 
@@ -229,21 +245,25 @@ dataset, the dataset), and it is all the core asks of a provider: the docstring 
 | `quality_flags` | String | optional: a provider that publishes none leaves the column out |
 | `resolution`, `dataset`, `station_id` | String | not the provider's: the core writes them (`dataset.resolution.name`, `dataset.name.lower()`, the id the values were asked for) and replaces whatever the provider put there |
 
-The core shapes the frame (`shape_provider_frame` in `wetterdienst.model.values`, GH-2627): it writes the identity
-columns, casts `parameter` to String, `timestamp` to Datetime(us, UTC) and `value` to Float64, fills `quality_flags`
-with a null where it is missing, orders the columns as the long form does and drops any other, and does so before the
-units are converted and the duplicates removed. A frame that is the long form already comes out as it went in. A
+A provider hands over its rows and nothing else; the core shapes the frame (`shape_provider_frame` in
+`wetterdienst.model.values`, GH-2627). It writes the identity columns, casts `parameter` to String, `timestamp` to
+Datetime(us, UTC) and `value` to Float64, fills `quality_flags` with a null where it is missing, orders the columns as
+the long form does and drops any other, and does so before the units are converted and the duplicates removed. A
 naive timestamp is read as UTC and a zoned one is converted to it, so a source that writes local time is converted by
 the provider, which knows the zone. A `value` that is no number (a text such as `n/a`) is not an error: it becomes
-null, and the core logs one debug line per frame with the count. What cannot be made to fit is an error,
-`ProviderContractError`: a frame without `parameter`, `timestamp` or `value`, a `timestamp` that is a string or an
-integer, a `value` that is a list. Parse the text of a time stamp in the provider. A frame with no rows, with any
-columns or none, is a station without data and is skipped; a connection that cannot be made is an error, never an
-empty frame. Rows may come in any order, more than once (the first of a `resolution`, `dataset`, `parameter` and
-`timestamp` is kept) and outside the requested window (the core cuts it). A column that is not in the table is not
-part of the contract and is dropped. The shaping that is still written in every provider, and is to be removed from
-them, is tracked in GH-2627; `tests/provider/frames.snapshot.json` holds what the core hands out for every offline
-test of a provider (`uv run poe frames:snapshot`), so that removing it can be shown to change nothing. A
+null, and the core logs one debug line per frame with the count. (A provider that reads its numbers through a declared
+schema, such as `pl.read_json(schema=...)` with Float64 in ECCC, NWS, EA and Hubeau, raises at the read on a text,
+before the core sees it.) What cannot be made to fit is an error, `ProviderContractError`: a frame without
+`parameter`, `timestamp` or `value`, a `timestamp` that is a string or an integer, a `value` that is a list. Parse the
+text of a time stamp in the provider.
+
+A frame with no rows is a station without data, and a bare `pl.DataFrame()` is the right way to say so: whatever
+columns it has or lacks, the core makes of it the empty frame of `LONG_SCHEMA` and no rows follow from it, so a
+provider builds no empty schema of its own. A connection that cannot be made is an error, never an empty frame. Rows
+may come in any order, more than once (the first of a `resolution`, `dataset`, `parameter` and `timestamp` is kept)
+and outside the requested window (the core cuts it). A column that is not in the table is not part of the contract
+and is dropped. `tests/provider/frames.snapshot.json` holds what the core hands out for every offline test of a
+provider (`uv run poe frames:snapshot`), so that a change to what a provider hands over shows in its diff. A
 source that publishes a quality flag for a reading adds the string column `quality_flags`,
 built with `join_quality_flags` from `wetterdienst.model.quality_flags`: the source's ordinary quality
 flag as the first argument, written as the plain code, and every further kind it publishes as
