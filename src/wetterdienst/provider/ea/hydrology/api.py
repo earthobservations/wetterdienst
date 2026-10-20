@@ -307,10 +307,7 @@ class EAHydrologyValues(TimeseriesValues[ParameterModel]):
             )
             timestamp = pl.col("day")
         return df.select(
-            pl.lit(parameter_or_dataset.dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.dataset.name, dtype=pl.String).alias("dataset"),
             pl.lit(parameter_or_dataset.name_original).alias("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             timestamp.alias("timestamp"),
             pl.col("value"),
             # the reading's own "quality" word (Good, Estimated, Suspect, Unchecked, Missing), verbatim (GH-2018),

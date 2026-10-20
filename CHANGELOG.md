@@ -40,6 +40,10 @@ Types of changes:
 
 ### Fixed
 
+- NOAA GHCN (`hourly`, `daily`), IMGW (`hydrology`, `meteorology`) and WSV (a stage or another
+  parameter that is scaled to its unit): a value cell that is a text and no number is null now,
+  as in every other provider, where it raised and lost the whole station. The rows around it
+  are returned (GH-2627)
 - ECCC `monthly` stations have no `end_timestamp` any more: the station list's `MLY_LAST_DATE` stops
   at 2018-02 for every station while the monthly rows run to 2026-09, so a `timestamp` after 2018
   left out every station with monthly values, and with it `stations` and `values` with a `name`

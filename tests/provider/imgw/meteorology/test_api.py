@@ -24,6 +24,11 @@ from wetterdienst.provider.imgw.meteorology.api import (
 from wetterdienst.util.network import File
 
 
+def _numbers(values: pl.DataFrame) -> pl.DataFrame:
+    """Read the ``value`` column the reader hands over as the text of the file as the core reads it: a number."""
+    return values.with_columns(pl.col("value").cast(pl.Float64, strict=False))
+
+
 def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.MonkeyPatch) -> None:
     """The river catchment of the station list is `river`, not `region` (GH-2019).
 
@@ -692,7 +697,7 @@ def test_imgw_meteorology_reads_every_status_the_files_document() -> None:
         resolution=Resolution.DAILY,
         schema=_SMDB_SCHEMA,
     )
-    assert values.get_column("value").to_list() == [1.2, None, 0.0, 7.4]
+    assert _numbers(values).get_column("value").to_list() == [1.2, None, 0.0, 7.4]
     assert values.get_column("quality_flags").to_list() == [None, "8", "9", "Z"]
 
 
@@ -771,7 +776,7 @@ def test_imgw_meteorology_a_statusless_column_does_not_take_its_neighbour_for_a_
         schema=_PSDN_SCHEMA,
         statusless=_STATUSLESS_COLUMNS["k_m_d.*.csv"],
     )
-    assert values.get_column("value").to_list() == [12.0]
+    assert _numbers(values).get_column("value").to_list() == [12.0]
     # The same row with the position not held statusless, which is what the parse did before: eight
     # days of rain is read as "brak pomiaru" and twelve days of snow cover are thrown away.
     unguarded = ImgwMeteorologyValues._parse_csv(  # noqa: SLF001
@@ -781,7 +786,7 @@ def test_imgw_meteorology_a_statusless_column_does_not_take_its_neighbour_for_a_
         schema=_PSDN_SCHEMA,
         statusless=frozenset(),
     )
-    assert unguarded.get_column("value").to_list() == [None]
+    assert _numbers(unguarded).get_column("value").to_list() == [None]
 
 
 def test_imgw_meteorology_statusless_columns_agree_with_the_file_schema() -> None:
@@ -998,9 +1003,9 @@ def test_imgw_meteorology_a_day_absent_from_a_present_month_is_no_precipitation(
     assert precipitation.get_column("timestamp").dt.strftime("%Y-%m-%d").to_list() == [
         f"2010-02-{day:02d}" for day in range(1, 29)
     ]
-    assert precipitation.get_column("value").to_list()[:6] == [0.2, 0.0, 2.1, 0.0, None, 0.0]
+    assert _numbers(precipitation).get_column("value").to_list()[:6] == [0.2, 0.0, 2.1, 0.0, None, 0.0]
     assert precipitation.get_column("quality_flags").to_list()[:6] == [None, "11", None, "11", "8", "11"]
-    assert set(precipitation.get_column("value").to_list()[6:]) == {0.0}
+    assert set(_numbers(precipitation).get_column("value").to_list()[6:]) == {0.0}
     assert set(precipitation.get_column("quality_flags").to_list()[6:]) == {"11"}
     # the snow columns keep only the rows the file has
     assert values.filter(pl.col("parameter") != "suma dobowa opadów").height == 6
@@ -1101,7 +1106,7 @@ def _read_daily(dataset: str, files: dict[str, str]) -> dict[str, tuple[float | 
         resolution=Resolution.DAILY,
         file_schema=ImgwMeteorologyValues._file_schema[Resolution.DAILY][dataset],  # noqa: SLF001
     )
-    return {row["parameter"]: (row["value"], row["quality_flags"]) for row in values.iter_rows(named=True)}
+    return {row["parameter"]: (row["value"], row["quality_flags"]) for row in _numbers(values).iter_rows(named=True)}
 
 
 def test_imgw_meteorology_daily_climate_reads_a_zip_without_k_d_t() -> None:

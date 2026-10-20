@@ -625,15 +625,8 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             return pl.DataFrame()
         if df.is_empty():
             return pl.DataFrame()
-        return df.select(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.col("station_id"),
-            pl.col("timestamp").dt.replace_time_zone("UTC"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("quality_flags"),
-        )
+        # the dates are IMGW's own, read as UTC by the core
+        return df
 
     def _parse_file(
         self,
@@ -715,7 +708,6 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         if df.is_empty():
             return pl.DataFrame()
         values = ImgwMeteorologyValues._unpivot(df.select(list(schema.values())), resolution, "value")
-        values = values.with_columns(pl.col("value").cast(pl.Float64))
         if not statuses:
             return values.with_columns(pl.lit(None, dtype=pl.String).alias("quality_flags"))
         structural = [name for name in schema.values() if name in _STRUCTURAL_COLUMNS]
@@ -746,7 +738,7 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             pl.col("station_id"),
             pl.col("timestamp"),
             pl.col("parameter"),
-            pl.lit(0.0, dtype=pl.Float64).alias("value"),
+            pl.lit("0", dtype=pl.String).alias("value"),
             pl.lit(_QUALITY_ABSENT_DAY, dtype=pl.String).alias("quality_flags"),
         )
         return pl.concat([values, absent])

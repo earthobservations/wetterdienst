@@ -152,10 +152,7 @@ class EcccObservationValues(TimeseriesValues):
             value_name="value",
         )
         if not flag_columns:
-            return df_values.with_columns(
-                pl.col("value").cast(pl.Float64),
-                pl.lit(None, dtype=pl.String).alias("quality_flags"),
-            )
+            return df_values.with_columns(pl.lit(None, dtype=pl.String).alias("quality_flags"))
         # Unpivot flag columns (strip _flag suffix so parameter names align)
         df_flags = df.select(["date", *flag_columns]).rename({col: col.removesuffix("_flag") for col in flag_columns})
         flag_value_columns = [col for col in df_flags.collect_schema().names() if col != "date"]
@@ -165,9 +162,7 @@ class EcccObservationValues(TimeseriesValues):
             variable_name="parameter",
             value_name="quality_flags",
         )
-        return df_values.join(df_flags, on=["date", "parameter"], how="left").with_columns(
-            pl.col("value").cast(pl.Float64),
-        )
+        return df_values.join(df_flags, on=["date", "parameter"], how="left")
 
     @staticmethod
     def _year_window(year: int, *, hourly: bool) -> str:
@@ -395,10 +390,7 @@ class EcccObservationValues(TimeseriesValues):
                     .dt.replace_time_zone("UTC")
                 )
             df = df.select(
-                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
                 "parameter",
-                pl.lit(station_id, dtype=pl.String).alias("station_id"),
                 timestamp.alias("timestamp"),
                 "value",
                 join_quality_flags(pl.col("quality_flags"), raw=pl.col("raw")),
