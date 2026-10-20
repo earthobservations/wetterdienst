@@ -157,7 +157,7 @@
           "heating_degree_day",
           "humidity_relative_mean",
           "precipitation_amount",
-          "precipitation_amount_max",
+          "precipitation_amount_max_30min",
           "pressure_air_sea_level_mean",
           "temperature_air_max_2m",
           "temperature_air_mean_2m",
@@ -346,8 +346,8 @@
           "precipitation_amount_last_3h",
           "pressure_air_sea_level",
           "radiation_global",
-          "radiation_global_last_3h",
-          "radiation_sky_long_wave_last_3h",
+          "radiation_long_wave_net_last_3h",
+          "radiation_short_wave_net_last_3h",
           "temperature_air_0_05m",
           "temperature_air_2m",
           "temperature_air_max_2m_last_12h",
@@ -850,8 +850,8 @@
         "precipitation_more": [
           "precipitation_amount",
           "precipitation_amount_max",
-          "snow_depth",
-          "snow_depth_new"
+          "snow_depth_new",
+          "snow_depth_sum"
         ],
         "weather_phenomena": [
           "count_weather_type_dew",
@@ -898,8 +898,8 @@
         "precipitation_more": [
           "precipitation_amount",
           "precipitation_amount_max",
-          "snow_depth",
-          "snow_depth_new"
+          "snow_depth_new",
+          "snow_depth_sum"
         ],
         "weather_phenomena": [
           "count_weather_type_dew",
@@ -1817,7 +1817,7 @@
           "sunshine_duration",
           "temperature_air_max_2m",
           "temperature_air_mean_minmax_2m",
-          "temperature_air_min_0_05m",
+          "temperature_air_min_0_05m_night",
           "temperature_air_min_2m",
           "wind_gust_max",
           "wind_speed_mean"
@@ -2954,9 +2954,9 @@
       "probability_precipitation_height_gt_5mm_last_24h": "probability_precipitation_amount_gt_5mm_last_24h",
       "probability_precipitation_height_gt_5mm_last_6h": "probability_precipitation_amount_gt_5mm_last_6h",
       "probability_radiation_global_last_1h": "radiation_global_relative_last_1h",
-      "quality_precipitation_height": "quality_precipitation_amount",
-      "quality_precipitation_height_liquid": "quality_precipitation_amount_liquid",
+      "radiation_global_last_3h": "radiation_short_wave_net_last_3h",
       "radiation_sky_long_wave_intensity": "radiation_sky_long_wave_intensity_mean",
+      "radiation_sky_long_wave_last_3h": "radiation_long_wave_net_last_3h",
       "snow_depth_excelled": "snow_depth_sampled",
       "soil_moisture_corn_loamysilt_00cm_60cm": "soil_moisture_corn_loamy_silt_00cm_60cm",
       "soil_moisture_gras_loamysilt_00cm_10cm": "soil_moisture_grass_loamy_silt_00cm_10cm",
@@ -3034,6 +3034,7 @@
         },
         "daily/data": {
           "humidity_relative": "humidity_relative_mean",
+          "precipitation_amount_max": "precipitation_amount_max_30min",
           "pressure_air_sea_level": "pressure_air_sea_level_mean",
           "wind_direction": "wind_direction_mean",
           "wind_speed": "wind_speed_mean"
@@ -3110,6 +3111,9 @@
           "cloud_cover_total": "cloud_cover_total_mean",
           "wind_force_beaufort": "wind_force_beaufort_mean"
         },
+        "annual/precipitation_more": {
+          "snow_depth": "snow_depth_sum"
+        },
         "daily/climate_summary": {
           "cloud_cover_total": "cloud_cover_total_mean",
           "humidity_relative": "humidity_relative_mean",
@@ -3131,6 +3135,9 @@
         "monthly/climate_summary": {
           "cloud_cover_total": "cloud_cover_total_mean",
           "wind_force_beaufort": "wind_force_beaufort_mean"
+        },
+        "monthly/precipitation_more": {
+          "snow_depth": "snow_depth_sum"
         }
       },
       "dwd/poi": {
@@ -3177,6 +3184,7 @@
           "pressure_air_site": "pressure_air_site_mean",
           "pressure_vapor": "pressure_vapor_mean",
           "temperature_air_mean_2m": "temperature_air_mean_minmax_2m",
+          "temperature_air_min_0_05m": "temperature_air_min_0_05m_night",
           "wind_speed": "wind_speed_mean"
         },
         "monthly/data": {
@@ -3388,5 +3396,9 @@
       "6_hour": "6_hours"
     }
   },
-  "x-release": "0.162.0"
+  "aliases": {
+    "parameters": {},
+    "in_dataset": {}
+  },
+  "x-release": "0.163.0"
 }
