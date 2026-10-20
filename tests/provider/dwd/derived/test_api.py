@@ -16,6 +16,7 @@ from polars.testing import assert_frame_equal, assert_series_equal
 from wetterdienst import Options, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.provider.dwd.derived import DwdDerivedMetadata, DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import api as dwd_derived_api
 from wetterdienst.provider.dwd.derived.api import DwdDerivedValues
@@ -975,7 +976,10 @@ def test_extract_datetime_from_file_url_multiple_dates_format(
 def test_process_dataframe_to_expected_format(
     default_settings: Settings,
 ) -> None:
-    """Test for processing df."""
+    """The row of a technical file becomes a frame of the parameter, the stamp and the value, no more (GH-2627).
+
+    The resolution, the dataset and the station are the core's to write.
+    """
     request = DwdDerivedRequest(
         parameters=[
             ("monthly", "heating_degreedays", "heating_degree_day"),
@@ -1002,15 +1006,11 @@ def test_process_dataframe_to_expected_format(
 
     expected_df = pl.DataFrame(
         {
-            "resolution": ["monthly"],
-            "dataset": ["heating_degreedays"],
             "parameter": ["Monatsgradtage"],
             "timestamp": [input_date],
             "value": [12.3],
         },
         schema={
-            "resolution": pl.String,
-            "dataset": pl.String,
             "parameter": pl.String,
             "timestamp": pl.Datetime(time_zone="UTC"),
             "value": pl.Float64,
@@ -1379,7 +1379,10 @@ def test_dwd_derived_period_precedence_does_not_depend_on_the_order_of_the_perio
     # the order the periods are iterated in: a set takes the order of its hashes, a list the one it is given
     request.periods = list(periods)
     values = _values_of(request, station_id="18001")
-    given_df = values._collect_station_parameter_or_dataset("18001", DwdDerivedMetadata.hourly.radiation_global)  # noqa: SLF001
+    dataset = DwdDerivedMetadata.hourly.radiation_global
+    given_df = values._collect_station_parameter_or_dataset("18001", dataset)  # noqa: SLF001
+    # the provider hands over the text of the file, which the core reads as the number it writes
+    given_df = shape_provider_frame(given_df, station_id="18001", dataset=dataset)
     given_df = given_df.filter(pl.col("parameter") == "fg_duett").sort("timestamp")
     # the historical 103 over the recent 5, and its null over the recent 7: `_tidy_up_df` keeps the flag of a
     # reading that is a sentinel, with the text DWD wrote beside it

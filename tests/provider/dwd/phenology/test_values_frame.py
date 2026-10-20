@@ -77,3 +77,29 @@ def test_phenology_values_come_out_as_the_long_form(monkeypatch: pytest.MonkeyPa
     # 2024 is the historical 27 with its flag 10, not the recent 29 with its 1
     assert df["value"].to_list() == [5.0, 27.0, 41.0]
     assert df["quality_flags"].to_list() == ["10", "10", "1"]
+
+
+@pytest.mark.parametrize(
+    "recent",
+    [
+        pytest.param(_HEADER.encode("latin-1"), id="header-only"),
+        pytest.param(b"", id="empty"),
+        pytest.param(_file((7650, 2025, 1, 113, 5, 20250111, 1, 11)), id="another-station"),
+    ],
+)
+def test_a_station_with_nothing_in_the_file_is_an_empty_frame_for_the_core_to_skip(
+    monkeypatch: pytest.MonkeyPatch, recent: bytes
+) -> None:
+    """A file that holds nothing for the station is a bare frame, whose columns nobody reads (GH-2627)."""
+    monkeypatch.setattr(
+        phenology_api, "download_file", lambda *, url, **_: File(url=url, content=BytesIO(recent), status=200)
+    )
+    request = DwdPhenologyRequest(
+        parameters=[("annual", "annual_common_hazel")],
+        periods="recent",
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    values = stations_result(request, "annual", "annual_common_hazel", "07521").values()
+    dataset = request.parameters[0].dataset
+    assert values._collect_station_parameter_or_dataset("07521", dataset).is_empty()  # noqa: SLF001

@@ -491,9 +491,8 @@ class DwdDerivedValues(TimeseriesValues):
         # Need to manually cast value since leading whitespaces cause issues
         # when using polars casting function.
         value = float(df.select(parameter.name).item())
+        # the resolution, dataset and station are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(parameter.dataset.resolution.name).alias("resolution"),
-            pl.lit(parameter.dataset.name).alias("dataset"),
             pl.lit(parameter.name_original).alias("parameter"),
             pl.lit(date).alias("timestamp"),
             pl.lit(value).alias("value"),
@@ -626,15 +625,10 @@ class DwdDerivedValues(TimeseriesValues):
         # TODO droppable_columns
 
         df = self._tidy_up_df(result)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            "parameter",
-            pl.col("station_id").str.pad_start(5, "0"),
-            pl.col("timestamp").dt.replace_time_zone("UTC"),
-            pl.col("value").cast(pl.Float64),
-            pl.col("quality_flags"),
-        )
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the number:
+        # the value is still the text of the file, which the core reads and counts where it is none. The stamp is the
+        # UTC the parser made it
+        return df.select("parameter", "timestamp", "value", "quality_flags")
 
     @staticmethod
     def _tidy_up_df(df: pl.DataFrame) -> pl.DataFrame:

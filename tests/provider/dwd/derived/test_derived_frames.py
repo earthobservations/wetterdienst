@@ -14,6 +14,7 @@ shaping moves.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -24,8 +25,10 @@ import pytest
 from tests.provider.value_stubs import _day, _options, _settings, stations_result
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.schema import LONG_SCHEMA
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import api as dwd_derived_api
+from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -200,3 +203,42 @@ def test_cooling_degreehours_of_16_and_18_come_out_as_the_long_form(reference: i
     _assert_the_long_form(df, resolution="monthly", dataset=f"cooling_degreehours_{reference}", station_id="01048")
     assert df["timestamp"].to_list() == [dt.datetime(2025, 2, 1, tzinfo=_UTC), dt.datetime(2025, 3, 1, tzinfo=_UTC)]
     assert df["value"].to_list() == [3.7, 169.2]
+
+
+def test_a_value_that_is_no_number_is_null_and_counted_not_an_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The provider hands over the text of a cell, and the core reads it: one that is no number is null (GH-2627).
+
+    The provider cast the value to Float64 itself and strictly, so a cell that is no number (`n/a`, which the
+    sentinels `-999` and `-9999` of the derived files do not name) raised and lost the whole station. The core does
+    the cast now, leniently, and counts the cells it could not read in one debug line. The files DWD serves hold none
+    (the first three stations of each recent directory of the global radiation, the sunshine duration and the daily
+    and monthly soil, read on 2026-10-20, hold numbers and the sentinels only), so what a reader sees changes only
+    for a file that DWD writes differently one day.
+    """
+    _serve_product(
+        monkeypatch,
+        "STATIONS_ID;MESS_DATUM;QN_952;FG_DUETT;FG_UN_DUETT;eor\n"
+        "      18001;2025040900;  500;  103;   10;eor\n"
+        "      18001;2025040901;  500;  n/a;   10;eor\n",
+    )
+    dataset = DwdDerivedMetadata.hourly.radiation_global
+    request = DwdDerivedRequest(
+        parameters=[("hourly", "radiation_global")],
+        periods={Period.RECENT},
+        start=_day(2025, 4, 9),
+        end=_day(2025, 4, 9, 23),
+        settings=_settings(),
+        options=_options(drop_nulls=False),
+    )
+    values = stations_result(request, "hourly", "radiation_global", "18001").values()
+    handed_over = values._collect_station_parameter_or_dataset("18001", dataset)  # noqa: SLF001
+    assert handed_over["value"].dtype == pl.String
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        df = shape_provider_frame(handed_over, station_id="18001", dataset=dataset, provider="DwdDerivedValues")
+    assert df["value"].dtype == pl.Float64
+    assert df.filter(pl.col("parameter") == "fg_duett").sort("timestamp")["value"].to_list() == [103.0, None]
+    assert [record.getMessage() for record in caplog.records if "no number" in record.getMessage()] == [
+        "DwdDerivedValues: 1 of 4 value cells are no number and are null"
+    ]
