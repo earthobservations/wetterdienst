@@ -148,8 +148,8 @@ described in `tests/ui/openapi_diff.py` and in the module of each surface under 
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.161.0`)
-- **App**: Version in `app/package.json` (currently `0.26.0`; the package is also marked `private`)
+- **Backend**: Version in `pyproject.toml` (currently `0.162.0`)
+- **App**: Version in `app/package.json` (currently `0.27.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 

@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.162.0] - 2026-10-20
+
 ### Changed
 
 - The dependency is now `polars[calamine]>=1.43.2,<3` (it was `>=1.43.0`): 1.43.0 and 1.43.1 are
@@ -5955,7 +5957,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.161.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.162.0...HEAD
+[0.162.0]: https://github.com/earthobservations/wetterdienst/compare/v0.161.0...v0.162.0
 [0.161.0]: https://github.com/earthobservations/wetterdienst/compare/v0.160.0...v0.161.0
 [0.160.0]: https://github.com/earthobservations/wetterdienst/compare/v0.159.0...v0.160.0
 [0.159.0]: https://github.com/earthobservations/wetterdienst/compare/v0.158.0...v0.159.0
