@@ -15,6 +15,8 @@ from polars.testing import assert_frame_equal
 
 from wetterdienst import Settings
 from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.model.metadata import DatasetModel
+from wetterdienst.model.request import shape_stations_frame
 from wetterdienst.provider.dwd.derived.api import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.provider.dwd.derived.metaindex import (
@@ -23,6 +25,12 @@ from wetterdienst.provider.dwd.derived.metaindex import (
     _read_meta_df,
 )
 from wetterdienst.util.network import File
+
+
+def _as_the_core_hands_it_out(df: pl.LazyFrame, dataset: DatasetModel) -> pl.DataFrame:
+    """Give the stations frame the core makes of a list the reader read, as `all()` does for the request."""
+    df = DwdDerivedRequest._process_dataframe_to_expected_format(df, dataset)  # noqa: SLF001
+    return shape_stations_frame(df.collect(), columns=DwdDerivedRequest._base_columns, provider="DwdDerivedRequest")  # noqa: SLF001
 
 
 @pytest.fixture
@@ -300,9 +308,15 @@ def test_generate_digit_combinations() -> None:
 
 
 def test_get_raw_station_data_from_plz_generator() -> None:
-    """Test to check dimensions of proxy PLZ station data."""
+    """Test to check dimensions of proxy PLZ station data: every postal code, and the core fills the rest with nulls."""
     raw_station_data = _get_raw_station_data_from_plz_generator().collect()
-    assert raw_station_data.shape == (10**5, 8)
+    assert raw_station_data.shape == (10**5, 1)
+    stations = _as_the_core_hands_it_out(
+        _get_raw_station_data_from_plz_generator(),
+        DwdDerivedMetadata.monthly.climate_correction_factor,
+    )
+    assert stations.shape == (10**5, 10)
+    assert stations.drop("resolution", "dataset", "station_id").null_count().row(0) == (10**5,) * 7
 
 
 def test_read_meta_df_fixed_width_station_list() -> None:
@@ -341,7 +355,10 @@ def test_read_meta_df_fixed_width_station_list() -> None:
     file = File(
         url="https://example.org/KL_Monatswerte_Beschreibung_Stationen.txt", content=BytesIO(content), status=200
     )
-    df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
+    df = _as_the_core_hands_it_out(
+        _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file),
+        DwdDerivedMetadata.monthly.heating_degreedays,
+    ).drop("resolution", "dataset")
 
     def date(year: int, month: int, day: int) -> dt.datetime:
         return dt.datetime(year, month, day, tzinfo=ZoneInfo("UTC"))
@@ -362,7 +379,7 @@ def test_read_meta_df_fixed_width_station_list() -> None:
             "end_timestamp": pl.Datetime(time_zone="UTC"),
         },
     )
-    assert_frame_equal(df, expected)
+    assert_frame_equal(df, expected, check_column_order=False)
 
 
 def test_dwd_derived_imports_without_pandas() -> None:
@@ -430,13 +447,17 @@ def test_read_meta_df_four_digit_elevation() -> None:
     ]
     content = BytesIO("".join(f"{line}\r\n" for line in ["header", "rule", *rows]).encode("latin-1"))
     file = File(url="https://example.org/KL_Monatswerte_Beschreibung_Stationen.txt", content=content, status=200)
-    df = _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file).collect()
+    df = _as_the_core_hands_it_out(
+        _read_meta_df(DwdDerivedMetadata.monthly.heating_degreedays, file=file),
+        DwdDerivedMetadata.monthly.heating_degreedays,
+    )
 
     def date(year: int, month: int, day: int) -> dt.datetime:
         return dt.datetime(year, month, day, tzinfo=ZoneInfo("UTC"))
 
     end_date = date(2026, 8, 31)
-    assert df.rows() == [
+    columns = ["station_id", "start_timestamp", "end_timestamp", "elevation", "latitude", "longitude", "name", "region"]
+    assert df.select(columns).rows() == [
         ("00722", date(1881, 6, 1), end_date, 1135.0, 51.7986, 10.6183, "Brocken", "Sachsen-Anhalt"),
         (
             "04878",

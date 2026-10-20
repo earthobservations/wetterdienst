@@ -203,8 +203,5 @@ class DwdPoiRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.lit(resolution.name, pl.String).alias("resolution"),
             pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
-            pl.lit(None, pl.String).alias("region"),
         )
-        return df.select(self._base_columns).lazy()
+        return df.lazy()

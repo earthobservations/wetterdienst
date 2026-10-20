@@ -840,11 +840,6 @@ class DwdDmoRequest(TimeseriesRequest):
             f"{len(extra)} stations {dataset_name_original} forecasts for are not in the shared DMO catalogue; "
             f"describing them from its newest run instead",
         )
-        extra = extra.with_columns(
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
-            pl.lit(None, pl.String).alias("region"),
-        )
         return pl.concat([df_dataset, extra.select(df_dataset.columns)])
 
     @staticmethod
@@ -1018,9 +1013,6 @@ class DwdDmoRequest(TimeseriesRequest):
             pl.col("icao_id").replace("----", None),
             _dm_degrees("latitude").alias("latitude"),
             _dm_degrees("longitude").alias("longitude"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
-            pl.lit(None, pl.String).alias("region"),
         )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
@@ -1046,6 +1038,4 @@ class DwdDmoRequest(TimeseriesRequest):
                 ),
             )
         # after the stations the catalogue omits are added: Tripoli is described by the run alone (GH-2646)
-        df = correct_station_positions(pl.concat(data))
-        df = df.select(self._base_columns)
-        return df.lazy()
+        return correct_station_positions(pl.concat(data)).lazy()

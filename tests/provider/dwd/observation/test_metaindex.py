@@ -14,6 +14,7 @@ import pytest
 from wetterdienst import Settings
 from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
 from wetterdienst.metadata.period import Period
+from wetterdienst.model.request import shape_stations_frame
 from wetterdienst.provider.dwd.observation import metaindex
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
@@ -41,11 +42,16 @@ def test_meta_index_creation_success(default_settings: Settings) -> None:
 @pytest.mark.remote
 def test_meta_index_1mph_creation(default_settings: Settings) -> None:
     """Test the creation of a meta-index for 1-minute precipitation historical data."""
-    meta_index_1mph = create_meta_index_for_climate_observations(
-        dataset=DwdObservationMetadata.minute_1.precipitation,
-        period=Period.HISTORICAL,
-        settings=default_settings,
-    ).collect()
+    # the list as the core hands it out: the reader leaves the typing of the columns to it
+    meta_index_1mph = shape_stations_frame(
+        create_meta_index_for_climate_observations(
+            dataset=DwdObservationMetadata.minute_1.precipitation,
+            period=Period.HISTORICAL,
+            settings=default_settings,
+        ).collect(),
+        columns=DwdObservationRequest._base_columns,  # noqa: SLF001
+        provider="DwdObservationRequest",
+    )
     assert meta_index_1mph.filter(pl.col("station_id").eq("00003")).row(0) == (
         (
             "1_minute",
@@ -53,9 +59,9 @@ def test_meta_index_1mph_creation(default_settings: Settings) -> None:
             "00003",
             dt.datetime(1829, 6, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
             dt.datetime(2012, 4, 6, 0, 0, tzinfo=ZoneInfo("UTC")),
-            202.00,
             50.7827,
             6.0941,
+            202.00,
             "Aachen",
             "Nordrhein-Westfalen",
         )
