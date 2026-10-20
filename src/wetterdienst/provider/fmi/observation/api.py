@@ -48,15 +48,6 @@ _BASE_URL = "https://opendata.fmi.fi/wfs"
 # resolution/dataset (mirroring DMI).
 _STATIONS_QUERY = "fmi::ef::stations"
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-}
-
 # FMI caps a single observation request's time span (sub-daily queries reject spans over 168
 # hours outright); daily queries are not capped in practice but are chunked too for safety on
 # multi-decade ranges. Consecutive windows share their boundary timestamp and the result is
@@ -109,13 +100,13 @@ class FmiObservationValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, ParameterModel):
             dataset = parameter_or_dataset.dataset
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         resolution = dataset.resolution.value
         config = _RESOLUTION_CONFIG[resolution]
@@ -141,21 +132,13 @@ class FmiObservationValues(TimeseriesValues):
             if not df.is_empty():
                 frames.append(df)
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.concat(frames)
         # consecutive windows share their boundary timestamp (see _time_windows), so drop the
         # duplicate boundary row -- keep="first" retains the earlier window's copy.
-        df = df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp"),
-            pl.col("value").cast(pl.Float64, strict=False),
-            pl.col("quality_flags"),
-        )
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
+        return df.unique(subset=["parameter", "timestamp"], keep="first", maintain_order=True)
 
     def _collect_window(
         self,
@@ -199,14 +182,7 @@ class FmiObservationValues(TimeseriesValues):
             file.raise_if_exception()
         if isinstance(file.content, Exception):
             log.warning(f"Failed to fetch FMI data for station {station_id}: {file.content}")
-            return pl.DataFrame(
-                schema={
-                    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-                    "parameter": pl.String,
-                    "value": pl.Float64,
-                    "quality_flags": pl.String,
-                }
-            )
+            return pl.DataFrame()
         content = file.content.read()
         df = parse_fmi_observations(content)
         # an empty result is normally a station reporting no data; distinguish a genuine server

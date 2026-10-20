@@ -72,15 +72,6 @@ _RETRY_WAIT_INITIAL_SECONDS = 2
 _RETRY_WAIT_MAX_SECONDS = 15
 _RETRY_MAX_RETRIES = 2
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-}
-
 _VALUE_COLUMNS = (
     "tmed",
     "tmax",
@@ -457,15 +448,15 @@ class AemetObservationValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, ParameterModel):
             dataset = parameter_or_dataset.dataset
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         if dataset.resolution.value == Resolution.HOURLY:
-            return self._collect_realtime(station_id, dataset)
+            return self._collect_realtime(station_id)
         if dataset.resolution.value == Resolution.DAILY:
-            return self._collect_daily(station_id, dataset)
+            return self._collect_daily(station_id)
         return self._collect_monthly_or_annual(station_id, dataset)
 
-    def _collect_realtime(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
+    def _collect_realtime(self, station_id: str) -> pl.DataFrame:
         """Collect real-time (observación convencional) values.
 
         Unlike the climatological endpoints, this one takes no date range at all — AEMET
@@ -476,21 +467,21 @@ class AemetObservationValues(TimeseriesValues):
         settings = cast("Settings", self.sr.request.settings)
         api_key = settings.auth.aemet
         if not api_key:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         url = self._endpoint_realtime.format(station_id=station_id)
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         _raise_if_unanswered(payload)
         if isinstance(payload, Exception):
             log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         records = json.loads(payload.decode("latin-1"))
         if not records:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.DataFrame(records, infer_schema_length=None)
         if "fint" not in df.columns:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         for column in _REALTIME_VALUE_COLUMNS:
             if column not in df.columns:
                 df = df.with_columns(pl.lit(None, pl.Float64).alias(column))
@@ -505,23 +496,21 @@ class AemetObservationValues(TimeseriesValues):
             pl.when(calm).then(pl.lit(_CALM)).otherwise(None).cast(pl.String).alias(raw_column("dv")),
         )
         df = unpivot_with_raw(df, index=["fint"], on=list(_REALTIME_VALUE_COLUMNS))
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("fint").str.to_datetime("%Y-%m-%dT%H:%M:%S%z").dt.convert_time_zone("UTC").alias("timestamp"),
+            pl.col("fint").str.to_datetime("%Y-%m-%dT%H:%M:%S%z").alias("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
         )
 
-    def _collect_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
+    def _collect_daily(self, station_id: str) -> pl.DataFrame:
         settings = cast("Settings", self.sr.request.settings)
         api_key = settings.auth.aemet
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date or not api_key:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         records = []
         for chunk_start, chunk_end in self._date_chunks(start_date, end_date):
@@ -546,7 +535,7 @@ class AemetObservationValues(TimeseriesValues):
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.DataFrame(records, infer_schema_length=None)
         for column in ("fecha", *_VALUE_COLUMNS):
@@ -574,11 +563,8 @@ class AemetObservationValues(TimeseriesValues):
         )
         df = unpivot_with_raw(df, index=["fecha"], on=list(_VALUE_COLUMNS))
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("fecha").str.to_datetime("%Y-%m-%d").dt.replace_time_zone("UTC").alias("timestamp"),
+            pl.col("fecha").str.to_datetime("%Y-%m-%d").alias("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
         )
@@ -596,7 +582,7 @@ class AemetObservationValues(TimeseriesValues):
         start_date = self.sr.start
         end_date = self.sr.end
         if not start_date or not end_date or not api_key:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         records = []
         for start_year, end_year in self._year_chunks(start_date.year, end_date.year):
@@ -612,7 +598,7 @@ class AemetObservationValues(TimeseriesValues):
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         df = pl.DataFrame(records, infer_schema_length=None)
         for column in ("fecha", *_MONTHLY_ANNUAL_VALUE_COLUMNS):
@@ -625,7 +611,7 @@ class AemetObservationValues(TimeseriesValues):
         is_annual = dataset.resolution.value == Resolution.ANNUAL
         df = df.filter(pl.col("_period").eq(13)) if is_annual else df.filter(pl.col("_period").ne(13))
         if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         date_expr = pl.date(pl.col("_year"), 1, 1) if is_annual else pl.date(pl.col("_year"), pl.col("_period"), 1)
         df = df.with_columns(date_expr.alias("_date"))
         parsed = {
@@ -644,11 +630,8 @@ class AemetObservationValues(TimeseriesValues):
         )
         df = unpivot_with_raw(df, index=["_date"], on=list(_MONTHLY_ANNUAL_VALUE_COLUMNS))
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter").str.to_lowercase(),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("_date").cast(pl.Datetime(time_zone="UTC")).alias("timestamp"),
+            pl.col("_date").alias("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
         )

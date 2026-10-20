@@ -24,13 +24,6 @@ _EMPTY_STATIONS_SCHEMA = {
     "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
 }
 
-_EMPTY_OBSERVATIONS_SCHEMA = {
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "parameter": pl.String,
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # FMI encodes "no precipitation" / "no snow cover" as the sentinel -1 (rather than 0) for these
 # parameter codes; normalise it to 0.0 so aggregations are not corrupted by negative amounts
 # (mirroring the KNMI trace-precipitation handling).
@@ -196,7 +189,7 @@ def parse_fmi_observations(content: bytes) -> pl.DataFrame:
             names.append(name)
             values.append(value)
     if not times:
-        return pl.DataFrame(schema=_EMPTY_OBSERVATIONS_SCHEMA)
+        return pl.DataFrame()
     # the readings are text; the `NaN` of a missing one is null, a -1 of the four parameters is 0.0, the 0 of a wind
     # direction is null, and each keeps the text FMI wrote as `raw:` in `quality_flags` (GH-2759, GH-2794). A text that
     # is no number is null with its text as well

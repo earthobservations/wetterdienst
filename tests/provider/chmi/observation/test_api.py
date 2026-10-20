@@ -10,6 +10,7 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst.metadata.resolution import Resolution
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
 from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG, ChmiObservationValues
 from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
@@ -22,6 +23,11 @@ from wetterdienst.provider.chmi.observation.parser import (
 
 CHEB = "0-20000-0-11406"
 UTC = ZoneInfo("UTC")
+
+
+def _read(df: pl.DataFrame) -> pl.DataFrame:
+    """Read the `value` of a parser's frame as the number the core makes of its text (`shape_provider_frame`)."""
+    return df.with_columns(pl.col("value").cast(pl.Float64, strict=False))
 
 
 def test_parse_chmi_stations_collapses_periods() -> None:
@@ -53,13 +59,13 @@ def test_parse_chmi_values_daily_selects_timefunc_and_truncates() -> None:
         b"0-X,T,20:00,2020-01-01T20:00Z,-1.0,,0.0,\n"  # different TIMEFUNC -> excluded
         b"0-X,T,AVG,2020-01-02T00:00Z,-2.0,,0.0,\n"
     )
-    df = parse_chmi_values_daily(content, element="T", timefunc="AVG")
+    df = _read(parse_chmi_values_daily(content, element="T", timefunc="AVG"))
     assert df.to_dicts() == [
         {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -3.0, "quality_flags": "0"},
         {"timestamp": dt.datetime(2020, 1, 2, tzinfo=UTC), "parameter": "T", "value": -2.0, "quality_flags": "0"},
     ]
     # a 20:00-term reading is truncated back to the calendar day (not kept at 20:00)
-    df_max = parse_chmi_values_daily(content, element="T", timefunc="20:00")
+    df_max = _read(parse_chmi_values_daily(content, element="T", timefunc="20:00"))
     assert df_max.to_dicts() == [
         {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": -1.0, "quality_flags": "0"}
     ]
@@ -72,7 +78,7 @@ def test_parse_chmi_values_subdaily_keeps_native_timestamp() -> None:
         b"0-X,T,2020-01-01T00:00Z,-2.8,,0.0,\n"
         b"0-X,T,2020-01-01T00:10Z,-2.7,,0.0,\n"
     )
-    df = parse_chmi_values_subdaily(content, element="T")
+    df = _read(parse_chmi_values_subdaily(content, element="T"))
     assert df.to_dicts() == [
         {"timestamp": dt.datetime(2020, 1, 1, 0, 0, tzinfo=UTC), "parameter": "T", "value": -2.8, "quality_flags": "0"},
         {
@@ -92,7 +98,7 @@ def test_parse_chmi_values_aggregate_pins_both_functions() -> None:
         b"0-X,T,2020,1,AVG,MAX,8.0,,,\n"  # same TIMEFUNCTION, different MDFUNCTION -> excluded
         b"0-X,T,2020,1,AVG,MIN,-9.0,,,\n"
     )
-    df = parse_chmi_values_aggregate(monthly, element="T", timefunc="AVG", mdfunc="AVG", has_month=True)
+    df = _read(parse_chmi_values_aggregate(monthly, element="T", timefunc="AVG", mdfunc="AVG", has_month=True))
     assert df.to_dicts() == [
         {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "T", "value": 1.1, "quality_flags": None}
     ]
@@ -103,7 +109,9 @@ def test_parse_chmi_values_aggregate_pins_both_functions() -> None:
         b"0-X,SRA,2020,1,06:00,SUM,21.3,,,\n"
         b"0-X,SRA,2020,1,06:00,MAX,7.0,,,\n"
     )
-    df_precip = parse_chmi_values_aggregate(precip, element="SRA", timefunc="06:00", mdfunc="SUM", has_month=True)
+    df_precip = _read(
+        parse_chmi_values_aggregate(precip, element="SRA", timefunc="06:00", mdfunc="SUM", has_month=True)
+    )
     assert df_precip.to_dicts() == [
         {"timestamp": dt.datetime(2020, 1, 1, tzinfo=UTC), "parameter": "SRA", "value": 21.3, "quality_flags": None}
     ]
@@ -114,7 +122,7 @@ def test_parse_chmi_values_aggregate_annual_has_no_month() -> None:
     annual = (
         b"STATION,ELEMENT,YEAR,TIMEFUNCTION,MDFUNCTION,VALUE,FLAG_REPEAT,FLAG_INTERRUPTED,\n0-X,T,2018,AVG,AVG,9.7,,,\n"
     )
-    df = parse_chmi_values_aggregate(annual, element="T", timefunc="AVG", mdfunc="AVG", has_month=False)
+    df = _read(parse_chmi_values_aggregate(annual, element="T", timefunc="AVG", mdfunc="AVG", has_month=False))
     assert df.to_dicts() == [
         {"timestamp": dt.datetime(2018, 1, 1, tzinfo=UTC), "parameter": "T", "value": 9.7, "quality_flags": None}
     ]
@@ -136,7 +144,7 @@ def test_parse_chmi_values_aggregate_carries_repeat_and_interrupted() -> None:
         b"0-X,T,1864,1,20:00,MAX,2.0,,,\n"  # neither
         b"0-X,T,1864,2,20:00,MAX,3.0, , ,\n"  # blank, not set
     )
-    df = parse_chmi_values_aggregate(monthly, element="T", timefunc="20:00", mdfunc="MAX", has_month=True)
+    df = _read(parse_chmi_values_aggregate(monthly, element="T", timefunc="20:00", mdfunc="MAX", has_month=True))
     assert df.get_column("quality_flags").to_list() == [
         "repeat:*",
         "interrupted:I",
@@ -162,7 +170,7 @@ def test_parse_chmi_values_aggregate_interrupted_on_the_series_the_api_reads() -
         b"0-X,T,2005,2,AVG,AVG,0.4,,,\n"
         b"0-X,T,2005,3,AVG,MAX,9.0,*,I,\n"  # another MDFUNCTION: not selected
     )
-    df = parse_chmi_values_aggregate(mean, element="T", timefunc="AVG", mdfunc="AVG", has_month=True)
+    df = _read(parse_chmi_values_aggregate(mean, element="T", timefunc="AVG", mdfunc="AVG", has_month=True))
     assert df.get_column("value").to_list() == [-1.2, 0.4]
     assert df.get_column("quality_flags").to_list() == ["interrupted:I", None]
 
@@ -368,11 +376,15 @@ def test_chmi_observation_month_files_follow_the_utc_month_of_the_bounds(
     asked: list[str] = []
 
     def download(_self: object, url: str, _settings: object, _station_id: str) -> None:
-        asked.append(url.rsplit("-", 1)[-1].removesuffix(".csv"))
+        # the dataset is collected whole: the months of the one element asked for are the ones counted
+        if f"-{CHEB}-T-" in url:
+            asked.append(url.rsplit("-", 1)[-1].removesuffix(".csv"))
 
     monkeypatch.setattr(ChmiObservationValues, "_download", download)
     request = ChmiObservationRequest(parameters=[("10_minutes", "data", "temperature_air_2m")], start=start, end=end)
     values = ChmiObservationValues(sr=stations_result(request, "10_minutes", "data", CHEB))
 
-    assert values._collect_station_parameter_or_dataset(CHEB, request.parameters[0]).is_empty()  # noqa: SLF001
+    df = values.all().df
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.is_empty()
     assert asked == months
