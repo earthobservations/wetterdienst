@@ -415,11 +415,6 @@ class DwdMosmixRequest(TimeseriesRequest):
         df_raw = read_mosmix_station_catalogue(settings, self._url)
         if df_raw.is_empty():
             return pl.LazyFrame()
-        df_raw = df_raw.with_columns(
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("start_timestamp"),
-            pl.lit(None, pl.Datetime(time_zone="UTC")).alias("end_timestamp"),
-            pl.lit(None, pl.String).alias("region"),
-        )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
 
@@ -437,6 +432,4 @@ class DwdMosmixRequest(TimeseriesRequest):
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
-        df = pl.concat(data)
-        df = df.select(self._base_columns)
-        return df.lazy()
+        return pl.concat(data).lazy()

@@ -1214,18 +1214,14 @@ class DwdRoadRequest(TimeseriesRequest):
         "GDS-Verzeichnis": "station_group",
         "außer Betrieb (gemeldet)": "has_file",
     }
+    # the dtypes of the columns the stations schema does not have: the sheet is read as text, and the codes of the
+    # road, which are the network's own columns, are the numbers in it
     _dtypes: ClassVar = {
-        "station_id": pl.String,
-        "name": pl.String,
-        "region": pl.String,
         "road_name": pl.String,
         "road_sector": pl.Utf8,
         "road_type": pl.Int64,
         "road_surroundings_type": pl.Int64,
         "road_surface_type": pl.Int64,
-        "latitude": pl.Float64,
-        "longitude": pl.Float64,
-        "elevation": pl.Float64,
         "station_group": pl.Utf8,
         "has_file": pl.Utf8,
     }

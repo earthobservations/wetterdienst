@@ -676,17 +676,9 @@ class DwdDerivedRequest(TimeseriesRequest):
         :param dataset: Dataset to which input data belongs
         :return: Processed DataFrame
         """
-        stations_data = stations_data.select(
+        stations_data = stations_data.with_columns(
             pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
             pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("station_id"),
-            pl.col("start_timestamp"),
-            pl.col("end_timestamp"),
-            pl.col("elevation"),
-            pl.col("latitude"),
-            pl.col("longitude"),
-            "name",
-            "region",
         )
 
         return stations_data.sort(by=["station_id"])
@@ -725,8 +717,9 @@ class DwdDerivedRequest(TimeseriesRequest):
 
                 stations.append(df)
         try:
-            stations_df = pl.concat(stations)
-
+            # the lists of the datasets do not have the same columns (the soil list has no dates, the postal codes of
+            # the correction factor have a station id and nothing else), the core fills in what is missing
+            stations_df = pl.concat(stations, how="diagonal_relaxed")
         except ValueError:
             return pl.LazyFrame()
         stations_df = stations_df.unique(subset=["resolution", "dataset", "station_id"], keep="first")

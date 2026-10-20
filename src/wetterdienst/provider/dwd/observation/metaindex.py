@@ -80,17 +80,11 @@ def create_meta_index_for_climate_observations(
     # blanks become null instead of raising. The well-formed non-urban lists keep strict parsing so a
     # malformed date still fails loudly.
     strict_dates = not cond3
-    return meta_index.select(
+    return meta_index.with_columns(
         pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
         pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-        "station_id",
         pl.col("start_timestamp").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
         pl.col("end_timestamp").str.to_datetime("%Y%m%d", time_zone="UTC", strict=strict_dates),
-        pl.col("elevation").cast(pl.Float64),
-        pl.col("latitude").cast(pl.Float64),
-        pl.col("longitude").cast(pl.Float64),
-        "name",
-        "region",
     )
 
 
