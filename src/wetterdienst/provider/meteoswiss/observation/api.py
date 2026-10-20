@@ -13,15 +13,12 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
@@ -153,7 +150,7 @@ class MeteoswissObservationRequest(TimeseriesRequest):
             return pl.LazyFrame()
         df = pl.read_csv(file.content, separator=";", encoding="windows-1252")
         df = df.lazy()
-        df = df.select(
+        return df.select(
             pl.col("station_abbr").alias("station_id"),
             pl.col("station_name").alias("name"),
             pl.col("station_canton").alias("region"),
@@ -162,12 +159,4 @@ class MeteoswissObservationRequest(TimeseriesRequest):
             pl.col("station_height_masl").alias("elevation"),
             pl.col("station_data_since").str.to_datetime("%d.%m.%Y", strict=False).alias("start_timestamp"),
         )
-        data = []
-        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
-            data.append(
-                df.with_columns(
-                    pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                    pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-                ),
-            )
-        return pl.concat(data)
+        # one catalogue for every dataset: the core copies it over the request's datasets

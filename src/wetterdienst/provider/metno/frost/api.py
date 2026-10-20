@@ -990,19 +990,5 @@ class MetnoFrostRequest(TimeseriesRequest):
             "start_timestamp",
             "end_timestamp",
         )
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
-        }
-        data = []
-        for resolution, dataset in resolutions_and_datasets:
-            data.append(
-                df.with_columns(
-                    pl.lit(resolution, pl.String).alias("resolution"),
-                    pl.lit(dataset, pl.String).alias("dataset"),
-                ).lazy(),
-            )
-        if not data:
-            return pl.LazyFrame()
-        return pl.concat(data)
+        # one catalogue for every dataset: the core copies it over the request's datasets
+        return df.lazy()

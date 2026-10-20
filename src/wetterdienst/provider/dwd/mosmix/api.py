@@ -412,24 +412,5 @@ class DwdMosmixRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.settings)
-        df_raw = read_mosmix_station_catalogue(settings, self._url)
-        if df_raw.is_empty():
-            return pl.LazyFrame()
-        # combinations of resolution and dataset
-        from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415
-
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
-        }
-        data = []
-        # for each combination of resolution and dataset create a new DataFrame with the columns
-        for resolution, dataset in resolutions_and_datasets:
-            data.append(
-                df_raw.with_columns(
-                    pl.lit(resolution, pl.String).alias("resolution"),
-                    pl.lit(dataset, pl.String).alias("dataset"),
-                ),
-            )
-        return pl.concat(data).lazy()
+        # one catalogue for every dataset: the core copies it over the request's datasets
+        return read_mosmix_station_catalogue(settings, self._url).lazy()

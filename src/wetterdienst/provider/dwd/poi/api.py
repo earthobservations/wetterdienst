@@ -199,9 +199,4 @@ class DwdPoiRequest(TimeseriesRequest):
         if df.is_empty():
             return pl.LazyFrame()
         df = df.filter(pl.col("station_id").is_in(station_ids))
-        resolution = self.metadata[0]
-        df = df.with_columns(
-            pl.lit(resolution.name, pl.String).alias("resolution"),
-            pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
-        )
         return df.lazy()

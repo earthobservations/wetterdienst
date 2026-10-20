@@ -430,8 +430,6 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         df = df.with_columns(pl.all().str.strip_chars())
         return df.with_columns(
-            pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
-            pl.lit(self.metadata[0][0].name, dtype=pl.String).alias("dataset"),
             # a station of unknown elevation reads as null rather than as standing 9999 m up,
             # which interpolation would otherwise take at its word when it moves a reading by elevation: the
             # number it is judged by is the text read as one (the latitude and the longitude the core reads)

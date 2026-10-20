@@ -16,7 +16,7 @@ from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import DatasetModel, ParameterModel, build_metadata_model
+from wetterdienst.model.metadata import DatasetModel, build_metadata_model
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -855,19 +855,5 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
             convert_dms_string_to_dd(pl.col("longitude")),
             pl.col("elevation").str.replace(" ", ""),
         )
-        # the station list is shared across all datasets, so tag each row once per requested resolution/dataset
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
-        }
-        data = [
-            df.with_columns(
-                pl.lit(resolution, pl.String).alias("resolution"),
-                pl.lit(dataset, pl.String).alias("dataset"),
-            )
-            for resolution, dataset in resolutions_and_datasets
-        ]
-        if not data:
-            return pl.LazyFrame()
-        return pl.concat(data).lazy()
+        # the station list is shared across all datasets: the core tags each row once per requested resolution/dataset
+        return df.lazy()

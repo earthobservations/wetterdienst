@@ -458,7 +458,6 @@ class DwdSwsmosRequest(TimeseriesRequest):
         df = pl.read_csv(catalogue, separator=";", infer_schema_length=0)
         if df.is_empty():
             return pl.LazyFrame()
-        resolution = self.metadata[0]
         # catalogue columns: Kennung;Name;Streckentyp;Streckenbelag;Breite;Laenge;Hoehe;Flughafen;Inaktiv
         # (Breite/Laenge/Hoehe use a comma decimal separator, unlike the run files)
         # drop stations flagged inactive (the ``Inaktiv`` column is empty for active stations)
@@ -472,6 +471,4 @@ class DwdSwsmosRequest(TimeseriesRequest):
             pl.col("Breite").str.replace(",", ".").alias("latitude"),
             pl.col("Laenge").str.replace(",", ".").alias("longitude"),
             pl.col("Hoehe").str.replace(",", ".").alias("elevation"),
-            pl.lit(resolution.name, pl.String).alias("resolution"),
-            pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
         ).lazy()
