@@ -20,7 +20,7 @@ Types of changes:
 
 ### Changed
 
-- **Breaking**: four parameters are named for what their source's value is (GH-2614).
+- **Breaking**: five parameters are named for what their source's value is (GH-2614).
   `dwd/dmo` `icon`: `radiation_global_last_3h` (`rads3`) is `radiation_short_wave_net_last_3h` and
   `radiation_sky_long_wave_last_3h` (`radl3`) is `radiation_long_wave_net_last_3h`, DWD's radiation
   balances, positive downward. `dwd/observation` monthly and annual: `snow_depth` (`mo_sh_s`,
