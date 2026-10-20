@@ -71,15 +71,6 @@ _NO_WIND_DIRECTION = Sentinel(
     "0", where=pl.col("parameter").eq("mean_wind_direction_during_last_10 min_at_10_meters_above_ground")
 )
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-}
-
 
 def _station_file_url(station_id: str) -> str:
     """Build a station's file URL, padding the id the way DWD names the files."""
@@ -114,7 +105,7 @@ class DwdPoiValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, DatasetModel):
             dataset = parameter_or_dataset
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         settings = cast("Settings", self.sr.request.settings)
         file = download_file(
             url=_station_file_url(station_id),
@@ -132,19 +123,19 @@ class DwdPoiValues(TimeseriesValues):
             file.raise_if_exception()
         if isinstance(file.content, Exception):
             log.warning(f"Failed to fetch POI report for station {station_id}: {file.content}")
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         # DWD rewrites all ~970 files every hour, and a rewrite in progress can be served as an
         # empty 200. polars raises NoDataError on those bytes, which would abort a whole
         # multi-station query over one file
         if file.is_empty:
             log.warning(f"POI report for station {station_id} is empty")
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         df = _read_poi_csv(file.content.read())
         if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         columns = [parameter.name_original for parameter in dataset.parameters if parameter.name_original in df.columns]
         if not columns:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         df = df.select(
             pl.concat_str(
                 [
@@ -153,8 +144,8 @@ class DwdPoiValues(TimeseriesValues):
                 ],
                 separator=" ",
             )
-            .str.to_datetime("%d.%m.%y %H:%M", time_unit="us")
-            .dt.replace_time_zone("UTC")
+            # the second header line says UTC, which is how the core reads a stamp that carries no zone
+            .str.to_datetime("%d.%m.%y %H:%M")
             .alias("timestamp"),
             *[pl.col(column) for column in columns],
         )
@@ -164,11 +155,9 @@ class DwdPoiValues(TimeseriesValues):
         value, raw = null_sentinels(
             pl.col("value").str.replace(",", "."), *_CLOUD_COVER_CODES, _NO_WIND_DIRECTION, non_numeric=True
         )
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             value.alias("value"),
             join_quality_flags(None, raw=raw),
