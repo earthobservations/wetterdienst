@@ -9,8 +9,9 @@ own reader would otherwise have a row left, and the core hands out the one empty
 dtypes included. The networks hand the core their rows and nothing else, and the shape of the empty answer is the
 core's, so this is the net under that.
 
-`dwd/dmo` is not here: its list is read inline, a list with no row raises in the fixed-width reader, and no filter
-sits between the list and the frame, so it has no way to leave no station that an offline fixture can reach.
+`dwd/dmo` is not here: no filter sits between its list and the frame, so the one way to leave no station is a list
+with no row, which `tests/provider/test_empty_station_catalogues.py` serves it, as it does `dwd/mosmix` a list of the
+header alone.
 """
 
 from __future__ import annotations
@@ -99,8 +100,8 @@ def _derived(monkeypatch: pytest.MonkeyPatch) -> TimeseriesRequest:
 
 
 def _mosmix(monkeypatch: pytest.MonkeyPatch) -> TimeseriesRequest:
-    # the reader's answer for a catalogue without a row; a list of the header and the rule alone does not reach it,
-    # the fixed-width reader raises on it, as it always did
+    # the reader's answer for a catalogue without a row (the list of the header alone is in
+    # `test_empty_station_catalogues.py`)
     monkeypatch.setattr(mosmix_api, "read_mosmix_station_catalogue", lambda *_args, **_kwargs: pl.DataFrame())
     return DwdMosmixRequest(parameters=[("hourly", "small")], settings=Settings(cache_disable=True))
 
