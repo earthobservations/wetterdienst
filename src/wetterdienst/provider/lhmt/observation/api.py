@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.lhmt.observation.metadata import LhmtObservationMetadata
@@ -30,21 +29,13 @@ from wetterdienst.util.network import download_file
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.meteo.lt/v1"
 _STATIONS_URL = f"{_BASE_URL}/stations"
-
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-}
 
 
 def _days(start: dt.datetime, end: dt.datetime) -> Iterator[dt.date]:
@@ -65,18 +56,11 @@ class LhmtObservationValues(TimeseriesValues):
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
-        parameter_or_dataset: ParameterModel | DatasetModel,
+        parameter_or_dataset: ParameterModel | DatasetModel,  # noqa: ARG002
     ) -> pl.DataFrame:
-        if isinstance(parameter_or_dataset, ParameterModel):
-            dataset = parameter_or_dataset.dataset
-        elif isinstance(parameter_or_dataset, DatasetModel):
-            dataset = parameter_or_dataset
-        else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-
         # the per-day endpoint requires a date range to address the days to fetch
         if not self.sr.start or not self.sr.end:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         frames = []
@@ -87,18 +71,7 @@ class LhmtObservationValues(TimeseriesValues):
             df = parse_lhmt_observations(content)
             if not df.is_empty():
                 frames.append(df)
-        if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
-
-        df = pl.concat(frames)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp"),
-            pl.col("value"),
-        )
+        return pl.concat(frames) if frames else pl.DataFrame()
 
     def _download_day(self, station_id: str, day: dt.date, settings: Settings) -> bytes | None:
         url = f"{_BASE_URL}/stations/{station_id}/observations/{day.isoformat()}"

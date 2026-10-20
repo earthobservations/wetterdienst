@@ -353,11 +353,10 @@ def test_knmi_parse_netcdf_hourly_wind_direction_codes_are_no_bearing(tmp_path: 
 
 
 def test_knmi_parse_netcdf_missing_station_returns_empty(netcdf_payload: bytes) -> None:
-    """A station not present in the file yields an empty (correctly-typed) frame, not an error."""
+    """A station not present in the file yields a frame without a row, not an error; the core types it."""
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "999", ["TG"], moment)
     assert df.is_empty()
-    assert df.schema["timestamp"] == pl.Datetime(time_unit="us", time_zone="UTC")
 
 
 def test_knmi_parse_netcdf_unknown_parameter_skipped(netcdf_payload: bytes) -> None:

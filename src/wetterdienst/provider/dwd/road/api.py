@@ -839,19 +839,12 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         station_group = DwdRoadStationGroup(station_group)
         parameters = list(parameter_or_dataset)
         df = self._collect_data_by_station_group(station_group, parameters)
-        # nothing to answer with is a shape rather than a special case: the group published no file
-        # for the window, or every file it published held nothing, and either way what comes back
-        # is a frame of no readings rather than a frame of no columns. So the filter has a station
-        # id to look for and the select has columns to name, and one row of this function answers
-        # for the empty case and the populated one alike -- there being one less place to hand a
-        # frame on before asking whether it holds anything, which is how this went wrong four
-        # times over
+        # the group may have published no file for the window, or only files holding nothing: `df` is then a frame of
+        # no readings but with the columns, so the filter has a station id to look for. The core makes of any frame
+        # without a row the empty long form, and writes `station_id`, `resolution` and `dataset` itself
         df = df.filter(pl.col("station_id").eq(station_id))
         return df.select(
-            pl.lit(parameter_or_dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(parameter_or_dataset.name, dtype=pl.String).alias("dataset"),
             "parameter",
-            "station_id",
             "timestamp",
             "value",
             # the internal 0 / 1 verdict (see `_quality`), written as a flag: "0", "1" or null

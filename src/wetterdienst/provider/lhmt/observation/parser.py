@@ -28,12 +28,6 @@ _EMPTY_STATIONS_SCHEMA = {
     "longitude": pl.Float64,
 }
 
-_EMPTY_VALUES_SCHEMA = {
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "parameter": pl.String,
-    "value": pl.Float64,
-}
-
 
 def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
     """Parse ``/v1/stations`` into one row per station.
@@ -79,10 +73,10 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     try:
         payload = json.loads(content)
     except json.JSONDecodeError:
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     observations = payload.get("observations") if isinstance(payload, dict) else None
     if not isinstance(observations, list) or not observations:
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     rows = [
         {"timestamp": timestamp, "parameter": field, "value": observation.get(field)}
         for observation in observations
@@ -91,7 +85,7 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
         for field in _VALUE_FIELDS
     ]
     if not rows:
-        return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+        return pl.DataFrame()
     # parse non-strict so one malformed observationTimeUtc string yields null instead of raising and
     # failing the whole day; drop those rows so only cleanly-timestamped observations remain
     return (

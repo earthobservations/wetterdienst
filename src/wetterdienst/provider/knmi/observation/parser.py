@@ -27,7 +27,6 @@ _ROW_SCHEMA = {
     "parameter": pl.String,
     "value": pl.Float64,
 }
-_EMPTY_SCHEMA = _ROW_SCHEMA | {"quality_flags": pl.String}
 
 # the _FillValue of a missing observation
 _FILL_VALUE = "NaN"
@@ -95,7 +94,7 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
         row_by_public = {public_station_id(wsi): row for row, wsi in enumerate(variables["station"][:])}
         row = row_by_public.get(station_id)
         if row is None:
-            return pl.DataFrame(schema=_EMPTY_SCHEMA)
+            return pl.DataFrame()
         rows = []
         for parameter in parameters:
             if parameter not in variables:

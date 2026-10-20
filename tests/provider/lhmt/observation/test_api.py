@@ -69,11 +69,10 @@ def test_parse_lhmt_observations() -> None:
 
 
 def test_parse_lhmt_observations_empty() -> None:
-    """A day with no observations yields an empty frame with the expected schema."""
+    """A day with no observations yields a frame without a row; the core makes of it the empty long form."""
     content = b'{"station": {"code": "vilniaus-ams"}, "observations": []}'
     df = parse_lhmt_observations(content)
     assert df.is_empty()
-    assert df.columns == ["timestamp", "parameter", "value"]
 
 
 def test_parse_lhmt_malformed_json_yields_empty() -> None:
