@@ -670,6 +670,23 @@ or a container, sets the variable to its names, or listens on `0.0.0.0` and sets
 under. A server started otherwise (`uvicorn wetterdienst.ui.restapi:app`) answers to every host unless the variable is
 set.
 
+## Running it for others
+
+The REST API and the MCP endpoint have no authentication, and the server sets no CORS headers. Both are by design,
+and what follows is for an instance that others can reach (the
+[threat model](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md) has the rest):
+
+- **Who may use it.** Anyone who reaches it can use the provider credentials it holds (`WD_AUTH__*`) and spend their
+  quotas. `/api/auth` and `/api/coverage` say whether a key is configured, never the key. Put a gateway in front that
+  authenticates, terminates TLS and limits the requests of each client: the server has a [timeout](#timeout), a
+  [cap on requests served at once](#concurrency) and [limits](#limits), no limit per client.
+- **CORS.** A page of another origin cannot read the answers. Serve it from the origin of the API, or let the reverse
+  proxy add the headers it needs.
+- **Hosts.** [Allowed hosts](#allowed-hosts) are open until you set them, in the image too.
+- **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
+- **The cache directory.** `WD_CACHE_DIR` holds pickled directory listings: whoever can write there can run code as
+  the server. Keep it private to the user the server runs as.
+
 ## Errors
 
 Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
