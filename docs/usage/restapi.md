@@ -102,7 +102,8 @@ a removal is announced in the changelog under `Deprecated` when it is deprecated
   `@` and the unix time of the day it was deprecated, for instance `Deprecation: @1791158400`;
 - where a day is set from which it may stop working, `Sunset` ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594))
   says it as an HTTP date, and a `Link` with `rel="deprecation"` points to where the replacement is told;
-- for a parameter, the `metadata` block of the answer has a `deprecated-parameter` warning.
+- for a parameter, the `metadata` block of the answer has a `deprecated-parameter` warning; the old name of a
+  renamed canonical parameter, which stays an alias for at least two minor releases, is marked so, without a `Sunset`.
 
 A response that uses several deprecated things says the earliest of each date. A client that logs the
 `Deprecation` header of the answers it gets is told before anything is removed.

@@ -36,6 +36,7 @@ from wetterdienst.exceptions import (
     StationNotFoundError,
     UpstreamError,
 )
+from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
@@ -1366,16 +1367,22 @@ def get_glossary(
     honoured -- reporting the built-in default while `values` hands back Fahrenheit would make this
     worse than saying nothing.
     """
-    from wetterdienst.metadata.parameter_table import PARAMETER_TABLE  # noqa: PLC0415
+    from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS  # noqa: PLC0415
     from wetterdienst.model.unit import UnitConverter  # noqa: PLC0415
 
     options = options or Options()
     unit_converter = UnitConverter()
     unit_converter.update_targets(options.unit_targets)
     needle = parameter.strip().lower() if parameter else None
+    needles = [needle] if needle else []
+    if needle and needle in PARAMETER_ALIASES and needle not in PARAMETERS:
+        # the old name of a renamed parameter: it finds the entries of the new name as well as those that hold the
+        # old one as a substring
+        use_alias(needle, PARAMETER_ALIASES[needle])
+        needles.append(PARAMETER_ALIASES[needle].new)
     entries: list[GlossaryEntry] = []
     for canonical in PARAMETER_TABLE:
-        if needle and needle not in canonical.name:
+        if needles and not any(n in canonical.name for n in needles):
             continue
         if unit_type and canonical.unit_type != unit_type:
             continue

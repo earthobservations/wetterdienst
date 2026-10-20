@@ -16,7 +16,10 @@ the baseline must still be there, or have been renamed:
 - a new provider, network, resolution, dataset, parameter or rename passes.
 
 After 1.0 a rename keeps the old name as an alias for two minors and a removal is a major (the compatibility policy);
-this holds the other half of it: a name that is neither there nor in a rename table fails the check.
+this holds the other half of it: a name that is neither there nor in a rename table fails the check. An alias
+(`wetterdienst.metadata.aliases`) that the baseline has and the code has not breaks too, with the release it was to go
+in in the finding, and is accepted only as any break is, by naming it in `ACCEPTED_BREAKS` in the pull request that
+removes it in a major release; its entry moves into the plain rename tables then, which the check above holds.
 
 A network whose extra is not installed here is not compared, but its name is (`networks` is the registry's).
 
@@ -48,6 +51,7 @@ _CHAIN = 10
 def build_surface() -> dict[str, Any]:
     """List the parameters of every dataset of every network the registry resolves, and the tables of renames."""
     from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.metadata.aliases import PARAMETER_ALIASES, PARAMETER_ALIASES_IN_DATASET  # noqa: PLC0415
     from wetterdienst.metadata.renamed import (  # noqa: PLC0415
         RENAMED_PARAMETERS,
         RENAMED_PARAMETERS_IN_DATASET,
@@ -79,6 +83,14 @@ def build_surface() -> dict[str, Any]:
         for name, datasets in sorted(RENAMED_PARAMETERS_IN_DATASET.items())
         if name in metadata_names
     }
+    aliases_in_dataset = {
+        metadata_names[name]: {
+            f"{resolution}/{dataset}": {old: _alias(alias) for old, alias in sorted(aliases.items())}
+            for (resolution, dataset), aliases in sorted(datasets.items())
+        }
+        for name, datasets in sorted(PARAMETER_ALIASES_IN_DATASET.items())
+        if name in metadata_names
+    }
     return {
         "networks": sorted(
             f"{provider}/{network}"
@@ -92,7 +104,16 @@ def build_surface() -> dict[str, Any]:
             "in_dataset": in_dataset,
             "resolutions": dict(sorted(RENAMED_RESOLUTIONS.items())),
         },
+        "aliases": {
+            "parameters": {old: _alias(alias) for old, alias in sorted(PARAMETER_ALIASES.items())},
+            "in_dataset": aliases_in_dataset,
+        },
     }
+
+
+def _alias(alias: Any) -> dict[str, str]:  # noqa: ANN401
+    """Write an alias as the baseline keeps it: what it became, and when it began and may end."""
+    return {"new": alias.new, "since": alias.since, "until": alias.until}
 
 
 def read_baseline() -> dict[str, Any]:
@@ -108,6 +129,8 @@ def write_baseline() -> None:
 def breaking_changes(baseline: dict[str, Any], current: dict[str, Any]) -> list[str]:
     """Name each name of `baseline` that `current` neither has nor says was renamed."""
     found = _renames(baseline["renamed"], current["renamed"])
+    # a baseline of before the aliases existed has none to keep
+    found += _aliases(baseline.get("aliases", {}), current.get("aliases", {}))
     for network, resolutions in baseline["parameters"].items():
         if network not in current["parameters"]:
             # a network whose extra is missing here is no finding, a network that is gone from the registry is
@@ -173,6 +196,28 @@ def _renames(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
             kept = new["in_dataset"].get(network, {}).get(dataset, {})
             found += [f"rename of {name} in {network}/{dataset} was removed" for name in renames if name not in kept]
     return found
+
+
+def _aliases(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+    """Find an alias of the baseline that is gone: its old name is refused now, before the release that ends it."""
+    found = [
+        f"alias {name} ({_lifetime(alias)}) was removed"
+        for name, alias in old.get("parameters", {}).items()
+        if name not in new.get("parameters", {})
+    ]
+    for network, datasets in old.get("in_dataset", {}).items():
+        for dataset, aliases in datasets.items():
+            kept = new.get("in_dataset", {}).get(network, {}).get(dataset, {})
+            found += [
+                f"alias {name} in {network}/{dataset} ({_lifetime(alias)}) was removed"
+                for name, alias in aliases.items()
+                if name not in kept
+            ]
+    return found
+
+
+def _lifetime(alias: dict[str, str]) -> str:
+    return f"since {alias['since']}, until {alias['until']}"
 
 
 __all__ = ["ACCEPTED_BREAKS", "BASELINE", "RELEASE", "breaking_changes", "build_surface"]

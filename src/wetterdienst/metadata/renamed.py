@@ -1,11 +1,13 @@
 """Names renamed on the way to 1.0, kept so that the old spelling fails by naming the new one.
 
-None of these is accepted in place of its replacement. A caller still writing the old name gets an
+None of these is accepted in place of its replacement, but for a name that is also an alias of a rename made from 1.0
+(`wetterdienst.metadata.aliases`, which these tables take in). A caller still writing the old name gets an
 error that says what it is called now, instead of the not-found a name that never existed gets.
 """
 
 from collections.abc import Collection, Mapping
 
+from wetterdienst.metadata.aliases import PARAMETER_ALIASES, PARAMETER_ALIASES_IN_DATASET, ParameterAlias, all_aliases
 from wetterdienst.metadata.parameter_table import PARAMETERS
 
 #: frame columns, old name to new
@@ -704,6 +706,26 @@ _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
 
 _merge_in_dataset(_MEAN_WIND_IN_DATASET, _MEAN_HUMIDITY_IN_DATASET, _MEAN_REST_IN_DATASET, _WHAT_IT_IS_IN_DATASET)
 
+
+def _merge_aliases() -> None:
+    """Add the renames that keep their old name as an alias (`wetterdienst.metadata.aliases`) to the tables above.
+
+    An alias is a rename here as well: the hint and the baseline know it, and both stay when the alias ends and its
+    entry moves from the alias tables into the ones above.
+    """
+    _merge_in_dataset(
+        {
+            metadata_name: {
+                key: {old: alias.new for old, alias in aliases.items()} for key, aliases in datasets.items()
+            }
+            for metadata_name, datasets in PARAMETER_ALIASES_IN_DATASET.items()
+        }
+    )
+    RENAMED_PARAMETERS.update({old: alias.new for old, alias in PARAMETER_ALIASES.items()})
+
+
+_merge_aliases()
+
 #: resolution values, old to new. `Resolution(old)` is no longer accepted; a request or an option that names the old
 #: value is refused with the new one named
 RENAMED_RESOLUTIONS: dict[str, str] = {
@@ -859,3 +881,25 @@ def _renamed_wide_column(key: str) -> str:
                 continue
             return f"{new}{suffix}"
     return f"{base}{suffix}"
+
+
+def aliased_column(old: str, columns: Collection[str]) -> tuple[str, str, ParameterAlias] | None:
+    """Find the column a wide frame holds for a name that is an alias (`wetterdienst.metadata.aliases`), if any.
+
+    Returns the column, the old parameter name and its alias. As `renamed_column` does, it follows the parameter into
+    the prefixed `<dataset>_<parameter>` column and the `<parameter>_quality_flags` one, regardless of case, and only
+    where the frame holds the column the alias leads to: a column is not tied to a dataset, so the frame says which
+    one the caller means.
+    """
+    columns_by_lower = {column.lower(): column for column in columns}
+    base, suffix = _split_quality(old.lower())
+    for name, alias in all_aliases():
+        if base == name:
+            prefix = ""
+        elif base.endswith(f"_{name}"):
+            prefix = base.removesuffix(name)
+        else:
+            continue
+        if (candidate := f"{prefix}{alias.new}{suffix}") in columns_by_lower:
+            return columns_by_lower[candidate], name, alias
+    return None

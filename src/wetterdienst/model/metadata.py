@@ -20,6 +20,7 @@ from pydantic_extra_types.timezone_name import (
 from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import InvalidEnumerationError, InvalidParameterError
+from wetterdienst.metadata.aliases import find_alias, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.metadata.period import Period  # noqa: TC001, needs to stay here for pydantic model to work
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_PARAMETERS_IN_DATASET, RENAMED_RESOLUTIONS
@@ -388,6 +389,8 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
             return self.parameters[item]
         parameter = _find(self.parameters, item)
         if parameter is None:
+            parameter = self._aliased(item)
+        if parameter is None:
             # the parameters of the dataset are those it iterates over, which the message lists (GH-2641)
             raise KeyError(_not_found("parameters", item, self, self))
         return parameter
@@ -396,7 +399,24 @@ class DatasetModel(BaseModel):  # noqa: PLW1641
         """Get a parameter by name."""
         parameter = _find(self.parameters, item)
         if parameter is None:
+            parameter = self._aliased(item)
+        if parameter is None:
             raise AttributeError(_not_found("parameters", item, self, self))
+        return parameter
+
+    def _aliased(self, item: str) -> ParameterModel | None:
+        """Find the parameter that `item` is an alias of (`wetterdienst.metadata.aliases`), and tell the caller it is.
+
+        None for a name that is no alias, or whose alias leads to a name this dataset does not have.
+        """
+        # the back-reference is None while the dataset is built, and an attribute looked up then is no alias
+        resolution = self.__dict__.get("resolution")
+        if resolution is None:
+            return None
+        alias = find_alias(resolution.metadata_name, resolution.name, self.name, item.strip().lower())
+        parameter = _find(self.parameters, alias.new) if alias else None
+        if alias is not None and parameter is not None:
+            use_alias(item, alias)
         return parameter
 
     # on purpose, not pydantic's iteration over (name, value) pairs of the fields: a model here is iterated
@@ -635,6 +655,8 @@ class MetadataModel(BaseModel):
         # searched over all parameters rather than over the dataset's iterator, so that a quality
         # flag is answered with the explanation below instead of with "no such parameter"
         parameter = _find(dataset.parameters, parameter_search.parameter)
+        if parameter is None:
+            parameter = dataset._aliased(parameter_search.parameter)  # noqa: SLF001
         if parameter is None:
             raise KeyError(_not_found("parameters", parameter_search.parameter, dataset, dataset))
         if is_quality_flag(parameter):

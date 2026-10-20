@@ -22,6 +22,7 @@ from pydantic import Field, PrivateAttr, field_serializer, field_validator, mode
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from wetterdienst.exceptions import InvalidEnumerationError
+from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.renamed import RENAMED_PARAMETERS, RENAMED_RESOLUTIONS
 from wetterdienst.metadata.resolution import Resolution
@@ -200,6 +201,7 @@ def _checked_geo_station_distance_keys(values: object, prefix: str, logger: logg
             f"{prefix}geo_station_distance_homogeneous and {prefix}geo_station_distance_heterogeneous instead"
         )
         raise ValueError(msg)
+    values = _with_aliases_resolved(values, prefix, logger)
     unknown = sorted(set(values) - PARAMETERS.keys())
     if unknown:
         msg = f"Invalid parameters in {prefix}geo_station_distance: {unknown} not in the canonical parameters"
@@ -214,6 +216,34 @@ def _checked_geo_station_distance_keys(values: object, prefix: str, logger: logg
             "interpolated, and is thus ignored for them in this request.",
         )
     return values
+
+
+def _with_aliases_resolved(
+    values: Mapping[str, float], prefix: str, logger: logging.Logger | None
+) -> Mapping[str, float]:
+    """Write the new name for a key that is an alias of a name every dataset renamed, and warn that it was one.
+
+    The warning is given where `logger` is, which is where the options are built for the caller: a copy made by
+    `replace` and the first pass of `options_from_mapping` say nothing, so that an alias is told once. A parameter
+    given under both names is refused, as which radius is meant cannot be told.
+
+    Only an alias of every dataset (`PARAMETER_ALIASES`) is a name here: an alias of one dataset is the old name of a
+    parameter that other datasets keep, so the key is a canonical name still, and sets the radius of those.
+    """
+    aliased = {name: PARAMETER_ALIASES[name] for name in values if name in PARAMETER_ALIASES and name not in PARAMETERS}
+    if not aliased:
+        return values
+    for name, alias in aliased.items():
+        if alias.new in values:
+            msg = (
+                f"{prefix}geo_station_distance gives '{name}', which was renamed to '{alias.new}', and "
+                f"'{alias.new}' as well: give the radius of the parameter once, under '{alias.new}'"
+            )
+            raise ValueError(msg)
+    if logger is not None:
+        for name, alias in aliased.items():
+            use_alias(name, alias)
+    return {aliased[name].new if name in aliased else name: radius for name, radius in values.items()}
 
 
 def _checked_geo_station_distance_values(values: dict[str, float], prefix: str) -> dict[str, float]:
