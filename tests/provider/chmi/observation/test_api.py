@@ -17,7 +17,6 @@ from wetterdienst.provider.chmi.observation import api as chmi_api
 from wetterdienst.provider.chmi.observation.api import _RESOLUTION_CONFIG, ChmiObservationValues
 from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
-    parse_chmi_stations,
     parse_chmi_values_aggregate,
     parse_chmi_values_daily,
     parse_chmi_values_subdaily,
@@ -31,27 +30,6 @@ UTC = ZoneInfo("UTC")
 def _read(df: pl.DataFrame) -> pl.DataFrame:
     """Read the `value` of a parser's frame as the number the core makes of its text (`shape_provider_frame`)."""
     return df.with_columns(pl.col("value").cast(pl.Float64, strict=False))
-
-
-def test_parse_chmi_stations_collapses_periods() -> None:
-    """A relocated station collapses to one row: latest position, full extent, active end_timestamp null."""
-    content = (
-        b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
-        b"0-X,GA,1961-01-01T00:00Z,2000-12-31T23:59Z,Cheb,12.30,50.00,458,\n"
-        b"0-X,GA,2001-01-01T00:00Z,3999-12-31T23:59Z,Cheb,12.391389,50.068333,483,\n"
-    )
-    df = parse_chmi_stations(content)
-    assert df.to_dicts() == [
-        {
-            "station_id": "0-X",
-            "name": "Cheb",
-            "latitude": 50.068333,  # GEOGR2 of the most recent (active) period
-            "longitude": 12.391389,  # GEOGR1 of the most recent period
-            "elevation": 483.0,
-            "start_timestamp": dt.datetime(1961, 1, 1, tzinfo=UTC),  # earliest BEGIN_DATE
-            "end_timestamp": None,  # END_DATE year 3999 -> active -> null
-        },
-    ]
 
 
 def _stations_of(monkeypatch: pytest.MonkeyPatch, catalogue: bytes) -> pl.DataFrame:

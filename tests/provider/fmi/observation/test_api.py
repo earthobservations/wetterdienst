@@ -152,7 +152,8 @@ def test_parse_fmi_stations_active_station_end_timestamp_null() -> None:
     assert df.height == 1
     row = df.to_dicts()[0]
     assert row["station_id"] == "100971"
-    assert row["start_timestamp"] == dt.datetime(1844, 1, 1, tzinfo=UTC)
+    # the stamp is naive, the core reads it as UTC (see the test of the operational period below)
+    assert row["start_timestamp"] == dt.datetime(1844, 1, 1)  # noqa: DTZ001
     # active station: the indeterminate operational endPosition wins over the later concrete one
     assert row["end_timestamp"] is None
 

@@ -225,8 +225,6 @@ class FmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         stations = parse_fmi_stations(file.content.read())
-        if stations.is_empty():
-            return pl.LazyFrame()
 
         # the catalogue is provider-wide; replicate it across each requested (resolution,
         # dataset) so stations not reporting a requested parameter simply return no values.
@@ -244,6 +242,4 @@ class FmiObservationRequest(TimeseriesRequest):
             )
             for resolution, dataset in resolutions_and_datasets
         ]
-        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (e.g.
-        # elevation) with null, so no explicit padding is needed here.
         return pl.concat(data).lazy()

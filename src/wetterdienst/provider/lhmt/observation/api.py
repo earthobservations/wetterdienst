@@ -123,8 +123,6 @@ class LhmtObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         stations = parse_lhmt_stations(file.content.read())
-        if stations.is_empty():
-            return pl.LazyFrame()
         resolution = self.metadata[0]
         return stations.with_columns(
             pl.lit(resolution.name, pl.String).alias("resolution"),

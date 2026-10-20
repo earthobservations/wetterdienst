@@ -243,8 +243,6 @@ class ChmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         stations = parse_chmi_stations(file.content.read())
-        if stations.is_empty():
-            return pl.LazyFrame()
 
         # the catalogue is provider-wide; replicate it across each requested (resolution, dataset)
         # so stations not reporting a requested parameter simply return no values.
@@ -262,6 +260,4 @@ class ChmiObservationRequest(TimeseriesRequest):
             )
             for resolution, dataset in resolutions_and_datasets
         ]
-        # TimeseriesRequest.all() selects _base_columns and fills any the catalogue omits (region)
-        # with null, so no explicit padding is needed here.
         return pl.concat(data).lazy()

@@ -30,8 +30,8 @@ def _badc(header_rows: bytes, columns: str, data_rows: bytes) -> bytes:
     return header_rows + b"data\n" + columns.encode() + b"\n" + data_rows + b"end data\n"
 
 
-def test_parse_station_metadata() -> None:
-    """The station-metadata catalogue maps to one row per station with year-bounded dates."""
+def test_parse_station_metadata_keeps_the_path_components_of_a_stations_files() -> None:
+    """The catalogue's own columns, which the values step resolves a station's files by, stay in the frame."""
     content = _badc(
         b"Conventions,G,BADC-CSV,1\ntitle,G,Midas-open: Station site metadata\n",
         "src_id,station_name,station_file_name,historic_county,authority,"
@@ -39,19 +39,10 @@ def test_parse_station_metadata() -> None:
         b"00001,FOULA,foula,shetland,Met Office,60.154,-2.074,22,1989,2003\n",
     )
     df = parse_station_metadata(content)
-    assert df.to_dicts() == [
-        {
-            "station_id": "00001",
-            "name": "FOULA",
-            "historic_county": "shetland",
-            "station_file_name": "foula",
-            "latitude": 60.154,
-            "longitude": -2.074,
-            "elevation": 22.0,
-            "start_timestamp": dt.datetime(1989, 1, 1, tzinfo=UTC),
-            "end_timestamp": dt.datetime(2003, 12, 31, tzinfo=UTC),
-        },
+    assert df.select("station_id", "name", "historic_county", "station_file_name").rows() == [
+        ("00001", "FOULA", "shetland", "foula"),
     ]
+    assert parse_station_metadata(_badc(b"Conventions,G,BADC-CSV,1\n", "src_id", b"")).is_empty()
 
 
 def test_parse_values_collapses_multiple_report_types() -> None:

@@ -18,19 +18,12 @@ from wetterdienst.model.quality_flags import join_quality_flags
 # CHMI encodes timestamps without seconds, e.g. ``1863-10-01T00:00Z``.
 _DATE_FORMAT = "%Y-%m-%dT%H:%MZ"
 
-_EMPTY_STATIONS_SCHEMA = {
-    "station_id": pl.String,
-    "name": pl.String,
-    "latitude": pl.Float64,
-    "longitude": pl.Float64,
-    "elevation": pl.Float64,
-    "start_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "end_timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-}
-
 
 def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     """Parse CHMI's ``metadata/meta1.csv`` station catalogue into one row per station.
+
+    The coordinates and the elevation are the text of the file, and the stamps are naive: the core reads them as the
+    numbers they write and as UTC (``shape_stations_frame``). A catalogue without a row is a frame without a row.
 
     The catalogue carries one row per operational period (``WSI``, ``BEGIN_DATE``/``END_DATE``,
     ``FULL_NAME``, ``GEOGR1``/``GEOGR2`` = longitude/latitude, ``ELEVATION``), so a station with a
@@ -40,10 +33,10 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     """
     df = pl.read_csv(content, has_header=True, infer_schema_length=0)
     if df.is_empty():
-        return pl.DataFrame(schema=_EMPTY_STATIONS_SCHEMA)
+        return pl.DataFrame()
     df = df.with_columns(
-        pl.col("BEGIN_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us").dt.replace_time_zone("UTC"),
-        pl.col("END_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us").dt.replace_time_zone("UTC"),
+        pl.col("BEGIN_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us"),
+        pl.col("END_DATE").str.to_datetime(_DATE_FORMAT, time_unit="us"),
     )
     df = df.group_by("WSI").agg(
         pl.col("FULL_NAME").sort_by("END_DATE").last().alias("name"),
@@ -54,13 +47,13 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         pl.col("END_DATE").max().alias("end_timestamp"),
     )
     return df.select(
-        pl.col("WSI").cast(pl.String).alias("station_id"),
+        pl.col("WSI").alias("station_id"),
         # some names end in a blank (`Třinec  Oldřichovice  Javorový `),
         # which an exact comparison of the name then misses
-        pl.col("name").cast(pl.String).str.strip_chars(),
-        pl.col("latitude").cast(pl.Float64, strict=False),
-        pl.col("longitude").cast(pl.Float64, strict=False),
-        pl.col("elevation").cast(pl.Float64, strict=False),
+        pl.col("name").str.strip_chars(),
+        pl.col("latitude"),
+        pl.col("longitude"),
+        pl.col("elevation"),
         pl.col("start_timestamp"),
         pl.when(pl.col("end_timestamp").dt.year() >= 3999)
         .then(None)
