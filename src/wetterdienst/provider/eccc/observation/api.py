@@ -504,11 +504,11 @@ class EcccObservationRequest(TimeseriesRequest):
         )
         # parse the dates as naive local datetimes; `_stamp_bounds` stamps them per resolution
         df_raw = df_raw.with_columns(
+            # `_collection_bounds` below is the provider's own frame, joined to the stations on this id as text
             pl.col("station_id").cast(pl.String),
             pl.col(
                 "first_date", "last_date", *(column.lower() for column in _COLLECTION_DATE_COLUMN_NAMES)
             ).str.to_datetime("%Y-%m-%d %H:%M:%S"),
-            pl.col("elevation").cast(pl.Float64),
         )
         # combinations of resolution and dataset
         from wetterdienst.model.metadata import ParameterModel  # noqa: PLC0415

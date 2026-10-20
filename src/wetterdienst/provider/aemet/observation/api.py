@@ -676,12 +676,12 @@ class AemetObservationRequest(TimeseriesRequest):
             log.warning(f"Failed to fetch AEMET stations: {payload}")
             return pl.LazyFrame()
 
-        df = pl.DataFrame(json.loads(payload.decode("latin-1")))
-        df = df.rename({"indicativo": "station_id", "nombre": "name", "provincia": "region"})
-        df = df.with_columns(
+        df = pl.DataFrame(json.loads(payload.decode("latin-1"))).select(
+            pl.col("indicativo").alias("station_id"),
             # the inventory pads some names with blanks (`PORTOCOLOM  `), which a comparison of the name misses
-            pl.col("name").str.strip_chars(),
-            pl.col("altitud").cast(pl.Float64, strict=False).alias("elevation"),
+            pl.col("nombre").str.strip_chars().alias("name"),
+            pl.col("provincia").alias("region"),
+            pl.col("altitud").alias("elevation"),
             parse_dms_coordinate("latitud").alias("latitude"),
             parse_dms_coordinate("longitud").alias("longitude"),
         )
@@ -700,7 +700,4 @@ class AemetObservationRequest(TimeseriesRequest):
             )
         if not data:
             return pl.LazyFrame()
-        df = pl.concat(data)
-        return df.select(
-            pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns
-        ).lazy()
+        return pl.concat(data).lazy()

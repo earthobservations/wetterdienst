@@ -430,9 +430,7 @@ class EAHydrologyRequest(TimeseriesRequest):
             pl.col("end_timestamp").str.to_datetime(format="%Y-%m-%d"),
             "latitude",
             "longitude",
-            pl.lit(None, pl.Float64).alias("elevation"),
             "name",
-            pl.lit(None, pl.String).alias("region"),
         )
         # the listing carries one row per measure, so a station recording two of the requested
         # parameters (or the daily maximum and minimum) arrives once per measure. Left in, the
