@@ -57,6 +57,7 @@
   "tests/provider/dwd/observation/test_sun_zone.py::test_the_values_of_a_period_in_true_solar_time_carry_zone_woz": [["DwdObservationValues hourly/sun", "d9b22919", 5, "456e2fd0e868819c"]],
   "tests/provider/dwd/observation/test_temperature_air_zone.py::test_the_values_of_an_archive_without_metadata_are_not_shifted": [["DwdObservationValues hourly/temperature_air", "d9b22919", 14, "8a15a09460519545"]],
   "tests/provider/dwd/observation/test_temperature_air_zone.py::test_the_values_of_an_mez_md_period_are_shifted_to_utc_per_parameter_and_carry_zone_mez": [["DwdObservationValues hourly/temperature_air", "d9b22919", 13, "29fcd8dca38eaca8"]],
+  "tests/provider/dwd/phenology/test_values_frame.py::test_phenology_values_come_out_as_the_long_form": [["DwdPhenologyValues annual/annual_common_hazel", "d9b22919", 3, "897902e8cc68ef57"]],
   "tests/provider/dwd/poi/test_api.py::test_dwd_poi_maximum_wind_of_the_previous_day_is_the_maximum_of_the_last_6_hours": [["DwdPoiValues hourly/data", "d9b22919", 2, "5768a81d2affcf3f"]],
   "tests/provider/dwd/poi/test_api.py::test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north": [["DwdPoiValues hourly/data", "d9b22919", 6, "d9e0356bb96dd5da"]],
   "tests/provider/dwd/road/test_api.py::test_dwd_road_weather_converts_the_bufr_units_it_decodes": [["DwdRoadValues 15_minutes/data", "d9b22919", 2, "7c7ef725db828032"]],
