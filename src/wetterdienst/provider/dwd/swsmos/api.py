@@ -50,15 +50,6 @@ _BASE_URL = "https://opendata.dwd.de/weather/local_forecasts/swsmos"
 _CATALOG_URL = f"{_BASE_URL}/swsKatalog.csv.bz2"
 _LATEST_FILE = "swsmos_LATEST_opendata.csv.bz2"
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-}
-
 
 class DwdForecastDate(Enum):
     """Sentinel selecting the latest available model run."""
@@ -365,33 +356,31 @@ class DwdSwsmosValues(TimeseriesValues):
         elif isinstance(parameter_or_dataset, DatasetModel):
             dataset = parameter_or_dataset
         else:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         settings = cast("Settings", self.sr.request.settings)
         df = self._run_frame(settings)
         if df.is_empty() or "ID" not in df.columns:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         df = df.filter(pl.col("ID") == station_id)
         if df.is_empty():
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         columns = [p.name_original for p in dataset.parameters if p.name_original in df.columns]
         # a text that is no number is no reading (the run file read on 2026-10-12 holds none): it becomes null, and the
         # text stays beside the value as `raw:` (GH-2759)
         cleaned = {column: null_sentinels(pl.col(column), non_numeric=True) for column in columns}
         df = df.select(
             pl.col("YYYYMMDDHHmm")
-            .str.to_datetime("%Y%m%d%H%M", time_unit="us")
-            .dt.replace_time_zone("UTC")
+            # DWD stamps its runs in UTC, which is how the core reads a stamp that carries no zone
+            .str.to_datetime("%Y%m%d%H%M")
             .alias("timestamp"),
             *[value.alias(column) for column, (value, _) in cleaned.items()],
             *[raw.alias(raw_column(column)) for column, (_, raw) in cleaned.items()],
         )
         df = unpivot_with_raw(df, index=["timestamp"])
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             pl.col("timestamp"),
             pl.col("value"),
             join_quality_flags(None, raw=pl.col("raw")),
