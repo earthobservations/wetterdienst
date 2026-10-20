@@ -70,6 +70,48 @@ def test_dwd_low_cloud_cover_is_named_for_2km(metadata: MetadataModel, caplog: p
     assert "It was renamed to 'cloud_cover_below_2km'." in caplog.text
 
 
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("radiation_global_last_3h", "radiation_short_wave_net_last_3h"),
+        ("radiation_sky_long_wave_last_3h", "radiation_long_wave_net_last_3h"),
+    ],
+)
+def test_a_name_no_dataset_declares_any_more_is_refused_with_its_successor(
+    old: str, new: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """DMO's 3-hour balances were read as global and sky radiation; the old names answer with the new (GH-2614).
+
+    No dataset declares either old name, so neither is in the table: the answer comes from `RENAMED_PARAMETERS`, which
+    needs no table entry to name the successor.
+    """
+    assert old not in PARAMETERS
+    assert RENAMED_PARAMETERS[old] == new
+    assert parse_parameters(f"hourly/icon/{old}", DwdDmoMetadata, on_unknown="warn") == []
+    assert f"It was renamed to '{new}'." in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("metadata", "request_"),
+    [
+        (DwdMosmixMetadata, "hourly/large/cloud_base_convective"),
+        (DwdObservationMetadata, "10_minutes/urban_temperature_air/temperature_radiant_mean_2m"),
+        (DwdObservationMetadata, "daily/kl/quality_temperature_air_mean_2m"),
+    ],
+    ids=lambda value: value.rsplit("/", 1)[-1] if isinstance(value, str) else "",
+)
+def test_a_name_removed_from_the_table_without_a_successor_is_an_unknown_parameter(
+    metadata: MetadataModel, request_: str
+) -> None:
+    """A name that left the table with nothing to take its place is refused as a name that never existed (GH-2614)."""
+    removed = request_.rsplit("/", 1)[-1]
+    assert removed not in PARAMETERS
+    assert removed not in RENAMED_PARAMETERS
+    with pytest.raises(InvalidParameterError, match="not found") as error:
+        parse_parameters(request_, metadata, on_unknown="raise")
+    assert "was renamed" not in str(error.value)
+
+
 GRAUPEL_COLUMNS = {
     ("daily", "weather_phenomena"): "graupel",
     ("daily", "weather_phenomena_more"): "rr_graupel",
@@ -130,6 +172,16 @@ def _find_dataset(metadata_name: str, resolution: str, dataset: str) -> DatasetM
     return metadata[resolution][dataset]
 
 
+#: names that no dataset of any provider declares any more and so are no entry of the table (GH-2614); the rename in
+#: their datasets stays in `RENAMED_PARAMETERS_IN_DATASET`, because the baseline of a release records it and
+#: `tests/baselines/parameters.py` reports a released rename entry that is gone
+LEFT_THE_TABLE = {
+    "evapotranspiration_potential_grass_fao_last_24h",
+    "evapotranspiration_potential_grass_haude_last_24h",
+    "groundwater_level_max",
+    "groundwater_level_min",
+}
+
 _RENAMES_IN_DATASET = [
     (metadata_name, resolution, dataset, old, new)
     for metadata_name, datasets in RENAMED_PARAMETERS_IN_DATASET.items()
@@ -154,7 +206,7 @@ def test_a_rename_in_a_dataset_leads_from_a_name_it_lacks_to_one_it_has(
     caller wrote.
     """
     dataset_model = _find_dataset(metadata_name, resolution, dataset)
-    assert old in PARAMETERS
+    assert old in PARAMETERS or old in LEFT_THE_TABLE
     assert new in PARAMETERS
     assert _find(dataset_model.parameters, old) is None
     assert _find(dataset_model.parameters, new) is not None

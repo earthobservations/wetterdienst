@@ -142,12 +142,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "climate_correction_factor", "dimensionless", "Factor correcting a degree-day total for the local climate."
     ),
     CanonicalParameter(
-        "cloud_base_convective",
-        "length_medium",
-        "Height above ground of the base of convective cloud.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
         "cloud_cover_above_7km",
         "fraction",
         "Fraction of the sky covered by cloud above 7 km.",
@@ -505,21 +499,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evapotranspiration_potential_grass_fao_last_24h",
-        "precipitation",
-        "Potential evapotranspiration over grass in the preceding 24 hours, after the FAO reference method.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
         "evapotranspiration_potential_grass_haude",
         "precipitation",
         "Potential evapotranspiration over grass, totalled over the period, after the Haude method.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "evapotranspiration_potential_grass_haude_last_24h",
-        "precipitation",
-        "Potential evapotranspiration over grass in the preceding 24 hours, after the Haude method.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -545,8 +527,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "frozen_ground_layer_top", "length_short", "Depth below the surface at which the frozen layer begins."
     ),
     CanonicalParameter("groundwater_level", "length_medium", "Level of the groundwater table."),
-    CanonicalParameter("groundwater_level_max", "length_medium", "Highest groundwater level over the period."),
-    CanonicalParameter("groundwater_level_min", "length_medium", "Lowest groundwater level over the period."),
     CanonicalParameter(
         "heating_degree_day",
         "degree_day",
@@ -1456,62 +1436,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "Quality flag published by the source for `precipitation` in the same dataset.",
     ),
     CanonicalParameter(
-        "quality_precipitation_amount",
-        "dimensionless",
-        "Quality flag published by the source for `precipitation_amount` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_precipitation_amount_liquid",
-        "dimensionless",
-        "Quality flag published by the source for `precipitation_amount_liquid` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_snow_depth",
-        "dimensionless",
-        "Quality flag published by the source for `snow_depth` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_snow_depth_new",
-        "dimensionless",
-        "Quality flag published by the source for `snow_depth_new` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_temperature_air_max_2m",
-        "dimensionless",
-        "Quality flag published by the source for `temperature_air_max_2m` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_temperature_air_max_2m_mean",
-        "dimensionless",
-        "Quality flag published by the source for `temperature_air_max_2m_mean` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_temperature_air_mean_2m",
-        "dimensionless",
-        "Quality flag published by the source for `temperature_air_mean_2m` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_temperature_air_min_2m",
-        "dimensionless",
-        "Quality flag published by the source for `temperature_air_min_2m` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_temperature_air_min_2m_mean",
-        "dimensionless",
-        "Quality flag published by the source for `temperature_air_min_2m_mean` in the same dataset.",
-    ),
-    CanonicalParameter(
         "quality_wind", "dimensionless", "Quality flag published by the source for `wind` in the same dataset."
-    ),
-    CanonicalParameter(
-        "quality_wind_direction_gust_max",
-        "dimensionless",
-        "Quality flag published by the source for `wind_direction_gust_max` in the same dataset.",
-    ),
-    CanonicalParameter(
-        "quality_wind_gust_max",
-        "dimensionless",
-        "Quality flag published by the source for `wind_gust_max` in the same dataset.",
     ),
     CanonicalParameter(
         "radiation_global",
@@ -1531,12 +1456,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "radiation_global_intensity_mean",
         "power_per_area",
         "Mean global irradiance on a horizontal surface over the period, reported as power rather than energy.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "radiation_global_last_3h",
-        "energy_per_area",
-        "Global radiation accumulated over the preceding 3 hours.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1573,12 +1492,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "radiation_sky_long_wave_intensity_mean",
         "power_per_area",
         "Mean downward long-wave irradiance from the sky over the period, reported as power.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "radiation_sky_long_wave_last_3h",
-        "energy_per_area",
-        "Downward long-wave radiation from the sky over the preceding 3 hours.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -2101,12 +2014,6 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "temperature_humidex",
         "temperature",
         "Humidex, the apparent temperature combining air temperature and humidity.",
-        interpolation="homogeneous",
-    ),
-    CanonicalParameter(
-        "temperature_radiant_mean_2m",
-        "temperature",
-        "Mean radiant temperature, the temperature a body feels from surrounding surfaces.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
