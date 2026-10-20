@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-20
+
 ### Changed
 
 - `[Glossary]` Five parameters have labels in all eleven languages (GH-2614):
@@ -23,6 +25,11 @@ Types of changes:
   `temperature_air_min_0_05m_night`, `precipitation_amount_max_30min`. Needs the backend that
   serves them: release the backend first. The Low German and Luxembourgish labels are not reviewed
   by a native speaker
+- `[Glossary]` The labels of the 19 parameter names that no dataset of any provider declares are
+  gone from all eleven languages, among them the two renamed DMO radiation names,
+  `cloud_base_convective`, `temperature_radiant_mean_2m` and eleven `quality_*` flags, so the
+  glossary no longer lists names the backend does not serve (GH-2614). Goes with the backend that
+  removed them: release the backend first
 
 ## [0.27.0] - 2026-10-20
 
@@ -1421,7 +1428,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.27.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...HEAD
+[0.28.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.27.0...app-v0.28.0
 [0.27.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.26.0...app-v0.27.0
 [0.26.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.25.0...app-v0.26.0
 [0.25.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.24.0...app-v0.25.0
