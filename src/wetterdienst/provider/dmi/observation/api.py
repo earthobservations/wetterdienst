@@ -447,12 +447,10 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties")
             .struct.field("validFrom")
             .str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-            .dt.replace_time_zone("UTC")
             .alias("start_timestamp"),
             pl.col("properties")
             .struct.field("validTo")
             .str.to_datetime("%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-            .dt.replace_time_zone("UTC")
             .alias("end_timestamp"),
             pl.col("properties").struct.field("created").alias("created"),
         )
@@ -503,7 +501,4 @@ class DmiObservationRequest(TimeseriesRequest):
                     pl.lit(dataset, pl.String).alias("dataset"),
                 ),
             )
-        df = pl.concat(data)
-        return df.select(
-            pl.col(col) if col in df.columns else pl.lit(None).alias(col) for col in self._base_columns
-        ).lazy()
+        return pl.concat(data).lazy()
