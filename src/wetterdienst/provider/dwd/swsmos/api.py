@@ -469,9 +469,9 @@ class DwdSwsmosRequest(TimeseriesRequest):
             # the catalogue pads some names with a trailing blank (`Darup `),
             # which an exact comparison of the name then misses
             pl.col("Name").str.strip_chars().alias("name"),
-            pl.col("Breite").str.replace(",", ".").cast(pl.Float64, strict=False).alias("latitude"),
-            pl.col("Laenge").str.replace(",", ".").cast(pl.Float64, strict=False).alias("longitude"),
-            pl.col("Hoehe").str.replace(",", ".").cast(pl.Float64, strict=False).alias("elevation"),
+            pl.col("Breite").str.replace(",", ".").alias("latitude"),
+            pl.col("Laenge").str.replace(",", ".").alias("longitude"),
+            pl.col("Hoehe").str.replace(",", ".").alias("elevation"),
             pl.lit(resolution.name, pl.String).alias("resolution"),
             pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
         ).lazy()

@@ -128,6 +128,5 @@ def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_
         pl.col("icao_id").replace("----", None),
         convert_dm_to_dd(pl.col("latitude").cast(float)),
         convert_dm_to_dd(pl.col("longitude").cast(float)),
-        pl.col("elevation").cast(int),
     )
     return correct_station_positions(df)
