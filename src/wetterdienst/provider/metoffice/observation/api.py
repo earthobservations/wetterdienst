@@ -47,16 +47,6 @@ from wetterdienst.util.network import download_file
 
 log = logging.getLogger(__name__)
 
-_EMPTY_VALUES_SCHEMA = {
-    "resolution": pl.String,
-    "dataset": pl.String,
-    "parameter": pl.String,
-    "station_id": pl.String,
-    "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
-    "value": pl.Float64,
-    "quality_flags": pl.String,
-}
-
 # per MIDAS dataset slug: the timestamp column and the column that counts the periods of a reading
 # (``ob_day_cnt`` of daily rain, ``ob_hour_count`` of the hourly rain, radiation and mean wind datasets), of which only
 # a count of 1 is kept -- see parser.parse_values. ``granularity`` is derived from the resolution in _collect_year.
@@ -210,7 +200,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         parameter_or_dataset: ParameterModel | DatasetModel,
     ) -> pl.DataFrame:
         if not isinstance(parameter_or_dataset, DatasetModel):
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         dataset = parameter_or_dataset
         midas_dataset = dataset.name_original
         config = _DATASET_CONFIG[midas_dataset]
@@ -219,17 +209,17 @@ class MetOfficeObservationValues(TimeseriesValues):
         token = self._token(settings)
         version = latest_release_version(settings, token)
         if version is None:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         located = self._station_slug_and_county(station_id, midas_dataset, version, settings, token)
         if located is None:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
         county, slug = located
 
         station_row = self.sr.df.filter(pl.col("station_id") == station_id)
         start = self.sr.start or station_row.item(0, "start_timestamp")
         end = self.sr.end or station_row.item(0, "end_timestamp")
         if start is None or end is None:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
         columns = [p.name_original for p in dataset.parameters]
         granularity = "1d" if dataset.resolution.name == "daily" else "1h"
@@ -254,18 +244,11 @@ class MetOfficeObservationValues(TimeseriesValues):
             is not None
         ]
         if not frames:
-            return pl.DataFrame(schema=_EMPTY_VALUES_SCHEMA)
+            return pl.DataFrame()
 
-        df = pl.concat(frames)
-        return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
-            pl.col("timestamp"),
-            pl.col("value"),
-            pl.col("quality_flags"),
-        )
+        # `parse_values` hands over `parameter`, `timestamp`, `value` and `quality_flags`; the station, resolution and
+        # dataset, the order of the columns and the dtypes are the core's to write (`shape_provider_frame`)
+        return pl.concat(frames)
 
 
 @dataclass
