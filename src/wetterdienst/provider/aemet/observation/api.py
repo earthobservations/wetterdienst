@@ -685,19 +685,5 @@ class AemetObservationRequest(TimeseriesRequest):
             parse_dms_coordinate("latitud").alias("latitude"),
             parse_dms_coordinate("longitud").alias("longitude"),
         )
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
-        }
-        data = []
-        for resolution, dataset in resolutions_and_datasets:
-            data.append(
-                df.with_columns(
-                    pl.lit(resolution, pl.String).alias("resolution"),
-                    pl.lit(dataset, pl.String).alias("dataset"),
-                ),
-            )
-        if not data:
-            return pl.LazyFrame()
-        return pl.concat(data).lazy()
+        # one catalogue for every dataset: the core copies it over the request's datasets
+        return df.lazy()

@@ -352,22 +352,8 @@ class RmiObservationRequest(TimeseriesRequest):
             # a null date_end marks a still-active station
             _parse_utc_z(pl.col("properties").struct.field("date_end")).alias("end_timestamp"),
         )
-        resolutions_and_datasets = {
-            (parameter.dataset.resolution.name, parameter.dataset.name)
-            for parameter in self.parameters
-            if isinstance(parameter, ParameterModel)
-        }
-        if not resolutions_and_datasets:
-            return pl.LazyFrame()
-        # sort the set so the concatenated station rows come out in a stable, deterministic order
-        data = [
-            df.with_columns(
-                pl.lit(resolution, pl.String).alias("resolution"),
-                pl.lit(dataset, pl.String).alias("dataset"),
-            )
-            for resolution, dataset in sorted(resolutions_and_datasets)
-        ]
-        return pl.concat(data).lazy()
+        # one catalogue for every dataset: the core copies it over the request's datasets
+        return df.lazy()
 
 
 def _quality_long(df: pl.DataFrame, param_names: list[str]) -> pl.DataFrame:

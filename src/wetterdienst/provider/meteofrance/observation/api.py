@@ -23,8 +23,6 @@ from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceOb
 from wetterdienst.util.network import download_file, download_files
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
     from wetterdienst.util.network import File
@@ -980,25 +978,8 @@ class MeteoFranceObservationRequest(TimeseriesRequest):
     _values = MeteoFranceObservationValues
 
     def _all(self) -> pl.LazyFrame:
-        # self.parameters is parsed at runtime to a list[ParameterModel], but the static type of
-        # the attribute is a union of input forms; cast here so the typechecker understands we
-        # iterate ParameterModel instances.
-        parameters = cast("Iterable[ParameterModel]", self.parameters)
-        stations_df = self._climate_stations(cast("Settings", self.settings))
-        if stations_df.is_empty():
-            return pl.LazyFrame()
-        # groupby() only groups consecutive items, but parameters preserves the user-supplied
-        # order, so datasets interleaved across parameters (e.g. [core, others, core]) would
-        # otherwise produce duplicate groups for the same dataset and duplicate station rows
-        datasets = {(p.dataset.resolution.name, p.dataset.name): p.dataset for p in parameters}
-        data = [
-            stations_df.lazy().with_columns(
-                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            )
-            for dataset in datasets.values()
-        ]
-        return pl.concat(data)
+        # one catalogue for every dataset: the core copies it over the request's datasets
+        return self._climate_stations(cast("Settings", self.settings)).lazy()
 
     @staticmethod
     def _climate_stations(settings: Settings) -> pl.DataFrame:

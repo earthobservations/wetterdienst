@@ -22,8 +22,6 @@ from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMet
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
     from wetterdienst.settings import Settings
 
@@ -251,22 +249,7 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
             },
         )
         df = df.lazy()
-        df = df.with_columns(
+        return df.with_columns(
             pl.col("start_timestamp").str.to_datetime("%Y-%m-%d", strict=False),
         )
-        # self.parameters is parsed at runtime to a list[ParameterModel], but the static type of
-        # the attribute is a union of input forms; cast here so the typechecker understands we
-        # iterate ParameterModel instances.
-        parameters = cast("Iterable[ParameterModel]", self.parameters)
-        # groupby() only groups consecutive items, but parameters preserves the user-supplied
-        # order, so datasets interleaved across parameters would otherwise produce duplicate
-        # groups for the same dataset and duplicate station rows
-        datasets = {(p.dataset.resolution.name, p.dataset.name): p.dataset for p in parameters}
-        data = [
-            df.with_columns(
-                pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-                pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
-            )
-            for dataset in datasets.values()
-        ]
-        return pl.concat(data)
+        # one catalogue for every dataset: the core copies it over the request's datasets

@@ -107,13 +107,5 @@ class IpmaObservationRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        stations = parse_ipma_stations(file.content.read())
-        # a frame without a column is no frame to tag: polars before 2.0 broadcasts the literals into one row
-        if stations.is_empty():
-            return pl.LazyFrame()
-        # the catalogue is provider-wide; tag it with the single (resolution, dataset)
-        resolution = self.metadata[0]
-        return stations.with_columns(
-            pl.lit(resolution.name, pl.String).alias("resolution"),
-            pl.lit(resolution.datasets[0].name, pl.String).alias("dataset"),
-        ).lazy()
+        # the catalogue is provider-wide; the core tags it with the single (resolution, dataset)
+        return parse_ipma_stations(file.content.read()).lazy()

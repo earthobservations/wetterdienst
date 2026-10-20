@@ -1248,8 +1248,6 @@ class DwdRoadRequest(TimeseriesRequest):
             pl.col("has_file").ne("x") & pl.col("station_group").ne("0") & pl.col("station_id").is_not_null(),
         )
         df = df.with_columns(
-            pl.lit(self.metadata[0].name, dtype=pl.String).alias("resolution"),
-            pl.lit(self.metadata[0].datasets[0].name, dtype=pl.String).alias("dataset"),
             pl.col("longitude").str.replace(",", "."),
             pl.col("latitude").str.replace(",", "."),
             # the sheet pads some names with a trailing blank (`Darup `),

@@ -45,6 +45,7 @@ from wetterdienst.model.metadata import (
     ParameterModel,
     ResolutionModel,
     check_on_unknown,
+    group_parameters_by_dataset,
     parse_parameters,
 )
 from wetterdienst.model.result import (
@@ -116,7 +117,8 @@ def _format_periods(periods: Iterable[Period]) -> str:
 
 # The columns of a provider's stations frame that the core cannot make up: the values step finds a station's datasets
 # by the first two and collects them by the third.
-_REQUIRED_STATIONS_COLUMNS = ("resolution", "dataset", "station_id")
+_IDENTITY_COLUMNS = ("resolution", "dataset")
+_REQUIRED_STATIONS_COLUMNS = (*_IDENTITY_COLUMNS, "station_id")
 
 
 def _stations_column_can_be_cast(dtype: pl.DataType, target: pl.DataType) -> bool:
@@ -159,6 +161,62 @@ def _count_unreadable_numbers(df: pl.DataFrame, column: str, provider: str) -> N
         log.debug("%s: %d of %d %s cells are no number and are null", provider, unreadable, df.height, column)
 
 
+def add_resolution_and_dataset(
+    df: pl.DataFrame,
+    datasets: Sequence[tuple[str, str]],
+    *,
+    provider: str = "the provider",
+) -> pl.DataFrame:
+    """Give the stations a provider handed the core their ``resolution`` and ``dataset`` (GH-2627).
+
+    A provider that has one catalogue for all its datasets hands it over as it is, and a station is then a station
+    of every requested dataset: the frame is copied once per ``(resolution, dataset)`` of the request, in the order
+    of the pairs, and each copy gets the two columns as Strings. A provider whose catalogue differs per dataset
+    (or per resolution) hands frames that carry the two columns already, and they are left alone.
+
+    A frame without a row is returned as it is: it is no stations, and tagging it is what polars before 2.0 does
+    wrongly (a column-less frame given a literal has one row there, none from 2.0 on).
+
+    Args:
+        df: what ``_all`` collected.
+        datasets: the ``(resolution name, dataset name)`` pairs of the request, each once.
+        provider: the name to put in a message, the provider's class.
+
+    Returns:
+        The frame with the two columns, which the shaping then orders.
+
+    Raises:
+        ProviderContractError: the frame has one of ``resolution`` and ``dataset`` but not the other. The core
+            cannot tell which half of a pair is missing, so it does not guess.
+
+    """
+    if df.is_empty():
+        return df
+    present = [column for column in _IDENTITY_COLUMNS if column in df.columns]
+    if len(present) == len(_IDENTITY_COLUMNS):
+        return df
+    if present:
+        missing = next(column for column in _IDENTITY_COLUMNS if column not in present)
+        message = (
+            f"{provider} returned stations without the column(s) {missing}, though it has {present[0]}: "
+            f"a frame has both or neither, and the core adds both to one that has neither; its columns are "
+            f"{df.columns}"
+        )
+        raise ProviderContractError(message)
+    if not datasets:
+        # a request always has one; a frame with no dataset to be a station of is no stations
+        return df.clear()
+    return pl.concat(
+        [
+            df.with_columns(
+                pl.lit(resolution, dtype=pl.String).alias("resolution"),
+                pl.lit(dataset, dtype=pl.String).alias("dataset"),
+            )
+            for resolution, dataset in datasets
+        ],
+    )
+
+
 def shape_stations_frame(
     df: pl.DataFrame,
     *,
@@ -190,7 +248,8 @@ def shape_stations_frame(
         The frame with exactly the named columns, in their order.
 
     Raises:
-        ProviderContractError: ``resolution``, ``dataset`` or ``station_id`` is missing, or a column of
+        ProviderContractError: ``resolution``, ``dataset`` or ``station_id`` is missing (`all()` has added the
+            first two to a frame that has neither, see `add_resolution_and_dataset`), or a column of
             `STATIONS_SCHEMA` has a type that cannot be made the declared one (a timestamp that is a string or an
             integer, a latitude that is a list). A frame without a row is never one.
 
@@ -615,6 +674,16 @@ class TimeseriesRequest:
             }
         return data
 
+    @property
+    def _requested_datasets(self) -> list[tuple[str, str]]:
+        """The ``(resolution name, dataset name)`` of the request, each once, in the order the parameters name them."""
+        return [
+            (dataset.resolution.name, dataset.name)
+            for dataset, _ in group_parameters_by_dataset(
+                parameter for parameter in self.parameters if isinstance(parameter, ParameterModel)
+            )
+        ]
+
     @abstractmethod
     def _all(self) -> pl.LazyFrame:
         """Implement this method to get all stations.
@@ -625,10 +694,15 @@ class TimeseriesRequest:
         Returns:
             pl.LazyFrame: All stations, with the columns of `STATIONS_SCHEMA` (`wetterdienst.model.schema`):
 
-            - ``resolution``, ``dataset`` (String) and ``station_id`` (String, the id the values are collected
-              by): required. The values step finds a station's datasets by the first two and collects them by the
-              third, and the station filters key on `station_id`. A frame with rows that lacks one is a
-              `ProviderContractError`.
+            - ``station_id`` (String, the id the values are collected by): required. The station filters key on it,
+              and the values step collects by it. A frame with rows that lacks it is a `ProviderContractError`.
+            - ``resolution``, ``dataset`` (String): the datasets a station is a station of, which the values step
+              finds its datasets by. A provider with ONE catalogue for all its datasets leaves both out, and
+              `all()` copies the frame once per requested ``(resolution, dataset)``
+              (`add_resolution_and_dataset`: in the order the request names them, each once); a provider whose
+              stations differ per dataset (their bounds, the resolution a station reports at, a catalogue per
+              product) hands them as it wants them, one row per station and dataset, and the frame is left as it
+              is. One of the two without the other is a `ProviderContractError`.
             - ``latitude``, ``longitude``, ``elevation`` (Float64), ``name``, ``region`` (String),
               ``start_timestamp`` and ``end_timestamp`` (Datetime("us", "UTC")): may be left out, and `all()` then
               fills the column with null. A station with no position is listed, but no distance filter can reach it;
@@ -664,6 +738,7 @@ class TimeseriesRequest:
             raise TypeError(msg)
         df = result
 
+        df = add_resolution_and_dataset(df, self._requested_datasets, provider=type(self).__name__)
         df = shape_stations_frame(df, columns=self._base_columns, provider=type(self).__name__)
 
         return StationsResult(
