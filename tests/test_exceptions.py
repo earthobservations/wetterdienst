@@ -40,6 +40,7 @@ from wetterdienst.exceptions import (
     NotFoundError,
     ParameterNotCarriedError,
     ProductFileNotFoundError,
+    ProviderContractError,
     ProviderNotFoundError,
     RequestError,
     ReversedTimeIntervalError,
@@ -83,6 +84,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     ParameterNotCarriedError: (RequestError, (ValueError,)),
     ImageTooLargeError: (RequestError, (Exception,)),
     ExportRefusedError: (WetterdienstError, (Exception,)),
+    ProviderContractError: (WetterdienstError, (Exception,)),
 }
 
 #: the kinds, with the built-in class each is

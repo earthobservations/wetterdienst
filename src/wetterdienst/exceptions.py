@@ -296,3 +296,16 @@ class ExportRefusedError(WetterdienstError):
     both classes are also how a sink breaks, so a defect inside one was reported as advice -- a
     `KeyError` printed its own argument and nothing else.
     """
+
+
+class ProviderContractError(WetterdienstError):
+    """Raised when the frame a provider hands the core cannot be made to fit the long form (GH-2627).
+
+    A defect of the provider's code, not of the request and not of the source's data: the frame lacks a column
+    the core cannot make up (`parameter`, `timestamp` or `value`), or holds one of a type nothing can turn into
+    the declared one (a timestamp that is a string, a value that is a list). The message names the provider, the
+    column and what it was handed. A value that is merely not a number is no such defect: it becomes null.
+
+    Not part of the documented public surface: it is for the people who write a provider, and a caller meets it
+    as the REST API's 500, the server's error.
+    """
