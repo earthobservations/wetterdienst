@@ -23,6 +23,7 @@ from dirty_equals import IsApprox, IsNumber, IsStr
 from pydantic import TypeAdapter, ValidationError
 from starlette.testclient import TestClient
 
+from tests.conftest import skip_if_upstream_problem
 from wetterdienst import Author, Settings, Wetterdienst, __version__
 from wetterdienst.metadata.parameter_table import PARAMETER_TABLE
 from wetterdienst.metadata.unit_type import UnitType
@@ -151,9 +152,12 @@ def test_index_leaves_out_a_provider_whose_module_fails_to_import(
 def test_index_examples(client: TestClient, url: str) -> None:
     """Test index examples.
 
-    Every example URL fetches live provider data, so this is marked ``remote``.
+    Every example URL fetches live provider data, so this is marked ``remote``. The REST API answers a
+    provider that did not answer in time with a 504 ``upstream-timeout``, which skips the test (GH-2522);
+    any other status, a 502 from a provider that sent what the parser did not expect included, fails it.
     """
     response = client.get(url)
+    skip_if_upstream_problem(response)
     assert response.status_code == 200
 
 

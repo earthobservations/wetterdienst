@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Fixtures for tests."""
 
+import errno
 import ipaddress
 import os
 import platform
@@ -17,7 +18,7 @@ from typing import Any
 import pytest
 
 from wetterdienst import Info, Options, Settings
-from wetterdienst.exceptions import DownloadError
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import _worth_retrying
 
@@ -75,20 +76,81 @@ def _is_server_fault(failure: Exception) -> bool:
     return isinstance(status, int) and status >= HTTPStatus.INTERNAL_SERVER_ERROR
 
 
+#: Hosts that any machine running this suite reaches: where its dependencies came from.
+_CONNECTIVITY_PROBES = (("pypi.org", 443), ("github.com", 443))
+#: What a connection that a host did not take up fails with: it timed out, was refused or reset, or has no route.
+#: On Windows `errno` carries the Winsock codes (10060, 10061, ...), so these are the same names there.
+_UNANSWERED_ERRNOS = frozenset({errno.ETIMEDOUT, errno.ECONNREFUSED, errno.ECONNRESET, errno.EHOSTUNREACH})
+#: `ERROR_SEM_TIMEOUT`, "The semaphore timeout period has expired": how Windows reports a connect that timed out
+#: through the overlapped I/O asyncio uses, as a plain `OSError` that no `errno` names.
+_WINDOWS_SEMAPHORE_TIMEOUT = 121
+
+
+def _runner_has_network() -> bool:
+    """Say whether this machine can open a connection to hosts that are not the one under test."""
+    for host, port in _CONNECTIVITY_PROBES:
+        try:
+            with socket.create_connection((host, port), timeout=5):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _host_did_not_answer(failure: BaseException | None) -> bool:
+    """Say whether the `OSError` under a `NoInternetError` is a host that did not take up the connection.
+
+    A timeout, a refusal, a reset or no route to the host. Not a name that did not resolve
+    (`socket.gaierror`): that is also what a decommissioned or misspelt host looks like, which this
+    suite has to be able to fail on.
+    """
+    if not isinstance(failure, OSError) or isinstance(failure, socket.gaierror):
+        return False
+    return (
+        isinstance(failure, TimeoutError)
+        or failure.errno in _UNANSWERED_ERRNOS
+        or getattr(failure, "winerror", None) == _WINDOWS_SEMAPHORE_TIMEOUT
+    )
+
+
+def _is_upstream_outage(error: Exception) -> bool:
+    """Say whether a failure is the upstream not answering, by the rule `skip_if_upstream_unavailable` states."""
+    # a download raised through `File.raise_if_exception` carries the failure as its cause
+    failure = error.__cause__ if isinstance(error, DownloadError) and error.__cause__ else error
+    if isinstance(failure, NoInternetError):
+        return _host_did_not_answer(failure.__cause__) and _runner_has_network()
+    return isinstance(failure, Exception) and (_worth_retrying(failure) or _is_server_fault(failure))
+
+
 @contextmanager
 def skip_if_upstream_unavailable() -> Generator[None]:
     """Skip a remote test whose upstream did not answer, rather than fail it.
 
     For a test that asserts what upstream publishes, a request that timed out or met a 5xx says
     nothing either way, and failing on it reports a provider's bad few minutes as a regression here.
-    What counts as not answering is `_worth_retrying` -- a timeout, a dropped connection, a body cut
-    off mid-read, or a 5xx -- which `download_file` asks twice, so a request made through it is
-    skipped on only after its second attempt failed as well. A 404 is not among them: it is
-    upstream answering, and the likelier cause is a URL built wrong, which is what such a test is
-    there to catch. Nor is a host that cannot be reached at all: that is a `NoInternetError`, which
-    fails the test as it fails a caller (GH-2640), so a runner that has lost its network is red and
-    not a wall of skips. Anything else still fails the test. Usable as a decorator or around the calls that
-    reach upstream.
+
+    The rule, in full. It skips on:
+
+    - what `_worth_retrying` names -- a timeout, a dropped connection, a body cut off mid-read, a
+      5xx -- which `download_file` asks twice, so a request made through it is skipped on only after
+      its second attempt failed as well;
+    - a 5xx that arrives as the status of an envelope rather than of the response (AEMET);
+    - a `NoInternetError` whose connection timed out, was refused or reset, or had no route (a
+      Windows runner's "semaphore timeout" included), *and* only while this machine can still
+      connect to other hosts (`_runner_has_network`), so a runner that has lost its network is red
+      and not a wall of skips (GH-2640).
+
+    It does not skip on anything else, and in particular not on:
+
+    - a 4xx. A 404 is upstream answering and the likelier cause is a URL built wrong, which is what
+      such a test is there to catch; a 400 or a 429 the same. A 401 or a 403 is a credential
+      refused, and a `CredentialRejectedError` is a CI configuration failure that has to stay red
+      (a rejected AEMET key).
+    - a name that does not resolve (`socket.gaierror`): a decommissioned or misspelt host looks just
+      like it, and a test that never reaches its host proves nothing, so it fails.
+    - a TLS failure, an assertion, or any other exception: a wrong answer is not an outage.
+
+    Usable as a decorator or around the calls that reach upstream.
 
     Every test marked `remote` is already run inside it (`pytest_runtest_call` below, GH-2522), so
     it is for a block that has to be skipped alone: one inside a test that catches what it raises,
@@ -97,11 +159,34 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     try:
         yield
     except Exception as error:
-        # a download raised through `File.raise_if_exception` carries the failure as its cause
-        failure = error.__cause__ if isinstance(error, DownloadError) and error.__cause__ else error
-        if isinstance(failure, Exception) and (_worth_retrying(failure) or _is_server_fault(failure)):
+        if _is_upstream_outage(error):
             pytest.skip(f"upstream did not answer: {error!r}")
         raise
+
+
+def skip_if_upstream_problem(response: Any) -> None:  # noqa: ANN401
+    """Skip a remote test whose REST answer says that the data provider did not answer in time.
+
+    The REST API turns a failed provider request into a problem before the exception can reach
+    `skip_if_upstream_unavailable`, and documents which 5xx is the provider's. Only a 504 of kind
+    `upstream-timeout` skips: the provider did not answer in time, which is what a timeout is for
+    `skip_if_upstream_unavailable` too. Not skipped, each for a reason of its own:
+
+    - a 504 `request-timeout`: this server gave up, which a request too large for it also does;
+    - a 503 `upstream-unreachable`: it does not say why the connection failed, and a name that does
+      not resolve (see `skip_if_upstream_unavailable`) is one;
+    - a 502 `upstream-failed`: the provider sent what the parser did not expect, which can be our
+      parser's defect;
+    - a 503 `server-busy`, a 4xx (a credential refused among them) and a 500.
+    """
+    if response.status_code != HTTPStatus.GATEWAY_TIMEOUT:
+        return
+    try:
+        kind = str(response.json().get("type", ""))
+    except ValueError:
+        return
+    if kind.rsplit(":", 1)[-1] == "upstream-timeout":
+        pytest.skip(f"upstream did not answer: HTTP {response.status_code} {kind}")
 
 
 def _rerun_will_retry(item: pytest.Item, error: BaseException) -> bool:
