@@ -341,7 +341,11 @@ class RmiObservationRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         df = pl.read_json(file.content, schema=_STATION_SCHEMA)
-        df = df.select(pl.col("features").explode(empty_as_null=True)).unnest("features")
+        # `explode` makes a null row of an empty list: a list without a station is no station, not a null one
+        df = df.select(pl.col("features").explode(empty_as_null=True)).drop_nulls()
+        if df.is_empty():
+            return pl.LazyFrame()
+        df = df.unnest("features")
         df = df.select(
             pl.col("properties").struct.field("code").cast(pl.String).alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),

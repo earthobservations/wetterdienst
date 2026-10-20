@@ -17,7 +17,14 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from tests.provider.station_catalogue_stubs import _serve, _stations
+from wetterdienst import Settings
 from wetterdienst.model.schema import STATIONS_SCHEMA
+from wetterdienst.provider.dmi.observation import DmiObservationRequest
+from wetterdienst.provider.dmi.observation import api as dmi_api
+from wetterdienst.provider.dwd import catalogue as dwd_catalogue
+from wetterdienst.provider.dwd.dmo import DwdDmoRequest
+from wetterdienst.provider.dwd.dmo import api as dmo_api
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
@@ -30,6 +37,10 @@ from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as meteofrance_synop_api
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationRequest
 from wetterdienst.provider.meteoswiss.observation import api as meteoswiss_api
+from wetterdienst.provider.metno.frost import MetnoFrostRequest
+from wetterdienst.provider.metno.frost import api as frost_api
+from wetterdienst.provider.rmi.observation import RmiObservationRequest
+from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
@@ -149,7 +160,46 @@ def _meteoswiss(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(MeteoswissObservationRequest, ("daily", "data"))
 
 
+def _dmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _serve(monkeypatch, dmi_api, {"station/items": _json({"type": "FeatureCollection", "features": []})})
+    return _stations(DmiObservationRequest, ("hourly", "data"))
+
+
+def _rmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _serve(monkeypatch, rmi_api, {"aws_station": _json({"type": "FeatureCollection", "features": []})})
+    return _stations(RmiObservationRequest, ("10_minutes", "data"))
+
+
+def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _serve(monkeypatch, frost_api, {"sources/v0.jsonld": _json({"data": []})})
+    request = MetnoFrostRequest(
+        parameters=[("hourly", "data")],
+        settings=Settings(cache_disable=True, auth={"metno_frost": ("stub-client", "stub-secret")}),
+    )
+    return request.all().df
+
+
+# the header and the rule of the fixed-width list of DWD, and no row under them
+_FIXED_WIDTH_HEADER = (
+    "ID    ICAO NAME                 LAT    LON     ELEV\n----- ---- -------------------- -----  ------- -----\n"
+)
+
+
+def _dwd_dmo(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _serve(monkeypatch, dmo_api, {"dmo_stationsliste_txt": _FIXED_WIDTH_HEADER.encode("latin-1")})
+    monkeypatch.setattr(dmo_api, "list_remote_directory_fsspec", lambda *_args, **_kwargs: [])
+    return _stations(DwdDmoRequest, ("hourly", "icon"))
+
+
+def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    _serve(monkeypatch, dwd_catalogue, {"mosmix_stationskatalog": _FIXED_WIDTH_HEADER.encode("latin-1")})
+    return _stations(DwdMosmixRequest, ("hourly", "small"))
+
+
 CASES: dict[str, Callable[[pytest.MonkeyPatch], pl.DataFrame]] = {
+    "dmi/observation": _dmi,
+    "dwd/dmo, a list of the header alone": _dwd_dmo,
+    "dwd/mosmix, a list of the header alone": _dwd_mosmix,
     "ea/hydrology": _ea_hydrology,
     "eccc/observation, a list with no hourly station": _eccc,
     "smhi/observation": _smhi,
@@ -158,6 +208,8 @@ CASES: dict[str, Callable[[pytest.MonkeyPatch], pl.DataFrame]] = {
     "meteofrance/observation": _meteofrance_observation,
     "meteofrance/synop": _meteofrance_synop,
     "meteoswiss/observation": _meteoswiss,
+    "metno/frost": _metno_frost,
+    "rmi/observation": _rmi,
 }
 
 

@@ -119,6 +119,9 @@ def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_
     # the catalogue is latin-1 encoded (station names carry umlauts)
     lines = StringIO(file.content.read().decode(encoding="latin-1")).readlines()
     header = lines.pop(0)
+    if not lines[1:]:
+        # a list of the header and the rule alone: a column without a row is Null, `str.slice` raises on it
+        return pl.DataFrame()
     # line 2 is the ``----- ---- ...`` rule under the header
     df = pl.DataFrame({"column_0": lines[1:]})
     df.columns = [header]

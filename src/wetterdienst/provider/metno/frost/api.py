@@ -945,7 +945,10 @@ class MetnoFrostRequest(TimeseriesRequest):
             return pl.LazyFrame()
 
         df = pl.read_json(file.content)
-        df = df.select(pl.col("data").explode(empty_as_null=True))
+        df = df.select(pl.col("data").explode(empty_as_null=True)).drop_nulls()
+        if df.is_empty():
+            # `{"data": []}` is a list without a source, a column of nulls that cannot be unnested
+            return pl.LazyFrame()
         df = df.unnest("data")
         # geometry.coordinates: [longitude, latitude, elevation?]. 24 of the 2235 sources (2026-10-19) have
         # no geometry and no position in any other field: ships, rigs and gliders (SN76999 SCARABEO 8,

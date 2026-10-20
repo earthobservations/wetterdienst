@@ -40,6 +40,9 @@ Types of changes:
 
 ### Fixed
 
+- DMI, RMI, MET Norway Frost and DWD (`dmo`, `mosmix`, `poi`): a station list the source answers
+  with no station is the empty stations frame now. DMI and RMI answered one station with every
+  column null, Frost and the fixed-width lists of DWD (a header and no row) raised (GH-3203)
 - NOAA GHCN (`hourly`, `daily`), IMGW (`hydrology`, `meteorology`) and WSV (a stage or another
   parameter that is scaled to its unit): a value cell that is a text and no number is null now,
   as in every other provider, where it raised and lost the whole station. The rows around it
