@@ -2,7 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the helper that skips a remote test whose upstream did not answer."""
 
+import errno
 import os
+import socket
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,8 +12,9 @@ from aiohttp import ClientResponseError, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
-from tests.conftest import skip_if_upstream_unavailable
-from wetterdienst.exceptions import DownloadError
+from tests import conftest
+from tests.conftest import skip_if_upstream_problem, skip_if_upstream_unavailable
+from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.util.network import File
 
 
@@ -40,6 +43,13 @@ def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> N
         pytest.param(_response_error(400), id="400"),
         pytest.param(FileNotFoundError("https://hubeau.eaufrance.fr/api"), id="404"),
         pytest.param(ValueError("unparseable"), id="value"),
+        pytest.param(
+            CredentialRejectedError("AEMET rejected the request. Check that WD_AUTH__AEMET contains a valid API key."),
+            id="credential rejected",
+        ),
+        pytest.param(_response_error(401), id="401"),
+        pytest.param(_response_error(403), id="403"),
+        pytest.param(DownloadError("https://example.invalid/file", "refused"), id="download error without a cause"),
     ],
 )
 def test_an_answer_upstream_gave_still_fails_the_test(error: Exception) -> None:
@@ -269,3 +279,121 @@ def test_a_remote_test_that_met_a_real_failure_still_fails(
         """,
     )
     result.assert_outcomes(failed=4, skipped=0)
+
+
+def _no_internet(cause: OSError | None) -> NoInternetError:
+    error = NoInternetError("No internet connection: could not reach https://api.example.invalid/items")
+    error.__cause__ = cause
+    return error
+
+
+def _semaphore_timeout() -> OSError:
+    """Build what Windows raises, which carries `winerror` where POSIX has no such member to construct it with."""
+    error = OSError(errno.EINVAL, "The semaphore timeout period has expired")
+    error.winerror = 121  # ty: ignore[unresolved-attribute]
+    return error
+
+
+_UNANSWERED = [
+    pytest.param(TimeoutError(), id="timeout"),
+    pytest.param(ConnectionRefusedError(errno.ECONNREFUSED, "refused"), id="refused"),
+    pytest.param(ConnectionResetError(errno.ECONNRESET, "reset"), id="reset"),
+    pytest.param(OSError(errno.EHOSTUNREACH, "no route to host"), id="no route"),
+    # how a Windows runner reports a connect that timed out, as the log of the failing eccc tests shows
+    pytest.param(_semaphore_timeout(), id="windows semaphore timeout"),
+]
+
+
+@pytest.mark.parametrize("cause", _UNANSWERED)
+def test_a_host_that_did_not_answer_skips_while_the_runner_has_network(
+    monkeypatch: pytest.MonkeyPatch, cause: OSError
+) -> None:
+    """Test that a connection one host never took up skips the test when other hosts can be reached (GH-2522)."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    with pytest.raises(pytest.skip.Exception, match="upstream did not answer"), skip_if_upstream_unavailable():
+        raise _no_internet(cause)
+
+
+@pytest.mark.parametrize("cause", _UNANSWERED)
+def test_a_runner_that_has_lost_its_network_fails_the_test(monkeypatch: pytest.MonkeyPatch, cause: OSError) -> None:
+    """Test that nothing skips when no other host can be reached either: that is no outage of one provider (GH-2640)."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: False)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable():
+        raise _no_internet(cause)
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [
+        pytest.param(socket.gaierror(8, "nodename nor servname provided, or not known"), id="name does not resolve"),
+        pytest.param(OSError(errno.ENOENT, "something else"), id="other os error"),
+        pytest.param(None, id="no cause"),
+    ],
+)
+def test_a_connection_failure_that_is_not_an_unanswered_host_fails_the_test(
+    monkeypatch: pytest.MonkeyPatch, cause: OSError | None
+) -> None:
+    """Test that a name that does not resolve fails even on a runner with network: a dead or misspelt host looks so."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable():
+        raise _no_internet(cause)
+
+
+def test_the_connectivity_probe_is_true_if_any_host_takes_a_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the probe tries each host, and is false only when none can be connected to."""
+    tried: list[tuple[str, int]] = []
+
+    def refuse_first(address: tuple[str, int], timeout: float) -> MagicMock:  # noqa: ARG001
+        tried.append(address)
+        if len(tried) == 1:
+            raise OSError
+        return MagicMock()
+
+    monkeypatch.setattr(conftest.socket, "create_connection", refuse_first)
+    assert conftest._runner_has_network() is True  # noqa: SLF001
+    assert len(tried) == 2
+
+    def refuse_all(address: tuple[str, int], timeout: float) -> MagicMock:  # noqa: ARG001
+        raise OSError
+
+    monkeypatch.setattr(conftest.socket, "create_connection", refuse_all)
+    assert conftest._runner_has_network() is False  # noqa: SLF001
+
+
+def _problem_response(status: int, kind: str) -> MagicMock:
+    response = MagicMock()
+    response.status_code = status
+    response.json.return_value = {"type": f"urn:wetterdienst:problem:{kind}", "status": status}
+    return response
+
+
+def test_a_rest_answer_of_a_provider_that_timed_out_skips_the_test() -> None:
+    """Test that a 504 `upstream-timeout` skips, as a timeout does where the library is called directly."""
+    with pytest.raises(pytest.skip.Exception, match="upstream did not answer"):
+        skip_if_upstream_problem(_problem_response(504, "upstream-timeout"))
+
+
+@pytest.mark.parametrize(
+    ("status", "kind"),
+    [
+        pytest.param(200, "ok", id="200"),
+        pytest.param(504, "request-timeout", id="the server gave up"),
+        pytest.param(503, "upstream-unreachable", id="not told why the connection failed"),
+        pytest.param(503, "server-busy", id="busy"),
+        pytest.param(502, "upstream-failed", id="the parser may be at fault"),
+        pytest.param(501, "credential-missing", id="credential"),
+        pytest.param(500, "internal-error", id="our defect"),
+        pytest.param(404, "not-found", id="404"),
+    ],
+)
+def test_any_other_rest_answer_is_left_to_the_test(status: int, kind: str) -> None:
+    """Test that only a provider's timeout skips: every other status is for the test's own assertion."""
+    skip_if_upstream_problem(_problem_response(status, kind))
+
+
+def test_a_rest_answer_that_is_not_json_is_left_to_the_test() -> None:
+    """Test that a 504 with a body that is no problem (a proxy's page) is not read as the provider's timeout."""
+    response = MagicMock()
+    response.status_code = 504
+    response.json.side_effect = ValueError("not json")
+    skip_if_upstream_problem(response)
