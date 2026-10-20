@@ -997,6 +997,9 @@ class DwdDmoRequest(TimeseriesRequest):
         text = StringIO(file.content.read().decode(encoding="latin-1"))
         lines = text.readlines()
         header = lines.pop(0)
+        if not lines[1:]:
+            # a list of the header and the rule alone: a column without a row is Null, `str.slice` raises on it
+            return pl.LazyFrame()
         df_raw = pl.DataFrame({"column_0": lines[1:]})
         df_raw.columns = [header]
         column_specs = ((0, 4), (5, 9), (10, 30), (31, 38), (39, 46), (48, 56))
