@@ -6,18 +6,18 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
 from tests.provider.value_stubs import serve
 from wetterdienst import Settings
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationRequest
 from wetterdienst.provider.meteoswiss.observation import api as meteoswiss_api
-
-if TYPE_CHECKING:
-    import polars as pl
+from wetterdienst.util.network import File
 
 
 @pytest.mark.remote
@@ -151,3 +151,59 @@ def test_meteoswiss_observation_decade_files_span_the_new_year(monkeypatch: pyte
     df, read = _hourly_values(monkeypatch, "2009-12-31T23:00:00+00:00", "2010-01-01T00:00:00+00:00")
     assert sorted(read) == ["ogd-smn_ber_h_historical_2000-2009.csv", "ogd-smn_ber_h_historical_2010-2019.csv"]
     assert df.get_column("value").to_list() == [5.3, 4.9]
+
+
+def _serve_station_files(monkeypatch: pytest.MonkeyPatch, assets: dict[str, str]) -> None:
+    """Serve the stations, the STAC item of BER naming the assets and the files by name."""
+    item_body = json.dumps({"assets": {name: {"href": f"{_BASE}/ber/{name}"} for name in assets}}).encode()
+
+    def download_file(url: str, **_: object) -> File:
+        if "ogd-smn_meta_stations.csv" in url:
+            return File(url=url, content=BytesIO(_STATIONS.encode("windows-1252")), status=200)
+        if "/items/ber" in url:
+            return File(url=url, content=BytesIO(item_body), status=200)
+        body = assets[url.rsplit("/", 1)[-1]]
+        return File(url=url, content=BytesIO(body.encode("windows-1252")), status=200)
+
+    monkeypatch.setattr(meteoswiss_api, "download_file", download_file)
+
+
+def _ber_values(resolution: str = "daily", parameter: str = "temperature_air_mean_2m") -> pl.DataFrame:
+    request = MeteoswissObservationRequest(
+        parameters=[(resolution, "data", parameter)],
+        start="2020-01-01T00:00:00+00:00",
+        end="2020-01-03T00:00:00+00:00",
+        settings=Settings(cache_disable=True),
+    ).filter_by_station_id("BER")
+    return request.values().all().df
+
+
+def test_meteoswiss_observation_daily_values_come_out_as_the_long_form(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The daily files of BER, the historical one and the recent one, stamped at midnight and read as UTC (GH-2627)."""
+    _serve_station_files(
+        monkeypatch,
+        {
+            "ogd-smn_ber_d_historical.csv": "station_abbr;reference_timestamp;tre200d0\nBER;01.01.2020 00:00;1.5\n",
+            "ogd-smn_ber_d_recent.csv": "station_abbr;reference_timestamp;tre200d0\nBER;02.01.2020 00:00;-0.4\n",
+        },
+    )
+    df = _ber_values().sort("timestamp")
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.select("resolution", "dataset", "station_id", "parameter").unique().rows() == [
+        ("daily", "data", "BER", "temperature_air_mean_2m")
+    ]
+    assert df.get_column("timestamp").to_list() == [
+        datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC")),
+        datetime(2020, 1, 2, tzinfo=ZoneInfo("UTC")),
+    ]
+    assert df.get_column("value").to_list() == [1.5, -0.4]
+
+
+def test_meteoswiss_observation_a_station_without_a_file_of_the_resolution_comes_out_as_the_empty_long_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A station whose item lists no file of the resolution (BER has only the hourly decades here) is no rows."""
+    _serve_station_files(monkeypatch, {"ogd-smn_ber_h_historical_2010-2019.csv": ""})
+    df = _ber_values()
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.is_empty()

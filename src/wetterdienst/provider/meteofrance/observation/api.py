@@ -946,14 +946,12 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
         # alone (the files hold none: GH-2719) and now keeps its text too
         value, raw = null_sentinels(pl.col("value"), *_sentinels(resolution_name), non_numeric=True)
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(
-            pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
-            pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
             # kept as published (e.g. "RR", "TN"), matching the case of name_original in the
             # metadata below; the base class matches requested parameters against this column
             # using an exact, case-sensitive comparison against parameter.name_original
             pl.col("parameter"),
-            pl.lit(station_id, dtype=pl.String).alias("station_id"),
             _parse_climate_date(pl.col(date_column), resolution_name, fu_hours).alias("timestamp"),
             value.alias("value"),
             # the validation code (9 filtered, 0 protected, 1 validated, 2 doubtful), verbatim and null where the

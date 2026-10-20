@@ -12,6 +12,7 @@ import pytest
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import InvalidParameterError
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as synop_api
 
@@ -84,6 +85,16 @@ def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytes
         "precipitation_amount_last_12h": [0.0, 0.0],
         "precipitation_amount_last_24h": [0.0, 5.5],
     }
+
+
+def test_meteofrance_synop_api_a_station_absent_from_the_file_is_the_empty_long_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a file that holds rows of other stations only is no rows for the station asked for (GH-2627)."""
+    rows = [{"geo_id_wmo": "07015", "validity_time": "2024-01-01T18:00:00Z", "rr1": "0.2"}]
+    df = _values(monkeypatch, rows, ["precipitation_amount_last_1h"])
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.is_empty()
 
 
 def test_meteofrance_synop_api_wind_is_named_for_its_ten_minutes(monkeypatch: pytest.MonkeyPatch) -> None:

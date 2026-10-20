@@ -17,6 +17,7 @@ import pytest
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import InvalidParameterError
+from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File
 
@@ -609,6 +610,39 @@ def test_meteofrance_observation_api_unknown_fu_offset_warns_only_when_rows_come
         df = _values("hourly", "core", "temperature_air_2m", "98404006", _utc(2021, 1, 1), _utc(2021, 1, 2))
     assert df.is_empty()
     assert "98404006" not in caplog.text
+
+
+def test_meteofrance_observation_api_a_request_outside_every_period_file_is_the_empty_long_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a range no period file of the department covers reads no file and is no rows (GH-2627)."""
+    rows = [{"NUM_POSTE": "31069001", "AAAAMMJJHH": "2021010100", "T": "3.0"}]
+    asked = _serve_climate(monkeypatch, {"HOR_departement_031_periode_2020-2024": _climate_gz("hourly", "core", rows)})
+    df = _values("hourly", "core", "temperature_air_2m", "31069001", _utc(1990, 1, 1), _utc(1990, 1, 2))
+    assert asked == []
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.is_empty()
+
+
+def test_meteofrance_observation_api_a_period_file_that_is_a_404_is_the_empty_long_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a listed period file the portal does not have is left out, and a station with no other is no rows."""
+    title = "HOR_departement_031_periode_2020-2024"
+    resources = [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"}]
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        url = url or args[0]
+        return File(url=url, content=BytesIO(json.dumps({"resources": resources}).encode("utf8")), status=200)
+
+    def download_files(urls: list[str], **_: object) -> list[File]:
+        return [File(url=url, content=FileNotFoundError(url), status=404) for url in urls]
+
+    monkeypatch.setattr(api, "download_file", download_file)
+    monkeypatch.setattr(api, "download_files", download_files)
+    df = _values("hourly", "core", "temperature_air_2m", "31069001", _utc(2021, 1, 1), _utc(2021, 1, 2))
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    assert df.is_empty()
 
 
 def test_meteofrance_observation_api_daily_returns_the_validation_code_of_each_value(
