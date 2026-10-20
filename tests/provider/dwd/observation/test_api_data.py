@@ -3,6 +3,7 @@
 """Tests for DWD observation metadata."""
 
 import datetime as dt
+import logging
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -17,6 +18,7 @@ from wetterdienst import Options, Resolution, Settings
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest, DwdObservationValues
 from wetterdienst.provider.dwd.observation.metadata import (
@@ -915,12 +917,69 @@ def test_period_precedence_on_overlapping_timestamps(
     )
     values = DwdObservationValues.from_stations(stations_result)
     given_df = values._collect_station_parameter_or_dataset("00011", dataset)  # noqa: SLF001
+    # the provider hands over the text of the file, which the core reads as the number it writes
+    given_df = shape_provider_frame(given_df, station_id="00011", dataset=dataset)
     given_df = given_df.filter(pl.col("parameter") == "tt_tu").sort("timestamp")
     # 9.9 over recent's 1.1 shows the rank decides rather than the value sort, and the null over
     # recent's 2.2 that a missing historical measurement is not quietly filled from a later period.
     # `_tidy_up_df` drops the quality flags wherever the value is null, hence the None beside it
     assert given_df.get_column("value").to_list() == [9.9, None]
     assert given_df.get_column("quality_flags").to_list() == ["3", None]
+
+
+def test_a_value_that_is_no_number_is_null_and_counted_not_an_error(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The provider hands over the text of a cell, and the core reads it: one that is no number is null (GH-2627).
+
+    The provider cast the value to Float64 itself and strictly, so a cell that is no number (and no sentinel, which
+    the parser has mapped to null) raised and lost the whole station. The core does the cast now, leniently, and
+    counts the cells it could not read in one debug line. The parser decodes the letters DWD writes in the files
+    (`V_N_I`, `V_VV_I`) and drops the text columns (`WW_Text`), so no file of the recent directories of the
+    observations and the urban climate that were read on 2026-10-20 (two stations of each dataset) reaches the cast
+    with a cell that is none, and what a reader sees changes only for a file DWD writes differently one day.
+    """
+    dataset = DwdObservationMetadata.hourly.temperature_air
+    frame = pl.LazyFrame(
+        {
+            "station_id": ["00011", "00011"],
+            "timestamp": [
+                dt.datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+                dt.datetime(2024, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+            ],
+            "qn": ["3", "3"],
+            "tt_tu": ["9.9", "n/a"],
+        },
+    )
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *args, **kwargs: pl.Series(["https://example.invalid/file.zip"]),  # noqa: ARG005
+    )
+    monkeypatch.setattr(dwd_observation_api, "download_climate_observations_data", lambda *args, **kwargs: [object()])  # noqa: ARG005
+    monkeypatch.setattr(dwd_observation_api, "parse_climate_observations_data", lambda *_args: frame)
+    request = DwdObservationRequest(
+        parameters=[("hourly", "temperature_air")],
+        periods={"recent"},
+        settings=default_settings,
+    )
+    result = StationsResult(
+        request=request,
+        df=pl.DataFrame(),
+        _df_all=pl.DataFrame(),
+        _stations_filter=StationsFilter.ALL,
+    )
+    handed_over = DwdObservationValues.from_stations(result)._collect_station_parameter_or_dataset("00011", dataset)  # noqa: SLF001
+    assert handed_over["value"].dtype == pl.String
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        df = shape_provider_frame(handed_over, station_id="00011", dataset=dataset, provider="DwdObservationValues")
+    assert df["value"].dtype == pl.Float64
+    assert df.sort("timestamp")["value"].to_list() == [9.9, None]
+    assert [record.getMessage() for record in caplog.records if "no number" in record.getMessage()] == [
+        "DwdObservationValues: 1 of 2 value cells are no number and are null"
+    ]
 
 
 def _serve_historical_files(monkeypatch: pytest.MonkeyPatch, files: dict[str, str]) -> None:
