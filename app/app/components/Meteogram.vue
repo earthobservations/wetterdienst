@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
+import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
   values: Value[]
@@ -897,57 +899,6 @@ function resampleSeries(
     }
   }
   return resampled
-}
-
-// What a day card shows for the weather: a symbol, and the words it stands for (`meteogram.chart.weather.*`),
-// which the card gives to a screen reader as the symbol is hidden from it (WCAG 1.1.1)
-type WeatherKind = 'thunderstorm' | 'rain' | 'snow' | 'drizzle' | 'fog' | 'wind' | 'cloudy' | 'partlyCloudy' | 'clear'
-const WEATHER_SYMBOLS: Record<WeatherKind, string> = {
-  thunderstorm: '⛈',
-  rain: '🌧',
-  snow: '🌨',
-  drizzle: '💧',
-  fog: '🌫',
-  wind: '💨',
-  cloudy: '☁',
-  partlyCloudy: '⛅',
-  clear: '☀',
-}
-
-/** The kind of weather a WMO present-weather code (0..99) stands for, null where it stands for none. */
-function weatherCodeToKind(code: number | null | undefined): WeatherKind | null {
-  if (code === null || code === undefined)
-    return null
-  const c = Math.round(code)
-  if (c >= 95 && c <= 99)
-    return 'thunderstorm'
-  if (c >= 80 && c <= 84)
-    return 'rain'
-  if (c >= 85 && c <= 86)
-    return 'snow'
-  if (c >= 70 && c <= 79)
-    return 'snow'
-  if (c >= 60 && c <= 69)
-    return 'rain'
-  if (c >= 50 && c <= 59)
-    return 'drizzle'
-  if (c >= 40 && c <= 49)
-    return 'fog'
-  if (c >= 30 && c <= 39)
-    return 'thunderstorm'
-  if (c >= 20 && c <= 29)
-    return 'wind'
-  if (c >= 10 && c <= 19)
-    return 'cloudy'
-  if (c === 3)
-    return 'cloudy'
-  if (c === 2)
-    return 'partlyCloudy'
-  if (c === 1)
-    return 'partlyCloudy'
-  if (c === 0)
-    return 'clear'
-  return null
 }
 
 let isRendering = false

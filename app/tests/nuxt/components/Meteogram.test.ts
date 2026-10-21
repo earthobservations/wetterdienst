@@ -531,6 +531,12 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     [61, '🌧', 'Rain'],
     [95, '⛈', 'Thunderstorm'],
     [0, '☀', 'Sunny'],
+    // dust and snow storms are no thunderstorms (30-39 were drawn as one)
+    [33, '🌪', 'Dust or sand storm'],
+    [38, '🌨', 'Blowing snow'],
+    [69, '🌨', 'Sleet'],
+    // a funnel cloud names no weather the card could: it judges from the cloud cover and the rain, here none
+    [19, '☀', 'Sunny'],
   ])('names the weather of weather code %i as %s %s in a day card', async (code, symbol, words) => {
     const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
     plotly.newPlot.mockClear()

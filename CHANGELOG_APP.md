@@ -28,6 +28,15 @@ Types of changes:
   chart, until the pointer moves on. The label itself still cannot be moved onto, which Plotly does
   not allow; its values are in "Show as table" (WCAG 1.4.13, partly; GH-3186)
 
+### Fixed
+
+- `[Forecast]` The compact day cards drew a wrong symbol for some WMO weather codes: dust and sand
+  storms and drifting or blowing snow (30-39) as a thunderstorm, the phenomena of the hour before
+  (20-29: drizzle, rain, snow, fog, thunderstorm) as wind, and mist, lightning, precipitation in sight
+  and a funnel cloud (10-19) as clouds. They show 🌪 for a dust or sand storm, 🌨 for blowing snow and
+  for rain and snow, the phenomenon of the code otherwise, and, where a code names none the card can
+  (haze, hail, a funnel cloud), the symbol the day's cloud cover and rain give (GH-3186)
+
 ## [0.28.0] - 2026-10-20
 
 ### Changed
