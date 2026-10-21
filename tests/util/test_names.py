@@ -84,3 +84,81 @@ def test_an_unrelated_name_does_not_match() -> None:
     """Folding is no loosening: a different name stays below the threshold."""
     assert _hits("Berlin") == []
     assert _hits("") == []
+
+
+# the spellings a person types for one station name, the name as it is written first: an umlaut or a Nordic letter
+# kept, dropped (``Koln``) or spelled out (``Koeln``), and the case it comes in
+SPELLINGS = [
+    ["Köln", "Koln", "Koeln", "KOELN"],
+    ["Århus", "Arhus", "Aarhus"],
+    ["Düsseldorf", "Dusseldorf", "Duesseldorf"],
+    ["Straße", "Strasse"],
+    ["Tromsø", "Tromso", "Tromsoe"],
+    ["Göteborg", "Goteborg", "Goeteborg"],
+    ["Zürich", "Zurich", "Zuerich"],
+    ["Bäumchen", "Baumchen", "Baeumchen"],
+    ["Malmö", "Malmo", "Malmoe"],
+    ["Sønderborg", "Sonderborg", "Soenderborg"],
+]
+
+# a list that holds the umlaut forms, as DWD's, SMHI's and DMI's do, the same names with a suffix as stations are
+# named (``Köln-Flughafen``), and names that are none of these
+UMLAUT_STATIONS = [
+    None,
+    *[group[0] for group in SPELLINGS],
+    *[f"{group[0]}-Flughafen" for group in SPELLINGS],
+    "Kiel",
+    "Dresden",
+    "Bremen",
+    "Hamburg-Fuhlsbüttel",
+]
+
+
+def _found(query: str, names: list[str | None], threshold: float) -> list[tuple[int, float]]:
+    """Return the stations a query finds as `(index, score)`, in the order they are returned."""
+    return match_names(query, names, threshold)
+
+
+@pytest.mark.parametrize("threshold", [0.8, 0.9, 1.0])
+@pytest.mark.parametrize("group", SPELLINGS, ids=[group[0] for group in SPELLINGS])
+def test_every_spelling_of_a_name_finds_the_same_stations_in_the_same_order(group: list[str], threshold: float) -> None:
+    """The name typed with its umlaut, without it, spelled out or in capitals answers with one list of stations.
+
+    The list holds the umlaut forms; a spelling that found fewer stations than another, or the same ones in
+    another order, would make what a caller gets depend on a keyboard. The scores may differ, as ``Koeln`` is an
+    exact match of ``Köln`` through its spelled-out form and ``Koln`` through its plain one, 100 each. From the
+    default threshold of 0.8 up: a name that merely looks like another (``Königsberg`` for ``Köln`` at 0.8) is
+    scored in the form the query was typed in, and so can come back for one spelling and not for another.
+    """
+    found = {spelling: [index for index, _ in _found(spelling, UMLAUT_STATIONS, threshold)] for spelling in group}
+    assert found[group[0]], f"{group[0]} finds nothing"
+    assert {spelling: hits for spelling, hits in found.items() if hits != found[group[0]]} == {}
+
+
+@pytest.mark.parametrize("group", SPELLINGS, ids=[group[0] for group in SPELLINGS])
+def test_every_spelling_of_a_name_finds_the_station_in_the_first_place(group: list[str]) -> None:
+    """The station written with the umlaut is the best match of every spelling, with the full score."""
+    for spelling in group:
+        best_index, best_score = _found(spelling, UMLAUT_STATIONS, 0.8)[0]
+        assert UMLAUT_STATIONS[best_index] == group[0], spelling
+        assert best_score == 100.0, spelling
+
+
+@pytest.mark.parametrize("group", SPELLINGS, ids=[group[0] for group in SPELLINGS])
+def test_the_umlaut_spelling_finds_the_station_written_without_it(group: list[str]) -> None:
+    """A station an ASCII-only source writes as ``Koeln``, ``Dusseldorf`` or ``Strasse`` is found by the umlaut query.
+
+    Each other spelling is a station of its own here, and the name with the umlaut finds every one of them at the
+    full score, in the order the stations are listed.
+    """
+    ascii_stations = [spelling for spelling in group[1:] if spelling.isascii() and spelling != spelling.upper()]
+    assert ascii_stations
+    stations = ["Kiel", *ascii_stations, "Dresden"]
+    assert _found(group[0], stations, 0.8) == [(index, 100.0) for index in range(1, 1 + len(ascii_stations))]
+
+
+def test_koeln_and_dusseldorf_written_without_an_umlaut_are_found_by_the_umlaut_query() -> None:
+    """The two named ones: ``Koeln`` (the umlaut spelled out) and ``Dusseldorf`` (the umlaut dropped)."""
+    stations = ["Koeln", "Dusseldorf", "Kiel"]
+    assert [stations[index] for index, _ in _found("Köln", stations, 0.8)] == ["Koeln"]
+    assert [stations[index] for index, _ in _found("Düsseldorf", stations, 0.8)] == ["Dusseldorf"]
