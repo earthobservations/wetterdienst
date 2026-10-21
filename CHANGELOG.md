@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The option `station_window_end_buffer` (`WD_TS_STATION_WINDOW_END_BUFFER`, the command line's
+  `--station-window-end-buffer`, a query parameter of `stations` and `values`) sets how many days
+  after the end its catalogue publishes a station is still kept for a request window: `0` compares
+  the end exactly, and the default (`None`) is the buffer by resolution that applied before: two
+  days, 62 for monthly, 732 for annual. `filter_by_name` and the `stations` listing of every
+  surface apply it by one rule, the start being compared exactly. `values` reports it in its
+  `settings` block (GH-3220)
+
 ## [0.164.0] - 2026-10-21
 
 ### Changed

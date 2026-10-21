@@ -40,6 +40,12 @@ _UNIT_CONVERTER_TARGETS = UnitConverter().targets.keys()
 #: two cannot drift apart (GH-2334)
 SkipThreshold = Annotated[float, Field(gt=0, le=1)]
 
+#: how many days after its published end a station is still kept for a request window, at most: ten years,
+#: which is more than the longest default (732 days, the annual index) several times over and leaves a typo
+#: of a year in the wrong unit refused instead of keeping every station that ever reported. The REST request
+#: model takes it too (GH-3220)
+StationWindowEndBuffer = Annotated[int, Field(ge=0, le=3660)]
+
 #: how far a station may be from the target point to still be used, in km
 _STATION_DISTANCE_HOMOGENEOUS = 40.0
 #: the same for a quantity that decorrelates faster -- see `CanonicalParameter.interpolation`
@@ -356,6 +362,12 @@ class Options(BaseSettings):
     skip_threshold: SkipThreshold = 0.95
     skip_criteria: Literal["min", "mean", "max"] = "min"
     drop_nulls: bool = True
+    # how long after the end its catalogue publishes a station is still kept for a request window, in
+    # days: the end a source publishes lags a station that is still reporting. None keeps the rule per
+    # resolution (two days, 62 for monthly, 732 for annual: `wetterdienst.model.request.limit_to_window`),
+    # 0 compares the end with the window exactly. The start the catalogue publishes is exact (its first
+    # reading), so no buffer is taken on that side (GH-3220)
+    station_window_end_buffer: StationWindowEndBuffer | None = None
     # how far a station may be from the target point to still be interpolated or summarized from.
     # the two radii follow `CanonicalParameter.interpolation`: a homogeneous quantity such as air
     # temperature varies slowly across a region and may be drawn from farther away than a

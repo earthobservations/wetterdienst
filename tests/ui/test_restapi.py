@@ -5512,7 +5512,7 @@ _REPORTED_COMMON_SETTINGS = {
     "skip_criteria",
     "drop_nulls",
 }
-_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {"shape"}
+_REPORTED_VALUES_SETTINGS = _REPORTED_COMMON_SETTINGS | {"shape", "station_window_end_buffer"}
 _REPORTED_GEO_SETTINGS = _REPORTED_COMMON_SETTINGS | {
     "min_gain_of_value_pairs",
     "num_additional_stations",
@@ -5558,6 +5558,7 @@ def test_settings_reports_wetterdienst_defaults(client: TestClient) -> None:
         "skip_threshold": 0.95,
         "skip_criteria": "min",
         "drop_nulls": True,
+        "station_window_end_buffer": None,
     }
     assert unit_targets["temperature"] == "degree_celsius"
     for endpoint, kind in (("interpolate", "interpolation"), ("summarize", "summary")):
@@ -6120,6 +6121,7 @@ _SETTINGS_PARAMETERS = [
     ("skip_threshold", "0.5", {"values": {"skip_threshold"}}),
     ("skip_criteria", "mean", {"values": {"skip_criteria"}}),
     ("drop_nulls", "false", {"values": {"drop_nulls"}}),
+    ("station_window_end_buffer", "7", {"values": {"station_window_end_buffer"}}),
     (
         "interpolation_station_distance",
         '{"temperature_air_mean_2m": 5}',

@@ -88,27 +88,42 @@ DEFAULT_NAME_RANK_LISTING = 5
 # how long before a window a station's published end may fall and the station still be listed for
 # it, by resolution: two readings, as the end a source publishes lags a station that is still
 # reporting (DWD's daily index ends yesterday, its annual one the year before last). Two days for
-# every resolution up to daily, and, as a month and a year are no fixed span, 62 and 732 days
+# every resolution up to daily, and, as a month and a year are no fixed span, 62 and 732 days.
+# The `station_window_end_buffer` option replaces them with one number of days for every resolution
 _END_LAG_DEFAULT = dt.timedelta(days=2)
 _END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
 
 
-def limit_to_window(df: pl.DataFrame, start: dt.datetime | None, end: dt.datetime | None) -> pl.DataFrame:
+def limit_to_window(
+    df: pl.DataFrame,
+    start: dt.datetime | None,
+    end: dt.datetime | None,
+    end_buffer_days: int | None = None,
+) -> pl.DataFrame:
     """Keep the rows of a station list whose record overlaps the window.
 
     A row is left out when its `start_timestamp` is after the window, which is a historical fact, or its
-    `end_timestamp` is before the window by more than the lag of its resolution (`_END_LAG`), which is the
-    one thing the index cannot state exactly for a station that is still reporting (see
-    `TimeseriesValues._begins_after_window`). A bound the provider does not publish states nothing either
-    way, so the row is kept. Without a window (no `start` or no `end`) the list is returned as it is.
+    `end_timestamp` is before the window by more than the buffer, which is the one thing the index cannot
+    state exactly for a station that is still reporting (see `TimeseriesValues._begins_after_window`). The
+    start is compared exactly, as the index publishes the first day with a reading: of DWD's stations with
+    the latest starts, the first reading of every one was on its `start_timestamp`, at daily, hourly and
+    monthly resolution. A bound the provider does not publish states nothing either way, so the row is kept.
+    Without a window (no `start` or no `end`) the list is returned as it is.
 
-    This is the one rule of "has a record in the window": `filter_by_name` applies it, and so does the
-    stations listing of the command line, the REST API and MCP (`ui.core.limit_stations_to_window`).
+    The buffer is `end_buffer_days` for every resolution, `0` comparing the end exactly. Where it is None,
+    the default of the resolution applies: two days, 62 for monthly and 732 for annual (`_END_LAG`).
+
+    This is the one rule of "has a record in the window": `filter_by_name` applies it with the
+    `station_window_end_buffer` option of the request, and so does the stations listing of the command line,
+    the REST API and MCP (`ui.core.limit_stations_to_window`).
     """
     if start is None or end is None or df.is_empty():
         return df
-    lag = pl.col("resolution").replace_strict(_END_LAG, default=_END_LAG_DEFAULT, return_dtype=pl.Duration("us"))
-    ends_in_time = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") + lag >= start)
+    if end_buffer_days is None:
+        buffer = pl.col("resolution").replace_strict(_END_LAG, default=_END_LAG_DEFAULT, return_dtype=pl.Duration("us"))
+    else:
+        buffer = pl.lit(dt.timedelta(days=end_buffer_days), dtype=pl.Duration("us"))
+    ends_in_time = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") + buffer >= start)
     begins_in_time = pl.col("start_timestamp").is_null() | (pl.col("start_timestamp") <= end)
     return df.filter(ends_in_time & begins_in_time)
 
@@ -838,8 +853,12 @@ class TimeseriesRequest:
                 Default: all of them. Whichever the frame, the window of the request (`start` and `end`) is
                 applied to it first, by the rule of `limit_to_window`: a station whose record ends before the
                 window or begins after it is not matched, so that the best match is a station that can have
-                a reading in it and not one that closed long ago (GH-3026). A frame that has been through
-                the window already is left as it is by a second pass. The other filters (`filter_by_station_id`,
+                a reading in it and not one that closed long ago (GH-3026). The end a catalogue publishes
+                lags a station that is still reporting, so a station is kept until the end is that far
+                before the window: two days, 62 for monthly and 732 for annual, or the
+                `station_window_end_buffer` option (days, 0 for the exact end) for every resolution. The
+                start is compared exactly. A frame that has been through the window already is left as it
+                is by a second pass. The other filters (`filter_by_station_id`,
                 `filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, `filter_by_sql`) select among the
                 whole list, whatever the window.
 
@@ -872,6 +891,7 @@ class TimeseriesRequest:
             self.all().df if df_all is None else df_all,
             cast("dt.datetime | None", self.start),
             cast("dt.datetime | None", self.end),
+            cast("Options", self.options).station_window_end_buffer,
         )
 
         # WRatio (rapidfuzz's weighted composite of ratio/partial/token-sort/token-set with

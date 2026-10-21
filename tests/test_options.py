@@ -80,6 +80,7 @@ CASES = [
     Case("geo_use_nearby_station_distance", 1.0, "0.5", 0.5, [-1], "-1"),
     Case("geo_min_gain_of_value_pairs", 0.1, "0.2", 0.2, [-0.1], "-0.1"),
     Case("geo_num_additional_stations", 3, "5", 5, [-1], "-1"),
+    Case("station_window_end_buffer", None, "7", 7, [-1, 3661, 1.5], "-1"),
 ]
 CASE_IDS = [case.name for case in CASES]
 #: the options a mapping is merged into from the environment, so a given value does not replace it

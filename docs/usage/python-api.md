@@ -355,12 +355,34 @@ The rows come back best match first, equal scores in the order of their `station
 `filter_by_name` matches the name among the stations that have a record in the `start` and `end` of the
 request, as the command line, the REST API and MCP do with a `timestamp`: a station that closed before
 the window, or began after it, is not the best match for a name while one of that name has the readings. A
-station is left out when it started after the window, or ended before it by more than two readings of its
-resolution (two days up to daily, 62 days for monthly and 732 for annual); a station whose start or end is
-not published is kept. A request without a window matches among all of them. The window is applied to a
-`df_all` you pass as well, so that the result does not depend on how you got the stations. The other
-filters (`filter_by_station_id`, `filter_by_rank`, `filter_by_distance`, `filter_by_bbox`,
-`filter_by_sql`) select among the whole list, whatever the window.
+station is left out when it started after the window, or ended before it by more than the buffer; a
+station whose start or end is not published is kept. A request without a window matches among all of
+them. The window is applied to a `df_all` you pass as well, so that the result does not depend on how
+you got the stations. The other filters (`filter_by_station_id`, `filter_by_rank`, `filter_by_distance`,
+`filter_by_bbox`, `filter_by_sql`) select among the whole list, whatever the window.
+
+The buffer is there because the end a source publishes lags a station that is still reporting (DWD's
+daily index ends yesterday, its annual one the year before last). By default a station is kept until its
+end is two days before the window, 62 days for monthly and 732 days for annual. The start is compared
+exactly: an index states the first day with a reading (the DWD stations that began last had their first
+reading on the start the index gives, at daily, hourly and monthly resolution), so a station that begins
+after the window has nothing in it and no buffer is taken on that side. The option `station_window_end_buffer`
+of the [options](settings.md#options) sets the buffer, in days and the same for every resolution: `0`
+compares the end exactly, `7` keeps a station that ended up to a week before the window, and left out
+(`None`, the default) it is the buffer by resolution. The command line (`--station-window-end-buffer`), the
+REST API and MCP (`station_window_end_buffer`) take it for `stations` and for `values` with a `name`, and
+`WD_TS_STATION_WINDOW_END_BUFFER` sets it for a host. One rule serves Python and the three of them
+(`limit_to_window`), so the same name and window give the same stations.
+
+```python
+request = DwdObservationRequest(
+    parameters=[("monthly", "climate_summary")],
+    start="2026-10-16",
+    end="2026-10-16",
+    options={"station_window_end_buffer": 0},  # a station is kept only if it has not ended before the window
+)
+stations = request.filter_by_name(name="Dresden-Klotzsche")
+```
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two

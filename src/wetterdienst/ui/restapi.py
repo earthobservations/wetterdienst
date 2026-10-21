@@ -125,6 +125,7 @@ from wetterdienst.ui.problems import (
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
 from wetterdienst.ui.render import (
     InterpolationSettings,
+    StationsSettings,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -1683,6 +1684,7 @@ def _stream_values(
 )
 def stations(
     request: Annotated[StationsRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Find weather stations and their `station_id` (step 1 of the station -> values workflow).
 
@@ -1708,12 +1710,15 @@ def stations(
     # outside the handler below: nothing of the caller's reaches these settings, so a malformed
     # server setting is the app's unhandled 500, which does not read its value back
     settings = Settings()
+    # a buffer out of range is the request's 400
+    options = _request_options(request, http_request.query_params.keys(), StationsSettings)
     try:
         stations_ = get_stations(
             api=api,
             request=request,
             timestamp=request.timestamp,
             settings=settings,
+            options=options,
         )
     except AssertionError:
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
@@ -1826,7 +1831,9 @@ def values(
     return _answer(content, request.format, metadata)
 
 
-def _request_options(request: BaseModel, given: Collection[str], applied: type[_AppliedSettings]) -> Options:
+def _request_options(
+    request: BaseModel, given: Collection[str], applied: type[_AppliedSettings | StationsSettings]
+) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
     `applied` lists the endpoint's settings by the request field that sets each, and `given` names
