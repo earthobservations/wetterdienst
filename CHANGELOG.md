@@ -20,8 +20,8 @@ Types of changes:
 
 - **Breaking**: the air temperature of `wsv/pegel` (`LT`, `LUFTTEMPERATUR`) is `temperature_air`,
   no longer `temperature_air_2m`: PEGELONLINE states no height for it. The old name, and
-  `temperature_air_mean_2m` of 0.139.0, are refused with the new one named, values and units are
-  unchanged: request, filter and key by the new name (GH-3242)
+  `temperature_air_mean_2m` of 0.139.0, are refused with the new one named; values and units are
+  unchanged. Request, filter and key by the new name (GH-3242)
 
 ### Removed
 

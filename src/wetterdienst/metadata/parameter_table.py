@@ -1807,8 +1807,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "temperature_air",
         "temperature",
-        "Air temperature at a height above ground that the name does not state, at a moment: the source's sensor "
-        "stands elsewhere than at the 2 m of `temperature_air_2m`, or the source states no height.",
+        "Air temperature at a height above ground that the name does not state, where the source states no "
+        "statistic or a reading at one moment: the source's sensor stands elsewhere than at the 2 m of "
+        "`temperature_air_2m`, or the source states no height.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),
