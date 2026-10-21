@@ -21,12 +21,12 @@ Types of changes:
 - The `wsv/pegel` descriptions called every series "a reading"; PEGELONLINE states "ungeprüfte
   Rohdaten", one value per recording interval of the series, and no statistic, so they now say that
   and name the units the series are published in (e.g. `m+NN` stage, `MGN` flow direction), and
-  that no station serves `CL`, `NIEDERSCHLAG` and `NIEDERSCHLAGSINTENSITÄT` (GH-3136)
+  that no station served `CL`, `NIEDERSCHLAG` and `NIEDERSCHLAGSINTENSITÄT` on 2026-10-21 (GH-3136)
 - The `ipma/observation` wind, precipitation and radiation descriptions were the canonical
   sentences: they now give the source's 10 m (wind) and 1.5 m (precipitation, accumulated over the
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind
-  ("global", "horizontal") are not stated by the source, which the old text claimed (the daily
-  course suggests an hourly sum) (GH-3136)
+  ("global", "horizontal") are not stated by the source (the old text said global, horizontal and
+  per interval; the daily course only suggests an hourly sum) (GH-3136)
 
 ## [0.165.0] - 2026-10-21
 

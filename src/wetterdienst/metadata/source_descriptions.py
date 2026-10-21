@@ -56,7 +56,8 @@ it: DWD publishes no sheet for these files) and WSV (the Pegelonline ``longname`
 the documentation does not explain further). Where a
 source describes a field in a sentence of its own the entry restates it with a link, and where it
 does not but the data does, the entry says what the data shows and the evidence is in a comment
-beside it (NWS ``relativehumidity``, which the API computes, the ASOS wind and gust, and IPMA ``radiacao``). The rest of
+beside it (NWS ``relativehumidity``, which the API computes, and the ASOS wind and gust; IPMA ``radiacao``
+is the one the data only suggests). The rest of
 this table is meant to be the source's own wording, so that a sentence here can be checked against
 what the provider says, but the older entries were written for the docs tables and not every one was
 checked against the source; the sub-daily temperature rows listed in GH-2660 were, and so were the
@@ -93,16 +94,17 @@ _DMI_MEAN_WIND_DIRECTION = (
 )
 
 # Pegelonline names each timeseries in German (``longname``), e.g. HL is LUFTFEUCHTE and SIGH
-# SIGNIFIKANTEWELLENHÖHE, and says of everything it serves: "tagesaktuelle Rohdaten" that "die Wasserstraßen- und
+# SIGNIFIKANTEWELLENHÖHE, and says of its measurements: "tagesaktuelle Rohdaten" that "die Wasserstraßen- und
 # Schifffahrtsverwaltung des Bundes (WSV) stellt diese ungeprüften Rohdaten bereit"
 # (https://www.pegelonline.wsv.de/webservice/ueberblick), one value at every ``equidistance`` minutes of the series
 # ("Abstand der Messwerte in Minuten", the REST documentation, which is what the resolution of a request names). It
 # explains neither a shortname nor says whether a value is an instant or an aggregate of its interval, so the
 # descriptions state the raw data, the interval and the unit the series is published in and no statistic: they were
 # "average ... during time scale" and then "a reading" before GH-3136, which the source states of none. The longnames
-# and units are those of the stations list of 2026-10-21 (786 stations): the series is named ``X ROHDATEN`` or
-# ``X_ROHDATEN`` in most of them, and a few stations name it ``X``, which the source does not label raw but covers
-# by the sentence above (no station has both for one shortname). CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT are on
+# and units are those of the stations list of 2026-10-21 (786 stations): a series is named ``X ROHDATEN`` or
+# ``X_ROHDATEN`` in most series (not for every shortname: 9 of the 18 served ones have none), and some are named
+# ``X``, which the source does not label raw but whose values are the ``measurements.json`` the sentence above
+# covers (no station has both for one shortname). CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT are on
 # no station of that list (``stations.json?timeseries=<shortname>`` answers 0 stations for each, as for ``N`` and
 # ``NI``), so they have no longname to quote.
 _WSV_PEGEL_RAW = "unchecked raw data (the source's ungeprüfte Rohdaten), one value per recording interval of the series"
@@ -120,7 +122,7 @@ _WSV_PEGEL_PARAMETERS = {
         "Air temperature (LUFTTEMPERATUR ROHDATEN, or LUFTTEMPERATUR at some stations), in °C; the source states no "
         f"height: {_WSV_PEGEL_RAW}."
     ),
-    "MAXH": (f"Maximum wave height (MAXIMALEWELLENHÖHE), published in cm or m and returned in cm: {_WSV_PEGEL_RAW}."),
+    "MAXH": f"Maximum wave height (MAXIMALEWELLENHÖHE), in cm (the reader also accepts m): {_WSV_PEGEL_RAW}.",
     "NIEDERSCHLAG": f"Precipitation height. {_WSV_PEGEL_NO_SERIES}",
     "NIEDERSCHLAGSINTENSITÄT": f"Precipitation intensity. {_WSV_PEGEL_NO_SERIES}",
     "O2": (
@@ -130,13 +132,14 @@ _WSV_PEGEL_PARAMETERS = {
     "Q": (f"Discharge (ABFLUSS_ROHDATEN, or ABFLUSS at some stations), in m³/s: {_WSV_PEGEL_RAW}."),
     "R": (
         "Direction of the water current (RICHTUNGSTROM). The series' unit is MGN, which the documentation does not "
-        "explain; it is read here as degrees from magnetic north, so not necessarily from true north: "
+        "explain; the value is returned as published, taken as degrees, and may be from magnetic rather than true "
+        f"north: {_WSV_PEGEL_RAW}."
+    ),
+    "SIGH": (f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), in cm (the reader also accepts m): {_WSV_PEGEL_RAW}."),
+    "TP": (
+        "Wave period (WELLENPERIODE), published in 1/100 s and returned in s (the reader also accepts s): "
         f"{_WSV_PEGEL_RAW}."
     ),
-    "SIGH": (
-        f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), published in cm or m and returned in cm: {_WSV_PEGEL_RAW}."
-    ),
-    "TP": (f"Wave period (WELLENPERIODE), published in s or in 1/100 s and returned in s: {_WSV_PEGEL_RAW}."),
     "TR": (
         "Turbidity (TRÜBUNG, or TRÜBUNG_ROHDATEN at one station), published in FNU, TE/F or NTU, the formazin "
         f"scale, and returned unscaled as NTU: {_WSV_PEGEL_RAW}."
@@ -146,9 +149,10 @@ _WSV_PEGEL_PARAMETERS = {
     ),
     "W": (
         "Water level (WASSERSTAND ROHDATEN, or WASSERSTAND at two gauges), published in cm or, at some gauges, in m+NN "
-        "or m+PNP, and returned in cm. The cm and m+PNP series are relative to the gauge zero (Pegelnullpunkt), the "
-        "m+NN series to NN and carry no gauge zero, so values of different stations do not share a reference: "
-        f"{_WSV_PEGEL_RAW}."
+        "or m+PNP, and returned in cm. The m+PNP series and the cm series that carry a gauge zero (gaugeZero, the "
+        "Pegelnullpunkt) are relative to it, and each gauge zero is that gauge's own. The m+NN series are relative to "
+        "NN. 28 cm series (stations list of 2026-10-21) publish no gauge zero and the source states no reference for "
+        f"them, so values of different stations do not in general share a reference: {_WSV_PEGEL_RAW}."
     ),
     "WG": f"Wind speed (WINDGESCHWINDIGKEIT), in m/s; the source states no height: {_WSV_PEGEL_RAW}.",
     "WR": f"Wind direction (WINDRICHTUNG), in degrees; the source states no height: {_WSV_PEGEL_RAW}.",
@@ -2622,15 +2626,20 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     # vento registada a 10 metros de altura (m/s)", "classe do rumo do vento ao rumo predominante do vento registado a
     # 10 metros de altura (0: sem rumo, 1 ou 9: "N", 2: "NE", ...)", "precipitação registada a 1.5 metros de altura,
     # valor acumulado da hora (mm)" and "radiação solar (kJ/m2)", which states no period. The 133 stations of the feed
-    # of 2026-10-20/21 that report a radiation: most read 0 at night and, at 13 UTC, 2,300 to 2,400 kJ/m2 at most of
-    # them (3,792 at the highest), so by the unit and the daily course the value is an energy over the hour; the
-    # source states none of it
+    # of 2026-10-20/21 that report a radiation: most read 0 at night and, at 13 UTC, the median of the 128 that
+    # answer is about 2,200 kJ/m2, which suggests an energy over the hour, but the highest are 3,746 to 3,875 kJ/m2 at
+    # 12 to 15 UTC, above the top-of-atmosphere irradiation of the hour around solar noon on 21 October (about 3,000
+    # to 3,340 on the mainland, 3,290 at Ponta Delgada, 3,600 on Madeira; the 3,746 is Viana do Castelo at 41.7N, the
+    # 3,783 Paredes de Coura - Vascões at 41.9N, the 3,779 to 3,875 Ponta Delgada at 13 to 15 UTC), and the night
+    # maximum reaches 1,079 at 02 UTC, so neither the period nor the kind of the value is settled; the source states
+    # none of it
     "IpmaObservationMetadata": {
         ("hourly", "data", "humidade"): "Relative humidity of the air recorded at 1.5 m height, hourly mean.",
         ("hourly", "data", "idDireccVento"): (
             'Class of the predominant wind direction recorded at 10 m height ("classe do rumo do vento"): 0 no '
             "direction, 1 or 9 north, 2 north-east, 3 east, 4 south-east, 5 south, 6 south-west, 7 west, 8 north-west, "
-            "returned as degrees (0 to 315). The 0 is null, whether the wind blows or not. The source states no period."
+            "returned as degrees (0 to 315). The code 0 (sem rumo) is returned as null, whether the wind blows or not. "
+            "The source states no period."
         ),
         ("hourly", "data", "intensidadeVento"): (
             "Wind speed recorded at 10 m height. The source states no statistic and no period."
@@ -2641,7 +2650,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "pressao"): "Atmospheric pressure reduced to mean sea level (NMM), hourly mean.",
         ("hourly", "data", "radiacao"): (
             "Solar radiation (radiação solar) in kJ/m². The source states neither a period nor that it is global or "
-            "on a horizontal surface; the daily course says an energy accumulated over the hour."
+            "on a horizontal surface; the daily course suggests an energy accumulated over the hour, though the "
+            "highest values exceed what one hour delivers at the top of the atmosphere."
         ),
         ("hourly", "data", "temperatura"): "Air temperature recorded at 1.5 m height, hourly mean.",
     },

@@ -304,7 +304,10 @@ def test_ipma_descriptions_state_what_the_field_list_states() -> None:
     assert "hourly mean" in descriptions["pressao"]
     assert "10 m" in descriptions["intensidadeVento"]
     assert "10 m" in descriptions["idDireccVento"]
-    assert "mean" not in descriptions["intensidadeVento"]
+    # the wind and the radiation state no statistic, so none of them says a mean
+    for field in ("intensidadeVento", "idDireccVento", "radiacao"):
+        assert "mean" not in descriptions[field], field
+    assert descriptions["idDireccVento"].startswith("Class of the predominant wind direction")
     assert "1.5 m" in descriptions["precAcumulada"]
     assert "over the hour" in descriptions["precAcumulada"]
     # the radiation's sentence is the unit and no more of what the source says
