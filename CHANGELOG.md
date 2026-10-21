@@ -26,14 +26,31 @@ Types of changes:
   surface apply it by one rule, the start being compared exactly. `values` reports it in its
   `settings` block (GH-3220)
 
+### Changed
+
+- **Breaking**: nine `geosphere/observation` parameters whose source states a mean are named as
+  means (GH-2614): the 10-minute `radiation_global_intensity` (`cglo`),
+  `radiation_sky_short_wave_diffuse_intensity` (`chim`), `wind_direction` (`dd`), `wind_speed`
+  (`ff`) and `snow_depth` (`sh`), the hourly `radiation_global_intensity`, `wind_direction` and
+  `wind_speed`, and the monthly `pressure_air_site` (`p`) are now `<name>_mean`. The old name is
+  refused in those datasets with the new one named, values and units are unchanged: request,
+  filter and key by the new name. The same fields that state no mean keep their name. Release the
+  app after this backend
+- **Breaking**: `nws/observation` no longer has `temperature_air_max_2m_last_24h` and
+  `temperature_air_min_2m_last_24h` (`maxTemperatureLast24Hours`, `minTemperatureLast24Hours`):
+  api.weather.gov answered null in all 49,688 observations of 108 stations read, so no request
+  could return a value. A request for them is an unknown parameter; the METAR's 24 hour group
+  exists only in its raw message. `meteofrance/synop` still has both names (GH-2614)
+
 ### Fixed
 
 - The description of the Geosphere datasets said they hold observations "for Germany" (they are
   Austrian) and, for three of them, only 2 m air temperature and humidity; the `glossary`, the
-  `coverage` answers and the docs now say what the source's titles say. The NWS
-  `temperature_air_{max,min}_2m_last_24h` descriptions say that api.weather.gov serves both as
-  null, and the Météo-France daily precipitation and new snow windows start at 06h FU, not 06h
-  UTC, overseas (GH-3136)
+  `coverage` answers and the docs now say what the source's titles say. The Météo-France daily
+  precipitation and new snow windows start at 06h FU, not 06h UTC, overseas (GH-3136)
+- The IMGW descriptions of `temperature_air_min_0_05m` say "at the ground (przy gruncie)" and that
+  the source states no height, never 5 cm, and the `_2m` air temperatures say the file states no
+  height (the shelter convention); the name `temperature_air_min_0_05m` is unchanged (GH-3136)
 
 ## [0.164.0] - 2026-10-21
 

@@ -350,7 +350,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 ### Renamed for what the number is
 
 GH-2614 asked of each row whether its name says what the source's number is, and not only its statistic. Four names
-did not. A name that is no longer declared by a dataset is refused with the new one named, as above, and a dataset that
+did not, and then more (below). A name that is no longer declared by a dataset is refused with the new one named, as above, and a dataset that
 keeps the old name for another row (`snow_depth` of the daily DWD rows, `precipitation_amount_max` of the monthly and
 annual DMI rows) still answers to it there.
 
@@ -390,6 +390,29 @@ screen height. The height is in the provider's description of the two fields, no
 road humidity was `humidity_relative_mean` from 0.160.0 (GH-3151, the 27th row of the table above, now 26): its
 description said "mean humidity", the BUFR template states none. Every other dataset keeps the old names for its own
 rows.
+
+#### Geosphere: nine means that kept the plain name
+
+The Geosphere descriptions of GH-3136 wrote the source's own words, and nine of them state a mean while their rows
+carried the plain name of a reading (0.165.0, GH-2614). The source is the German `description` of each parameter in
+`/v1/station/historical/<resource>/metadata` (read 2026-10-21). The `_mean` names are the ones the other providers'
+means have. The rows of the same fields that state no mean keep their name (the hourly `p`, `sh`, `ddx` and `ffx`, the
+10-minute `p`, `rf` and `ffx`, the daily `sh`).
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| geosphere/observation | 10_minutes/data | `cglo` | `radiation_global_intensity` | `radiation_global_intensity_mean` | "Globalstrahlung, kalibriert, Mittelwert" |
+| geosphere/observation | 10_minutes/data | `chim` | `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` | "Diffusstrahlung, nicht geprüft, kalibriert, Mittelwert" |
+| geosphere/observation | 10_minutes/data | `dd` | `wind_direction` | `wind_direction_mean` | "Windrichtung [360°], vektorieller 10-Minuten-Mittelwert" |
+| geosphere/observation | 10_minutes/data | `ff` | `wind_speed` | `wind_speed_mean` | "Windgeschwindigkeit in 10m Höhe, vektorieller 10-Minuten-Mittelwert" (`ffam`, the arithmetic one, is `wind_speed_arithmetic`) |
+| geosphere/observation | 10_minutes/data | `sh` | `snow_depth` | `snow_depth_mean` | "Gesamtschneehöhe aus Schneepegelmessung, 10-Minuten-Mittelwert, Offset korrigiert" |
+| geosphere/observation | hourly/data | `cglo` | `radiation_global_intensity` | `radiation_global_intensity_mean` | "Globalstrahlung, kalibrierter Stunden-Mittelwert" |
+| geosphere/observation | hourly/data | `dd` | `wind_direction` | `wind_direction_mean` | "Windrichtung [360°], vektorieller Stunden-Mittelwert" |
+| geosphere/observation | hourly/data | `ff` | `wind_speed` | `wind_speed_mean` | "Windgeschwindigkeit, vektorieller Stundenmittelwert" |
+| geosphere/observation | monthly/data | `p` | `pressure_air_site` | `pressure_air_site_mean` | "Luftdruck, Monatsmittel der Terminwerte" (`pmax` and `pmin` are the extremes of the same values) |
+
+Values and units are unchanged. A request for an old name in these datasets is refused with the new one named, and the
+old names stay valid in the datasets whose source states no mean.
 
 ## Glossary
 

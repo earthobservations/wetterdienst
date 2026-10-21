@@ -341,7 +341,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | hourly | all | UTC offset carried in each value (ISO 8601 date-time, observed '+00:00') | mixed (instant report; \*LastHour/Last3Hours/Last6Hours/Last24Hours fields cover the period ending at the stamp by their names) | partly |
+| observation | hourly | all | UTC offset carried in each value (ISO 8601 date-time, observed '+00:00') | mixed (instant report; \*LastHour/Last3Hours/Last6Hours fields cover the period ending at the stamp by their names) | partly |
 
 Notes:
 

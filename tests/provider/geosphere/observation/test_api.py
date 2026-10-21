@@ -29,7 +29,7 @@ def test_geosphere_observation_api() -> None:
     Thanks, @mhuber89, for the discovery and fix!
     """
     stations_at = GeosphereObservationRequest(
-        parameters=[("hourly", "data", "wind_speed")],
+        parameters=[("hourly", "data", "wind_speed_mean")],
         start=datetime(2022, 6, 1, tzinfo=ZoneInfo("UTC")),
         end=datetime(2022, 6, 2, tzinfo=ZoneInfo("UTC")),
     )
@@ -43,8 +43,8 @@ def test_geosphere_observation_api() -> None:
     ("resolution", "parameter", "expected_rows", "expected_sum"),
     [
         # cglo, served as irradiance in W / m² and passed through unconverted
-        ("minute_10", "radiation_global_intensity", 288, IsNumeric(ge=82770.0, le=82870.0)),
-        ("hourly", "radiation_global_intensity", 48, IsNumeric(ge=13790.0, le=13815.0)),
+        ("minute_10", "radiation_global_intensity_mean", 288, IsNumeric(ge=82770.0, le=82870.0)),
+        ("hourly", "radiation_global_intensity_mean", 48, IsNumeric(ge=13790.0, le=13815.0)),
         # cglo_j, a distinct upstream parameter already accumulated over the day in J / cm²
         ("daily", "radiation_global", 2, IsNumeric(ge=4966.2000, le=4972.0000)),
     ],
@@ -618,7 +618,7 @@ def test_geosphere_observation_daily_none_code_is_zero_not_minus_one(
     [
         ("10_minutes", "precipitation_amount", "rr"),
         ("hourly", "precipitation_amount", "rr"),
-        ("10_minutes", "snow_depth", "sh"),
+        ("10_minutes", "snow_depth_mean", "sh"),
         ("hourly", "snow_depth", "sh"),
         ("monthly", "precipitation_amount", "rr"),
         ("monthly", "snow_depth_new", "shneu_manu"),
@@ -660,9 +660,9 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
     )
     request = GeosphereObservationRequest(
         parameters=[
-            (resolution, "data", "wind_direction"),
+            (resolution, "data", "wind_direction_mean"),
             (resolution, "data", "wind_direction_gust_max"),
-            (resolution, "data", "wind_speed"),
+            (resolution, "data", "wind_speed_mean"),
         ],
         start=datetime(2024, 1, 8, tzinfo=ZoneInfo("UTC")),
         end=datetime(2024, 1, 10, tzinfo=ZoneInfo("UTC")),
@@ -676,7 +676,7 @@ def test_geosphere_observation_wind_direction_of_0_is_null_and_the_gust_directio
         for (parameter,), group in df.group_by("parameter", maintain_order=True)
     }
     assert rows == {
-        "wind_direction": [(9.0, None), (None, "raw:0"), (360.0, None)],
+        "wind_direction_mean": [(9.0, None), (None, "raw:0"), (360.0, None)],
         "wind_direction_gust_max": [(12.0, None), (0.0, None), (356.0, None)],
-        "wind_speed": [(0.3, None), (0.0, None), (0.5, None)],
+        "wind_speed_mean": [(0.3, None), (0.0, None), (0.5, None)],
     }

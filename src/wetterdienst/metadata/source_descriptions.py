@@ -71,6 +71,11 @@ of its quantity, so an entry that repeats that sentence is redundant and
 ``test_no_description_repeats_the_canonical_one`` fails for it.
 """
 
+# What the IMGW format files leave unsaid about the height of a temperature: the 2 m of the canonical name is the
+# shelter convention, and "przy gruncie" is "at the ground", never the 5 cm of `temperature_air_min_0_05m` (GH-3136)
+_IMGW_NO_HEIGHT_2M = " The file states no height; the 2 m of the name is the shelter convention."
+_IMGW_NO_HEIGHT_GROUND = " The source states no height: the file says at the ground, never 5 cm."
+
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
 # resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
@@ -1517,35 +1522,45 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Average monthly relative humidity, in percent."
         ),
         ("monthly", "synop", "średnie miesięczne zachmurzenie ogólne"): "Average monthly total cloud cover, in oktas.",
-        ("daily", "climate", "maksymalna temperatura dobowa"): "Maximum daily air temperature, in °C.",
-        ("daily", "climate", "minimalna temperatura dobowa"): "Minimum daily air temperature, in °C.",
+        ("daily", "climate", "maksymalna temperatura dobowa"): (
+            "Maximum daily air temperature, in °C." + _IMGW_NO_HEIGHT_2M
+        ),
+        ("daily", "climate", "minimalna temperatura dobowa"): (
+            "Minimum daily air temperature, in °C." + _IMGW_NO_HEIGHT_2M
+        ),
         ("daily", "climate", "suma dobowa opadów"): "Daily precipitation sum, in mm.",
         ("daily", "climate", "temperatura minimalna przy gruncie"): (
-            "Minimum daily air temperature at the ground (przy gruncie, no height stated), in °C."
+            "Minimum daily air temperature at the ground (przy gruncie), in °C." + _IMGW_NO_HEIGHT_GROUND
         ),
         ("daily", "climate", "wysokość pokrywy śnieżnej"): "Height of the snow cover, in cm.",
         ("daily", "climate", "średnia dobowa prędkość wiatru"): "Average daily wind speed, in m/s.",
-        ("daily", "climate", "średnia dobowa temperatura"): "Average daily air temperature, in °C.",
+        ("daily", "climate", "średnia dobowa temperatura"): (
+            "Average daily air temperature, in °C." + _IMGW_NO_HEIGHT_2M
+        ),
         ("daily", "precipitation", "suma dobowa opadów"): (
             "Daily precipitation sum, in mm. The status Z marks an opad zbiorczy: the sum of the preceding days "
             "without a measurement, without saying when it fell."
         ),
         ("daily", "precipitation", "wysokość pokrywy śnieżnej"): "Height of the snow cover, in cm.",
         ("daily", "precipitation", "wysokość świeżospałego śniegu"): "Height of the freshly fallen snow, in cm.",
-        ("daily", "synop", "maksymalna temperatura dobowa"): "Maximum daily air temperature, in °C.",
-        ("daily", "synop", "minimalna temperatura dobowa"): "Minimum daily air temperature, in °C.",
+        ("daily", "synop", "maksymalna temperatura dobowa"): (
+            "Maximum daily air temperature, in °C." + _IMGW_NO_HEIGHT_2M
+        ),
+        ("daily", "synop", "minimalna temperatura dobowa"): (
+            "Minimum daily air temperature, in °C." + _IMGW_NO_HEIGHT_2M
+        ),
         ("daily", "synop", "suma dobowa opadów"): "Daily precipitation sum, in mm.",
         ("daily", "synop", "temperatura minimalna przy gruncie"): (
-            "Minimum daily air temperature at the ground (przy gruncie, no height stated), in °C."
+            "Minimum daily air temperature at the ground (przy gruncie), in °C." + _IMGW_NO_HEIGHT_GROUND
         ),
         ("daily", "synop", "wysokość pokrywy śnieżnej"): "Height of the snow cover, in cm.",
         ("daily", "synop", "średnia dobowa prędkość wiatru"): "Average daily wind speed, in m/s.",
-        ("daily", "synop", "średnia dobowa temperatura"): "Average daily air temperature, in °C.",
+        ("daily", "synop", "średnia dobowa temperatura"): "Average daily air temperature, in °C." + _IMGW_NO_HEIGHT_2M,
         ("monthly", "climate", "absolutna temperatura maksymalna"): (
-            "Absolute maximum air temperature of the month, in °C."
+            "Absolute maximum air temperature of the month, in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "climate", "absolutna temperatura minimalna"): (
-            "Absolute minimum air temperature of the month, in °C."
+            "Absolute minimum air temperature of the month, in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "climate", "maksymalna dobowa suma opadów"): "Maximum daily precipitation sum of the month, in mm.",
         ("monthly", "climate", "maksymalna wysokość pokrywy śnieżnej"): (
@@ -1554,17 +1569,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "climate", "miesieczna suma opadów"): "Monthly precipitation sum, in mm.",
         ("monthly", "climate", "minimalna temperatura przy gruncie"): (
-            "Minimum air temperature of the month at the ground (przy gruncie, no height stated), in °C."
+            "Minimum air temperature of the month at the ground (przy gruncie), in °C." + _IMGW_NO_HEIGHT_GROUND
         ),
         ("monthly", "climate", "średnia miesięczna prędkość wiatru"): "Average monthly wind speed, in m/s.",
         ("monthly", "climate", "średnia miesięczna temperatura"): (
-            "Average monthly air temperature (the mean of the daily means), in °C."
+            "Average monthly air temperature (the mean of the daily means), in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "climate", "średnia temperatura maksymalna"): (
-            "Average maximum air temperature of the month (the mean of the daily maxima), in °C."
+            "Average maximum air temperature of the month (the mean of the daily maxima), in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "climate", "średnia temperatura minimalna"): (
-            "Average minimum air temperature of the month (the mean of the daily minima), in °C."
+            "Average minimum air temperature of the month (the mean of the daily minima), in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "precipitation", "miesięczna suma opadów"): "Monthly precipitation sum, in mm.",
         ("monthly", "precipitation", "opad maksymalny"): (
@@ -1572,27 +1587,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "month, as the climate and synop files state it."
         ),
         ("monthly", "synop", "absolutna temperatura maksymalna"): (
-            "Absolute maximum air temperature of the month, in °C."
+            "Absolute maximum air temperature of the month, in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "synop", "absolutna temperatura minimalna"): (
-            "Absolute minimum air temperature of the month, in °C."
+            "Absolute minimum air temperature of the month, in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "synop", "maksymalna wysokość pokrywy śnieżnej"): (
             "Maximum height of the snow cover in the month, in cm."
         ),
         ("monthly", "synop", "miesięczna suma opadów"): "Monthly precipitation sum, in mm.",
         ("monthly", "synop", "minimalna temperatura przy gruncie"): (
-            "Minimum air temperature of the month at the ground (przy gruncie, no height stated), in °C."
+            "Minimum air temperature of the month at the ground (przy gruncie), in °C." + _IMGW_NO_HEIGHT_GROUND
         ),
         ("monthly", "synop", "średnia miesięczna prędkość wiatru"): "Average monthly wind speed, in m/s.",
         ("monthly", "synop", "średnia miesięczna temperatura"): (
-            "Average monthly air temperature (the mean of the daily means), in °C."
+            "Average monthly air temperature (the mean of the daily means), in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "synop", "średnia temperatura maksymalna"): (
-            "Average maximum air temperature of the month (the mean of the daily maxima), in °C."
+            "Average maximum air temperature of the month (the mean of the daily maxima), in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "synop", "średnia temperatura minimalna"): (
-            "Average minimum air temperature of the month (the mean of the daily minima), in °C."
+            "Average minimum air temperature of the month (the mean of the daily minima), in °C." + _IMGW_NO_HEIGHT_2M
         ),
         ("monthly", "synop", "średnie miesięczne ciśnienie na pozimie morza"): (
             "Average monthly air pressure at sea level, in hPa."
@@ -1934,18 +1949,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "dewpoint"): (
             "dew point temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
         ),
-        # the endpoint's key is all there is: the OpenAPI document describes no property. The fields came back null in
-        # all 49,688 observations of 108 stations read on 2026-10-21 (the last 500 of each, 2026-10-14 to 21), also
-        # where the METAR carries the 24 hour group: 33 of 9,660 reports of 20 airports have it in the remarks
-        # (KORD 2026-10-21 05:51 UTC "402060067", maximum 20.6 and minimum 6.7 degC) and none has the field set
-        ("hourly", "data", "maxtemperaturelast24hours"): (
-            "maximum air temperature in the last 24 hours (the 24 hour group of the METAR); api.weather.gov served "
-            "it as null in every observation checked, also where the METAR carries the group"
-        ),
-        ("hourly", "data", "mintemperaturelast24hours"): (
-            "minimum air temperature in the last 24 hours (the 24 hour group of the METAR); api.weather.gov served "
-            "it as null in every observation checked, also where the METAR carries the group"
-        ),
+        # not declared: the endpoint's `maxTemperatureLast24Hours` and `minTemperatureLast24Hours` (the OpenAPI
+        # document describes no property) came back null in all 49,688 observations of 108 stations read on
+        # 2026-10-21 (the last 500 of each, 2026-10-14 to 21), also where the METAR carries the 24 hour group: 33 of
+        # 9,660 reports of 20 airports have it in the remarks (KORD 2026-10-21 05:51 UTC "402060067", maximum 20.6 and
+        # minimum 6.7 degC) and none has the field set. A request for them is an unknown parameter
         # the 6RRRR group of the METAR: the 3 hour amount in the reports of 03, 09, 15 and 21 UTC, the 6 hour amount
         # in those of 00, 06, 12 and 18 UTC (KABQ 14:52 "60000" is the 3 hour amount of 15 UTC, KABQ 23:52 "60001"
         # the 6 hour amount of 00 UTC, 2026-10-20), and null in every other row

@@ -714,8 +714,24 @@ _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
     },
     # `tsmin` of the daily file is the night minimum, 18:10 UTC of the previous day to 06:00 UTC; the 10-minute and the
     # hourly ones are readings of their interval
+    #
+    # GH-2614, GH-3136: nine rows whose description states a mean ("vektorieller 10-Minuten-Mittelwert",
+    # "kalibrierter Stunden-Mittelwert", "Monatsmittel der Terminwerte") and which kept the plain name of a reading
     "GeosphereObservationMetadata": {
-        ("daily", "data"): {"temperature_air_min_0_05m": "temperature_air_min_0_05m_night"}
+        ("10_minutes", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+            "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+            "snow_depth": "snow_depth_mean",
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("hourly", "data"): {
+            "radiation_global_intensity": "radiation_global_intensity_mean",
+            "wind_direction": "wind_direction_mean",
+            "wind_speed": "wind_speed_mean",
+        },
+        ("daily", "data"): {"temperature_air_min_0_05m": "temperature_air_min_0_05m_night"},
+        ("monthly", "data"): {"pressure_air_site": "pressure_air_site_mean"},
     },
 }
 

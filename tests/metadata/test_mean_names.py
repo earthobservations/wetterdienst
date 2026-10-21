@@ -51,22 +51,6 @@ _PLAIN_ON_PURPOSE = {
     ("DwdRoadMetadata", "15_minutes", "data", "windSpeed"),
     ("DwdRoadMetadata", "15_minutes", "data", "windDirection"),
 }
-# Geosphere rows whose source states a mean and whose name is plain because the description said "wind speed" and
-# "global radiation" and nothing else when GH-3151 was decided; the second group of GH-3136 wrote the source's words
-# ("vektorieller 10-Minuten-Mittelwert", "Globalstrahlung, kalibrierter Stunden-Mittelwert", "Luftdruck,
-# Monatsmittel der Terminwerte") and so exposed them. They wait for the rename to `_mean`, which is no description
-# change: take them out of this set with it
-_PLAIN_UNTIL_RENAMED = {
-    ("GeosphereObservationMetadata", "10_minutes", "data", "cglo"),
-    ("GeosphereObservationMetadata", "10_minutes", "data", "chim"),
-    ("GeosphereObservationMetadata", "10_minutes", "data", "dd"),
-    ("GeosphereObservationMetadata", "10_minutes", "data", "ff"),
-    ("GeosphereObservationMetadata", "10_minutes", "data", "sh"),
-    ("GeosphereObservationMetadata", "hourly", "data", "cglo"),
-    ("GeosphereObservationMetadata", "hourly", "data", "dd"),
-    ("GeosphereObservationMetadata", "hourly", "data", "ff"),
-    ("GeosphereObservationMetadata", "monthly", "data", "p"),
-}
 # a provider whose "average" is not evidence yet: PEGELONLINE publishes raw data at the equidistance of each station and
 # the audit of GH-2614 doubts the descriptions, so its rows wait for WSV's confirmation (GH-3151)
 _NOT_EVIDENCE = {"WsvPegelMetadata"}
@@ -108,7 +92,7 @@ def test_a_source_that_states_a_mean_gets_the_mean_name() -> None:
         if states
         and _quantity(name) == name
         and metadata not in _NOT_EVIDENCE
-        and (metadata, resolution, dataset, original) not in _PLAIN_ON_PURPOSE | _PLAIN_UNTIL_RENAMED
+        and (metadata, resolution, dataset, original) not in _PLAIN_ON_PURPOSE
     ]
     assert not wrong, "\n".join(wrong)
 

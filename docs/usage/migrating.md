@@ -185,6 +185,13 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | `humidity_relative_mean` | `humidity_relative` | `dwd/road` (`relativeHumidity`, BUFR 0 13 003 with no statistic: a reading, as it was before 0.160.0); the values and the unit are unchanged | 0.164.0, GH-2614 |
 | `humidity_relative` | `humidity_relative_mean` | `ipma/observation` hourly (`humidade`, "média da hora") | 0.164.0, GH-2614 |
 | `pressure_air_sea_level` | `pressure_air_sea_level_mean` | `ipma/observation` hourly (`pressao`, "média da hora") | 0.164.0, GH-2614 |
+| `radiation_global_intensity` | `radiation_global_intensity_mean` | `geosphere/observation` 10-minute and hourly (`cglo`, "kalibriert, Mittelwert"); the values and the unit are unchanged | 0.165.0, GH-2614 |
+| `radiation_sky_short_wave_diffuse_intensity` | `radiation_sky_short_wave_diffuse_intensity_mean` | `geosphere/observation` 10-minute (`chim`, "kalibriert, Mittelwert") | 0.165.0, GH-2614 |
+| `wind_direction` | `wind_direction_mean` | `geosphere/observation` 10-minute and hourly (`dd`, "vektorieller 10-Minuten- / Stunden-Mittelwert") | 0.165.0, GH-2614 |
+| `wind_speed` | `wind_speed_mean` | `geosphere/observation` 10-minute and hourly (`ff`, "vektorieller 10-Minuten- / Stundenmittelwert"); `ffam` stays `wind_speed_arithmetic` | 0.165.0, GH-2614 |
+| `snow_depth` | `snow_depth_mean` | `geosphere/observation` 10-minute (`sh`, "10-Minuten-Mittelwert"); the hourly and daily rows keep `snow_depth` | 0.165.0, GH-2614 |
+| `pressure_air_site` | `pressure_air_site_mean` | `geosphere/observation` monthly (`p`, "Monatsmittel der Terminwerte"); the 10-minute and hourly rows keep `pressure_air_site` | 0.165.0, GH-2614 |
+| `temperature_air_max_2m_last_24h`, `temperature_air_min_2m_last_24h` | not served | `nws/observation` hourly (`maxTemperatureLast24Hours`, `minTemperatureLast24Hours`: null in all 49,688 observations of 108 stations read on 2026-10-21); `meteofrance/synop` still has both | 0.165.0, GH-2614 |
 | `cloud_cover_below_1000ft` | `cloud_cover_below_2km` | `dwd/mosmix`, `dwd/dmo` (`nl`) | 0.140.0, GH-1977 |
 | `count_weather_type_sleet` | `count_weather_type_graupel` | `dwd/observation` daily, monthly, annual `weather_phenomena` and `weather_phenomena_more` | 0.145.0, GH-2696 |
 | `evapotranspiration_potential_grass_fao_last_24h`, `..._haude_last_24h` | `evapotranspiration_potential_grass_fao`, `evapotranspiration_potential_grass_haude` | the daily and monthly totals: `dwd/derived`, `meteoswiss/observation` daily | 0.140.0 (GH-2042), 0.155.0 (GH-2847) |

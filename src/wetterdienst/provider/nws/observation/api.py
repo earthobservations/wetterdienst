@@ -127,16 +127,6 @@ _NwsObservationMetadataSpec = {
                             "unit": "meter",
                         },
                         {
-                            "name": "temperature_air_max_2m_last_24h",
-                            "name_original": "maxtemperaturelast24hours",
-                            "unit": "degree_celsius",
-                        },
-                        {
-                            "name": "temperature_air_min_2m_last_24h",
-                            "name_original": "mintemperaturelast24hours",
-                            "unit": "degree_celsius",
-                        },
-                        {
                             "name": "precipitation_amount_since_last_routine_report",
                             "name_original": "precipitationlasthour",
                             "unit": "millimeter",
@@ -294,8 +284,6 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
                                     "barometricPressure": _quantity(pl.Float64),
                                     "seaLevelPressure": _quantity(pl.Float64),
                                     "visibility": _quantity(pl.Float64),
-                                    "maxTemperatureLast24Hours": _quantity(pl.Float64),
-                                    "minTemperatureLast24Hours": _quantity(pl.Float64),
                                     "precipitationLastHour": _quantity(pl.Float64),
                                     "precipitationLast3Hours": _quantity(pl.Float64),
                                     "precipitationLast6Hours": _quantity(pl.Float64),
