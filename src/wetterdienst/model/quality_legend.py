@@ -154,10 +154,11 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "dwd/road": [
         _plain(
             "The verdict on the reading, derived by the library from the station's quality flag word and from "
-            "plausibility checks on the value: `1` suspect, `0` checked and not suspect. No token where it is "
+            "whether the sensor has stopped: `1` suspect, `0` checked and not suspect. No token where it is "
             "unknown (an unchecked or missing flag); that is told apart from a reading found sound.",
             codes=_codes(c_0="Checked, not suspect", c_1="Suspect"),
         ),
+        RAW,
     ],
     "dwd/swsmos": [RAW],
     "dwd/poi": [RAW],

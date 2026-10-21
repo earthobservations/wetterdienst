@@ -23,6 +23,7 @@ from wetterdienst.model.metadata import (
     ParameterModel,
     build_metadata_model,
 )
+from wetterdienst.model.quality_flags import OutOfRange, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.metadata import _METADATA
@@ -371,57 +372,41 @@ _MELTING_AIR_MARGIN = 10.0
 #: this network can publish as a reading falls below it. The stopped sensors of KM do: -75.00 C, to
 #: the hundredth, for days.
 #:
-#: Only the cold end is drawn. A road surface in July sun passes 60 C, and the 79.8 C of GH-1917 is
-#: implausible rather than impossible -- there is no line at the warm end that an honest reading
-#: cannot cross, so none is drawn there.
-#:
 #: And only the impossible values, not every value a stopped sensor holds: -25 C and -30 C are
-#: reachable on a German road in winter, so those two are left to the rule below, which can tell a
-#: sensor that has stopped from a cold night by whether it moves.
+#: reachable on a German road in winter, so those two are left to `_flag_stuck_sensors`, which can
+#: tell a sensor that has stopped from a cold night by whether it moves.
 _IMPOSSIBLE_BELOW = _MELTING_POINT - 60.0
 
-#: the quantities this dataset reports on the temperature scale, which is what makes a number
-#: comparable to a temperature at all.
+#: the range of a reading per resolution and descriptor, in the unit DWD writes it in (kelvin, %,
+#: mm, m, m/s), outside which no sensor can have produced it: the physical ranges of
+#: `tests/provider/physical_ranges.py`, as DMI and RMI hold theirs, and `test_physical_ranges.py` holds
+#: these to them. A value outside is null and keeps the number as `raw:198.15` (GH-3222); it was
+#: returned as published and marked suspect.
 #:
-#: The same three as `_STUCK_PARAMETERS`, and named separately on purpose: that tuple answers a
-#: different question -- which quantities standing still is a fault in -- and its own reasoning
-#: invites a later maintainer to add one. A humidity there (0 to 100 %) or a wind speed (0 to 30
-#: m/s) is below any line drawn in kelvin by construction, so sharing the list would mark a whole
-#: network's humidity suspect from an edit that looks unrelated to this rule
-_TEMPERATURE_PARAMETERS = ("airTemperature", "dewpointTemperature", "roadSurfaceTemperature")
-
-
-def _flag_impossible_temperatures(df: pl.DataFrame, source: str) -> pl.DataFrame:
-    """Mark a temperature no reading can hold, whatever window was asked for.
-
-    `_flag_stuck_sensors` finds these same sensors by what they do over six hours, which a request
-    for one hour cannot show it: of the seven KM stations sitting at -75, -30 and -25 C, all seven
-    come back marked from a twelve-hour request and none from a one-hour one, the rule having five
-    readings where it needs twenty-four. A value that no reading can hold needs no window to be
-    recognised, so the two at -75 C are marked in any window -- and only those two. The -30 and -25
-    stations stay with the run rule, which can tell a stopped sensor from a cold night, where their
-    value alone cannot.
-
-    The reading is left exactly as DWD published it, as everywhere else here. Only `quality` says
-    anything about it.
-    """
-    impossible = (
-        pl.col("parameter").is_in(_TEMPERATURE_PARAMETERS)
-        & pl.col("value").is_not_null()
-        & pl.col("value").lt(_IMPOSSIBLE_BELOW)
-    )
-    if log.isEnabledFor(logging.DEBUG):
-        marked = df.filter(impossible).select("station_id", "parameter").unique().sort("station_id", "parameter")
-        if not marked.is_empty():
-            log.debug(
-                f"{source}: {marked.height} sensors report a temperature below "
-                f"{_IMPOSSIBLE_BELOW - _MELTING_POINT:.0f} C and are marked suspect "
-                f"({', '.join(f'{station}/{parameter}' for station, parameter in marked.head(5).iter_rows())}"
-                f"{', ...' if marked.height > 5 else ''}); the readings are kept as published (GH-1917)",
-            )
-    return df.with_columns(
-        quality=pl.when(impossible).then(pl.lit(1.0)).otherwise(pl.col("quality")),
-    )
+#: The temperatures are narrower at the cold end, at `_IMPOSSIBLE_BELOW`, for the reason given there.
+#: The warm end is the world's: a road surface in July sun passes 60 C, and the 79.8 C of GH-1917 is
+#: implausible rather than impossible -- there is no line at the warm end that an honest reading
+#: cannot cross, so none is drawn below the physical one. The surface condition and the precipitation
+#: type are codes and flags, held to no range.
+_RANGES: dict[str, dict[str, tuple[float, float]]] = {
+    "15_minutes": {
+        "airTemperature": (_IMPOSSIBLE_BELOW, _MELTING_POINT + 60.0),
+        "dewpointTemperature": (_IMPOSSIBLE_BELOW, _MELTING_POINT + 60.0),
+        "roadSurfaceTemperature": (_IMPOSSIBLE_BELOW, _MELTING_POINT + 100.0),
+        "relativeHumidity": (0.0, 130.0),  # a hygrometer reads past 100 now and then
+        "totalPrecipitationOrTotalWaterEquivalent": (0.0, 300.0),  # mm in 15 minutes
+        "intensityOfPrecipitation": (0.0, 3_000.0 / 3_600.0),  # mm/s, 3,000 mm/h
+        "horizontalVisibility": (0.0, 200_000.0),  # m
+        "waterFilmThickness": (0.0, 1.0),  # m
+        "windDirection": (0.0, 360.0),
+        "maximumWindGustDirection": (0.0, 360.0),
+        "windSpeed": (0.0, 115.0),  # m/s
+        "maximumWindGustSpeed": (0.0, 115.0),
+    },
+}
+_OUT_OF_RANGE = tuple(
+    OutOfRange(low, high, where=pl.col("parameter").eq(name)) for name, (low, high) in _RANGES["15_minutes"].items()
+)
 
 
 def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
@@ -441,9 +426,9 @@ def _flag_stuck_sensors(df: pl.DataFrame, source: str) -> pl.DataFrame:
     value to be recognised but sensors that have stopped, each reporting one distinct value for a
     whole day. Matching them by value would be worse than useless for two of the three -- -25 and
     -30 are both reachable in a German winter, and only whether the reading moves tells a stopped
-    sensor from a cold night. The third, -75, is matched by value in
-    `_flag_impossible_temperatures`, which is a different claim: not that a sensor has stopped, but
-    that no reading can be that cold.
+    sensor from a cold night. The third, -75, is nulled by value (`_RANGES`, GH-3222), which is a
+    different claim: not that a sensor has stopped, but that no reading can be that cold, and it
+    needs no six hours to be seen.
     """
     if df.is_empty():
         return df
@@ -843,12 +828,14 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # no readings but with the columns, so the filter has a station id to look for. The core makes of any frame
         # without a row the empty long form, and writes `station_id`, `resolution` and `dataset` itself
         df = df.filter(pl.col("station_id").eq(station_id))
+        # a value no sensor can have produced is null, and keeps the number DWD wrote (`_RANGES`, GH-3222)
+        value, raw = null_sentinels(pl.col("value"), *_OUT_OF_RANGE, text=False)
         return df.select(
             "parameter",
             "timestamp",
-            "value",
+            value.alias("value"),
             # the internal 0 / 1 verdict (see `_quality`), written as a flag: "0", "1" or null
-            pl.col("quality").cast(pl.Int8).cast(pl.String).alias("quality_flags"),
+            join_quality_flags(pl.col("quality").cast(pl.Int8), raw=raw),
         )
 
     def _create_file_index_for_dwd_road_weather_station(
@@ -1000,7 +987,7 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         # here rather than in the per-file parse: a sensor that has stopped can only be told from
         # one that is merely steady by watching it over hours, and one file is one minute
         source = files[0].url.rsplit("/", 1)[0] or "road"
-        return _flag_impossible_temperatures(_flag_stuck_sensors(pl.concat(data), source), source)
+        return _flag_stuck_sensors(pl.concat(data), source)
 
     @staticmethod
     def __parse_dwd_road_weather_data(

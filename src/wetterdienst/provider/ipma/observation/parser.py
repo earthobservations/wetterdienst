@@ -8,7 +8,7 @@ import json
 
 import polars as pl
 
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, no_direction_code, null_sentinels
 
 # IPMA's missing-value sentinel, used across every numeric observation field, as the feed writes it
 # (`"radiacao": -99.0`; on the live feed of 2026-10-12 it is the only one, in every field)
@@ -16,6 +16,10 @@ _MISSING = Sentinel("-99.0")
 
 # ``idDireccVento`` is an 8-point wind-direction code, not degrees. Per the IPMA docs: 0 = no
 # direction (calm) -> null; 1 and 9 both mean N; 2..8 step clockwise through NE, E, SE, S, SW, W, NW.
+# The 0 is a code on a scale whose north is 1 or 9, so it can never be a bearing: it is null whatever the speed, the
+# rule of a no-direction code (GH-3222), and so is a code no table lists
+_DIRECTION = "idDireccVento"
+_NO_DIRECTION = no_direction_code("0", where=pl.col("parameter") == _DIRECTION)
 _WIND_DIRECTION_DEGREES = {
     1.0: 0.0,
     2.0: 45.0,
@@ -85,28 +89,32 @@ def extract_ipma_station_observations(feed: dict, station_id: str) -> pl.DataFra
     ``parameter`` column keeps the raw IPMA field name (``name_original``). The ``-99.0`` sentinel is nulled, a
     wind-direction code is converted to degrees, and the text of what was nulled is kept as ``raw:`` in
     ``quality_flags`` (GH-2759). Timestamps are UTC (``YYYY-MM-DDTHH:MM``).
+
+    The value is handed over as the text the feed writes, which the core reads as a number: a cell that is a text and
+    no number, or a JSON ``NaN``, is null there and counted in its debug line, where ``float`` raised on the text and
+    failed the request (GH-3222).
     """
     rows = []
     for timestamp, stations in feed.items():
         record = stations.get(station_id) if isinstance(stations, dict) else None
         if not record:
             continue
-        for field in (*_VALUE_FIELDS, "idDireccVento"):
+        for field in (*_VALUE_FIELDS, _DIRECTION):
             value = record.get(field)
-            rows.append({"timestamp": timestamp, "parameter": field, "value": None if value is None else float(value)})
+            rows.append({"timestamp": timestamp, "parameter": field, "value": None if value is None else str(value)})
     if not rows:
         return pl.DataFrame()
-    cleaned, raw = null_sentinels(pl.col("value"), _MISSING, text=False)
-    # a wind direction is a code of eight points, and code 0 is "no direction (calm)" or a code no table lists: no
-    # direction either way, and the code is kept as its text
-    is_direction = pl.col("parameter") == "idDireccVento"
-    no_direction = is_direction & cleaned.is_not_null() & ~cleaned.is_in(list(_WIND_DIRECTION_DEGREES))
-    raw = pl.coalesce(raw, pl.when(no_direction).then(cleaned.cast(pl.Int64).cast(pl.String)))
-    degrees = cleaned.replace_strict(_WIND_DIRECTION_DEGREES, default=None, return_dtype=pl.Float64)
-    return pl.DataFrame(rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.Float64}).select(
+    cleaned, raw = null_sentinels(pl.col("value"), _MISSING, _NO_DIRECTION)
+    number = cleaned.cast(pl.Float64, strict=False)
+    # a direction is a point of the eight, turned into degrees; a text that is no number is left to the core
+    is_code = (pl.col("parameter") == _DIRECTION) & number.is_finite().fill_null(value=False)
+    unlisted = is_code & ~number.is_in(list(_WIND_DIRECTION_DEGREES))
+    raw = pl.coalesce(raw, pl.when(unlisted).then(cleaned))
+    degrees = number.replace_strict(_WIND_DIRECTION_DEGREES, default=None, return_dtype=pl.Float64)
+    return pl.DataFrame(rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.String}).select(
         pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M", time_unit="us").dt.replace_time_zone("UTC"),
         pl.col("parameter"),
-        pl.when(is_direction).then(degrees).otherwise(cleaned).alias("value"),
+        pl.when(is_code).then(degrees.cast(pl.String)).otherwise(cleaned).alias("value"),
         join_quality_flags(None, raw=raw),
     )
 

@@ -54,12 +54,21 @@ def parse_lhmt_stations(content: bytes) -> pl.DataFrame:
     return pl.DataFrame(rows, infer_schema_length=None)
 
 
+def _text(value: object) -> str | None:
+    """Write a JSON value as its text, a number as the shortest that reads back as it; null stays null."""
+    return None if value is None else str(value)
+
+
 def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     """Parse a per-day ``/observations/{date}`` response into long ``(timestamp, parameter, value)`` rows.
 
     The response is ``{"station": {...}, "observations": [{"observationTimeUtc": ..., <field>: ...}]}``
     with one entry per hour. Missing values are already ``null`` (no sentinel). Timestamps are UTC
     (``YYYY-MM-DD HH:MM:SS``).
+
+    The value is handed over as the text the response writes, which the core reads as a number: a cell that is a
+    text and no number, or a JSON ``NaN``, is null there and counted in its debug line, where a frame typed as numbers
+    raised on the text, failing the request, and took the ``NaN`` for a reading (GH-3222).
     """
     try:
         payload = json.loads(content)
@@ -69,7 +78,7 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     if not isinstance(observations, list) or not observations:
         return pl.DataFrame()
     rows = [
-        {"timestamp": timestamp, "parameter": field, "value": observation.get(field)}
+        {"timestamp": timestamp, "parameter": field, "value": _text(observation.get(field))}
         for observation in observations
         # skip a malformed entry (non-dict, or one without a timestamp) rather than crash the day
         if isinstance(observation, dict) and (timestamp := observation.get("observationTimeUtc")) is not None
@@ -80,7 +89,7 @@ def parse_lhmt_observations(content: bytes) -> pl.DataFrame:
     # parse non-strict so one malformed observationTimeUtc string yields null instead of raising and
     # failing the whole day; drop those rows so only cleanly-timestamped observations remain
     return (
-        pl.DataFrame(rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.Float64})
+        pl.DataFrame(rows, schema={"timestamp": pl.String, "parameter": pl.String, "value": pl.String})
         .with_columns(
             pl.col("timestamp")
             .str.to_datetime("%Y-%m-%d %H:%M:%S", time_unit="us", strict=False)

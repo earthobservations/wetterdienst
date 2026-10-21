@@ -56,6 +56,8 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
+from wetterdienst.provider.dwd.road import api as dwd_road_api
+from wetterdienst.provider.dwd.road.api import DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as dwd_swsmos_api
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
@@ -88,6 +90,7 @@ from wetterdienst.provider.rmi.observation import RmiObservationRequest
 from wetterdienst.provider.rmi.observation import api as rmi_api
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
 from wetterdienst.provider.smhi.observation import api as smhi_api
+from wetterdienst.util.eccodes import bufr_is_available
 from wetterdienst.util.network import File
 
 if TYPE_CHECKING:
@@ -1382,6 +1385,56 @@ def _meteoswiss_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
     return stations_result(request, "10_minutes", "data", "BER").values().all().df
 
 
+def _dwd_road(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # a flat read of a KM file, as pdbufr gives it: ecCodes decodes a missing value to null itself, so the one value
+    # that is no reading is the -75.00 C (198.15 K) KM's stopped sensors hold for days (GH-1917), beside an air
+    # temperature that is one. The second minute reads -25.00 C, which a German winter reaches: it stays (GH-3222)
+    if not bufr_is_available():
+        pytest.skip("eccodes and pdbufr required")
+    import pandas as pd  # noqa: PLC0415
+
+    def subset(minute: int, road: float) -> dict[str, object]:
+        return {
+            "#1#year": 2026,
+            "#1#month": 1,
+            "#1#day": 13,
+            "#1#hour": 12,
+            "#1#minute": minute,
+            "#1#shortStationName": "K001",
+            "#1#airTemperature": 270.15,
+            "#1#roadSurfaceTemperature": road,
+        }
+
+    files = {
+        "swis2-ISXD70_DWKM_131200-2601131200-KM---bin": pd.DataFrame([subset(0, 198.15)]),
+        "swis2-ISXD70_DWKM_131215-2601131215-KM---bin": pd.DataFrame([subset(15, 248.15)]),
+    }
+    monkeypatch.setattr(dwd_road_api, "list_remote_files_fsspec", lambda *_args, **_kwargs: list(files))
+    monkeypatch.setattr(
+        dwd_road_api,
+        "download_files",
+        lambda **kwargs: [
+            File(url=url, content=BytesIO(url.encode().ljust(500)), status=200) for url in kwargs["urls"]
+        ],
+    )
+
+    def read_bufr(path: Path, *_args: object, **_kwargs: object) -> pd.DataFrame:
+        # the downloaded bytes name the file they stand for
+        return files[Path(path).read_bytes().decode().strip()]
+
+    monkeypatch.setattr("pdbufr.read_bufr", read_bufr)
+    request = DwdRoadRequest(
+        parameters=[("15_minutes", "data")],
+        start=_day(2026, 1, 13, 12),
+        end=_day(2026, 1, 13, 13),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    df = stations_result(request, "15_minutes", "data", "K001").df.with_columns(station_group=pl.lit("KM"))
+    stations = StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
+    return stations.values().all().df
+
+
 def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # stationValue of 06070 (read 2026-10-12): the mean wind direction of 2020-02-14 03:00 is 0 beside a mean wind speed
     # of 0, which is a calm (GH-2794); the 06:00 hour is made up. The 0 beside a speed above 0, which stays, is pinned
@@ -1792,6 +1845,14 @@ STUBS = [
         tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
+        "dwd/road 15_minutes/data",
+        _dwd_road,
+        reading=("temperature_surface", -25.0),
+        # no sensor reads -75 C: null, with the kelvin DWD wrote
+        sentinels=(("temperature_surface", -75.0),),
+        tokens=(("temperature_surface", "198.15", None),),
+    ),
+    ValueStub(
         "dmi/observation hourly/data",
         _dmi_hourly,
         reading=("wind_direction_mean", 250.0),
@@ -1986,7 +2047,6 @@ NO_STUB = {
         "no timeseries: the files are handed over as DWD wrote them, and the BUFR path (`read_radar_bufr`) turns the "
         "NaN of a missing pixel into null"
     ),
-    "dwd/road": "BUFR: ecCodes decodes a missing value itself, there is no text of it to keep",
     "ea/hydrology": (
         "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`, and the "
         "daily (2015) and 15 minute (2024) discharge of the first six stations by id has no value that is no reading "

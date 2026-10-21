@@ -18,7 +18,6 @@ PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 
 #: the networks whose `quality_flags` are not built by `join_quality_flags`, and where they come from instead
 NOT_JOINED = {
-    "dwd/road": "the verdict `_quality` derives, written as a plain `0` or `1`",
     "eaufrance/hubeau": "Hub'Eau's code_qualification_obs, written as a plain whole number",
     "lhmt/observation": "the service publishes no flag",
     "wsv/pegel": "the service publishes no flag",

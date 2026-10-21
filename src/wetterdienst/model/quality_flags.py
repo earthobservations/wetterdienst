@@ -174,7 +174,7 @@ def calm(speed: pl.Expr, *, where: pl.Expr | None = None) -> Sentinel:
     A calm has no direction, so its 0 is null and keeps ``raw:0``. A 0 beside a speed above 0 stays, as most sources
     write north as 360 and some as 0 too, and so does a 0 beside a speed the source does not give, which tells nothing.
     The rule is the same for every provider and every direction, of the mean wind as of the gust (beside the gust's
-    speed); a code the source documents as no direction (990, 999, a variable wind) is a sentinel of its own.
+    speed); a code the source documents as no direction (990, 999, a variable wind) is ``no_direction_code``.
 
     Args:
         speed: the speed of the same reading, as a number or the text of one, in any unit.
@@ -183,6 +183,22 @@ def calm(speed: pl.Expr, *, where: pl.Expr | None = None) -> Sentinel:
     """
     beside = speed.cast(pl.Float64, strict=False).eq(0).fill_null(value=False)
     return Sentinel(CALM, where=beside if where is None else where & beside)
+
+
+def no_direction_code(*texts: str, where: pl.Expr | None = None) -> Sentinel:
+    """Give the rule of a no-direction code: a wind direction the source writes as no bearing (GH-3222).
+
+    A direction that is a code of the source (990 or 999 for a variable wind, DWD's "uml.,windstill DD=00", IPMA's
+    point 0, "no direction"), or a value that is neither a calm nor north on the source's own scale, is null and keeps
+    its text, whatever the speed beside it. It is the one rule beside ``calm`` that maps a 0 away, and only where the
+    source names the 0 so or its data rules out a bearing: a 0 that may be north is the business of ``calm``.
+
+    Args:
+        *texts: the codes as the source writes them.
+        where: restricts the rule to the direction(s) this expression selects.
+
+    """
+    return Sentinel(*texts, where=where)
 
 
 def with_speed_beside(

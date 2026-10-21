@@ -15,7 +15,14 @@ from polars import selectors as cs
 
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.quality_flags import RAW_SUFFIX, Sentinel, calm, clear_sentinels, raw_column
+from wetterdienst.model.quality_flags import (
+    RAW_SUFFIX,
+    Sentinel,
+    calm,
+    clear_sentinels,
+    no_direction_code,
+    raw_column,
+)
 from wetterdienst.provider.dwd.observation.download import ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
@@ -172,14 +179,13 @@ WIND_DIRECTION_PARAMETERS = (
 
 # The wind files write a direction of 0 where there is no direction, and mostly 360 for north (GH-2805; read
 # 2026-10-12 in 24 station files per dataset and period of opendata.dwd.de). Left alone it is returned as 0 degrees,
-# north, which a wind rose or a mean direction counts. The rule of every provider is that only a 0 beside a speed of
-# 0 of the same reading is a calm, and null (`calm`, GH-3222); a 0 beside a wind that blows stays. Where DWD's sheet
-# names the 0 a code of a variable wind as well, the 0 beside a wind that blows is that code, and null too:
+# north, which a wind rose or a mean direction counts. Two rules of every provider decide (GH-3222): only a 0 beside a
+# speed of 0 of the same reading is a calm, and null (`calm`, `CALM_WIND_DIRECTION_PARAMETERS`); a 0 beside a wind that
+# blows stays. A 0 the source names a code of no direction, or one that is neither a calm nor north, is null whatever
+# the speed (`no_direction_code`, `NO_DIRECTION_CODE_PARAMETERS`).
 #
-# - hourly wind_synop DD: the sheet names the column "Windrichtung uml.,windstill DD=00", the code of a variable
-#   ("umlaufend") or calm wind. 129,350 of the 129,420 historical hours with a speed of 0 have DD 0, and 27,714 more a
-#   speed above 0 (11,892 at 1.0 m/s), the variable wind of the code. A few stations also write it at 7 m/s for hours
-#   (00785, 1986-02-14), where `raw:0` keeps it. Every 0 is null.
+# The calm (`calm`):
+#
 # - hourly wind D: the sheet gives a "36-teilige Windrose", which has no point 0, and names no code. 141,852 of the
 #   141,873 historical hours with a speed of 0 have D 0; beside a wind that blows it falls from 1,447 of 180,845 hours
 #   below 0.5 m/s to 1 of 1,487,127 at 3 to 5 m/s, while 360 stays at 1.6 to 4.6 % of the hours up to 5 m/s. The
@@ -199,6 +205,13 @@ WIND_DIRECTION_PARAMETERS = (
 #   every one beside a speed of 0.00, and every 10 minutes with a speed of 0.00 has the 0 (15818 on 2025-04-28: 220 at
 #   0.10 m/s at 18:20, 0 at 0.00 at 18:30, 200 at 0.20 at 18:40). The sheet of the dataset answers 404, so it follows
 #   the rule of 10 minute wind.
+#
+# The no-direction code (`no_direction_code`):
+#
+# - hourly wind_synop DD: the sheet names the column "Windrichtung uml.,windstill DD=00", the code of a variable
+#   ("umlaufend") or calm wind. 129,350 of the 129,420 historical hours with a speed of 0 have DD 0, and 27,714 more a
+#   speed above 0 (11,892 at 1.0 m/s), the variable wind of the code. A few stations also write it at 7 m/s for hours
+#   (00785, 1986-02-14), where `raw:0` keeps it. Every 0 is null.
 # - hourly urban_wind WINDRICHTUNG (GH-2809) has 1,288 zeros in 295,005 hours (read 2026-10-12), never beside a speed
 #   of 0 (the minimum speed is 0.1 m/s; mostly 0.2 to 0.4, 11 hours at 1 m/s or more), and the sheet says only that
 #   the hour is "the average of the six 10min intervals measured in the previous hour" and that -999 is missing. The
@@ -207,9 +220,8 @@ WIND_DIRECTION_PARAMETERS = (
 #   within 30 degrees of north in 45 of the 410, 11 %, where a uniform one would be 17 %), only 1 of the 2,460 10
 #   minute directions is 0 and every speed is above 0 (0.1 to 1.3 m/s). A 0 is neither a calm nor north, which the
 #   hourly file writes as 360 (4,280 times), and no rule of the six values that gives the 0 was found: 811 hours of a
-#   scatter as wide have a direction. So every 0 is null, with its text. DWD has not been asked. It is the one
-#   direction of any provider whose 0 beside a wind that blows is null without a code of the source, which the rule
-#   of GH-3222 would return as north: left so until it is decided.
+#   scatter as wide have a direction. So every 0 is null, with its text: the data rules out a bearing, and the
+#   maintainer decided it is a no-direction code (GH-3222). DWD has not been asked.
 CALM_WIND_DIRECTION_PARAMETERS = (
     (
         DwdObservationMetadata.hourly.wind,
@@ -217,19 +229,9 @@ CALM_WIND_DIRECTION_PARAMETERS = (
         DwdObservationMetadata.hourly.wind.wind_speed_mean.name_original,
     ),
     (
-        DwdObservationMetadata.hourly.wind_synoptic,
-        DwdObservationMetadata.hourly.wind_synoptic.wind_direction.name_original,
-        None,
-    ),
-    (
         DwdObservationMetadata.subdaily.wind,
         DwdObservationMetadata.subdaily.wind.wind_direction.name_original,
         DwdObservationMetadata.subdaily.wind.wind_force_beaufort.name_original,
-    ),
-    (
-        DwdObservationMetadata.hourly.urban_wind,
-        DwdObservationMetadata.hourly.urban_wind.wind_direction_mean.name_original,
-        None,
     ),
     (
         DwdObservationMetadata.minute_10.wind,
@@ -245,6 +247,16 @@ CALM_WIND_DIRECTION_PARAMETERS = (
         DwdObservationMetadata.minute_10.urban_wind,
         DwdObservationMetadata.minute_10.urban_wind.wind_direction_mean.name_original,
         DwdObservationMetadata.minute_10.urban_wind.wind_speed_mean.name_original,
+    ),
+)
+NO_DIRECTION_CODE_PARAMETERS = (
+    (
+        DwdObservationMetadata.hourly.wind_synoptic,
+        DwdObservationMetadata.hourly.wind_synoptic.wind_direction.name_original,
+    ),
+    (
+        DwdObservationMetadata.hourly.urban_wind,
+        DwdObservationMetadata.hourly.urban_wind.wind_direction_mean.name_original,
     ),
 )
 
@@ -266,8 +278,8 @@ _SKY_OBSCURED = Sentinel(SKY_OBSCURED)
 _MOISTURE_MISSING = Sentinel(str(MOISTURE_MISSING))
 _WEATHER_NOT_REPORTED = Sentinel(str(WEATHER_NOT_REPORTED))
 _PRECIPITATION_FORM_MISSING = Sentinel(str(PRECIPITATION_FORM_MISSING))
-_WIND_DIRECTION_VARIABLE = Sentinel(str(WIND_DIRECTION_VARIABLE))
-_NO_WIND_DIRECTION = Sentinel("0")
+_WIND_DIRECTION_VARIABLE = no_direction_code(str(WIND_DIRECTION_VARIABLE))
+_NO_WIND_DIRECTION = no_direction_code("0")
 # the columns that identify a row or describe a station and are no parameter: no text is kept of their sentinel
 _NO_RAW_COLUMNS = {
     "stations_id",
@@ -485,11 +497,13 @@ def _parse_climate_observations_data(  # noqa: C901
         if dataset == wind_dataset and parameter in columns:
             df = clear_sentinels(df, [parameter], _WIND_DIRECTION_VARIABLE)
     for wind_dataset, parameter, speed in CALM_WIND_DIRECTION_PARAMETERS:
-        if dataset == wind_dataset and parameter in columns and (speed is None or speed in columns):
-            # where the file has the speed, a 0 is only a calm beside a speed of exactly 0; a speed that is missing is
-            # no calm (GH-3222)
-            no_direction = _NO_WIND_DIRECTION if speed is None else calm(pl.col(speed))
-            df = clear_sentinels(df, [parameter], no_direction)
+        if dataset == wind_dataset and parameter in columns and speed in columns:
+            # a 0 is only a calm beside a speed of exactly 0; a speed that is missing is no calm (GH-3222)
+            df = clear_sentinels(df, [parameter], calm(pl.col(speed)))
+    for code_dataset, parameter in NO_DIRECTION_CODE_PARAMETERS:
+        if dataset == code_dataset and parameter in columns:
+            # a 0 that is no bearing, whatever the speed (GH-3222)
+            df = clear_sentinels(df, [parameter], _NO_WIND_DIRECTION)
     # after the sentinels: a rose point is only turned into degrees where it is a value (GH-2808)
     for rose_dataset, parameter in WIND_ROSE_PARAMETERS:
         if dataset == rose_dataset and parameter in columns:

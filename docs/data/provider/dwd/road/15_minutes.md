@@ -159,12 +159,14 @@ A caller reading this network at face value should expect, at roughly one statio
 - **stuck sensors**, holding one value for a whole day -- one station's second road sensor read
   `-0.0 °C` in all 96 readings of a day while its first ran a normal 17.4 to 33.5 °C.
 
-Wetterdienst removes none of these. It reports what DWD publishes, and a reading's plausibility is
-left to the caller -- a road surface really does reach 60 °C in July sun, so a threshold that took
-*out* the nonsense above would take genuine extremes with it. Two of those shapes it does **mark**,
-in the `quality_flags` column, which is a different thing: the reading stays exactly as published, and a
-caller who wants the extremes keeps them. The two are the stuck sensors, and the part of the exact
-round values that no reading could hold -- the `-75.00`, but not the `-30.00` or the `-25.00`.
+Wetterdienst removes only what no sensor can have produced, and reports the rest as DWD publishes
+it, leaving a reading's plausibility to the caller -- a road surface really does reach 60 °C in July
+sun, so a threshold that took *out* the nonsense above would take genuine extremes with it. A value
+outside the physical range of its quantity, the `-75.00` of the exact round values among them, is
+**null**, with the number DWD wrote as `raw:198.15` in `quality_flags`, as DMI and RMI null theirs
+(see [special values](../../../special_values.md)). The stuck sensors it **marks**, in the
+`quality_flags` column, which is a different thing: the reading stays exactly as published, and a
+caller who wants the extremes keeps them.
 
 Which of the first bullet's readings are marked depends on the sensor rather than the value: its
 cold outliers are marked where the sensor that took them has stopped, and its warm ones are not
@@ -212,8 +214,8 @@ Two things the run rule does not catch, and one it cannot:
 - a run shorter than the window. A request covering less than six hours has too few readings for the
   question to be asked at all -- and because the check sees only the files the window selected, the
   same reading can come back `null` from a two-hour request and `1` from a full day's. A caller
-  filtering on `quality_flags` should ask for the window it means. The one exception is the line drawn in
-  the next section, which reads a value rather than a run and so needs no window at all.
+  filtering on `quality_flags` should ask for the window it means. The values nulled in the next
+  section are the exception, as a range reads a value rather than a run and so needs no window at all.
 - a sensor that moves but is wrong. RH/L702 ran 76.5 to 79.8 °C across a day and HV/E237 46.9 to
   57.2 °C, both varying hour to hour exactly as a working sensor does.
 - **the difference from air temperature cannot separate the two.** Over a full day of five groups,
@@ -222,10 +224,16 @@ Two things the run rule does not catch, and one it cannot:
   range. There is no threshold here that catches one without condemning the other, which is why this
   library does not try.
 
-##### temperatures no reading can hold
+##### values no reading can hold
 
-The second is marked whatever window was asked for: a temperature below **-60 °C**. It is the
-`-75.00` of the exact round values above, and only that one.
+A value outside the physical range of its quantity is null whatever window was asked for, with the
+number DWD wrote as the last token of `quality_flags`, `raw:198.15` (GH-3222). Up to 0.163.0 it was
+returned as published and marked `1`. The ranges are those every provider is held to (a humidity to
+130 %, a wind speed to 115 m/s, a visibility to 200 km, a direction to 360 degrees, a water film to
+1 m, the rain of 15 minutes to 300 mm), in DWD's own units; the surface condition and the
+precipitation type are codes, held to none. The temperatures are narrower at the cold end: below
+**-60 °C** a temperature is null. It is the `-75.00` of the exact round values above, and only that
+one.
 
 Germany's record low air temperature is -45.9 °C, at a sinkhole that traps cold, and a road surface
 tracks the air rather than running far beneath it; the line stands 14 K under that record and 29 K
@@ -235,7 +243,7 @@ sensors of KM do, at `-75.00` °C to the hundredth, for days.
 This is what a value-based check is good for and the run rule is not. Measured over one hour of the
 whole network -- 809 stations, 11 505 temperature readings -- the run rule marks nothing at all for
 the two stations sitting at -75 °C, having only five readings where it needs twenty-four; the line
-marks all ten of their readings. Over twelve hours the run rule marks both stations too. The same
+nulls all ten of their readings. Over twelve hours the run rule marks both stations too. The same
 hour leaves `-30.00` and `-25.00` alone, as it should: those are readings until something other
 than their value says otherwise.
 
@@ -245,11 +253,10 @@ cannot reach.
 
 ##### what a quality flag of `1` means
 
-So a quality flag of `1` means suspect, whether DWD said so or either of these checks did. They do not
+So a quality flag of `1` means suspect, whether DWD said so or the run rule did. They do not
 have the same standing -- DWD's bit 7 is verified against the data, with no station within 5 K of its own air
 temperature carrying it, where the run length is a threshold fitted to one day -- and the column
-does not distinguish them. Nor do the two of ours stand alike: a run length is a threshold fitted to one day
-of one network, where -60 °C is a statement about what temperatures exist. The log distinguishes all
-three, for a caller who turns it up: each check writes a line at `DEBUG` naming the first five
-stations it marked -- which neither the CLI nor the REST API prints by default -- and a station
-stopped at -75 °C is named by both of ours. A `null` still means nobody has looked.
+does not distinguish them. The log does, for a caller who turns it up: the run rule writes a line at
+`DEBUG` naming the first five stations it marked -- which neither the CLI nor the REST API prints by
+default. A value nulled for its range carries a `raw:` token after the flag, `1,raw:198.15` where the
+sensor has stopped as well. A `null` flag still means nobody has looked.

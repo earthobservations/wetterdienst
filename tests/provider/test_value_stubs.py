@@ -27,11 +27,13 @@ SPEED_OF_DIRECTION = {
     "wind_direction_mean_last_2min": ("wind_speed_mean_last_2min", "wind_speed"),
     "wind_direction_gust_max": ("wind_gust_max",),
 }
-# the stubs whose source writes a 0 that is no direction beside a wind that blows as well, and why
-ZERO_THAT_IS_NO_DIRECTION = {
-    "dwd/observation hourly/wind_synop": 'the sheet\'s "Windrichtung uml.,windstill DD=00", a variable or a calm wind',
-    "dwd/observation hourly/urban_wind": "a 0 that is neither a calm nor north (GH-2809), brought up in GH-3222",
-    "ipma/observation hourly/data": 'the code 0 of the eight points, "no direction"',
+# the rule of a no-direction code (`no_direction_code`, GH-3222): the stubs whose wind direction 0 is no bearing,
+# and is null whatever the speed, with what makes it one. The source names it a code, or its data rules out a bearing.
+# Every other direction follows the rule of a calm (`calm`).
+NO_DIRECTION_CODE = {
+    "dwd/observation hourly/wind_synop": 'a code: the sheet\'s "Windrichtung uml.,windstill DD=00", a variable or calm',
+    "dwd/observation hourly/urban_wind": "no bearing: neither a calm nor north, the six 10 minutes spread (GH-2809)",
+    "ipma/observation hourly/data": 'a code: the point 0 of eight, "no direction", where north is 1 or 9',
 }
 
 
@@ -117,7 +119,10 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
             f"{stub.provider}: no {name} read as {value} with `raw:{text}`, got "
             f"{df.filter(pl.col('parameter') == name).select('value', 'quality_flags').unique().to_dicts()}"
         )
-    _assert_the_rule_of_a_calm(df, stub)
+    if stub.provider in NO_DIRECTION_CODE:
+        _assert_the_rule_of_a_no_direction_code(df, stub)
+    else:
+        _assert_the_rule_of_a_calm(df, stub)
     # the token is the last kind and there is one: a caller reads `split(",")[-1]`
     assert df.filter(pl.col("raws") > 1).is_empty()
     assert df.filter((pl.col("raws") == 1) & ~pl.col("last").str.starts_with("raw:")).is_empty()
@@ -132,9 +137,8 @@ def _assert_the_rule_of_a_calm(df: pl.DataFrame, stub: ValueStub) -> None:
     """Hold the wind directions of a stub's output to the one rule of a calm, as the speed beside them says (GH-3222).
 
     A direction of 0 beside a speed of 0 of the same reading is a calm, and is null with `raw:0`: no provider returns
-    the 0. A direction mapped from a 0 is beside a speed of 0, as a 0 beside a wind that blows stays, unless the
-    source writes a code there (`ZERO_THAT_IS_NO_DIRECTION`). `df` is the output with the null rows kept and the last
-    token of `quality_flags` as `last`.
+    the 0. A direction mapped from a 0 is beside a speed of 0, as a 0 beside a wind that blows stays. `df` is the
+    output with the null rows kept and the last token of `quality_flags` as `last`.
     """
     present = set(df.get_column("parameter").unique().to_list())
     for direction, speeds in SPEED_OF_DIRECTION.items():
@@ -151,12 +155,24 @@ def _assert_the_rule_of_a_calm(df: pl.DataFrame, stub: ValueStub) -> None:
         )
         calm = pairs.filter((pl.col("direction") == 0) & (pl.col("speed") == 0))
         assert calm.is_empty(), f"{stub.provider}: {direction} is 0 beside a {speed} of 0: {calm.to_dicts()}"
-        if stub.provider in ZERO_THAT_IS_NO_DIRECTION:
-            continue
-        # the 0 as the source wrote it, `0` or `0.0`
-        zero = pl.col("last").str.contains(r"^raw:0(\.0+)?$")
-        blowing = pairs.filter(pl.col("direction").is_null() & zero & (pl.col("speed") > 0))
+        blowing = pairs.filter(pl.col("direction").is_null() & _MAPPED_ZERO & (pl.col("speed") > 0))
         assert blowing.is_empty(), f"{stub.provider}: a 0 of {direction} beside a wind that blows: {blowing.to_dicts()}"
+
+
+# the 0 as the source wrote it, `0` or `0.0`, mapped away
+_MAPPED_ZERO = pl.col("last").str.contains(r"^raw:0(\.0+)?$")
+
+
+def _assert_the_rule_of_a_no_direction_code(df: pl.DataFrame, stub: ValueStub) -> None:
+    """Hold a direction whose 0 is no bearing to the rule of a no-direction code: null with `raw:0`, whatever the speed.
+
+    The stub serves the 0, so the rule is seen to apply (GH-3222); `NO_DIRECTION_CODE` says what makes it one.
+    """
+    directions = df.filter(pl.col("parameter").is_in(list(SPEED_OF_DIRECTION)))
+    returned = directions.filter(pl.col("value") == 0)
+    assert returned.is_empty(), f"{stub.provider}: a 0 that is no bearing is returned: {returned.to_dicts()}"
+    mapped = directions.filter(pl.col("value").is_null() & _MAPPED_ZERO)
+    assert not mapped.is_empty(), f"{stub.provider}: the stub serves no 0 of a direction, so the rule is not seen"
 
 
 def test_a_reader_that_maps_a_sentinel_has_a_stub() -> None:
