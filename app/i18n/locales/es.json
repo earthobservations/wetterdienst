@@ -395,7 +395,21 @@
       "axisPressure": "Presión hPa",
       "tableTime": "Hora ({zone})",
       "summaryRange": "Pronóstico del {from} al {to}.",
-      "summaryTemperature": "Temperatura de {min} a {max} °C."
+      "summaryTemperature": "Temperatura de {min} a {max} °C.",
+      "weather": {
+        "thunderstorm": "Tormenta",
+        "rain": "Lluvia",
+        "snow": "Nieve",
+        "sleet": "Aguanieve",
+        "dust": "Tormenta de polvo o arena",
+        "blowingSnow": "Ventisca",
+        "drizzle": "Llovizna",
+        "fog": "Niebla",
+        "wind": "Ventoso",
+        "cloudy": "Nublado",
+        "partlyCloudy": "Parcialmente nublado",
+        "clear": "Soleado"
+      }
     },
     "orChooseMap": "o",
     "chooseOnMap": "Elegir una estación en el mapa",

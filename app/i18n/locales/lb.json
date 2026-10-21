@@ -395,7 +395,21 @@
       "axisPressure": "Drock hPa",
       "tableTime": "Zäit ({zone})",
       "summaryRange": "Prognos vum {from} bis {to}.",
-      "summaryTemperature": "Temperatur vun {min} bis {max} °C."
+      "summaryTemperature": "Temperatur vun {min} bis {max} °C.",
+      "weather": {
+        "thunderstorm": "Gewitter",
+        "rain": "Reen",
+        "snow": "Schnéi",
+        "sleet": "Schnéireen",
+        "dust": "Stëbs- oder Sandstuerm",
+        "blowingSnow": "Schnéigestéber",
+        "drizzle": "Niselreen",
+        "fog": "Niwwel",
+        "wind": "Wandeg",
+        "cloudy": "Wollekeg",
+        "partlyCloudy": "Deelweis wollekeg",
+        "clear": "Sonneg"
+      }
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Wiel eng Statioun op der Kaart",

@@ -395,7 +395,21 @@
       "axisPressure": "Luchtdruk hPa",
       "tableTime": "Tijd ({zone})",
       "summaryRange": "Verwachting van {from} tot {to}.",
-      "summaryTemperature": "Temperatuur van {min} tot {max} °C."
+      "summaryTemperature": "Temperatuur van {min} tot {max} °C.",
+      "weather": {
+        "thunderstorm": "Onweer",
+        "rain": "Regen",
+        "snow": "Sneeuw",
+        "sleet": "Natte sneeuw",
+        "dust": "Stof- of zandstorm",
+        "blowingSnow": "Stuifsneeuw",
+        "drizzle": "Motregen",
+        "fog": "Mist",
+        "wind": "Winderig",
+        "cloudy": "Bewolkt",
+        "partlyCloudy": "Half bewolkt",
+        "clear": "Zonnig"
+      }
     },
     "orChooseMap": "of",
     "chooseOnMap": "Kies een station op de kaart",

@@ -363,6 +363,7 @@ const UI_SAME: Record<string, Same> = {
   'meteogram.chart.seriesWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'meteogram.chart.seriesDirection': { en: ['fr'], why: COGNATE },
   'meteogram.chart.seriesRain': { de: ['nl'], why: COGNATE },
+  'meteogram.chart.weather.rain': { de: ['nl'], why: COGNATE },
   'meteogram.chart.hoverTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.hoverWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
   'meteogram.chart.hoverRain': { de: ['nl'], why: COGNATE },

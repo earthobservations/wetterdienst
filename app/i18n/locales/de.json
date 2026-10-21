@@ -395,7 +395,21 @@
       "axisPressure": "Luftdruck hPa",
       "tableTime": "Zeit ({zone})",
       "summaryRange": "Vorhersage von {from} bis {to}.",
-      "summaryTemperature": "Temperatur von {min} bis {max} °C."
+      "summaryTemperature": "Temperatur von {min} bis {max} °C.",
+      "weather": {
+        "thunderstorm": "Gewitter",
+        "rain": "Regen",
+        "snow": "Schnee",
+        "sleet": "Schneeregen",
+        "dust": "Staub- oder Sandsturm",
+        "blowingSnow": "Schneetreiben",
+        "drizzle": "Nieselregen",
+        "fog": "Nebel",
+        "wind": "Windig",
+        "cloudy": "Bewölkt",
+        "partlyCloudy": "Teils bewölkt",
+        "clear": "Sonnig"
+      }
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station auf der Karte auswählen",
