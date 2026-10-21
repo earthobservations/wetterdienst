@@ -1,5 +1,8 @@
 # Provider
 
+How every provider reads a calm, a trace, an obscured sky or a missing value is on
+[special values](../special_values.md); the parameter tables of each provider say what its source writes.
+
 ```{toctree}
 :hidden:
 

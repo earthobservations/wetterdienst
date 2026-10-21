@@ -22,6 +22,9 @@ A value no sensor can have produced, a number outside the physical range of its 
 beside ``Sentinel``, and the value is read as ``raw:4021`` (GH-2797). The bounds are the reader's, per resolution where
 the quantity grows with the span, in the unit of the source, and generous: a value that is only odd stays.
 
+A wind direction of 0 is a calm, and null with ``raw:0``, only beside a speed of 0 of the same reading: ``calm`` is that
+rule for every provider, and ``with_speed_beside`` lays the speed beside the direction of a long frame (GH-3222).
+
 A stuck or dead sensor over a period of time gives values inside every range. ``NoReading`` maps what a
 station, a parameter and a period select to null the same way, keeping the value as ``raw`` (GH-3031).
 """
@@ -156,6 +159,66 @@ class NoReading:
     def __init__(self, where: pl.Expr) -> None:
         """Declare the rule."""
         self.where = where
+
+
+# the text of the direction of a calm wind, as every source that writes one writes it
+CALM = "0"
+# the column a long frame carries the speed of a wind direction's own reading in, beside the direction
+# (`with_speed_beside`), until the reader drops it
+SPEED_BESIDE = "__speed_beside"
+
+
+def calm(speed: pl.Expr, *, where: pl.Expr | None = None) -> Sentinel:
+    """Give the rule of a calm: a wind direction of 0 beside a speed of exactly 0 of the same reading (GH-3222).
+
+    A calm has no direction, so its 0 is null and keeps ``raw:0``. A 0 beside a speed above 0 stays, as most sources
+    write north as 360 and some as 0 too, and so does a 0 beside a speed the source does not give, which tells nothing.
+    The rule is the same for every provider and every direction, of the mean wind as of the gust (beside the gust's
+    speed); a code the source documents as no direction (990, 999, a variable wind) is a sentinel of its own.
+
+    Args:
+        speed: the speed of the same reading, as a number or the text of one, in any unit.
+        where: restricts the rule to the direction(s) this expression selects.
+
+    """
+    beside = speed.cast(pl.Float64, strict=False).eq(0).fill_null(value=False)
+    return Sentinel(CALM, where=beside if where is None else where & beside)
+
+
+def with_speed_beside(
+    df: Frame,
+    pairs: dict[str, str],
+    *,
+    on: list[str],
+    value: pl.Expr | None = None,
+) -> Frame:
+    """Lay the speed of the same reading beside every wind direction of a long frame, as column ``SPEED_BESIDE``.
+
+    Args:
+        df: the long frame, with a ``parameter`` column and the value.
+        pairs: the direction and the speed of its reading, as the frame names them (``{"dd": "ff"}``).
+        on: the columns that make one reading besides ``parameter`` (the timestamp).
+        value: the expression of the value, ``pl.col("value")`` by default.
+
+    Returns:
+        The frame with ``SPEED_BESIDE``, null on every row that is no direction and where the speed is missing, for
+        ``calm(pl.col(SPEED_BESIDE))``. The rows and their order are those of ``df``.
+
+    """
+    value = pl.col("value") if value is None else value
+    if not pairs:
+        # polars types `with_columns` on the union `DataFrame | LazyFrame`, not on the constrained `Frame` TypeVar
+        return df.with_columns(pl.lit(None, dtype=pl.Float64).alias(SPEED_BESIDE))  # ty: ignore[invalid-return-type]
+    parts = [
+        df.filter(pl.col("parameter") == speed).select(
+            *on, pl.lit(direction, dtype=pl.String).alias("parameter"), value.alias(SPEED_BESIDE)
+        )
+        for direction, speed in pairs.items()
+    ]
+    # the parts are all DataFrames or all LazyFrames, which `concat` takes, but the checker sees a list of `Frame`
+    speeds = pl.concat(parts).unique(subset=[*on, "parameter"], keep="first", maintain_order=True)  # ty: ignore[invalid-argument-type]
+    # polars types `join` on the union `DataFrame | LazyFrame`, not on the constrained `Frame` TypeVar
+    return df.join(speeds, on=[*on, "parameter"], how="left", maintain_order="left")  # ty: ignore[invalid-return-type]
 
 
 def null_sentinels(

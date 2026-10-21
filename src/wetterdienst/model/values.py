@@ -128,11 +128,7 @@ def shape_provider_frame(
     if df.is_empty():
         return pl.DataFrame(schema=LONG_SCHEMA)
     _check_provider_columns(df, provider)
-    if df.schema["value"] != pl.Float64:
-        # a text is read as the number it writes, and one that writes none is null: counted, never named
-        unreadable = df.get_column("value").cast(pl.Float64, strict=False).null_count() - df["value"].null_count()
-        if unreadable:
-            log.debug("%s: %d of %d value cells are no number and are null", provider, unreadable, df.height)
+    value = _value_as_number(df, provider)
     surplus = [column for column in df.columns if column not in LONG_SCHEMA]
     if surplus:
         log.debug("%s: dropped the column(s) %s, which the long form does not have", provider, ", ".join(surplus))
@@ -145,6 +141,8 @@ def shape_provider_frame(
     for column, dtype in LONG_SCHEMA.items():
         if column in identity:
             columns.append(pl.lit(identity[column], dtype=dtype).alias(column))
+        elif column == "value":
+            columns.append(value.alias(column))
         elif column in df.columns:
             columns.append(pl.col(column).cast(dtype, strict=column != "value"))
         else:
@@ -152,6 +150,27 @@ def shape_provider_frame(
             # String column of the providers that do deliver it
             columns.append(pl.lit(None, dtype=dtype).alias(column))
     return df.select(columns)
+
+
+def _value_as_number(df: pl.DataFrame, provider: str) -> pl.Expr:
+    """Give the expression that reads the ``value`` of a provider's frame as a number, logging the cells that are none.
+
+    A text is read as the number it writes, padding aside, and one that writes none is null, ``nan`` and ``inf`` too,
+    which a cast would take for numbers (GH-3222): counted in one debug line, never named. A blank cell is no reading
+    and is not counted.
+    """
+    dtype = df.schema["value"]
+    if dtype == pl.String:
+        cell = pl.col("value").str.strip_chars()
+        number = cell.cast(pl.Float64, strict=False)
+        value = pl.when(number.is_nan() | number.is_infinite()).then(None).otherwise(number)
+        unreadable = df.select(((cell.str.len_chars() > 0) & value.is_null()).sum()).item()
+    else:
+        value = pl.col("value").cast(pl.Float64, strict=False)
+        unreadable = 0 if dtype == pl.Float64 else df.select(value.null_count()).item() - df["value"].null_count()
+    if unreadable:
+        log.debug("%s: %d of %d value cells are no number and are null", provider, unreadable, df.height)
+    return value
 
 
 @dataclass

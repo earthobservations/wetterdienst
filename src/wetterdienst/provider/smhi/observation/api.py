@@ -16,7 +16,7 @@ from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.smhi.observation.metadata import SmhiObservationMetadata
@@ -51,8 +51,10 @@ _PERIODS_BY_RESOLUTION = {
 # at the others), falling with the speed (443, 138 and 10 hours at 1, 2 and 3 m/s at 97400) where a bearing would stay
 # flat; 464, 4818 and 1358 hours read 360. The 1 minute direction (parameter 48) is a mean of the minute and exactly
 # 0.000000 in the 49, 327, 46 and 233 minutes of 188790, 159880, 71420 and 92410 whose speed (parameter 47) is 0.000000,
-# and in no other. SMHI documents neither, but a 0 is no bearing there, so it is null (GH-2794).
-_WIND_DIRECTION_NOT_GIVEN = Sentinel("0")
+# and in no other. SMHI documents neither. The 0 beside a speed of 0 is a calm, and null (GH-2794); the 0 beside a wind
+# that blows stays, as in every provider (`calm`, GH-3222), where it was null too. The speed is read with the
+# direction, whether or not it was asked for.
+_WIND_SPEED_OF_DIRECTION = {"3": "4", "48": "47"}
 
 # The total cloud cover (parameter 16, percent) is the oktas 0 to 8 written as 0, 13, 25, 38, 50, 63, 75, 88 and
 # 100, and 113 for the 9 of an obscured sky: "Kod 9 används vid till exempel dimma och högt snödrev då molnen inte
@@ -110,10 +112,42 @@ class SmhiObservationValues(TimeseriesValues):
         return pl.concat(data)
 
     def _collect_parameter(self, station_id: str, parameter: ParameterModel, settings: Settings) -> pl.DataFrame:
-        periods = _PERIODS_BY_RESOLUTION[parameter.dataset.resolution.value]
+        resolution = parameter.dataset.resolution.value
+        df = self._read_series(station_id, parameter.name_original, resolution, settings)
+        if df.is_empty():
+            return pl.DataFrame()
+        # the 0 of a calm wind and the 113 of a cloud cover are mapped before the value is read as a number, and
+        # stay as a `raw:` token
+        sentinels: tuple[Sentinel, ...] = ()
+        speed = _WIND_SPEED_OF_DIRECTION.get(parameter.name_original)
+        if speed is not None:
+            # the speed of the same reading, which a station without it leaves null: a 0 beside it is no calm
+            speeds = self._read_series(station_id, speed, resolution, settings)
+            if speeds.is_empty():
+                df = df.with_columns(pl.lit(None, dtype=pl.String).alias(SPEED_BESIDE))
+            else:
+                speeds = speeds.select("timestamp", pl.col("value").alias(SPEED_BESIDE))
+                df = df.join(speeds, on="timestamp", how="left", maintain_order="left")
+            sentinels = (calm(pl.col(SPEED_BESIDE)),)
+        if parameter.name_original == _CLOUD_COVER_PARAMETER:
+            sentinels = (_CLOUD_COVER_SKY_OBSCURED,)
+        value, raw = null_sentinels(pl.col("value"), *sentinels)
+        # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the reading of
+        # the text that is left of `value` as a number
+        return df.select(
+            pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
+            pl.col("timestamp"),
+            value.alias("value"),
+            join_quality_flags(pl.col("quality_flags"), raw=raw),
+        )
+
+    @staticmethod
+    def _read_series(station_id: str, name_original: str, resolution: Resolution, settings: Settings) -> pl.DataFrame:
+        """Read the series of one parameter of a station, of every period, one row per timestamp as SMHI writes it."""
+        periods = _PERIODS_BY_RESOLUTION[resolution]
         frames = []
         for period in periods:
-            url = f"{_BASE_URL}/parameter/{parameter.name_original}/station/{station_id}/period/{period}/data.csv"
+            url = f"{_BASE_URL}/parameter/{name_original}/station/{station_id}/period/{period}/data.csv"
             payload = _fetch(url, settings)
             if isinstance(payload, Exception):
                 # a 404 (FileNotFoundError) just means this station doesn't report this
@@ -128,7 +162,7 @@ class SmhiObservationValues(TimeseriesValues):
                     raise failure
                 if not isinstance(payload, FileNotFoundError):
                     log.warning(
-                        f"Failed to fetch SMHI parameter {parameter.name_original} for station {station_id}: {payload}",
+                        f"Failed to fetch SMHI parameter {name_original} for station {station_id}: {payload}",
                     )
                 continue
             try:
@@ -137,7 +171,7 @@ class SmhiObservationValues(TimeseriesValues):
                 # a single malformed CSV block shouldn't abort the whole (multi-station,
                 # multi-parameter) query -- skip it and keep going.
                 log.warning(
-                    f"Failed to parse SMHI CSV for parameter {parameter.name_original} "
+                    f"Failed to parse SMHI CSV for parameter {name_original} "
                     f"station {station_id} period {period}: {exc}",
                 )
                 continue
@@ -147,7 +181,7 @@ class SmhiObservationValues(TimeseriesValues):
             return pl.DataFrame()
 
         df = pl.concat(frames)
-        if parameter.dataset.resolution.value == Resolution.DAILY:
+        if resolution == Resolution.DAILY:
             # A daily value is stamped at 00:00 UTC of the day it names. Snow depth is the one daily file with a
             # 'Tid (UTC)' column, '06:00:00' for "momentanvärde, 1 gång/dygn, kl 06" (an instantaneous value once a
             # day at 06), and so came at 06:00 UTC besides the others at 00:00, which a request for that one day
@@ -157,21 +191,7 @@ class SmhiObservationValues(TimeseriesValues):
         # timestamp. corrected-archive is the finalized quality-controlled version and is
         # fetched (and appended) first, so keep="first" prefers it over the still-under-QC
         # latest-months value; maintain_order=True makes that deterministic.
-        df = df.unique(subset="timestamp", keep="first", maintain_order=True)
-        # the 0 of a wind direction and the 113 of a cloud cover are mapped before the value is read as a number, and
-        # stay as a `raw:` token
-        sentinels = (_WIND_DIRECTION_NOT_GIVEN,) if parameter.name.startswith("wind_direction") else ()
-        if parameter.name_original == _CLOUD_COVER_PARAMETER:
-            sentinels = (_CLOUD_COVER_SKY_OBSCURED,)
-        value, raw = null_sentinels(pl.col("value"), *sentinels)
-        # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the reading of
-        # the text that is left of `value` as a number
-        return df.select(
-            pl.lit(parameter.name_original, dtype=pl.String).alias("parameter"),
-            pl.col("timestamp"),
-            value.alias("value"),
-            join_quality_flags(pl.col("quality_flags"), raw=raw),
-        )
+        return df.unique(subset="timestamp", keep="first", maintain_order=True)
 
 
 @dataclass

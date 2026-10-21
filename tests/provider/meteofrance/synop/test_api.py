@@ -138,12 +138,13 @@ def test_meteofrance_synop_api_gust_is_named_for_its_ten_minutes(monkeypatch: py
 
 
 def test_meteofrance_synop_api_calm_wind_direction_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that dd=0 has no direction, whatever ff is, where 360 is north and the other directions stay (GH-2856).
+    """Test that dd=0 beside ff=0 has no direction, where 360 is north and the other directions stay (GH-2856).
 
     The rows are made after Toulouse-Blagnac (07630) in synop_2024.csv.gz: a calm (dd=0 beside ff=0, 3495 rows in
     the file, none with another ff), a light wind the integer ff cuts to 0 (dd=170, ff=0, 10925 rows) and north
-    (dd=360). The row at 09:00 is a dd=0 beside ff=1, as Pamandzi writes it in 2012: no bearing either. The zero
-    keeps its text as the `raw` token (rows without a value are kept to see it), and ff=0 is a reading.
+    (dd=360). The row at 09:00 is a dd=0 beside ff=1, as Pamandzi writes it in 2012, which stays, as a 0 beside a
+    wind that blows does in every provider (GH-3222). The zero of the calm keeps its text as the `raw` token (rows
+    without a value are kept to see it), and ff=0 is a reading.
     """
     rows = [
         {"geo_id_wmo": "07005", "validity_time": "2024-01-01T00:00:00Z", "dd": "0", "ff": "0"},
@@ -153,8 +154,8 @@ def test_meteofrance_synop_api_calm_wind_direction_is_null(monkeypatch: pytest.M
     ]
     df = _values(monkeypatch, rows, ["wind_direction_mean_last_10min", "wind_speed_mean_last_10min"], drop_nulls=False)
     direction = df.filter(pl.col("parameter").eq("wind_direction_mean_last_10min"))
-    assert direction.get_column("value").to_list() == [None, 170.0, 360.0, None]
-    assert direction.get_column("quality_flags").to_list() == ["raw:0", None, None, "raw:0"]
+    assert direction.get_column("value").to_list() == [None, 170.0, 360.0, 0.0]
+    assert direction.get_column("quality_flags").to_list() == ["raw:0", None, None, None]
     speed = df.filter(pl.col("parameter").eq("wind_speed_mean_last_10min"))
     assert speed.get_column("value").to_list() == [0.0, 0.0, 3.0, 1.0]
     assert speed.get_column("quality_flags").to_list() == [None, None, None, None]

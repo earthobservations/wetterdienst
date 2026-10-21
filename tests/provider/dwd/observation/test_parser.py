@@ -587,7 +587,8 @@ def test_parse_dwd_data_drops_variable_wind_direction_10_minutes() -> None:
 # Lines of the historical files, read 2026-10-12, as DWD writes them (GH-2805): the dataset, the header, the lines, the
 # direction column and, per line, the direction and the `raw` text that arrive.
 _CALM_WIND_FILES = {
-    # hourly wind D is on a rose without a 0: every 0 is null, whatever the speed beside it
+    # hourly wind D is on a rose without a 0, and the sheet names no code: the 0 beside a speed of 0 is null, the 0
+    # beside 0.4 m/s stays, as in every provider (GH-3222)
     "hourly/wind": (
         DwdObservationMetadata.hourly.wind,
         "STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor",
@@ -598,7 +599,7 @@ _CALM_WIND_FILES = {
             "          3;1997081708;    3;   0.4;   0;eor",
         ],
         "d",
-        [("250", None), ("360", None), (None, "0"), (None, "0")],
+        [("250", None), ("360", None), (None, "0"), ("0", None)],
     ),
     # DWD names the column "Windrichtung uml.,windstill DD=00": every 0 is null, with the speed of 0 or of 1.0 m/s
     # or of the 7.7 m/s of Büsum (00785) on 1986-02-14
@@ -614,7 +615,8 @@ _CALM_WIND_FILES = {
         "dd",
         [("360", None), (None, "0"), (None, "0"), (None, "0")],
     ),
-    # the "32-teilige Windrose" has no point 0; 32 is north
+    # the "32-teilige Windrose" has no point 0; 32 is north. The 0 beside Beaufort 0 is null, the 0 beside Beaufort 1
+    # stays, 0 degrees (GH-3222)
     "subdaily/wind": (
         DwdObservationMetadata.subdaily.wind,
         "STATIONS_ID;MESS_DATUM;QN_4;DK_TER;FK_TER;eor",
@@ -625,7 +627,7 @@ _CALM_WIND_FILES = {
             "       1001;2001070506;   10;   0;   1;eor",
         ],
         "dk_ter",
-        [("270.0", None), ("360.0", None), (None, "0"), (None, "0")],
+        [("270.0", None), ("360.0", None), (None, "0"), ("0.0", None)],
     ),
     # 0 is also north at some stations (01691 on 1994-05-01 reads 360 at 15:40 and 0 at 15:50 at 6 m/s), so only the
     # 0 of a speed of 0 is null; a speed of 0.1 or a missing one is not known to be a calm
@@ -693,9 +695,9 @@ _CALM_WIND_FILES = {
 def test_parse_dwd_data_nulls_the_wind_direction_0_of_a_calm_and_keeps_the_text(name: str) -> None:
     """Test that a direction of 0 DWD writes for a calm is null with `0` as its raw text, and 360 stays (GH-2805).
 
-    Where the sheet gives the column a code or a rose without a 0 (hourly wind and wind_synop, subdaily wind) every 0
-    is null, and so is every 0 of the hourly urban wind (GH-2809); in the 10 minute files 0 is also a bearing, so
-    only a 0 beside a speed of exactly 0 is.
+    Only a 0 beside a speed of exactly 0 is null, as in every provider (GH-3222), but where the sheet names the 0 the
+    code of a variable wind as well (hourly wind_synop), where every 0 is null, and in the hourly urban wind, whose
+    0 is neither a calm nor north (GH-2809).
     """
     dataset, header, rows, column, expected = _CALM_WIND_FILES[name]
     file = File(url="", content=BytesIO(("\n".join([header, *rows]) + "\n").encode("utf8")), status=200)

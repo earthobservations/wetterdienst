@@ -1311,13 +1311,14 @@ def test_eccc_daily_carries_the_flag_of_each_value_in_quality_flags(monkeypatch:
     ]
 
 
-def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the 0 of a gust ECCC does not report, and the direction 0 beside a reported speed, are null (GH-2615).
+def test_eccc_daily_gust_of_0_is_not_a_gust_and_its_direction_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the 0 of a gust ECCC does not report and the direction 0 beside it are null (GH-2615, GH-3222).
 
     Rows taken from api.weather.gc.ca/collections/climate-daily (checked 2026-10-12): ALERT 1975-07-01 is below
     the 31 km/h the stations report from and has 0 and 0, no flag, where the bulk CSV writes "<31"; 1975-07-06 is a gust
     of 60 km/h from 200 degrees (20 tens of degrees); ST CATHARINES A 1974-11-26 has 42 km/h and a direction of 0. The
-    glossary: "The stations do not report if less than 31 km/h" and "36 means 360 degrees true", so north is not 0.
+    glossary: "The stations do not report if less than 31 km/h" and "36 means 360 degrees true". The 0 beside the 42
+    km/h stays, as a 0 beside a wind that blows does in every provider (GH-3222).
     """
     rows = [
         {"LOCAL_DATE": "1975-07-01 00:00:00", "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
@@ -1339,7 +1340,7 @@ def test_eccc_daily_gust_of_0_is_not_a_gust_and_a_direction_of_0_is_no_bearing(m
     assert df.sort("parameter", "timestamp").select("parameter", "value", "quality_flags").rows() == [
         ("wind_direction_gust_max", None, "raw:0"),
         ("wind_direction_gust_max", 200.0, None),
-        ("wind_direction_gust_max", None, "raw:0"),
+        ("wind_direction_gust_max", 0.0, None),
         ("wind_gust_max", None, "raw:0"),
         ("wind_gust_max", 60.0, None),
         ("wind_gust_max", 42.0, None),

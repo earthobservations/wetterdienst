@@ -227,7 +227,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
         RAW,
     ],
     "meteofrance/synop": [RAW],
-    "meteoswiss/observation": [],
+    "meteoswiss/observation": [RAW],
     "metno/frost": [
         _plain("The qualityCode of the observation in Frost, as the service writes it, a whole number."),
         RAW,

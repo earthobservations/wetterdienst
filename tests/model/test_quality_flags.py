@@ -8,14 +8,17 @@ import polars as pl
 import pytest
 
 from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
     NoReading,
     OutOfRange,
     Sentinel,
+    calm,
     clear_sentinels,
     join_quality_flags,
     null_sentinels,
     raw_column,
     unpivot_with_raw,
+    with_speed_beside,
 )
 
 
@@ -257,3 +260,31 @@ def test_a_period_that_is_no_reading_nulls_what_it_selects_and_keeps_the_value()
     ).select(cleaned.alias("cleaned"), raw.alias("raw"))
     assert out.get_column("cleaned").to_list() == [None, None, 980.0, None]
     assert out.get_column("raw").to_list() == ["0", "980", None, None]
+
+
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
+def test_a_wind_direction_of_0_is_a_calm_only_beside_a_speed_of_0(lazy: bool) -> None:  # noqa: FBT001
+    """Test that the 0 of a direction is null with `raw:0` beside a speed of 0 of its reading alone (GH-3222).
+
+    A 0 beside a wind that blows, or beside a speed the source does not give, stays; the rows keep their order.
+    """
+    df = pl.DataFrame(
+        {
+            "timestamp": [1, 1, 2, 2, 3, 3, 4],
+            "parameter": ["dd", "ff", "ff", "dd", "dd", "ff", "dd"],
+            "value": ["0", "0.0", "1.5", "0", "250", "0", "0"],
+        }
+    )
+    frame = with_speed_beside(df.lazy() if lazy else df, {"dd": "ff"}, on=["timestamp"])
+    value, raw = null_sentinels(pl.col("value"), calm(pl.col(SPEED_BESIDE)))
+    out = frame.select("timestamp", "parameter", value.alias("value"), raw.alias("raw"))
+    out = out.collect() if isinstance(out, pl.LazyFrame) else out
+    assert out.rows() == [
+        (1, "dd", None, "0"),
+        (1, "ff", "0.0", None),
+        (2, "ff", "1.5", None),
+        (2, "dd", "0", None),
+        (3, "dd", "250", None),
+        (3, "ff", "0", None),
+        (4, "dd", "0", None),
+    ]

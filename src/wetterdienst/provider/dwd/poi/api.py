@@ -31,7 +31,14 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import read_mosmix_station_catalogue
@@ -65,11 +72,14 @@ _CLOUD_COVER_CODES = (Sentinel("113", "126", where=pl.col("parameter").eq("cloud
 # either) with north as 360 and 0 for no direction: in 11,364 reports with a
 # direction of 937 files (2026-10-12) 141 read 360, 141 read 10 and 155 read 350, but 747 read 0. 401 of those have a
 # wind speed of 0 (of the 465 reports with a speed of 0), and 346, of 68 stations, a speed above 0 (4 km/h in 184, 7
-# in 67, 5 in 32, 11 in 21, 2 in 19, and 23 from 8 to 22): a wind with no direction, a calm or a variable one, which
-# the files do not tell apart and DWD does not describe. Neither is a bearing, so both are null.
-_NO_WIND_DIRECTION = Sentinel(
-    "0", where=pl.col("parameter").eq("mean_wind_direction_during_last_10 min_at_10_meters_above_ground")
-)
+# in 67, 5 in 32, 11 in 21, 2 in 19, and 23 from 8 to 22), which the files do not tell apart from a north and DWD
+# does not describe. The 0 beside a speed of 0 is a calm, and null; the 0 beside a wind that blows stays, as in every
+# provider (`calm`, GH-3222), where it was null too.
+_WIND_SPEED_OF_DIRECTION = {
+    "mean_wind_direction_during_last_10 min_at_10_meters_above_ground": (
+        "mean_wind_speed_during last_10_min_at_10_meters_above_ground"
+    ),
+}
 
 
 def _station_file_url(station_id: str) -> str:
@@ -150,10 +160,13 @@ class DwdPoiValues(TimeseriesValues):
             *[pl.col(column) for column in columns],
         )
         df = df.unpivot(index=["timestamp"], variable_name="parameter", value_name="value")
+        df = with_speed_beside(
+            df, _WIND_SPEED_OF_DIRECTION, on=["timestamp"], value=pl.col("value").str.replace(",", ".")
+        )
         # "---" marks a missing value, and any other value DWD cannot express as a number is none either: both
         # become null and the text stays beside the value as `raw:` (GH-2759)
         value, raw = null_sentinels(
-            pl.col("value").str.replace(",", "."), *_CLOUD_COVER_CODES, _NO_WIND_DIRECTION, non_numeric=True
+            pl.col("value").str.replace(",", "."), *_CLOUD_COVER_CODES, calm(pl.col(SPEED_BESIDE)), non_numeric=True
         )
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`)
         return df.select(

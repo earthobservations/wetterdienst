@@ -150,13 +150,13 @@ def test_dwd_poi_values_are_converted_to_the_target_units() -> None:
     assert visibility.max() > 100.0
 
 
-def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a direction of 0 is null with `raw:0` whatever the speed beside it, and 360 stays (GH-2794).
+def test_dwd_poi_wind_direction_of_0_beside_a_calm_is_null_and_360_is_north(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a direction of 0 beside a speed of 0 is null with `raw:0`, and one beside a wind stays (GH-3222).
 
     Rows of the files of 2026-10-12, put into one file: 01008 11.10.26 22:00 has a direction of 0 beside 0 km/h
-    (a calm), 03066 12.10.26 01:00 one of 0 beside 4 km/h (no direction, probably variable: 184 of the 346 reports
-    with a 0 and a speed above 0 have 4 km/h), 02186 12.10.26 06:00 one of 360 beside 11 km/h. North is 360 in these
-    files (141 reports of 11,364, as many as 10), so a 0 is no bearing. A speed of 0 is a reading.
+    (a calm), 03066 12.10.26 01:00 one of 0 beside 4 km/h (184 of the 346 reports with a 0 and a speed above 0 have
+    4 km/h), which stays as in every provider, 02186 12.10.26 06:00 one of 360 beside 11 km/h. A speed of 0 is a
+    reading.
     """
     wind = "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"
     speed = "mean_wind_speed_during last_10_min_at_10_meters_above_ground"
@@ -182,7 +182,7 @@ def test_dwd_poi_wind_direction_of_0_is_null_calm_or_variable_and_360_is_north(m
     df = stations_result(request, "hourly", "data", "10147").values().all().df
     df = df.sort("timestamp")
     direction = df.filter(pl.col("parameter") == "wind_direction_mean_last_10min")
-    assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (None, "raw:0"), (360.0, None)]
+    assert direction.select("value", "quality_flags").rows() == [(None, "raw:0"), (0.0, None), (360.0, None)]
     speeds = df.filter(pl.col("parameter") == "wind_speed_mean_last_10min")
     assert speeds.select("value", "quality_flags").rows() == [(0.0, None), (1.1111, None), (3.0556, None)]
 
