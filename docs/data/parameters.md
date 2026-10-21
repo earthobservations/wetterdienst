@@ -414,6 +414,25 @@ means have. The rows of the same fields that state no mean keep their name (the 
 Values and units are unchanged. A request for an old name in these datasets is refused with the new one named, and the
 old names stay valid in the datasets whose source states no mean.
 
+#### WSV: the air temperature, and three series that no station has
+
+PEGELONLINE's `LT` is `LUFTTEMPERATUR` (`LUFTTEMPERATUR ROHDATEN` at most stations), in °C, and the service states no
+height for it, so the 2 m of the name was an assumption (0.166.0, GH-3242). Three declared parameters are gone because
+`stations.json?timeseries=<shortname>` answers 0 stations for each of their shortnames (786 stations on the list of
+2026-10-21; 61 of them have an `LT` series), so no request could return a value.
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| wsv/pegel | every resolution/data | `LT` | `temperature_air_2m` | `temperature_air` | `LUFTTEMPERATUR`, in °C, with no height stated (the 0.139.0 name `temperature_air_mean_2m` is answered with the new one too) |
+| wsv/pegel | every resolution/data | `CL` | `chloride_concentration` | not served | on no station's list |
+| wsv/pegel | every resolution/data | `NIEDERSCHLAG` | `precipitation_amount` | not served | on no station's list |
+| wsv/pegel | every resolution/data | `NIEDERSCHLAGSINTENSITÄT` | `precipitation_intensity` | not served | on no station's list |
+
+`chloride_concentration` was declared by no other dataset and is gone from the glossary, and with it the misspelling
+`chlorid_concentration` that was renamed to it (an unknown parameter now). `precipitation_amount` and
+`precipitation_intensity` stay names of the datasets of the other providers that declare them. Values and units of the
+air temperature are unchanged, and the request for the old name is refused with the new one named.
+
 ## Glossary
 
 The unit type is a property of the parameter itself and decides which unit values are returned in;

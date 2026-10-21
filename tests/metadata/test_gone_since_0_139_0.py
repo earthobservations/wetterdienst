@@ -35,6 +35,22 @@ REMOVED: dict[tuple[str, str, str], str] = {
     ("MeteoFranceObservationMetadata", "hourly/core", "wind_direction_gust_max"): (
         "GH-2836: DXY is the direction of the hour's highest 10-minute mean and of no gust, not served"
     ),
+    # GH-3245: no station of the service answers for them (`stations.json?timeseries=CL`, `NIEDERSCHLAG` and
+    # `NIEDERSCHLAGSINTENSITÄT` are each `[]`, 786 stations and 20 shortnames, 2026-10-21)
+    **{
+        ("WsvPegelMetadata", f"{resolution}/data", name): "GH-3245: no station of the service serves it"
+        for resolution in ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
+        for name in ("chloride_concentration", "precipitation_amount", "precipitation_intensity")
+    },
+    # GH-3235: null in all 49,688 observations of 108 stations; the METAR's 24 h group is only in the raw message
+    **{
+        (
+            "NwsObservationMetadata",
+            "hourly/data",
+            name,
+        ): "GH-3235: the API field is null at every station, never answers"
+        for name in ("temperature_air_max_2m_last_24h", "temperature_air_min_2m_last_24h")
+    },
 }
 
 # the same, for a name the dataset still answers to because it is the source's own: the request selects the row and

@@ -164,7 +164,7 @@ _PARAMETERS = [
         "unit": "centimeter",
     },
     {
-        "name": "temperature_air_2m",
+        "name": "temperature_air",
         "name_original": "LT",
         "unit": "degree_celsius",
     },
@@ -209,16 +209,6 @@ _PARAMETERS = [
         "unit": "degree",
     },
     {
-        "name": "precipitation_amount",
-        "name_original": "NIEDERSCHLAG",
-        "unit": "millimeter",
-    },
-    {
-        "name": "precipitation_intensity",
-        "name_original": "NIEDERSCHLAGSINTENSITÄT",
-        "unit": "millimeter_per_hour",
-    },
-    {
         "name": "wave_period",
         "name_original": "TP",
         "unit": "second",
@@ -237,11 +227,6 @@ _PARAMETERS = [
         "name": "ph_value",
         "name_original": "PH",
         "unit": "dimensionless",
-    },
-    {
-        "name": "chloride_concentration",
-        "name_original": "CL",
-        "unit": "milligram_per_liter",
     },
 ]
 
@@ -528,7 +513,7 @@ class WsvPegelRequest(TimeseriesRequest):
         # parameters are declared in, so there is nothing to normalize away here
         # the requested parameters grouped by the resolution they were requested at. Matching the
         # two independently -- any requested parameter, at any requested interval -- lets a station
-        # in on a pair nobody asked for: `15_minutes/stage` plus `hourly/temperature_air_2m`
+        # in on a pair nobody asked for: `15_minutes/stage` plus `hourly/temperature_air`
         # would list the gauges that record air temperature every 15 minutes and no stage at all,
         # which then cost a 404 apiece at collection and return nothing
         requested: dict[str, list[str]] = {}
