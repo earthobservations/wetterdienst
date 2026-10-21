@@ -2785,7 +2785,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             {
                 "provider": "dwd",
                 "network": "road",
-                "parameters": "15_minutes/data/temperature_air_2m",
+                "parameters": "15_minutes/data/temperature_air",
                 "stations": "A006",
                 "timestamp": "2024-01-01/2024-01-02",
             },
@@ -2796,7 +2796,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             {
                 "provider": "dwd",
                 "network": "road",
-                "parameters": "15_minutes/data/temperature_air_2m",
+                "parameters": "15_minutes/data/temperature_air",
                 "station": "A006",
                 "timestamp": "2024-01-01",
             },
@@ -2807,7 +2807,7 @@ def test_geo_elevation_no_station_can_answer_is_a_400(
             {
                 "provider": "dwd",
                 "network": "road",
-                "parameters": "15_minutes/data/temperature_air_2m",
+                "parameters": "15_minutes/data/temperature_air",
                 "station": "A006",
                 "timestamp": "2024-01-01",
             },

@@ -338,6 +338,143 @@ def test_the_pages_show_requests_of_every_kind() -> None:
     assert {"stations", "values", "coverage", "interpolate", "summarize", "stripes/image"} <= shown
 
 
+# --- the parameters the samples request -----------------------------------------------------------------------------
+
+#: the pages that show a name on purpose to show what it does now: the old name is refused there
+_NAMES_SHOWN_ON_PURPOSE = {"docs/usage/migrating.md"}
+#: what a parameter of a sample is made of, so that a placeholder (`<parameter>`, `$PARAMETERS`) is left alone
+_PARAMETER_TEXT = re.compile(r"[a-z0-9_/,]+")
+
+
+def _unknown_parameters(source: tuple[str, str] | type, parameters: object) -> str | None:
+    """Give what the metadata of a provider says of the parameters of a sample, or None where it has them all.
+
+    The source is the class a Python sample requests from, or the provider and network a command or a request names.
+    """
+    from wetterdienst import Wetterdienst  # noqa: PLC0415
+    from wetterdienst.exceptions import ApiNotFoundError, InvalidParameterError  # noqa: PLC0415
+    from wetterdienst.model.metadata import parse_parameters  # noqa: PLC0415
+
+    if isinstance(source, type):
+        metadata = source.metadata  # ty: ignore[unresolved-attribute]
+    else:
+        try:
+            metadata = Wetterdienst.resolve(*source).metadata
+        except ApiNotFoundError:  # a standalone network has no parameters of this kind
+            return None
+    texts = [parameters] if isinstance(parameters, str) else list(parameters)  # ty: ignore[invalid-argument-type]
+    flat: list[str] = []
+    for text in texts:
+        parts = text.split(",")
+        if not all(_PARAMETER_TEXT.fullmatch(part) for part in parts):  # a placeholder
+            return None
+        flat.extend(parts)
+    try:
+        parse_parameters(flat, metadata)
+    except InvalidParameterError as error:
+        return str(error)
+    return None
+
+
+def _option(tokens: list[str], name: str) -> str | None:
+    """Give the value of ``--name=value`` or ``--name value`` of a command."""
+    for position, token in enumerate(tokens):
+        if token == name and position + 1 < len(tokens):
+            return tokens[position + 1]
+        if token.startswith(f"{name}="):
+            return token.removeprefix(f"{name}=")
+    return None
+
+
+def _literal_parameters(node: ast.expr) -> list[str] | None:
+    """Give the parameters a ``parameters=`` argument spells out, or None where it is no literal of strings."""
+    try:
+        literal = ast.literal_eval(node)
+    except ValueError:  # a name, a call
+        return None
+    # a tuple of strings is one parameter, `("daily", "kl", "name")`; a list holds one or several
+    items = [literal] if isinstance(literal, tuple) and all(isinstance(part, str) for part in literal) else literal
+    if isinstance(items, str):
+        return [items]
+    if not isinstance(items, list):
+        return None
+    parameters = ["/".join(item) if isinstance(item, tuple) else item for item in items]
+    return parameters if all(isinstance(item, str) for item in parameters) else None
+
+
+_Requested = tuple[str, str, "tuple[str, str] | type", object]
+
+
+def _python_parameters() -> list[_Requested]:
+    """Give the literal ``parameters=`` of the requests the Python samples make, with the class they call."""
+    found: list[_Requested] = []
+    for sample in PYTHON:
+        tree = ast.parse(sample.code)
+        namespace = _imported(tree)
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in namespace):
+                continue
+            request_class = namespace[node.func.id]
+            if not (isinstance(request_class, type) and hasattr(request_class, "metadata")):
+                continue
+            # a call meant to fail says so in the comment before it, one that goes on past an unknown name asks to
+            if any(keyword.arg == "on_unknown" for keyword in node.keywords) or re.match(
+                r"\s*#\s*raises ", sample.code.splitlines()[node.lineno - 2]
+            ):
+                continue
+            for keyword in node.keywords:
+                if keyword.arg == "parameters" and (parameters := _literal_parameters(keyword.value)) is not None:
+                    found.append((sample.where, f"{node.func.id}(parameters=...)", request_class, parameters))
+    return found
+
+
+def _requested_parameters() -> list[_Requested]:
+    """Give (where, what the sample shows, where its provider is, its parameters) of the samples that name a literal."""
+    found: list[_Requested] = []
+    for where, line, arguments in CLI_SAMPLES:
+        provider, network = _option(arguments, "--provider"), _option(arguments, "--network")
+        parameters = _option(arguments, "--parameters")
+        if provider and network and parameters:
+            found.append((where, line, (provider, network), parameters))
+    for request_ in REQUESTS:
+        query = dict(request_.query)
+        if {"provider", "network", "parameters"} <= set(query):
+            found.append((request_.where, request_.line, (query["provider"], query["network"]), query["parameters"]))
+    found.extend(_python_parameters())
+    return [item for item in found if item[0].split(":")[0] not in _NAMES_SHOWN_ON_PURPOSE]
+
+
+REQUESTED = _requested_parameters()
+
+
+@pytest.mark.parametrize(
+    ("where", "shown", "source", "parameters"),
+    REQUESTED,
+    ids=[f"{where} {shown[:50]}" for where, shown, _, _ in REQUESTED],
+)
+def test_the_parameters_the_samples_request_are_the_providers(
+    where: str, shown: str, source: tuple[str, str] | type, parameters: object
+) -> None:
+    """A parameter a page shows is one its provider declares: a rename leaves the old name in the sample.
+
+    A name that was renamed is refused and the error says what it is called now, which a sample that is never run
+    does not show to anyone (GH-2614). The Python samples name the class they request from, the commands and the
+    requests the provider and network.
+    """
+    problem = _unknown_parameters(source, parameters)
+    assert problem is None, f"{where}: `{shown}` names a parameter its provider does not declare: {problem}"
+
+
+def test_the_pages_request_parameters_of_every_kind_of_sample() -> None:
+    """The extraction finds the parameters (a parser that finds none passes the test above)."""
+    kinds = {"python": False, "command": False, "request": False}
+    for _, shown, source, _ in REQUESTED:
+        kinds[
+            "python" if isinstance(source, type) else "command" if shown.startswith("wetterdienst") else "request"
+        ] = True
+    assert all(kinds.values()), kinds
+
+
 # --- JSON the REST page shows ---------------------------------------------------------------------------------------
 
 
