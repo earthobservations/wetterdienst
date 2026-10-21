@@ -16,6 +16,25 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- A station `name` is matched without regard to diacritics, on the command line, the REST API,
+  MCP and in `filter_by_name`: `Köln`, `Koln` and `koeln` all find `Köln`, `Dusseldorf` and
+  `Düsseldorf` find the same stations, `ß` is `ss`, `ł` is `l`. A search that found one
+  spelling now finds the others, and a `threshold` of 1 finds a name that differs only in its
+  diacritics (GH-2625)
+- **Breaking**: the Python `filter_by_name` matches the name among the stations that have a
+  record in the `start` and `end` of the request, as `stations` and `values` with a `timestamp`
+  already do, a `df_all` you pass included: a station that closed before the window or began
+  after it is no match. Build the request without `start` and `end` to match all stations as
+  before (GH-2625)
+
+### Fixed
+
+- `stations` with a point and a `rank` (command line, REST API, MCP) lists `rank` stations, each
+  with a row per requested dataset; with two datasets it counted rows and `rank=2` listed one
+  station twice (GH-2625)
+
 ## [0.163.0] - 2026-10-20
 
 ### Changed
