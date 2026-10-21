@@ -174,20 +174,23 @@ _MO_DAILY_STAMP = (
 )
 
 # The evidence of the DWD claims that the sources do not state (GH-3136, 2026-10-21, key-less):
-# - POI: the 974 files against the 10-minute observations of the 25 stations in both networks (nearest DWD station
-#   within 1.5 km). The "previous day" columns at 06 UTC equal the extremes (to 0.0), the mean (to 0.11) and the sum of
-#   sunshine (to 0.04 h) of the previous UTC day on 25 of 25 stations (10 of 10 for sunshine), not those of 06 to 06
-#   UTC; the 10-minute stamps are ends of intervals, so the window is 23:50 to 23:50 UTC, which is meant by the day.
-#   The hourly columns equal the 10-minute values of the hour before the stamp (precipitation 625 of 625, gust 625 of
-#   625, global and diffuse radiation as J/cm2 * 10000 / 3600 on 250 of 250, within 0.89 W/m2, on 10 stations).
+# - POI: the 974 files of 2026-10-21 for the reporting hours; 25 of the 156 stations that have a DWD 10-minute station
+#   within 1.5 km and the previous-day columns at 06 UTC against those 10-minute observations. The previous-day columns
+#   equal the temperature extremes (to 0.0), gust (to 0.5 km/h), mean (to 0.11) and sunshine (to 0.04 h, 10 stations) of
+#   the previous UTC day, not those of 06 to 06 UTC; the 10-minute stamps are ends of intervals, so the window is
+#   23:50 to 23:50 UTC. The hourly columns equal the 10-minute values of the synoptic hour before the stamp, (HH-2):50
+#   to (HH-1):50 (precipitation 625 of 625, gust 625 of 625, global and diffuse radiation as J/cm2 * 10000 / 3600 on
+#   250 of 250, within 0.89 W/m2, on 10 stations); the clock hour fits worse (precipitation 573, gust 468 of 625).
 #   `direct_solar_radiation_last_hour` is sent by 5 French stations and exceeds the global value in 5 of 15 daytime
-#   reports.
-# - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations and MOSMIX_S of 30 stations of the
-#   run of 2026-10-21; `RRad1` is `Rad1h` over the extraterrestrial radiation of the hour (6 stations, mean difference
-#   under 3 points, single hours up to about 20 apart).
+#   reports. The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
+#   stations, previous-day sunshine at 00 and 03 UTC at the stations outside Germany.
+# - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations (run of 15 UTC) and MOSMIX_S of 30
+#   stations (run of 20 UTC) of 2026-10-21; `RRad1` is `Rad1h` over the extraterrestrial radiation of the hour (6
+#   stations, mean difference under 3 points, single hours up to about 20 apart).
 # - derived: Monatsgradtage (72.9, 71.6, 62.5), Kuehlgradstunden (2562.3, 2782.8, 2633.5) and the numbers of heating
 #   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
-#   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2 against 5.0).
+#   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
+#   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
         (resolution, "data", name_original): description
@@ -243,7 +246,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Condition of the road surface, as a code: 1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, "
             '6 glaze ice (DWD: "Straßenzustand", from the METRo road weather model driven by DWD\'s MOS values).'
         ),
-        ("hourly", "data", "RR6"): "Total liquid precipitation during the last 6 hours",
+        ("hourly", "data", "RR6"): (
+            'Liquid precipitation of the last 6 hours, accumulated, in mm (DWD: "Niederschlag flüssig der '
+            "letzten 6 Stunden akkumuliert\"; from DWD's MOS)."
+        ),
         ("hourly", "data", "RRL1c"): (
             'Liquid precipitation of the last hour, in mm (DWD: "Niederschlag flüssig der letzten Stunde", from '
             "DWD's MOS)."
@@ -260,7 +266,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Temperature of the road surface (DWD: "Temperatur der Fahrbahnoberfläche"), from the METRo road '
             "weather model driven by DWD's MOS values."
         ),
-        ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
+        ("hourly", "data", "WWL6"): (
+            'Probability of liquid precipitation in the last 6 hours, in % (DWD: "Niederschlag flüssig der '
+            "letzten 6 Stunden Wahrscheinlichkeit\"; from DWD's MOS)."
+        ),
     },
     "DwdPoiMetadata": {
         (
@@ -340,17 +349,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "minimum_of_temperature_for_previous_day",
         ): "Minimum air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "minimum_temperature_last_12_hours_2_meters_above_ground"): (
-            "Minimum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC."
+            "Minimum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06, 09 "
+            "and 18 UTC."
         ),
         ("hourly", "data", "minimum_temperature_last_12_hours_5_cm_above_ground"): (
-            "Minimum air temperature at 5 cm above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC."
+            "Minimum air temperature at 5 cm above ground in the preceding 12 hours, reported mostly at 06, 09 "
+            "and 18 UTC."
         ),
         ("hourly", "data", "past_weather_1"): (
             'Coded past weather of a synoptic report (DWD: "vergangenes Wetter 1"). The values, 0 to 18, fit '
-            "BUFR 0 20 004: 0 to 9 of WMO code table 4561 for a manned station, 10 to 19 (WMO code table 4531) "
-            "for an automatic one. Reported at the eight synoptic hours. DWD states no period; the WMO's is the "
-            "6 hours before the reports of 00, 06, 12 and 18 UTC and the 3 hours before those of 03, 09, 15 and "
-            "21 UTC."
+            "BUFR 0 20 004: 0 to 9 of WMO code table 4561 for a manned station, 10 to 19 (WMO code table 4531 "
+            "plus 10) for an automatic one. Reported at the eight synoptic hours. DWD states no period; the "
+            "WMO's is the 6 hours before the reports of 00, 06, 12 and 18 UTC and the 3 hours before those of "
+            "03, 09, 15 and 21 UTC."
         ),
         ("hourly", "data", "past_weather_2"): (
             'Second coded past weather of a synoptic report (DWD: "vergangenes Wetter 2"; BUFR 0 20 005, coded '
@@ -389,8 +400,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "10-minute sunshine duration of that hour."
         ),
         ("hourly", "data", "total_time_of_sunshine_past_day"): (
-            "Length of time the sun shone on the previous day (UTC), in hours, reported mostly at 06 UTC (at "
-            "some stations at 00 or 03 UTC)."
+            "Length of time the sun shone on the previous day (UTC at DWD's stations, checked at 06 UTC), in "
+            "hours; stations outside Germany also report it at 00 or 03 UTC, with no day stated."
         ),
     },
     "DwdDerivedMetadata": {
@@ -512,7 +523,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "radiation) of a DWD pseudo-station, in J/cm2: derived from gridded satellite and station data "
             "(DUETT) with a topography correction, not measured at the station. The sheet calls the stamp the "
             "end of the synoptic hour and gives that hour as (HH-1):50 to HH:50 in one place and (HH-2):50 to "
-            "(HH-1):50 in another; DWD's 10-minute station data match (HH-2):50 to (HH-1):50."
+            "(HH-1):50 in another; DWD's 10-minute station data fit (HH-2):50 to (HH-1):50 best."
         ),
         ("hourly", "radiation_global", "fg_un_duett"): (
             "Uncertainty of the hourly global radiation of the pseudo-station, in J/cm2 (the sheet: estimated "
@@ -527,12 +538,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Sunshine duration of a DWD pseudo-station in the hour, in minutes: derived from gridded satellite "
             "and station data (DUETT), not measured at the station. The sheet calls the stamp the end of the "
             "synoptic hour and gives that hour as (HH-1):50 to HH:50 in one place and (HH-2):50 to (HH-1):50 in "
-            "another; DWD's 10-minute station data match (HH-2):50 to (HH-1):50."
+            "another; DWD's 10-minute station data fit (HH-2):50 to (HH-1):50 best."
         ),
         ("monthly", "climate_correction_factor", "KF"): (
             "Climate factor (KF) of a delivery postal code for the weather adjustment of energy consumption, "
             "relative to the reference location Potsdam (the test reference years TRY 2011), for the 12 months "
-            "starting at the timestamp. The sheet states no formula."
+            "starting at the timestamp: KF = G(TRY, P) / G, the mean annual degree days of the reference station "
+            "Potsdam computed with its test reference years (3666.8) over the annual degree days of the postal "
+            "code in those 12 months (DWD's climate-factor page; the sheet states no formula)."
         ),
         ("monthly", "cooling_degreehours_13", "Anzahl Kuehlstunden"): (
             "Number of hours of the month with a positive difference between the hourly air temperature and the "
@@ -574,9 +587,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "number of available values of mean daily air temperatures per month"
         ),
         ("monthly", "heating_degreedays", "Monatsgradtage"): (
-            "Degree days of the month (VDI 3807 part 1), in K*day: the sum over the days with a daily mean air "
-            "temperature below 15 degree Celsius, of 20 degree Celsius (the mean room temperature the file "
-            "header states) minus the daily mean. Only given where every daily value of the month is available."
+            "Degree days of the month (VDI 3807 part 1), in K*day: the sum, over the days with a daily mean air "
+            "temperature below 15 degree Celsius, of 20 degree Celsius minus the daily mean (20 degree Celsius "
+            "is the mean room temperature the file header states). Only given where every daily value of the "
+            "month is available."
         ),
         ("monthly", "soil", "maximum von zfumi"): (
             "Maximum in the month of the frost penetration depth at midday on unvegetated ground, in cm (AMBETI model)."
@@ -711,7 +725,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same energy)."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour)."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): "Short wave radiation balance during the last 3 hours",
@@ -725,15 +739,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "ttt"): "Temperature 2m above surface",
         ("hourly", "icon", "tx"): "Maximum temperature - within the last 12 hours",
         ("hourly", "icon", "w1w2"): (
-            "Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or "
-            "rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, "
-            "4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no "
-            "thunderstorm, no precipitation and no fog."
+            "Past weather during the last 6 hours, as a class of DWD's MOSMIX list (the DMO values fit it): 9 "
+            "thunderstorm, 8 shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the "
+            "effective cloud cover (at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says of MOSMIX "
+            "that 0 to 3 are not reliable and mean no thunderstorm, no precipitation and no fog. Given at 00, "
+            "06, 12 and 18 UTC."
         ),
         ("hourly", "icon", "ww"): (
-            "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
-            "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
-            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "Significant Weather, as a code of DWD's MOSMIX list of codes (the DMO values fit it) (DWD publishes "
+            "it as mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing "
+            "drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
             "development)."
         ),
         ("hourly", "icon_eu", "dd"): "Wind direction",
@@ -747,7 +762,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon_eu", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same energy)."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour)."
         ),
         ("hourly", "icon_eu", "rr1"): "Total precipitation during the last hour",
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
@@ -757,15 +772,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "ttt"): "Temperature 2m above surface",
         ("hourly", "icon_eu", "tx"): "Maximum temperature - within the last 12 hours",
         ("hourly", "icon_eu", "w1w2"): (
-            "Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or "
-            "rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, "
-            "4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no "
-            "thunderstorm, no precipitation and no fog."
+            "Past weather during the last 6 hours, as a class of DWD's MOSMIX list (the DMO values fit it): 9 "
+            "thunderstorm, 8 shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the "
+            "effective cloud cover (at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says of MOSMIX "
+            "that 0 to 3 are not reliable and mean no thunderstorm, no precipitation and no fog. Given at 00, "
+            "06, 12 and 18 UTC."
         ),
         ("hourly", "icon_eu", "ww"): (
-            "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
-            "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
-            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "Significant Weather, as a code of DWD's MOSMIX list of codes (the DMO values fit it) (DWD publishes "
+            "it as mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing "
+            "drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
             "development)."
         ),
     },

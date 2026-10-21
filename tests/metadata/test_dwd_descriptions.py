@@ -61,7 +61,7 @@ def test_the_poi_previous_day_is_the_utc_day_reported_at_06() -> None:
     )
     for name in names:
         text = _description(DwdPoiMetadata, "hourly", "data", name)
-        assert "previous day (UTC)" in text
+        assert "previous day (UTC" in text
         assert "06 UTC" in text
     snow = _description(DwdPoiMetadata, "hourly", "data", "depth_of_new_snow")
     assert "previous observation" not in snow
@@ -130,4 +130,4 @@ def test_the_derived_cooling_degree_hours_state_their_unit_and_the_degree_days_t
     degree_days = _description(DwdDerivedMetadata, "monthly", "heating_degreedays", "Monatsgradtage")
     assert "20 degree Celsius" in degree_days
     assert "15 degree Celsius" in degree_days
-    assert "no formula" in _description(DwdDerivedMetadata, "monthly", "climate_correction_factor", "KF")
+    assert "G(TRY, P) / G" in _description(DwdDerivedMetadata, "monthly", "climate_correction_factor", "KF")

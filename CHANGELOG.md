@@ -48,8 +48,8 @@ Types of changes:
   (`RRL1c`) read MOSMIX's "consistent with significant weather", and `TL` and `TD` said 2 m (the
   sheet gives no height); the `dwd/poi` new snow was "since the previous observation" (it is in the
   06 UTC report only, with no period stated); the `dwd/derived` soil rows said "winter wheat" for
-  DWD's winter cereals; the MOSMIX `ww3` dropped its "of the last 3 hours". They now say what the
-  sheets say (GH-3136)
+  DWD's winter cereals; the `dwd/mosmix` `ww3` dropped its "of the last 3 hours". They now say
+  what the sources say (GH-3136)
 
 ## [0.165.0] - 2026-10-21
 
