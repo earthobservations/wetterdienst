@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { SunTimes } from 'suncalc'
 import type { Value } from '#shared/types/api'
+import type { WeatherKind } from '~/utils/weather-kind'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { formatDayMonth, formatNumber, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort } from '~/utils/format'
 import { extremeWindowHours, extremeWindowSteps, interpSeries, METEOGRAM_SERIES, nearestNeighbor, resampleCadenceMs, wetBulbApprox } from '~/utils/meteogram'
+import { WEATHER_SYMBOLS, weatherCodeToKind } from '~/utils/weather-kind'
 
 const props = defineProps<{
   values: Value[]
@@ -191,7 +193,7 @@ const compactLabel = computed(() => compact.value ? t('meteogram.chart.viewNorma
 const toolbarTzLabel = ref<string>('UTC')
 
 const compactDays = computed(() => {
-  const out: { date: any, emoji: string, weekday: string, dayMonth: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean }[] = []
+  const out: { date: any, kind: WeatherKind, weekday: string, dayMonth: string, tempLabel?: string | null, precipLabel?: string | null, isToday: boolean }[] = []
   const series = seriesCache.value
   const available = new Set(series.keys())
   const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
@@ -225,7 +227,8 @@ const compactDays = computed(() => {
     const startUTC = dt.toUTC().toMillis()
     const endUTC = dt.plus({ days: 1 }).toUTC().toMillis()
 
-    let emoji = '·'
+    // null while neither a weather code nor the fallback below has said
+    let kind: WeatherKind | null = null
 
     // Prefer significant weather codes when available
     if (weatherKey && series.has(weatherKey)) {
@@ -293,7 +296,7 @@ const compactDays = computed(() => {
         }
 
         if (best !== -1) {
-          emoji = weatherCodeToSymbol(best)
+          kind = weatherCodeToKind(best)
         }
       }
     }
@@ -326,7 +329,7 @@ const compactDays = computed(() => {
     }
 
     // Fallback heuristics: cloud cover
-    if (emoji === '·') {
+    if (kind === null) {
       let cloudSum = 0
       let cloudCount = 0
       if (cloudKey && series.has(cloudKey)) {
@@ -343,19 +346,19 @@ const compactDays = computed(() => {
       }
       const avgCloud = cloudCount ? (cloudSum / cloudCount) : 0
       if (dayPrecip > 0.5)
-        emoji = (Number.isFinite(minT) && minT <= 0.5) ? '🌨' : '🌧'
+        kind = (Number.isFinite(minT) && minT <= 0.5) ? 'snow' : 'rain'
       else if (avgCloud >= 70)
-        emoji = '☁'
+        kind = 'cloudy'
       else if (avgCloud >= 30)
-        emoji = '⛅'
+        kind = 'partlyCloudy'
       else
-        emoji = '☀'
+        kind = 'clear'
     }
 
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? `${Math.round(minT)} / ${Math.round(maxT)}°C` : null
     const precipLabel = dayPrecip >= 0.1 ? `${formatNumber(dayPrecip, locale.value, 1)} mm` : null
     const isToday = dt.hasSame(localNow, 'day')
-    out.push({ date: dt, emoji, weekday: weekdayShort(dt, language.value), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday })
+    out.push({ date: dt, kind: kind ?? 'clear', weekday: weekdayShort(dt, language.value), dayMonth: formatDayMonth(dt, language.value), tempLabel, precipLabel, isToday })
     dt = dt.plus({ days: 1 })
   }
   // Limit number of days shown in compact mode for readability
@@ -896,41 +899,6 @@ function resampleSeries(
     }
   }
   return resampled
-}
-
-function weatherCodeToSymbol(code: number | null | undefined): string {
-  if (code === null || code === undefined)
-    return '·'
-  const c = Math.round(code)
-  if (c >= 95 && c <= 99)
-    return '⛈'
-  if (c >= 80 && c <= 84)
-    return '🌧'
-  if (c >= 85 && c <= 86)
-    return '🌨'
-  if (c >= 70 && c <= 79)
-    return '🌨'
-  if (c >= 60 && c <= 69)
-    return '🌧'
-  if (c >= 50 && c <= 59)
-    return '💧'
-  if (c >= 40 && c <= 49)
-    return '🌫'
-  if (c >= 30 && c <= 39)
-    return '⛈'
-  if (c >= 20 && c <= 29)
-    return '💨'
-  if (c >= 10 && c <= 19)
-    return '☁'
-  if (c === 3)
-    return '☁'
-  if (c === 2)
-    return '⛅'
-  if (c === 1)
-    return '⛅'
-  if (c === 0)
-    return '☀'
-  return '·'
 }
 
 let isRendering = false
@@ -2230,8 +2198,12 @@ watch(
               <div class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
                 {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
               </div>
-              <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow">
-                {{ d.emoji }}
+              <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
+              <div class="text-3xl my-3 filter drop-shadow-sm select-none animate-bounce-slow" aria-hidden="true">
+                {{ WEATHER_SYMBOLS[d.kind] }}
+              </div>
+              <div class="sr-only">
+                {{ t(`meteogram.chart.weather.${d.kind}`) }}
               </div>
               <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
                 {{ d.dayMonth }}
@@ -2240,7 +2212,8 @@ watch(
                 {{ d.tempLabel }}
               </div>
               <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
-                💧 {{ d.precipLabel }}
+                <span aria-hidden="true">💧</span>
+                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}: </span>{{ d.precipLabel }}
               </div>
             </div>
           </template>
