@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.163.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.163.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.164.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.164.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,10 +13,10 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.28.0` goes with 0.163.0. Upgrade both
+The web app is released as a pair with the backend: `app-v0.29.0` goes with 0.164.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
-Two things still work in 0.163.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
+Two things still work in 0.164.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
 `wetterdienst stripes values`. Move to `Wetterdienst.resolve(provider, network)` and `wetterdienst stripes image` now
 (both are in [The request](#the-request) and [Command line](#command-line) below). The import path of a request class
 (`from wetterdienst.provider.dwd.observation import DwdObservationRequest`) does not move: it is frozen from 1.0.
@@ -129,9 +129,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.163.0 renames by network, resolution and dataset.
+0.164.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.163.0 are shown from the name of 0.139.0 to the name of 0.163.0.
+Moves of the same parameter between 0.145.0 and 0.164.0 are shown from the name of 0.139.0 to the name of 0.164.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -175,11 +175,11 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | `precipitation_amount_last_6h` | `precipitation_amount_liquid_last_6h` | `dwd/swsmos` (`RR6`) | 0.155.0, GH-2845 |
 | `probability_radiation_global_last_1h` | `radiation_global_relative_last_1h` | `dwd/mosmix` large (`rrad1`) | 0.155.0, GH-2843 |
 | `weather_last_3h`, `weather_secondary_last_3h` | `weather_past`, `weather_secondary_past` | `dwd/poi` | 0.155.0, GH-2844 |
-| `radiation_global_last_3h` | `radiation_short_wave_net_last_3h` | `dwd/dmo` `icon` (`rads3`, DWD's short-wave radiation balance of the last 3 hours, positive downward into the surface); the values and the unit are unchanged | 0.163.0, GH-2614 |
-| `radiation_sky_long_wave_last_3h` | `radiation_long_wave_net_last_3h` | `dwd/dmo` `icon` (`radl3`, DWD's long-wave radiation balance of the last 3 hours, negative in almost every value); the values and the unit are unchanged | 0.163.0, GH-2614 |
-| `snow_depth` | `snow_depth_sum` | `dwd/observation` monthly and annual `precipitation_more` (`mo_sh_s`, `ja_sh_s`: the sum of the daily depths, in cm times days); `snow_depth` of the daily rows is a depth | 0.163.0, GH-2614 |
-| `temperature_air_min_0_05m` | `temperature_air_min_0_05m_night` | `geosphere/observation` daily (`tsmin`, the night minimum from 18 UTC of the previous day to 06 UTC); the 10-minute and hourly rows keep the name | 0.163.0, GH-2614 |
-| `precipitation_amount_max` | `precipitation_amount_max_30min` | `dmi/observation` daily (`max_precip_30m`, the largest 30 minutes of the day); the monthly and annual rows (`max_precip_24h`, the largest day) keep the name | 0.163.0, GH-2614 |
+| `radiation_global_last_3h` | `radiation_short_wave_net_last_3h` | `dwd/dmo` `icon` (`rads3`, DWD's short-wave radiation balance of the last 3 hours, positive downward into the surface); the values and the unit are unchanged | 0.164.0, GH-2614 |
+| `radiation_sky_long_wave_last_3h` | `radiation_long_wave_net_last_3h` | `dwd/dmo` `icon` (`radl3`, DWD's long-wave radiation balance of the last 3 hours, negative in almost every value); the values and the unit are unchanged | 0.164.0, GH-2614 |
+| `snow_depth` | `snow_depth_sum` | `dwd/observation` monthly and annual `precipitation_more` (`mo_sh_s`, `ja_sh_s`: the sum of the daily depths, in cm times days); `snow_depth` of the daily rows is a depth | 0.164.0, GH-2614 |
+| `temperature_air_min_0_05m` | `temperature_air_min_0_05m_night` | `geosphere/observation` daily (`tsmin`, the night minimum from 18 UTC of the previous day to 06 UTC); the 10-minute and hourly rows keep the name | 0.164.0, GH-2614 |
+| `precipitation_amount_max` | `precipitation_amount_max_30min` | `dmi/observation` daily (`max_precip_30m`, the largest 30 minutes of the day); the monthly and annual rows (`max_precip_24h`, the largest day) keep the name | 0.164.0, GH-2614 |
 | `temperature_air_2m` (and `temperature_air_mean_2m` of 0.139.0) | `temperature_air` | `dwd/road` (`airTemperature`, a sensor 4 to 5 m above ground by BUFR 0 07 032, never 2 m); the values and the unit are unchanged | 0.164.0, GH-2614 |
 | `temperature_dew_point_2m` (and `temperature_dew_point_mean_2m` of 0.139.0) | `temperature_dew_point` | `dwd/road` (`dewpointTemperature`, the same sensor); the values and the unit are unchanged | 0.164.0, GH-2614 |
 | `humidity_relative_mean` | `humidity_relative` | `dwd/road` (`relativeHumidity`, BUFR 0 13 003 with no statistic: a reading, as it was before 0.160.0); the values and the unit are unchanged | 0.164.0, GH-2614 |
@@ -257,7 +257,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
-| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.163.0, as under [Failures](#failures) |
+| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.164.0, as under [Failures](#failures) |
 
 ## REST API
 

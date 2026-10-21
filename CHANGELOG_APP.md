@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-21
+
 ### Changed
 
 - `[Accessibility]` The weather symbols of the forecast's compact day cards have a text alternative:
@@ -1452,7 +1454,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...HEAD
+[0.29.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...app-v0.29.0
 [0.28.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.27.0...app-v0.28.0
 [0.27.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.26.0...app-v0.27.0
 [0.26.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.25.0...app-v0.26.0

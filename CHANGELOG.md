@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.164.0] - 2026-10-21
+
 ### Changed
 
 - A station `name` is matched without regard to diacritics, on the command line, the REST API,
@@ -36,26 +38,27 @@ Types of changes:
   `pressure_air_sea_level` is `pressure_air_sea_level_mean`, IPMA's hourly means. The old name is
   refused with the new one named, values and units are unchanged: request, filter and key by the
   new name. Release the app after this backend
+- **Breaking**: a wind direction of 0 is null, with `raw:0` in `quality_flags`, only beside a speed
+  of 0 of the same reading, a calm, in every provider; a 0 beside a wind that blows is 0 degrees,
+  where it was null in `dwd/observation` hourly `wind` and subdaily `wind` (beside a force of 0),
+  `dwd/poi`, `eccc` daily gust, `fmi`, `meteofrance/observation` (`DD`, `DXI`),
+  `meteofrance/synop`, `noaa/ghcn` hourly and `smhi`. SMHI reads the speed with the direction, one
+  more download when only the direction is asked for. Tell a calm by `raw:0` in `quality_flags` or
+  by the speed beside the direction, and filter on it for the old nulls; the rules of every special
+  value are on the new docs page `data/special_values` (GH-3222)
+- **Breaking**: `meteoswiss/observation` `wind_direction_mean` (10 minutes, hourly, daily) is null,
+  with `raw:0` in `quality_flags`, where the file holds a 0 beside a speed of 0, a calm (912 of the
+  1,169 zeros of BER, SMA and JUN in 2024): it was 0 degrees, north. A 0 beside a wind that blows
+  stays. Filter on `raw:0` or on the speed for the old calms (GH-3222)
+- **Breaking**: a value cell that is the text `nan` or `inf` is null and counted in the core's debug
+  line, as a text that is no number is; a cast made it a NaN or an infinity. Test for null, not for
+  NaN. A number padded with blanks is read, where it was null (GH-3222)
 
 ### Fixed
 
 - `stations` with a point and a `rank` (command line, REST API, MCP) lists `rank` stations, each
   with a row per requested dataset; with two datasets it counted rows and `rank=2` listed one
   station twice (GH-2625)
-- A wind direction of 0 is null, with `raw:0`, only beside a speed of 0 of the same reading, a calm,
-  in every provider; a 0 beside a wind that blows is 0 degrees, where it was null in
-  `dwd/observation` hourly `wind` and subdaily `wind` (beside a force of 0), `dwd/poi`, `eccc` daily
-  gust, `fmi`, `meteofrance/observation` (`DD`, `DXI`), `meteofrance/synop`, `noaa/ghcn` hourly and
-  `smhi`. SMHI reads the speed with the direction, one more download when only the direction is
-  asked for. The rules of every special value are on the new docs page `data/special_values`
-  (GH-3222)
-- `meteoswiss/observation` `wind_direction_mean` (10 minutes, hourly, daily) is null, with `raw:0`
-  in `quality_flags`, where the file holds a 0 beside a speed of 0, a calm (912 of the 1,169 zeros
-  of BER, SMA and JUN in 2024): it was 0 degrees, north. A 0 beside a wind that blows stays
-  (GH-3222)
-- A value cell that is the text `nan` or `inf` is null and counted in the core's debug line, as a
-  text that is no number is; a cast made it a NaN or an infinity. A number padded with blanks is
-  read, where it was null (GH-3222)
 - **Breaking**: `dwd/road` returns a value outside the physical range of its quantity as null, with
   the number DWD wrote as `raw:<number>` in `quality_flags`, as `dmi` and `rmi` do: the -75 °C of a
   stopped sensor (`raw:198.15`, in kelvin) and any temperature below -60 °C. It was returned as
@@ -6028,7 +6031,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...HEAD
+[0.164.0]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...v0.164.0
 [0.163.0]: https://github.com/earthobservations/wetterdienst/compare/v0.162.0...v0.163.0
 [0.162.0]: https://github.com/earthobservations/wetterdienst/compare/v0.161.0...v0.162.0
 [0.161.0]: https://github.com/earthobservations/wetterdienst/compare/v0.160.0...v0.161.0
