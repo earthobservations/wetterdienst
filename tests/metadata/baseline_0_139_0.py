@@ -3,8 +3,8 @@
 """The parameters of release 0.139.0 that the current metadata no longer declares (GH-3168).
 
 `tests/metadata/gone_since_0_139_0.json` lists, for every dataset of every provider, the canonical parameter names that
-0.139.0 declared and the checkout does not. `tests/metadata/test_renamed.py` holds each of them to an answer: a renamed
-name is refused with the new one, anything else is a removal listed with its reason.
+0.139.0 declared and the checkout does not. `tests/metadata/test_gone_since_0_139_0.py` holds each of them to an
+answer: a renamed name is refused with the new one, anything else is a removal listed with its reason.
 
 The file is generated, not written. It reads the metadata of the tag `v0.139.0` out of git (`git archive`, into a
 temporary directory, imported in a subprocess so that it cannot mix with the checkout's own modules) and keeps what the
@@ -12,9 +12,14 @@ checkout lacks. Regenerate it, and read the diff, with
 
     uv run poe renames:baseline
 
-It needs the tag (`git fetch --tags`); the test itself reads only the JSON and works offline. A name that is back in the
-metadata drops out of the file on regeneration, and a name that goes later is no business of this file: it is a rename
-of the release after 0.139.0, which the changelog of that release names.
+It needs the tag (`git fetch --tags`); the test itself reads only the JSON and works offline.
+
+The file is the whole difference between the release and the checkout as of the last regeneration, not only the names
+that were gone when it was first written, and regenerating it on an unchanged checkout changes nothing. A name that is
+back in the metadata drops out. A name that goes later is added, and then `test_gone_since_0_139_0.py` asks for its
+answer: a rename in `renamed.py` that refuses it with the new name, or an entry in `REMOVED` (or `SOURCE_NAMES`) with
+the reason. Regenerate when a parameter of 0.139.0 is renamed, removed or back, so that the test holds it to an
+answer; a name that came back fails the test until then, and otherwise the file is merely older than the checkout.
 """
 
 from __future__ import annotations
