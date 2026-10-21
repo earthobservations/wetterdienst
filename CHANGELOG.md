@@ -56,6 +56,13 @@ Types of changes:
 - A value cell that is the text `nan` or `inf` is null and counted in the core's debug line, as a
   text that is no number is; a cast made it a NaN or an infinity. A number padded with blanks is
   read, where it was null (GH-3222)
+- **Breaking**: `dwd/road` returns a value outside the physical range of its quantity as null, with
+  the number DWD wrote as `raw:<number>` in `quality_flags`, as `dmi` and `rmi` do: the -75 °C of a
+  stopped sensor (`raw:198.15`, in kelvin) and any temperature below -60 °C. It was returned as
+  published, marked `1`. Read the `raw:` token, with `drop_nulls=False`, for the number (GH-3222)
+- `ipma/observation` and `lhmt/observation` read a value that is a text and no number, or a JSON
+  `NaN`, as null and count it in the core's debug line: such a cell raised and failed the request,
+  and LHMT returned a `NaN` as a value (GH-3222)
 
 ## [0.163.0] - 2026-10-20
 

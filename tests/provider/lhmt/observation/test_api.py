@@ -94,7 +94,8 @@ def test_parse_lhmt_observations() -> None:
         b'"cloudCover": 63, "seaLevelPressure": 1007.4, "relativeHumidity": 52, '
         b'"precipitation": null, "snowDepth": 0, "conditionCode": "cloudy"}]}'
     )
-    df = parse_lhmt_observations(content)
+    # the parser hands over the text of the response, which the core reads as a number
+    df = parse_lhmt_observations(content).with_columns(pl.col("value").cast(pl.Float64))
     by_param = {row["parameter"]: row["value"] for row in df.to_dicts()}
     assert by_param == {
         "airTemperature": 22.3,
@@ -139,7 +140,7 @@ def test_parse_lhmt_skips_malformed_items() -> None:
     df = parse_lhmt_observations(obs)
     assert df["timestamp"].unique().to_list() == [dt.datetime(2020, 7, 1, 12, 0, tzinfo=UTC)]
     temp = df.filter(pl.col("parameter") == "airTemperature")
-    assert temp["value"].to_list() == [22.3]
+    assert temp["value"].to_list() == ["22.3"]
 
     # stations: entries missing a code or coordinates are skipped; the complete one survives
     stations = (
@@ -332,6 +333,29 @@ def test_lhmt_observation_values_of_days_without_observations_are_the_empty_fram
     assert df.is_empty()
     assert df.schema["value"] == pl.Float64
     assert len(attempted) == 3
+
+
+def test_lhmt_observation_a_text_or_nan_value_is_null_and_the_day_kept(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A value cell that is a text and no number, or a JSON NaN, is null and counted; the day's readings stay.
+
+    A frame typed as numbers raised on the text and failed the request, and took a NaN for a reading (GH-3222). The
+    parser hands the text over to the core, which reads it as a number and says in one debug line how many cells were
+    none.
+    """
+    _fake_download_file(
+        monkeypatch,
+        b'{"station": {"code": "vilniaus-ams"}, "observations": ['
+        b'{"observationTimeUtc": "2020-07-01 12:00:00", "airTemperature": "n/a", "relativeHumidity": NaN, '
+        b'"windSpeed": 4.7}]}',
+        b'{"station": {"code": "vilniaus-ams"}, "observations": []}',
+    )
+    # two days, as the window of one ends at its midnight
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        df = _lhmt_values(days=2)
+    assert df.select("parameter", "value").rows() == [("wind_speed", 4.7)]
+    assert "LhmtObservationValues: 2 of 9 value cells are no number and are null" in caplog.text
 
 
 def test_lhmt_observation_values_failed_day_still_raises(monkeypatch: pytest.MonkeyPatch) -> None:

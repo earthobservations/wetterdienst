@@ -24,6 +24,8 @@ from wetterdienst.metadata.unit_type import UnitType
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.dmi.observation import DmiObservationRequest
 from wetterdienst.provider.dmi.observation import api as dmi_api
+from wetterdienst.provider.dwd.road import api as dwd_road_api
+from wetterdienst.provider.dwd.road.api import DwdRoadRequest
 from wetterdienst.provider.lhmt.observation import LhmtObservationRequest
 from wetterdienst.provider.rmi.observation import RmiObservationRequest
 from wetterdienst.provider.rmi.observation import api as rmi_api
@@ -311,6 +313,10 @@ _NARROWER = {
     ("rmi", "10_minutes", "sun_duration"),
     ("rmi", "hourly", "sun_duration"),
     ("rmi", "daily", "sun_duration"),
+    # a German road station reports no -60 °C, at the cold end only (`_IMPOSSIBLE_BELOW`)
+    ("dwd/road", "15_minutes", "airTemperature"),
+    ("dwd/road", "15_minutes", "dewpointTemperature"),
+    ("dwd/road", "15_minutes", "roadSurfaceTemperature"),
 }
 
 
@@ -319,8 +325,9 @@ _NARROWER = {
     [
         ("rmi", RmiObservationRequest, rmi_api._RANGES),  # noqa: SLF001
         ("dmi", DmiObservationRequest, dmi_api._RANGES),  # noqa: SLF001
+        ("dwd/road", DwdRoadRequest, dwd_road_api._RANGES),  # noqa: SLF001
     ],
-    ids=["rmi/observation", "dmi/observation"],
+    ids=["rmi/observation", "dmi/observation", "dwd/road"],
 )
 def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_parameter(
     provider: str, request_class: type, ranges: dict[str, dict[str, tuple[float, float]]]
@@ -350,7 +357,10 @@ def test_a_reader_that_nulls_what_no_sensor_produced_uses_the_range_of_the_param
             to_target = converter.get_lambda(parameter.unit, parameter.unit_type)
             got = (to_target(low), to_target(high))
             if (provider, resolution.name, name) in _NARROWER:
-                assert bounds.low <= got[0] < got[1] < bounds.high, f"{resolution.name} {name}: not narrower"
+                # inside, at one end or both, and not the range itself (a bound converted is not exact)
+                inside = bounds.low - 1e-9 <= got[0] < got[1] <= bounds.high + 1e-9
+                assert inside, f"{resolution.name} {name}: not inside"
+                assert got != pytest.approx(tuple(bounds)), f"{resolution.name} {name}: not narrower"
             else:
                 assert got == pytest.approx(tuple(bounds)), f"{resolution.name} {name}"
     # a narrower range names a parameter of the provider

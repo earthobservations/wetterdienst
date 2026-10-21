@@ -16,6 +16,7 @@ from tests.conftest import BUFR_AVAILABLE
 from wetterdienst import Settings
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel
+from wetterdienst.model.quality_flags import null_sentinels
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import shape_provider_frame
@@ -747,10 +748,11 @@ def test_dwd_road_weather_parses_a_group_once_for_all_its_stations(monkeypatch: 
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
+    # in kelvin, as DWD writes it: 12 K would be no reading (GH-3222)
     reading = _flat(
-        {"#1#shortStationName": "A006", "#1#airTemperature": 12.0},
-        {"#1#shortStationName": "B999", "#1#airTemperature": 9.0},
-        {"#1#shortStationName": "C111", "#1#airTemperature": 7.0},
+        {"#1#shortStationName": "A006", "#1#airTemperature": 285.15},
+        {"#1#shortStationName": "B999", "#1#airTemperature": 282.15},
+        {"#1#shortStationName": "C111", "#1#airTemperature": 280.15},
     )
     parses = []
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: parses.append(1) or reading)
@@ -770,7 +772,7 @@ def test_dwd_road_weather_parses_a_group_once_for_all_its_stations(monkeypatch: 
     assert len(parses) == 1, "the group's one file should be decoded once, not once per station"
     # and each station still gets its own reading out of it
     assert [df.get_column("station_id").unique().to_list() for df in answers] == [["A006"], ["B999"], ["C111"]]
-    assert [df.drop_nulls("value").get_column("value").to_list() for df in answers] == [[12.0], [9.0], [7.0]]
+    assert [df.drop_nulls("value").get_column("value").to_list() for df in answers] == [[285.15], [282.15], [280.15]]
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1400,9 +1402,10 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
+    # in kelvin, as DWD writes it: 12 K would be no reading (GH-3222)
     reading = _flat(
-        {"#1#shortStationName": "A006", "#1#airTemperature": 12.0},
-        {"#1#shortStationName": "B999", "#1#airTemperature": 9.0},
+        {"#1#shortStationName": "A006", "#1#airTemperature": 285.15},
+        {"#1#shortStationName": "B999", "#1#airTemperature": 282.15},
     )
     monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
     monkeypatch.setattr(
@@ -1418,7 +1421,7 @@ def test_dwd_road_weather_keeps_the_station_that_was_asked_for(monkeypatch: pyte
     df = _collected(_stub_stations().values(), "A006")
     readings = df.drop_nulls("value").select("station_id", "parameter", "value").rows()
     # the station asked for, and only it -- the other station's reading is in the same file
-    assert readings == [("A006", "airTemperature", 12.0)]
+    assert readings == [("A006", "airTemperature", 285.15)]
 
 
 @pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
@@ -1510,8 +1513,16 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
     )
 
 
+def _out_of_range(parameter: str, values: list[float]) -> pl.DataFrame:
+    """Give the value and the `raw` text the reader's ranges make of readings of one descriptor."""
+    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
+
+    value, raw = null_sentinels(pl.col("value"), *api._OUT_OF_RANGE, text=False)  # noqa: SLF001
+    return _series("A006", parameter, values).select(value.alias("value"), raw.alias("raw"))
+
+
 @pytest.mark.parametrize(
-    ("celsius", "expected", "case"),
+    ("celsius", "nulled", "case"),
     [
         (-75.0, True, "the value KM's stopped sensors hold, colder than anywhere on earth has been"),
         (-61.0, True, "below the line"),
@@ -1519,48 +1530,28 @@ def test_dwd_road_weather_a_real_file_decodes() -> None:
         (-45.9, False, "Germany's record low, which the network may legitimately report"),
         (-30.0, False, "reachable on a German road in winter; the run rule judges this one"),
         (-25.0, False, "likewise"),
-        (79.8, False, "implausible at 23:00 in September, but no line is drawn at the warm end"),
+        (79.8, False, "implausible at 23:00 in September, but no line is drawn below the physical one"),
     ],
 )
-def test_dwd_road_weather_impossible_temperature_is_marked(
+def test_dwd_road_weather_impossible_temperature_is_null(
     celsius: float,
-    expected: bool,  # noqa: FBT001
+    nulled: bool,  # noqa: FBT001
     case: str,
 ) -> None:
-    """A temperature no reading can hold is marked suspect; a merely extreme one is not."""
+    """A temperature no reading can hold is null with the number DWD wrote; a merely extreme one stays (GH-3222)."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    readings = _series("A006", "roadSurfaceTemperature", [api._MELTING_POINT + celsius] * 3)  # noqa: SLF001
+    published = round(api._MELTING_POINT + celsius, 2)  # noqa: SLF001
+    df = _out_of_range("roadSurfaceTemperature", [published] * 3)
 
-    df = api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
-
-    marked = df.get_column("quality").eq(1.0).fill_null(value=False)
-    # every reading or none of them: the three here hold the same value, so a rule that marked some
-    # of them would be answering something other than what the value is
-    assert marked.all() == expected, case
-    assert marked.any() == expected, case
-
-
-def test_dwd_road_weather_impossible_temperature_names_what_it_marked(caplog: pytest.LogCaptureFixture) -> None:
-    """The line written for a caller who turns the log up names the sensors and the threshold.
-
-    Written at `DEBUG`, which neither the CLI nor the REST API prints, and it says the readings are
-    kept -- a caller reading it should not go looking for values that were removed.
-    """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    readings = _series("H659", "roadSurfaceTemperature", [api._MELTING_POINT - 75.0] * 3)  # noqa: SLF001
-
-    with caplog.at_level(logging.DEBUG):
-        api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
-
-    assert "a-group: 1 sensors report a temperature below -60 C" in caplog.text
-    assert "H659/roadSurfaceTemperature" in caplog.text
-    assert "kept as published" in caplog.text
+    # every reading or none of them: the three hold the same value
+    assert df.get_column("value").is_null().all() == nulled, case
+    assert df.get_column("value").is_null().any() == nulled, case
+    assert df.get_column("raw").to_list() == ([str(published)] * 3 if nulled else [None] * 3), case
 
 
 def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
-    """The mark does not wait for the six hours the run rule needs to see.
+    """The range does not wait for the six hours the run rule needs to see.
 
     Which is the whole of what it adds: asked for twelve hours, the run rule marks KM's stopped
     sensors; asked for one, it has five readings to judge from and marks nothing, while the station
@@ -1569,71 +1560,74 @@ def test_dwd_road_weather_impossible_temperature_needs_no_window() -> None:
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
     # five readings, as an hour of this network holds -- far short of the 24 the run rule wants
-    an_hour = _series("A006", "roadSurfaceTemperature", [api._MELTING_POINT - 75.0] * 5)  # noqa: SLF001
+    an_hour = _series("A006", "roadSurfaceTemperature", [198.15] * 5)
 
     assert not api._flag_stuck_sensors(an_hour, "a-group").get_column("quality").eq(1.0).any()  # noqa: SLF001
-    marked = api._flag_impossible_temperatures(an_hour, "a-group").get_column("quality")  # noqa: SLF001
-    assert marked.eq(1.0).fill_null(value=False).all()
+    assert _out_of_range("roadSurfaceTemperature", [198.15] * 5).get_column("value").is_null().all()
 
 
 @pytest.mark.parametrize(
-    ("parameter", "value"),
+    ("parameter", "value", "nulled"),
     [
-        ("waterFilmThickness", -75.0),
-        # a humidity and a wind speed are below any line drawn in kelvin by construction, which is
-        # what a list shared with the stuck-sensor rule would have marked a whole network of
-        ("relativeHumidity", 87.0),
-        ("windSpeed", 3.4),
-        ("horizontalVisibility", 12000.0),
+        # a humidity and a wind speed are below any line drawn in kelvin by construction: each
+        # descriptor is held to its own range, never to a temperature's
+        ("relativeHumidity", 87.0, False),
+        ("windSpeed", 3.4, False),
+        ("horizontalVisibility", 12000.0, False),
+        ("waterFilmThickness", 0.0001, False),
+        ("relativeHumidity", 131.0, True),
+        ("windSpeed", -1.0, True),
+        ("waterFilmThickness", -75.0, True),
+        ("windDirection", 361.0, True),
     ],
 )
-def test_dwd_road_weather_impossible_temperature_leaves_other_quantities_alone(
+def test_dwd_road_weather_each_quantity_is_held_to_its_own_range(
     parameter: str,
     value: float,
+    nulled: bool,  # noqa: FBT001
 ) -> None:
-    """Only what is measured on the temperature scale is judged against a temperature.
+    """A humidity of 87 % and a wind of 3.4 m/s are ordinary readings that happen to be small numbers."""
+    df = _out_of_range(parameter, [value])
 
-    A humidity of 87 % and a wind of 3.4 m/s are ordinary readings that happen to be small numbers;
-    read as kelvin they are far below anything on earth, so the quantities this line applies to are
-    named for being temperatures rather than borrowed from a rule that happens to name the same
-    three for another reason.
+    assert df.get_column("value").is_null().all() == nulled
+
+
+def test_dwd_road_weather_a_code_is_held_to_no_range() -> None:
+    """The surface condition and the precipitation type are a code and a flag table, which no range describes."""
+    for parameter, value in (("roadSurfaceCondition", 25.0), ("precipitationType", 33554432.0)):
+        assert _out_of_range(parameter, [value]).get_column("value").to_list() == [value]
+
+
+@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
+def test_dwd_road_weather_an_impossible_value_is_null_with_its_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The reader nulls a value no sensor can hold and keeps the number as the last token (GH-3222).
+
+    The station's own verdict stays before it, as the stuck-sensor rule's does: a quality flag says what DWD or the
+    data say of a reading, the `raw:` token what it was.
     """
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
-    other = _series("A006", parameter, [value] * 3)
-
-    assert api._flag_impossible_temperatures(other, "a-group").get_column("quality").is_null().all()  # noqa: SLF001
-
-
-def test_dwd_road_weather_a_quantity_added_to_the_stuck_rule_is_not_judged_as_a_temperature(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Deciding a stuck humidity is a fault does not make a humidity a temperature.
-
-    The two lists name the same three quantities today for different reasons, and the stuck rule's
-    own reasoning invites adding one to it. Answered from a single list, that edit would mark every
-    humidity in the network suspect -- 87 % read as kelvin being 186 K below freezing -- from a
-    change that looks unrelated to this rule.
-    """
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    monkeypatch.setattr(api, "_STUCK_PARAMETERS", (*api._STUCK_PARAMETERS, "relativeHumidity"))  # noqa: SLF001
-    humidity = _series("A006", "relativeHumidity", [87.0] * 3)
-
-    marked = api._flag_impossible_temperatures(humidity, "a-group").get_column("quality")  # noqa: SLF001
-    assert marked.is_null().all()
-
-
-def test_dwd_road_weather_impossible_temperature_keeps_the_reading() -> None:
-    """The reading is left exactly as DWD published it; only the verdict on it is ours."""
-    from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
-
-    published = api._MELTING_POINT - 75.0  # noqa: SLF001
-    readings = _series("A006", "airTemperature", [published] * 3)
-
-    df = api._flag_impossible_temperatures(readings, "a-group")  # noqa: SLF001
-
-    assert df.get_column("value").eq(published).all()
+    ground_suspect = 1 << (30 - 7)
+    reading = _flat(
+        {
+            "#1#shortStationName": "P034",
+            "#1#qualityInformationAwsData": ground_suspect,
+            "#1#roadSurfaceTemperature": 198.15,
+            "#1#airTemperature": 285.25,
+        },
+    )
+    monkeypatch.setattr("pdbufr.read_bufr", lambda *_args, **_kwargs: reading)
+    name = "swis2-ISXD70_DWDD_131200-2609131200-DD---bin"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [name])
+    monkeypatch.setattr(
+        api, "download_files", lambda **_kwargs: [File(url=name, content=BytesIO(b"x" * 500), status=200)]
+    )
+    df = _collected(_stub_stations(("P034",)).values(), "P034")
+    rows = {
+        parameter: (value, flags) for parameter, value, flags in df.select("parameter", "value", "quality_flags").rows()
+    }
+    assert rows["roadSurfaceTemperature"] == (None, "1,raw:198.15")
+    assert rows["airTemperature"] == (285.25, "0")
 
 
 _FAILED_DOWNLOAD_FILES = (

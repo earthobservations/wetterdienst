@@ -70,13 +70,14 @@ The rules behind them, one per situation and the same for every provider, are on
 | DWD mosmix, dmo | `-` for a value the run does not have (null) |
 | DWD poi | `---`, and any text that is no number (null); `113` and `126` in `cloud_cover_total`, no amount (null); `0` in the wind direction beside a speed of 0, a calm (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
+| DWD road | a value outside the range of its quantity, in DWD's unit, such as the 198.15 K (-75 °C) of KM's stopped sensors (null); the temperatures are null below -60 °C |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); `Ip` in the precipitation of the daily, monthly and annual values, a trace (0.0); any other text that is no number in the daily, monthly and annual values (null) |
 | DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
 | FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); `0.0` in the wind direction beside a speed of 0, a calm (null); any text that is no number (null) |
 | ECCC | `0` in the daily `wind_gust_max`, a gust below the 31 km/h the stations report from, and in `wind_direction_gust_max` beside it (null); `0` in the hourly wind direction beside a speed of 0, a calm (null) |
 | Geosphere | `0` in the wind direction `dd`, a calm, all of them beside a speed of 0 (null); `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0); a trace is written 0 and has no token |
 | IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
-| IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
+| IPMA | `-99.0` (null); `0` in the wind direction, the code "no direction", whatever the speed, or a code the eight points do not have (null) |
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount` and `sunshine_duration`, a trace (0.0); `0` and `990` in the hourly wind direction, calm and variable (null); `9` in the hourly `cloud_cover_total` and the daily `cloud_cover_total_mean`, the sky is invisible (null) |
 | Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings; `0` in the hourly wind directions beside a speed of 0, a calm (null); `9` in the hourly `cloud_cover_total`, the sky is obscured (null) |
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
@@ -101,6 +102,6 @@ that is what the code says, and not every source's documentation was read for on
 
 The other providers write their missing values as an empty field, a JSON null or a status that the plain code
 already carries (IMGW meteorology: `8`), and have no `raw:` token. DWD road decodes BUFR, which has no text of a
-missing value. CHMI, MeteoSwiss, DWD phenology and the real-time values of AEMET read a text that is no
-number as null without a token; none was found in their files, and DWD observation does the same for a letter
-outside `P` and `I` in a measurement method.
+missing value. CHMI, MeteoSwiss, DWD phenology, IPMA, LHMT and the real-time values of AEMET read a text that is
+no number, or a `NaN`, as null without a token, which the core counts in a debug line; none was found in their
+files, and DWD observation does the same for a letter outside `P` and `I` in a measurement method.

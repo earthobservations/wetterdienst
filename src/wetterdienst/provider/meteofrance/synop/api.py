@@ -20,6 +20,7 @@ from wetterdienst.model.quality_flags import (
     Sentinel,
     calm,
     join_quality_flags,
+    no_direction_code,
     null_sentinels,
     with_speed_beside,
 )
@@ -198,7 +199,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             pl.col("value"),
             Sentinel(_SYNOP_TRACE, where=pl.col("parameter").is_in(_SYNOP_TRACE_COLUMNS), to=0.0),
             Sentinel(_SYNOP_SKY_OBSCURED, where=pl.col("parameter").eq("n")),
-            Sentinel(*_SYNOP_NO_WIND_DIRECTION, where=pl.col("parameter").eq(_SYNOP_WIND_DIRECTION_COLUMN)),
+            no_direction_code(*_SYNOP_NO_WIND_DIRECTION, where=pl.col("parameter").eq(_SYNOP_WIND_DIRECTION_COLUMN)),
             calm(pl.col(SPEED_BESIDE)),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too

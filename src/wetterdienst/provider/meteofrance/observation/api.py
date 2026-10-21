@@ -21,6 +21,7 @@ from wetterdienst.model.quality_flags import (
     Sentinel,
     calm,
     join_quality_flags,
+    no_direction_code,
     null_sentinels,
     with_speed_beside,
 )
@@ -974,11 +975,11 @@ def _sentinels(resolution_name: str) -> list[Sentinel]:
     if resolution_name == "hourly":
         return [
             Sentinel(_HOURLY_SKY_INVISIBLE, where=pl.col("parameter").eq("N")),
-            Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(directions)),
+            no_direction_code(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(directions)),
             calm_wind,
         ]
     if resolution_name == "daily":
-        return [Sentinel(*_DAILY_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(directions)), calm_wind]
+        return [no_direction_code(*_DAILY_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(directions)), calm_wind]
     return []
 
 

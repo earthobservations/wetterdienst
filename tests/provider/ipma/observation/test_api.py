@@ -3,6 +3,7 @@
 """Tests for IPMA (Portugal) observation provider."""
 
 import datetime as dt
+import logging
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -99,13 +100,18 @@ def test_ipma_observation_stations_of_a_catalogue_without_a_feature_are_the_empt
     assert df.schema == STATIONS_SCHEMA
 
 
+def _read(df: pl.DataFrame) -> pl.DataFrame:
+    """Read the value of the parser's frame as the core does: the parser hands over the text of the feed."""
+    return df.with_columns(pl.col("value").cast(pl.Float64, strict=False))
+
+
 def test_parse_ipma_observations_feed_extract_multiple_stations() -> None:
     """The feed is deserialised once and reused to extract each station independently."""
     content = b'{"2026-07-29T14:00": {"1200579": {"temperatura": 27.5}, "1210881": {"temperatura": 19.0}}}'
     feed = parse_ipma_observations_feed(content)
     assert set(feed["2026-07-29T14:00"]) == {"1200579", "1210881"}
-    first = extract_ipma_station_observations(feed, station_id="1200579")
-    second = extract_ipma_station_observations(feed, station_id="1210881")
+    first = _read(extract_ipma_station_observations(feed, station_id="1200579"))
+    second = _read(extract_ipma_station_observations(feed, station_id="1210881"))
     assert first.filter(pl.col("parameter") == "temperatura")["value"].to_list() == [27.5]
     assert second.filter(pl.col("parameter") == "temperatura")["value"].to_list() == [19.0]
 
@@ -123,7 +129,7 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
         b'"intensidadeVento": 3.1, "intensidadeVentoKM": 11.2, "idDireccVento": 4, '
         b'"precAcumulada": -99.0, "radiacao": 3151.3}}}'
     )
-    df = parse_ipma_observations(content, station_id="1200579")
+    df = _read(parse_ipma_observations(content, station_id="1200579"))
     by_param = {row["parameter"]: row["value"] for row in df.to_dicts()}
     assert by_param["temperatura"] == 27.5
     assert by_param["humidade"] == 54.0
@@ -155,7 +161,7 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
 def test_parse_ipma_observations_wind_direction_codes(code: int, expected_degrees: float | None) -> None:
     """Every IPMA wind-direction code 0-9 maps to the expected degrees (0/calm -> null, 9 aliases N)."""
     content = f'{{"2026-07-29T14:00": {{"1200579": {{"idDireccVento": {code}}}}}}}'.encode()
-    df = parse_ipma_observations(content, station_id="1200579")
+    df = _read(parse_ipma_observations(content, station_id="1200579"))
     wind = df.filter(pl.col("parameter") == "idDireccVento")
     assert wind["value"].to_list() == [expected_degrees]
 
@@ -194,6 +200,45 @@ def test_ipma_observation_values_of_a_station_absent_from_the_feed_are_the_empty
     )
     assert result.df.is_empty()
     assert result.df.schema["value"] == pl.Float64
+
+
+def test_ipma_observation_a_text_or_nan_value_is_null_and_the_station_kept(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A value cell that is a text and no number, or a JSON NaN, is null and counted; the station's readings stay.
+
+    `float("n/a")` raised and failed the request (GH-3222). The parser hands the text over to the
+    core, which reads it as a number and says in one debug line how many cells were none.
+    """
+    stations = (
+        b'[{"geometry": {"type": "Point", "coordinates": [-9.1, 38.7]}, "type": "Feature", '
+        b'"properties": {"idEstacao": 1200579, "localEstacao": "Lisboa"}}]'
+    )
+    feed = (
+        b'{"2026-10-10T12:00": {"1200579": {"temperatura": "n/a", "humidade": NaN, "pressao": 1018.6, '
+        b'"idDireccVento": "x"}}}'
+    )
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=BytesIO(feed if url.endswith("observations.json") else stations), status=200)
+
+    monkeypatch.setattr(ipma_api, "download_file", download_file)
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        df = (
+            IpmaObservationRequest(
+                parameters=[("hourly", "data")],
+                start=dt.datetime(2026, 10, 10, 11, tzinfo=UTC),
+                end=dt.datetime(2026, 10, 10, 14, tzinfo=UTC),
+                settings=Settings(cache_disable=True),
+            )
+            .filter_by_station_id("1200579")
+            .values()
+            .all()
+            .df
+        )
+    # the pressure, the one reading of the four
+    assert df.get_column("value").to_list() == [pytest.approx(1018.6)]
+    assert "IpmaObservationValues: 3 of 7 value cells are no number and are null" in caplog.text
 
 
 # ---------------------------------------------------------------------------
