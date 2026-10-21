@@ -495,9 +495,9 @@ Options:
                                   instant. Examples: 2020-05-01, 2020-05, 2020-05-01/2020-05-05.
                                   Given, only the stations whose record overlaps it are listed: one
                                   that started after the window is left out, and so is one that
-                                  ended before it by more than two readings of its resolution (two
-                                  days up to daily), the end a source publishes lagging a station
-                                  still reporting
+                                  ended before it by more than the buffer (--station-window-end-
+                                  buffer), the end a source publishes lagging a station still
+                                  reporting
   --start TEXT                    Start of a time window, instead of --timestamp. Given alone, it is
                                   read as --timestamp.
   --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
@@ -520,6 +520,12 @@ Options:
   --top FLOAT                     North latitude of the bounding box.
   --sql TEXT                      Select stations by a SQL WHERE clause over their metadata.
                                   Example: region='Sachsen'
+  --station-window-end-buffer INTEGER RANGE
+                                  Days after the end its catalogue publishes that a station is still
+                                  kept for the window: 0 compares the end exactly. The start is
+                                  compared exactly. Default: WD_TS_STATION_WINDOW_END_BUFFER if set,
+                                  else two days up to daily, 62 for monthly and 732 for annual
+                                  [0<=x<=3660]
   --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, webp, svg or
@@ -861,6 +867,12 @@ Options:
                                   Default: WD_TS_SKIP_THRESHOLD if set, else 0.95  [0<x<=1]
   --drop-nulls BOOLEAN            Drop rows with null values from the output. Default:
                                   WD_TS_DROP_NULLS if set, else true
+  --station-window-end-buffer INTEGER RANGE
+                                  Days after the end its catalogue publishes that a station is still
+                                  kept for the window: 0 compares the end exactly. The start is
+                                  compared exactly. Default: WD_TS_STATION_WINDOW_END_BUFFER if set,
+                                  else two days up to daily, 62 for monthly and 732 for annual
+                                  [0<=x<=3660]
   --format [json|geojson|csv|ndjson|html|png|jpg|webp|svg|pdf]
                                   Output format: json, geojson, csv or ndjson (the metadata, a line
                                   for each row, then the end) for data, html, png, jpg, webp, svg or

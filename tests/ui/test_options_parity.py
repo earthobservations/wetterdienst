@@ -188,13 +188,21 @@ CASES = [
         {"interpolate": {"num_additional_stations": "5"}, "summarize": {"num_additional_stations": "5"}},
         {"interpolate": ["--num-additional-stations=5"], "summarize": ["--num-additional-stations=5"]},
     ),
+    Case(
+        "station_window_end_buffer",
+        7,
+        "7",
+        _VALUES,
+        {"values": {"station_window_end_buffer": "7"}},
+        {"values": ["--station-window-end-buffer=7"]},
+    ),
     # set by the server alone: no query parameter and no command line option names it
     Case("geo_station_distance_resolution_factors", {"daily": 3.0}, '{"daily": 3.0}', _GEO),
 ]
 
 
 def test_every_option_is_a_case() -> None:
-    """Test no option is left out, as the 15 are the ones to hold the UIs to."""
+    """Test no option is left out, as the 16 are the ones to hold the UIs to."""
     assert {case.option for case in CASES} == set(Options.model_fields)
 
 

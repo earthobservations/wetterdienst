@@ -65,6 +65,7 @@
     "skip_criteria",
     "skip_empty",
     "skip_threshold",
+    "station_window_end_buffer",
     "unit_targets"
   ],
   "Wetterdienst": {
