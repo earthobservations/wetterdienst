@@ -2,6 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the API."""
 
+import ast
 import collections
 import contextlib
 import importlib
@@ -26,7 +27,13 @@ from wetterdienst.metadata.parameter_table import PARAMETER_TABLE, PARAMETERS
 from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType
-from wetterdienst.model.metadata import NetworkKind, ParameterModel, TimeseriesKind, build_metadata_model
+from wetterdienst.model.metadata import (
+    NetworkKind,
+    ParameterModel,
+    TimeseriesKind,
+    build_metadata_model,
+    parse_parameters,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.provider.aemet.observation import AemetObservationMetadata, AemetObservationRequest
@@ -295,6 +302,36 @@ def test_unit_type_matches_unit_converter(unit_converter: UnitConverter) -> None
     """
     assert set(get_args(UnitType)) == set(unit_converter.units)
     assert set(get_args(UnitType)) == set(unit_converter.targets)
+
+
+def test_the_smoke_tests_below_request_parameters_their_provider_declares() -> None:
+    """Every request of this module's remote tests names parameters of its own provider.
+
+    The remote tests are not in the offline selection, so a rename that left an old name here (`dwd/road`
+    `temperature_air_2m`, GH-2614) went unseen until the scheduled run. The request classes this module calls with a
+    literal `parameters=` are read from its source and parsed against their own metadata, which needs no network.
+    """
+    tree = ast.parse(Path(__file__).read_text(encoding="utf8"))
+    checked = 0
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        request_class = globals().get(node.func.id)
+        if not (isinstance(request_class, type) and issubclass(request_class, TimeseriesRequest)):
+            continue
+        for keyword in node.keywords:
+            if keyword.arg != "parameters":
+                continue
+            try:
+                literal = ast.literal_eval(keyword.value)
+            except ValueError:  # a variable or a call
+                continue
+            # a list of the tuples (resolution, dataset[, parameter]), or one tuple
+            parameters = [literal] if isinstance(literal, tuple) else literal
+            if isinstance(parameters, list) and all(isinstance(item, tuple | str) for item in parameters):
+                parse_parameters(parameters, request_class.metadata)
+                checked += 1
+    assert checked > 20
 
 
 def test_every_resolution_and_period_is_served_by_a_provider() -> None:
@@ -739,7 +776,7 @@ def test_api_dwd_dmo_icon_eu_all_stations(default_settings: Settings) -> None:
 def test_api_dwd_road(default_settings: Settings) -> None:
     """Test dwd road API."""
     request = DwdRoadRequest(
-        parameters=[("15_minutes", "data", "temperature_air_2m")],
+        parameters=[("15_minutes", "data", "temperature_air")],
         settings=default_settings,
     ).all()
     assert not request.df.is_empty()
