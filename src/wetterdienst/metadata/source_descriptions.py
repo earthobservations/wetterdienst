@@ -183,10 +183,12 @@ _MO_DAILY_STAMP = (
 #   250 of 250, within 0.89 W/m2, on 10 stations); the clock hour fits worse (precipitation 573, gust 468 of 625).
 #   `direct_solar_radiation_last_hour` is sent by 5 French stations and exceeds the global value in 5 of 15 daytime
 #   reports. The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
-#   stations, previous-day sunshine at 00 and 03 UTC at the stations outside Germany.
+#   stations, previous-day sunshine at 06 UTC at 123 of 158 stations (all 60 in Germany), at 00 or 03 UTC only at
+#   33 stations outside Germany and at every synoptic hour at 2.
 # - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations (run of 15 UTC) and MOSMIX_S of 30
 #   stations (run of 20 UTC) of 2026-10-21; `RRad1` is `Rad1h` over the extraterrestrial radiation of the hour (6
-#   stations, mean difference under 3 points, single hours up to about 20 apart).
+#   stations, mean difference under 3 points, single hours up to about 20 apart); `W1W2` is two digits (tens never
+#   below units) at every station of both runs.
 # - derived: Monatsgradtage (72.9, 71.6, 62.5), Kuehlgradstunden (2562.3, 2782.8, 2633.5) and the numbers of heating
 #   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
 #   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
@@ -239,7 +241,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "DwdSwsmosMetadata": {
         ("hourly", "data", "R650"): (
-            "Probability of more than 5 mm of liquid and solid precipitation in the last 6 hours (DWD: "
+            "Probability of more than 5 mm of liquid and solid precipitation in the last 6 hours, in % (DWD: "
             '"Niederschlag flüssig+fest mehr als 5mm der letzten 6 Stunden Wahrscheinlichkeit"; from DWD\'s MOS).'
         ),
         ("hourly", "data", "RC"): (
@@ -401,7 +403,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "total_time_of_sunshine_past_day"): (
             "Length of time the sun shone on the previous day (UTC at DWD's stations, checked at 06 UTC), in "
-            "hours; stations outside Germany also report it at 00 or 03 UTC, with no day stated."
+            "hours, reported at 06 UTC at most stations; some stations outside Germany report it at 00 or 03 UTC "
+            "instead, with no day stated."
         ),
     },
     "DwdDerivedMetadata": {
@@ -746,10 +749,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "06, 12 and 18 UTC."
         ),
         ("hourly", "icon", "ww"): (
-            "Significant Weather, as a code of DWD's MOSMIX list of codes (the DMO values fit it) (DWD publishes "
-            "it as mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing "
-            "drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
-            "development)."
+            "Significant Weather, as a code of DWD's MOSMIX list of codes (DWD publishes it as "
+            "mosmix_element_weather_xls.xlsx; the DMO values fit it): 95 (thunderstorm) has the highest "
+            "priority, then freezing drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, "
+            "down to 3 to 0 (cloud development)."
         ),
         ("hourly", "icon_eu", "dd"): "Wind direction",
         ("hourly", "icon_eu", "ff"): "Wind speed",
@@ -779,10 +782,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "06, 12 and 18 UTC."
         ),
         ("hourly", "icon_eu", "ww"): (
-            "Significant Weather, as a code of DWD's MOSMIX list of codes (the DMO values fit it) (DWD publishes "
-            "it as mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing "
-            "drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
-            "development)."
+            "Significant Weather, as a code of DWD's MOSMIX list of codes (DWD publishes it as "
+            "mosmix_element_weather_xls.xlsx; the DMO values fit it): 95 (thunderstorm) has the highest "
+            "priority, then freezing drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, "
+            "down to 3 to 0 (cloud development)."
         ),
     },
     "DwdMosmixMetadata": {
@@ -899,10 +902,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "vv"): "Visibility",
         ("hourly", "large", "vv10"): "Probability: Visibility below 1000m",
         ("hourly", "large", "w1w2"): (
-            "Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or "
-            "rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, "
-            "4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no "
-            "thunderstorm, no precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
+            "Past weather during the last 6 hours, as two digits W1 and W2 (the values are 0, 10, 20 ... 99, the "
+            "tens never below the units), each a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or rain "
+            "and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, 4.6/8 to "
+            "6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no thunderstorm, no "
+            "precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
         ),
         ("hourly", "large", "wpc11"): (
             "Optional significant weather (highest priority) during the last hour, as a code of the same list as `ww`."
@@ -1007,10 +1011,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ): "Maximum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
         ("hourly", "small", "vv"): "Visibility",
         ("hourly", "small", "w1w2"): (
-            "Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or "
-            "rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, "
-            "4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no "
-            "thunderstorm, no precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
+            "Past weather during the last 6 hours, as two digits W1 and W2 (the values are 0, 10, 20 ... 99, the "
+            "tens never below the units), each a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or rain "
+            "and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, 4.6/8 to "
+            "6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no thunderstorm, no "
+            "precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
         ),
         ("hourly", "small", "ww"): (
             "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "

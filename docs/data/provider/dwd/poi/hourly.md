@@ -41,7 +41,7 @@
 | {term}`snow_depth` | total_snow_depth | Depth of the snow lying on the ground, where the source states no statistic or a reading at one moment; the stated mean is `snow_depth_mean`, the sum of the daily depths `snow_depth_sum`. | cm |
 | {term}`snow_depth_new` | depth_of_new_snow | Depth of new snow (DWD: "Neuschneehoehe"). The file states no period; it is reported in the 06 UTC report only. | cm |
 | {term}`sunshine_duration` | total_time_of_sunshine_during_last_hour | Length of time the sun shone in the preceding hour, in minutes; it agrees with the sum of DWD's 10-minute sunshine duration of that hour. | min |
-| {term}`sunshine_duration_yesterday` | total_time_of_sunshine_past_day | Length of time the sun shone on the previous day (UTC at DWD's stations, checked at 06 UTC), in hours; stations outside Germany also report it at 00 or 03 UTC, with no day stated. | h |
+| {term}`sunshine_duration_yesterday` | total_time_of_sunshine_past_day | Length of time the sun shone on the previous day (UTC at DWD's stations, checked at 06 UTC), in hours, reported at 06 UTC at most stations; some stations outside Germany report it at 00 or 03 UTC instead, with no day stated. | h |
 | {term}`temperature_air_2m` | dry_bulb_temperature_at_2_meter_above_ground | Air temperature at 2 m above ground. | °C |
 | {term}`temperature_air_0_05m` | temperature_at_5_cm_above_ground | Air temperature at 5 cm above ground. | °C |
 | {term}`temperature_air_max_2m_last_12h` | maximum_temperature_last_12_hours_2_meters_above_ground | Maximum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC. | °C |
