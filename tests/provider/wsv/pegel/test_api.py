@@ -228,9 +228,11 @@ def test_wsv_every_parameter_is_described() -> None:
         for parameter in dataset.parameters
         if (resolution.name, dataset.name, parameter.name_original) not in described
     )
-    # NIEDERSCHLAG and NIEDERSCHLAGSINTENSITAET are declared but served by no station today, so
-    # they are described here and simply never appear in a station list
     assert not undescribed, f"parameters with no description: {undescribed}"
+    # and the other way round: a description of a shortname no parameter declares (the three that no station served
+    # were removed, GH-3242) is a row of the table nothing reads
+    declared = {parameter.name_original for resolution in WsvPegelRequest.metadata for parameter in resolution["data"]}
+    assert sorted({name for _, _, name in described} - declared) == []
 
 
 def test_wsv_descriptions_state_raw_data_and_no_statistic() -> None:
@@ -238,18 +240,44 @@ def test_wsv_descriptions_state_raw_data_and_no_statistic() -> None:
 
     The descriptions read "average ... during time scale" and then "a reading" (GH-3136), which the source states
     of none of its series. Each one says what the source says -- unchecked raw data, one value per recording interval
-    of the series -- or, for the three parameters no station serves, that no series of its shortname exists.
+    of the series.
     """
     statistic = re.compile(r"\b(average|mean|reading|instant\w*|aggregate\w*)\b", re.IGNORECASE)
     for resolution in WsvPegelRequest.metadata:
         for parameter in resolution["data"]:
             description = parameter.description
             assert not statistic.search(description), f"{resolution.name}/{parameter.name_original}: {description}"
-            if parameter.name_original in {"CL", "NIEDERSCHLAG", "NIEDERSCHLAGSINTENSITÄT"}:
-                assert "has a series of this shortname" in description, parameter.name_original
-            else:
-                assert "unchecked raw data" in description, parameter.name_original
-                assert "recording interval of the series" in description, parameter.name_original
+            assert "unchecked raw data" in description, parameter.name_original
+            assert "recording interval of the series" in description, parameter.name_original
+
+
+def test_wsv_declares_no_parameter_that_no_station_serves_and_names_the_air_temperature_for_what_it_is() -> None:
+    """`CL`, `NIEDERSCHLAG` and `NIEDERSCHLAGSINTENSITÄT` are gone and `LT` is `temperature_air` (GH-3242).
+
+    `stations.json?timeseries=<shortname>` answered 0 stations for each of the three on 2026-10-21 (786 stations), so
+    no request could return a value, and `LUFTTEMPERATUR` states no height, so the 2 m of `temperature_air_2m` was
+    an assumption. The old air temperature name, and the one of 0.139.0, are refused with the new one named; the
+    names of the three removed are unknown parameters.
+    """
+    from wetterdienst.exceptions import InvalidParameterError  # noqa: PLC0415
+
+    for resolution in WsvPegelRequest.metadata:
+        declared = {parameter.name_original: parameter.name for parameter in resolution["data"]}
+        assert declared.keys().isdisjoint({"CL", "NIEDERSCHLAG", "NIEDERSCHLAGSINTENSITÄT"})
+        assert declared["LT"] == "temperature_air"
+        assert {"chloride_concentration", "precipitation_amount", "precipitation_intensity"}.isdisjoint(
+            declared.values()
+        )
+        for old in ("temperature_air_2m", "temperature_air_mean_2m"):
+            with pytest.raises(InvalidParameterError, match="It was renamed to 'temperature_air' in this dataset"):
+                WsvPegelRequest(parameters=[(resolution.name, "data", old)])
+        for gone in ("chloride_concentration", "precipitation_amount", "precipitation_intensity"):
+            with pytest.raises(InvalidParameterError) as error:
+                WsvPegelRequest(parameters=[(resolution.name, "data", gone)])
+            assert "renamed" not in str(error.value)
+        assert [
+            p.name for p in WsvPegelRequest(parameters=[(resolution.name, "data", "temperature_air")]).parameters
+        ] == ["temperature_air"]
 
 
 def test_wsv_resolutions_are_the_intervals_the_service_publishes() -> None:
@@ -279,7 +307,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
     parameters = [
         (resolution, "data", parameter)
         for resolution in ("15_minutes", "hourly")
-        for parameter in ("stage", "temperature_air_2m")
+        for parameter in ("stage", "temperature_air")
     ]
     request = WsvPegelRequest(parameters=parameters).filter_by_station_id("10091008")
     assert set(request.df.get_column("resolution")) == {"15_minutes", "hourly"}
@@ -287,7 +315,7 @@ def test_wsv_station_mixing_intervals_serves_each_parameter_at_its_own_resolutio
     served = {
         (row["resolution"], row["parameter"]) for row in df.select("resolution", "parameter").unique().rows(named=True)
     }
-    assert served == {("15_minutes", "stage"), ("hourly", "temperature_air_2m")}
+    assert served == {("15_minutes", "stage"), ("hourly", "temperature_air")}
 
 
 def test_wsv_unmapped_equidistance_is_reported(
@@ -416,7 +444,7 @@ def test_wsv_station_list_pairs_each_resolution_with_the_parameters_asked_for_th
 
     df = (
         WsvPegelRequest(
-            parameters=[("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air_2m")],
+            parameters=[("15_minutes", "data", "stage"), ("hourly", "data", "temperature_air")],
         )
         .all()
         .df

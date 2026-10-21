@@ -402,7 +402,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Typ počasí, přeháňka deště nebo sněhu v okolí',
   weather_type_vicinity_snow_ice_crystals: 'Typ počasí, sníh nebo ledové jehličky v okolí',
   weather_type_vicinity_thunder: 'Typ počasí, bouřka v okolí',
-  chloride_concentration: 'Koncentrace chloridů',
   clearance_height: 'Podjezdná výška',
   climate_correction_factor: 'Klimatický korekční faktor',
   cloud_cover_above_7km: 'Oblačnost nad 7 km',
