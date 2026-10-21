@@ -425,7 +425,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Weather type, rain or snow shower nearby',
   weather_type_vicinity_snow_ice_crystals: 'Weather type, snow or ice crystals nearby',
   weather_type_vicinity_thunder: 'Weather type, thunder nearby',
-  chloride_concentration: 'Chloride concentration',
   clearance_height: 'Clearance height',
   climate_correction_factor: 'Climate correction factor',
   cloud_cover_above_7km: 'Cloud cover above 7 km',

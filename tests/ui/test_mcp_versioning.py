@@ -178,7 +178,7 @@ def test_the_endpoint_is_stateless_at_either_path(app: FastAPI, path: str) -> No
             assert "stations" in listed.text
             called = client.post(path, json=call, headers=given)
             assert called.status_code == 200
-            assert "chloride_concentration" in called.text
+            assert "clearance_height" in called.text
         # there is no session to end, or a stream of the server's messages to open
         assert client.delete(path, headers={**HEADERS, "mcp-session-id": "x"}).status_code == 405
         assert client.get(path, headers={"Accept": "text/event-stream"}).status_code == 405
