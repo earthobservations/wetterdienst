@@ -56,12 +56,12 @@ _IpmaObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "humidity_relative",
+                            "name": "humidity_relative_mean",
                             "name_original": "humidade",
                             "unit": "percent",
                         },
                         {
-                            "name": "pressure_air_sea_level",
+                            "name": "pressure_air_sea_level_mean",
                             "name_original": "pressao",
                             "unit": "hectopascal",
                         },

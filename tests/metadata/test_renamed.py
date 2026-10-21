@@ -19,10 +19,12 @@ from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
 from wetterdienst.provider.dwd.poi.metadata import DwdPoiMetadata
+from wetterdienst.provider.dwd.road import DwdRoadMetadata
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
+from wetterdienst.provider.ipma.observation import IpmaObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 from wetterdienst.provider.lhmt.observation import LhmtObservationMetadata
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationMetadata
@@ -376,6 +378,32 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
             "hourly/data/precipitation_amount",
             "It was renamed to 'precipitation_amount_since_last_routine_report' in this dataset.",
         ),
+        # GH-2614: the road sensors stand at 4 to 5 m and the humidity states no mean; IPMA's two are hourly means
+        (
+            DwdRoadMetadata,
+            "15_minutes/data/temperature_air_2m",
+            "It was renamed to 'temperature_air' in this dataset.",
+        ),
+        (
+            DwdRoadMetadata,
+            "15_minutes/data/temperature_dew_point_2m",
+            "It was renamed to 'temperature_dew_point' in this dataset.",
+        ),
+        (
+            DwdRoadMetadata,
+            "15_minutes/data/humidity_relative_mean",
+            "It was renamed to 'humidity_relative' in this dataset.",
+        ),
+        (
+            IpmaObservationMetadata,
+            "hourly/data/humidity_relative",
+            "It was renamed to 'humidity_relative_mean' in this dataset.",
+        ),
+        (
+            IpmaObservationMetadata,
+            "hourly/data/pressure_air_sea_level",
+            "It was renamed to 'pressure_air_sea_level_mean' in this dataset.",
+        ),
         # GH-2673: a `_mean_` temperature that moved to the spot name, which difflib took for another
         # quantity: the minimum, the 20 cm soil and the 10 cm grass temperature
         (
@@ -485,6 +513,40 @@ def test_a_rename_in_a_dataset_answers_attribute_and_item_access_too() -> None:
         _ = dataset.temperature_air_max_2m_multiday
     with pytest.raises(KeyError, match=r"It was renamed to 'temperature_air_max_2m' in this dataset"):
         _ = dataset["temperature_air_max_2m_multiday"]
+
+
+def test_the_road_and_ipma_rows_are_named_for_what_the_source_states() -> None:
+    """The road sensors stand at 4 to 5 m and its humidity is a reading; IPMA's humidity and pressure are hourly means.
+
+    The BUFR sensor height of DWD's road messages (0 07 032) reads 4.0, 4.05 or 5.0 m and is missing in four station
+    groups, so `_2m` claimed a height no group states (GH-2614); the humidity (0 13 003) has no time significance
+    before it, so it is no mean. IPMA writes "média da hora" for `humidade` and `pressao` as for `temperatura`.
+    """
+    road = {parameter.name_original: parameter.name for parameter in DwdRoadMetadata["15_minutes"]["data"]}
+    assert road["airTemperature"] == "temperature_air"
+    assert road["dewpointTemperature"] == "temperature_dew_point"
+    assert road["relativeHumidity"] == "humidity_relative"
+    ipma = {parameter.name_original: parameter.name for parameter in IpmaObservationMetadata["hourly"]["data"]}
+    assert ipma["humidade"] == "humidity_relative_mean"
+    assert ipma["pressao"] == "pressure_air_sea_level_mean"
+    # the table keeps the old names for the datasets that state a 2 m sensor, and the new ones are the same fields
+    for height, plain in (
+        ("temperature_air_2m", "temperature_air"),
+        ("temperature_dew_point_2m", "temperature_dew_point"),
+    ):
+        for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
+            assert getattr(PARAMETERS[plain], field) == getattr(PARAMETERS[height], field), (plain, field)
+    # the sensor height is said where the name does not: the road descriptions
+    descriptions = {p.name_original: p.description for p in DwdRoadMetadata["15_minutes"]["data"]}
+    assert "4 to 5 m above ground" in descriptions["airTemperature"]
+    assert "4 to 5 m above ground" in descriptions["dewpointTemperature"]
+
+
+def test_the_road_humidity_is_a_name_again_that_the_dataset_answers_to() -> None:
+    """`humidity_relative` was refused in the road dataset from 0.160.0 to 0.163.0 and is its name again (GH-2614)."""
+    found = parse_parameters("15_minutes/data/humidity_relative", DwdRoadMetadata, on_unknown="raise")
+    assert [parameter.name for parameter in found] == ["humidity_relative"]
+    assert "humidity_relative" not in RENAMED_PARAMETERS_IN_DATASET["DwdRoadMetadata"][("15_minutes", "data")]
 
 
 def test_a_rename_in_a_dataset_leaves_the_name_alone_in_a_dataset_that_has_it() -> None:

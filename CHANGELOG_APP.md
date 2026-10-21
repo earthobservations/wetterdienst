@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` Two parameters have labels in all eleven languages (GH-2614): `temperature_air` and
+  `temperature_dew_point`. Needs the backend that serves them: release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
+
 ## [0.28.0] - 2026-10-20
 
 ### Changed

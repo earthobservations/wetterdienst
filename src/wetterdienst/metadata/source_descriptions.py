@@ -41,8 +41,8 @@ are taken as they come:
   its wording is used only where it says nothing about the unit
 
 The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere temperature rows
-(the ``description`` of each parameter in the API's metadata), IPMA ``temperatura`` (api.ipma.pt)
-and the DWD SWSMOS ``TS`` row (``swis_swsmos_beschreibung.pdf``). Where a source gives no
+(the ``description`` of each parameter in the API's metadata), IPMA ``temperatura``, ``humidade`` and
+``pressao`` (api.ipma.pt) and the DWD SWSMOS ``TS`` row (``swis_swsmos_beschreibung.pdf``). Where a source gives no
 description of a field, the entry names what it does give: NWS ``temperature`` and ``dewpoint``
 (api.weather.gov documents neither), the DWD road temperatures (the BUFR element they decode
 from) and WSV ``LT`` (the Pegelonline ``longname``). The rest of this table is meant to
@@ -1131,18 +1131,28 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "15_minutes",
             "data",
             "airTemperature",
-        ): "air temperature (BUFR 0 12 101, no time period or statistic attached)",
+        ): (
+            "air temperature (BUFR 0 12 101, no time period or statistic attached); the sensor stands 4 to 5 m above "
+            "ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them)"
+        ),
         (
             "15_minutes",
             "data",
             "dewpointTemperature",
-        ): "dew point temperature (BUFR 0 12 103, no time period or statistic attached)",
+        ): (
+            "dew point temperature (BUFR 0 12 103, no time period or statistic attached); the sensor stands 4 to 5 m "
+            "above ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them)"
+        ),
         ("15_minutes", "data", "horizontalVisibility"): "visibility range",
         ("15_minutes", "data", "intensityOfPrecipitation"): "precipitation intensity",
         ("15_minutes", "data", "maximumWindGustDirection"): "direction of maximum wind gust",
         ("15_minutes", "data", "maximumWindGustSpeed"): "maximum wind gust",
         ("15_minutes", "data", "precipitationType"): "types of precipitation, as flags",
-        ("15_minutes", "data", "relativeHumidity"): "mean humidity",
+        (
+            "15_minutes",
+            "data",
+            "relativeHumidity",
+        ): "relative humidity (BUFR 0 13 003, no time period or statistic attached)",
         ("15_minutes", "data", "roadSurfaceCondition"): "road surface condition",
         ("15_minutes", "data", "roadSurfaceTemperature"): "road surface temperature",
         ("15_minutes", "data", "totalPrecipitationOrTotalWaterEquivalent"): "precipitation height",
@@ -2291,9 +2301,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "22"): "Air temperature. Mean, once per month.",
         ("monthly", "data", "23"): "Precipitation amount. Sum, once per month.",
     },
-    # the field list on api.ipma.pt: "temperatura : temperatura do ar registada a 1.5 metros de
-    # altura, média da hora (°C)", translated
+    # the field list on api.ipma.pt, translated; it says "média da hora" (the mean of the hour) of all three:
+    # temperatura "temperatura do ar registada a 1.5 metros de altura", humidade "humidade relativa do ar registada a
+    # 1.5 metros de altura" and pressao "pressão atmosférica, reduzida ao nível médio do mar (NMM)"
     "IpmaObservationMetadata": {
+        ("hourly", "data", "humidade"): "Relative humidity of the air recorded at 1.5 m height, hourly mean.",
+        ("hourly", "data", "pressao"): "Atmospheric pressure reduced to mean sea level (NMM), hourly mean.",
         ("hourly", "data", "temperatura"): "Air temperature recorded at 1.5 m height, hourly mean.",
     },
     # `t` is "température" in the technical description of the SYNOP product

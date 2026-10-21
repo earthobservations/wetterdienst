@@ -25,13 +25,13 @@
 
 | name                                  | original name                            | description                      | unit | constraints |
 |---------------------------------------|------------------------------------------|----------------------------------|------|-------------|
-| {term}`humidity_relative_mean` | relativeHumidity | mean humidity | % | >=0,<=100 |
+| {term}`humidity_relative` | relativeHumidity | relative humidity (BUFR 0 13 003, no time period or statistic attached) | % | >=0,<=100 |
 | {term}`precipitation_type_flags` | precipitationType | types of precipitation, as flags | - | - |
 | {term}`precipitation_amount` | totalPrecipitationOrTotalWaterEquivalent | precipitation height | mm | >=0 |
 | {term}`precipitation_intensity` | intensityOfPrecipitation | precipitation intensity | mm/s | >=0 |
 | {term}`road_surface_condition` | roadSurfaceCondition | road surface condition | - | - |
-| {term}`temperature_air_2m` | airTemperature | air temperature (BUFR 0 12 101, no time period or statistic attached) | K | - |
-| {term}`temperature_dew_point_2m` | dewpointTemperature | dew point temperature (BUFR 0 12 103, no time period or statistic attached) | K | - |
+| {term}`temperature_air` | airTemperature | air temperature (BUFR 0 12 101, no time period or statistic attached); the sensor stands 4 to 5 m above ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them) | K | - |
+| {term}`temperature_dew_point` | dewpointTemperature | dew point temperature (BUFR 0 12 103, no time period or statistic attached); the sensor stands 4 to 5 m above ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them) | K | - |
 | {term}`temperature_surface` | roadSurfaceTemperature | road surface temperature | K | - |
 | {term}`visibility` | horizontalVisibility | visibility range | m | >=0 |
 | {term}`water_film_thickness` | waterFilmThickness | thickness of water film | m | >=0 |
