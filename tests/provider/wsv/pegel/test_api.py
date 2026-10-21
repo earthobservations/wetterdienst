@@ -3,6 +3,7 @@
 """Tests for WSV Pegelonline, in particular its per-station source units."""
 
 import json
+import re
 
 import polars as pl
 import pytest
@@ -230,6 +231,25 @@ def test_wsv_every_parameter_is_described() -> None:
     # NIEDERSCHLAG and NIEDERSCHLAGSINTENSITAET are declared but served by no station today, so
     # they are described here and simply never appear in a station list
     assert not undescribed, f"parameters with no description: {undescribed}"
+
+
+def test_wsv_descriptions_state_raw_data_and_no_statistic() -> None:
+    """Pegelonline serves "ungeprüfte Rohdaten" at the interval of each series and states no statistic.
+
+    The descriptions read "average ... during time scale" and then "a reading" (GH-3136), which the source states
+    of none of its series. Each one says what the source says -- unchecked raw data, one value per recording interval
+    of the series -- or, for the three parameters no station serves, that no series of its shortname exists.
+    """
+    statistic = re.compile(r"\b(average|mean|reading|instant\w*|aggregate\w*)\b", re.IGNORECASE)
+    for resolution in WsvPegelRequest.metadata:
+        for parameter in resolution["data"]:
+            description = parameter.description
+            assert not statistic.search(description), f"{resolution.name}/{parameter.name_original}: {description}"
+            if parameter.name_original in {"CL", "NIEDERSCHLAG", "NIEDERSCHLAGSINTENSITÄT"}:
+                assert "has a series of this shortname" in description, parameter.name_original
+            else:
+                assert "unchecked raw data" in description, parameter.name_original
+                assert "recording interval of the series" in description, parameter.name_original
 
 
 def test_wsv_resolutions_are_the_intervals_the_service_publishes() -> None:

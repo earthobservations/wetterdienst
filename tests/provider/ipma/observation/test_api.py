@@ -285,3 +285,27 @@ def test_ipma_observation_values() -> None:
     # wind direction is emitted in degrees, quantised to the 8-point compass (multiples of 45)
     wind = df.filter(pl.col("parameter") == "wind_direction").drop_nulls("value")
     assert all(v % 45 == 0 for v in wind["value"].to_list())
+
+
+def test_ipma_descriptions_state_what_the_field_list_states() -> None:
+    """Every IPMA row says the height and the period its field list gives, and none claims a statistic it does not.
+
+    The field list says "média da hora" of three fields, "valor acumulado da hora" of the precipitation, a height of
+    10 m for the wind and 1.5 m for the rest, and nothing about a statistic or a period of the wind and the radiation
+    (GH-3136). The canonical sentences these rows read before say neither.
+    """
+    descriptions = {
+        parameter.name_original: parameter.description
+        for parameter in IpmaObservationRequest.metadata["hourly"]["data"]
+    }
+    for field in ("temperatura", "humidade"):
+        assert "1.5 m" in descriptions[field], field
+        assert "hourly mean" in descriptions[field], field
+    assert "hourly mean" in descriptions["pressao"]
+    assert "10 m" in descriptions["intensidadeVento"]
+    assert "10 m" in descriptions["idDireccVento"]
+    assert "mean" not in descriptions["intensidadeVento"]
+    assert "1.5 m" in descriptions["precAcumulada"]
+    assert "over the hour" in descriptions["precAcumulada"]
+    # the radiation's sentence is the unit and no more of what the source says
+    assert "states neither a period" in descriptions["radiacao"]
