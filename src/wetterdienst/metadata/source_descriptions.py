@@ -41,15 +41,24 @@ are taken as they come:
   its wording is used only where it says nothing about the unit
 
 The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere temperature rows
-(the ``description`` of each parameter in the API's metadata), IPMA ``temperatura`` (api.ipma.pt)
-and the DWD SWSMOS ``TS`` row (``swis_swsmos_beschreibung.pdf``). Where a source gives no
-description of a field, the entry names what it does give: NWS ``temperature`` and ``dewpoint``
-(api.weather.gov documents neither), the DWD road temperatures (the BUFR element they decode
-from) and WSV ``LT`` (the Pegelonline ``longname``). The rest of this table is meant to
-be the source's own wording, so that a sentence here can be checked against what the provider says,
-but the older entries were written for the docs tables and not every one was checked against the
-source; the sub-daily temperature rows listed in GH-2660 were. ``tests/metadata/test_parameter_statistics.py``
-reads a statistic out of an entry only if it is not in ``DERIVED_DESCRIPTIONS``.
+(the German ``description`` of each parameter in ``/v1/station/historical/<resource>/metadata``, with
+the window it states: "Maximum der Zehnminutenwerte von 18:10 UTC Vortag - 18:00 UTC aktueller Tag"),
+IPMA ``temperatura`` ("temperatura do ar registada a 1.5 metros de altura, média da hora", the
+observations section of https://api.ipma.pt/) and the DWD SWSMOS ``TS`` row
+(``swis_swsmos_beschreibung.pdf``). Where a source gives no description of a field, the entry names
+what it does give: NWS ``temperature`` and ``dewpoint`` (api.weather.gov documents neither; the
+OpenAPI document describes no observation property but ``qualityControl``), the DWD road fields (the
+BUFR element they decode from, and the time significance and period the station group writes around
+it: DWD publishes no sheet for these files) and WSV ``LT`` (the Pegelonline ``longname``). Where a
+source describes a field in a sentence of its own the entry restates it with a link, and where it
+does not but the data does, the entry says what the data shows and the evidence is in a comment
+beside it (NWS ``relativehumidity``, which the API computes, and the ASOS wind and gust). The rest of
+this table is meant to be the source's own wording, so that a sentence here can be checked against
+what the provider says, but the older entries were written for the docs tables and not every one was
+checked against the source; the sub-daily temperature rows listed in GH-2660 were, and so were the
+Geosphere, IPMA, NWS, DWD road and WSV ``LT`` rows named above (GH-3136, the first provider group).
+``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
+in ``DERIVED_DESCRIPTIONS``.
 
 Keyed by metadata model name, then ``(resolution, dataset, name_original)``. Applied by
 ``build_metadata_model``. A parameter none of the tables here describes reads the canonical sentence
@@ -1126,6 +1135,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "fx_911_6",
         ): 'Highest wind peak of the last 6 hours; DWD\'s list adds "(>12,5 m/s)".',
     },
+    # No sheet describes the fields of the road weather messages, so the entries name the BUFR element each decodes
+    # from (ecCodes element.table and the code tables, local table 8 of centre 78) and what the template of the
+    # `LATEST` file of each station group states around it (read 2026-10-21): no time significance or period stands
+    # before the temperatures, the humidity or the water film, so those are readings at one moment, while the
+    # precipitation (0 20 024 to 0 13 011) and the wind (0 08 021, 0 04 025) follow a period the group writes
     "DwdRoadMetadata": {
         (
             "15_minutes",
@@ -1140,15 +1154,39 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("15_minutes", "data", "horizontalVisibility"): "visibility range",
         ("15_minutes", "data", "intensityOfPrecipitation"): "precipitation intensity",
         ("15_minutes", "data", "maximumWindGustDirection"): "direction of maximum wind gust",
-        ("15_minutes", "data", "maximumWindGustSpeed"): "maximum wind gust",
-        ("15_minutes", "data", "precipitationType"): "types of precipitation, as flags",
+        ("15_minutes", "data", "maximumWindGustSpeed"): (
+            "maximum wind gust over the period the station states (10 or 15 minutes, none stated in some station "
+            "groups)"
+        ),
+        ("15_minutes", "data", "precipitationType"): (
+            "type of precipitation, the bit flags of BUFR 0 20 021 (rain is bit 5 of 30, 33554432)"
+        ),
+        # BUFR 0 13 003 stands with no time significance or period before it in the `LATEST` file of any station group
+        # (read 2026-10-21), so the source states no mean and `humidity_relative_mean` is the wrong name for it; the
+        # sentence below was written with the name (#957) and is left until the name is changed, because
+        # `tests/metadata/test_mean_names.py` ties the two together
         ("15_minutes", "data", "relativeHumidity"): "mean humidity",
-        ("15_minutes", "data", "roadSurfaceCondition"): "road surface condition",
-        ("15_minutes", "data", "roadSurfaceTemperature"): "road surface temperature",
-        ("15_minutes", "data", "totalPrecipitationOrTotalWaterEquivalent"): "precipitation height",
+        ("15_minutes", "data", "roadSurfaceCondition"): (
+            "road surface condition, a code: 0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry "
+            "(BUFR code table 0 20 241, the same codes as 0 20 138)"
+        ),
+        (
+            "15_minutes",
+            "data",
+            "roadSurfaceTemperature",
+        ): "road surface temperature (BUFR 0 12 241, no time period or statistic attached)",
+        ("15_minutes", "data", "totalPrecipitationOrTotalWaterEquivalent"): (
+            "precipitation height over the period the station states (15 minutes in most station groups, 10 at KO, RP "
+            "and SD, none stated in some)"
+        ),
         ("15_minutes", "data", "waterFilmThickness"): "thickness of water film",
-        ("15_minutes", "data", "windDirection"): "mean direction of wind",
-        ("15_minutes", "data", "windSpeed"): "mean wind speed",
+        ("15_minutes", "data", "windDirection"): (
+            "mean direction of wind over the period the station states (10 or 15 minutes, none stated in some station "
+            "groups)"
+        ),
+        ("15_minutes", "data", "windSpeed"): (
+            "mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups)"
+        ),
     },
     "EAHydrologyMetadata": {
         ("15_minutes", "data", "flow-i-900"): "instant flow at timestamp",
@@ -1233,11 +1271,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "tb20"): "Soil temperature at 20 cm depth, 10-minute measured value",
         ("10_minutes", "data", "tb50"): "Soil temperature at 50 cm depth, 10-minute measured value",
         ("10_minutes", "data", "tl"): "Air temperature at 2 m height, 10-minute measured value",
-        ("10_minutes", "data", "tlmax"): "air temperature max at 2m",
-        ("10_minutes", "data", "tlmin"): "air temperature min at 2m",
+        ("10_minutes", "data", "tlmax"): "Air temperature at 2 m height, 10-minute maximum value",
+        ("10_minutes", "data", "tlmin"): "Air temperature at 2 m height, 10-minute minimum value",
         ("10_minutes", "data", "ts"): "Air temperature at 5 cm height, 10-minute measured value",
-        ("10_minutes", "data", "tsmax"): "air temperature max at 0.05m",
-        ("10_minutes", "data", "tsmin"): "air temperature min at 0.05m",
+        ("10_minutes", "data", "tsmax"): "Air temperature at 5 cm height, 10-minute maximum value",
+        ("10_minutes", "data", "tsmin"): "Air temperature at 5 cm height, 10-minute minimum value",
         ("daily", "data", "bewm_mittel"): "total cloud cover",
         ("daily", "data", "cglo_j"): "global radiation",
         ("daily", "data", "dampf_mittel"): "vapor pressure",
@@ -1250,9 +1288,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "shneu_manu"): "new snow depth",
         ("daily", "data", "so_h"): "sunshine duration",
         ("daily", "data", "tl_mittel"): "air temperature mean at 2m, calculated from (tlmax + tlmin)/2",
-        ("daily", "data", "tlmax"): "air temperature max at 2m",
-        ("daily", "data", "tlmin"): "air temperature min at 2m",
-        ("daily", "data", "tsmin"): "air temperature min at 0.05m at night (18 UTC of the previous day to 06 UTC)",
+        ("daily", "data", "tlmax"): (
+            "Air temperature at 2 m height, maximum of the ten-minute values (tlmax) from 18:10 UTC of the day "
+            "before to 18:00 UTC of the day"
+        ),
+        ("daily", "data", "tlmin"): (
+            "Air temperature at 2 m height, minimum of the ten-minute values (tlmin) from 18:10 UTC of the day "
+            "before to 18:00 UTC of the day"
+        ),
+        ("daily", "data", "tsmin"): (
+            "Air temperature at 5 cm height, minimum in the night from 18:10 UTC of the day before to 06:00 UTC "
+            "of the day"
+        ),
         ("daily", "data", "vv_mittel"): "wind speed",
         ("hourly", "data", "cglo"): "global radiation",
         ("hourly", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
@@ -1272,10 +1319,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "tb200"): "Soil temperature at 200 cm depth, hourly measured value",
         ("hourly", "data", "tb50"): "Soil temperature at 50 cm depth, hourly measured value",
         ("hourly", "data", "tl"): "Air temperature at 2 m height, hourly measured value",
-        ("hourly", "data", "tsmin"): "air temperature min at 0.05m",
-        ("monthly", "data", "bet0"): "concrete temperature mean at 0m",
-        ("monthly", "data", "bet0_max"): "concrete temperature max at 0m",
-        ("monthly", "data", "bet0_min"): "concrete temperature min at 0m",
+        # the source's own sentence reads "Lufttemperatur in 5 cm Höhe, Stunden-Messwert" beside the long name
+        # "... Minimalwert"; the data says minimum: of 48 hours of station 1 (2024-07-10/11) the hourly value at H
+        # is the smallest of the six 10-minute tsmin stamped H-50 to H in 48, and the 10-minute value at H in 19
+        ("hourly", "data", "tsmin"): "Air temperature at 5 cm height, hourly minimum",
+        ("monthly", "data", "bet0"): "Concrete temperature at 0 cm depth, monthly mean of the hourly values",
+        ("monthly", "data", "bet0_max"): "Concrete temperature at 0 cm depth, monthly maximum of all hourly values",
+        ("monthly", "data", "bet0_min"): "Concrete temperature at 0 cm depth, monthly minimum of all hourly values",
         ("monthly", "data", "bewm_mittel"): "cloud cover total",
         ("monthly", "data", "cglo_j"): "global radiation",
         ("monthly", "data", "dampf_mittel"): "vapor pressure",
@@ -1290,24 +1340,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "shneu_manu_max"): "snow depth new max",
         ("monthly", "data", "so_h"): "sunshine duration",
         ("monthly", "data", "so_r"): "sunshine duration relative",
-        ("monthly", "data", "tb100_max"): "soil temperature max at 1m",
-        ("monthly", "data", "tb100_min"): "soil temperature min at 1m",
-        ("monthly", "data", "tb100_mittel"): "soil temperature mean at 1m",
-        ("monthly", "data", "tb10_max"): "soil temperature max at 0.1m",
-        ("monthly", "data", "tb10_min"): "soil temperature min at 0.1m",
-        ("monthly", "data", "tb10_mittel"): "soil temperature mean at 0.1m",
-        ("monthly", "data", "tb200_max"): "soil temperature max at 2m",
-        ("monthly", "data", "tb200_min"): "soil temperature min at 2m",
-        ("monthly", "data", "tb200_mittel"): "soil temperature mean at 2m",
-        ("monthly", "data", "tb20_max"): "soil temperature max at 0.2m",
-        ("monthly", "data", "tb20_min"): "soil temperature min at 0.2m",
-        ("monthly", "data", "tb20_mittel"): "soil temperature mean at 0.2m",
-        ("monthly", "data", "tb50_max"): "soil temperature max at 0.5m",
-        ("monthly", "data", "tb50_min"): "soil temperature min at 0.5m",
-        ("monthly", "data", "tb50_mittel"): "soil temperature mean at 0.5m",
-        ("monthly", "data", "tl_mittel"): "air temperature mean at 2m",
-        ("monthly", "data", "tlmax"): "air temperature max at 2m",
-        ("monthly", "data", "tlmin"): "air temperature min at 2m",
+        ("monthly", "data", "tb100_max"): "Soil temperature at 100 cm depth, monthly maximum of all hourly values",
+        ("monthly", "data", "tb100_min"): "Soil temperature at 100 cm depth, monthly minimum of all hourly values",
+        ("monthly", "data", "tb100_mittel"): "Soil temperature at 100 cm depth, monthly mean of all hourly values",
+        ("monthly", "data", "tb10_max"): "Soil temperature at 10 cm depth, monthly maximum of all hourly values",
+        ("monthly", "data", "tb10_min"): "Soil temperature at 10 cm depth, monthly minimum of all hourly values",
+        ("monthly", "data", "tb10_mittel"): "Soil temperature at 10 cm depth, monthly mean of all hourly values",
+        ("monthly", "data", "tb200_max"): "Soil temperature at 200 cm depth, monthly maximum of all hourly values",
+        ("monthly", "data", "tb200_min"): "Soil temperature at 200 cm depth, monthly minimum of all hourly values",
+        ("monthly", "data", "tb200_mittel"): "Soil temperature at 200 cm depth, monthly mean of all hourly values",
+        ("monthly", "data", "tb20_max"): "Soil temperature at 20 cm depth, monthly maximum of all hourly values",
+        ("monthly", "data", "tb20_min"): "Soil temperature at 20 cm depth, monthly minimum of all hourly values",
+        ("monthly", "data", "tb20_mittel"): "Soil temperature at 20 cm depth, monthly mean of all hourly values",
+        ("monthly", "data", "tb50_max"): "Soil temperature at 50 cm depth, monthly maximum of all hourly values",
+        ("monthly", "data", "tb50_min"): "Soil temperature at 50 cm depth, monthly minimum of all hourly values",
+        ("monthly", "data", "tb50_mittel"): "Soil temperature at 50 cm depth, monthly mean of all hourly values",
+        ("monthly", "data", "tl_mittel"): (
+            "Air temperature at 2 m height, monthly mean from the values of the observation times and the "
+            "extremes (Termin- und Extremwerte)"
+        ),
+        ("monthly", "data", "tlmax"): "Air temperature at 2 m height, monthly maximum of the 24-hour maxima",
+        ("monthly", "data", "tlmin"): "Air temperature at 2 m height, monthly minimum of the 24-hour minima",
         ("monthly", "data", "vv_mittel"): "wind speed",
     },
     "ImgwHydrologyMetadata": {
@@ -1704,11 +1757,23 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "barometricpressure"): (
             "air pressure reduced to mean sea level with the standard atmosphere, the altimeter setting"
         ),
-        ("hourly", "data", "dewpoint"): "dew point temperature",
+        ("hourly", "data", "dewpoint"): (
+            "dew point temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
+        ),
+        # the endpoint's key is all there is: the OpenAPI document describes no property. The METAR's 24 hour group
+        # ("402000061" at 05:51 UTC in KORD on 2026-10-20) came back null, as it did in the last 500 observations of
+        # some 70 stations (2026-10-21), so the field may never be filled
         ("hourly", "data", "maxtemperaturelast24hours"): "maximum air temperature in the last 24 hours",
         ("hourly", "data", "mintemperaturelast24hours"): "minimum air temperature in the last 24 hours",
-        ("hourly", "data", "precipitationlast3hours"): "precipitation height of last three hours",
-        ("hourly", "data", "precipitationlast6hours"): "precipitation height of last six hours",
+        # the 6RRRR group of the METAR: the 3 hour amount in the reports of 03, 09, 15 and 21 UTC, the 6 hour amount
+        # in those of 00, 06, 12 and 18 UTC (KABQ 14:52 "60000" is the 3 hour amount of 15 UTC, KABQ 23:52 "60001"
+        # the 6 hour amount of 00 UTC, 2026-10-20), and null in every other row
+        ("hourly", "data", "precipitationlast3hours"): (
+            "precipitation height of the last three hours, the 6RRRR group of the METAR of 03, 09, 15 and 21 UTC"
+        ),
+        ("hourly", "data", "precipitationlast6hours"): (
+            "precipitation height of the last six hours, the 6RRRR group of the METAR of 00, 06, 12 and 18 UTC"
+        ),
         # the endpoint's key is precipitationLastHour, and the amount of the METAR's precipitation group is the
         # running total since the last routine report (GH-2841): at KORD on 2026-10-15 the reports of 22:51 to 23:42
         # read 4.3, 0.8, 8.4, 17.3 and 17.5 mm (a total that restarts after 22:51 and grows), and the METAR of 23:51
@@ -1718,9 +1783,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "running total, which a routine report holds for the whole hour and a SPECI for the part that had fallen "
             "when it was filed); the endpoint calls it precipitationLastHour"
         ),
-        ("hourly", "data", "relativehumidity"): "relative humidity",
-        ("hourly", "data", "sealevelpressure"): "air pressure at sea level",
-        ("hourly", "data", "temperature"): "air temperature",
+        # the API computes it: its values equal the August-Roche-Magnus formula (17.625, 243.04) on the temperature and
+        # the dew point of the same row to six digits (10.0 and 8.3 degC: 89.181205 %, 9 and 8: 93.453995 %)
+        ("hourly", "data", "relativehumidity"): (
+            "relative humidity, calculated by the NWS from the air temperature and the dew point, not measured"
+        ),
+        # 102590 Pa beside "SLP259" in the METAR of KORD at 04:51 UTC on 2026-10-21; the 5-minute rows carry none
+        ("hourly", "data", "sealevelpressure"): (
+            "air pressure at sea level, the SLP group of the METAR (the 5-minute rows carry none)"
+        ),
+        ("hourly", "data", "temperature"): (
+            "air temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
+        ),
         ("hourly", "data", "visibility"): "visibility range",
         ("hourly", "data", "windchill"): (
             "wind chill temperature calculated by NWS (https://www.weather.gov/gjt/windchill)"
@@ -1730,7 +1804,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "winddirection"): (
             "wind direction, the 2-minute average of the ASOS. The source's 0 (a calm wind) is null."
         ),
-        ("hourly", "data", "windgust"): "maximum wind gust of the past 10 minutes",
+        # the same guide, 3.2.2.2: "the greatest 5-second average speed observed during the past minute is stored in
+        # memory as a gust for 10 minutes", and the highest of them is reported only if it is 3 knots or more above the
+        # 2-minute average and exceeds the minimum 5-second wind of the 10 minutes by 10 knots or more
+        ("hourly", "data", "windgust"): (
+            "maximum wind gust of the past 10 minutes, the highest 5-second average wind speed the ASOS holds as "
+            "a gust, reported only when its gust criteria are met"
+        ),
         ("hourly", "data", "windspeed"): "wind speed, the 2-minute average of the ASOS",
     },
     "WsvPegelMetadata": {

@@ -34,12 +34,12 @@
 | {term}`radiation_sky_short_wave_diffuse_intensity` | chim          | sky short wave diffuse radiation                          | W/m² | >=0         |
 | {term}`snow_depth`                                 | sh            | snow depth                                                | cm   | >=0         |
 | {term}`sunshine_duration`                          | so            | sunshine duration                                         | s    | >=0         |
-| {term}`temperature_air_max_0_05m`                  | tsmax         | air temperature max at 0.05m                              | °C   | -           |
-| {term}`temperature_air_max_2m`                     | tlmax         | air temperature max at 2m                                 | °C   | -           |
+| {term}`temperature_air_max_0_05m`                  | tsmax         | Air temperature at 5 cm height, 10-minute maximum value   | °C   | -           |
+| {term}`temperature_air_max_2m`                     | tlmax         | Air temperature at 2 m height, 10-minute maximum value    | °C   | -           |
 | {term}`temperature_air_0_05m`                      | ts            | Air temperature at 5 cm height, 10-minute measured value  | °C   | -           |
 | {term}`temperature_air_2m`                         | tl            | Air temperature at 2 m height, 10-minute measured value   | °C   | -           |
-| {term}`temperature_air_min_0_05m`                  | tsmin         | air temperature min at 0.05m                              | °C   | -           |
-| {term}`temperature_air_min_2m`                     | tlmin         | air temperature min at 2m                                 | °C   | -           |
+| {term}`temperature_air_min_0_05m`                  | tsmin         | Air temperature at 5 cm height, 10-minute minimum value   | °C   | -           |
+| {term}`temperature_air_min_2m`                     | tlmin         | Air temperature at 2 m height, 10-minute minimum value    | °C   | -           |
 | {term}`temperature_soil_0_1m`                      | tb10          | Soil temperature at 10 cm depth, 10-minute measured value | °C   | -           |
 | {term}`temperature_soil_0_2m`                      | tb20          | Soil temperature at 20 cm depth, 10-minute measured value | °C   | -           |
 | {term}`temperature_soil_0_5m`                      | tb50          | Soil temperature at 50 cm depth, 10-minute measured value | °C   | -           |

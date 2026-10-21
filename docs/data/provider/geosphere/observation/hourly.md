@@ -34,7 +34,7 @@
 | {term}`snow_depth`                 | sh            | snow depth                                              | cm   | >=0         |
 | {term}`sunshine_duration`          | so_h          | sunshine duration                                       | h    | >=0         |
 | {term}`temperature_air_2m`         | tl            | Air temperature at 2 m height, hourly measured value    | °C   | -           |
-| {term}`temperature_air_min_0_05m`  | tsmin         | air temperature min at 0.05m                            | °C   | -           |
+| {term}`temperature_air_min_0_05m`  | tsmin         | Air temperature at 5 cm height, hourly minimum          | °C   | -           |
 | {term}`temperature_soil_0_1m`      | tb10          | Soil temperature at 10 cm depth, hourly measured value  | °C   | -           |
 | {term}`temperature_soil_0_2m`      | tb20          | Soil temperature at 20 cm depth, hourly measured value  | °C   | -           |
 | {term}`temperature_soil_0_5m`      | tb50          | Soil temperature at 50 cm depth, hourly measured value  | °C   | -           |
