@@ -26,7 +26,7 @@
 | name                              | original name   | description                                                                | unit | constraints |
 |-----------------------------------|-----------------|----------------------------------------------------------------------------|------|-------------|
 | {term}`count_days_in_month`       | Anzahl Tage     | number of available values of mean daily air temperatures per month        | -    | >=0         |
-| {term}`heating_degree_day`        | Monatsgradtage  | Degree days of the month (VDI 3807 part 1), in K*day: the sum over the days with a daily mean air temperature below 15 degree Celsius of the mean room temperature of 20 degree Celsius, which the file header states, minus that mean. Only given where every daily value of the month is available. | °Cd  | >=0         |
+| {term}`heating_degree_day`        | Monatsgradtage  | Degree days of the month (VDI 3807 part 1), in K*day: the sum over the days with a daily mean air temperature below 15 degree Celsius, of 20 degree Celsius (the mean room temperature the file header states) minus the daily mean. Only given where every daily value of the month is available.    | °Cd  | >=0         |
 | {term}`count_days_heating_degree` | Anzahl Heiztage | number of days with daily mean air temperature less than 15 degree Celsius | -    | >=0         |
 
 ### cooling_degreehours
@@ -65,7 +65,7 @@ To distinguish different base temperatures, there exist three datasets with the 
 
 | name                              | original name | description                                                                    | unit          | constraints |
 |-----------------------------------|---------------|--------------------------------------------------------------------------------|---------------|-------------|
-| {term}`climate_correction_factor` | KF            | Climate factor (KF) of a delivery postal code for the weather adjustment of energy consumption, relative to the reference location Potsdam (the test reference years TRY 2011), for the 12 months from DatAnf to DatEnd of the file. The sheet states no formula. | -             | >=0         |
+| {term}`climate_correction_factor` | KF            | Climate factor (KF) of a delivery postal code for the weather adjustment of energy consumption, relative to the reference location Potsdam (the test reference years TRY 2011), for the 12 months starting at the timestamp. The sheet states no formula.         | -             | >=0         |
 
 ### soil
 
@@ -90,7 +90,7 @@ To distinguish different base temperatures, there exist three datasets with the 
 | {term}`temperature_soil_mean_loamy_sand_0_05m`               | mittel von tsls05    | Monthly mean of the daily mean soil temperature at 5 cm depth in unvegetated loamy sand (BEKLIMA, AMBETI model, not measured). | °C   | -           |
 | {term}`temperature_soil_mean_loamy_silt_0_05m`               | mittel von tssl05    | Monthly mean of the daily mean soil temperature at 5 cm depth in unvegetated loamy silt (BEKLIMA, AMBETI model, not measured). | °C   | -           |
 | {term}`frozen_ground_layer_thickness_max_month`              | maximum von zfumi    | Maximum in the month of the frost penetration depth at midday on unvegetated ground, in cm (AMBETI model). | cm   | >=0         |
-| {term}`thawing_thickness_plant_cover_max_month`              | maximum von ztkmi    | Maximum in the month of the thawing layer at midday under vegetation (BEKLIMA), in cm. | cm   | >=0         |
+| {term}`thawing_thickness_plant_cover_max_month`              | maximum von ztkmi    | Maximum in the month of the thawing layer at midday under vegetation (the sheet: unter Bestand; BEKLIMA), in cm. | cm   | >=0         |
 | {term}`thawing_thickness_bare_ground_max_month`              | maximum von ztumi    | Maximum in the month of the thawing layer at midday under unvegetated ground (BEKLIMA), in cm. | cm   | >=0         |
 | {term}`soil_moisture_mean_grass_loamy_silt_00cm_10cm`        | mittel von bfgl01_ag | Monthly mean of the daily soil moisture under grass on loamy silt at 0 to 10 cm depth, in % nFK (percent of the usable field capacity), calculated with the AMBAV model, not measured. | %    | >=0,<=100   |
 | {term}`soil_moisture_mean_grass_loamy_silt_10cm_20cm`        | mittel von bfgl02_ag | Monthly mean of the daily soil moisture under grass on loamy silt at 10 to 20 cm depth, in % nFK (percent of the usable field capacity), calculated with the AMBAV model, not measured. | %    | >=0,<=100   |

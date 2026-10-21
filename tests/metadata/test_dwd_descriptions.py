@@ -6,8 +6,9 @@ The sources are the German description line of the POI files, `MetElementDefinit
 `mosmix_element_weather_xls.xlsx` of the MOSMIX forecasts, the sheets of the `derived_germany` directories of the
 climate data centre and `swis_swsmos_beschreibung.pdf`. Each pin is a claim an earlier description made that the
 source does not (a MOSMIX wording on a SWSMOS row, a height no sheet states, "winter wheat" for what DWD calls winter
-cereals), or a fact the old description left out and the data showed (the previous day of the POI rows is the UTC day
-from 00 to 24, the 10-minute observations of 25 stations reproduce it).
+cereals), or a fact the old description left out and the data showed (the previous day of the POI rows is a UTC day,
+which the 10-minute observations of 25 stations reproduce). The evidence is in the comment above
+`SOURCE_DESCRIPTIONS`.
 """
 
 import pytest
@@ -30,7 +31,7 @@ def _description(metadata: MetadataModel, resolution: str, dataset: str, name_or
 
 
 def test_swsmos_describes_what_its_own_sheet_describes() -> None:
-    """The liquid precipitation of the last hour is not "consistent with significant weather", as MOSMIX's `RR1c` is.
+    """The liquid precipitation of the last hour is not "consistent with significant weather", as MOSMIX's `RRL1c` is.
 
     The sheet says "Niederschlag flüssig der letzten Stunde"; the wording was MOSMIX's `RRL1c`. It states no height of
     the air and dew point temperatures either, and lists six road conditions.
@@ -39,16 +40,16 @@ def test_swsmos_describes_what_its_own_sheet_describes() -> None:
     assert "significant weather" not in swsmos[0].lower()
     assert all("2 m" not in text and "2m" not in text for text in swsmos[1:])
     road = _description(DwdSwsmosMetadata, "hourly", "data", "RC")
-    for code in ("1 dry", "2 moist", "3 snow", "4 rime", "5 freezing wetness", "6 glaze ice"):
+    for code in ("1 dry", "2 moist", "3 snow", "4 hoar frost", "5 freezing wetness", "6 glaze ice"):
         assert code in road
 
 
 def test_the_poi_previous_day_is_the_utc_day_reported_at_06() -> None:
-    """The "previous day" columns are the UTC day 00 to 24 in the report of 06 UTC; the new snow states no period.
+    """The "previous day" columns are a UTC day, in the report of 06 UTC; the new snow states no period.
 
-    The 10-minute observations of 25 stations reproduce the maximum, minimum and mean of 2026-10-21 exactly (the mean to
-    0.11) for the window 00:00 to 24:00 UTC and not for 06:00 to 06:00; the new snow was "since the previous
-    observation", which the file does not state and an hourly report would contradict.
+    The 10-minute observations of 25 stations reproduce the maximum, minimum and mean of 2026-10-20 (reported at 06 UTC
+    on 2026-10-21) for the UTC day and not for 06:00 to 06:00; the new snow was "since the previous observation",
+    which the file does not state (the column is in the 06 UTC report only).
     """
     names = (
         "daily_mean_of_temperature_previous_day",
@@ -60,7 +61,7 @@ def test_the_poi_previous_day_is_the_utc_day_reported_at_06() -> None:
     )
     for name in names:
         text = _description(DwdPoiMetadata, "hourly", "data", name)
-        assert "00 to 24 UTC" in text
+        assert "previous day (UTC)" in text
         assert "06 UTC" in text
     snow = _description(DwdPoiMetadata, "hourly", "data", "depth_of_new_snow")
     assert "previous observation" not in snow
@@ -71,7 +72,7 @@ def test_the_poi_radiation_of_the_hour_is_an_energy_expressed_as_power() -> None
     """The global and diffuse irradiance of the hour is that hour's energy over 3600 s, not a reading at one moment.
 
     It equals the sum of DWD's 10-minute radiation (J/cm2) of the hour, times 10000 and over 3600, to within 0.9 W/m2 on
-    all 250 hourly values of 25 stations. The word "mean" stays out of the description: DWD does not say it and
+    all 250 hourly values of 10 stations. The word "mean" stays out of the description: DWD does not say it and
     `test_mean_names` holds the name to what the source states.
     """
     for name in ("global_radiation_last_hour", "diffuse_solar_radiation_last_hour"):
@@ -84,8 +85,8 @@ def test_the_poi_radiation_of_the_hour_is_an_energy_expressed_as_power() -> None
 def test_the_mosmix_ratio_and_energy_are_not_called_irradiance_alone() -> None:
     """`Rad1h` is in kJ/m2 (J/cm2 in DMO), an energy; `RRad1` is a percentage, not an irradiance.
 
-    `RRad1` over `Rad1h` and the extraterrestrial radiation of the same hour: 90 daylight hours of one station agree to
-    within 9 points.
+    `Rad1h` over the extraterrestrial radiation of the hour reproduces `RRad1` roughly (mean difference under 3 points
+    at 6 stations, single hours up to about 20 points apart).
     """
     for metadata, datasets in ((DwdMosmixMetadata, ("small", "large")), (DwdDmoMetadata, ("icon", "icon_eu"))):
         for dataset in datasets:

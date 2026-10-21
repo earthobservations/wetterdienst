@@ -41,7 +41,8 @@ are taken as they come:
   its wording is used only where it says nothing about the unit: the swsmos rows are the German list of
   variables of its own sheet. Where the catalogue leaves out what a caller needs (`Rad1h` is an energy,
   `RRad1` a share, the codes of `ww`, `ww3`, `WPc*` and `W1W2` are in `mosmix_element_weather_xls.xlsx`),
-  or the element is reported at a few steps of the day only, the entry says so after the catalogue's words
+  or the element is given at a few steps of the day only, the entry says so after the catalogue's words (for the
+  elements GH-3136 checked, not for every windowed one)
 
 The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere rows
 (the German ``description`` of each parameter in ``/v1/station/historical/<resource>/metadata``, with
@@ -176,6 +177,21 @@ _MO_DAILY_STAMP = (
     "after most of its coverage."
 )
 
+# The evidence of the DWD claims that the sources do not state (GH-3136, 2026-10-21, key-less):
+# - POI: the 974 files against the 10-minute observations of the 25 stations in both networks (nearest DWD station
+#   within 1.5 km). The "previous day" columns at 06 UTC equal the extremes (to 0.0), the mean (to 0.11) and the sum of
+#   sunshine (to 0.04 h) of the previous UTC day on 25 of 25 stations (10 of 10 for sunshine), not those of 06 to 06
+#   UTC; the 10-minute stamps are ends of intervals, so the window is 23:50 to 23:50 UTC, which is meant by the day.
+#   The hourly columns equal the 10-minute values of the hour before the stamp (precipitation 625 of 625, gust 625 of
+#   625, global and diffuse radiation as J/cm2 * 10000 / 3600 on 250 of 250, within 0.89 W/m2, on 10 stations).
+#   `direct_solar_radiation_last_hour` is sent by 5 French stations and exceeds the global value in 5 of 15 daytime
+#   reports.
+# - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations and MOSMIX_S of 30 stations of the
+#   run of 2026-10-21; `RRad1` is `Rad1h` over the extraterrestrial radiation of the hour (6 stations, mean difference
+#   under 3 points, single hours up to about 20 apart).
+# - derived: Monatsgradtage (72.9, 71.6, 62.5), Kuehlgradstunden (2562.3, 2782.8, 2633.5) and the numbers of heating
+#   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
+#   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2 against 5.0).
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "HubeauMetadata": {
         (resolution, "data", name_original): description
@@ -225,28 +241,28 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "DwdSwsmosMetadata": {
         ("hourly", "data", "R650"): (
             "Probability of more than 5 mm of liquid and solid precipitation in the last 6 hours (DWD: "
-            '"Niederschlag flüssig+fest mehr als 5mm der letzten 6 Stunden Wahrscheinlichkeit").'
+            '"Niederschlag flüssig+fest mehr als 5mm der letzten 6 Stunden Wahrscheinlichkeit"; from DWD\'s MOS).'
         ),
         ("hourly", "data", "RC"): (
-            "Condition of the road surface, as a code: 1 dry, 2 moist, 3 snow, 4 rime, 5 freezing wetness, 6 "
-            'glaze ice (DWD: "Straßenzustand", from the METRo road weather model driven by the MOS values).'
+            "Condition of the road surface, as a code: 1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, "
+            '6 glaze ice (DWD: "Straßenzustand", from the METRo road weather model driven by DWD\'s MOS values).'
         ),
         ("hourly", "data", "RR6"): "Total liquid precipitation during the last 6 hours",
         ("hourly", "data", "RRL1c"): (
             'Liquid precipitation of the last hour, in mm (DWD: "Niederschlag flüssig der letzten Stunde", from '
-            "the MOS)."
+            "DWD's MOS)."
         ),
         ("hourly", "data", "TD"): (
-            'Dew point temperature (DWD: "Taupunkttemperatur", from the MOS); the description states no height.'
+            "Dew point temperature (DWD: \"Taupunkttemperatur\", from DWD's MOS, model output statistics); DWD's "
+            "sheet states no height."
         ),
-        (
-            "hourly",
-            "data",
-            "TL",
-        ): 'Air temperature (DWD: "Lufttemperatur", from the MOS); the description states no height.',
+        ("hourly", "data", "TL"): (
+            "Air temperature (DWD: \"Lufttemperatur\", from DWD's MOS, model output statistics); DWD's sheet "
+            "states no height."
+        ),
         ("hourly", "data", "TS"): (
             'Temperature of the road surface (DWD: "Temperatur der Fahrbahnoberfläche"), from the METRo road '
-            "weather model driven by the MOS values."
+            "weather model driven by DWD's MOS values."
         ),
         ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
     },
@@ -255,7 +271,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly",
             "data",
             "daily_mean_of_temperature_previous_day",
-        ): "Mean air temperature at 2 m above ground on the previous day (00 to 24 UTC), reported at 06 UTC.",
+        ): "Mean air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "depth_of_new_snow"): (
             'Depth of new snow (DWD: "Neuschneehoehe"). The file states no period; it is reported in the 06 UTC '
             "report only."
@@ -288,9 +304,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Highest 10-minute mean wind speed in the 6 hours up to the stamp. DWD names the column "previous day", '
             "but it is carried at 00, 06, 12 and 18 UTC and is the maximum of the 6 hourly values up to the stamp."
         ),
-        ("hourly", "data", "maximum_of_temperature_for_previous_day"): (
-            "Maximum air temperature at 2 m above ground on the previous day (00 to 24 UTC), reported at 06 UTC."
-        ),
+        (
+            "hourly",
+            "data",
+            "maximum_of_temperature_for_previous_day",
+        ): "Maximum air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "maximum_temperature_last_12_hours_2_meters_above_ground"): (
             "Maximum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC."
         ),
@@ -306,7 +324,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly",
             "data",
             "maximum_wind_speed_for_previous_day",
-        ): "Strongest gust on the previous day (00 to 24 UTC), reported at 06 UTC.",
+        ): "Strongest gust on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
         ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
             "Mean wind direction over the last 10 minutes, at 10 m above ground. "
@@ -315,12 +333,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "mean_wind_speed_during last_10_min_at_10_meters_above_ground"): (
             "Mean wind speed over the last 10 minutes, at 10 m above ground."
         ),
-        ("hourly", "data", "minimum_of_temperature_at_5_cm_above_ground_for_previous_day"): (
-            "Minimum air temperature at 5 cm above ground on the previous day (00 to 24 UTC), reported at 06 UTC."
-        ),
-        ("hourly", "data", "minimum_of_temperature_for_previous_day"): (
-            "Minimum air temperature at 2 m above ground on the previous day (00 to 24 UTC), reported at 06 UTC."
-        ),
+        (
+            "hourly",
+            "data",
+            "minimum_of_temperature_at_5_cm_above_ground_for_previous_day",
+        ): "Minimum air temperature at 5 cm above ground on the previous day (UTC), reported at 06 UTC.",
+        (
+            "hourly",
+            "data",
+            "minimum_of_temperature_for_previous_day",
+        ): "Minimum air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "minimum_temperature_last_12_hours_2_meters_above_ground"): (
             "Minimum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC."
         ),
@@ -328,15 +350,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Minimum air temperature at 5 cm above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC."
         ),
         ("hourly", "data", "past_weather_1"): (
-            'Coded past weather of a synoptic report (DWD: "vergangenes Wetter 1"; BUFR 0 20 004, 0 to 9 of WMO '
-            "code table 4561 for a manned station, 10 to 19 for an automatic one), reported at the eight "
-            "synoptic hours. DWD states no period; the WMO's is the 6 hours before the reports of 00, 06, 12 and "
-            "18 UTC and the 3 hours before those of 03, 09, 15 and 21 UTC."
+            'Coded past weather of a synoptic report (DWD: "vergangenes Wetter 1"). The values, 0 to 18, fit '
+            "BUFR 0 20 004: 0 to 9 of WMO code table 4561 for a manned station, 10 to 19 (WMO code table 4531) "
+            "for an automatic one. Reported at the eight synoptic hours. DWD states no period; the WMO's is the "
+            "6 hours before the reports of 00, 06, 12 and 18 UTC and the 3 hours before those of 03, 09, 15 and "
+            "21 UTC."
         ),
         ("hourly", "data", "past_weather_2"): (
             'Second coded past weather of a synoptic report (DWD: "vergangenes Wetter 2"; BUFR 0 20 005, coded '
-            "as `past_weather_1`), reported at the eight synoptic hours, with the same period the WMO gives and "
-            "DWD does not state."
+            "as `past_weather_1`), reported at the eight synoptic hours. DWD states no period either (the WMO's, "
+            "as for `past_weather_1`)."
         ),
         (
             "hourly",
@@ -369,11 +392,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Length of time the sun shone in the preceding hour, in minutes; it agrees with the sum of DWD's "
             "10-minute sunshine duration of that hour."
         ),
-        (
-            "hourly",
-            "data",
-            "total_time_of_sunshine_past_day",
-        ): "Length of time the sun shone on the previous day (00 to 24 UTC), in hours, reported at 06 UTC.",
+        ("hourly", "data", "total_time_of_sunshine_past_day"): (
+            "Length of time the sun shone on the previous day (UTC), in hours, reported mostly at 06 UTC (at "
+            "some stations at 00 or 03 UTC)."
+        ),
     },
     "DwdDerivedMetadata": {
         ("hourly", "radiation_global", "qn_952"): "Quality flag.",
@@ -455,10 +477,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "model, not measured."
         ),
         ("daily", "soil", "vpgfao"): (
-            "Potential evapotranspiration over grass (FAO method), in mm, a daily sum. DWD prefers it to Haude's "
-            "method because it takes many more influencing factors into account."
+            "Potential evapotranspiration over grass (FAO method), in mm, a daily sum (AMBAV model). DWD prefers "
+            "it to Haude's method because it takes many more influencing factors into account."
         ),
-        ("daily", "soil", "vpgh"): "Potential evapotranspiration over grass (Haude method), in mm, a daily sum.",
+        (
+            "daily",
+            "soil",
+            "vpgh",
+        ): "Potential evapotranspiration over grass (Haude method), in mm, a daily sum (AMBAV model).",
         ("daily", "soil", "vrgl_ag"): (
             "Real (actual) evaporation over grass on loamy silt, in mm, a daily sum calculated with the AMBAV model."
         ),
@@ -488,9 +514,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "radiation_global", "fg_duett"): (
             "Global radiation (the sheet: surface irradiance, hourly mean surface downwelling shortwave "
             "radiation) of a DWD pseudo-station, in J/cm2: derived from gridded satellite and station data "
-            "(DUETT) with a topography correction, not measured at the station. The hour is the synoptic hour "
-            "ending at the stamp; the sheet states it as (HH-1):50 to HH:50 in one place and (HH-2):50 to "
-            "(HH-1):50 in another."
+            "(DUETT) with a topography correction, not measured at the station. The sheet calls the stamp the "
+            "end of the synoptic hour and gives that hour as (HH-1):50 to HH:50 in one place and (HH-2):50 to "
+            "(HH-1):50 in another; DWD's 10-minute station data match (HH-2):50 to (HH-1):50."
         ),
         ("hourly", "radiation_global", "fg_un_duett"): (
             "Uncertainty of the hourly global radiation of the pseudo-station, in J/cm2 (the sheet: estimated "
@@ -498,19 +524,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "the geometric uncertainty of the cloud observation)."
         ),
         ("hourly", "sunshine_duration", "sd_un_duett"): (
-            "Uncertainty of the hourly sunshine duration of the pseudo-station, in minutes (estimated as the "
-            "uncertainty of the global radiation)."
+            "Uncertainty of the hourly sunshine duration of the pseudo-station, in minutes (estimated in the "
+            "same way as that of the global radiation)."
         ),
         ("hourly", "sunshine_duration", "sd_duett"): (
             "Sunshine duration of a DWD pseudo-station in the hour, in minutes: derived from gridded satellite "
-            "and station data (DUETT), not measured at the station. The hour is the synoptic hour ending at the "
-            "stamp; the sheet states it as (HH-1):50 to HH:50 in one place and (HH-2):50 to (HH-1):50 in "
-            "another."
+            "and station data (DUETT), not measured at the station. The sheet calls the stamp the end of the "
+            "synoptic hour and gives that hour as (HH-1):50 to HH:50 in one place and (HH-2):50 to (HH-1):50 in "
+            "another; DWD's 10-minute station data match (HH-2):50 to (HH-1):50."
         ),
         ("monthly", "climate_correction_factor", "KF"): (
             "Climate factor (KF) of a delivery postal code for the weather adjustment of energy consumption, "
             "relative to the reference location Potsdam (the test reference years TRY 2011), for the 12 months "
-            "from DatAnf to DatEnd of the file. The sheet states no formula."
+            "starting at the timestamp. The sheet states no formula."
         ),
         ("monthly", "cooling_degreehours_13", "Anzahl Kuehlstunden"): (
             "Number of hours of the month with a positive difference between the hourly air temperature and the "
@@ -553,17 +579,16 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "heating_degreedays", "Monatsgradtage"): (
             "Degree days of the month (VDI 3807 part 1), in K*day: the sum over the days with a daily mean air "
-            "temperature below 15 degree Celsius of the mean room temperature of 20 degree Celsius, which the "
-            "file header states, minus that mean. Only given where every daily value of the month is available."
+            "temperature below 15 degree Celsius, of 20 degree Celsius (the mean room temperature the file "
+            "header states) minus the daily mean. Only given where every daily value of the month is available."
         ),
         ("monthly", "soil", "maximum von zfumi"): (
             "Maximum in the month of the frost penetration depth at midday on unvegetated ground, in cm (AMBETI model)."
         ),
-        (
-            "monthly",
-            "soil",
-            "maximum von ztkmi",
-        ): "Maximum in the month of the thawing layer at midday under vegetation (BEKLIMA), in cm.",
+        ("monthly", "soil", "maximum von ztkmi"): (
+            "Maximum in the month of the thawing layer at midday under vegetation (the sheet: unter Bestand; "
+            "BEKLIMA), in cm."
+        ),
         (
             "monthly",
             "soil",
@@ -689,8 +714,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "nm"): "Midlevel cloud cover (2-7 km)",
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon", "rad1h"): (
-            "Global Irradiance, as the energy of the last hour: the DMO files carry it in J/cm2 (MOSMIX: kJ/m2, "
-            "which is ten times the number for the same energy)."
+            "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same energy)."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): "Short wave radiation balance during the last 3 hours",
@@ -712,7 +737,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "ww"): (
             "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
             "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
-            "and rain, showers, snowfall, drizzle, rain and fog, down to 3 to 0 (cloud development)."
+            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "development)."
         ),
         ("hourly", "icon_eu", "dd"): "Wind direction",
         ("hourly", "icon_eu", "ff"): "Wind speed",
@@ -724,8 +750,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "nm"): "Midlevel cloud cover (2-7 km)",
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon_eu", "rad1h"): (
-            "Global Irradiance, as the energy of the last hour: the DMO files carry it in J/cm2 (MOSMIX: kJ/m2, "
-            "which is ten times the number for the same energy)."
+            "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same energy)."
         ),
         ("hourly", "icon_eu", "rr1"): "Total precipitation during the last hour",
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
@@ -743,7 +769,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "ww"): (
             "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
             "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
-            "and rain, showers, snowfall, drizzle, rain and fog, down to 3 to 0 (cloud development)."
+            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "development)."
         ),
     },
     "DwdMosmixMetadata": {
@@ -773,23 +800,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "nh"): "High cloud cover (>7 km)",
         ("hourly", "large", "nlm"): "Cloud cover low and mid level clouds below 7000 m",
         ("hourly", "large", "nm"): "Midlevel cloud cover (2-7 km)",
-        ("hourly", "large", "pevap"): "Potential evapotranspiration within the last 24 hours, reported at 06 UTC",
+        (
+            "hourly",
+            "large",
+            "pevap",
+        ): "Potential evapotranspiration within the last 24 hours, given at the 06 UTC steps",
         ("hourly", "large", "pppp"): "Surface pressure, reduced",
         (
             "hourly",
             "large",
             "psd00",
-        ): "Probability: relative sunshine duration > 0 % within 24 hours, reported at 06 UTC",
+        ): "Probability: relative sunshine duration > 0 % within 24 hours, given at the 06 UTC steps",
         (
             "hourly",
             "large",
             "psd30",
-        ): "Probability: relative sunshine duration > 30 % within 24 hours, reported at 06 UTC",
+        ): "Probability: relative sunshine duration > 30 % within 24 hours, given at the 06 UTC steps",
         (
             "hourly",
             "large",
             "psd60",
-        ): "Probability: relative sunshine duration > 60 % within 24 hours, reported at 06 UTC",
+        ): "Probability: relative sunshine duration > 60 % within 24 hours, given at the 06 UTC steps",
         ("hourly", "large", "r101"): "Probability of precipitation > 0.1 mm during the last hour",
         ("hourly", "large", "r102"): "Probability of precipitation > 0.2 mm during the last hour",
         ("hourly", "large", "r103"): "Probability of precipitation > 0.3 mm during the last hour",
@@ -805,7 +836,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "r650"): "Probability of precipitation > 5.0mm during the last 6 hours",
         ("hourly", "large", "rad1h"): (
             "Global Irradiance, which the source gives in kJ/m2 and so is the energy of the last hour: the "
-            "values follow the daylight (0 at night, about 950 at noon in October)."
+            "values follow the daylight (0 at night, largest around noon)."
         ),
         ("hourly", "large", "rd00"): "Probability of precipitation > 0.0mm during the last 24 hours",
         ("hourly", "large", "rd02"): "Probability of precipitation > 0.2mm during the last 24 hours",
@@ -824,7 +855,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rrad1"): (
             "Global irradiance within the last hour as a percentage: the source gives % (0..80) and no "
             "reference. Rad1h over the extraterrestrial radiation on a horizontal surface in the same hour "
-            "reproduces it (to within 9 points, 3 on average), so it is read as a share of that."
+            "reproduces it roughly (mean difference under 3 points at 6 stations, single hours up to about 20 "
+            "points apart), so it is read as a share of that."
         ),
         ("hourly", "large", "rrdc"): "Total precipitation during the last 24 hours consistent with significant weather",
         ("hourly", "large", "rrhc"): "Total precipitation during the last 12 hours consistent with significant weather",
@@ -833,8 +865,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "large", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "large", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
-        ("hourly", "large", "rsund"): "Relative sunshine duration within the last 24 hours, reported at 06 UTC",
-        ("hourly", "large", "sund"): "Yesterdays total sunshine duration, reported at 06 UTC",
+        ("hourly", "large", "rsund"): "Relative sunshine duration within the last 24 hours, given at the 06 UTC steps",
+        ("hourly", "large", "sund"): "Yesterdays total sunshine duration, given at the 06 UTC steps",
         ("hourly", "large", "sund1"): "Sunshine duration during the last Hour",
         ("hourly", "large", "sund3"): (
             "Sunshine duration during the last 3 hours. Not a sliding 3 hour total: it does not agree with the sum "
@@ -843,44 +875,51 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "large", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "large", "td"): "Dewpoint 2m above surface",
-        ("hourly", "large", "tg"): "Minimum surface temperature at 5cm within the last 12 hours, reported at 06 UTC",
-        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours, reported at 06 UTC",
-        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, reported at 06 and 18 UTC",
+        (
+            "hourly",
+            "large",
+            "tg",
+        ): "Minimum surface temperature at 5cm within the last 12 hours, given at the 06 UTC steps",
+        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours, given at the 06 UTC steps",
+        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
-        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, reported at 06 and 18 UTC",
+        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
         ("hourly", "large", "vv"): "Visibility",
         ("hourly", "large", "vv10"): "Probability: Visibility below 1000m",
         ("hourly", "large", "w1w2"): (
             "Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or "
             "rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, "
             "4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no "
-            "thunderstorm, no precipitation and no fog. Reported at 00, 06, 12 and 18 UTC."
+            "thunderstorm, no precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
         ),
         ("hourly", "large", "wpc11"): (
             "Optional significant weather (highest priority) during the last hour, as a code of the same list as `ww`."
         ),
         ("hourly", "large", "wpc31"): (
             "Optional significant weather (highest priority) during the last 3 hours, as a code of the same list "
-            "as `ww`."
+            "as `ww`, given at 00, 03, ... 21 UTC."
         ),
         ("hourly", "large", "wpc61"): (
             "Optional significant weather (highest priority) during the last 6 hours, as a code of the same list "
-            "as `ww`."
+            "as `ww`, given at 00, 03, ... 21 UTC."
         ),
         ("hourly", "large", "wpcd1"): (
             "Optional significant weather (highest priority) during the last 24 hours, as a code of the same "
-            "list as `ww`."
+            "list as `ww`, given at 00 and 12 UTC."
         ),
         ("hourly", "large", "wpch1"): (
             "Optional significant weather (highest priority) during the last 12 hours, as a code of the same "
-            "list as `ww`."
+            "list as `ww`, given at 00, 06, 12 and 18 UTC."
         ),
         ("hourly", "large", "ww"): (
             "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
             "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
-            "and rain, showers, snowfall, drizzle, rain and fog, down to 3 to 0 (cloud development)."
+            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "development)."
         ),
-        ("hourly", "large", "ww3"): "Significant Weather of the last 3 hours, as a code of the same list as `ww`.",
+        ("hourly", "large", "ww3"): (
+            "Significant Weather of the last 3 hours, as a code of the same list as `ww`, given at 00, 03, ... 21 UTC."
+        ),
         ("hourly", "large", "wwc"): "Probability: Occurrence of convective precipitation within the last hour",
         ("hourly", "large", "wwc6"): "Probability: Occurrence of convective precipitation within the last 6 hours",
         ("hourly", "large", "wwch"): "Probability: Occurrence of convective precipitation within the last 12 hours",
@@ -895,7 +934,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "wwlh"): "Probability: Occurrence of liquid precipitation within the last 12 hours",
         ("hourly", "large", "wwm"): "Probability for fog within the last hour",
         ("hourly", "large", "wwm6"): "Probability for fog within the last 6 hours",
-        ("hourly", "large", "wwmd"): "Probability: Occurrence of fog within the last 24 hours",
+        ("hourly", "large", "wwmd"): "Probability: Occurrence of fog within the last 24 hours, given at 00 and 12 UTC",
         ("hourly", "large", "wwmh"): "Probability for fog within the last 12 hours",
         ("hourly", "large", "wwp"): "Probability: Occurrence of precipitation within the last hour",
         ("hourly", "large", "wwp6"): "Probability: Occurrence of precipitation within the last 6 hours",
@@ -928,7 +967,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "r650"): "Probability of precipitation > 5.0mm during the last 6 hours",
         ("hourly", "small", "rad1h"): (
             "Global Irradiance, which the source gives in kJ/m2 and so is the energy of the last hour: the "
-            "values follow the daylight (0 at night, about 950 at noon in October)."
+            "values follow the daylight (0 at night, largest around noon)."
         ),
         ("hourly", "small", "rd02"): "Probability of precipitation > 0.2mm during the last 24 hours",
         ("hourly", "small", "rd50"): "Probability of precipitation > 5.0mm during the last 24 hours",
@@ -943,20 +982,29 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "sund1"): "Sunshine duration during the last Hour",
         ("hourly", "small", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "small", "td"): "Dewpoint 2m above surface",
-        ("hourly", "small", "tn"): "Minimum temperature - within the last 12 hours, reported at 00, 06, 12 and 18 UTC",
+        (
+            "hourly",
+            "small",
+            "tn",
+        ): "Minimum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
         ("hourly", "small", "ttt"): "Temperature 2m above surface",
-        ("hourly", "small", "tx"): "Maximum temperature - within the last 12 hours, reported at 00, 06, 12 and 18 UTC",
+        (
+            "hourly",
+            "small",
+            "tx",
+        ): "Maximum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
         ("hourly", "small", "vv"): "Visibility",
         ("hourly", "small", "w1w2"): (
             "Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or "
             "rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, "
             "4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no "
-            "thunderstorm, no precipitation and no fog. Reported at 00, 06, 12 and 18 UTC."
+            "thunderstorm, no precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
         ),
         ("hourly", "small", "ww"): (
             "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
             "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
-            "and rain, showers, snowfall, drizzle, rain and fog, down to 3 to 0 (cloud development)."
+            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "development)."
         ),
         ("hourly", "small", "wwm"): "Probability for fog within the last hour",
         ("hourly", "small", "wwm6"): "Probability for fog within the last 6 hours",
@@ -3480,7 +3528,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "visibility", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
         ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
     },
-    "DwdSwsmosMetadata": {},
     "DmiObservationMetadata": {
         # DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data): "Maximum 30 minutes intensity in
         # 24 hours with date", "is found by inspecting the period from 23:31 local time to the previous day to 24.00
