@@ -27,6 +27,13 @@ Types of changes:
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind
   ("global", "horizontal") are not stated by the source (the old text said global, horizontal and
   per interval; the daily course only suggests an hourly sum) (GH-3136)
+- DWD descriptions that stated what the source does not: the `dwd/swsmos` liquid precipitation
+  (`RRL1c`) read MOSMIX's "consistent with significant weather", and `TL` and `TD` said 2 m (the
+  sheet gives no height); the `dwd/poi` new snow was "since the previous observation" (it is in the
+  06 UTC report only, with no period stated) and its "previous day" values are the UTC day 00 to 24;
+  the `dwd/derived` soil rows said "winter wheat" for DWD's winter cereals; the MOSMIX `RRad1`
+  percentage read "global irradiance" and `ww3` dropped its 3 hours. They now say what the sheets
+  say, with the code lists of `ww` and `W1W2` and the reporting hours (GH-3136)
 
 ## [0.165.0] - 2026-10-21
 

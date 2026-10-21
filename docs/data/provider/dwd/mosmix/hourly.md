@@ -49,18 +49,18 @@
 | {term}`probability_wind_gust_ge_25kn_last_12h`             | fxh25         | Probability of wind gusts >= 25kn within the last 12 hours                      | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_40kn_last_12h`             | fxh40         | Probability of wind gusts >= 40kn within the last 12 hours                      | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_55kn_last_12h`             | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                      | %     | >=0,<=100   |
-| {term}`radiation_global`                                   | rad1h         | Global Irradiance                                                               | kJ/m² | >=0         |
+| {term}`radiation_global`                                   | rad1h         | Global Irradiance, which the source gives in kJ/m2 and so is the energy of the last hour: the values follow the daylight (0 at night, about 950 at noon in October). | kJ/m² | >=0         |
 | {term}`sunshine_duration`                                  | sund1         | Sunshine duration during the last Hour                                          | s     | >=0         |
-| {term}`temperature_air_max_2m_last_12h`                             | tx            | Maximum temperature - within the last 12 hours                                  | K     | -           |
+| {term}`temperature_air_max_2m_last_12h`                             | tx            | Maximum temperature - within the last 12 hours, reported at 00, 06, 12 and 18 UTC | K     | -           |
 | {term}`temperature_air_0_05m`                              | t5cm          | Temperature 5cm above surface                                                   | K     | -           |
 | {term}`temperature_air_2m`                                 | ttt           | Temperature 2m above surface                                                    | K     | -           |
-| {term}`temperature_air_min_2m_last_12h`                             | tn            | Minimum temperature - within the last 12 hours                                  | K     | -           |
+| {term}`temperature_air_min_2m_last_12h`                             | tn            | Minimum temperature - within the last 12 hours, reported at 00, 06, 12 and 18 UTC | K     | -           |
 | {term}`temperature_dew_point_2m`                           | td            | Dewpoint 2m above surface                                                       | K     | -           |
 | {term}`visibility`                                         | vv            | Visibility                                                                      | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`            | rrs1c         | Snow-Rain-Equivalent during the last hour                                       | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h`            | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                    | kg/m² | >=0         |
-| {term}`weather_last_6h`                                    | w1w2          | Past weather during the last 6 hours                                            | -     | -           |
-| {term}`weather_significant`                                | ww            | Significant Weather                                                             | -     | -           |
+| {term}`weather_last_6h`                                    | w1w2          | Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no thunderstorm, no precipitation and no fog. Reported at 00, 06, 12 and 18 UTC. | -     | -           |
+| {term}`weather_significant`                                | ww            | Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle and rain, showers, snowfall, drizzle, rain and fog, down to 3 to 0 (cloud development). | -     | -           |
 | {term}`wind_direction`                                     | dd            | Wind direction                                                                  | °     | >=0,<=360   |
 | {term}`wind_gust_max_last_1h`                              | fx1           | Maximum wind gust within the last hour                                          | m/s   | >=0         |
 | {term}`wind_gust_max_last_3h`                              | fx3           | Maximum wind gust within the last 3 hours                                       | m/s   | >=0         |
@@ -95,7 +95,7 @@
 | {term}`error_absolute_temperature_dew_point_2m`                  | e_td          | Absolute error dew point 2m above surface                                           | K     | -           |
 | {term}`error_absolute_wind_direction`                            | e_dd          | Absolute error wind direction                                                       | °     | -           |
 | {term}`error_absolute_wind_speed`                                | e_ff          | Absolute error wind speed 10m above surface                                         | m/s   | -           |
-| {term}`evapotranspiration_potential_last_24h`                    | pevap         | Potential evapotranspiration within the last 24 hours                               | kg/m² | >=0         |
+| {term}`evapotranspiration_potential_last_24h`                    | pevap         | Potential evapotranspiration within the last 24 hours, reported at 06 UTC           | kg/m² | >=0         |
 | {term}`precipitation_duration`                                   | drr1          | Duration of precipitation within the last hour                                      | s     | >=0         |
 | {term}`precipitation_amount_liquid_significant_weather_last_1h`  | rrl1c         | Total liquid precipitation during the last hour consistent with significant weather | kg/m² | >=0         |
 | {term}`precipitation_amount_significant_weather_last_1h`         | rr1c          | Total precipitation during the last hour consistent with significant weather        | kg/m² | >=0         |
@@ -110,7 +110,7 @@
 | {term}`probability_fog_last_1h`                                  | wwm           | Probability for fog within the last hour                                            | %     | >=0,<=100   |
 | {term}`probability_fog_last_6h`                                  | wwm6          | Probability for fog within the last 6 hours                                         | %     | >=0,<=100   |
 | {term}`probability_fog_last_12h`                                 | wwmh          | Probability for fog within the last 12 hours                                        | %     | >=0,<=100   |
-| {term}`probability_fog_last_24h`                                 | wwmd          | Probability for fog within the last 24 hours                                        | %     | >=0,<=100   |
+| {term}`probability_fog_last_24h`                                 | wwmd          | Probability: Occurrence of fog within the last 24 hours                             | %     | >=0,<=100   |
 | {term}`probability_precipitation_convective_last_1h`             | wwc           | Probability: Occurrence of convective precipitation within the last hour            | %     | >=0,<=100   |
 | {term}`probability_precipitation_convective_last_6h`             | wwc6          | Probability: Occurrence of convective precipitation within the last 6 hours         | %     | >=0,<=100   |
 | {term}`probability_precipitation_convective_last_12h`            | wwch          | Probability: Occurrence of convective precipitation within the last 12 hours        | %     | >=0,<=100   |
@@ -154,10 +154,10 @@
 | {term}`probability_precipitation_stratiform_last_1h`             | wwd           | Probability: Occurrence of stratiform precipitation within the last hour            | %     | >=0,<=100   |
 | {term}`probability_precipitation_stratiform_last_6h`             | wwd6          | Probability: Occurrence of stratiform precipitation within the last 6 hours         | %     | >=0,<=100   |
 | {term}`probability_precipitation_stratiform_last_12h`            | wwdh          | Probability: Occurrence of stratiform precipitation within the last 12 hours        | %     | >=0,<=100   |
-| {term}`radiation_global_relative_last_1h`                        | rrad1         | Global irradiance within the last hour                                              | %     | >=0,<=100   |
-| {term}`probability_sunshine_duration_relative_gt_0pct_last_24h`  | psd00         | Probability: relative sunshine duration > 0 % within 24 hours                       | %     | >=0,<=100   |
-| {term}`probability_sunshine_duration_relative_gt_30pct_last_24h` | psd30         | Probability: relative sunshine duration > 30 % within 24 hours                      | %     | >=0,<=100   |
-| {term}`probability_sunshine_duration_relative_gt_60pct_last_24h` | psd60         | Probability: relative sunshine duration > 60 % within 24 hours                      | %     | >=0,<=100   |
+| {term}`radiation_global_relative_last_1h`                        | rrad1         | Global irradiance within the last hour as a percentage: the source gives % (0..80) and no reference. Rad1h over the extraterrestrial radiation on a horizontal surface in the same hour reproduces it (to within 9 points, 3 on average), so it is read as a share of that. | %     | >=0,<=100   |
+| {term}`probability_sunshine_duration_relative_gt_0pct_last_24h`  | psd00         | Probability: relative sunshine duration > 0 % within 24 hours, reported at 06 UTC   | %     | >=0,<=100   |
+| {term}`probability_sunshine_duration_relative_gt_30pct_last_24h` | psd30         | Probability: relative sunshine duration > 30 % within 24 hours, reported at 06 UTC  | %     | >=0,<=100   |
+| {term}`probability_sunshine_duration_relative_gt_60pct_last_24h` | psd60         | Probability: relative sunshine duration > 60 % within 24 hours, reported at 06 UTC  | %     | >=0,<=100   |
 | {term}`probability_thunder_last_1h`                              | wwt           | Probability: Occurrence of thunderstorms within the last hour                       | %     | >=0,<=100   |
 | {term}`probability_thunder_last_6h`                              | wwt6          | Probability: Occurrence of thunderstorms within the last 6 hours                    | %     | >=0,<=100   |
 | {term}`probability_thunder_last_12h`                             | wwth          | Probability: Occurrence of thunderstorms within the last 12 hours                   | %     | >=0,<=100   |
@@ -169,29 +169,29 @@
 | {term}`probability_wind_gust_ge_40kn_last_12h`                   | fxh40         | Probability of wind gusts >= 40kn within the last 12 hours                          | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_55kn_last_6h`                    | fx655         | Probability of wind gusts >= 55kn within the last 6 hours                           | %     | >=0,<=100   |
 | {term}`probability_wind_gust_ge_55kn_last_12h`                   | fxh55         | Probability of wind gusts >= 55kn within the last 12 hours                          | %     | >=0,<=100   |
-| {term}`radiation_global`                                         | rad1h         | Global Irradiance                                                                   | kJ/m² | >=0         |
+| {term}`radiation_global`                                         | rad1h         | Global Irradiance, which the source gives in kJ/m2 and so is the energy of the last hour: the values follow the daylight (0 at night, about 950 at noon in October). | kJ/m² | >=0         |
 | {term}`sunshine_duration`                                        | sund1         | Sunshine duration during the last Hour                                              | s     | >=0         |
 | {term}`sunshine_duration_last_3h`                                | sund3         | Sunshine duration during the last 3 hours. Not a sliding 3 hour total: it does not agree with the sum of the last three sund1, not even at the 3-hourly steps, and appears to be interpolated from 3-hourly values. | s     | >=0         |
-| {term}`sunshine_duration_relative_last_24h`                      | rsund         | Relative sunshine duration within the last 24 hours                                 | %     | >=0,<=100   |
-| {term}`sunshine_duration_yesterday`                              | sund          | Yesterdays total sunshine duration                                                  | s     | >=0         |
-| {term}`temperature_air_max_2m_last_12h`                                   | tx            | Maximum temperature - within the last 12 hours                                      | K     | -           |
+| {term}`sunshine_duration_relative_last_24h`                      | rsund         | Relative sunshine duration within the last 24 hours, reported at 06 UTC             | %     | >=0,<=100   |
+| {term}`sunshine_duration_yesterday`                              | sund          | Yesterdays total sunshine duration, reported at 06 UTC                              | s     | >=0         |
+| {term}`temperature_air_max_2m_last_12h`                                   | tx            | Maximum temperature - within the last 12 hours, reported at 06 and 18 UTC           | K     | -           |
 | {term}`temperature_air_0_05m`                                    | t5cm          | Temperature 5cm above surface                                                       | K     | -           |
 | {term}`temperature_air_2m`                                       | ttt           | Temperature 2m above surface                                                        | K     | -           |
-| {term}`temperature_air_mean_2m_last_24h`                         | tm            | Mean temperature during the last 24 hours                                           | K     | -           |
-| {term}`temperature_air_min_0_05m_last_12h`                       | tg            | Minimum surface temperature at 5cm within the last 12 hours                         | K     | -           |
-| {term}`temperature_air_min_2m_last_12h`                                   | tn            | Minimum temperature - within the last 12 hours                                      | K     | -           |
+| {term}`temperature_air_mean_2m_last_24h`                         | tm            | Mean temperature during the last 24 hours, reported at 06 UTC                       | K     | -           |
+| {term}`temperature_air_min_0_05m_last_12h`                       | tg            | Minimum surface temperature at 5cm within the last 12 hours, reported at 06 UTC     | K     | -           |
+| {term}`temperature_air_min_2m_last_12h`                                   | tn            | Minimum temperature - within the last 12 hours, reported at 06 and 18 UTC           | K     | -           |
 | {term}`temperature_dew_point_2m`                                 | td            | Dewpoint 2m above surface                                                           | K     | -           |
 | {term}`visibility`                                               | vv            | Visibility                                                                          | m     | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_1h`                  | rrs1c         | Snow-Rain-Equivalent during the last hour                                           | kg/m² | >=0         |
 | {term}`water_equivalent_snow_depth_new_last_3h`                  | rrs3c         | Snow-Rain-Equivalent during the last 3 hours                                        | kg/m² | >=0         |
-| {term}`weather_last_6h`                                          | w1w2          | Past weather during the last 6 hours                                                | -     | -           |
-| {term}`weather_significant`                                      | ww            | Significant Weather                                                                 | -     | -           |
-| {term}`weather_significant_last_3h`                              | ww3           | Significant Weather                                                                 | -     | -           |
-| {term}`weather_significant_optional_last_1h`                     | wpc11         | Optional significant weather (highest priority) during the last hour                | -     | >=-95,<=0   |
-| {term}`weather_significant_optional_last_3h`                     | wpc31         | Optional significant weather (highest priority) during the last 3 hours             | -     | >=-95,<=0   |
-| {term}`weather_significant_optional_last_6h`                     | wpc61         | Optional significant weather (highest priority) during the last 6 hours             | -     | >=-95,<=0   |
-| {term}`weather_significant_optional_last_12h`                    | wpch1         | Optional significant weather (highest priority) during the last 12 hours            | -     | >=-95,<=0   |
-| {term}`weather_significant_optional_last_24h`                    | wpcd1         | Optional significant weather (highest priority) during the last 24 hours            | -     | >=-95,<=0   |
+| {term}`weather_last_6h`                                          | w1w2          | Past weather during the last 6 hours, as a class of DWD's list: 9 thunderstorm, 8 shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover (at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and mean no thunderstorm, no precipitation and no fog. Reported at 00, 06, 12 and 18 UTC. | -     | -           |
+| {term}`weather_significant`                                      | ww            | Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle and rain, showers, snowfall, drizzle, rain and fog, down to 3 to 0 (cloud development). | -     | -           |
+| {term}`weather_significant_last_3h`                              | ww3           | Significant Weather of the last 3 hours, as a code of the same list as `ww`.        | -     | -           |
+| {term}`weather_significant_optional_last_1h`                     | wpc11         | Optional significant weather (highest priority) during the last hour, as a code of the same list as `ww`. | -     | >=-95,<=0   |
+| {term}`weather_significant_optional_last_3h`                     | wpc31         | Optional significant weather (highest priority) during the last 3 hours, as a code of the same list as `ww`. | -     | >=-95,<=0   |
+| {term}`weather_significant_optional_last_6h`                     | wpc61         | Optional significant weather (highest priority) during the last 6 hours, as a code of the same list as `ww`. | -     | >=-95,<=0   |
+| {term}`weather_significant_optional_last_12h`                    | wpch1         | Optional significant weather (highest priority) during the last 12 hours, as a code of the same list as `ww`. | -     | >=-95,<=0   |
+| {term}`weather_significant_optional_last_24h`                    | wpcd1         | Optional significant weather (highest priority) during the last 24 hours, as a code of the same list as `ww`. | -     | >=-95,<=0   |
 | {term}`wind_direction`                                           | dd            | Wind direction                                                                      | °     | >=0,<=360   |
 | {term}`wind_gust_max_last_1h`                                    | fx1           | Maximum wind gust within the last hour                                              | m/s   | >=0         |
 | {term}`wind_gust_max_last_3h`                                    | fx3           | Maximum wind gust within the last 3 hours                                           | m/s   | >=0         |
