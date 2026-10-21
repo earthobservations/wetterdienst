@@ -129,6 +129,10 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `settings.convertUnitsHint`, `Fro … of` in `query.hint`) and `iwwerlee dir` in `support.donateText`;
   the `lb` and `cs` informal forms in general.
 
+- The nine weather words of the forecast's day cards (`meteogram.chart.weather.*`, GH-3186), in all
+  four locales. Least certain: `de-hh` `Dunnerwedder`, `Niesregen`, `Newel`, `Deelwies wulkig`;
+  `lb` `Gewitter`, `Niselreen`, `Deelweis wollekeg`; `cs` `Polojasno` for "partly cloudy".
+
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
 

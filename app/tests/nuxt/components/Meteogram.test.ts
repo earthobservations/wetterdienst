@@ -509,6 +509,60 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     // the rain, 24 times 0.25 mm, with the language's decimal separator
     expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
   })
+
+  // the weather of a day card is a symbol, which a screen reader does not read: the words are in the
+  // card, and the symbol is hidden from it (WCAG 1.1.1)
+  const symbolsOf = () => [...document.body.querySelectorAll('[aria-hidden="true"]')].map(node => node.textContent?.trim())
+  const wordsOf = () => [...document.body.querySelectorAll('.sr-only')].map(node => node.textContent?.trim())
+
+  it('gives the symbol of a day card a text alternative, and hides the symbol, where no weather code is served', async () => {
+    await showMeteogram()
+    await showCompact()
+    // 6 mm of rain over 10 to 16 degrees and no weather code: the heuristic's rain
+    expect(symbolsOf()).toContain('🌧')
+    expect(wordsOf()).toContain('Rain')
+    // and the drop before the rain's amount is a decoration with the word for it beside
+    expect(symbolsOf()).toContain('💧')
+    expect(wordsOf()).toContain('Precipitation:')
+  })
+
+  // three days, each with the weather code of its hours: rain (61), a thunderstorm (95), clear sky (0)
+  it.each([
+    [61, '🌧', 'Rain'],
+    [95, '⛈', 'Thunderstorm'],
+    [0, '☀', 'Sunny'],
+  ])('names the weather of weather code %i as %s %s in a day card', async (code, symbol, words) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    plotly.newPlot.mockClear()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded] })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await showCompact()
+    expect(symbolsOf()).toContain(symbol)
+    expect(wordsOf()).toContain(words)
+    // the symbol is not text of the card for a screen reader: nothing outside the hidden nodes names it
+    expect(wordsOf()).not.toContain(symbol)
+  })
+
+  // in every language, in its own word for the rain
+  it.each([
+    ['en', 'Rain'],
+    ['de', 'Regen'],
+    ['de-hh', 'Regen'],
+    ['fr', 'Pluie'],
+    ['es', 'Lluvia'],
+    ['it', 'Pioggia'],
+    ['nl', 'Regen'],
+    ['pl', 'Deszcz'],
+    ['cs', 'Déšť'],
+    ['da', 'Regn'],
+    ['lb', 'Reen'],
+  ])('names the weather of a day card in %s as %s', async (code, rain) => {
+    await inLanguage(code)
+    await showMeteogram()
+    await showCompact()
+    expect(wordsOf()).toContain(rain)
+  })
 })
 
 describe('meteogram display synced to the URL', { timeout: 15_000 }, () => {

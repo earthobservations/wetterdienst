@@ -395,7 +395,18 @@
       "axisPressure": "Ciśnienie hPa",
       "tableTime": "Czas ({zone})",
       "summaryRange": "Prognoza od {from} do {to}.",
-      "summaryTemperature": "Temperatura od {min} do {max} °C."
+      "summaryTemperature": "Temperatura od {min} do {max} °C.",
+      "weather": {
+        "thunderstorm": "Burza",
+        "rain": "Deszcz",
+        "snow": "Śnieg",
+        "drizzle": "Mżawka",
+        "fog": "Mgła",
+        "wind": "Wietrznie",
+        "cloudy": "Pochmurno",
+        "partlyCloudy": "Częściowe zachmurzenie",
+        "clear": "Słonecznie"
+      }
     },
     "orChooseMap": "lub",
     "chooseOnMap": "Wybierz stację na mapie",

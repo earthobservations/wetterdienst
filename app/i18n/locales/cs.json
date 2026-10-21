@@ -395,7 +395,18 @@
       "axisPressure": "Tlak hPa",
       "tableTime": "Čas ({zone})",
       "summaryRange": "Předpověď od {from} do {to}.",
-      "summaryTemperature": "Teplota od {min} do {max} °C."
+      "summaryTemperature": "Teplota od {min} do {max} °C.",
+      "weather": {
+        "thunderstorm": "Bouřka",
+        "rain": "Déšť",
+        "snow": "Sníh",
+        "drizzle": "Mrholení",
+        "fog": "Mlha",
+        "wind": "Větrno",
+        "cloudy": "Zataženo",
+        "partlyCloudy": "Polojasno",
+        "clear": "Slunečno"
+      }
     },
     "orChooseMap": "nebo",
     "chooseOnMap": "Vyber stanici na mapě",

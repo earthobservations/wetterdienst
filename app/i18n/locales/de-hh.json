@@ -395,7 +395,18 @@
       "axisPressure": "Luftdruck hPa",
       "tableTime": "Tiet ({zone})",
       "summaryRange": "Vörhersage vun {from} bit {to}.",
-      "summaryTemperature": "Temperatur vun {min} bit {max} °C."
+      "summaryTemperature": "Temperatur vun {min} bit {max} °C.",
+      "weather": {
+        "thunderstorm": "Dunnerwedder",
+        "rain": "Regen",
+        "snow": "Snee",
+        "drizzle": "Niesregen",
+        "fog": "Newel",
+        "wind": "Windig",
+        "cloudy": "Wulkig",
+        "partlyCloudy": "Deelwies wulkig",
+        "clear": "Sünnig"
+      }
     },
     "orChooseMap": "oder",
     "chooseOnMap": "Station op de Kaart utsöken",

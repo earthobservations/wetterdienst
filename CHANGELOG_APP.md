@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Accessibility]` The weather symbols of the forecast's compact day cards have a text alternative:
+  the symbol is hidden from a screen reader and the card says "Rain", "Thunderstorm", "Sunny" and so
+  on, in the language of the page, as it does "Precipitation:" before the rain's amount. The words are
+  in all eleven languages; Polish, Czech, Luxembourgish and Hamburg German are not reviewed by a native
+  speaker (WCAG 1.1.1; GH-3186)
+- `[Accessibility]` Escape dismisses the hover label of the charts (forecast, explorer, climate
+  stripes) and the names of the toolbar buttons that show on hover, while the pointer is over the
+  chart, until the pointer moves on. The label itself still cannot be moved onto, which Plotly does
+  not allow; its values are in "Show as table" (WCAG 1.4.13, partly; GH-3186)
+
 ## [0.28.0] - 2026-10-20
 
 ### Changed
