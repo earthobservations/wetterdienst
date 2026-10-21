@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.164.0",
+    "version": "0.165.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -257,6 +257,26 @@
               "title": "Drop Nulls"
             },
             "description": "Drop rows with null values from the output. Default: the server's WD_TS_DROP_NULLS if set, else true."
+          },
+          {
+            "name": "station_window_end_buffer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3660,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution.",
+              "title": "Station Window End Buffer"
+            },
+            "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
           },
           {
             "name": "interpolation_station_distance",
@@ -1280,10 +1300,30 @@
                   "type": "null"
                 }
               ],
-              "description": "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is all of its readings rather than the one at midnight. Given, only the stations whose record overlaps it are listed, as for `values`: a station is left out when it started after the window, or ended before it by more than two readings of its resolution (two days up to daily), as the end a source publishes lags a station that is still reporting. A station whose start or end is not published is kept.",
+              "description": "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is all of its readings rather than the one at midnight. Given, only the stations whose record overlaps it are listed, as for `values`: a station is left out when it started after the window, or ended before it by more than the buffer (`station_window_end_buffer`), as the end a source publishes lags a station that is still reporting. A station whose start or end is not published is kept.",
               "title": "Timestamp"
             },
-            "description": "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is all of its readings rather than the one at midnight. Given, only the stations whose record overlaps it are listed, as for `values`: a station is left out when it started after the window, or ended before it by more than two readings of its resolution (two days up to daily), as the end a source publishes lags a station that is still reporting. A station whose start or end is not published is kept."
+            "description": "Single date or interval in ISO 8601, e.g. '2020-05-01' or '2020-05-01/2020-05-05'. A date covers everything it names: '2020-05' is the month of May and '2020' the year, and a day is all of its readings rather than the one at midnight. Given, only the stations whose record overlaps it are listed, as for `values`: a station is left out when it started after the window, or ended before it by more than the buffer (`station_window_end_buffer`), as the end a source publishes lags a station that is still reporting. A station whose start or end is not published is kept."
+          },
+          {
+            "name": "station_window_end_buffer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3660,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution.",
+              "title": "Station Window End Buffer"
+            },
+            "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
           },
           {
             "name": "with_metadata",
@@ -2258,6 +2298,26 @@
               "title": "Drop Nulls"
             },
             "description": "Drop rows with null values from the output. Default: the server's WD_TS_DROP_NULLS if set, else true."
+          },
+          {
+            "name": "station_window_end_buffer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3660,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution.",
+              "title": "Station Window End Buffer"
+            },
+            "description": "How many days after the end its catalogue publishes a station is still kept for the window of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, as the end a source publishes lags a station that is still reporting. The start is compared exactly. Applies where stations are matched by `name` and in a listing of `stations`. Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution."
           }
         ],
         "responses": {
@@ -5991,6 +6051,20 @@
               "wide"
             ],
             "title": "Shape"
+          },
+          "station_window_end_buffer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3660.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Window End Buffer",
+            "description": "How many days after the end its catalogue publishes a station is still kept for the window of the request, for every resolution; 0 is the exact end. Null: the buffer of the resolution, two days up to daily, 62 for monthly and 732 for annual. The start is compared exactly."
           }
         },
         "additionalProperties": false,
@@ -6003,7 +6077,8 @@
           "skip_threshold",
           "skip_criteria",
           "drop_nulls",
-          "shape"
+          "shape",
+          "station_window_end_buffer"
         ],
         "title": "ValuesSettings",
         "description": "The settings of `/api/values`."
@@ -7621,5 +7696,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.164.0"
+  "x-release": "0.165.0"
 }

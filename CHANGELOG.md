@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.165.0] - 2026-10-21
+
 ### Added
 
 - The option `station_window_end_buffer` (`WD_TS_STATION_WINDOW_END_BUFFER`, the command line's
@@ -6067,7 +6069,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...HEAD
+[0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0
 [0.164.0]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...v0.164.0
 [0.163.0]: https://github.com/earthobservations/wetterdienst/compare/v0.162.0...v0.163.0
 [0.162.0]: https://github.com/earthobservations/wetterdienst/compare/v0.161.0...v0.162.0

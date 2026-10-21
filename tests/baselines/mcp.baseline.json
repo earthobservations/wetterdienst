@@ -792,6 +792,18 @@
             }
           ]
         },
+        "station_window_end_buffer": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 3660.0,
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "with_metadata": {
           "type": "boolean",
           "default": false
@@ -1647,6 +1659,18 @@
         "drop_nulls": {
           "type": "boolean",
           "default": true
+        },
+        "station_window_end_buffer": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 3660.0,
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1656,5 +1680,5 @@
       ]
     }
   },
-  "x-release": "0.164.0"
+  "x-release": "0.165.0"
 }
