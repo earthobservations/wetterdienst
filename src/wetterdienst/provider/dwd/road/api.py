@@ -60,7 +60,7 @@ _DwdRoadMetadataSpec = {
                     "periods": ["historical"],
                     "parameters": [
                         {
-                            "name": "humidity_relative_mean",
+                            "name": "humidity_relative",
                             "name_original": "relativeHumidity",
                             "unit": "percent",
                         },
@@ -101,12 +101,12 @@ _DwdRoadMetadataSpec = {
                             "unit": "dimensionless",
                         },
                         {
-                            "name": "temperature_air_2m",
+                            "name": "temperature_air",
                             "name_original": "airTemperature",
                             "unit": "degree_kelvin",
                         },
                         {
-                            "name": "temperature_dew_point_2m",
+                            "name": "temperature_dew_point",
                             "name_original": "dewpointTemperature",
                             "unit": "degree_kelvin",
                         },

@@ -191,7 +191,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | `cloud_cover_total_midnight_to_midnight_manual` | `cloud_cover_total_mean_midnight_to_midnight_manual` | 1 |
 | `cloud_cover_total_sunrise_to_sunset` | `cloud_cover_total_mean_sunrise_to_sunset` | 1 |
 | `cloud_cover_total_sunrise_to_sunset_manual` | `cloud_cover_total_mean_sunrise_to_sunset_manual` | 1 |
-| `humidity_relative` | `humidity_relative_mean` | 27 |
+| `humidity_relative` | `humidity_relative_mean` | 26 |
 | `pressure_air_sea_level` | `pressure_air_sea_level_mean` | 14 |
 | `pressure_air_site` | `pressure_air_site_mean` | 11 |
 | `pressure_vapor` | `pressure_vapor_mean` | 11 |
@@ -219,7 +219,6 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | dwd/observation | daily/climate_summary | `pm` | `pressure_air_site` | `pressure_air_site_mean` |
 | dwd/observation | daily/climate_summary | `vpm` | `pressure_vapor` | `pressure_vapor_mean` |
 | dwd/observation | monthly/climate_summary | `mo_n` | `cloud_cover_total` | `cloud_cover_total_mean` |
-| dwd/road | 15_minutes/data | `relativeHumidity` | `humidity_relative` | `humidity_relative_mean` |
 | geosphere/observation | daily/data | `bewm_mittel` | `cloud_cover_total` | `cloud_cover_total_mean` |
 | geosphere/observation | daily/data | `rf_mittel` | `humidity_relative` | `humidity_relative_mean` |
 | geosphere/observation | daily/data | `p_mittel` | `pressure_air_site` | `pressure_air_site_mean` |
@@ -371,6 +370,26 @@ negative, down to -3,573 kJ/m², because the surface emits more long-wave radiat
 each stays as it was declared, `rads3` in J/cm² and `radl3` in kJ/m², which differ inside one file; with the default
 unit targets both come back in J/cm². The 10-minute and hourly `tsmin` of Geosphere stay
 `temperature_air_min_0_05m`: they are the minimum of their interval.
+
+#### The road stations and IPMA
+
+Three more names say what the number is, and two of them take back a statistic (0.164.0, GH-2614). The road
+temperatures lose a height the source never gave, and a plain name stands for a source that states none.
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| dwd/road | 15_minutes/data | `airTemperature` | `temperature_air_2m` | `temperature_air` | BUFR 0 12 101, the sensor height 0 07 032 before it reads 4.0, 4.05 or 5.0 m by station group and none in four |
+| dwd/road | 15_minutes/data | `dewpointTemperature` | `temperature_dew_point_2m` | `temperature_dew_point` | BUFR 0 12 103, the same sensor height |
+| dwd/road | 15_minutes/data | `relativeHumidity` | `humidity_relative_mean` | `humidity_relative` | BUFR 0 13 003 with no time significance or period before it in any station group: a reading |
+| ipma/observation | hourly/data | `humidade` | `humidity_relative` | `humidity_relative_mean` | IPMA: "humidade relativa do ar registada a 1.5 metros de altura, média da hora" |
+| ipma/observation | hourly/data | `pressao` | `pressure_air_sea_level` | `pressure_air_sea_level_mean` | IPMA: "pressão atmosférica, reduzida ao nível médio do mar (NMM), média da hora" |
+
+No station group of the road messages states 2 m (read 2026-10-21), and `temperature_air_2m` stays the name of the
+screen height. The height is in the provider's description of the two fields, not in the name, and the 0.139.0 names
+`temperature_air_mean_2m` and `temperature_dew_point_mean_2m` of the road dataset are answered with the new ones. The
+road humidity was `humidity_relative_mean` from 0.160.0 (GH-3151, the 27th row of the table above, now 26): its
+description said "mean humidity", the BUFR template states none. Every other dataset keeps the old names for its own
+rows.
 
 ## Glossary
 

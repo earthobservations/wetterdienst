@@ -429,6 +429,7 @@ const GLOSSARY_SAME: Record<string, Same> = {
   'datasets.temperature_air': { de: ['da'], why: COGNATE },
   'datasets.wind_synoptic': { de: ['nl'], why: COGNATE },
   'parameters.temperature_air_2m': { de: ['da'], why: COGNATE },
+  'parameters.temperature_air': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_0_05m': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_mean_0_05m': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_mean_0_1m': { de: ['da'], why: COGNATE },

@@ -485,11 +485,6 @@ _MEAN_HUMIDITY_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
             "cloud_cover_total": "cloud_cover_total_mean",
         },
     },
-    "DwdRoadMetadata": {
-        ("15_minutes", "data"): {
-            "humidity_relative": "humidity_relative_mean",
-        },
-    },
     "GeosphereObservationMetadata": {
         ("daily", "data"): {
             "cloud_cover_total": "cloud_cover_total_mean",
@@ -688,6 +683,26 @@ _MEAN_REST_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
 
 # GH-2614: a name that says what the source's number is, for a name another dataset of the provider keeps
 _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    # the road messages state no statistic for the humidity (BUFR 0 13 003 stands without a time significance), so
+    # `humidity_relative_mean` (the name since GH-3151) is a reading again. The air and dew point temperatures
+    # (0 12 101, 0 12 103) stand beside a sensor height (0 07 032) of 4.0, 4.05 or 5.0 m in the station groups that
+    # state one and of none in the others, never 2 m
+    "DwdRoadMetadata": {
+        ("15_minutes", "data"): {
+            "humidity_relative_mean": "humidity_relative",
+            "temperature_air_2m": "temperature_air",
+            "temperature_air_mean_2m": "temperature_air",
+            "temperature_dew_point_2m": "temperature_dew_point",
+            "temperature_dew_point_mean_2m": "temperature_dew_point",
+        },
+    },
+    # IPMA's `humidade` and `pressao` are, as `temperatura` is, the mean of the hour ("media da hora")
+    "IpmaObservationMetadata": {
+        ("hourly", "data"): {
+            "humidity_relative": "humidity_relative_mean",
+            "pressure_air_sea_level": "pressure_air_sea_level_mean",
+        },
+    },
     # `max_precip_30m` is the largest 30 minutes of the day, `max_precip_24h` of the monthly and annual rows the largest
     # day of the month or the year: both were `precipitation_amount_max`
     "DmiObservationMetadata": {("daily", "data"): {"precipitation_amount_max": "precipitation_amount_max_30min"}},

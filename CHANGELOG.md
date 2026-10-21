@@ -28,6 +28,14 @@ Types of changes:
   already do, a `df_all` you pass included: a station that closed before the window or began
   after it is no match. Build the request without `start` and `end` to match all stations as
   before (GH-2625)
+- **Breaking**: five parameters of `dwd/road` and `ipma/observation` are named for what their
+  source's value is (GH-2614). `dwd/road`: `temperature_air_2m` (`airTemperature`) is
+  `temperature_air` and `temperature_dew_point_2m` is `temperature_dew_point`, the sensors stand
+  4 to 5 m above ground and never at 2 m; `humidity_relative_mean` is `humidity_relative`, a
+  reading and no mean. `ipma/observation`: `humidity_relative` is `humidity_relative_mean` and
+  `pressure_air_sea_level` is `pressure_air_sea_level_mean`, IPMA's hourly means. The old name is
+  refused with the new one named, values and units are unchanged: request, filter and key by the
+  new name. Release the app after this backend
 
 ### Fixed
 
