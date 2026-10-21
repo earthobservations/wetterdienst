@@ -31,6 +31,8 @@ from tests.ui.test_restapi import (
     _values_result_of_shape,
 )
 from wetterdienst import Options, Settings, exceptions
+from wetterdienst.metadata.period import Period
+from wetterdienst.metadata.resolution import count_readings
 from wetterdienst.settings import check_settings
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
@@ -44,7 +46,7 @@ from wetterdienst.util.response_warnings import _COUNTED, _RECORDED, begin_respo
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from wetterdienst.model.result import ValuesResult
+    from wetterdienst.model.result import StationsResult, ValuesResult
 
 _VALUES = {**_OBSERVATION, "stations": "01048"}
 _STATIONS = {**_OBSERVATION, "all": "true"}
@@ -290,6 +292,183 @@ def test_the_rows_are_estimated_from_the_record_the_window_and_the_parameters() 
     assert estimate_rows(windowed) == 2 * 10 * 2
     assert estimate_point_rows(request.parameters, request.start, request.end) == 10 * 2
     assert estimate_point_rows(request.parameters, None, None) == 0
+
+
+def _long_running_stations(
+    periods: str | list[str] | None, parameters: str = "daily/kl", *, start: dt.datetime | None = None
+) -> StationsResult:
+    """Give two stations that have recorded since 1934 (or `start`) of the dataset of the parameters, read as asked."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    request = DwdObservationRequest(parameters=parameters, periods=periods)
+    dataset = request.parameters[0].dataset
+    record = {"start": start or dt.datetime(1934, 1, 1, tzinfo=dt.UTC), "end": dt.datetime(2026, 10, 20, tzinfo=dt.UTC)}
+    df = _selection_of(2, **record).with_columns(
+        pl.lit(dataset.resolution.name).alias("resolution"), pl.lit(dataset.name.lower()).alias("dataset")
+    )
+    return replace(_values_result_of_shape("long").stations, request=request, df=df)
+
+
+def test_the_rows_of_a_request_for_the_recent_release_are_not_those_of_the_whole_record() -> None:
+    """`periods=recent` reads about 500 days, whatever a station has recorded since; the others read the record."""
+    parameters = 14
+    record_days = (dt.date(2026, 10, 20) - dt.date(1934, 1, 1)).days + 1
+
+    # the margin over the 500 days DWD's recent release holds: two years, for each of the 14 parameters
+    assert estimate_rows(_long_running_stations("recent")) == 2 * 732 * parameters
+    for periods in (None, "historical", ["historical", "recent"]):
+        assert estimate_rows(_long_running_stations(periods)) == 2 * record_days * parameters
+
+
+@pytest.mark.parametrize(
+    ("parameters", "span_days"),
+    [
+        # no recent directory of their own: the record is read whatever the period
+        ("hourly/solar", None),
+        ("hourly/urban_temperature_air", None),
+        # the recent release holds years: 1 and 5 minutes from 2023 and growing, annual five years
+        ("1_minute/precipitation", 366 * 8),
+        ("5_minutes/precipitation", 366 * 8),
+        ("annual/climate_summary", 366 * 6),
+    ],
+)
+def test_the_recent_release_is_counted_by_what_the_dataset_holds(parameters: str, span_days: int | None) -> None:
+    """Only a dataset whose `recent` release reaches back two years at most is counted from two years (GH-3249)."""
+    end = dt.datetime(2026, 10, 20, tzinfo=dt.UTC)
+    whole = estimate_rows(_long_running_stations(None, parameters, start=dt.datetime(1981, 1, 1, tzinfo=dt.UTC)))
+    recent = estimate_rows(_long_running_stations("recent", parameters, start=dt.datetime(1981, 1, 1, tzinfo=dt.UTC)))
+
+    if span_days is None:
+        assert recent == whole
+    else:
+        # the record of a station that began where the release is assumed to begin
+        began = end - dt.timedelta(days=span_days)
+        assert recent == estimate_rows(_long_running_stations(None, parameters, start=began))
+        assert recent < whole
+
+
+def test_the_datasets_that_hold_years_of_recent_data_are_counted_from_their_record() -> None:
+    """The recent directories of the monthly derived data (2018 on) and of phenology's recent-only data hold years."""
+    from wetterdienst.provider.dwd.derived import DwdDerivedRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest  # noqa: PLC0415
+
+    end = dt.datetime(2026, 10, 20, tzinfo=dt.UTC)
+    base = _values_result_of_shape("long").stations
+    for request in (
+        DwdDerivedRequest(parameters="monthly/climate_correction_factor", periods="recent"),
+        DwdPhenologyRequest(parameters="annual/annual_beet", periods="recent"),
+    ):
+        dataset = request.parameters[0].dataset
+        assert request._recent_span_of(dataset) is None  # noqa: SLF001
+        # a station that publishes no record: counted from the start of the oldest archives, not from two years back
+        unbounded = _selection_of(1, unbounded=True).with_columns(
+            pl.lit(dataset.resolution.name).alias("resolution"),
+            pl.lit(dataset.name.lower()).alias("dataset"),
+            pl.lit(None, pl.Datetime("us", "UTC")).alias("start_timestamp"),
+            pl.lit(end, pl.Datetime("us", "UTC")).alias("end_timestamp"),
+        )
+        rows = estimate_rows(replace(base, request=request, df=unbounded))
+        readings = count_readings(dataset.resolution.value, dt.datetime(1950, 1, 1, tzinfo=dt.UTC), end)
+        assert rows == readings * len(request.parameters)
+    # the daily derived data and the phenology files are not the only ones: the span is the default elsewhere
+    daily = DwdDerivedRequest(parameters="daily/soil", periods="recent")
+    assert daily._recent_span_of(daily.parameters[0].dataset) == dt.timedelta(days=731)  # noqa: SLF001
+
+
+def test_a_provider_that_reads_no_periods_is_not_narrowed_on_a_recent_only_dataset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The periods a dataset publishes are not periods the request chose, unless the provider reads per period."""
+    from wetterdienst.provider.dwd.derived import DwdDerivedRequest  # noqa: PLC0415
+
+    end = dt.datetime(2026, 10, 20, tzinfo=dt.UTC)
+    request = DwdDerivedRequest(parameters="monthly/climate_correction_factor")
+    dataset = request.parameters[0].dataset
+    assert set(dataset.periods) == {Period.RECENT}
+    monkeypatch.setattr(DwdDerivedRequest, "_selects_by_period", False)
+    monkeypatch.setattr(DwdDerivedRequest, "_recent_span_of", lambda _self, _dataset: dt.timedelta(days=731))
+    stations = replace(
+        _values_result_of_shape("long").stations,
+        request=request,
+        df=_selection_of(1, start=dt.datetime(2010, 1, 1, tzinfo=dt.UTC), end=end).with_columns(
+            pl.lit(dataset.resolution.name).alias("resolution"), pl.lit(dataset.name.lower()).alias("dataset")
+        ),
+    )
+
+    assert estimate_rows(stations) == count_readings(
+        dataset.resolution.value, dt.datetime(2010, 1, 1, tzinfo=dt.UTC), end
+    )
+
+
+def test_each_dataset_of_a_request_is_narrowed_by_its_own_span() -> None:
+    """`daily/kl` and `daily/solar` read for `recent`: the first from two years, the second from its record."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    kl = _long_running_stations("recent", "daily/kl")
+    solar = _long_running_stations("recent", "daily/solar")
+    request = DwdObservationRequest(parameters=["daily/kl", "daily/solar"], periods="recent")
+    both = replace(kl, request=request, df=pl.concat([kl.df, solar.df]))
+
+    assert estimate_rows(both) == estimate_rows(kl) + estimate_rows(solar)
+    assert estimate_rows(kl) == 2 * 732 * 14
+    assert estimate_rows(solar) > 2 * 732 * len(solar.parameters)
+
+
+def test_only_the_recent_release_narrows_the_rows() -> None:
+    """A request for `now` alone is counted from the record, as the window of the day is not a span of this module's."""
+    assert estimate_rows(_long_running_stations("now", "10_minutes/temperature_air")) == estimate_rows(
+        _long_running_stations(None, "10_minutes/temperature_air")
+    )
+
+
+def test_a_window_inside_the_periods_read_is_what_bounds_the_rows() -> None:
+    """The narrower of the window of the request and the periods it reads counts."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    stations = _long_running_stations("recent")
+    window = {"start": dt.datetime(2026, 10, 1, tzinfo=dt.UTC), "end": dt.datetime(2026, 10, 10, tzinfo=dt.UTC)}
+    inside = replace(stations, request=DwdObservationRequest(parameters="daily/kl", periods="recent", **window))
+    assert estimate_rows(inside) == 2 * 10 * 14
+
+    # the recent release holds none of 2010, but the window is what is counted, an upper bound
+    old = {"start": dt.datetime(2010, 1, 1, tzinfo=dt.UTC), "end": dt.datetime(2010, 1, 10, tzinfo=dt.UTC)}
+    outside = replace(stations, request=DwdObservationRequest(parameters="daily/kl", periods="recent", **old))
+    assert estimate_rows(outside) == 2 * 10 * 14
+
+
+def test_a_provider_that_reads_no_periods_is_counted_from_its_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The periods of a provider that does not read per period narrow nothing, so they narrow no estimate."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    stations = _long_running_stations("recent")
+    record_days = (dt.date(2026, 10, 20) - dt.date(1934, 1, 1)).days + 1
+    monkeypatch.setattr(DwdObservationRequest, "_selects_by_period", False)
+    assert estimate_rows(stations) == 2 * record_days * 14
+
+
+def test_the_documented_values_request_for_the_recent_release_passes_the_default_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two long-running stations, `periods=recent`: the first sample of the docs, answered on a default server."""
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")], stations_df=_long_running_stations(None).df)
+    asked: list[object] = []
+
+    def stations_of(**kwargs: Any) -> StationsResult:  # noqa: ANN401
+        """Give the two stations for the periods the route passed on."""
+        periods = kwargs["request"].periods
+        asked.append(periods)
+        return _long_running_stations(periods or None)
+
+    monkeypatch.setattr(restapi, "get_stations", stations_of)
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", stations_of)
+
+    assert client.get("/api/v1/values", params={**_STATIONS, "periods": "recent"}).status_code == 200
+    assert asked[-1], "the periods of the query reach the selection"
+
+    # the same stations read as a whole are about 700,000 rows (GH-3249): still refused
+    response = client.get("/api/v1/values", params=_STATIONS)
+    assert response.status_code == 400
+    assert response.json()["limit"] == "rows"
 
 
 def test_the_start_of_an_unpublished_record_is_assumed_from_the_periods_of_the_dataset() -> None:

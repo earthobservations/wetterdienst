@@ -46,6 +46,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
 )
 from wetterdienst.provider.dwd.observation.metadata import (
     DWD_URBAN_DATASETS,
+    DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES,
     HIGH_RESOLUTIONS,
     DwdObservationMetadata,
 )
@@ -652,6 +653,27 @@ class DwdObservationRequest(TimeseriesRequest):
     _values = DwdObservationValues
     _history = DwdObservationHistory
     _selects_by_period = True
+
+    def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
+        """Give how far back the recent release of a dataset reaches, which is not 500 days for all of them.
+
+        The solar datasets and the hourly urban ones have no `recent` directory of their own: whatever period is asked
+        for, the whole record is read, so None. The 1 and 5 minute data hold years, from 2023 at the time of
+        writing, and the release has kept growing (`historical` holds 2023 to 2025 as well): eight years. The annual
+        data hold five.
+        """
+        if dataset in (
+            DwdObservationMetadata.hourly.solar,
+            DwdObservationMetadata.daily.solar,
+            *DWD_URBAN_DATASETS_WITHOUT_PERIOD_DIRECTORIES,
+        ):
+            return None
+        match dataset.resolution.value:
+            case Resolution.MINUTE_1 | Resolution.MINUTE_5:
+                return dt.timedelta(days=366 * 8)
+            case Resolution.ANNUAL:
+                return dt.timedelta(days=366 * 6)
+        return super()._recent_span_of(dataset)
 
     @property
     def interval(self) -> Interval | None:

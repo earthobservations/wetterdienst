@@ -292,6 +292,13 @@ class DwdPhenologyRequest(TimeseriesRequest):
     _values = DwdPhenologyValues
     _selects_by_period = True
 
+    def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:  # noqa: ARG002
+        """Give no span: a dataset that has only recent files holds its whole record there (some from 2018).
+
+        The values are annual, so counting from the record costs the estimate little.
+        """
+        return None
+
     @staticmethod
     def _parse_station_id(series: pl.Series) -> pl.Series:
         return series.cast(pl.String).str.pad_start(5, "0")
