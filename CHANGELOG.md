@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.164.0] - 2026-10-21
+
 ### Changed
 
 - A station `name` is matched without regard to diacritics, on the command line, the REST API,
@@ -6028,7 +6030,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...HEAD
+[0.164.0]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...v0.164.0
 [0.163.0]: https://github.com/earthobservations/wetterdienst/compare/v0.162.0...v0.163.0
 [0.162.0]: https://github.com/earthobservations/wetterdienst/compare/v0.161.0...v0.162.0
 [0.161.0]: https://github.com/earthobservations/wetterdienst/compare/v0.160.0...v0.161.0

@@ -1589,13 +1589,13 @@
     "dwd/road": {
       "15_minutes": {
         "data": [
-          "humidity_relative_mean",
+          "humidity_relative",
           "precipitation_amount",
           "precipitation_intensity",
           "precipitation_type_flags",
           "road_surface_condition",
-          "temperature_air_2m",
-          "temperature_dew_point_2m",
+          "temperature_air",
+          "temperature_dew_point",
           "temperature_surface",
           "visibility",
           "water_film_thickness",
@@ -1964,9 +1964,9 @@
     "ipma/observation": {
       "hourly": {
         "data": [
-          "humidity_relative",
+          "humidity_relative_mean",
           "precipitation_amount",
-          "pressure_air_sea_level",
+          "pressure_air_sea_level_mean",
           "radiation_global",
           "temperature_air_mean_2m",
           "wind_direction",
@@ -3148,7 +3148,11 @@
       },
       "dwd/road": {
         "15_minutes/data": {
-          "humidity_relative": "humidity_relative_mean"
+          "humidity_relative_mean": "humidity_relative",
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air",
+          "temperature_dew_point_2m": "temperature_dew_point",
+          "temperature_dew_point_mean_2m": "temperature_dew_point"
         }
       },
       "dwd/swsmos": {
@@ -3220,6 +3224,12 @@
           "pressure_air_site": "pressure_air_site_mean",
           "pressure_vapor": "pressure_vapor_mean",
           "wind_speed": "wind_speed_mean"
+        }
+      },
+      "ipma/observation": {
+        "hourly/data": {
+          "humidity_relative": "humidity_relative_mean",
+          "pressure_air_sea_level": "pressure_air_sea_level_mean"
         }
       },
       "knmi/observation": {
@@ -3400,5 +3410,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.163.0"
+  "x-release": "0.164.0"
 }
