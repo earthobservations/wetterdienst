@@ -16,8 +16,6 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from measurement.measures import Distance
 from measurement.utils import guess
-from rapidfuzz import fuzz, process
-from rapidfuzz import utils as fuzz_utils
 
 from wetterdienst.exceptions import (
     InvalidBoundingBoxError,
@@ -67,6 +65,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
@@ -85,6 +84,34 @@ EARTH_RADIUS_KM = 6371
 # few to choose from instead. Pass `rank` for another number.
 DEFAULT_NAME_RANK = 1
 DEFAULT_NAME_RANK_LISTING = 5
+
+# how long before a window a station's published end may fall and the station still be listed for
+# it, by resolution: two readings, as the end a source publishes lags a station that is still
+# reporting (DWD's daily index ends yesterday, its annual one the year before last). Two days for
+# every resolution up to daily, and, as a month and a year are no fixed span, 62 and 732 days
+_END_LAG_DEFAULT = dt.timedelta(days=2)
+_END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
+
+
+def limit_to_window(df: pl.DataFrame, start: dt.datetime | None, end: dt.datetime | None) -> pl.DataFrame:
+    """Keep the rows of a station list whose record overlaps the window.
+
+    A row is left out when its `start_timestamp` is after the window, which is a historical fact, or its
+    `end_timestamp` is before the window by more than the lag of its resolution (`_END_LAG`), which is the
+    one thing the index cannot state exactly for a station that is still reporting (see
+    `TimeseriesValues._begins_after_window`). A bound the provider does not publish states nothing either
+    way, so the row is kept. Without a window (no `start` or no `end`) the list is returned as it is.
+
+    This is the one rule of "has a record in the window": `filter_by_name` applies it, and so does the
+    stations listing of the command line, the REST API and MCP (`ui.core.limit_stations_to_window`).
+    """
+    if start is None or end is None or df.is_empty():
+        return df
+    lag = pl.col("resolution").replace_strict(_END_LAG, default=_END_LAG_DEFAULT, return_dtype=pl.Duration("us"))
+    ends_in_time = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") + lag >= start)
+    begins_in_time = pl.col("start_timestamp").is_null() | (pl.col("start_timestamp") <= end)
+    return df.filter(ends_in_time & begins_in_time)
+
 
 # types
 # either of
@@ -751,11 +778,14 @@ class TimeseriesRequest:
     def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
         """Filter stations by station_id.
 
+        The stations come back in the order of the catalogue, not in the order the ids are given
+        (``["00003", "00001"]`` is ``00001`` then ``00003``): sort the frame for another order.
+
         Args:
             station_id: Station id or list of station ids.
 
         Returns:
-            StationsResult: Filtered stations.
+            StationsResult: Filtered stations, in catalogue order.
 
         """
         df = self.all().df
@@ -764,7 +794,7 @@ class TimeseriesRequest:
 
         log.info(f"Filtering for station_id={list(station_id_series)}")
 
-        df_station_id = df.join(other=station_id_series.to_frame(), on="station_id", how="inner")
+        df_station_id = df.join(other=station_id_series.to_frame(), on="station_id", how="inner", maintain_order="left")
 
         # an id the request has no station for leaves it out of the result, which would otherwise be
         # an empty or a shorter one with no word on why (GH-2635)
@@ -801,12 +831,17 @@ class TimeseriesRequest:
                 `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same. A station is one
                 match however many datasets (rows) it has, and two stations that share a name are two.
                 The rows come back best match first, equal scores ordered by `station_id`.
-            threshold: Threshold for the fuzzy search.
-            df_all: The stations to match the name against, where not every station of the request: a
-                listing that has left out those without a record in its window, so that the best
-                matches are taken among the stations that remain (GH-2635). Default: all of them. The
-                window of the request is not applied by this method: the command line, the REST API and
-                MCP apply it to `df_all` themselves (`ui.core.limit_stations_to_window`).
+            threshold: Threshold for the fuzzy search. The name and the station names are compared
+                without regard to case and diacritics, an umlaut written out counting as the umlaut:
+                "koeln", "Koln" and "Köln" all find "Köln" (`wetterdienst.util.names`).
+            df_all: The stations to match the name against, where not every station of the request.
+                Default: all of them. Whichever the frame, the window of the request (`start` and `end`) is
+                applied to it first, by the rule of `limit_to_window`: a station whose record ends before the
+                window or begins after it is not matched, so that the best match is a station that can have
+                a reading in it and not one that closed long ago (GH-3026). A frame that has been through
+                the window already is left as it is by a second pass. The other filters (`filter_by_station_id`,
+                `filter_by_rank`, `filter_by_distance`, `filter_by_bbox`, `filter_by_sql`) select among the
+                whole list, whatever the window.
 
         Returns:
             StationsResult: Filtered stations.
@@ -828,14 +863,23 @@ class TimeseriesRequest:
             msg = "threshold must be between 0.0 and 1.0"
             raise ValueError(msg)
 
-        if df_all is None:
-            df_all = self.all().df
+        # only the stations with a record in the window of the request are matched: a station that closed
+        # before it is not the best match for a name while a current station of that name has the
+        # readings. Applied to a passed `df_all` as well, so that the result does not depend on how the
+        # frame was obtained (a frame the window has been applied to already is left as it is)
+        # (`start` and `end` are datetimes once the request is built: `convert_timestamps`)
+        df_all = limit_to_window(
+            self.all().df if df_all is None else df_all,
+            cast("dt.datetime | None", self.start),
+            cast("dt.datetime | None", self.end),
+        )
 
         # WRatio (rapidfuzz's weighted composite of ratio/partial/token-sort/token-set with
         # length-ratio guards) so a short place query matches longer station names: "Kiel" ->
         # "Kiel-Holtenau"/"Kiel-Kronshagen". The previous token_sort_ratio scored by full-string
         # similarity and thus penalised the length gap ("Kiel" vs "Kiel-Holtenau" ~47%), so a bare
-        # city name fell below the threshold and returned nothing.
+        # city name fell below the threshold and returned nothing. The query and the names are folded
+        # first, so that "koeln", "Koln" and "Koeln" find "Köln" (`wetterdienst.util.names`).
         #
         # The unit of `rank` is the station, not the row: a station has a row for every dataset asked
         # for, and several stations may share a name. So the names are scored per station (once for
@@ -846,20 +890,9 @@ class TimeseriesRequest:
         candidates = (
             df_all.select("station_id", "name").unique(maintain_order=True).sort("station_id", maintain_order=True)
         )
-        matches = process.extract(
-            query=name,
-            choices=candidates.get_column("name"),
-            scorer=fuzz.WRatio,
-            score_cutoff=threshold * 100,
-            processor=fuzz_utils.default_process,
-            limit=None,
-        )
+        matches = match_names(name, candidates.get_column("name").to_list(), threshold)
         station_ids = candidates.get_column("station_id")
-        selected = list(
-            dict.fromkeys(
-                station_ids[index] for _, _, index in sorted(matches, key=lambda match: (-match[1], match[2]))
-            )
-        )[:rank]
+        selected = list(dict.fromkeys(station_ids[index] for index, _ in matches))[:rank]
 
         if selected:
             position = pl.DataFrame({"station_id": selected, "_match": range(len(selected))})

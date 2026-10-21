@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 import logging
 import re
@@ -38,10 +37,14 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.period import Period
-from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.metadata import parse_parameters
-from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LISTING, TimeseriesRequest
+from wetterdienst.model.request import (
+    DEFAULT_NAME_RANK,
+    DEFAULT_NAME_RANK_LISTING,
+    TimeseriesRequest,
+    limit_to_window,
+)
 from wetterdienst.options import Options, SkipThreshold, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
@@ -1599,15 +1602,11 @@ def get_stations(
         # match of a fetch, which is the one `filter_by_name` has too (GH-2635)
         default_rank = DEFAULT_NAME_RANK_LISTING if isinstance(request, StationsRequest) else DEFAULT_NAME_RANK
         name_rank: int = getattr(request, "rank", None) or default_rank
-        # a request for a window matches the name among the stations that have a record in it, so that
-        # the best match is not one that closed long ago while a current station of the same name has
-        # the readings, and the best few of a listing are not ones that closed either (GH-3026)
-        df_all = (
-            limit_stations_to_window(r.all()).df
-            if isinstance(request, StationsRequest | ValuesRequest) and timestamp
-            else None
-        )
-        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8), df_all=df_all)
+        # a request for a window matches the name among the stations that have a record in it, which
+        # `filter_by_name` does of its own accord, so that the best match is not one that closed long
+        # ago while a current station of the same name has the readings, and the best few of a listing
+        # are not ones that closed either (GH-3026)
+        return r.filter_by_name(name, rank=name_rank, threshold=getattr(request, "name_threshold", 0.8))
 
     latitude: float | None = getattr(request, "latitude", None)
     longitude: float | None = getattr(request, "longitude", None)
@@ -1636,25 +1635,15 @@ def get_stations(
     raise AssertionError(msg)
 
 
-# how long before a window a station's published end may fall and the station still be listed for
-# it, by resolution: two readings, as the end a source publishes lags a station that is still
-# reporting (DWD's daily index ends yesterday, its annual one the year before last). Two days for
-# every resolution up to daily, and, as a month and a year are no fixed span, 62 and 732 days
-_END_LAG_DEFAULT = dt.timedelta(days=2)
-_END_LAG = {Resolution.MONTHLY.value: dt.timedelta(days=62), Resolution.ANNUAL.value: dt.timedelta(days=732)}
-
-
 def limit_stations_to_window(stations: StationsResult) -> StationsResult:
     """Keep the rows of a stations *listing* whose record overlaps the window the request names.
 
     `stations` takes a `timestamp` as `values` does, and a window is of no use to a listing unless it
     leaves out the stations that cannot have a reading in it -- a nearest-three listing for a day this
-    year included stations that closed a century ago. A row is left out when its `start_timestamp` is
-    after the window, which is a historical fact, or its `end_timestamp` is before the window by more
-    than the lag of its resolution (`_END_LAG`), which is the one thing the index cannot state exactly
-    for a station that is still reporting (see `TimeseriesValues._begins_after_window`). A bound the
-    provider does not publish states nothing either way, so the row is kept. Without a window the
-    listing is returned as it is.
+    year included stations that closed a century ago. The rule is the core's (`limit_to_window` of
+    `wetterdienst.model.request`, which `filter_by_name` applies as well): a row is left out when its
+    `start_timestamp` is after the window, or its `end_timestamp` is before the window by more than
+    the lag of its resolution. Without a window the listing is returned as it is.
 
     Applied before `limit_stations_to_rank`, so that the N closest are the N closest of those that
     overlap, and before a `name` is matched, in a listing and in `values` alike (`get_stations`), so that
@@ -1662,18 +1651,11 @@ def limit_stations_to_window(stations: StationsResult) -> StationsResult:
     stations by id, or by distance, does not use it: it walks the stations and reads what each holds
     inside the window, which is the better judge than an index.
     """
-    start, end = stations.start, stations.end
-    df = stations.df
-    if start is None or end is None or df.is_empty():
-        return stations
-    lag = pl.col("resolution").replace_strict(_END_LAG, default=_END_LAG_DEFAULT, return_dtype=pl.Duration("us"))
-    ends_in_time = pl.col("end_timestamp").is_null() | (pl.col("end_timestamp") + lag >= start)
-    begins_in_time = pl.col("start_timestamp").is_null() | (pl.col("start_timestamp") <= end)
-    return replace(stations, df=df.filter(ends_in_time & begins_in_time))
+    return replace(stations, df=limit_to_window(stations.df, stations.start, stations.end))
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
-    """Trim a rank-filtered stations *listing* to the requested ``rank`` rows.
+    """Trim a rank-filtered stations *listing* to the requested ``rank`` stations.
 
     ``filter_by_rank`` intentionally keeps *all* stations with a position (distance-sorted) in ``df`` because the real
     ``rank`` limit is applied later, during value collection: that walk takes the ``rank`` closest
@@ -1683,12 +1665,16 @@ def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
     A plain stations listing does no value collection, so it cannot apply that data-aware selection --
     but returning every station (e.g. 1284 for DWD) when the caller asked for the N closest is both
     surprising and huge. Here we slice to the ``rank`` closest *by distance* (data availability
-    unknown at listing time); leave other filters untouched.
+    unknown at listing time); leave other filters untouched. The unit is the station, not the row: a
+    station has a row for every dataset asked for, so ``rank=2`` with two datasets keeps the rows of
+    the two closest stations, not the two rows of the closest one.
     """
     from wetterdienst.model.result import StationsFilter  # noqa: PLC0415
 
     if stations._stations_filter is StationsFilter.BY_RANK and stations._rank:  # noqa: SLF001
-        return replace(stations, df=stations.df.head(stations._rank))  # noqa: SLF001
+        df = stations.df
+        closest = df.get_column("station_id").unique(maintain_order=True).head(stations._rank)  # noqa: SLF001
+        return replace(stations, df=df.filter(pl.col("station_id").is_in(closest.to_list())))
     return stations
 
 

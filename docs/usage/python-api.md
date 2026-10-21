@@ -311,12 +311,21 @@ requested parameters and periods -- is left out of the result with a warning nam
 `WARNING`): the stations that do exist are returned, and when none does the result is empty. The command
 line and the REST API do the same for a list of `--stations` ids.
 
+The stations come back in the order of the catalogue, not in the order the ids are given
+(`("00003", "00001")` is `00001`, then `00003`): sort the frame for another order.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
 scorer) so partial names, minor typos, and word-order variations are handled
 automatically. In particular a bare place name resolves to its stations, e.g.
 `name="Kiel"` matches `Kiel-Holtenau` and `Kiel-Kronshagen`.
+
+Diacritics do not matter: the name and the station names are folded before they are scored, so
+`"Köln"`, `"Koln"` and `"koeln"` all find `Köln`, and `"Dusseldorf"`, `"Düsseldorf"` and
+`"duesseldorf"` find the same stations. A name is folded two ways and the better score counts: without
+its accent (`ä ö ü é ñ ç š č` become the plain letter, `ß` is `ss`, `ø` is `o`, `ł` is `l`) and with
+the umlaut and the Nordic letters spelled out (`ä ö ü` become `ae oe ue`, `å` is `aa`, `ø` is `oe`).
 
 ```{code-cell}
 ---
@@ -343,10 +352,15 @@ of the command line and the REST API offers the best five instead: pass `rank=5`
 A station is one match however many datasets (rows) it has, and two stations that share a name are two.
 The rows come back best match first, equal scores in the order of their `station_id`.
 
-`filter_by_name` matches the name among all stations of the request, whatever the `start` and `end`
-of the request: a station that closed before the window can be the best match. The command line, the REST
-API and MCP leave those stations out when they are given a `timestamp`; to do the same in Python pass the
-stations that remain as `df_all`.
+`filter_by_name` matches the name among the stations that have a record in the `start` and `end` of the
+request, as the command line, the REST API and MCP do with a `timestamp`: a station that closed before
+the window, or began after it, is not the best match for a name while one of that name has the readings. A
+station is left out when it started after the window, or ended before it by more than two readings of its
+resolution (two days up to daily, 62 days for monthly and 732 for annual); a station whose start or end is
+not published is kept. A request without a window matches among all of them. The window is applied to a
+`df_all` you pass as well, so that the result does not depend on how you got the stations. The other
+filters (`filter_by_station_id`, `filter_by_rank`, `filter_by_distance`, `filter_by_bbox`,
+`filter_by_sql`) select among the whole list, whatever the window.
 
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two

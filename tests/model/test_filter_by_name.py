@@ -123,3 +123,150 @@ def test_a_name_nothing_matches_is_an_empty_result(
     result = request_.filter_by_name("FizzBuzz")
     assert result.df.is_empty()
     assert result.df.schema == request_.all().df.schema
+
+
+def _serve_with_records(
+    monkeypatch: pytest.MonkeyPatch, rows: list[tuple[str, str | None, int | None, int | None]]
+) -> None:
+    """Serve daily stations of (station_id, name, first year, last year) with the record each published."""
+
+    def year(value: int | None) -> dt.datetime | None:
+        return None if value is None else dt.datetime(value, 1, 1, tzinfo=_UTC)
+
+    stations = pl.DataFrame(
+        {
+            "resolution": ["daily"] * len(rows),
+            "dataset": ["climate_summary"] * len(rows),
+            "station_id": [row[0] for row in rows],
+            "start_timestamp": [year(row[2]) for row in rows],
+            "end_timestamp": [year(row[3]) for row in rows],
+            "latitude": [51.0] * len(rows),
+            "longitude": [7.0] * len(rows),
+            "elevation": [10.0] * len(rows),
+            "name": [row[1] for row in rows],
+            "region": ["Nordrhein-Westfalen"] * len(rows),
+        },
+        schema_overrides={
+            "start_timestamp": pl.Datetime(time_zone="UTC"),
+            "end_timestamp": pl.Datetime(time_zone="UTC"),
+            "name": pl.String,
+        },
+    )
+    monkeypatch.setattr(DwdObservationRequest, "_all", lambda _self: stations.lazy())
+
+
+_DIACRITICS = [
+    ("00001", "Köln", None, None),
+    ("00002", "Koln-Bonn", None, None),
+    ("00003", "Düsseldorf", None, None),
+    ("00004", "Dusseldorf-Flughafen", None, None),
+    ("00005", None, None, None),
+    ("00006", "Dresden", None, None),
+]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        # the umlaut as it is, dropped, and written out: Köln is found by all three
+        ("Köln", ["00001", "00002"]),
+        ("Koln", ["00001", "00002"]),
+        ("koeln", ["00001", "00002"]),
+        ("KÖLN", ["00001", "00002"]),
+        ("Düsseldorf", ["00003", "00004"]),
+        ("Dusseldorf", ["00003", "00004"]),
+        ("duesseldorf", ["00003", "00004"]),
+    ],
+)
+def test_a_name_finds_the_station_whatever_the_way_its_diacritics_are_written(
+    monkeypatch: pytest.MonkeyPatch, query: str, expected: list[str]
+) -> None:
+    """Umlauts, their transliteration and their absence find the same stations; a null name never matches."""
+    _serve_with_records(monkeypatch, _DIACRITICS)
+    request = DwdObservationRequest(parameters=("daily", "climate_summary"), settings=Settings())
+
+    result = request.filter_by_name(query, rank=10).df
+
+    assert result.get_column("station_id").to_list() == expected
+    assert "00005" not in result.get_column("station_id").to_list()
+
+
+def test_the_exact_spelling_beats_the_station_that_holds_the_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`Düsseldorf` is a perfect match for the station of that name, and the airport comes after it."""
+    _serve_with_records(
+        monkeypatch, [("00001", "Dusseldorf-Flughafen", None, None), ("00002", "Düsseldorf", None, None)]
+    )
+    request = DwdObservationRequest(parameters=("daily", "climate_summary"), settings=Settings())
+
+    assert request.filter_by_name("duesseldorf").df.get_column("station_id").to_list() == ["00002"]
+    assert request.filter_by_name("Dusseldorf").df.get_column("station_id").to_list() == ["00002"]
+    assert request.filter_by_name("Düsseldorf", threshold=1.0, rank=5).df.get_column("station_id").to_list() == [
+        "00002"
+    ]
+
+
+# 00001 is open, 00002 closed in 2015 and 00003 begins after the window, 00004 publishes no record at all
+_WINDOWED = [
+    ("00001", "Düsseldorf", 1950, None),
+    ("00002", "Dusseldorf-Flughafen", 1990, 2015),
+    ("00003", "DÜSSELDORF", 2021, None),
+    ("00004", "Düsseldorf-Unbekannt", None, None),
+]
+
+
+def test_a_name_is_matched_among_the_stations_with_a_record_in_the_window_of_the_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The window of the request is applied before the ranking, as the command line and the REST API do."""
+    _serve_with_records(monkeypatch, _WINDOWED)
+    parameters = ("daily", "climate_summary")
+
+    without = DwdObservationRequest(parameters=parameters, settings=Settings())
+    assert without.filter_by_name("Dusseldorf", rank=10).df.get_column("station_id").to_list() == [
+        "00001",
+        "00003",
+        "00002",
+        "00004",
+    ]
+
+    windowed = DwdObservationRequest(parameters=parameters, start="2020-05-01", end="2020-05-03", settings=Settings())
+    result = windowed.filter_by_name("Dusseldorf", rank=10)
+    # the station that closed and the one that begins later are no candidates; a bound not published keeps the station
+    assert result.df.get_column("station_id").to_list() == ["00001", "00004"]
+    assert windowed.filter_by_name("Dusseldorf").df.get_column("station_id").to_list() == ["00001"]
+
+
+def test_the_window_is_applied_to_a_df_all_that_is_passed_as_well(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The result does not depend on how the frame was obtained: a frame the window was applied to is left as it is."""
+    from wetterdienst.model.request import limit_to_window  # noqa: PLC0415
+
+    _serve_with_records(monkeypatch, _WINDOWED)
+    request = DwdObservationRequest(
+        parameters=("daily", "climate_summary"), start="2020-05-01", end="2020-05-03", settings=Settings()
+    )
+    everything = request.all().df
+    cut = limit_to_window(everything, request.start, request.end)
+
+    assert cut.height == 2
+    expected = request.filter_by_name("Dusseldorf", rank=10).df
+    for df_all in (everything, cut):
+        assert request.filter_by_name("Dusseldorf", rank=10, df_all=df_all).df.equals(expected)
+
+
+def test_filter_by_station_id_returns_the_stations_in_the_order_of_the_catalogue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ids asked for in any order give the catalogue's order: sort the frame for another one."""
+    _serve_with_records(
+        monkeypatch, [("00003", "C", None, None), ("00001", "A", None, None), ("00002", "B", None, None)]
+    )
+    request = DwdObservationRequest(parameters=("daily", "climate_summary"), settings=Settings())
+
+    catalogue = request.all().df.get_column("station_id").to_list()
+    assert catalogue == ["00003", "00001", "00002"]
+    for asked in (["00001", "00003"], ["00003", "00001"], ("00002", "00001", "00003")):
+        found = request.filter_by_station_id(asked).df.get_column("station_id").to_list()
+        assert found == [station for station in catalogue if station in set(asked)]
+    # the caller sorts for another order
+    df = request.filter_by_station_id(["00003", "00001"]).df.sort("station_id")
+    assert df.get_column("station_id").to_list() == ["00001", "00003"]
