@@ -353,7 +353,7 @@ surface:
 | --- | --- |
 | Python | a `DeprecationWarning` that names the replacement |
 | command line | click's `(DEPRECATED: ...)` in the help, and a warning on stderr when it is used; stdout stays what it was |
-| REST | `deprecated` in the OpenAPI document, a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745)) on every response that uses it, a `Sunset` header ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)) where a date is set, a `Link` with `rel="deprecation"`, and a `deprecated-parameter` warning in `metadata` for a parameter; see [Deprecation](restapi.md#deprecation) |
+| REST | `deprecated` in the OpenAPI document, a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/info/rfc9745/)) on every response that uses it, a `Sunset` header ([RFC 8594](https://www.rfc-editor.org/info/rfc8594/)) where a date is set, a `Link` with `rel="deprecation"`, and a `deprecated-parameter` warning in `metadata` for a parameter; see [Deprecation](restapi.md#deprecation) |
 | MCP | the endpoint of the old version keeps serving for at least two minor releases after the next one appears |
 
 Deprecated today:

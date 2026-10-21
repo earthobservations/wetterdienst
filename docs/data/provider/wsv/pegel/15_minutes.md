@@ -6,7 +6,7 @@
 |---------------|--------------------------------------------------------------|
 | name          | 15_minutes                                                   |
 | original name | 15_minutes                                                   |
-| url           | [here](https://www.pegelonline.wsv.de/webservice/ueberblick) |
+| url           | [here](https://pegelonline.wsv.de/webservice/ueberblick) |
 
 ## datasets
 
@@ -18,8 +18,8 @@
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name          | data                                                         |
 | original name | data                                                         |
-| description   | Recent data (last 31 days) of German waterways including water level and discharge for most stations but may also include chemical, meteorologic and other types of values ([details](https://www.pegelonline.wsv.de/webservice/ueberblick)) |
-| access        | [here](https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true)                                                                                                                                          |
+| description   | Recent data (last 31 days) of German waterways including water level and discharge for most stations but may also include chemical, meteorologic and other types of values ([details](https://pegelonline.wsv.de/webservice/ueberblick)) |
+| access        | [here](https://pegelonline.wsv.de/webservices/rest-api/v2/stations.json?includeTimeseries=true)                                                                                                                                          |
 
 #### parameters
 
