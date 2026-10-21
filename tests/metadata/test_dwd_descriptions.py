@@ -45,7 +45,7 @@ def test_swsmos_describes_what_its_own_sheet_describes() -> None:
 
 
 def test_the_poi_previous_day_is_the_utc_day_reported_at_06() -> None:
-    """The "previous day" columns of the German stations are a UTC day, in the report of 06 UTC; the new snow no period.
+    """The "previous day" columns of the German stations are a UTC day, in the 06 UTC report; the snow has no period.
 
     The 10-minute observations of 25 stations reproduce the maximum, minimum and mean of 2026-10-20 (reported at 06 UTC
     on 2026-10-21) for the UTC day and not for 06:00 to 06:00; the new snow was "since the previous observation",
@@ -102,8 +102,8 @@ def test_the_mosmix_ratio_and_energy_are_not_called_irradiance_alone() -> None:
 def test_the_weather_codes_are_the_ones_dwd_lists(metadata: MetadataModel, dataset: str) -> None:
     """`ww` and `W1W2` carry the code lists DWD publishes in `mosmix_element_weather_xls.xlsx`.
 
-    MOSMIX's `W1W2` is two digits (every value of 8 stations of MOSMIX_L and of MOSMIX_S has its tens digit at least
-    its units digit), DMO's one class.
+    MOSMIX's `W1W2` is two digits (every value of 8 stations of MOSMIX_L and of all 5648 stations of MOSMIX_S has
+    its tens digit at least its units digit), DMO's one class.
     """
     assert "95 (thunderstorm)" in _description(metadata, "hourly", dataset, "ww")
     w1w2 = _description(metadata, "hourly", dataset, "w1w2")
