@@ -777,6 +777,10 @@ function attachOverlayListeners(getParams: () => { arrowInfos: { timeMs: number,
   overlayRedrawHandler = redraw
   window.addEventListener('resize', redraw)
   overlayAttached = true
+  // Plotly emits plotly_afterplot of the drawing before the promise of newPlot resolves, and these
+  // handlers are attached once it has: the chart's first afterplot is already gone. Without this
+  // the barbs are absent until something makes Plotly draw again (a resize of the window).
+  redraw()
 }
 
 function cleanupPlotlyOverlayHandlers() {

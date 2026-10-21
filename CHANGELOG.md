@@ -65,6 +65,9 @@ Types of changes:
 - The IMGW descriptions of `temperature_air_min_0_05m` say "at the ground (przy gruncie)" and that
   the source states no height, never 5 cm, and the `_2m` air temperatures say the file states no
   height (the shelter convention); the name `temperature_air_min_0_05m` is unchanged (GH-3136)
+- The app's forecast chart (also the embeddable widget) was missing its wind barbs at first paint
+  and showed them only once something made Plotly draw again, such as a resize of the browser
+  window. They are drawn with the chart. App only, no backend release needed (GH-3240)
 
 ## [0.164.0] - 2026-10-21
 

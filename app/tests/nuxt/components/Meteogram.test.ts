@@ -715,3 +715,58 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
     expect(document.body.querySelector('table')).toBeNull()
   })
 })
+
+describe('meteogram wind barbs', { timeout: 15_000 }, () => {
+  // 30 hourly values of a wind of 6 m/s from the west, beside the temperature the chart is drawn for
+  const wind = ['wind_speed', 'wind_direction'].flatMap(parameter => Array.from({ length: 30 }, (_, hour) => ({
+    station_id: '10384',
+    resolution: 'hourly',
+    dataset: 'small',
+    parameter,
+    timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString().replace('.000Z', '+00:00'),
+    value: parameter === 'wind_speed' ? 6 : 270,
+    quality_flags: null,
+  })))
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    vi.restoreAllMocks()
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+  })
+
+  it('are drawn once the chart is, though Plotly announces its first drawing before newPlot resolves', async () => {
+    // Plotly emits plotly_afterplot of a drawing while newPlot is still running, and newPlot resolves after it:
+    // a handler that is attached once newPlot has resolved never hears of the first drawing (GH-3240)
+    const listeners: Record<string, (() => void)[]> = {}
+    plotly.newPlot.mockClear()
+    plotly.newPlot.mockImplementationOnce((async (element: any) => {
+      element.on = (name: string, listener: () => void) => {
+        (listeners[name] ??= []).push(listener)
+      }
+      element.removeListener = () => {}
+      element.removeAllListeners = () => {}
+      for (const listener of listeners.plotly_afterplot ?? [])
+        listener()
+    }) as any)
+    // a canvas that records what is drawn on it: the test's document has none that draws
+    const strokes = vi.fn()
+    const context = new Proxy({} as Record<string, unknown>, {
+      get: (target, property: string) => property === 'stroke' ? strokes : (property in target ? target[property] : vi.fn()),
+      set: (target, property: string, value) => {
+        target[property] = value
+        return true
+      },
+    })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => context) as any)
+
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...values, ...wind] })
+    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+
+    // no further drawing is announced: the barbs are there without one
+    await vi.waitFor(() => expect(document.body.querySelector('.meteogram-overlay-canvas')).not.toBeNull())
+    expect(strokes).toHaveBeenCalled()
+  })
+})
