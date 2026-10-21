@@ -89,9 +89,9 @@ it itself.
 
 These values are returned as the source writes them, with no token:
 
-- visibility at the top of the sensor's range (DWD 75,000 m, SMHI 75,000 and 99,999 m, FMI 50,000 m, NWS and NOAA
-  GHCN 16,093 m, ECCC 24.1 km, Météo-France synop 60,000 to 80,000 m): a lower bound, not the visibility. A
-  visibility at that value says only that it was at least that far;
+- visibility at the top of the sensor's range (DWD 75,000 m, SMHI 75,000, 99,999 and, at one 1 minute station, 50,000 m,
+  FMI 50,000 m, NWS and NOAA GHCN 16,093 m, ECCC 24.1 km, Météo-France synop 60,000 to 80,000 m): a lower bound, not
+  the visibility. A visibility at that value says only that it was at least that far;
 - a relative humidity of 100 % and above: a hygrometer reads past 100 now and then, and no blanket rule nulls it.
   DMI, RMI and DWD road null a humidity above 130 %, outside the physical range;
 - a radiation of 0 at night; a net radiation that is negative (DWD DMO);

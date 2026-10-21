@@ -217,7 +217,20 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     # 2,170 kJ/m2, the clear sky of that noon at 38.7 N about 2,600) has three stations above the extraterrestrial
     # 3,260 kJ/m2 of the hour: 6211217 (3,867), 6211213 (3,752) and 1200512 (3,257), and 6211217 reads 3,961 at
     # 13 UTC. That is a station that reads high, not a code, so the value is not touched. IPMA's open-data page lists
-    # the files only and defines none of the fields
+    # the files only and defines none of the fields.
+    # The feed read in full on 2026-10-21 (174 stations, 24 hours, 4,079 station hours; the Oct 19 feed again for
+    # 203 stations) has the -99.0 in every field and nothing else that is a code: `intensidadeVento` and
+    # `intensidadeVentoKM` are -99.0 in the same 415 hours (and agree to 0.04 km/h otherwise), the direction code 0
+    # is 470 hours, of which 392 have no speed, 60 a speed of 0.0 and 18 a speed of 1 to 3 m/s, and the geojson of
+    # the same station list (obs-surface.geojson) writes `descDirVento: "---"` for it (77 of 484 stations), where 1
+    # and 9 are "N": a code of no direction, null whatever the speed. Station faults inside the physical range, left
+    # values because the source documents no code for them: Olhao EPPO (1210881) reads 0.0 (once 0.1) in 47 of the
+    # 48 hours of two feeds, Mertola (1210863) 0.0 in all 24 hours of 2026-10-20 11:00 to 2026-10-21 10:00 but up to
+    # 1,305 kJ/m2 on 2026-10-19, and V.N. Cerveira (1210604) 0.0 at every noon read; five stations (Odemira Saboia
+    # and Vila Nova de Milfontes, Aljezur Rogil, Silves Sao Marcos da Serra, Almodovar Pico do Mu) read 0.0 to 1.8
+    # on both days against 1,500 to 2,200 kJ/m2 at their neighbours, which looks like a scale of 1,000 (MJ/m2) and
+    # not a lack of sun; four stations (Tomar 1210724, Castro Marim 1210867, Madeira Santana 1210965 and Madeira
+    # Areeiro 1210973) read 25 to 1,079 kJ/m2 at night
     reading = {
         "temperatura": 21.5,
         "humidade": 64.0,
@@ -572,6 +585,10 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # way to identify hours of missing data across the entire dataset is to test if the precipitation value is equal
     # to the special missing value of -9999"; the precipitation columns of the Antigua file are empty, so that row is
     # worded after the documentation
+    # Read through the reader for six stations (summer 2023 and January 2024, 125,450 rows, GH-3135): no sentinel
+    # beyond the two above and nothing outside the physical range. One fault of the source is left a value: at Sokoto
+    # (NII0000DNSO) `station_level_pressure` reads exactly 100 hPa too high in 9 of 39 hours, a typo that stays inside
+    # the range of a pressure, so no range and no sentinel can find it
     stations = (
         b"GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
         b"ACM00078861,17.1167,-61.7833,10.0,,COOLIDGE FIELD ANTIGUA,,,78861,,AG\n"
@@ -1307,7 +1324,13 @@ def _nws_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # The hourly `Sikt` (parameter 12, "momentanvärde, 1 gång/tim", meter) tops at 99999 m at some stations (809 and
     # 1,169 hours at two of them, GH-3135); the parameter's page names no code for it (2026-10-19), so it is read as
-    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles)
+    # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles). The 1 minute
+    # parameters are read the same way (`latest-day`, 2026-10-21, two draws of 12 and 40 of the 586 stations with an
+    # open end, of which ten had data: 88,651 values): the visibility (parameter 51, "medelvärde 1 min") has 99999 m
+    # at several stations (854 of 6,068 minutes in the first draw, 11 to 464 of 1,527 at three stations of the second)
+    # and 50000 m at 192840 in 706 of 1,527 minutes, the top of that sensor's range and no code; the direction
+    # (parameter 48) is null in 730 minutes, each beside a speed of 0 and none beside a wind that blows, and the
+    # precipitation, snow depth, humidity, pressure and temperature hold nothing out of range or repeated at an end
     # parameter 3 of station 188790 (Abisko Aut) as SMHI writes it (read 2026-10-12), "Vindriktning, medelvärde 10 min":
     # 0 at 2019-01-18 04:00, where the wind speed (parameter 4) is 0.0, and 360 for north at 2019-03-15 11:00
     # (GH-2794). A 0 beside a wind that blows (15 of the 4879 zeros of 188790, 1989) stays (GH-3222): the row of
@@ -1439,6 +1462,14 @@ def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     # stationValue of 06070 (read 2026-10-12): the mean wind direction of 2020-02-14 03:00 is 0 beside a mean wind speed
     # of 0, which is a calm (GH-2794); the 06:00 hour is made up. The 0 beside a speed above 0, which stays, is pinned
     # by tests/provider/dmi
+    # Read again through the reader on 2026-10-21 (GH-3135; the API needs no key): the hourly records of ten
+    # stations (Denmark, Greenland, the Faroe Islands; 2025-06-01 to 2025-08-31 and 2025-11-01 to 2026-01-31,
+    # 165,000 values) and the daily records of thirteen (2022 to 2025, 40,600 values) hold nothing outside the
+    # physical range that is not already null and no sentinel. The mean direction is null in 350 hours and 0 beside
+    # a speed above 0 in 7, never beside a speed of 0. A daily mean wind speed of 30 to 76 m/s (Lynge Overdrev,
+    # 06013, 20 days of 2025) and a daily gust of 60 to 114 m/s (Sejerby 04341 and 06013, 98 days) are inside the
+    # range, and DMI marks every one of them `validity:false`, so they stay as the source marks them; the gusts of
+    # Sejerby above 115 m/s (up to 514.7) are the nulls with `raw:` already
     rows = [
         ("mean_wind_dir", "2020-02-14T03:00:00+00:00", 0.0),
         ("mean_wind_speed", "2020-02-14T03:00:00+00:00", 0.0),
@@ -2075,7 +2106,13 @@ NO_STUB = {
     ),
     "lhmt/observation": (
         "no sentinel: the source writes null, and the hourly values of vilniaus-ams, kauno-ams and klaipedos-ams "
-        "(2017-01, 2023-06) hold no value that is no reading (2026-10-12)"
+        "(2017-01, 2023-06) hold no value that is no reading (2026-10-12). Read again on 2026-10-21 for 24 other "
+        "stations in four windows of 4 to 6 days (2025-11-20 to 25, 2026-07-07 to 13, 2026-09-06 to 11 and "
+        "2026-10-15 to 19; 35,703 values of which 20,524 are not null, six seconds between stations, no HTTP 429): "
+        "nothing outside the physical range and no value repeated at an end of its range; the cloud cover is only "
+        "the oktas 0 to 8 (an obscured sky is a null), the snow depth 0 or 1 cm, and the wind speed is never 0.0 "
+        "in 1,572 readings (the lowest is 0.1), so that no calm is written as a direction; the four directions of "
+        "0 or 360 are beside 0.4 to 2.8 m/s"
     ),
     "wsv/pegel": (
         "no reader maps a sentinel; its values are JSON numbers, and the current measurement of its 1,168 timeseries "
