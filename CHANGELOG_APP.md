@@ -27,6 +27,9 @@ Types of changes:
   stripes) and the names of the toolbar buttons that show on hover, while the pointer is over the
   chart, until the pointer moves on. The label itself still cannot be moved onto, which Plotly does
   not allow; its values are in "Show as table" (WCAG 1.4.13, partly; GH-3186)
+- `[Glossary]` Two parameters have labels in all eleven languages (GH-2614): `temperature_air` and
+  `temperature_dew_point`. Needs the backend that serves them: release the backend first. The Low
+  German and Luxembourgish labels are not reviewed by a native speaker
 
 ### Fixed
 

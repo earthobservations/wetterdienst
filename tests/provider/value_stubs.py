@@ -1539,10 +1539,14 @@ STUBS = [
         _ipma,
         reading=("temperature_air_mean_2m", 21.5),
         # the humidity is converted from percent to a decimal on its way
-        sentinels=(("temperature_air_mean_2m", -99.0), ("humidity_relative", -0.99), ("precipitation_amount", -99.0)),
+        sentinels=(
+            ("temperature_air_mean_2m", -99.0),
+            ("humidity_relative_mean", -0.99),
+            ("precipitation_amount", -99.0),
+        ),
         tokens=(
             ("temperature_air_mean_2m", "-99.0", None),
-            ("humidity_relative", "-99.0", None),
+            ("humidity_relative_mean", "-99.0", None),
             ("precipitation_amount", "-99.0", None),
             ("wind_direction", "-99.0", None),
             # the calm code, which is no direction

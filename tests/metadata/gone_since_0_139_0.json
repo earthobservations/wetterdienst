@@ -52,6 +52,7 @@
    ],
    "daily/data": [
     "humidity_relative",
+    "precipitation_amount_max",
     "pressure_air_sea_level",
     "wind_direction",
     "wind_speed"
@@ -95,6 +96,8 @@
    "hourly/icon": [
     "cloud_cover_below_1000ft",
     "pressure_air_site_reduced",
+    "radiation_global_last_3h",
+    "radiation_sky_long_wave_last_3h",
     "temperature_air_max_2m",
     "temperature_air_mean_0_05m",
     "temperature_air_mean_2m",
@@ -171,6 +174,9 @@
     "cloud_cover_total",
     "wind_force_beaufort"
    ],
+   "annual/precipitation_more": [
+    "snow_depth"
+   ],
    "annual/weather_phenomena": [
     "count_weather_type_sleet"
    ],
@@ -235,6 +241,9 @@
     "cloud_cover_total",
     "wind_force_beaufort"
    ],
+   "monthly/precipitation_more": [
+    "snow_depth"
+   ],
    "monthly/weather_phenomena": [
     "count_weather_type_sleet"
    ],
@@ -259,7 +268,6 @@
   },
   "DwdRoadMetadata": {
    "15_minutes/data": [
-    "humidity_relative",
     "temperature_air_mean_2m",
     "temperature_dew_point_mean_2m",
     "temperature_surface_mean"
@@ -317,6 +325,7 @@
     "pressure_air_site",
     "pressure_vapor",
     "temperature_air_mean_2m",
+    "temperature_air_min_0_05m",
     "wind_speed"
    ],
    "hourly/data": [
@@ -360,6 +369,12 @@
     "pressure_air_site",
     "pressure_vapor",
     "wind_speed"
+   ]
+  },
+  "IpmaObservationMetadata": {
+   "hourly/data": [
+    "humidity_relative",
+    "pressure_air_sea_level"
    ]
   },
   "KnmiObservationMetadata": {
