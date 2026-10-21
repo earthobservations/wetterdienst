@@ -402,7 +402,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Type de temps, averse de pluie ou de neige à proximité',
   weather_type_vicinity_snow_ice_crystals: 'Type de temps, neige ou cristaux de glace à proximité',
   weather_type_vicinity_thunder: 'Type de temps, orage à proximité',
-  chloride_concentration: 'Concentration en chlorure',
   clearance_height: 'Tirant d\'air',
   climate_correction_factor: 'Facteur de correction climatique',
   cloud_cover_above_7km: 'Nébulosité au-dessus de 7 km',

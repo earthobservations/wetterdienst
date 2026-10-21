@@ -138,7 +138,6 @@ def _phase(event: str) -> str:
 # the heights the table names, or at one the source does not state. DWD's road stations write a sensor height (BUFR
 # 0 07 032) of 4.0, 4.05 or 5.0 m, or none, never 2 m (GH-2614); the provider's description of the field says so.
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
-    CanonicalParameter("chloride_concentration", "concentration", "Concentration of chloride dissolved in the water."),
     CanonicalParameter(
         "clearance_height", "length_short", "Vertical clearance between the water surface and the structure above it."
     ),
@@ -1808,8 +1807,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "temperature_air",
         "temperature",
-        "Air temperature at a height above ground that the name does not state, at a moment: the source's sensor "
-        "stands elsewhere than at the 2 m of `temperature_air_2m`, or the source states no height.",
+        "Air temperature at a height above ground that the name does not state, where the source states no "
+        "statistic or a reading at one moment: the source's sensor stands elsewhere than at the 2 m of "
+        "`temperature_air_2m`, or the source states no height.",
         interpolation="homogeneous",
         lapse_rate=_AIR_TEMPERATURE_LAPSE_RATE,
     ),

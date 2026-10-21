@@ -402,7 +402,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Weertype, regen- of sneeuwbui in de omgeving',
   weather_type_vicinity_snow_ice_crystals: 'Weertype, sneeuw of ijskristallen in de omgeving',
   weather_type_vicinity_thunder: 'Weertype, onweer in de omgeving',
-  chloride_concentration: 'Chlorideconcentratie',
   clearance_height: 'Doorvaarthoogte',
   climate_correction_factor: 'Klimaatcorrectiefactor',
   cloud_cover_above_7km: 'Bewolking boven 7 km',
