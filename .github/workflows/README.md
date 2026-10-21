@@ -86,10 +86,11 @@ test-matrix leg has taken up to 57 minutes on a passing run and 84 on a failing 
 leg of the offline selection up to 27 (60), the minimum-versions job up to 53 (120), the backend
 image's smoke build up to 30 (60), the coverage job up to 52 (120), the accessibility scan up to 50
 and growing (120), the daily Docker cleanup 31 (90); lint, unused, typecheck and the pages build take
-a few minutes and have 15 to 30, the link check 45. The matrix has 180: its Windows and macOS legs
-run Python 3.15, which builds h5py, duckdb and numcodecs from source, and had not been measured when
-the limit was set. The time spent queued for a runner does not count. When a job legitimately
-outgrows its limit, raise it in the workflow and here.
+a few minutes and have 15 to 30, the link check 45. The matrix has 180: its macOS legs run
+Python 3.15, which builds h5py, duckdb and numcodecs from source, and had not been measured when the
+limit was set (the Windows leg cannot build h5py there, see the comment in `tests.yml`). The time
+spent queued for a runner does not count. When a job legitimately outgrows its limit, raise it in
+the workflow and here.
 
 ## Credentials
 

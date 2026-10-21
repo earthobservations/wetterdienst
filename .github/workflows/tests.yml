@@ -107,8 +107,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y libhdf5-dev pkg-config
 
-      # the same for macOS. Windows has no HDF5 to install this way: if h5py does not build there, that
-      # leg reports it (the matrix is `continue-on-error`) until h5py publishes a 3.15 wheel
+      # the same for macOS. Windows has no HDF5 to install this way, and h5py is in the dev group that the
+      # plain `uv sync` below installs: until h5py publishes a 3.15 wheel the Windows leg fails there
+      # (the matrix is `continue-on-error`), and no test runs on Windows but the offline selection below
       - name: Install HDF5 (macOS, Python 3.15 only)
         if: ${{ startsWith(matrix.os, 'macos-') && matrix.python-version == '3.15' }}
         run: brew install hdf5 pkg-config
@@ -232,8 +233,8 @@ jobs:
             polars: "1.43.2"
           # the one platform where `socket.connect` is not asyncio's path -- `ProactorEventLoop`
           # connects through `_overlapped.ConnectEx` - which is why the guard refuses names as well
-          # as addresses. Nothing else in CI asks whether the selection is offline here: the
-          # Windows leg of the matrix above runs `poe test`, remote tests and all, which warms the
+          # as addresses. Nothing else in CI asks whether the selection is offline here: when the
+          # Windows leg of the matrix above runs `poe test`, remote tests and all, it warms the
           # cache and the connection an unmarked test would then be served from
           - os: "windows-latest"
             python-version: "3.14"

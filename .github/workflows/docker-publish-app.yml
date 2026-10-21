@@ -18,7 +18,7 @@ on:
 
 permissions: { }
 
-# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
+# A push to a pull request cancels the run it supersedes; a run on a tag always completes.
 concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
