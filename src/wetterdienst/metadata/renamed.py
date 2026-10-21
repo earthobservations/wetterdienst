@@ -25,7 +25,6 @@ RENAMED_COLUMNS: dict[str, str] = {
 #: canonical parameter names, old name to new
 RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2032: misspelt, German or mistranslated names (evaporation targets follow GH-2038 below)
-    "chlorid_concentration": "chloride_concentration",
     "cloud_cover_between_2km_to_7km": "cloud_cover_between_2km_and_7km",
     "count_weather_type_ripe": "count_weather_type_hoar_frost",
     "evaporation_height_corn_loamysilt": "evaporation_amount_corn_loamy_silt",
@@ -695,6 +694,15 @@ _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
             "temperature_dew_point_2m": "temperature_dew_point",
             "temperature_dew_point_mean_2m": "temperature_dew_point",
         },
+    },
+    # PEGELONLINE's `LT` is "LUFTTEMPERATUR" and its documentation and its series state no height, so the 2 m of the old
+    # name was an assumption; the name was `temperature_air_mean_2m` in 0.139.0
+    "WsvPegelMetadata": {
+        (resolution, "data"): {
+            "temperature_air_2m": "temperature_air",
+            "temperature_air_mean_2m": "temperature_air",
+        }
+        for resolution in ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
     },
     # IPMA's `humidade` and `pressao` are, as `temperatura` is, the mean of the hour ("media da hora")
     "IpmaObservationMetadata": {
