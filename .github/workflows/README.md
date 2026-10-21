@@ -15,7 +15,8 @@ is restricted to the four trees named in `include` in `pyproject.toml`, `ty` and
 look at `src/wetterdienst`, and `uv audit` only at the resolved dependency set. The test matrix is
 the widest of them, because the suite reaches outside `src/` and `tests/`: `tests/test_docs.py`
 checks the provider pages under `docs/data/provider` against the metadata model,
-`tests/test_citation.py` ties `CITATION.cff` to `README.md` and `CHANGELOG.md`, and
+`tests/test_citation.py` ties `CITATION.cff` to `README.md` and `CHANGELOG.md`,
+`tests/test_docs.py` ties the extras `docker/Dockerfile` installs to `docs/usage/docker.md`, and
 `app/tests/e2e/i18n-coverage.spec.ts` checks the app translation catalogs under `app/i18n` and the
 app home page against a running backend, so the Python suite no longer reads either.
 
@@ -56,6 +57,17 @@ reason to fail a pull request. The code samples are run by `tests/test_docs_samp
 REST samples offline, the Python ones under the `remote` marker), which `tests.yml` and `coverage.yml` start on a
 change to `docs/**`.
 
+## Timeouts
+
+Every job carries a `timeout-minutes`, in place of GitHub's six hours: a hung job holds its
+concurrency group against every later push to the branch. The limits sit well above what passing
+runs took, measured from the job durations of recent runs: a test-matrix leg has taken up to 57
+minutes on a passing run and 84 on a failing one (150 allowed), the Python 3.15 leg of the offline
+selection up to 27 (60), the minimum-versions job up to 53 (90), the backend image's smoke build up
+to 30 (60); the short jobs (lint, unused, typecheck, docs) take a few minutes and have 15 to 30. The
+time spent queued for a runner does not count. When a job legitimately outgrows its limit, raise it
+in the workflow and here.
+
 ## Credentials
 
 A secret goes in the `env:` of the step that reads it, never of the job or the workflow: `uv sync`,
@@ -94,7 +106,7 @@ workflow whose filter spans both sides of the repository.
 
 **Caching:**
 - pnpm store cached for faster installs
-- Playwright browsers cached automatically
+- Playwright's Firefox is installed on every run, it is not cached
 
 **Artifacts:**
 - Playwright HTML report (retained for 7 days)

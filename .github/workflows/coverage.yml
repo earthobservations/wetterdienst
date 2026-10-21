@@ -1,7 +1,7 @@
 name: Coverage
 
-# Same inputs as the test matrix - see tests.yml for why the provider pages, the three app
-# entries and the three root files are in here.
+# Same inputs as the test matrix - see tests.yml for why the docs, the one app file, the Dockerfile
+# and the root files are in here.
 on:
   push:
     branches: [ main ]
@@ -12,14 +12,14 @@ on:
       - 'examples/**'
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
-      - 'app/i18n/**'
-      - 'app/app/pages/index.vue'
       - 'app/shared/types/api.ts'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
+      - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
       - '.github/workflows/coverage.yml'
   pull_request:
@@ -31,14 +31,14 @@ on:
       - 'examples/**'
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
-      - 'app/i18n/**'
-      - 'app/app/pages/index.vue'
       - 'app/shared/types/api.ts'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
+      - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
       - '.github/workflows/coverage.yml'
 
@@ -59,6 +59,7 @@ permissions: {}
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     environment: codecov
     permissions:
       contents: read
