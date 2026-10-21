@@ -19,6 +19,21 @@ from wetterdienst.metadata.parameter_table import PARAMETERS
 
 PROVIDER_DIR = Path(wetterdienst.__file__).parent / "provider"
 
+# the speed of a wind direction's own reading, by canonical name: the first of them a stub's output holds (GH-3222)
+SPEED_OF_DIRECTION = {
+    "wind_direction": ("wind_speed", "wind_speed_mean_last_10min", "wind_force_beaufort"),
+    "wind_direction_mean": ("wind_speed_mean",),
+    "wind_direction_mean_last_10min": ("wind_speed_mean_last_10min",),
+    "wind_direction_mean_last_2min": ("wind_speed_mean_last_2min", "wind_speed"),
+    "wind_direction_gust_max": ("wind_gust_max",),
+}
+# the stubs whose source writes a 0 that is no direction beside a wind that blows as well, and why
+ZERO_THAT_IS_NO_DIRECTION = {
+    "dwd/observation hourly/wind_synop": 'the sheet\'s "Windrichtung uml.,windstill DD=00", a variable or a calm wind',
+    "dwd/observation hourly/urban_wind": "a 0 that is neither a calm nor north (GH-2809), brought up in GH-3222",
+    "ipma/observation hourly/data": 'the code 0 of the eight points, "no direction"',
+}
+
 
 def _carried(df: pl.DataFrame, stub: ValueStub) -> list[tuple[str, float]]:
     """Give the sentinels of the stub that the output holds, as (parameter, value)."""
@@ -102,6 +117,7 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
             f"{stub.provider}: no {name} read as {value} with `raw:{text}`, got "
             f"{df.filter(pl.col('parameter') == name).select('value', 'quality_flags').unique().to_dicts()}"
         )
+    _assert_the_rule_of_a_calm(df, stub)
     # the token is the last kind and there is one: a caller reads `split(",")[-1]`
     assert df.filter(pl.col("raws") > 1).is_empty()
     assert df.filter((pl.col("raws") == 1) & ~pl.col("last").str.starts_with("raw:")).is_empty()
@@ -110,6 +126,37 @@ def test_a_sentinel_mapped_away_keeps_the_text_the_source_wrote(
         assert not at.is_empty(), f"{stub.provider}: no values at {stub.empty_at}"
         silent = at.filter(pl.col("raws").fill_null(0) == 0)
         assert silent.is_empty(), f"{stub.provider}: {silent.height} values at {stub.empty_at} carry no `raw:` token"
+
+
+def _assert_the_rule_of_a_calm(df: pl.DataFrame, stub: ValueStub) -> None:
+    """Hold the wind directions of a stub's output to the one rule of a calm, as the speed beside them says (GH-3222).
+
+    A direction of 0 beside a speed of 0 of the same reading is a calm, and is null with `raw:0`: no provider returns
+    the 0. A direction mapped from a 0 is beside a speed of 0, as a 0 beside a wind that blows stays, unless the
+    source writes a code there (`ZERO_THAT_IS_NO_DIRECTION`). `df` is the output with the null rows kept and the last
+    token of `quality_flags` as `last`.
+    """
+    present = set(df.get_column("parameter").unique().to_list())
+    for direction, speeds in SPEED_OF_DIRECTION.items():
+        speed = next((name for name in speeds if name in present), None)
+        if direction not in present or speed is None:
+            continue
+        pairs = (
+            df.filter(pl.col("parameter") == direction)
+            .select("timestamp", pl.col("value").alias("direction"), pl.col("last"))
+            .join(
+                df.filter(pl.col("parameter") == speed).select("timestamp", pl.col("value").alias("speed")),
+                on="timestamp",
+            )
+        )
+        calm = pairs.filter((pl.col("direction") == 0) & (pl.col("speed") == 0))
+        assert calm.is_empty(), f"{stub.provider}: {direction} is 0 beside a {speed} of 0: {calm.to_dicts()}"
+        if stub.provider in ZERO_THAT_IS_NO_DIRECTION:
+            continue
+        # the 0 as the source wrote it, `0` or `0.0`
+        zero = pl.col("last").str.contains(r"^raw:0(\.0+)?$")
+        blowing = pairs.filter(pl.col("direction").is_null() & zero & (pl.col("speed") > 0))
+        assert blowing.is_empty(), f"{stub.provider}: a 0 of {direction} beside a wind that blows: {blowing.to_dicts()}"
 
 
 def test_a_reader_that_maps_a_sentinel_has_a_stub() -> None:

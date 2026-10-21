@@ -35,7 +35,12 @@ from tests.baselines.common import DIRECTORY, RELEASE, read, write
 BASELINE = DIRECTORY / "parameters.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "rename of humidity_relative in dwd/road/15_minutes/data was removed": (
+        "the road humidity is no mean (BUFR 0 13 003 states no statistic) and is `humidity_relative` again, a name the "
+        "dataset declares, so nothing is refused any more and the hint of 0.163.0 has nothing to point at (GH-2614)"
+    ),
+}
 
 #: a rename that ends up in a name that is renamed again is followed this far
 _CHAIN = 10

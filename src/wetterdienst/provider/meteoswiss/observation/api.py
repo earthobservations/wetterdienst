@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.quality_flags import calm, clear_sentinels, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
@@ -23,6 +24,14 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+# The mean wind direction is written 0 beside a mean speed of 0, a calm, and north as 360 and, beside a wind that blows,
+# 0: the files of BER, SMA and JUN of 2024 (read 2026-10-21) have 1,169 zeros in 157,683 10 minute directions, 912 of
+# them beside a speed of 0.0 and every 10 minutes with a speed of 0.0 a direction of 0, 257 beside 0.1 to 0.7 m/s, and
+# 262 of 360; the hourly files 92 zeros in 26,283 (26 beside 0.0, every one of them), and the daily files of 2000 to
+# 2024 87 zeros, all beside a speed of 0.2 m/s or more. The documentation of the parameters names no code. The 0
+# beside a speed of 0 is null, as in every provider (`calm`, GH-3222); the others stay
+_WIND_SPEED_OF_DIRECTION = {"dkl010z0": "fkl010z0", "dkl010h0": "fkl010h0", "dkl010d0": "fkl010d0"}
 
 
 class MeteoswissObservationValues(TimeseriesValues):
@@ -111,18 +120,18 @@ class MeteoswissObservationValues(TimeseriesValues):
             return pl.DataFrame()
         df = pl.concat(dfs, how="diagonal")
         parameter_columns = [col for col in df.columns if col not in ("station_abbr", "reference_timestamp")]
-        df = df.unpivot(
-            on=parameter_columns,
-            index=["reference_timestamp"],
-            variable_name="parameter",
-            value_name="value",
-        )
+        # the 0 of a calm wind, beside a speed of 0, keeping its text as the `raw:` token (GH-3222)
+        for direction, speed in _WIND_SPEED_OF_DIRECTION.items():
+            if direction in df.columns and speed in df.columns:
+                df = clear_sentinels(df, [direction], calm(pl.col(speed)))
+        df = unpivot_with_raw(df, index=["reference_timestamp"], on=parameter_columns)
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`), and so is the
         # reading of the value as a number
         return df.select(
             pl.col("parameter").str.to_lowercase(),
             pl.col("reference_timestamp").str.to_datetime("%d.%m.%Y %H:%M", strict=False).alias("timestamp"),
             pl.col("value"),
+            join_quality_flags(None, raw=pl.col("raw")),
         )
 
 

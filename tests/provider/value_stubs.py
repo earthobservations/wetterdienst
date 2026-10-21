@@ -74,6 +74,8 @@ from wetterdienst.provider.meteofrance.observation import MeteoFranceObservation
 from wetterdienst.provider.meteofrance.observation import api as observation_api
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as synop_api
+from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationRequest
+from wetterdienst.provider.meteoswiss.observation import api as meteoswiss_api
 from wetterdienst.provider.metno.frost import MetnoFrostRequest
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.provider.metoffice.observation import MetOfficeObservationRequest
@@ -352,12 +354,14 @@ def _dwd_hourly_moisture(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = Tru
 def _dwd_hourly_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/stundenwerte_FF_00003_19370101_20110331_hist.zip: the description says `missing value=-999`, the files
     # of 1975 to 1994 write 990 for a direction there is none of, and 0 for a calm (a speed of 0.0) beside 360 for north
-    # of a "36-teilige Windrose", which has no point 0 (GH-2805)
+    # of a "36-teilige Windrose", which has no point 0 (GH-2805). A 0 beside a wind that blows (1,447 of the 180,845
+    # historical hours below 0.5 m/s) stays (GH-3222); the row of 1975-02-08 08:00 is worded by the stub
     product = (
         "STATIONS_ID;MESS_DATUM;QN_3;   F;   D;eor\n"
         "          3;1975101607;    5;   2.1;  250;eor\n"
         "          3;1975101608;    5;   1.3;  990;eor\n"
         "          3;1975020807;    5;   0.0;    0;eor\n"
+        "          3;1975020808;    5;   0.4;    0;eor\n"
         "          3;1975010215;    5;   1.2;  360;eor\n"
     )
     return _dwd_observation(monkeypatch, "hourly", "wind", product, "00003", year=1975, drop_nulls=drop_nulls)
@@ -376,11 +380,14 @@ def _dwd_hourly_wind_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
 
 def _dwd_subdaily_wind(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # historical/terminwerte_FK_00001_19370101_19860630_hist.zip: "Terminwerte der Windrichtung (32-teilige Windrose)",
-    # whose 0 is a calm (Beaufort 0) and whose north is 32 (GH-2805, GH-2808): 24 is a west wind, 270 degrees
+    # whose 0 is a calm (Beaufort 0) and whose north is 32 (GH-2805, GH-2808): 24 is a west wind, 270 degrees. A 0
+    # beside Beaufort 1 or 2 (798 of the 1,284 zeros of the recent files) stays, 0 degrees (GH-3222); the row of
+    # 1937-01-01 21:00 is worded by the stub
     product = (
         "STATIONS_ID;MESS_DATUM;QN_4;DK_TER;FK_TER;eor\n"
         "          1;1937010107;    5;   0;   0;eor\n"
         "          1;1937010114;    5;  24;   3;eor\n"
+        "          1;1937010121;    5;   0;   1;eor\n"
     )
     return _dwd_observation(monkeypatch, "subdaily", "wind", product, "00001", year=1937, drop_nulls=drop_nulls)
 
@@ -588,11 +595,13 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
         {"temperature": "-None", "wind_direction": "90", "wind_speed": "3.1", "precipitation": "0.2"},
         # "A direction of "000" is given for calm winds" (the documentation), which the files write 0 (GH-2794)
         {"temperature": "24.0", "wind_direction": "0", "wind_speed": "0.0", "precipitation": "0.0"},
+        # the one 0 of USW00023174 and ASN00086282 beside a wind that blows (1.5 m/s, 1985) stays (GH-3222)
+        {"temperature": "24.5", "wind_direction": "0", "wind_speed": "1.5", "precipitation": "0.0"},
     ]
     body = ghcnh_psv(
         "ACM00078861",
         columns,
-        [(f"1942-01-17T{hour:02d}:00:00", row) for hour, row in zip((2, 3, 14, 15, 16), rows, strict=True)],
+        [(f"1942-01-17T{hour:02d}:00:00", row) for hour, row in zip((2, 3, 14, 15, 16, 17), rows, strict=True)],
     )
     serve(monkeypatch, ghcn_api, {"ghcnh-station-list": stations, "GHCNh_ACM00078861": body})
     request = NoaaGhcnRequest(
@@ -633,12 +642,15 @@ def _meteofrance_observation_hourly(
     drop_nulls: bool,
 ) -> pl.DataFrame:
     # HOR_departement_07_periode_2020-2024 of data.gouv.fr: the descriptions of the hourly dataset give N = 9 for a sky
-    # that could not be seen, and the audit of GH-2720 found a wind direction of 0 where there is none (and 999 in six
-    # rows of 1965 to 1967); the rows are worded by the stub, with the validation code beside each value
+    # that could not be seen, and the audit of GH-2720 found a wind direction of 0 beside FF = 0 (99.97 % of its zeros,
+    # the rest beside a wind that blows, which stays, GH-3222) and 999 in six rows of 1965 to 1967; the rows are worded
+    # by the stub, with the validation code beside each value
+    hour = {"NUM_POSTE": "07005001", "QN": "1", "QDD": "1", "QFF": "1"}
     rows = [
-        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010100", "T": "2.1", "N": "4", "DD": "250", "QN": "1", "QDD": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010101", "T": "2.0", "N": "9", "DD": "0", "QN": "1", "QDD": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJHH": "2024010102", "T": "1.9", "N": "5", "DD": "999", "QN": "1", "QDD": "1"},
+        {**hour, "AAAAMMJJHH": "2024010100", "T": "2.1", "N": "4", "DD": "250", "FF": "3.0"},
+        {**hour, "AAAAMMJJHH": "2024010101", "T": "2.0", "N": "9", "DD": "0", "FF": "0"},
+        {**hour, "AAAAMMJJHH": "2024010102", "T": "1.9", "N": "5", "DD": "999", "FF": "2.0"},
+        {**hour, "AAAAMMJJHH": "2024010103", "T": "1.8", "N": "5", "DD": "0", "FF": "1.0"},
     ]
     _serve_meteofrance(monkeypatch, "hourly", dataset, "HOR_departement_07_periode_2020-2024", rows)
     request = MeteoFranceObservationRequest(
@@ -655,18 +667,25 @@ def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
     # QUOT_departement_07_periode_2020-2024_RR-T-Vent: the daily DXI holds the code 0 (GH-2720), and the reader applies
     # 0 and 999 to it as to the hourly DD, so the stub adds the 999; the 400 is that of QUOT_departement_31 (31299001,
     # 2007-09-05: DXI = 400, FXI = 8.0, QDXI = 1, GH-2728), moved here; worded by the stub,
-    # with the validation code beside each value
+    # with the validation code beside each value. A 0 beside FXI = 0 (98.8 % of the zeros of DXI) is a calm, one beside
+    # a gust that blows stays (GH-3222)
+    day = {"NUM_POSTE": "07005001", "QDXI": "1", "QFXI": "1"}
     rows = [
-        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240101", "TN": "-1.0", "DXI": "250", "QDXI": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240102", "TN": "-0.5", "DXI": "0", "QDXI": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240103", "TN": "0.5", "DXI": "999", "QDXI": "1"},
-        {"NUM_POSTE": "07005001", "AAAAMMJJ": "20240104", "TN": "1.5", "DXI": "400", "QDXI": "1"},
+        {**day, "AAAAMMJJ": "20240101", "TN": "-1.0", "DXI": "250", "FXI": "12.0"},
+        {**day, "AAAAMMJJ": "20240102", "TN": "-0.5", "DXI": "0", "FXI": "0"},
+        {**day, "AAAAMMJJ": "20240103", "TN": "0.5", "DXI": "999", "FXI": "5.0"},
+        {**day, "AAAAMMJJ": "20240104", "TN": "1.5", "DXI": "400", "FXI": "8.0"},
+        {**day, "AAAAMMJJ": "20240105", "TN": "2.5", "DXI": "0", "FXI": "6.0"},
     ]
     _serve_meteofrance(monkeypatch, "daily", "core", "QUOT_departement_07_periode_2020-2024_RR-T-Vent", rows)
     request = MeteoFranceObservationRequest(
-        parameters=[("daily", "core", "temperature_air_min_2m"), ("daily", "core", "wind_direction_gust_max")],
+        parameters=[
+            ("daily", "core", "temperature_air_min_2m"),
+            ("daily", "core", "wind_direction_gust_max"),
+            ("daily", "core", "wind_gust_max"),
+        ],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 4),
+        end=_day(2024, 1, 5),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -675,7 +694,10 @@ def _meteofrance_observation_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: 
 
 def _meteofrance_observation_hourly_core(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     return _meteofrance_observation_hourly(
-        monkeypatch, "core", ["temperature_air_2m", "wind_direction_mean_last_10min"], drop_nulls=drop_nulls
+        monkeypatch,
+        "core",
+        ["temperature_air_2m", "wind_direction_mean_last_10min", "wind_speed_mean_last_10min"],
+        drop_nulls=drop_nulls,
     )
 
 
@@ -717,6 +739,13 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             "dd": "400",
             "ff": "1",
         },
+        # a 0 beside an `ff` of 1 to 8 m/s, as 32 rows of the 1996 file write it, stays (GH-3222); moved here
+        {
+            "geo_id_wmo": "07005",
+            "validity_time": "2024-01-02T00:00:00Z",
+            "dd": "0",
+            "ff": "2",
+        },
     ]
     lines = [";".join(schema)] + [";".join(row.get(column, "") for column in schema) for row in rows]
     serve(monkeypatch, synop_api, {"synop_2024": gzip.compress("\n".join(lines).encode("utf8"))})
@@ -726,6 +755,7 @@ def _meteofrance_synop(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True)
             ("subdaily", "data", "precipitation_amount_last_6h"),
             ("subdaily", "data", "cloud_cover_total"),
             ("subdaily", "data", "wind_direction_mean_last_10min"),
+            ("subdaily", "data", "wind_speed_mean_last_10min"),
         ],
         start=_day(2024, 1, 1),
         end=_day(2024, 1, 2),
@@ -849,17 +879,20 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     # a station file as DWD serves it (10147-BEOB.csv): English names, units and German descriptions, then the
     # reports, newest first, `,` for a decimal and `---` for a report without the value
     wind = "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"
+    speed = "mean_wind_speed_during last_10_min_at_10_meters_above_ground"
     temperature = "dry_bulb_temperature_at_2_meter_above_ground"
     csv = (
-        f"surface observations;Parameter description;cloud_cover_total;{temperature};{wind}\n"
-        "10147;Unit;%;Grad C;Grad\n"
-        "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m);Windrichtung\n"
-        "10.10.26;20:00;100;15,3;360\n"
-        "10.10.26;19:00;---;15,4;250\n"
+        f"surface observations;Parameter description;cloud_cover_total;{temperature};{wind};{speed}\n"
+        "10147;Unit;%;Grad C;Grad;km/h\n"
+        "Datum;Uhrzeit (UTC);Wolkenbedeckung;Temperatur (2m);Windrichtung;Windgeschwindigkeit\n"
+        "10.10.26;20:00;100;15,3;360;11\n"
+        "10.10.26;19:00;---;15,4;250;7\n"
         # a percent that reads 113 (9 oktas x 12.5, sky obscured) or 126 (03953, 13367, 2026-10-12)
-        "10.10.26;18:00;113;15,5;250\n"
-        # the direction is 0 for a calm or a variable wind, 360 is north (GH-2794)
-        "10.10.26;17:00;126;15,6;0\n"
+        "10.10.26;18:00;113;15,5;250;9\n"
+        # the direction is 0 beside a speed of 0, a calm, and 360 is north (GH-2794)
+        "10.10.26;17:00;126;15,6;0;0\n"
+        # a 0 beside a wind that blows (346 of 747 zeros, 184 of them at 4 km/h) stays (GH-3222)
+        "10.10.26;16:00;100;15,7;0;4\n"
     ).encode("latin-1")
     serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
     request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
@@ -886,10 +919,12 @@ def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     # climate-daily as api.weather.gc.ca answers for ALERT (STN_ID=1731, read 2026-10-12): a day below the 31 km/h the
     # stations report from has 0 for the speed and 0 for the direction, no flag (1975-07-01, 1975-07-02), where the
     # bulk CSV of the day writes "<31"; 1975-07-06 is a gust of 60 km/h from 200 degrees (the direction is in tens of
-    # degrees)
+    # degrees). The direction of 0 beside a gust of 42 km/h is that of ST CATHARINES A on 1974-11-26, moved here: it
+    # stays, as a 0 beside a wind that blows does (GH-3222)
     rows = [
         {"LOCAL_DATE": "1975-07-01 00:00:00", "MAX_TEMPERATURE": 5, "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
         {"LOCAL_DATE": "1975-07-02 00:00:00", "MAX_TEMPERATURE": 6.7, "SPEED_MAX_GUST": 0, "DIRECTION_MAX_GUST": 0},
+        {"LOCAL_DATE": "1975-07-03 00:00:00", "MAX_TEMPERATURE": 8.2, "SPEED_MAX_GUST": 42, "DIRECTION_MAX_GUST": 0},
         {"LOCAL_DATE": "1975-07-06 00:00:00", "MAX_TEMPERATURE": 11.1, "SPEED_MAX_GUST": 60, "DIRECTION_MAX_GUST": 20},
     ]
     body = json.dumps({"features": [{"type": "Feature", "properties": row} for row in rows]}).encode()
@@ -1206,16 +1241,21 @@ def _fmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         + element(0, "r_1h", "0.4")
         + element(1, "t2m", "NaN")
         + element(1, "r_1h", "-1.0")
-        # the direction is 0.0 for a calm wind and 360.0 for north (checked on 15 stations, 2026-10-12; GH-2794)
+        # the direction is 0.0 beside a speed of 0.0 for a calm wind and 360.0 for north (checked on 15 stations,
+        # 2026-10-12; GH-2794); the one 0 of them beside 0.2 m/s stays (GH-3222)
         + element(0, "wd_10min", "250.0")
+        + element(0, "ws_10min", "3.1")
         + element(1, "wd_10min", "0.0")
+        + element(1, "ws_10min", "0.0")
+        + element(2, "wd_10min", "0.0")
+        + element(2, "ws_10min", "0.2")
         + "</wfs:FeatureCollection>"
     ).encode()
     serve(monkeypatch, fmi_api, {"opendata.fmi.fi": body})
     request = FmiObservationRequest(
         parameters=[("hourly", "data")],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 1, 1),
+        end=_day(2024, 1, 1, 2),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -1266,12 +1306,22 @@ def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # 1,169 hours at two of them, GH-3135); the parameter's page names no code for it (2026-10-19), so it is read as
     # the top of the sensor's range and left a value, as it is for NOAA's 16,093 m (ten miles)
     # parameter 3 of station 188790 (Abisko Aut) as SMHI writes it (read 2026-10-12), "Vindriktning, medelvärde 10 min":
-    # 0 at 2019-01-18 04:00, where the wind speed is 0.0, and 360 for north at 2019-03-15 11:00 (GH-2794)
+    # 0 at 2019-01-18 04:00, where the wind speed (parameter 4) is 0.0, and 360 for north at 2019-03-15 11:00
+    # (GH-2794). A 0 beside a wind that blows (15 of the 4879 zeros of 188790, 1989) stays (GH-3222): the row of
+    # 2019-01-18 05:00 is worded by the stub
     csv = (
         "Datum;Tid (UTC);Vindriktning;Kvalitet\n"
         "2019-01-18;03:00:00;208;G\n"
         "2019-01-18;04:00:00;0;G\n"
+        "2019-01-18;05:00:00;0;G\n"
         "2019-03-15;11:00:00;360;G\n"
+    )
+    speed = (
+        "Datum;Tid (UTC);Vindhastighet;Kvalitet\n"
+        "2019-01-18;03:00:00;2.1;G\n"
+        "2019-01-18;04:00:00;0.0;G\n"
+        "2019-01-18;05:00:00;1.0;G\n"
+        "2019-03-15;11:00:00;3.4;G\n"
     )
     # parameter 16, "Total molnmängd" in percent (read 2026-10-18): the oktas 0 to 8 as 0, 13, 25, ... 100, and 113 for
     # the 9 of an obscured sky ("Kod 9 sätts till då 112,5%", smhi.se/kunskapsbanken/meteorologi/moln/
@@ -1285,16 +1335,51 @@ def _smhi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     serve(
         monkeypatch,
         smhi_api,
-        {"parameter/3/station/188790/period": csv.encode(), "parameter/16/station/188790/period": cloud_cover.encode()},
+        {
+            "parameter/3/station/188790/period": csv.encode(),
+            "parameter/4/station/188790/period": speed.encode(),
+            "parameter/16/station/188790/period": cloud_cover.encode(),
+        },
     )
     request = SmhiObservationRequest(
-        parameters=[("hourly", "data", "wind_direction_mean_last_10min"), ("hourly", "data", "cloud_cover_total")],
+        parameters=[
+            ("hourly", "data", "wind_direction_mean_last_10min"),
+            ("hourly", "data", "wind_speed_mean_last_10min"),
+            ("hourly", "data", "cloud_cover_total"),
+        ],
         start=_day(2019, 1, 18),
         end=_day(2019, 3, 16),
         settings=_settings(),
         options=_options(drop_nulls),
     )
     return stations_result(request, "hourly", "data", "188790").values().all().df
+
+
+def _meteoswiss_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # ogd-smn_ber_t_historical_2020-2029.csv (read 2026-10-21), the two columns as the file writes them: the mean
+    # direction dkl010z0 is 0 beside a mean speed fkl010z0 of 0 at 2024-01-05 01:50, a calm; 0 beside 0.1 m/s at
+    # 2024-01-04 17:00, which stays (GH-3222); 360 beside 2.1 m/s at 2024-01-06 11:50, north. A missing value is an
+    # empty field, which no reader maps
+    item = {"assets": {"ogd-smn_ber_t_historical_2020-2029.csv": {"href": "https://example.invalid/ogd-smn_ber_t.csv"}}}
+    csv = (
+        "station_abbr;reference_timestamp;fkl010z0;dkl010z0\n"
+        "BER;04.01.2024 17:00;0.1;0\n"
+        "BER;05.01.2024 01:50;0;0\n"
+        "BER;06.01.2024 11:50;2.1;360\n"
+    )
+    serve(
+        monkeypatch,
+        meteoswiss_api,
+        {"items/ber": json.dumps(item).encode(), "ogd-smn_ber_t.csv": csv.encode("windows-1252")},
+    )
+    request = MeteoswissObservationRequest(
+        parameters=[("10_minutes", "data", "wind_direction_mean"), ("10_minutes", "data", "wind_speed_mean")],
+        start=_day(2024, 1, 4),
+        end=_day(2024, 1, 7),
+        settings=_settings(),
+        options=_options(drop_nulls),
+    )
+    return stations_result(request, "10_minutes", "data", "BER").values().all().df
 
 
 def _dmi_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -1454,10 +1539,14 @@ STUBS = [
         _ipma,
         reading=("temperature_air_mean_2m", 21.5),
         # the humidity is converted from percent to a decimal on its way
-        sentinels=(("temperature_air_mean_2m", -99.0), ("humidity_relative", -0.99), ("precipitation_amount", -99.0)),
+        sentinels=(
+            ("temperature_air_mean_2m", -99.0),
+            ("humidity_relative_mean", -0.99),
+            ("precipitation_amount", -99.0),
+        ),
         tokens=(
             ("temperature_air_mean_2m", "-99.0", None),
-            ("humidity_relative", "-99.0", None),
+            ("humidity_relative_mean", "-99.0", None),
             ("precipitation_amount", "-99.0", None),
             ("wind_direction", "-99.0", None),
             # the calm code, which is no direction
@@ -1500,7 +1589,8 @@ STUBS = [
         "dwd/observation hourly/wind",
         _dwd_hourly_wind,
         reading=("wind_direction_mean", 250.0),
-        sentinels=(("wind_direction_mean", 990.0), ("wind_direction_mean", 0.0)),
+        # a 0 beside a wind that blows stays, so no 0 is a sentinel of all rows (GH-3222)
+        sentinels=(("wind_direction_mean", 990.0),),
         tokens=(("wind_direction_mean", "990", None), ("wind_direction_mean", "0", None)),
     ),
     ValueStub(
@@ -1515,7 +1605,6 @@ STUBS = [
         _dwd_subdaily_wind,
         # 24 of the 32-point rose is a west wind, 270 degrees (GH-2808)
         reading=("wind_direction", 270.0),
-        sentinels=(("wind_direction", 0.0),),
         tokens=(("wind_direction", "0", None),),
     ),
     ValueStub(
@@ -1596,7 +1685,6 @@ STUBS = [
         reading=("wind_direction", 90.0),
         sentinels=(
             ("wind_direction", 999.0),
-            ("wind_direction", 0.0),
             ("precipitation_amount_since_last_routine_report", -9999.0),
         ),
         tokens=(
@@ -1677,7 +1765,7 @@ STUBS = [
         "fmi/observation hourly/data",
         _fmi_hourly,
         reading=("temperature_air_2m", -3.5),
-        sentinels=(("precipitation_amount", -1.0), ("wind_direction_mean_last_10min", 0.0)),
+        sentinels=(("precipitation_amount", -1.0),),
         tokens=(
             ("temperature_air_2m", "NaN", None),
             ("precipitation_amount", "-1.0", 0.0),
@@ -1697,8 +1785,15 @@ STUBS = [
         _smhi_hourly,
         reading=("wind_direction_mean_last_10min", 360.0),
         # the percent is converted to a decimal on its way: 113 % is the 9 oktas of an obscured sky
-        sentinels=(("wind_direction_mean_last_10min", 0.0), ("cloud_cover_total", 1.13)),
+        sentinels=(("cloud_cover_total", 1.13),),
         tokens=(("wind_direction_mean_last_10min", "0", None), ("cloud_cover_total", "113", None)),
+    ),
+    ValueStub(
+        "meteoswiss/observation 10_minutes/data",
+        _meteoswiss_10_minutes,
+        reading=("wind_direction_mean", 360.0),
+        # a calm has no direction; a 0 beside a wind that blows stays
+        tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
         "dmi/observation hourly/data",
@@ -1742,7 +1837,7 @@ STUBS = [
         _eccc_daily,
         reading=("wind_gust_max", 16.6667),
         # the gust is converted from km/h to m/s on its way
-        sentinels=(("wind_gust_max", 0.0), ("wind_direction_gust_max", 0.0)),
+        sentinels=(("wind_gust_max", 0.0),),
         tokens=(("wind_gust_max", "0", None), ("wind_direction_gust_max", "0", None)),
     ),
     ValueStub(
@@ -1798,7 +1893,7 @@ STUBS = [
         _dwd_poi,
         reading=("temperature_air_2m", 15.3),
         # the percent is converted to a decimal on its way
-        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26), ("wind_direction_mean_last_10min", 0.0)),
+        sentinels=(("cloud_cover_total", 1.13), ("cloud_cover_total", 1.26)),
         tokens=(
             ("cloud_cover_total", "---", None),
             ("cloud_cover_total", "113", None),
@@ -1828,18 +1923,14 @@ STUBS = [
         "meteofrance/observation hourly/core",
         _meteofrance_observation_hourly_core,
         reading=("temperature_air_2m", 2.1),
-        sentinels=(("wind_direction_mean_last_10min", 0.0), ("wind_direction_mean_last_10min", 999.0)),
+        sentinels=(("wind_direction_mean_last_10min", 999.0),),
         tokens=(("wind_direction_mean_last_10min", "0", None), ("wind_direction_mean_last_10min", "999", None)),
     ),
     ValueStub(
         "meteofrance/observation daily/core",
         _meteofrance_observation_daily,
         reading=("temperature_air_min_2m", -1.0),
-        sentinels=(
-            ("wind_direction_gust_max", 0.0),
-            ("wind_direction_gust_max", 999.0),
-            ("wind_direction_gust_max", 400.0),
-        ),
+        sentinels=(("wind_direction_gust_max", 999.0), ("wind_direction_gust_max", 400.0)),
         tokens=(
             ("wind_direction_gust_max", "0", None),
             ("wind_direction_gust_max", "999", None),
@@ -1861,7 +1952,6 @@ STUBS = [
         sentinels=(
             ("precipitation_amount_last_6h", -0.1),
             ("cloud_cover_total", 1.01),
-            ("wind_direction_mean_last_10min", 0.0),
             ("wind_direction_mean_last_10min", 400.0),
         ),
         # a trace is 0.0 with the code beside it; an obscured sky has no amount; a calm and a 400 are no direction,
@@ -1926,11 +2016,6 @@ NO_STUB = {
     "lhmt/observation": (
         "no sentinel: the source writes null, and the hourly values of vilniaus-ams, kauno-ams and klaipedos-ams "
         "(2017-01, 2023-06) hold no value that is no reading (2026-10-12)"
-    ),
-    "meteoswiss/observation": (
-        "the files write an empty field for a missing value: no cell that is no number in the d, h, t, m and y files "
-        "of ber, jun and sma (152,308 daily rows, hourly 1990 to 1999 and recent, 10 minute 2010 to 2019), 2026-10-12. "
-        "The wind direction 0 has speeds up to 13 m/s beside it, so it is north"
     ),
     "wsv/pegel": (
         "no reader maps a sentinel; its values are JSON numbers, and the current measurement of its 1,168 timeseries "

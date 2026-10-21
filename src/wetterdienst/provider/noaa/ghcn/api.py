@@ -15,7 +15,7 @@ import polars.selectors as cs
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import SPEED_BESIDE, Sentinel, calm, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.noaa.ghcn.metadata import (
@@ -42,8 +42,9 @@ GHCNH_WIND_DIRECTION_MISSING = "999"
 # the documentation: "wind_direction = Wind Direction from true north using compass directions (e.g. 360 = true north,
 # ...). Note: A direction of "000" is given for calm winds", which the files write as `0` (GH-2794). Of the 898,935 and
 # 221,947 hours with a direction of USW00023174 and ASN00086282 (read 2026-10-12) 565 and 11,347 are 0, of which all but
-# one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360
-GHCNH_WIND_DIRECTION_CALM = "0"
+# one (1.5 m/s, 1985) have a wind speed of 0, and 12,384 and 28,366 are 360. The 0 beside a speed of 0 is null; the
+# one beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too
+GHCNH_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed"}
 GHCNH_PRECIPITATION_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
@@ -249,11 +250,15 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         closing = _closes_its_hour(df)
 
         def element(parameter: str) -> pl.Expr:
+            # the speed of the report travels with its direction, as the thinning below may take the two of an hour
+            # from different reports
+            speed = GHCNH_WIND_SPEED_OF_DIRECTION.get(parameter)
             fields = pl.struct(
                 pl.col(parameter).alias("value"),
                 pl.col(f"{parameter}_Quality_Code").replace(GHCNH_NO_CODE, None).alias("quality"),
                 pl.col(f"{parameter}_Measurement_Code").replace(GHCNH_NO_CODE, None).alias("measurement"),
                 pl.col(f"{parameter}_Source_Code").replace(GHCNH_NO_CODE, None).alias("source"),
+                (pl.col(speed) if speed in df.columns else pl.lit(None, dtype=pl.String)).alias(SPEED_BESIDE),
             )
             return pl.when(closing).then(fields) if parameter == "precipitation" else fields
 
@@ -274,28 +279,26 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             pl.col("value").struct.field("quality"),
             pl.col("value").struct.field("measurement"),
             pl.col("value").struct.field("source"),
+            pl.col("value").struct.field(SPEED_BESIDE),
             pl.col("value").struct.field("value"),
             pl.col("parameter").str.to_lowercase(),
         )
         # a wind direction is 1 to 360 degrees and 0 for a calm wind ("000" is calm, per the documentation), which
-        # is no bearing (GH-2794), yet the older reports write 999, mostly with the measurement code C (calm) but
-        # also on an hour with a wind speed of 4.1 m/s: no direction was given (GH-2672). The documentation names
-        # -9999 as the missing value of the precipitation value, which is the column "precipitation" (none seen so
-        # far)
+        # is no bearing beside a speed of 0 (GH-2794, GH-3222), yet the older reports write 999, mostly with the
+        # measurement code C (calm) but also on an hour with a wind speed of 4.1 m/s: no direction was given
+        # (GH-2672). The documentation names -9999 as the missing value of the precipitation value, which is the
+        # column "precipitation" (none seen so far)
         value, raw = null_sentinels(
             pl.col("value"),
             Sentinel(GHCNH_NONE),
-            Sentinel(
-                GHCNH_WIND_DIRECTION_MISSING,
-                GHCNH_WIND_DIRECTION_CALM,
-                where=pl.col("parameter").eq("wind_direction"),
-            ),
+            Sentinel(GHCNH_WIND_DIRECTION_MISSING, where=pl.col("parameter").eq("wind_direction")),
+            calm(pl.col(SPEED_BESIDE), where=pl.col("parameter").eq("wind_direction")),
             Sentinel(GHCNH_PRECIPITATION_MISSING, where=pl.col("parameter").eq("precipitation")),
         )
         return df.with_columns(
             value.alias("value"),
             join_quality_flags(pl.col("quality"), measurement=pl.col("measurement"), source=pl.col("source"), raw=raw),
-        ).drop("quality", "measurement", "source")
+        ).drop("quality", "measurement", "source", SPEED_BESIDE)
 
     def _collect_station_parameter_for_daily(self, station_id: str) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""

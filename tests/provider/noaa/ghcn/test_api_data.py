@@ -425,12 +425,13 @@ def test_api_hourly_precipitation_of_source_412_is_kept_and_says_its_source(monk
 def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_wrote(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """GHCNh writes 0 for a calm wind: "A direction of "000" is given for calm winds" (GH-2794).
+    """GHCNh writes 0 for a calm wind: "A direction of "000" is given for calm winds" (GH-2794, GH-3222).
 
     The documentation (ghcnh_DOCUMENTATION.pdf) gives 360 as true north. Rows of the files read on 2026-10-12, put into
     one: USW00023174 (Los Angeles) 2019-03-11 08:53 reads 360 beside 2.1 m/s and 2026-10-06 11:53 reads 0 beside 0.0;
     ASN00086282 1985-07-06 17:00 reads 0 beside 1.5 m/s, the one of 11,347 zeros of that file with a speed above 0.
-    The 0 is null, with `raw:0` after the flags, and the speed of 0.0 is a reading.
+    The 0 beside 0.0 is null, with `raw:0` after the flags; the 0 beside 1.5 m/s stays, as a 0 beside a wind that blows
+    does in every provider. The speed of 0.0 is a reading.
     """
     from tests.provider.value_stubs import ghcnh_psv, serve  # noqa: PLC0415
     from wetterdienst.provider.noaa.ghcn import api  # noqa: PLC0415
@@ -462,7 +463,7 @@ def test_api_hourly_wind_direction_000_of_a_calm_is_null_with_the_text_the_file_
     df = request.values().all().df.sort("parameter", "timestamp")
     assert df.select("parameter", "value", "quality_flags").rows() == [
         ("wind_direction", 360.0, None),
-        ("wind_direction", None, "raw:0"),
+        ("wind_direction", 0.0, None),
         ("wind_direction", None, "raw:0"),
         ("wind_speed", 2.1, None),
         ("wind_speed", 1.5, None),

@@ -43,8 +43,8 @@ are taken as they come:
 The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere temperature rows
 (the German ``description`` of each parameter in ``/v1/station/historical/<resource>/metadata``, with
 the window it states: "Maximum der Zehnminutenwerte von 18:10 UTC Vortag - 18:00 UTC aktueller Tag"),
-IPMA ``temperatura`` ("temperatura do ar registada a 1.5 metros de altura, média da hora", the
-observations section of https://api.ipma.pt/) and the DWD SWSMOS ``TS`` row
+IPMA ``temperatura``, ``humidade`` and ``pressao`` ("temperatura do ar registada a 1.5 metros de altura,
+média da hora", the observations section of https://api.ipma.pt/) and the DWD SWSMOS ``TS`` row
 (``swis_swsmos_beschreibung.pdf``). Where a source gives no description of a field, the entry names
 what it does give: NWS ``temperature`` and ``dewpoint`` (api.weather.gov documents neither; the
 OpenAPI document describes no observation property but ``qualityControl``), the DWD road fields (the
@@ -207,7 +207,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
         ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
             "Mean wind direction over the last 10 minutes, at 10 m above ground. "
-            "The source's 0 (a calm or variable wind) is null."
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
         ("hourly", "data", "mean_wind_speed_during last_10_min_at_10_meters_above_ground"): (
             "Mean wind speed over the last 10 minutes, at 10 m above ground."
@@ -1014,7 +1014,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Wetter_Beschreibung.txt, the text its WW_Text column repeats. The source's -1 (weather not reported) "
             "is null."
         ),
-        ("hourly", "wind", "d"): "Mean wind direction. The source's 0 (a calm or variable wind) is null.",
+        ("hourly", "wind", "d"): (
+            "Mean wind direction. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("hourly", "wind", "f"): "Mean wind speed.",
         ("hourly", "wind_extreme", "fx_911"): "Wind speed, wind gust: the highest wind peak of the last hour.",
         ("hourly", "wind_synoptic", "dd"): (
@@ -1121,7 +1124,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "visibility", "vk_ter"): "Coded visibility class.",
         ("subdaily", "wind", "dk_ter"): (
             "Wind direction. The source gives the point of a 32-point wind rose (32 is north), returned in degrees. "
-            "The source's 0 (a calm or variable wind) is null."
+            "The source's 0 beside a wind force of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
         ("subdaily", "wind", "fk_ter"): "Wind force (beaufort).",
         (
@@ -1145,12 +1148,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "15_minutes",
             "data",
             "airTemperature",
-        ): "air temperature (BUFR 0 12 101, no time period or statistic attached)",
+        ): (
+            "air temperature (BUFR 0 12 101, no time period or statistic attached); the sensor stands 4 to 5 m above "
+            "ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them)"
+        ),
         (
             "15_minutes",
             "data",
             "dewpointTemperature",
-        ): "dew point temperature (BUFR 0 12 103, no time period or statistic attached)",
+        ): (
+            "dew point temperature (BUFR 0 12 103, no time period or statistic attached); the sensor stands 4 to 5 m "
+            "above ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them)"
+        ),
         ("15_minutes", "data", "horizontalVisibility"): "visibility range",
         ("15_minutes", "data", "intensityOfPrecipitation"): "precipitation intensity",
         ("15_minutes", "data", "maximumWindGustDirection"): "direction of maximum wind gust",
@@ -1162,10 +1171,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "type of precipitation, the bit flags of BUFR 0 20 021 (rain is bit 5 of 30, 33554432)"
         ),
         # BUFR 0 13 003 stands with no time significance or period before it in the `LATEST` file of any station group
-        # (read 2026-10-21), so the source states no mean and `humidity_relative_mean` is the wrong name for it; the
-        # sentence below was written with the name (#957) and is left until the name is changed, because
-        # `tests/metadata/test_mean_names.py` ties the two together
-        ("15_minutes", "data", "relativeHumidity"): "mean humidity",
+        # (read 2026-10-21): the source states no mean, so the name is `humidity_relative` since GH-2614
+        (
+            "15_minutes",
+            "data",
+            "relativeHumidity",
+        ): "relative humidity (BUFR 0 13 003, no time period or statistic attached)",
         ("15_minutes", "data", "roadSurfaceCondition"): (
             "road surface condition, a code: 0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry "
             "(BUFR code table 0 20 241, the same codes as 0 20 138)"
@@ -1210,7 +1221,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "total_rain"): "Total liquid precipitation.",
         ("daily", "data", "total_snow"): "New snow depth.",
         ("daily", "data", "cooling_degree_days"): "cooling degree days",
-        ("daily", "data", "direction_max_gust"): "wind direction of maximum wind gust",
+        ("daily", "data", "direction_max_gust"): (
+            "wind direction of maximum wind gust. The source's 0 beside a gust of 0 (none reported) is null."
+        ),
         ("daily", "data", "heating_degree_days"): "heating degree days",
         ("hourly", "data", "dew_point_temp"): "2m dew point temperature",
         ("hourly", "data", "humidex"): "humidex apparent temperature",
@@ -1223,7 +1236,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         # speed is the average of "the one-, two- or ten-minute period", the direction is stated for two only
         ("hourly", "data", "wind_direction"): (
             "wind direction (source: 10s deg), the average of the two minutes ending at the time of observation. "
-            "The source's 0 (a calm wind) is null."
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null."
         ),
         ("hourly", "data", "wind_speed"): "wind speed",
         ("hourly", "data", "windchill"): "wind chill temperature",
@@ -1744,7 +1757,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "wind_direction"): (
             "Wind direction from true north using compass directions (e.g. 360=true north, 180=south, "
             "270=west, etc.). Note: A direction of “000” is given for calm winds. (whole degrees) "
-            "The source's 0 (a calm wind) is null."
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
         ("hourly", "data", "wind_gust"): (
             "Peak short duration (usually < 20 seconds) wind speed (meters per second) that exceeds "
@@ -1897,7 +1910,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "t2m"): "Air temperature. Mean over 1 minute.",
         ("hourly", "data", "td"): "Dew-point temperature. Mean over 1 minute.",
         ("hourly", "data", "vis"): "Horizontal visibility. Mean over 1 minute.",
-        ("hourly", "data", "wd_10min"): "Wind direction. Mean over 10 minutes. The source's 0 (a calm wind) is null.",
+        ("hourly", "data", "wd_10min"): (
+            "Wind direction. Mean over 10 minutes. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("hourly", "data", "wg_10min"): "Gust speed. Maximum over 10 minutes.",
         ("hourly", "data", "ws_10min"): "Wind speed. Mean over 10 minutes.",
     },
@@ -2042,8 +2058,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     "MeteoFranceObservationMetadata": {
         ("6_minutes", "data", "RR"): "Precipitation amount over 6 minutes.",
         ("daily", "core", "DXI"): (
-            "Direction of FXI, on the 360 degree compass. "
-            "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
+            "Direction of FXI, on the 360 degree compass. The source's 999 (probably variable) is null, and its 0 "
+            "beside an FXI of 0 (a calm wind); a 0 beside a wind that blows stays."
         ),
         ("daily", "core", "FFM"): "Daily mean of the wind force averaged over 10 minutes, at 10 m.",
         ("daily", "core", "FXI"): "Daily maximum of the hourly maximum instantaneous wind force, at 10 m.",
@@ -2065,8 +2081,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "others", "TSVM"): "Mean vapour pressure.",
         ("daily", "others", "UM"): "Daily mean of the hourly relative humidities.",
         ("hourly", "core", "DD"): (
-            "Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. "
-            "The source's 0 (mostly a calm wind) and 999 (probably variable) are null."
+            "Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. The source's 999 "
+            "(probably variable) is null, and its 0 beside an FF of 0 (a calm wind); a 0 beside a wind that blows "
+            "stays."
         ),
         ("hourly", "core", "FF"): "Wind force averaged over 10 minutes, measured at 10 m.",
         ("hourly", "core", "FXY"): "Maximum value of FF within the hour.",
@@ -2104,7 +2121,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "UMM"): "Monthly mean of the daily mean humidities (UM).",
     },
     "MeteoswissObservationMetadata": {
-        ("10_minutes", "data", "dkl010z0"): "Wind direction; ten minutes mean",
+        ("10_minutes", "data", "dkl010z0"): (
+            "Wind direction; ten minutes mean. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("10_minutes", "data", "fkl010z0"): "Wind speed scalar; ten minutes mean in m/s",
         ("10_minutes", "data", "fkl010z1"): "Gust peak (one second); maximum in m/s",
         ("10_minutes", "data", "gre000z0"): "Global radiation; ten minutes mean",
@@ -2142,7 +2162,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "tso010y0"): "Soil temperature at 10 cm depth; annual mean",
         ("annual", "data", "tso020y0"): "Soil temperature at 20 cm depth; annual mean",
         ("annual", "data", "ure200y0"): "Relative air humidity 2 m above ground; annual mean",
-        ("daily", "data", "dkl010d0"): "Wind direction; daily mean",
+        ("daily", "data", "dkl010d0"): (
+            "Wind direction; daily mean. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("daily", "data", "erefaod0"): "Reference evaporation from FAO; daily total",
         ("daily", "data", "fkl010d0"): "Wind speed scalar; daily mean in m/s",
         ("daily", "data", "fkl010d1"): "Gust peak (one second); daily maximum in m/s",
@@ -2165,7 +2188,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "tso010d0"): "Soil temperature at 10 cm depth; daily mean",
         ("daily", "data", "tso020d0"): "Soil temperature at 20 cm depth; daily mean",
         ("daily", "data", "ure200d0"): "Relative air humidity 2 m above ground; daily mean",
-        ("hourly", "data", "dkl010h0"): "Wind direction; hourly mean",
+        ("hourly", "data", "dkl010h0"): (
+            "Wind direction; hourly mean. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("hourly", "data", "fkl010h0"): "Wind speed scalar; hourly mean in m/s",
         ("hourly", "data", "fkl010h1"): "Gust peak (one second); hourly maximum in m/s",
         ("hourly", "data", "gre000h0"): "Global radiation; hourly mean",
@@ -2346,7 +2372,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "1_minute",
             "data",
             "48",
-        ): "Wind direction. One minute mean, every minute. The source's 0 (a calm wind) is null.",
+        ): (
+            "Wind direction. One minute mean, every minute. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("1_minute", "data", "51"): "Visibility. One minute mean, every minute.",
         ("1_minute", "data", "52"): "Snow depth. Instantaneous value, every minute.",
         ("daily", "data", "19"): "Air temperature. Minimum, once per day.",
@@ -2362,7 +2391,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly",
             "data",
             "3",
-        ): "Wind direction. Mean over 10 minutes, once per hour. The source's 0 (a calm wind) is null.",
+        ): (
+            "Wind direction. Mean over 10 minutes, once per hour. "
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
+        ),
         ("hourly", "data", "39"): "Dew point temperature. Instantaneous value, once per hour.",
         ("hourly", "data", "4"): "Wind speed. Mean over 10 minutes, once per hour.",
         ("hourly", "data", "6"): "Relative humidity. Instantaneous value, once per hour.",
@@ -2371,9 +2403,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "22"): "Air temperature. Mean, once per month.",
         ("monthly", "data", "23"): "Precipitation amount. Sum, once per month.",
     },
-    # the field list on api.ipma.pt: "temperatura : temperatura do ar registada a 1.5 metros de
-    # altura, média da hora (°C)", translated
+    # the field list on api.ipma.pt, translated; it says "média da hora" (the mean of the hour) of all three:
+    # temperatura "temperatura do ar registada a 1.5 metros de altura", humidade "humidade relativa do ar registada a
+    # 1.5 metros de altura" and pressao "pressão atmosférica, reduzida ao nível médio do mar (NMM)"
     "IpmaObservationMetadata": {
+        ("hourly", "data", "humidade"): "Relative humidity of the air recorded at 1.5 m height, hourly mean.",
+        ("hourly", "data", "pressao"): "Atmospheric pressure reduced to mean sea level (NMM), hourly mean.",
         ("hourly", "data", "temperatura"): "Air temperature recorded at 1.5 m height, hourly mean.",
     },
     # `t` is "température" in the technical description of the SYNOP product
@@ -2386,7 +2421,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("subdaily", "data", "raf10"): "Gusts over the last 10 minutes, in m/s.",
         ("subdaily", "data", "dd"): (
             "Direction of the mean wind over 10 minutes, in steps of 10 degrees, north being 360. "
-            "The source's 0 (a calm wind, or no bearing) is null."
+            "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
         (
             "subdaily",

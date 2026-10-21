@@ -16,7 +16,14 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
@@ -615,12 +622,12 @@ _HOURLY_SKY_INVISIBLE = "9"
 # direction: next to FF = 0 in 99.97 % of the 11.2 million zeros of DD, next to FXY = 0 in 99.9 % of those of the
 # hourly DXY (which is not read, GH-2836) and next to FXI = 0 in 98.8 % of those of the daily DXI. They write 999, as
 # the swell direction DIRHOULE does for "variable", in six hourly DD of 1965 to 1967 (Kerguelen, Nouvelle-Amsterdam).
-# Neither is a direction. The one DXI above 360 in the 314 daily files audited (GH-2728) is a 400 (31299001,
-# 2007-09-05, FXI = 8.0, QDXI = 1); no description defines it and it is no bearing, so the reader takes it for a code
-# like the two above. The audit found none in the hourly files, so it is not applied to them.
-_HOURLY_WIND_DIRECTIONS = ("DD",)
-_DAILY_WIND_DIRECTIONS = ("DXI",)
-_NO_WIND_DIRECTION = ("0", "999")
+# The 999 is no direction. The 0 beside a speed of 0 is a calm, and null; the 0 beside a wind that blows stays, as in
+# every provider (`calm`, GH-3222), where it was null too. The one DXI above 360 in the 314 daily files audited
+# (GH-2728) is a 400 (31299001, 2007-09-05, FXI = 8.0, QDXI = 1); no description defines it and it is no bearing, so
+# the reader takes it for a code like the 999. The audit found none in the hourly files, so it is not applied to them.
+_WIND_SPEED_OF_DIRECTION = {"hourly": {"DD": "FF"}, "daily": {"DXI": "FXI"}}
+_NO_WIND_DIRECTION = ("999",)
 _DAILY_NO_WIND_DIRECTION = (*_NO_WIND_DIRECTION, "400")
 
 
@@ -940,6 +947,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
             pl.col("value").struct.field("quality_flags"),
             pl.col("value").struct.field("value"),
         )
+        df = with_speed_beside(df, _WIND_SPEED_OF_DIRECTION.get(resolution_name, {}), on=[date_column])
         # the codes the source writes in place of a number become null before the unit conversion (GH-2687, GH-2720),
         # and keep their text as `raw:` after the validation code; a text that is no number was nulled by the cast
         # alone (the files hold none: GH-2719) and now keeps its text too
@@ -960,13 +968,17 @@ class MeteoFranceObservationValues(TimeseriesValues):
 
 def _sentinels(resolution_name: str) -> list[Sentinel]:
     """List the codes the source writes in place of a number, for the files of a resolution."""
+    directions = list(_WIND_SPEED_OF_DIRECTION.get(resolution_name, {}))
+    # the speed of a direction's own reading, which `with_speed_beside` has laid beside it
+    calm_wind = calm(pl.col(SPEED_BESIDE))
     if resolution_name == "hourly":
         return [
             Sentinel(_HOURLY_SKY_INVISIBLE, where=pl.col("parameter").eq("N")),
-            Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_HOURLY_WIND_DIRECTIONS)),
+            Sentinel(*_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(directions)),
+            calm_wind,
         ]
     if resolution_name == "daily":
-        return [Sentinel(*_DAILY_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(_DAILY_WIND_DIRECTIONS))]
+        return [Sentinel(*_DAILY_NO_WIND_DIRECTION, where=pl.col("parameter").is_in(directions)), calm_wind]
     return []
 
 

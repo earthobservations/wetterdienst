@@ -28,12 +28,34 @@ Types of changes:
   already do, a `df_all` you pass included: a station that closed before the window or began
   after it is no match. Build the request without `start` and `end` to match all stations as
   before (GH-2625)
+- **Breaking**: five parameters of `dwd/road` and `ipma/observation` are named for what their
+  source's value is (GH-2614). `dwd/road`: `temperature_air_2m` (`airTemperature`) is
+  `temperature_air` and `temperature_dew_point_2m` is `temperature_dew_point`, the sensors stand
+  4 to 5 m above ground and never at 2 m; `humidity_relative_mean` is `humidity_relative`, a
+  reading and no mean. `ipma/observation`: `humidity_relative` is `humidity_relative_mean` and
+  `pressure_air_sea_level` is `pressure_air_sea_level_mean`, IPMA's hourly means. The old name is
+  refused with the new one named, values and units are unchanged: request, filter and key by the
+  new name. Release the app after this backend
 
 ### Fixed
 
 - `stations` with a point and a `rank` (command line, REST API, MCP) lists `rank` stations, each
   with a row per requested dataset; with two datasets it counted rows and `rank=2` listed one
   station twice (GH-2625)
+- A wind direction of 0 is null, with `raw:0`, only beside a speed of 0 of the same reading, a calm,
+  in every provider; a 0 beside a wind that blows is 0 degrees, where it was null in
+  `dwd/observation` hourly `wind` and subdaily `wind` (beside a force of 0), `dwd/poi`, `eccc` daily
+  gust, `fmi`, `meteofrance/observation` (`DD`, `DXI`), `meteofrance/synop`, `noaa/ghcn` hourly and
+  `smhi`. SMHI reads the speed with the direction, one more download when only the direction is
+  asked for. The rules of every special value are on the new docs page `data/special_values`
+  (GH-3222)
+- `meteoswiss/observation` `wind_direction_mean` (10 minutes, hourly, daily) is null, with `raw:0`
+  in `quality_flags`, where the file holds a 0 beside a speed of 0, a calm (912 of the 1,169 zeros
+  of BER, SMA and JUN in 2024): it was 0 degrees, north. A 0 beside a wind that blows stays
+  (GH-3222)
+- A value cell that is the text `nan` or `inf` is null and counted in the core's debug line, as a
+  text that is no number is; a cast made it a NaN or an infinity. A number padded with blanks is
+  read, where it was null (GH-3222)
 
 ## [0.163.0] - 2026-10-20
 

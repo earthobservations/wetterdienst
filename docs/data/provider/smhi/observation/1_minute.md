@@ -25,5 +25,5 @@ observation feed.
 | {term}`snow_depth`             | 52            | Snow depth. Instantaneous value, every minute.                                       | m    |
 | {term}`visibility_mean`        | 51            | Visibility. One minute mean, every minute.                                           | m    |
 | {term}`wind_speed_mean`        | 47            | Wind speed. One minute mean, every minute.                                           | m/s  |
-| {term}`wind_direction_mean`    | 48            | Wind direction. One minute mean, every minute. The source's 0 (a calm wind) is null. | °    |
+| {term}`wind_direction_mean`    | 48            | Wind direction. One minute mean, every minute. The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays. | °    |
 | {term}`precipitation_amount`   | 46            | Precipitation amount. Precipitation during one minute.                               | mm   |
