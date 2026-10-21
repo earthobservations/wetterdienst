@@ -395,7 +395,21 @@
       "axisPressure": "Tryk hPa",
       "tableTime": "Tid ({zone})",
       "summaryRange": "Prognose fra {from} til {to}.",
-      "summaryTemperature": "Temperatur fra {min} til {max} °C."
+      "summaryTemperature": "Temperatur fra {min} til {max} °C.",
+      "weather": {
+        "thunderstorm": "Tordenvejr",
+        "rain": "Regn",
+        "snow": "Sne",
+        "sleet": "Slud",
+        "dust": "Støv- eller sandstorm",
+        "blowingSnow": "Snefygning",
+        "drizzle": "Støvregn",
+        "fog": "Tåge",
+        "wind": "Blæsende",
+        "cloudy": "Skyet",
+        "partlyCloudy": "Delvis skyet",
+        "clear": "Solrigt"
+      }
     },
     "orChooseMap": "eller",
     "chooseOnMap": "Vælg en station på kortet",

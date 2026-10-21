@@ -705,6 +705,53 @@ test.describe('chart controls by keyboard', () => {
       await expect(page.getByRole('table')).toHaveCount(0)
     })
   }
+
+  // Plotly's hover label comes with the pointer and goes with it; Escape takes it away without moving the
+  // pointer, until the pointer moves on (WCAG 1.4.13). Hoverable it cannot be, see utils/chart-hover.ts.
+  test('the hover label of the forecast chart is dismissed by Escape, until the pointer moves', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/meteogram?station=01001', variant)
+    await expect(plotly(page)).toBeVisible()
+
+    // the chart lies below the fold of the window
+    await page.locator('.js-plotly-plot').scrollIntoViewIfNeeded()
+    const box = (await page.locator('.js-plotly-plot .main-svg').first().boundingBox())!
+    const x = box.x + box.width / 2
+    const y = box.y + box.height / 4
+    const label = page.locator('.js-plotly-plot .hoverlayer')
+    await page.mouse.move(x - 20, y)
+    await page.mouse.move(x, y, { steps: 4 })
+    await expect(label).toContainText(/\S/)
+    await expect(label.locator('text').first()).toBeVisible()
+
+    // focus is nowhere near the chart: the pointer is what Escape is about
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.js-plotly-plot')).toHaveAttribute('data-hover-dismissed', 'true')
+    await expect(label).toBeHidden()
+    // it stays away while the pointer rests
+    await page.waitForTimeout(500)
+    await expect(label).toBeHidden()
+
+    // a new move is a new hover
+    await page.mouse.move(x + 40, y, { steps: 4 })
+    await expect(page.locator('.js-plotly-plot')).not.toHaveAttribute('data-hover-dismissed', /.*/)
+    await expect(label.locator('text').first()).toBeVisible()
+  })
+
+  test('the names of the modebar buttons on hover are dismissed by Escape too', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(plotly(page)).toBeVisible()
+
+    const button = page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]')
+    const nameShown = () => button.evaluate(node => getComputedStyle(node, '::after').display)
+    await expect(button).toBeVisible()
+    await button.hover()
+    await expect.poll(nameShown).toBe('block')
+    await page.keyboard.press('Escape')
+    await expect.poll(nameShown).toBe('none')
+  })
 })
 
 // Page titles (WCAG 2.4.2): axe only asks that a page has one. Every page names itself, in the language

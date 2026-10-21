@@ -89,6 +89,16 @@
   max-width: 100% !important;
   overflow: hidden;
 }
+
+/* Escape dismisses the hover label of a Plotly chart under the pointer (WCAG 1.4.13): the label with
+   its spike lines, and the names of the modebar's buttons, which are shown on hover too. The mark is
+   set and removed by utils/chart-hover.ts. */
+.js-plotly-plot[data-hover-dismissed] .hoverlayer,
+.js-plotly-plot[data-hover-dismissed] .modebar-btn::before,
+.js-plotly-plot[data-hover-dismissed] .modebar-btn::after {
+  display: none !important;
+}
+
 /* Guide newcomers to the next thing they need to do: a gentle pulsing ring
    around the input/select that is still awaiting a selection. Applied via the
    `needs-input` class, which callers toggle off once the field has a value.
