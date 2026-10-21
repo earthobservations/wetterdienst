@@ -24,7 +24,7 @@
 
 | name                                                    | original name | description                                                    | unit                  |
 |---------------------------------------------------------|---------------|----------------------------------------------------------------|-----------------------|
-| {term}`wind_direction_mean`                             | dkl010h0      | Wind direction; hourly mean                                    | degree                |
+| {term}`wind_direction_mean`                             | dkl010h0      | Wind direction; hourly mean. The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays.                                    | degree                |
 | {term}`wind_speed_mean`                                 | fkl010h0      | Wind speed scalar; hourly mean in m/s                          | meter_per_second      |
 | {term}`wind_gust_max`                                   | fkl010h1      | Gust peak (one second); hourly maximum in m/s                  | meter_per_second      |
 | {term}`precipitation_amount`                            | rre150h0      | Precipitation; hourly total                                    | millimeter            |

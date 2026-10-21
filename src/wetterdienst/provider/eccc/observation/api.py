@@ -14,7 +14,14 @@ import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.eccc.observation.metadata import EcccObservationMetadata
@@ -36,17 +43,19 @@ _PAGE_SIZE = 10000
 # so north, "only if the maximum gust speed for the day exceeds 29 km/h". A day below that has 0 in both fields of the
 # collection on most days, where the bulk CSV of the same day (ALERT, 1975-07-01) writes "<31" for the speed. In the
 # first 60,000 rows of each of 1975, 1995 and 2019, 4597 of the 8885 days with a gust read 0 for the speed and 0 for
-# the direction, without a flag. Neither 0 is a measurement: no gust is 0 km/h, and no direction of 0 exists. The
-# direction is 0 on a few days with a reported speed as well (ST CATHARINES A, 1974-11-26: 42 km/h). The reverse also
-# exists and is left alone: 14,128 days with a speed of 0 and a direction (CHURCHILL A, 1973-05-13: 340 degrees).
-_GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").is_in(["speed_max_gust", "direction_max_gust"]))
+# the direction, without a flag. Neither 0 is a measurement: no gust is 0 km/h, and the direction beside it is the
+# direction of a gust of 0, which is null as the direction of a calm is (`calm`). The direction is 0 on a few days with
+# a reported speed as well (ST CATHARINES A, 1974-11-26: 42 km/h), which stays, as a 0 beside a wind that blows does
+# in every provider (GH-3222); it was null. The reverse also exists and is left alone: 14,128 days with a speed of 0
+# and a direction (CHURCHILL A, 1973-05-13: 340 degrees).
+_GUST_NOT_REPORTED = Sentinel("0", where=pl.col("parameter").eq("speed_max_gust"))
 
 # The hourly wind direction is "10's deg" too, and ECCC's glossary (climate.weather.gc.ca/glossary_e.html, "Wind
 # Direction") says "36 means 360 degrees true or a wind blowing from the geographic North Pole. A value of zero (0)
 # denotes a calm wind." Of the 43,469 hours with a direction of 1998 and 2019 at five stations (read 2026-10-12) 1824
 # are 0, **all** with a wind speed of 0, and every hour with a speed of 0 has a direction of 0; 1342 are 36. A calm has
-# no direction, so the 0 is no bearing (GH-2794).
-_CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("wind_direction"))
+# no direction, so the 0 beside a speed of 0 is null (GH-2794, GH-3222).
+_WIND_SPEED_OF_DIRECTION = {"wind_direction": "wind_speed", "direction_max_gust": "speed_max_gust"}
 
 
 #: Local Standard Time of the station list's TIMEZONE codes, as the offset from UTC all year: the codes name
@@ -360,10 +369,10 @@ class EcccObservationValues(TimeseriesValues):
                     break
                 offset += _PAGE_SIZE
             df = pl.concat(pages).lazy()
-            df = self._tidy_up_df(df)
+            df = with_speed_beside(self._tidy_up_df(df), _WIND_SPEED_OF_DIRECTION, on=["date"])
             # the sentinel is mapped before the tens of degrees are decoded and the unit is converted, and the 0 the
             # source wrote stays on the value as a `raw:` token
-            value, raw = null_sentinels(pl.col("value"), _GUST_NOT_REPORTED, _CALM_WIND, text=False)
+            value, raw = null_sentinels(pl.col("value"), _GUST_NOT_REPORTED, calm(pl.col(SPEED_BESIDE)), text=False)
             df = df.with_columns(value.alias("value"), raw.alias("raw"))
             # ECCC publishes both gust direction (daily) and wind direction (hourly) in tens of degrees --
             # its own docs call the daily column

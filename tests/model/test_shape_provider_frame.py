@@ -157,6 +157,29 @@ def test_a_value_that_is_no_number_is_null_and_counted_once(
     assert all(record.levelno == logging.DEBUG for record in caplog.records)
 
 
+def test_a_value_text_of_nan_or_inf_is_null_and_a_padded_number_is_read(
+    dataset: DatasetModel, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A `nan` or an `inf` is a text that is no reading, null and counted; a padded number is one (GH-3222).
+
+    A cast takes `nan` and `inf` for numbers and ` 2.0 ` for none. A blank cell is no reading and is not counted.
+    """
+    df = pl.DataFrame(
+        {
+            "parameter": ["tmk"] * 6,
+            "timestamp": [NOON + dt.timedelta(days=day) for day in range(6)],
+            "value": [" 2.0 ", "nan", "NaN", "inf", "-Infinity", ""],
+        }
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):
+        result = _shape(df, dataset)
+
+    assert result.get_column("value").to_list() == [2.0, None, None, None, None, None]
+    lines = [record.getMessage() for record in caplog.records if "no number" in record.getMessage()]
+    assert lines == ["TestValues: 4 of 6 value cells are no number and are null"]
+
+
 def test_a_value_column_that_is_numbers_logs_nothing(dataset: DatasetModel, caplog: pytest.LogCaptureFixture) -> None:
     """The nulls a provider hands over itself are no bad cells."""
     with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.values"):

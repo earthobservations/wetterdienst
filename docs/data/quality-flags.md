@@ -61,27 +61,32 @@ The first table lists the plain codes and the further kinds; the `raw:` tokens a
 
 ## Sentinels in `quality_flags`
 
+The rules behind them, one per situation and the same for every provider, are on [special values](special_values.md).
+
 | Provider | `raw:` text (value) |
 | --- | --- |
-| DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null) |
+| DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null); `0` in a wind direction beside a speed of 0 (10 minute and hourly `wind`, 10 minute `wind_extreme` beside the gust, 10 minute `urban_wind`, subdaily `wind` beside a force of 0), a calm (null), and every `0` of hourly `wind_synoptic` (a calm or variable wind) and hourly `urban_wind` (null) |
 | DWD derived | `-999` and `-9999` (null) |
 | DWD mosmix, dmo | `-` for a value the run does not have (null) |
-| DWD poi | `---`, and any text that is no number (null) |
+| DWD poi | `---`, and any text that is no number (null); `113` and `126` in `cloud_cover_total`, no amount (null); `0` in the wind direction beside a speed of 0, a calm (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
 | AEMET | `99` in the wind direction of the daily maximum gust, calm or variable (null); `Ip` in the precipitation of the daily, monthly and annual values, a trace (0.0); any other text that is no number in the daily, monthly and annual values (null) |
 | DMI | `0` in the mean wind direction beside a mean wind speed of 0, calm (null); a value outside the range of its parameter at the resolution, such as the 17,802 mm of a month of rain or the 1978 mm of a day (null) |
-| FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); any text that is no number (null) |
-| Geosphere | `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0); a trace is written 0 and has no token |
+| FMI | `NaN` (null); `-1.0` in `precipitation_amount` and `snow_depth`, none (0.0); `0.0` in the wind direction beside a speed of 0, a calm (null); any text that is no number (null) |
+| ECCC | `0` in the daily `wind_gust_max`, a gust below the 31 km/h the stations report from, and in `wind_direction_gust_max` beside it (null); `0` in the hourly wind direction beside a speed of 0, a calm (null) |
+| Geosphere | `0` in the wind direction `dd`, a calm, all of them beside a speed of 0 (null); `-1.0` in the daily `precipitation_amount` and `snow_depth`, and `-1` in the daily `snow_depth_manual` and `snow_depth_new`, none (0.0); a trace is written 0 and has no token |
 | IMGW hydrology | `9999` in the stage, `99999.999` in the discharge, `99.9` and `9999` in the water temperature (null) |
 | IPMA | `-99.0` (null); `0` in the wind direction, calm, or a code the eight points do not have (null) |
 | KNMI | `NaN`, the fill value (null); `-1` in `precipitation_amount` and `sunshine_duration`, a trace (0.0); `0` and `990` in the hourly wind direction, calm and variable (null); `9` in the hourly `cloud_cover_total` and the daily `cloud_cover_total_mean`, the sky is invisible (null) |
-| Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings |
+| Met Office observation | `NA`, and any text that is no number (null); a day with an `NA` beside readings has the value of the readings; `0` in the hourly wind directions beside a speed of 0, a calm (null); `9` in the hourly `cloud_cover_total`, the sky is obscured (null) |
 | MET Norway Frost | `-1` in `snow_depth`, no snow (0.0); `-3` and `9` in `cloud_cover_total`, not estimated (null); the code as Frost documents it |
-| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `0` and `999` in the wind directions `DD` (hourly) and `DXI` (daily), no direction (null); any text that is no number (null) |
-| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); any text that is no number (null) |
-| SMHI | `0` in the wind directions, a calm wind (null); `113` in the hourly cloud cover, the sky is obscured (null) |
+| Météo-France observation | `9` in the hourly cloud cover, the sky is invisible (null); `999` in the wind directions `DD` (hourly) and `DXI` (daily) and `400` in `DXI`, no direction (null); `0` in them beside an `FF` or `FXI` of 0, a calm (null); any text that is no number (null) |
+| Météo-France synop | `-0.1` in the precipitation, a trace (0.0); `101` in the cloud cover, the sky is obscured (null); `0` in the wind direction beside an `ff` of 0, a calm, and `400` (null); any text that is no number (null) |
+| SMHI | `0` in the wind directions beside a speed of 0, a calm wind (null); `113` in the hourly cloud cover, the sky is obscured (null) |
 | RMI | a value outside the range of its parameter at the resolution, such as the 4021 degrees of a daily maximum or the 81.5 m/s of a daily gust (null) |
-| NOAA GHCN hourly | `999` in `wind_direction`; `-9999` in `precipitation`; `-None` in any column (null) |
+| MeteoSwiss | `0` in the wind directions beside a speed of 0, a calm (null) |
+| NWS | `0` in the wind direction, a calm, all of them beside a speed of 0 (null) |
+| NOAA GHCN hourly | `999` in `wind_direction`; `0` in `wind_direction` beside a speed of 0, a calm; `-9999` in `precipitation`; `-None` in any column (null) |
 
 A trace of precipitation or snow, an amount below what the gauge reads, is 0.0 in every provider whose source
 documents a trace code. Where the source writes it as a code in the value (KNMI `-1`, Météo-France synop `-0.1`,
