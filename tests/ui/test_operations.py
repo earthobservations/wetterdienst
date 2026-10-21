@@ -292,6 +292,41 @@ def test_the_rows_are_estimated_from_the_record_the_window_and_the_parameters() 
     assert estimate_point_rows(request.parameters, None, None) == 0
 
 
+def test_recent_only_row_estimate_does_not_count_a_stations_historical_record() -> None:
+    """A release restricted to recent data must not be refused for a long-lived station's archive."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    base = _values_result_of_shape("long").stations
+    end = dt.datetime(2020, 12, 31, tzinfo=dt.UTC)
+    record = _selection_of(2, start=dt.datetime(1950, 1, 1, tzinfo=dt.UTC), end=end)
+    parameters = ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary/sunshine_duration"]
+    recent = replace(base, request=DwdObservationRequest(parameters=parameters, periods="recent"), df=record)
+    historical = replace(base, request=DwdObservationRequest(parameters=parameters, periods="historical"), df=record)
+
+    assert estimate_rows(recent) == 2 * 732 * 2
+    assert estimate_rows(historical) > estimate_rows(recent)
+
+
+def test_documented_recent_values_request_fits_the_default_row_limit() -> None:
+    """Two long-running stations of daily/kl fit the default limit when reading only the recent release."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    base = _values_result_of_shape("long").stations
+    end = dt.datetime(2026, 10, 20, tzinfo=dt.UTC)
+    records = _selection_of(2, start=dt.datetime(1934, 1, 1, tzinfo=dt.UTC), end=end)
+    records = records.with_columns(
+        pl.when(pl.col("station_id") == "00001")
+        .then(pl.lit(dt.datetime(1979, 12, 1, tzinfo=dt.UTC)))
+        .otherwise(pl.col("start_timestamp"))
+        .alias("start_timestamp")
+    )
+    recent = replace(base, request=DwdObservationRequest(parameters="daily/kl", periods="recent"), df=records)
+    all_periods = replace(base, request=DwdObservationRequest(parameters="daily/kl"), df=records)
+
+    assert estimate_rows(recent) < Settings().restapi_max_rows
+    assert estimate_rows(all_periods) > Settings().restapi_max_rows
+
+
 def test_the_start_of_an_unpublished_record_is_assumed_from_the_periods_of_the_dataset() -> None:
     """Historical data from 1950, recent data two years and current data two days back, a forecast has none."""
     from wetterdienst.metadata.period import Period  # noqa: PLC0415

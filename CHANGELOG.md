@@ -35,6 +35,10 @@ Types of changes:
 
 ### Fixed
 
+- REST and MCP `values` requests limited to the `recent` or `now` release no longer count the
+  stations' historical records against the row limit. The documented two-station `daily/kl`
+  `periods=recent` request now fits the default limit; requests reading `historical` keep their
+  full-record estimate (GH-3249)
 - The `wsv/pegel` descriptions called every series "a reading"; PEGELONLINE states "ungeprüfte
   Rohdaten", one value per recording interval of the series, and no statistic, so they now say that
   and name the units the series are published in (e.g. `m+NN` stage, `MGN` flow direction)

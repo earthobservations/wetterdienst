@@ -11,11 +11,11 @@ one off. They hold for the REST API and the MCP tools, which are its routes; the
   is a lookup in the station list the server already holds: a `rank` counts as that many.
 - **rows**: how many rows an answer sent as one body (JSON, GeoJSON, a chart) may have, and, for a streamed answer
   (NDJSON, CSV), a higher number. There is no row to count before the download, so the rows are *estimated*, as an
-  upper bound: for each station, the readings its resolution can hold between the start of its record and the end
-  of it, within the window of the request, times the parameters asked for. A station whose record is not
-  published is counted from an assumed start that the periods of its dataset give (`_assumed_start`), so that a
-  request without a `timestamp` is held to the limit as well; `drop_nulls` or a station with less data than its
-  record makes the answer smaller.
+  upper bound: for each station, the readings its resolution can hold between the start and end of
+  its record, within the request's window and any selected recent/now release, times the parameters asked for.
+  A station whose record is not published is counted from an assumed start that the periods of its dataset give
+  (`_assumed_start`), so a request without a `timestamp` is held to the limit as well; `drop_nulls` or a station
+  with less data than its record makes the answer smaller.
 
 The time span of a request is bounded through the rows: a window of a year of 1-minute readings is half a million
 rows for one parameter, a century of daily ones is 36,500.
@@ -24,7 +24,7 @@ rows for one parameter, a century of daily ones is 36,500.
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -162,6 +162,18 @@ def _utc(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
+def _release_start(
+    stations: StationsResult, parameters: Sequence[ParameterModel], end: dt.datetime
+) -> dt.datetime | None:
+    """Bound a period-selecting reader to the release requested, not the station's whole record."""
+    if not stations.request._selects_by_period:  # noqa: SLF001
+        return None
+    served_periods = set(parameters[0].dataset.periods) & cast("set[Period]", stations.request.periods)
+    if not served_periods or Period.HISTORICAL in served_periods:
+        return None
+    return _assumed_start(list(served_periods), end)
+
+
 def estimate_rows(stations: StationsResult) -> int:
     """Estimate, as an upper bound, the rows `values` returns for the stations selected, see this module's docstring."""
     df = stations.df
@@ -189,6 +201,8 @@ def estimate_rows(stations: StationsResult) -> int:
         starts = [t for t in (window_start, _utc(row["start_timestamp"]) if row.get("start_timestamp") else None) if t]
         ends = [t for t in (window_end, _utc(row["end_timestamp"]) if row.get("end_timestamp") else None) if t]
         end = min(ends or [dt.datetime.now(dt.UTC)])
+        if window_start is None and (period_start := _release_start(stations, parameters, end)):
+            starts.append(period_start)
         if not starts:
             # no record bounds are published and the request names no start: assumed from the dataset
             assumed = _assumed_start(parameters[0].dataset.periods, end)
