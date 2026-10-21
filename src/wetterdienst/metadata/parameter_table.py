@@ -138,7 +138,6 @@ def _phase(event: str) -> str:
 # the heights the table names, or at one the source does not state. DWD's road stations write a sensor height (BUFR
 # 0 07 032) of 4.0, 4.05 or 5.0 m, or none, never 2 m (GH-2614); the provider's description of the field says so.
 PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
-    CanonicalParameter("chloride_concentration", "concentration", "Concentration of chloride dissolved in the water."),
     CanonicalParameter(
         "clearance_height", "length_short", "Vertical clearance between the water surface and the structure above it."
     ),

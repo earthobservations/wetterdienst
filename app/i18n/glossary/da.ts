@@ -402,7 +402,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Vejrtype, regn- eller sneburst i nærheden',
   weather_type_vicinity_snow_ice_crystals: 'Vejrtype, sne eller iskrystaller i nærheden',
   weather_type_vicinity_thunder: 'Vejrtype, torden i nærheden',
-  chloride_concentration: 'Kloridkoncentration',
   clearance_height: 'Frihøjde',
   climate_correction_factor: 'Klimakorrektionsfaktor',
   cloud_cover_above_7km: 'Skydække over 7 km',

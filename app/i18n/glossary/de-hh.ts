@@ -402,7 +402,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Weddersoort, Regen- oder Sneeschuur in de Neegde',
   weather_type_vicinity_snow_ice_crystals: 'Weddersoort, Snee oder Iesnadeln in de Neegde',
   weather_type_vicinity_thunder: 'Weddersoort, Dunnerwedder in de Neegde',
-  chloride_concentration: 'Chloridkonzentratschoon',
   clearance_height: 'Dörchfahrthööch',
   climate_correction_factor: 'Klimakorrektuurfaktor',
   cloud_cover_above_7km: 'Bedeckungsgraad baven 7 km',
