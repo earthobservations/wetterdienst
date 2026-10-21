@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.unit import UnitConverter
-from wetterdienst.options import SkipThreshold  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
 from wetterdienst.util.datetime import format_timestamp
 
@@ -97,10 +97,30 @@ class _AppliedSettings(BaseModel):
     )
 
 
+_STATION_WINDOW_END_BUFFER_DESCRIPTION = (
+    "How many days after the end its catalogue publishes a station is still kept for the window of the request, "
+    "for every resolution; 0 is the exact end. Null: the buffer of the resolution, two days up to daily, 62 for "
+    "monthly and 732 for annual. The start is compared exactly."
+)
+
+
+class StationsSettings(BaseModel):
+    """The settings of `/api/stations`: how the stations are chosen, as nothing is read from them."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    station_window_end_buffer: StationWindowEndBuffer | None = Field(
+        validation_alias="station_window_end_buffer", description=_STATION_WINDOW_END_BUFFER_DESCRIPTION
+    )
+
+
 class ValuesSettings(_AppliedSettings):
     """The settings of `/api/values`."""
 
     shape: Literal["long", "wide"] = Field(validation_alias="shape")
+    station_window_end_buffer: StationWindowEndBuffer | None = Field(
+        validation_alias="station_window_end_buffer", description=_STATION_WINDOW_END_BUFFER_DESCRIPTION
+    )
 
 
 _STATION_DISTANCE_DESCRIPTION = (

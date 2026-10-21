@@ -162,8 +162,8 @@ stations_timestamp_opt = click.option(
     type=click.STRING,
     help=(
         f"{_TIMESTAMP_HELP}. Given, only the stations whose record overlaps it are listed: one that started "
-        "after the window is left out, and so is one that ended before it by more than two readings of its "
-        "resolution (two days up to daily), the end a source publishes lagging a station still reporting"
+        "after the window is left out, and so is one that ended before it by more than the buffer "
+        "(--station-window-end-buffer), the end a source publishes lagging a station still reporting"
     ),
 )
 
@@ -262,6 +262,15 @@ sql_opt = click.option(
     help="Select stations by a SQL WHERE clause over their metadata. Example: region='Sachsen'",
 )
 
+station_window_end_buffer_opt = click.option(
+    "--station-window-end-buffer",
+    type=click.IntRange(min=0, max=3660),
+    help=(
+        "Days after the end its catalogue publishes that a station is still kept for the window: 0 compares "
+        "the end exactly. The start is compared exactly. Default: WD_TS_STATION_WINDOW_END_BUFFER if set, else "
+        "two days up to daily, 62 for monthly and 732 for annual"
+    ),
+)
 sql_values_opt = click.option(
     "--sql-values",
     type=click.STRING,
@@ -1400,6 +1409,7 @@ def fields(
 @right_opt
 @top_opt
 @sql_opt
+@station_window_end_buffer_opt
 @stream_format_opt
 @width_opt
 @height_opt
@@ -1430,6 +1440,7 @@ def stations(
     right: float,
     top: float,
     sql: str,
+    station_window_end_buffer: int | None,
     fmt: str,
     width: int | None,
     height: int | None,
@@ -1471,6 +1482,7 @@ def stations(
             "right": right,
             "top": top,
             "sql": sql,
+            "station_window_end_buffer": station_window_end_buffer,
             "format": fmt,
             "width": width,
             "height": height,
@@ -1487,8 +1499,13 @@ def stations(
 
     # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
     settings = Settings()
+    options = _build_options(
+        {"station_window_end_buffer": ("station_window_end_buffer", request.station_window_end_buffer)}
+    )
     try:
-        stations_ = get_stations(api=api, request=request, timestamp=request.timestamp, settings=settings)
+        stations_ = get_stations(
+            api=api, request=request, timestamp=request.timestamp, settings=settings, options=options
+        )
     except Exception as e:
         # a parameter, bounding box or --sql the caller can rephrase is told in one line, as
         # `/api/stations` answers it with a 400; an upstream failure keeps its traceback
@@ -1757,6 +1774,7 @@ def history(
     default=True,
     help="Drop rows with null values from the output. Default: WD_TS_DROP_NULLS if set, else true",
 )
+@station_window_end_buffer_opt
 @stream_format_opt
 @width_opt
 @height_opt
@@ -1805,6 +1823,7 @@ def values(
     skip_criteria: Literal["min", "mean", "max"],
     skip_threshold: float,
     drop_nulls: bool,  # noqa: FBT001
+    station_window_end_buffer: int | None,
     pretty: bool,  # noqa: FBT001
     with_metadata: bool,  # noqa: FBT001
     with_stations: bool,  # noqa: FBT001
@@ -1852,6 +1871,7 @@ def values(
             "skip_criteria": skip_criteria,
             "skip_threshold": skip_threshold,
             "drop_nulls": drop_nulls,
+            "station_window_end_buffer": station_window_end_buffer,
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
@@ -1878,6 +1898,7 @@ def values(
             "skip_criteria": ("skip_criteria", request.skip_criteria),
             "skip_threshold": ("skip_threshold", request.skip_threshold),
             "drop_nulls": ("drop_nulls", request.drop_nulls),
+            "station_window_end_buffer": ("station_window_end_buffer", request.station_window_end_buffer),
         }
     )
 

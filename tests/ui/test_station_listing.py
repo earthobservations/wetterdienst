@@ -11,6 +11,7 @@ import pytest
 
 from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LISTING
 from wetterdienst.model.result import StationsFilter, StationsResult
+from wetterdienst.options import Options
 from wetterdienst.ui import core
 from wetterdienst.ui.core import StationsRequest, ValuesRequest
 
@@ -24,6 +25,7 @@ def _utc(date: str) -> dt.datetime:
 def _listing(
     rows: list[tuple[str, str, dt.datetime | None, dt.datetime | None]],
     window: tuple[str, str] | None,
+    options: Options | None = None,
 ) -> StationsResult:
     """Build a stations listing of (station_id, resolution, start, end) rows, for a window of two dates or none."""
     df = pl.DataFrame(
@@ -41,7 +43,7 @@ def _listing(
         },
     )
     start, end = (None, None) if window is None else (_utc(date) for date in window)
-    request: Any = SimpleNamespace(start=start, end=end)
+    request: Any = SimpleNamespace(start=start, end=end, options=options or Options())
     return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.ALL)
 
 

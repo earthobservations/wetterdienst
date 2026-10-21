@@ -53,10 +53,14 @@ What the endpoints share about which stations a request names:
   exit means the request failed.
 - **A window** (`timestamp`, a date or an interval as for `values`) also narrows `stations`: it lists
   only the stations whose record overlaps it. A station is left out when it started after the window,
-  or ended before it by more than two readings of its resolution (two days up to daily, 62 days for
-  monthly and 732 for annual), because the end a source publishes lags a station that is still
-  reporting. A station whose start or end is not published is kept. With a point and `rank`, the
-  window leaves out stations before the nearest are taken.
+  or ended before it by more than a buffer, because the end a source publishes lags a station that is
+  still reporting: two days by default up to daily, 62 days for monthly and 732 for annual. The start is
+  compared exactly, as an index states the first day with a reading. A station whose start or end is not
+  published is kept. `station_window_end_buffer` sets the buffer in days, the same for every resolution
+  (0 to 3660): `0` compares the end exactly, and left out it is the buffer by resolution, or the
+  server's `WD_TS_STATION_WINDOW_END_BUFFER`. It applies to `stations` and to `values` with a `name`, as
+  the library's `filter_by_name` applies the option of the same name, and `values` reports it in the
+  `settings` block. With a point and `rank`, the window leaves out stations before the nearest are taken.
 
 Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts and stripes alike,
 and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
@@ -421,8 +425,8 @@ what each of them takes, keyed by endpoint, with `unit_targets` naming the unit 
 
 It takes the settings query parameters of the three endpoints, and answers what they resolve to
 over the server's, for each endpoint that takes the parameter: `humanize`, `convert_units` and
-`unit_targets` apply to all three, `min_gain_of_value_pairs` and `num_additional_stations` to
-`interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
+`unit_targets` apply to all three, `station_window_end_buffer` to `values` alone, and
+`min_gain_of_value_pairs` and `num_additional_stations` to `interpolate` and `summarize`. A value an endpoint refuses is refused here the same way, and an
 unknown parameter too, so a set of settings can be checked before fetching. Nothing is stored on
 the server: the parameters apply to that one answer.
 

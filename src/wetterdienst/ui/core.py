@@ -45,7 +45,7 @@ from wetterdienst.model.request import (
     TimeseriesRequest,
     limit_to_window,
 )
-from wetterdienst.options import Options, SkipThreshold, options_from_mapping
+from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
 from wetterdienst.util.extras import import_optional
@@ -224,9 +224,20 @@ _StationsTimestampField = Annotated[
     Field(
         description=_TIMESTAMP_DESCRIPTION
         + " Given, only the stations whose record overlaps it are listed, as for `values`: a station is "
-        "left out when it started after the window, or ended before it by more than two readings of its "
-        "resolution (two days up to daily), as the end a source publishes lags a station that is still "
+        "left out when it started after the window, or ended before it by more than the buffer "
+        "(`station_window_end_buffer`), as the end a source publishes lags a station that is still "
         "reporting. A station whose start or end is not published is kept."
+    ),
+]
+_StationWindowEndBufferField = Annotated[
+    StationWindowEndBuffer | None,
+    Field(
+        description="How many days after the end its catalogue publishes a station is still kept for the window "
+        "of `timestamp`, for every resolution: 0 compares the end exactly, 7 keeps a station that ended up to a "
+        "week before the window. Left out, the buffer is two days up to daily, 62 for monthly and 732 for annual, "
+        "as the end a source publishes lags a station that is still reporting. The start is compared exactly. "
+        "Applies where stations are matched by `name` and in a listing of `stations`. "
+        "Default: the server's WD_TS_STATION_WINDOW_END_BUFFER if set, else the buffer by resolution.",
     ),
 ]
 _ShapeField = Annotated[
@@ -592,6 +603,7 @@ class StationsRequest(_RefusesRenamedParameters):
 
     # the window the stations listed are to have a record in, as for `values` (GH-2635)
     timestamp: _StationsTimestampField = None
+    station_window_end_buffer: _StationWindowEndBufferField = None
 
     with_metadata: _WithMetadataField = False
 
@@ -777,6 +789,7 @@ class ValuesRequest(_RefusesRenamedParameters):
     skip_threshold: _SkipThresholdField = 0.95
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
+    station_window_end_buffer: _StationWindowEndBufferField = None
 
     @field_validator("unit_targets", mode="before")
     @classmethod
@@ -1022,6 +1035,7 @@ class SettingsRequest(BaseModel):
     skip_threshold: _SkipThresholdField = 0.95
     skip_criteria: _SkipCriteriaField = "min"
     drop_nulls: _DropNullsField = True
+    station_window_end_buffer: _StationWindowEndBufferField = None
     # interpolate
     interpolation_station_distance: _InterpolationStationDistanceField = None
     interpolation_station_distance_homogeneous: _StationDistanceHomogeneousField = None
@@ -1643,7 +1657,8 @@ def limit_stations_to_window(stations: StationsResult) -> StationsResult:
     year included stations that closed a century ago. The rule is the core's (`limit_to_window` of
     `wetterdienst.model.request`, which `filter_by_name` applies as well): a row is left out when its
     `start_timestamp` is after the window, or its `end_timestamp` is before the window by more than
-    the lag of its resolution. Without a window the listing is returned as it is.
+    the buffer: the `station_window_end_buffer` option of the request in days, else the default of its
+    resolution (two days, 62 for monthly, 732 for annual). Without a window the listing is returned as it is.
 
     Applied before `limit_stations_to_rank`, so that the N closest are the N closest of those that
     overlap, and before a `name` is matched, in a listing and in `values` alike (`get_stations`), so that
@@ -1651,7 +1666,10 @@ def limit_stations_to_window(stations: StationsResult) -> StationsResult:
     stations by id, or by distance, does not use it: it walks the stations and reads what each holds
     inside the window, which is the better judge than an index.
     """
-    return replace(stations, df=limit_to_window(stations.df, stations.start, stations.end))
+    return replace(
+        stations,
+        df=limit_to_window(stations.df, stations.start, stations.end, stations.options.station_window_end_buffer),
+    )
 
 
 def limit_stations_to_rank(stations: StationsResult) -> StationsResult:
