@@ -25,7 +25,6 @@ from wetterdienst.model.request import DEFAULT_NAME_RANK, DEFAULT_NAME_RANK_LIST
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation.api import DwdObservationValues
 from wetterdienst.ui.cli import cli
-from wetterdienst.ui.core import limit_stations_to_window
 from wetterdienst.ui.restapi import app
 
 PARAMETER = "daily/kl/temperature_air_mean_2m"
@@ -33,6 +32,7 @@ _SELECTION = {"provider": "dwd", "network": "observation", "parameters": PARAMET
 _UTC = ZoneInfo("UTC")
 WINDOW = "2020-05-01/2020-05-03"
 CLOSED, KRONSHAGEN, OPEN = "00001", "00002", "00004"
+DUESSELDORF, KOELN = "00010", "00013"
 
 
 def _utc(year: int) -> dt.datetime:
@@ -48,6 +48,12 @@ def _serve_dwd(monkeypatch: pytest.MonkeyPatch) -> None:
         (KRONSHAGEN, "Kiel-Kronshagen", _utc(1980), None),
         (OPEN, "Kiel", _utc(1991), None),
         ("00005", "Dresden-Klotzsche", _utc(1934), None),
+        # a name that is written with and without its umlaut: the station that closed in 2015, and the one that begins
+        # in 2021, are no candidates for a window in 2020
+        (DUESSELDORF, "Düsseldorf", _utc(1950), None),
+        ("00011", "Dusseldorf-Flughafen", _utc(1990), _utc(2015)),
+        ("00012", "DÜSSELDORF", _utc(2021), None),
+        (KOELN, "Köln", _utc(1950), None),
     ]
     stations = pl.DataFrame(
         {
@@ -120,14 +126,13 @@ def _mcp(kind: str, **query: str) -> list[str]:
 
 
 def _python(kind: str, **query: str) -> list[str]:
-    """Give what the library selects for the same input, the station list being cut to the window by the caller."""
+    """Give what the library selects for the same input: the window of the request is applied by `filter_by_name`."""
     window = query.get("timestamp")
     start, end = window.split("/") if window else (None, None)
     request = DwdObservationRequest(parameters=PARAMETER, start=start, end=end, settings=Settings())
-    df_all = limit_stations_to_window(request.all()).df if window else None
     # the library's default is the best match; a listing offers the best five (DEFAULT_NAME_RANK_LISTING)
     default_rank = DEFAULT_NAME_RANK_LISTING if kind == "stations" else DEFAULT_NAME_RANK
-    stations = request.filter_by_name(query["name"], rank=int(query.get("rank", default_rank)), df_all=df_all)
+    stations = request.filter_by_name(query["name"], rank=int(query.get("rank", default_rank)))
     if kind == "stations":
         return list(dict.fromkeys(stations.df.get_column("station_id")))
     return list(dict.fromkeys(row["station_id"] for row in stations.values().all().df.iter_rows(named=True)))
@@ -198,3 +203,30 @@ def _cli_empty(**query: str) -> list[str]:
     result = CliRunner().invoke(cli, ["values", *args])
     assert result.exit_code == 0, result.output
     return _ids(json.loads(result.stdout), "values")
+
+
+@pytest.mark.parametrize("name", ["Düsseldorf", "Dusseldorf", "duesseldorf", "DUSSELDORF"])
+def test_a_name_with_or_without_its_umlaut_selects_the_same_station_everywhere(name: str) -> None:
+    """However the umlaut is written, the station of that name is the best match, in the same order everywhere."""
+    answers = _every_interface("stations", name=name, rank="5")
+
+    expected = ["00010", "00012", "00011"]
+    assert answers == dict.fromkeys(answers, expected)
+
+
+@pytest.mark.parametrize("name", ["Köln", "Koln", "koeln"])
+def test_koeln_is_found_by_every_spelling_everywhere(name: str) -> None:
+    """The case that found the station by one spelling only: `Koln`, `Köln` and `koeln` are the same name."""
+    answers = _every_interface("values", name=name)
+
+    expected = [KOELN]
+    assert answers == dict.fromkeys(answers, expected)
+
+
+@pytest.mark.parametrize("kind", ["stations", "values"])
+def test_dusseldorf_in_a_window_selects_the_station_that_has_a_record_in_it_everywhere(kind: str) -> None:
+    """Python has the window of its request as the command line, REST and MCP have a `timestamp`: one station."""
+    answers = _every_interface(kind, name="Dusseldorf", rank="5", timestamp=WINDOW)
+
+    expected = [DUESSELDORF]
+    assert answers == dict.fromkeys(answers, expected)
