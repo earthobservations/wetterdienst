@@ -57,7 +57,11 @@ _INF = float("inf")
 # a flag or a count whose range is the business of the single parameters below
 UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "angle": Bounds(0.0, 360.0),  # degree
-    "concentration": Bounds(0.0, 40_000.0),  # mg/l; sea water carries 19_000 mg/l of chloride
+    # mg/l; the one parameter of this type is `oxygen_level`, dissolved oxygen: 14.6 at saturation in water at 0 °C, a
+    # little over 20 in algae-rich water in the afternoon. A substance that is dissolved in far greater amounts (the
+    # 19_000 mg/l of chloride in sea water, which `wsv/pegel` declared until #3245) is no oxygen and needs a range
+    # of its own in `PARAMETER_RANGES`, which this one would otherwise call a sentinel
+    "concentration": Bounds(0.0, 30.0),
     "conductivity": Bounds(0.0, 80_000.0),  # µS/cm; sea water is 50_000
     "degree_day": Bounds(0.0, 20_000.0),  # °C·day; a year of heating in the cold north is below 10_000
     "degree_hour": Bounds(0.0, 20_000.0),  # °C·h
@@ -101,7 +105,6 @@ PARAMETER_RANGES: dict[str, Bounds | None] = {
     "temperature_wet_ice_formation": None,
     "cloud_cover_total_measurement_method": None,
     "ph_value": Bounds(0.0, 14.0),
-    "oxygen_level": Bounds(0.0, 30.0),  # mg/l
     "true_local_time_offset": Bounds(-86_400.0, 86_400.0),  # s
     "wave_period": Bounds(0.0, 3_600.0),  # s
     "wave_height_max": Bounds(0.0, 4_000.0),  # cm
