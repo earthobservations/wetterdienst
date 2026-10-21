@@ -754,7 +754,7 @@ def test_python_samples_run(path: Path) -> None:
 #: the commands that are not run, by a piece of the line, with the reason
 CLI_NOT_RUN: dict[str, str] = {
     "docker run": "needs Docker",
-    "restapi": "starts a server, which `test_rest_samples_are_answered` stands in for",
+    "wetterdienst restapi": "starts a server, which `test_rest_samples_are_answered` stands in for",
     "$(date -u -d": "a GNU `date` substitution of the shell, which the runner does not expand",
     "/var/lib/wetterdienst": "writes under /var/lib, which is the path of a service on the host",
 }
@@ -787,27 +787,48 @@ def test_cli_samples_run(
     assert result.exit_code == 0, f"{where}: `{line}` exits {result.exit_code}: {result.output[-500:]}"
 
 
-#: the requests of a page that a default server does not answer with a 200, by a piece of the line and the status;
-#: each is a defect of the server, with its issue, and goes when it is fixed (the test fails if one is answered)
-REST_KNOWN_FAILURES: dict[str, tuple[int, str]] = {
-    "periods==recent stations==1048,4411": (400, "GH-3249: the row estimate ignores `periods`"),
+#: the requests of a page that a default server does not answer with a 200: by a piece of the line, the status, the
+#: kind of problem it answers, a piece of the line of a request of the same kind that is answered (the wide shape is
+#: counted a row for each timestamp, not each parameter) and the reason. Each is a defect of the server, with its
+#: issue, and goes when it is fixed (the test fails if the request is answered)
+REST_KNOWN_FAILURES: dict[str, tuple[int, str, str, str]] = {
+    "periods==recent stations==1048,4411": (
+        400,
+        "limit-exceeded",
+        'shape=="wide"',
+        "GH-3249: the row estimate ignores `periods`",
+    ),
 }
+
+#: the limits of a server, which a developer's environment may set to other values than the defaults the pages state
+_LIMIT_VARIABLES = (
+    "WD_RESTAPI_MAX_STATIONS",
+    "WD_RESTAPI_MAX_ROWS",
+    "WD_RESTAPI_MAX_STREAM_ROWS",
+    "WD_RESTAPI_TIMEOUT",
+    "WD_RESTAPI_MAX_CONCURRENT",
+)
 
 
 @pytest.mark.remote
 @pytest.mark.slow
 @pytest.mark.parametrize("request_", REQUESTS, ids=[f"{r.where} {r.path}" for r in REQUESTS])
 def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request a page shows is answered with a 200 by the app (SQL switched on where the page says it is)."""
+    """A request a page shows is answered with a 200 by the app, with the limits at their defaults and SQL on."""
     from starlette.testclient import TestClient  # noqa: PLC0415
 
     from wetterdienst.ui import restapi  # noqa: PLC0415
 
+    for variable in _LIMIT_VARIABLES:
+        monkeypatch.delenv(variable, raising=False)
     monkeypatch.setenv("WD_RESTAPI_SQL", "true")
     path = request_.path if request_.path.startswith("/api/v1") else "/api/v1" + request_.path.removeprefix("/api")
     response = TestClient(restapi.app).get(path, params=request_.query)
-    known = next((known for piece, known in REST_KNOWN_FAILURES.items() if piece in request_.line), None)
-    if known and "shape" not in request_.line:  # the wide shape is counted a row for each timestamp, not each parameter
-        assert response.status_code == known[0], f"{known[1]} is fixed or changed: answered {response.status_code}"
-        return
+    for piece, (status, kind, unless, reason) in REST_KNOWN_FAILURES.items():
+        if piece in request_.line and unless not in request_.line:
+            problem = response.json().get("type", "") if response.status_code != 200 else ""
+            assert (response.status_code, problem.rsplit(":", 1)[-1]) == (status, kind), (
+                f"{reason} is fixed or changed: answered {response.status_code} {problem}"
+            )
+            return
     assert response.status_code == 200, f"{request_.where}: `{request_.line}` is answered {response.status_code}"
