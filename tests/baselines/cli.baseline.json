@@ -2599,6 +2599,24 @@
           "required": false,
           "default": null
         },
+        "--station-window-end-buffer": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "integer range",
+          "choices": null,
+          "min": 0,
+          "max": 3660,
+          "spellings": [
+            "--station-window-end-buffer"
+          ],
+          "required": false,
+          "default": null
+        },
         "--stations": {
           "param_type_name": "option",
           "nargs": 1,
@@ -4733,6 +4751,24 @@
           "required": false,
           "default": null
         },
+        "--station-window-end-buffer": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "integer range",
+          "choices": null,
+          "min": 0,
+          "max": 3660,
+          "spellings": [
+            "--station-window-end-buffer"
+          ],
+          "required": false,
+          "default": null
+        },
         "--stations": {
           "param_type_name": "option",
           "nargs": 1,
@@ -4880,5 +4916,5 @@
       }
     }
   },
-  "x-release": "0.164.0"
+  "x-release": "0.165.0"
 }

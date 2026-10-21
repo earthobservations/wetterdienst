@@ -1760,9 +1760,9 @@
           "precipitation_duration",
           "pressure_air_sea_level",
           "pressure_air_site",
-          "radiation_global_intensity",
-          "radiation_sky_short_wave_diffuse_intensity",
-          "snow_depth",
+          "radiation_global_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity_mean",
+          "snow_depth_mean",
           "sunshine_duration",
           "temperature_air_0_05m",
           "temperature_air_2m",
@@ -1773,11 +1773,11 @@
           "temperature_soil_0_1m",
           "temperature_soil_0_2m",
           "temperature_soil_0_5m",
-          "wind_direction",
           "wind_direction_gust_max",
+          "wind_direction_mean",
           "wind_gust_max",
-          "wind_speed",
-          "wind_speed_arithmetic"
+          "wind_speed_arithmetic",
+          "wind_speed_mean"
         ]
       },
       "hourly": {
@@ -1787,7 +1787,7 @@
           "precipitation_duration",
           "pressure_air_sea_level",
           "pressure_air_site",
-          "radiation_global_intensity",
+          "radiation_global_intensity_mean",
           "snow_depth",
           "sunshine_duration",
           "temperature_air_2m",
@@ -1797,10 +1797,10 @@
           "temperature_soil_0_5m",
           "temperature_soil_1m",
           "temperature_soil_2m",
-          "wind_direction",
           "wind_direction_gust_max",
+          "wind_direction_mean",
           "wind_gust_max",
-          "wind_speed"
+          "wind_speed_mean"
         ]
       },
       "daily": {
@@ -1829,8 +1829,8 @@
           "humidity_relative_mean",
           "precipitation_amount",
           "precipitation_amount_max",
-          "pressure_air_site",
           "pressure_air_site_max",
+          "pressure_air_site_mean",
           "pressure_air_site_min",
           "pressure_vapor_mean",
           "radiation_global",
@@ -2630,8 +2630,6 @@
           "pressure_air_sea_level",
           "pressure_air_site_reduced",
           "temperature_air_2m",
-          "temperature_air_max_2m_last_24h",
-          "temperature_air_min_2m_last_24h",
           "temperature_dew_point_2m",
           "temperature_wind_chill",
           "visibility",
@@ -3182,6 +3180,13 @@
         }
       },
       "geosphere/observation": {
+        "10_minutes/data": {
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "radiation_sky_short_wave_diffuse_intensity": "radiation_sky_short_wave_diffuse_intensity_mean",
+          "snow_depth": "snow_depth_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
         "daily/data": {
           "cloud_cover_total": "cloud_cover_total_mean",
           "humidity_relative": "humidity_relative_mean",
@@ -3191,9 +3196,15 @@
           "temperature_air_min_0_05m": "temperature_air_min_0_05m_night",
           "wind_speed": "wind_speed_mean"
         },
+        "hourly/data": {
+          "radiation_global_intensity": "radiation_global_intensity_mean",
+          "wind_direction": "wind_direction_mean",
+          "wind_speed": "wind_speed_mean"
+        },
         "monthly/data": {
           "cloud_cover_total": "cloud_cover_total_mean",
           "humidity_relative": "humidity_relative_mean",
+          "pressure_air_site": "pressure_air_site_mean",
           "pressure_vapor": "pressure_vapor_mean",
           "wind_speed": "wind_speed_mean"
         }
@@ -3410,5 +3421,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.164.0"
+  "x-release": "0.165.0"
 }
