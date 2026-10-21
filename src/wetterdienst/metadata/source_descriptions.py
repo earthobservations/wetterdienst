@@ -64,7 +64,12 @@ checked against the source; the sub-daily temperature rows listed in GH-2660 wer
 Geosphere, IPMA, NWS, DWD road and WSV ``LT`` rows named above (GH-3136, the first provider group), and
 then the rest of the Geosphere rows, the IMGW rows and the Météo-France observation and synop rows (GH-3136,
 the second group: the ones translated, or derived from the canonical name, against the source's text), and
-the four IPMA rows that read the canonical sentence and the 21 WSV parameters (GH-3136, the third group).
+the four IPMA rows that read the canonical sentence and the 21 WSV parameters (GH-3136, the third group), and the SMHI,
+CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fourth group). CHMI describes its elements only by
+name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
+statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
+show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
+states a unit and an update interval and nothing else, and the entries say so.
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -171,51 +176,154 @@ _MO_DAILY_STAMP = (
     "after most of its coverage."
 )
 
+# the window of a daily value of the Environment Agency hydrology API (see the comment at its entries)
+_EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (the source gives no zone; read as UTC)"
+
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
+    # The page of the hydrometry API (https://hubeau.eaufrance.fr/page/api-hydrometrie, read 2026-10-21 through
+    # data.gouv.fr's copy of it, because the site itself reset every connection from here that day): "Deux grandeurs
+    # hydrométriques sont disponibles via l'opération observations_tr", the water height H and the flow Q, "exprimées
+    # en mm pour les hauteurs d'eau et en l/s pour les débits", which the producer updates "toutes les 5 à 60
+    # minutes". It states neither a statistic (instant or mean) nor a reference level of the height, which these say
     "HubeauMetadata": {
         (resolution, "data", name_original): description
         for resolution in _HUBEAU_RESOLUTIONS
-        for name_original, description in (("H", "Stage."), ("Q", "Flow."))
+        for name_original, description in (
+            (
+                "H",
+                (
+                    "Water height (hauteur d'eau, grandeur H), published in mm and updated by the producer every 5 to "
+                    "60 minutes. The source states no statistic and no reference level."
+                ),
+            ),
+            (
+                "Q",
+                (
+                    "Flow (débit, grandeur Q), published in l/s and updated by the producer every 5 to 60 minutes. "
+                    "The source states no statistic."
+                ),
+            ),
+        )
     },
+    # CHMI describes its elements only by name, unit, height and schedule: ``metadata/meta2.csv`` (NAME, UN_DESCRIPTION,
+    # HEIGHT, SCHEDULE, in Czech: "Teplota" "°C" 2 "AVG,06:00,13:00,20:00") and, for the monthly and annual files, the
+    # TIMEFUNCTION and MDFUNCTION of each row; Klimatologicka_data_popis.pdf says only that the monthly and annual
+    # characteristics ("průměr, úhrn, maximum, minimum") are derived from the daily ones. What is more than that was
+    # read off the data of 2026-10-21 and is said where the descriptions state it:
+    # - the daily mean of the temperature ("AVG") is (T06 + T13 + 2 * T20) / 4 on every one of 75,261 days of five
+    #   stations (the plain average of the three also matches on 8,084 of them); the humidity, pressure and wind speed
+    #   ("AVG") are the plain average (62,763 of 62,763, 30,487 of 30,487 and 58,765 of 58,765 days). Humidity is whole
+    #   percent, so a day counts within 0.5. All 260 active daily T series list the terms 06:00, 13:00 and 20:00, which
+    #   is what the descriptions say; 124 older series of 41 stations list other term sets (05:00, 13:00, 21:00 for 30
+    #   of them), for which the weighting was not checked;
+    # - the monthly and annual temperature "AVG"/"AVG" is the mean of the daily "AVG" (1,191 of 1,191 months, 99 of 99
+    #   years of Cheb), TMA "20:00"/"AVG" the mean of the daily values (1,171 of 1,171 months, 97 of 97 years; TMI
+    #   was not counted), and SRA "06:00"/"SUM" their sum (780 of 780 months, 65 of 65 years);
+    # - the 10 minute wind speed F is not the 10 minute mean, which is the element Fprum (F equals Fprum in 1,311 of
+    #   13,248 readings of Cheb, Jun to Aug 2024); P is the pressure at the station: 956.0 hPa at Cheb (483 m) where
+    #   the hourly SYNOP P_hm (sea level) is 1012.5 for the same hour;
+    # - the daily maximum and minimum temperature (the source stamps them 20:00 and the reader dates them by that
+    #   day) are the extremes of the 24 hours up to 20:00 UTC of that day: of the 10 minute TMA/TMI readings of Cheb
+    #   (Jun to Jul 2024) that window reproduces the daily value on 54 and 53 of 55 days, the best of the hourly ends
+    #   (a window shifted by 10 minutes fits more days, so the end is known to within 10 minutes: the 10 minute
+    #   stamp convention is not stated);
+    # - the daily precipitation (the source stamps it 06:00) is the sum of the 10 minute SRA10M stamped from 06:10 of
+    #   that day to 06:00 of the next, i.e. the 24 hours that begin at the source's stamp, not those that end at it:
+    #   39 of 39, 30 of 30 and 19 of 21 wet days at three stations, the best window of all (neighbours within 20
+    #   minutes tie); the hourly SRA1H is the sum of the six 10 minute values stamped up to the hour (60 of 60, 76 of
+    #   76 and 51 of 51 wet hours);
+    # - not settled, and said so: the window of the daily wind maximum (a maximum does not pin the end) and of the
+    #   daily sunshine duration (the 10 minute SSV10M sums reproduce it by no window: at best 23, 28 and 33 of 56 days).
+    # HEIGHT is exactly 2 at 257 of the 299 active stations' 10 minute temperature (the rest 1.88 to 6.66) and exactly
+    # 10 at 161 of 210 for the wind speed (the rest 3 to 26), so the heights in the descriptions are the conventions of
+    # the names, not a stated fact for every station
     "ChmiObservationMetadata": {
-        ("10_minutes", "data", "F"): "Wind speed at 10 m, measured every ten minutes.",
-        ("10_minutes", "data", "H"): "Relative humidity at 2 m, measured every ten minutes.",
-        ("10_minutes", "data", "P"): "Air pressure at station level, measured every ten minutes.",
-        ("10_minutes", "data", "T"): "Air temperature at 2 m, measured every ten minutes.",
-        ("annual", "data", "SRA"): "Precipitation, read at 06:00 each day.",
+        ("10_minutes", "data", "F"): (
+            "Wind speed at 10 m by convention (the source gives each series its own height: 10 m at most stations), "
+            'one value every ten minutes. The source states no statistic; its "Rychlost prům" (prům = průměr) is '
+            "the separate element Fprum."
+        ),
+        ("10_minutes", "data", "H"): (
+            "Relative humidity at 2 m, one value every ten minutes. The source states no statistic."
+        ),
+        ("10_minutes", "data", "P"): (
+            "Air pressure at station level (the hourly sea-level pressure is the separate element P_hm), one value "
+            "every ten minutes. The source states no statistic."
+        ),
+        ("10_minutes", "data", "T"): (
+            "Air temperature at 2 m, one value every ten minutes. The source states no statistic; it publishes the "
+            "10 minute maximum and minimum separately, as TMA and TMI."
+        ),
+        ("annual", "data", "SRA"): (
+            "Precipitation, the total of the year: the sum of the daily values (the source's SRA with the term 06:00)."
+        ),
         ("annual", "data", "T"): (
-            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Air temperature at 2 m, the mean of the year: the mean of the daily means (T06 + T13 + 2 T20) / 4."
         ),
-        ("annual", "data", "TMA"): "Annual mean of the daily maximum air temperature at 2 m, read at 20:00.",
-        ("annual", "data", "TMI"): "Annual mean of the daily minimum air temperature at 2 m, read at 20:00.",
+        ("annual", "data", "TMA"): (
+            "Annual mean of the daily maximum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
+        ("annual", "data", "TMI"): (
+            "Annual mean of the daily minimum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
         ("daily", "data", "F"): (
-            "Wind speed at 10 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Wind speed at 10 m by convention (the source gives each series its own height: 10 m at most stations), "
+            "the daily mean: the plain average of the observations at 06:00, 13:00 and 20:00 UTC."
         ),
-        ("daily", "data", "Fmax"): "Maximum wind speed at 10 m.",
+        ("daily", "data", "Fmax"): (
+            "Maximum wind speed at 10 m by convention (the source gives each series its own height: 10 m at most "
+            "stations) of the day it is dated. The source states no window."
+        ),
         ("daily", "data", "H"): (
-            "Relative humidity at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Relative humidity at 2 m, the daily mean: the plain average of the observations at 06:00, 13:00 and "
+            "20:00 UTC."
         ),
         ("daily", "data", "P"): (
-            "Air pressure at station level, the daily value being the average of the 06:00, 13:00 and "
-            "20:00 observations."
+            "Air pressure at station level, the daily mean: the plain average of the observations at 06:00, 13:00 "
+            "and 20:00 UTC."
         ),
-        ("daily", "data", "SCE"): "Snow depth at ground level, read at 06:00.",
-        ("daily", "data", "SRA"): "Precipitation, read at 06:00.",
-        ("daily", "data", "SSV"): "Sunshine duration, in hours.",
+        ("daily", "data", "SCE"): "Snow depth at ground level, a reading at 06:00 UTC.",
+        ("daily", "data", "SRA"): (
+            "Precipitation, the source's 06:00 UTC term: the total of the 24 hours from 06:00 UTC of the day it is "
+            "dated to 06:00 UTC of the next day. The source states no window."
+        ),
+        ("daily", "data", "SSV"): (
+            "Sunshine duration of the day it is dated, published in hours. The source states no window."
+        ),
         ("daily", "data", "T"): (
-            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Air temperature at 2 m, the daily mean: the observations at 06:00, 13:00 and 20:00 UTC, the last counted "
+            "twice, (T06 + T13 + 2 T20) / 4, not their plain average."
         ),
-        ("daily", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00.",
-        ("daily", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00.",
-        ("hourly", "data", "P"): "Air pressure at station level.",
-        ("hourly", "data", "SRA1H"): "Precipitation over one hour.",
-        ("hourly", "data", "Td"): "Dew point temperature at 2 m.",
-        ("monthly", "data", "SRA"): "Precipitation, read at 06:00 each day.",
+        ("daily", "data", "TMA"): (
+            "Maximum air temperature at 2 m, the source's 20:00 UTC term: the maximum of the 24 hours up to 20:00 UTC "
+            "of the day it is dated. The source states no window."
+        ),
+        ("daily", "data", "TMI"): (
+            "Minimum air temperature at 2 m, the source's 20:00 UTC term: the minimum of the 24 hours up to 20:00 UTC "
+            "of the day it is dated. The source states no window."
+        ),
+        ("hourly", "data", "P"): (
+            "Air pressure at station level, from the hourly SYNOP report (the sea-level pressure is the separate "
+            "element P_hm)."
+        ),
+        ("hourly", "data", "SRA1H"): (
+            "Precipitation total of the hour up to the stamp. The source states no window; the 10 minute "
+            "precipitation values stamped up to the hour add up to it (taking those to be stamped at the end of "
+            "their interval, which the source does not state)."
+        ),
+        ("hourly", "data", "Td"): "Dew point temperature at 2 m, from the hourly SYNOP report.",
+        ("monthly", "data", "SRA"): (
+            "Precipitation, the total of the month: the sum of the daily values (the source's SRA with the term 06:00)."
+        ),
         ("monthly", "data", "T"): (
-            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Air temperature at 2 m, the mean of the month: the mean of the daily means (T06 + T13 + 2 T20) / 4."
         ),
-        ("monthly", "data", "TMA"): "Monthly mean of the daily maximum air temperature at 2 m, read at 20:00.",
-        ("monthly", "data", "TMI"): "Monthly mean of the daily minimum air temperature at 2 m, read at 20:00.",
+        ("monthly", "data", "TMA"): (
+            "Monthly mean of the daily maximum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
+        ("monthly", "data", "TMI"): (
+            "Monthly mean of the daily minimum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
     },
     "DwdSwsmosMetadata": {
         ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours",
@@ -1248,17 +1356,35 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups)"
         ),
     },
+    # the "Revised service" table of https://environment.data.gov.uk/hydrology/doc/reference (read 2026-10-21): "Flow
+    # 15min instantaneous m3/s", "Flow daily mean, min, max m3/s", "Level 15min instantaneous m", "Level daily min,
+    # max m", "GroundwaterLevel sub-daily instantaneous Groundwater Logged mAOD" ("for logged groundwater data the
+    # sub-daily values may be a mix of 15min and hourly intervals"), and of the unit "m (for meters with an unspecified
+    # datum)", against "mAOD" and "mASD". Every river level measure of the measures listing has the unit m (2,638 each
+    # of level-i-900, level-max-86400 and level-min-86400). The daily window is not in the documentation: a daily
+    # reading is stamped 09:00 and the mean of a day equals the mean of the 15 minute flows from that 09:00 to the
+    # next in 27 of 27, 30 of 30 and 27 of 27 days (Felsted in Feb and Jul 2025, Ulting Sarasota in Feb 2025; no
+    # other start hour does), and a maximum or minimum is stamped at the instant of the extreme inside it
     "EAHydrologyMetadata": {
         ("15_minutes", "data", "flow-i-900"): "instant flow at timestamp",
-        ("15_minutes", "data", "level-i-900"): "instant river water level at timestamp",
+        ("15_minutes", "data", "level-i-900"): (
+            "instant river water level at timestamp, in the source's unit m, relative to an unspecified datum (the "
+            "unit is not mAOD or mASD)"
+        ),
         ("15_minutes", "data", "gw-logged-i-subdaily"): (
             "logged groundwater level at timestamp, in metres above ordnance datum, every 15 minutes to every hour"
         ),
-        ("daily", "data", "flow-m-86400"): "daily mean flow",
-        ("daily", "data", "flow-max-86400"): "daily maximum flow",
-        ("daily", "data", "flow-min-86400"): "daily min flow",
-        ("daily", "data", "level-max-86400"): "daily maximum river water level",
-        ("daily", "data", "level-min-86400"): "daily minimum river water level",
+        ("daily", "data", "flow-m-86400"): f"daily mean flow, over {_EA_DAY}",
+        ("daily", "data", "flow-max-86400"): f"daily maximum flow, within {_EA_DAY}",
+        ("daily", "data", "flow-min-86400"): f"daily minimum flow, within {_EA_DAY}",
+        ("daily", "data", "level-max-86400"): (
+            f"daily maximum river water level, within {_EA_DAY}, in the source's unit m, relative to an unspecified "
+            "datum"
+        ),
+        ("daily", "data", "level-min-86400"): (
+            f"daily minimum river water level, within {_EA_DAY}, in the source's unit m, relative to an unspecified "
+            "datum"
+        ),
     },
     "EcccObservationMetadata": {
         ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
@@ -2175,8 +2301,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "TD"): "Dew point temperature",
         ("hourly", "data", "U"): "Relative atmospheric humidity",
     },
+    # the observation section of the field list on https://api.meteo.lt/ (Lithuanian, read 2026-10-21), translated
+    # sentence by sentence: "airTemperature - oro temperatūra, °C.", "windGust - vėjo gūsis, m/s. Maksimalus gūsis per
+    # valandą.", "precipitation - kritulių kiekis, mm. Kritulių suma per valandą." and so on. It states no height for
+    # any field, so the 2 m of the temperature's name is the shelter convention
     "LhmtObservationMetadata": {
-        ("hourly", "data", "airTemperature"): "Air temperature, °C.",
+        ("hourly", "data", "airTemperature"): (
+            "Air temperature, °C. The source states no height; the 2 m of the name is the shelter convention."
+        ),
         ("hourly", "data", "cloudCover"): (
             "Cloud cover, %. Values: 0 is clear, 100 is overcast. Where the cloud cover cannot be "
             "determined, for example because of fog, null is returned."
@@ -2579,46 +2711,77 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "sum(duration_of_sunshine P1M)"): "Number of hours of sunshine over the last month.",
         ("monthly", "data", "sum(precipitation_amount P1M)"): "Monthly precipitation sum.",
     },
+    # The parameter listing of the metobs API ("summary", e.g. "medelvärde 1 dygn, 1 gång/dygn, kl 00"), translated:
+    # the first sentence and the statistic. What the listing leaves out comes from the CSV of each station (read
+    # 2026-10-21): the "Från Datum Tid (UTC)" and "Till Datum Tid (UTC)" columns of the daily and monthly files give the
+    # window of each value, and the station header's "Mäthöjd (meter över marken)" was 2.0 for temperature, dew point,
+    # humidity and visibility and 10.0 for wind and gust at all of 25 active stations sampled for each (precipitation:
+    # 21 of 25 at 2.0, the others 1.4 to 4.6, which is why it states none). The windows are the same in the corrected
+    # archive and in the last months: parameter 2 (mean) 00:00:01 to 00:00:00 UTC, dated by that day; 19 and 20
+    # (minimum, maximum) 18:00:01 of the day before to 18:00:00 UTC, dated by the day they end on (hourly 21, the
+    # gust, says "Samplingstid = 1 timme" in the footer of its CSV, which is the "over the hour"); 5 (precipitation)
+    # 06:00:01 to 06:00:00 UTC of the next day, dated by the day they begin on; 22 (monthly mean) the calendar month;
+    # 23 (monthly sum) 06:00:01 of the 1st to 06:00:00 of the 1st of the next month. The monthly temperature is the
+    # mean of the daily means (356 of 356 months at Stockholm-Observatoriekullen, 684 of 686 at Göteborg A); the
+    # listing does not say so. The monthly precipitation equals the sum of the daily values in 37 of 43 and 532 of 544
+    # months, and the others were not traced, so the description says only the window
     "SmhiObservationMetadata": {
-        ("1_minute", "data", "43"): "Relative humidity. Instantaneous value, every minute.",
+        ("1_minute", "data", "43"): "Relative humidity at 2 m. Instantaneous value, every minute.",
         ("1_minute", "data", "44"): "Air pressure reduced to sea level. Instantaneous value, every minute.",
-        ("1_minute", "data", "45"): "Air temperature. Instantaneous value, every minute.",
+        ("1_minute", "data", "45"): "Air temperature at 2 m. Instantaneous value, every minute.",
         ("1_minute", "data", "46"): "Precipitation amount. Precipitation during one minute.",
-        ("1_minute", "data", "47"): "Wind speed. One minute mean, every minute.",
+        ("1_minute", "data", "47"): "Wind speed at 10 m. One minute mean, every minute.",
         (
             "1_minute",
             "data",
             "48",
         ): (
-            "Wind direction. One minute mean, every minute. "
+            "Wind direction at 10 m. One minute mean, every minute. "
             "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
         ("1_minute", "data", "51"): "Visibility. One minute mean, every minute.",
         ("1_minute", "data", "52"): "Snow depth. Instantaneous value, every minute.",
-        ("daily", "data", "19"): "Air temperature. Minimum, once per day.",
-        ("daily", "data", "2"): "Air temperature. Daily mean, once per day at 00.",
-        ("daily", "data", "20"): "Air temperature. Maximum, once per day.",
-        ("daily", "data", "5"): "Precipitation amount. Daily sum, once per day at 06.",
-        ("daily", "data", "8"): "Snow depth. Instantaneous value, once per day at 06.",
-        ("hourly", "data", "1"): "Air temperature. Instantaneous value, once per hour.",
+        ("daily", "data", "19"): (
+            "Air temperature at 2 m. Minimum, once per day, over the 24 hours ending at 18:00 UTC of the day it is "
+            "dated."
+        ),
+        ("daily", "data", "2"): (
+            "Air temperature at 2 m. Daily mean, once per day at 00, over the 24 hours from 00:00 UTC of the day it "
+            "is dated to 00:00 UTC of the next."
+        ),
+        ("daily", "data", "20"): (
+            "Air temperature at 2 m. Maximum, once per day, over the 24 hours ending at 18:00 UTC of the day it is "
+            "dated."
+        ),
+        ("daily", "data", "5"): (
+            "Precipitation amount. Daily sum, once per day at 06, over the 24 hours from 06:00 UTC of the day it is "
+            "dated to 06:00 UTC of the next day."
+        ),
+        ("daily", "data", "8"): "Snow depth. Instantaneous value, once per day at 06 UTC.",
+        ("hourly", "data", "1"): "Air temperature at 2 m. Instantaneous value, once per hour.",
         ("hourly", "data", "12"): "Visibility. Instantaneous value, once per hour.",
         ("hourly", "data", "16"): "Total cloud amount. Instantaneous value, once per hour.",
-        ("hourly", "data", "21"): "Wind gust. Maximum, once per hour.",
+        ("hourly", "data", "21"): "Wind gust at 10 m. Maximum over the hour, once per hour.",
         (
             "hourly",
             "data",
             "3",
         ): (
-            "Wind direction. Mean over 10 minutes, once per hour. "
+            "Wind direction at 10 m. Mean over 10 minutes, once per hour. "
             "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
-        ("hourly", "data", "39"): "Dew point temperature. Instantaneous value, once per hour.",
-        ("hourly", "data", "4"): "Wind speed. Mean over 10 minutes, once per hour.",
-        ("hourly", "data", "6"): "Relative humidity. Instantaneous value, once per hour.",
+        ("hourly", "data", "39"): "Dew point temperature at 2 m. Instantaneous value, once per hour.",
+        ("hourly", "data", "4"): "Wind speed at 10 m. Mean over 10 minutes, once per hour.",
+        ("hourly", "data", "6"): "Relative humidity at 2 m. Instantaneous value, once per hour.",
         ("hourly", "data", "7"): "Precipitation amount. Hourly sum, once per hour.",
-        ("hourly", "data", "9"): "Air pressure reduced to sea level. At sea level, instantaneous value, once per hour.",
-        ("monthly", "data", "22"): "Air temperature. Mean, once per month.",
-        ("monthly", "data", "23"): "Precipitation amount. Sum, once per month.",
+        ("hourly", "data", "9"): "Air pressure reduced to sea level. Instantaneous value, once per hour.",
+        ("monthly", "data", "22"): (
+            "Air temperature at 2 m. Mean, once per month: the mean of the daily means of the calendar month (UTC)."
+        ),
+        ("monthly", "data", "23"): (
+            "Precipitation amount. Sum, once per month, over the month from 06:00 UTC of its first day to 06:00 UTC "
+            "of the first day of the next month."
+        ),
     },
     # the field list on api.ipma.pt, translated; it says "média da hora" (the mean of the hour) of temperatura, humidade
     # and pressao ("temperatura do ar registada a 1.5 metros de altura", "humidade relativa do ar registada a 1.5 metros

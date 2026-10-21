@@ -27,6 +27,12 @@ Types of changes:
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind
   ("global", "horizontal") are not stated by the source (the old text said global, horizontal and
   per interval; the daily course only suggests an hourly sum) (GH-3136)
+- The `chmi/observation` descriptions called the daily mean temperature the average of the 06:00,
+  13:00 and 20:00 observations; it is (T06 + T13 + 2 T20) / 4, while humidity, pressure and wind
+  speed are the plain average. The monthly and annual rows said "read at 06:00 each day"
+  (precipitation) or described a daily value (temperature) and now say they are the month's or
+  year's total or mean; the precipitation of a day is the 24 hours from 06:00 UTC of that day, not
+  those before it (GH-3136)
 
 ## [0.165.0] - 2026-10-21
 

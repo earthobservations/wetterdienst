@@ -81,6 +81,50 @@ def test_smhi_snow_depth_file_is_stamped_at_its_06_utc_reading_by_the_parser() -
     assert df.get_column("timestamp").to_list() == [dt.datetime(2025, 3, day, 6, tzinfo=UTC) for day in (29, 30, 31)]
 
 
+@pytest.mark.parametrize(
+    ("parameter", "begins", "ends", "text"),
+    [
+        # (day offset, time) of the window's start and end against the day the row is dated, and what is said of it
+        ("2", (0, "00:00:01"), (1, "00:00:00"), "from 00:00 UTC of the day it is dated to 00:00 UTC of the next"),
+        ("5", (0, "06:00:01"), (1, "06:00:00"), "from 06:00 UTC of the day it is dated to 06:00 UTC of the next day"),
+        (
+            "19",
+            (-1, "18:00:01"),
+            (0, "18:00:00"),
+            "the 24 hours ending at 18:00 UTC of the day it is dated",
+        ),
+        (
+            "20",
+            (-1, "18:00:01"),
+            (0, "18:00:00"),
+            "the 24 hours ending at 18:00 UTC of the day it is dated",
+        ),
+    ],
+)
+def test_smhi_daily_descriptions_name_the_window_the_files_columns_give(
+    parameter: str, begins: tuple[int, str], ends: tuple[int, str], text: str
+) -> None:
+    """The window a daily description names is the one the file's 'Från' and 'Till' columns give (GH-3136).
+
+    The listing says only "medelvärde 1 dygn", "min" or "summa 1 dygn", and the windows differ by parameter: the
+    mean is the UTC day, the minimum and maximum end at 18:00 UTC of the day they are dated, the precipitation begins
+    at 06:00 UTC of it. The rows are those of station 98230 as above, and the parser dates them by 'Representativt
+    dygn', so a description that read the window the other way round would date every value a day off.
+    """
+    first = _FILES[f"parameter/{parameter}/"].splitlines()[1].split(";")
+    dated = dt.date.fromisoformat(first[2])
+    for column, (offset, clock) in ((first[0], begins), (first[1], ends)):
+        stamp = dt.datetime.fromisoformat(column)
+        assert stamp.date() == dated + dt.timedelta(days=offset)
+        assert stamp.strftime("%H:%M:%S") == clock
+    stamps = parse_smhi_csv(_FILES[f"parameter/{parameter}/"]).get_column("timestamp").to_list()
+    assert stamps[0] == dt.datetime(dated.year, dated.month, dated.day, tzinfo=UTC)
+    metadata_parameter = next(
+        p for p in SmhiObservationRequest.metadata["daily"]["data"] if p.name_original == parameter
+    )
+    assert text in metadata_parameter.description
+
+
 @pytest.mark.parametrize("day", ["2025-03-30", "2025-03-31"])
 def test_smhi_daily_values_are_stamped_at_00_utc_of_their_day_snow_depth_too(
     monkeypatch: pytest.MonkeyPatch, day: str
