@@ -13,17 +13,14 @@ on:
       - 'app/pnpm-lock.yaml'
       - '.github/workflows/docker-publish-app.yml'
 
-  schedule:
-    - cron: '0 10 * * *' # everyday at 10am
-
   # Allow job to be triggered manually.
   workflow_dispatch:
 
 permissions: { }
 
-# Cancel in-progress jobs when pushing to the same branch.
+# A push to a pull request cancels the run it supersedes; a run on a tag always completes.
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 # The name for the produced image at ghcr.io.
@@ -132,7 +129,6 @@ jobs:
           images: |
             ghcr.io/${{ env.IMAGE_NAME_APP }}
           tags: |
-            type=schedule,pattern=nightly
             type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }}
 

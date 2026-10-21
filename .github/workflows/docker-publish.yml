@@ -21,17 +21,14 @@ on:
       - 'uv.lock'
       - '.github/workflows/docker-publish.yml'
 
-  schedule:
-    - cron: '0 10 * * *' # everyday at 10am
-
   # Allow job to be triggered manually.
   workflow_dispatch:
 
 permissions: { }
 
-# Cancel in-progress jobs when pushing to the same branch.
+# A push to a pull request cancels the run it supersedes; a run on a tag always completes.
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 # The name for the produced image at ghcr.io.
@@ -90,7 +87,7 @@ jobs:
           assert len(df) == 1 and abs(df["airTemperature"].iloc[0] - 288.15) < 1e-6, df
           EOF
 
-  # Build each platform natively and push it by digest (release/nightly/manual only).
+  # Build each platform natively and push it by digest (release/manual only).
   build:
     needs: build_and_test
     if: ${{ github.event_name != 'pull_request' }}
@@ -185,7 +182,6 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=schedule,pattern=nightly
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 

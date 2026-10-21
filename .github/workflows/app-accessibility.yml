@@ -16,7 +16,7 @@ on:
 # group of its own: its run is skipped, but it would otherwise queue behind, or cancel while waiting,
 # the run the `a11y` label started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'a11y' && format('-{0}', github.run_id) || '' }}
 
 permissions: {}

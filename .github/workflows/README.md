@@ -35,7 +35,9 @@ comment (`uses: actions/checkout@<sha> # v7.0.1`), and the base images of `docke
 digest after the tag (`python:3.15-slim-trixie@sha256:...`). A tag is something the owner of an
 action can move to other code; a commit and a digest are not. Dependabot (`github-actions` and
 `docker` in `.github/dependabot.yml`) reads the comment and the tag and proposes the next release
-with its new SHA and digest, so the pin does not freeze the version. zizmor's `unpinned-uses` rule
+with its new SHA and digest, so the pin does not freeze the version; every ecosystem has a seven-day
+`cooldown`, so a release is not proposed until it has been out for a week (security updates are not
+delayed). zizmor runs with every rule on, and its `unpinned-uses` rule
 is on and fails a new action that is referenced by a tag or a branch. When you add an action,
 resolve the tag with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (an annotated tag has to be
 dereferenced to its commit) and write the SHA and the tag. The one thing left on a tag is the
@@ -50,12 +52,29 @@ that does not change.
 
 `docs.yml` builds the Sphinx pages (`docs/conf.py`) with warnings as errors and the notebook pages not
 executed, so a broken toctree, a link to a missing anchor or a failing directive is a red check on the pull
-request that made it; the page filter is `docs/**`, the README and changelog the pages include, `src/**` (the API
+request that made it; the page filter is `docs/**`, the README, changelog and licence the pages include, `src/**` (the API
 pages and the parameter glossary are written from it) and the dependency files. A second job checks the external
 links (`poe "docs:linkcheck"`) on a weekly schedule and on request only: a site that is down for an hour is not a
 reason to fail a pull request. The code samples are run by `tests/test_docs_samples.py` (the command line and
 REST samples offline, the Python ones under the `remote` marker), which `tests.yml` and `coverage.yml` start on a
 change to `docs/**`.
+
+## Concurrency
+
+A push to a pull request cancels the run it supersedes (`cancel-in-progress` is true for the
+`pull_request` event only). A run on `main`, on a tag, on a schedule or started by hand always
+completes, so every commit on `main` has a finished result to read and a release is never cancelled
+by the next push.
+
+## Docker images
+
+`docker-publish.yml` and `docker-publish-app.yml` build and push on a `v*.*.*` / `app-v*.*.*` tag and
+on request; a pull request only builds and smoke-tests the image without pushing it. There is no
+scheduled build: the image of a release carries the base image of that day, a newer base image
+reaches the live site with the next release (Dependabot proposes the digest bumps of `docker/`
+weekly), and the Coolify deploy hook, the last step of each publish workflow, runs only then. A run
+started by hand from a branch builds and pushes untagged digests but cannot deploy, since no tag is
+computed for it.
 
 ## Timeouts
 

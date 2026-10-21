@@ -3,12 +3,16 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
+# A release is not proposed until it is seven days old (`cooldown`): a compromised release is usually
+# found and pulled within days, and every action is pinned by commit. Security updates are not delayed.
 version: 2
 updates:
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       python:
         patterns:
@@ -20,6 +24,8 @@ updates:
     directory: "/docker"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
 
   # The app is a pnpm workspace under app/; Dependabot reads pnpm-lock.yaml under
   # the "npm" ecosystem.
@@ -27,6 +33,8 @@ updates:
     directory: "/app"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       app:
         patterns:
@@ -37,3 +45,5 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7

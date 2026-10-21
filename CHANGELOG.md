@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Removed
+
+- The `nightly` tag of `ghcr.io/earthobservations/wetterdienst` and `-app` is no longer published:
+  the images are built on release tags only. An image pulled by `:nightly` stays at its last
+  build, so pull a release tag (`:0.165.0`, `:0.165`) instead (GH-2477)
+
 ### Fixed
 
 - The `wsv/pegel` descriptions called every series "a reading"; PEGELONLINE states "ungeprüfte
