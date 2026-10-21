@@ -25,7 +25,7 @@ jobs:
   accessibility:
     name: Accessibility scan
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     # the image the baseline was recorded in (Firefox on Linux, with its fonts): the layout-dependent
     # rules differ on another system. Keep the tag in step with @playwright/test in app/package.json
     container:

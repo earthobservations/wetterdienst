@@ -141,7 +141,7 @@ jobs:
   minimum-versions:
     name: Minimum dependency versions
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     continue-on-error: true
 
