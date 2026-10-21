@@ -56,17 +56,17 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "cglo",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "radiation_sky_short_wave_diffuse_intensity",
+                            "name": "radiation_sky_short_wave_diffuse_intensity_mean",
                             "name_original": "chim",
                             "unit": "watt_per_square_meter",
                         },
                         {
-                            "name": "snow_depth",
+                            "name": "snow_depth_mean",
                             "name_original": "sh",
                             "unit": "centimeter",
                         },
@@ -121,7 +121,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dd",
                             "unit": "degree",
                         },
@@ -136,7 +136,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },
@@ -186,7 +186,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "hectopascal",
                         },
                         {
-                            "name": "radiation_global_intensity",
+                            "name": "radiation_global_intensity_mean",
                             "name_original": "cglo",
                             "unit": "watt_per_square_meter",
                         },
@@ -236,7 +236,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "degree_celsius",
                         },
                         {
-                            "name": "wind_direction",
+                            "name": "wind_direction_mean",
                             "name_original": "dd",
                             "unit": "degree",
                         },
@@ -251,7 +251,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "meter_per_second",
                         },
                         {
-                            "name": "wind_speed",
+                            "name": "wind_speed_mean",
                             "name_original": "ff",
                             "unit": "meter_per_second",
                         },
@@ -388,7 +388,7 @@ _GeosphereObservationMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "pressure_air_site",
+                            "name": "pressure_air_site_mean",
                             "name_original": "p",
                             "unit": "hectopascal",
                         },

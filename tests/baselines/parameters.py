@@ -35,7 +35,16 @@ from tests.baselines.common import DIRECTORY, RELEASE, read, write
 BASELINE = DIRECTORY / "parameters.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "nws/observation/hourly/data/temperature_air_max_2m_last_24h was removed": (
+        "api.weather.gov serves `maxTemperatureLast24Hours` as null in all 49,688 observations of 108 stations, so no "
+        "request ever returned a value; the METAR's 24 hour group exists only in the raw message (GH-2614)"
+    ),
+    "nws/observation/hourly/data/temperature_air_min_2m_last_24h was removed": (
+        "api.weather.gov serves `minTemperatureLast24Hours` as null in all 49,688 observations of 108 stations, so no "
+        "request ever returned a value; the METAR's 24 hour group exists only in the raw message (GH-2614)"
+    ),
+}
 
 #: a rename that ends up in a name that is renamed again is followed this far
 _CHAIN = 10

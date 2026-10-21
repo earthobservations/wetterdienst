@@ -24,6 +24,7 @@ from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata
 from wetterdienst.provider.fmi.observation import FmiObservationMetadata
 from wetterdienst.provider.geosphere.observation import GeosphereObservationMetadata
+from wetterdienst.provider.imgw.meteorology import ImgwMeteorologyMetadata
 from wetterdienst.provider.ipma.observation import IpmaObservationMetadata
 from wetterdienst.provider.knmi.observation import KnmiObservationMetadata
 from wetterdienst.provider.lhmt.observation import LhmtObservationMetadata
@@ -404,6 +405,52 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
             "hourly/data/pressure_air_sea_level",
             "It was renamed to 'pressure_air_sea_level_mean' in this dataset.",
         ),
+        # GH-2614: Geosphere's nine means that kept the plain name of a reading
+        (
+            GeosphereObservationMetadata,
+            "10_minutes/data/radiation_global_intensity",
+            "It was renamed to 'radiation_global_intensity_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "10_minutes/data/radiation_sky_short_wave_diffuse_intensity",
+            "It was renamed to 'radiation_sky_short_wave_diffuse_intensity_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "10_minutes/data/snow_depth",
+            "It was renamed to 'snow_depth_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "10_minutes/data/wind_direction",
+            "It was renamed to 'wind_direction_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "10_minutes/data/wind_speed",
+            "It was renamed to 'wind_speed_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "hourly/data/radiation_global_intensity",
+            "It was renamed to 'radiation_global_intensity_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "hourly/data/wind_direction",
+            "It was renamed to 'wind_direction_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "hourly/data/wind_speed",
+            "It was renamed to 'wind_speed_mean' in this dataset.",
+        ),
+        (
+            GeosphereObservationMetadata,
+            "monthly/data/pressure_air_site",
+            "It was renamed to 'pressure_air_site_mean' in this dataset.",
+        ),
         # GH-2673: a `_mean_` temperature that moved to the spot name, which difflib took for another
         # quantity: the minimum, the 20 cm soil and the 10 cm grass temperature
         (
@@ -542,6 +589,84 @@ def test_the_road_and_ipma_rows_are_named_for_what_the_source_states() -> None:
     assert "4 to 5 m above ground" in descriptions["dewpointTemperature"]
 
 
+def test_geosphere_rows_that_state_a_mean_are_named_as_means() -> None:
+    """Nine Geosphere rows say "Mittelwert" in the API's own description and are `<name>_mean` (GH-2614).
+
+    The 10-minute and hourly `cglo`, `dd` and `ff`, the 10-minute `chim` and `sh` and the monthly `p`
+    ("Monatsmittel der Terminwerte"; `/v1/station/historical/<resource>/metadata`, read 2026-10-21). The rows of the
+    same fields that say no mean (the hourly `sh`, the hourly and 10-minute `p`, the extremes and the daily `sh`)
+    keep their name, and so does the arithmetic mean of the 10-minute wind speed, which is its own name.
+    """
+    rows = {
+        resolution: {p.name_original: p.name for p in GeosphereObservationMetadata[resolution]["data"]}
+        for resolution in ("10_minutes", "hourly", "daily", "monthly")
+    }
+    assert {key: rows["10_minutes"][key] for key in ("cglo", "chim", "dd", "ff", "sh")} == {
+        "cglo": "radiation_global_intensity_mean",
+        "chim": "radiation_sky_short_wave_diffuse_intensity_mean",
+        "dd": "wind_direction_mean",
+        "ff": "wind_speed_mean",
+        "sh": "snow_depth_mean",
+    }
+    assert {key: rows["hourly"][key] for key in ("cglo", "dd", "ff")} == {
+        "cglo": "radiation_global_intensity_mean",
+        "dd": "wind_direction_mean",
+        "ff": "wind_speed_mean",
+    }
+    assert rows["monthly"]["p"] == "pressure_air_site_mean"
+    assert rows["10_minutes"]["ffam"] == "wind_speed_arithmetic"
+    assert rows["10_minutes"]["p"] == rows["hourly"]["p"] == "pressure_air_site"
+    assert rows["hourly"]["sh"] == rows["daily"]["sh"] == "snow_depth"
+    assert rows["10_minutes"]["ddx"] == rows["hourly"]["ddx"] == "wind_direction_gust_max"
+    # the old names are what each dataset's other rows keep, so a dataset that has them still answers to them
+    old = parse_parameters("daily/data/snow_depth", GeosphereObservationMetadata, on_unknown="raise")
+    assert [p.name for p in old] == ["snow_depth"]
+
+
+def test_nws_has_no_24_hour_extremes_but_meteofrance_synop_does() -> None:
+    """`maxTemperatureLast24Hours` and `minTemperatureLast24Hours` are no parameters of NWS any more (GH-2614).
+
+    api.weather.gov served null in all 49,688 observations of 108 stations (the last 500 of each, read 2026-10-21),
+    so a request for them could never return a value; the METAR's 24 hour group exists only in the raw message. The
+    canonical names stay in the table because Météo-France's SYNOP declares them (`tn24`, `tx24`).
+    """
+    names = ("temperature_air_max_2m_last_24h", "temperature_air_min_2m_last_24h")
+    declared = {p.name for p in NwsObservationMetadata["hourly"]["data"]}
+    assert not declared.intersection(names)
+    assert {p.name_original for p in NwsObservationMetadata["hourly"]["data"]}.isdisjoint(
+        {"maxtemperaturelast24hours", "mintemperaturelast24hours"}
+    )
+    synop = {p.name for resolution in MeteoFranceSynopMetadata for d in resolution for p in d.parameters}
+    for name in names:
+        assert name in PARAMETERS
+        assert name in synop
+        with pytest.raises(InvalidParameterError, match="not found") as error:
+            parse_parameters(f"hourly/data/{name}", NwsObservationMetadata, on_unknown="raise")
+        assert "was renamed" not in str(error.value)
+
+
+def test_imgw_says_that_its_heights_are_not_the_files() -> None:
+    """`przy gruncie` is "at the ground", never the 5 cm of the name; the 2 m of the others is a convention (GH-3136).
+
+    The IMGW format files give no height for any of the air temperatures. The name `temperature_air_min_0_05m` stays,
+    the description says what the file says.
+    """
+    ground = two_m = 0
+    for resolution in ImgwMeteorologyMetadata:
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                if parameter.name == "temperature_air_min_0_05m":
+                    ground += 1
+                    assert "at the ground (przy gruncie)" in parameter.description
+                    assert "states no height" in parameter.description
+                    assert "never 5 cm" in parameter.description
+                elif parameter.name.startswith("temperature_air_") and "_2m" in parameter.name:
+                    two_m += 1
+                    assert "file states no height" in parameter.description, parameter
+                    assert "shelter convention" in parameter.description
+    assert (ground, two_m) == (4, 16)
+
+
 def test_the_road_humidity_is_a_name_again_that_the_dataset_answers_to() -> None:
     """`humidity_relative` was refused in the road dataset from 0.160.0 to 0.163.0 and is its name again (GH-2614)."""
     found = parse_parameters("15_minutes/data/humidity_relative", DwdRoadMetadata, on_unknown="raise")
@@ -551,7 +676,10 @@ def test_the_road_humidity_is_a_name_again_that_the_dataset_answers_to() -> None
 
 def test_a_rename_in_a_dataset_leaves_the_name_alone_in_a_dataset_that_has_it() -> None:
     """The old name still resolves where it is the parameter's own, which is why it is a rename per dataset."""
-    assert [p.name for p in parse_parameters("hourly/data/wind_speed", GeosphereObservationMetadata)] == ["wind_speed"]
+    # Geosphere's monthly `p` is a mean (GH-2614), the hourly one a reading of the hour
+    assert [p.name for p in parse_parameters("hourly/data/pressure_air_site", GeosphereObservationMetadata)] == [
+        "pressure_air_site"
+    ]
     assert [p.name for p in parse_parameters("hourly/data/wind_speed", LhmtObservationMetadata)] == ["wind_speed"]
     assert parse_parameters("hourly/data/wind_speed", AemetObservationMetadata, on_unknown="warn") == []
 

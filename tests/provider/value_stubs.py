@@ -569,7 +569,7 @@ def _geosphere_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
 
     serve(monkeypatch, geosphere_api, {"/metadata/stations": stations, "klima-v2-1h": data})
     request = GeosphereObservationRequest(
-        parameters=[("hourly", "data", "wind_direction"), ("hourly", "data", "wind_speed")],
+        parameters=[("hourly", "data", "wind_direction_mean"), ("hourly", "data", "wind_speed_mean")],
         start=_day(2024, 1, 2, 18),
         end=_day(2024, 1, 2, 20),
         settings=_settings(),
@@ -1759,9 +1759,9 @@ STUBS = [
     ValueStub(
         "geosphere/observation hourly/data",
         _geosphere_hourly,
-        reading=("wind_direction", 38.0),
-        sentinels=(("wind_direction", 0.0),),
-        tokens=(("wind_direction", "0", None),),
+        reading=("wind_direction_mean", 38.0),
+        sentinels=(("wind_direction_mean", 0.0),),
+        tokens=(("wind_direction_mean", "0", None),),
     ),
     ValueStub(
         "noaa/ghcn hourly/data",
