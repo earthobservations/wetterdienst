@@ -15,7 +15,14 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
+from wetterdienst.model.quality_flags import (
+    SPEED_BESIDE,
+    Sentinel,
+    calm,
+    join_quality_flags,
+    null_sentinels,
+    with_speed_beside,
+)
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
@@ -47,14 +54,16 @@ _SYNOP_SKY_OBSCURED = "101"
 # `dd` is a direction in degrees with north written 360 (3230 rows in 2024), and the file writes 0 where there is no
 # direction: the WMO code table of the wind direction (0877) has 0 for calm and 360 for north (GH-2856). Every one of
 # the 3495 zeros of 2024 has `ff` = 0 (5444 of 5444 in 2019, 3999 of 3999 in 2023); in 1996, 2005 and 2012 32, 1 and 59
-# of 8350, 7750 and 7525 have an `ff` of 1 to 8 m/s (one of 41), which is a wind without a bearing, not a north. `ff` =
-# 0 is no calm by itself: the integer `ff` cuts 0.5 to 0.9 m/s to 0, and 10925 of those rows of 2024 have a direction.
+# of 8350, 7750 and 7525 have an `ff` of 1 to 8 m/s (one of 41). The 0 beside an `ff` of 0 is a calm, and null; the 0
+# beside a wind that blows stays, as in every provider (`calm`, GH-3222), where it was null too. `ff` = 0 is no calm by
+# itself: the integer `ff` cuts 0.5 to 0.9 m/s to 0, and 10925 of those rows of 2024 have a direction, which stays.
 # The 1996 file also holds `dd` = 400 in 14 rows (13 of DUMONT D'URVILLE from 1996-04-03 to 1996-06-21, 1 of
 # EUROPA), each beside an `ff` of 1 or 2 m/s; no other year of 1996 to 2026 has a `dd` above 360 (checked
 # 2026-10-14). The file does not define it and it is no bearing, so it is read off the data, as `-0.1` and `101`
 # are above (GH-2873)
-_SYNOP_NO_WIND_DIRECTION = ("0", "400")
+_SYNOP_NO_WIND_DIRECTION = ("400",)
 _SYNOP_WIND_DIRECTION_COLUMN = "dd"
+_SYNOP_WIND_SPEED_OF_DIRECTION = {_SYNOP_WIND_DIRECTION_COLUMN: "ff"}
 
 # explicit schema of the exact columns published by the source, read as strings throughout since
 # many columns are entirely empty for a given station or year, which would otherwise lead to
@@ -183,12 +192,14 @@ class MeteoFranceSynopValues(TimeseriesValues):
             variable_name="parameter",
             value_name="value",
         )
+        df = with_speed_beside(df, _SYNOP_WIND_SPEED_OF_DIRECTION, on=["validity_time"])
         # before the unit conversion
         value, raw = null_sentinels(
             pl.col("value"),
             Sentinel(_SYNOP_TRACE, where=pl.col("parameter").is_in(_SYNOP_TRACE_COLUMNS), to=0.0),
             Sentinel(_SYNOP_SKY_OBSCURED, where=pl.col("parameter").eq("n")),
             Sentinel(*_SYNOP_NO_WIND_DIRECTION, where=pl.col("parameter").eq(_SYNOP_WIND_DIRECTION_COLUMN)),
+            calm(pl.col(SPEED_BESIDE)),
             # a missing reading is an empty field; a text that is no number was nulled by the cast alone
             # (the 2024 file holds none) and now keeps its text too
             non_numeric=True,

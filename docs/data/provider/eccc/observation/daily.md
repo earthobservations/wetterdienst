@@ -36,5 +36,5 @@
 | {term}`temperature_air_max_2m` | max_temperature | Daily maximum 2m air temperature. | °C | - |
 | {term}`temperature_air_mean_minmax_2m` | mean_temperature | Daily mean 2m air temperature, (maximum + minimum) / 2. | °C | - |
 | {term}`temperature_air_min_2m` | min_temperature | Daily minimum 2m air temperature. | °C | - |
-| {term}`wind_direction_gust_max`     | direction_max_gust        | wind direction of maximum wind gust | °    | >=0,<=360   |
+| {term}`wind_direction_gust_max`     | direction_max_gust        | wind direction of maximum wind gust. The source's 0 beside a gust of 0 (none reported) is null. | °    | >=0,<=360   |
 | {term}`wind_gust_max` | speed_max_gust | Maximum wind gust. | km/h | >=0 |

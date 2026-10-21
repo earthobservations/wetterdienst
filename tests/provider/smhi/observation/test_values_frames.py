@@ -40,9 +40,12 @@ _HOURLY_CORRECTED_ARCHIVE = (
 _HOURLY_LATEST_MONTHS = (
     "Datum;Tid (UTC);Lufttemperatur;Kvalitet\n2025-03-01;11:00:00;9.9;Y\n2025-03-01;12:00:00;2.4;Y\n"
 )
-# parameter 48, "Vindriktning, medelvärde 1 min", with a calm as the 0 SMHI writes
+# parameter 48, "Vindriktning, medelvärde 1 min", with a calm as the 0 SMHI writes beside a speed (parameter 47) of 0
 _ONE_MINUTE_DIRECTION = (
     "Datum;Tid (UTC);Vindriktning;Kvalitet\n2025-03-01;10:00:00;250.000000;G\n2025-03-01;10:01:00;0.000000;G\n"
+)
+_ONE_MINUTE_SPEED = (
+    "Datum;Tid (UTC);Vindhastighet;Kvalitet\n2025-03-01;10:00:00;3.200000;G\n2025-03-01;10:01:00;0.000000;G\n"
 )
 
 
@@ -89,7 +92,13 @@ def test_smhi_monthly_values_come_out_as_the_long_form(monkeypatch: pytest.Monke
 
 def test_smhi_1_minute_values_come_out_as_the_long_form(monkeypatch: pytest.MonkeyPatch) -> None:
     """The 1 minute file is read from `latest-day` alone, and its calm (a direction of 0) is null beside its text."""
-    _serve(monkeypatch, {"parameter/48/station/188790/period/latest-day/": _ONE_MINUTE_DIRECTION})
+    _serve(
+        monkeypatch,
+        {
+            "parameter/48/station/188790/period/latest-day/": _ONE_MINUTE_DIRECTION,
+            "parameter/47/station/188790/period/latest-day/": _ONE_MINUTE_SPEED,
+        },
+    )
     df = _values(
         [("1_minute", "data", "wind_direction_mean")],
         dt.datetime(2025, 3, 1, 10, tzinfo=UTC),

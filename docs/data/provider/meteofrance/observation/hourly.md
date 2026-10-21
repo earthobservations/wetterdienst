@@ -29,7 +29,7 @@
 | {term}`temperature_air_max_2m`      | TX            | Maximum air temperature under shelter within the hour.                                                                                                         | degree_celsius   |
 | {term}`temperature_air_2m`          | T             | Instantaneous air temperature under shelter.                                                                                                                   | degree_celsius   |
 | {term}`wind_speed_mean_last_10min`       | FF            | Wind force averaged over 10 minutes, measured at 10 m.                                                                                                         | meter_per_second |
-| {term}`wind_direction_mean_last_10min`   | DD            | Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. The source's 0 (mostly a calm wind) and 999 (probably variable) are null. | degree           |
+| {term}`wind_direction_mean_last_10min`   | DD            | Direction of FF, the wind force averaged over 10 minutes, on the 360 degree compass. The source's 999 (probably variable) is null, and its 0 beside an FF of 0 (a calm wind); a 0 beside a wind that blows stays. | degree           |
 | {term}`wind_speed_rolling_mean_max` | FXY           | Maximum value of FF within the hour.                                                                                                                           | meter_per_second |
 
 ### others

@@ -21,7 +21,6 @@ NOT_JOINED = {
     "dwd/road": "the verdict `_quality` derives, written as a plain `0` or `1`",
     "eaufrance/hubeau": "Hub'Eau's code_qualification_obs, written as a plain whole number",
     "lhmt/observation": "the service publishes no flag",
-    "meteoswiss/observation": "the files publish no flag",
     "wsv/pegel": "the service publishes no flag",
 }
 
