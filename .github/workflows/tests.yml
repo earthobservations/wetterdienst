@@ -52,7 +52,7 @@ on:
   # Allow job to be triggered manually.
   workflow_dispatch:
 
-# A push to a pull request cancels the run it supersedes; a run on main, a tag or a schedule always completes.
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -62,7 +62,7 @@ permissions: {}
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 150
+    timeout-minutes: 180
 
     strategy:
       matrix:
@@ -71,13 +71,13 @@ jobs:
         python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
           - os: "windows-latest"
-            python-version: "3.14"
+            python-version: "3.15"
           - os: "macos-15-intel" # x86_64 (Intel, macOS 15)
-            python-version: "3.14"
+            python-version: "3.15"
           - os: "macos-26" # arm64 (Apple Silicon, macOS 26 Tahoe)
-            python-version: "3.14"
+            python-version: "3.15"
           - os: "macos-26-intel" # x86_64 (Intel, macOS 26 Tahoe)
-            python-version: "3.14"
+            python-version: "3.15"
 
     continue-on-error: true
 
@@ -106,6 +106,12 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y libhdf5-dev pkg-config
+
+      # the same for macOS. Windows has no HDF5 to install this way: if h5py does not build there, that
+      # leg reports it (the matrix is `continue-on-error`) until h5py publishes a 3.15 wheel
+      - name: Install HDF5 (macOS, Python 3.15 only)
+        if: ${{ startsWith(matrix.os, 'macos-') && matrix.python-version == '3.15' }}
+        run: brew install hdf5 pkg-config
 
       - name: Install project
         run: uv sync

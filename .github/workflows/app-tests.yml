@@ -23,7 +23,7 @@ on:
   # Allow job to be triggered manually
   workflow_dispatch:
 
-# A push to a pull request cancels the run it supersedes; a run on main always completes
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}

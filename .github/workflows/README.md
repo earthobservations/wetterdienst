@@ -37,8 +37,8 @@ action can move to other code; a commit and a digest are not. Dependabot (`githu
 `docker` in `.github/dependabot.yml`) reads the comment and the tag and proposes the next release
 with its new SHA and digest, so the pin does not freeze the version; every ecosystem has a seven-day
 `cooldown`, so a release is not proposed until it has been out for a week (security updates are not
-delayed). zizmor runs with every rule on, and its `unpinned-uses` rule
-is on and fails a new action that is referenced by a tag or a branch. When you add an action,
+delayed). zizmor runs with no rule disabled, and its `unpinned-uses` rule
+fails a new action that is referenced by a tag or a branch. When you add an action,
 resolve the tag with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (an annotated tag has to be
 dereferenced to its commit) and write the SHA and the tag. The one thing left on a tag is the
 `mcr.microsoft.com/playwright` job container of `app-accessibility.yml`, which Dependabot does not
@@ -62,15 +62,16 @@ change to `docs/**`.
 ## Concurrency
 
 A push to a pull request cancels the run it supersedes (`cancel-in-progress` is true for the
-`pull_request` event only). A run on `main`, on a tag, on a schedule or started by hand always
-completes, so every commit on `main` has a finished result to read and a release is never cancelled
-by the next push.
+`pull_request` event only). A run on `main`, on a tag, on a schedule or started by hand is never
+cancelled once it has started. GitHub still replaces a run that is *waiting* for the group with a newer
+one, so of several pushes that arrive to `main` while one run is going, the first and the last get a
+result and the ones in between do not; a release tag has a group of its own and is never replaced.
 
 ## Docker images
 
 `docker-publish.yml` and `docker-publish-app.yml` build and push on a `v*.*.*` / `app-v*.*.*` tag and
 on request; a pull request only builds and smoke-tests the image without pushing it. There is no
-scheduled build: the image of a release carries the base image of that day, a newer base image
+scheduled build: the image of a release carries the base image pinned on that day, a newer base image
 reaches the live site with the next release (Dependabot proposes the digest bumps of `docker/`
 weekly), and the Coolify deploy hook, the last step of each publish workflow, runs only then. A run
 started by hand from a branch builds and pushes untagged digests but cannot deploy, since no tag is
@@ -81,12 +82,14 @@ computed for it.
 Every job carries a `timeout-minutes`, in place of GitHub's six hours: a hung run leaves its check
 pending, which blocks a landing, until the next push cancels it or six hours of runner time are spent.
 The limits sit at 2x or more of the longest passing run in the job durations of recent runs: a
-test-matrix leg has taken up to 57 minutes on a passing run and 84 on a failing one (150 allowed), the
-Python 3.15 leg of the offline selection up to 27 (60), the minimum-versions job up to 53 (120), the
-backend image's smoke build up to 30 (60), the coverage job up to 52 (120), the accessibility scan up to
-50 and growing (120), the daily Docker cleanup 31 (90); lint, unused, typecheck and the pages build take
-a few minutes and have 15 to 30, the link check 45. The time spent queued for a runner does not count.
-When a job legitimately outgrows its limit, raise it in the workflow and here.
+test-matrix leg has taken up to 57 minutes on a passing run and 84 on a failing one, the Python 3.15
+leg of the offline selection up to 27 (60), the minimum-versions job up to 53 (120), the backend
+image's smoke build up to 30 (60), the coverage job up to 52 (120), the accessibility scan up to 50
+and growing (120), the daily Docker cleanup 31 (90); lint, unused, typecheck and the pages build take
+a few minutes and have 15 to 30, the link check 45. The matrix has 180: its Windows and macOS legs
+run Python 3.15, which builds h5py, duckdb and numcodecs from source, and had not been measured when
+the limit was set. The time spent queued for a runner does not count. When a job legitimately
+outgrows its limit, raise it in the workflow and here.
 
 ## Credentials
 
