@@ -23,14 +23,14 @@
 
 #### parameters
 
-| name                           | original name               | description            | unit | constraints |
-|--------------------------------|-----------------------------|------------------------|------|-------------|
-| {term}`discharge_max`          | maksymalna przepływ         | discharge max          | m³/s | >=0         |
-| {term}`discharge_mean`         | średnia przepływ            | discharge mean         | m³/s | >=0         |
-| {term}`discharge_min`          | minimalna przepływ          | discharge min          | m³/s | >=0         |
-| {term}`temperature_water_max`  | maksymalna temperatura wody | temperature water max  | °C   | -           |
-| {term}`temperature_water_mean` | średnia temperatura wody    | temperature water mean | °C   | -           |
-| {term}`temperature_water_min`  | minimalna temperatura wody  | temperature water min  | °C   | -           |
-| {term}`stage_max`              | maksymalna stan wody        | stage max              | cm   | -           |
-| {term}`stage_mean`             | średnia stan wody           | stage mean             | cm   | -           |
-| {term}`stage_min`              | minimalna stan wody         | stage min              | cm   | -           |
+| name                           | original name               | description                                                                                                                                                                                    | unit | constraints |
+|--------------------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
+| {term}`discharge_max`          | maksymalna przepływ         | Monthly maximum of the discharge (Przepływ), in m³/s (the extremum indicator of the file is 3). The source's 99999.999 or NULL, no data or gaps in the month's observations, is null.          | m³/s | >=0         |
+| {term}`discharge_mean`         | średnia przepływ            | Monthly mean of the discharge (Przepływ), in m³/s (the extremum indicator of the file is 2). The source's 99999.999 or NULL, no data or gaps in the month's observations, is null.             | m³/s | >=0         |
+| {term}`discharge_min`          | minimalna przepływ          | Monthly minimum of the discharge (Przepływ), in m³/s (the extremum indicator of the file is 1). The source's 99999.999 or NULL, no data or gaps in the month's observations, is null.          | m³/s | >=0         |
+| {term}`temperature_water_max`  | maksymalna temperatura wody | Monthly maximum of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is 3). The source's 99.9 or NULL, no data or gaps in the month's observations, is null. | °C   | -           |
+| {term}`temperature_water_mean` | średnia temperatura wody    | Monthly mean of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is 2). The source's 99.9 or NULL, no data or gaps in the month's observations, is null.    | °C   | -           |
+| {term}`temperature_water_min`  | minimalna temperatura wody  | Monthly minimum of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is 1). The source's 99.9 or NULL, no data or gaps in the month's observations, is null. | °C   | -           |
+| {term}`stage_max`              | maksymalna stan wody        | Monthly maximum of the water level (Stan wody), in cm (the extremum indicator of the file is 3). The source's 9999 or NULL, no data or gaps in the month's observations, is null.              | cm   | -           |
+| {term}`stage_mean`             | średnia stan wody           | Monthly mean of the water level (Stan wody), in cm (the extremum indicator of the file is 2). The source's 9999 or NULL, no data or gaps in the month's observations, is null.                 | cm   | -           |
+| {term}`stage_min`              | minimalna stan wody         | Monthly minimum of the water level (Stan wody), in cm (the extremum indicator of the file is 1). The source's 9999 or NULL, no data or gaps in the month's observations, is null.              | cm   | -           |

@@ -26,6 +26,15 @@ Types of changes:
   surface apply it by one rule, the start being compared exactly. `values` reports it in its
   `settings` block (GH-3220)
 
+### Fixed
+
+- The description of the Geosphere datasets said they hold observations "for Germany" (they are
+  Austrian) and, for three of them, only 2 m air temperature and humidity; the `glossary`, the
+  `coverage` answers and the docs now say what the source's titles say. The NWS
+  `temperature_air_{max,min}_2m_last_24h` descriptions say that api.weather.gov serves both as
+  null, and the Météo-France daily precipitation and new snow windows start at 06h FU, not 06h
+  UTC, overseas (GH-3136)
+
 ## [0.164.0] - 2026-10-21
 
 ### Changed

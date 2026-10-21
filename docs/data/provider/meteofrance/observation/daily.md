@@ -24,7 +24,7 @@
 
 | name                            | original name | description                                           | unit             |
 |---------------------------------|---------------|-------------------------------------------------------|------------------|
-| {term}`precipitation_amount` | RR | Precipitation amount over 24 hours, from 06h UTC on day J to 06h UTC on day J+1. The value recorded at J+1 is attributed to day J. | millimeter |
+| {term}`precipitation_amount` | RR | Precipitation amount over 24 hours, from 06h FU on day J to 06h FU on day J+1 (the source writes its hours in UTC for metropolitan France and in FU overseas). The value recorded at J+1 is attributed to day J. | millimeter |
 | {term}`temperature_air_min_2m` | TN | Minimum air temperature under shelter. | degree_celsius |
 | {term}`temperature_air_max_2m` | TX | Maximum air temperature under shelter. | degree_celsius |
 | {term}`temperature_air_mean_2m` | TM | Daily mean of the hourly air temperatures under shelter. | degree_celsius |
@@ -53,5 +53,5 @@
 | {term}`radiation_global` | GLOT | Daily global radiation. | joule_per_square_centimeter |
 | {term}`humidity_relative_mean` | UM | Daily mean of the hourly relative humidities. | percent |
 | {term}`snow_depth` | NEIGETOT06 | Total depth of snow on the ground measured at 06h. | centimeter |
-| {term}`snow_depth_new` | HNEIGEF | Depth of fresh snow fallen over 24 hours, from 06h UTC on day J to 06h UTC on day J+1, that remains on the ground at 06h UTC. | centimeter |
+| {term}`snow_depth_new` | HNEIGEF | Depth of fresh snow fallen over 24 hours, from 06h FU on day J to 06h FU on day J+1, that remains on the ground at 06h FU (the source writes its hours in UTC for metropolitan France and in FU overseas). The value recorded at J+1 is attributed to day J. | centimeter |
 

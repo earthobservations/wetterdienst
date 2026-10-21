@@ -40,9 +40,12 @@ are taken as they come:
   their names while publishing different units -- MOSMIX `TD` is Kelvin, swsmos `TD` is Celsius -- so
   its wording is used only where it says nothing about the unit
 
-The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere temperature rows
+The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere rows
 (the German ``description`` of each parameter in ``/v1/station/historical/<resource>/metadata``, with
 the window it states: "Maximum der Zehnminutenwerte von 18:10 UTC Vortag - 18:00 UTC aktueller Tag"),
+the IMGW rows (the Polish ``*_format.txt`` field lists beside the data in each directory of
+``dane_meteorologiczne``, and ``CODZ_publiczne_format.txt`` and ``MIES_publiczne_format.txt`` of
+``dane_hydrologiczne``, both under https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/),
 IPMA ``temperatura``, ``humidade`` and ``pressao`` ("temperatura do ar registada a 1.5 metros de altura,
 média da hora", the observations section of https://api.ipma.pt/) and the DWD SWSMOS ``TS`` row
 (``swis_swsmos_beschreibung.pdf``). Where a source gives no description of a field, the entry names
@@ -56,7 +59,9 @@ beside it (NWS ``relativehumidity``, which the API computes, and the ASOS wind a
 this table is meant to be the source's own wording, so that a sentence here can be checked against
 what the provider says, but the older entries were written for the docs tables and not every one was
 checked against the source; the sub-daily temperature rows listed in GH-2660 were, and so were the
-Geosphere, IPMA, NWS, DWD road and WSV ``LT`` rows named above (GH-3136, the first provider group).
+Geosphere, IPMA, NWS, DWD road and WSV ``LT`` rows named above (GH-3136, the first provider group), and
+then the rest of the Geosphere rows, the IMGW rows and the Météo-France observation and synop rows (GH-3136,
+the second group: the ones translated, or derived from the canonical name, against the source's text).
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -1266,20 +1271,24 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "total_snowfall"): "snowfall total",
     },
     "GeosphereObservationMetadata": {
-        ("10_minutes", "data", "cglo"): "global radiation",
-        ("10_minutes", "data", "chim"): "sky short wave diffuse radiation",
-        ("10_minutes", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
-        ("10_minutes", "data", "ddx"): "wind direction gust max",
-        ("10_minutes", "data", "ff"): "wind speed",
-        ("10_minutes", "data", "ffam"): "arithmetic mean of wind speed",
-        ("10_minutes", "data", "ffx"): "wind gust max",
-        ("10_minutes", "data", "p"): "air pressure at site",
-        ("10_minutes", "data", "pred"): "air pressure at sea level",
-        ("10_minutes", "data", "rf"): "relative humidity",
-        ("10_minutes", "data", "rr"): "precipitation height",
-        ("10_minutes", "data", "rrm"): "precipitation duration",
-        ("10_minutes", "data", "sh"): "snow depth",
-        ("10_minutes", "data", "so"): "sunshine duration",
+        ("10_minutes", "data", "cglo"): "Global radiation, calibrated, 10-minute mean value.",
+        ("10_minutes", "data", "chim"): "Diffuse radiation, not quality-checked, calibrated, 10-minute mean value.",
+        ("10_minutes", "data", "dd"): (
+            "Wind direction [360°], vector 10-minute mean value. The source's 0 (a calm wind) is null."
+        ),
+        ("10_minutes", "data", "ddx"): "Wind direction of the maximum wind speed (peak gust) [360°].",
+        ("10_minutes", "data", "ff"): "Wind speed at 10 m height, vector 10-minute mean value.",
+        ("10_minutes", "data", "ffam"): "Wind speed at 10 m height, arithmetic 10-minute mean value.",
+        ("10_minutes", "data", "ffx"): "Wind speed at 10 m height, 10-minute maximum value (peak gust).",
+        ("10_minutes", "data", "p"): "Air pressure, 10-minute measured value.",
+        ("10_minutes", "data", "pred"): "Reduced air pressure (reduced to sea level): calculated 10-minute value.",
+        ("10_minutes", "data", "rf"): "Relative humidity, 10-minute measured value.",
+        ("10_minutes", "data", "rr"): "Precipitation sum, calculated from 1-minute precipitation data.",
+        ("10_minutes", "data", "rrm"): "Precipitation duration, calculated from 1-minute precipitation detector data.",
+        ("10_minutes", "data", "sh"): (
+            "Total snow depth from snow gauge measurement, 10-minute mean value, offset corrected."
+        ),
+        ("10_minutes", "data", "so"): "Sunshine duration in seconds, 10-minute sum.",
         ("10_minutes", "data", "tb10"): "Soil temperature at 10 cm depth, 10-minute measured value",
         ("10_minutes", "data", "tb20"): "Soil temperature at 20 cm depth, 10-minute measured value",
         ("10_minutes", "data", "tb50"): "Soil temperature at 50 cm depth, 10-minute measured value",
@@ -1289,17 +1298,45 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("10_minutes", "data", "ts"): "Air temperature at 5 cm height, 10-minute measured value",
         ("10_minutes", "data", "tsmax"): "Air temperature at 5 cm height, 10-minute maximum value",
         ("10_minutes", "data", "tsmin"): "Air temperature at 5 cm height, 10-minute minimum value",
-        ("daily", "data", "bewm_mittel"): "total cloud cover",
-        ("daily", "data", "cglo_j"): "global radiation",
-        ("daily", "data", "dampf_mittel"): "vapor pressure",
-        ("daily", "data", "ffx"): "wind gust max",
-        ("daily", "data", "p_mittel"): "air pressure at site",
-        ("daily", "data", "rf_mittel"): "relative humidity",
-        ("daily", "data", "rr"): "precipitation height",
-        ("daily", "data", "sh"): "snow depth",
-        ("daily", "data", "sh_manu"): "manually measured snow depth",
-        ("daily", "data", "shneu_manu"): "new snow depth",
-        ("daily", "data", "so_h"): "sunshine duration",
+        ("daily", "data", "bewm_mittel"): (
+            "Cloud cover, daily mean calculated from the observation times I, II and III (06, 13 and 18 UTC), "
+            "multiplied by 10 (the source's unit is 1/100, i.e. percent)."
+        ),
+        ("daily", "data", "cglo_j"): (
+            "Global radiation, calibrated 24-hour sum of the hourly values 0-24 h MOZ (23 UTC of the day before to 23 "
+            "UTC of the day)."
+        ),
+        ("daily", "data", "dampf_mittel"): (
+            "Vapor pressure, daily mean calculated from the observation times I, II and III (06, 13 and 18 UTC)."
+        ),
+        ("daily", "data", "ffx"): (
+            "Wind speed (peak gust), daily maximum of the hourly values 0-24 h MOZ (23 UTC of the day before to 23 UTC "
+            "of the day)."
+        ),
+        ("daily", "data", "p_mittel"): (
+            "Air pressure, daily mean of the observation times I, II and III (06, 13 and 18 UTC)."
+        ),
+        ("daily", "data", "rf_mittel"): (
+            "Relative humidity, daily mean of the observation times I, II and III (06, 13 and 18 UTC)."
+        ),
+        ("daily", "data", "rr"): (
+            "Precipitation, 24-hour sum of the one-minute values from 06:01 UTC to 06:00 UTC of the following day. The "
+            "source's -1 (no precipitation) is 0.0; its 0 (less than 1/10 mm, a trace) stays 0.0."
+        ),
+        ("daily", "data", "sh"): (
+            "Total snow depth from automatic snow gauge measurement, offset corrected, at observation time I (06 UTC). "
+            "The source's -1 (no snow) is 0.0."
+        ),
+        ("daily", "data", "sh_manu"): (
+            "Total snow depth, manual measurement at observation time I (06 UTC). The source's -1 (no snow) is 0.0."
+        ),
+        ("daily", "data", "shneu_manu"): (
+            "New snow depth, 24-hour sum, manual measurement at observation time I (06 UTC). The source's -1 (no snow) "
+            "is 0.0."
+        ),
+        ("daily", "data", "so_h"): (
+            "Sunshine duration, sum of the hourly values 0-24 h MOZ (23 UTC of the day before to 23 UTC of the day)."
+        ),
         ("daily", "data", "tl_mittel"): "air temperature mean at 2m, calculated from (tlmax + tlmin)/2",
         ("daily", "data", "tlmax"): (
             "Air temperature at 2 m height, maximum of the ten-minute values (tlmax) from 18:10 UTC of the day "
@@ -1313,19 +1350,23 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Air temperature at 5 cm height, minimum in the night from 18:10 UTC of the day before to 06:00 UTC "
             "of the day"
         ),
-        ("daily", "data", "vv_mittel"): "wind speed",
-        ("hourly", "data", "cglo"): "global radiation",
-        ("hourly", "data", "dd"): "wind direction. The source's 0 (a calm wind) is null.",
-        ("hourly", "data", "ddx"): "wind direction gust max",
-        ("hourly", "data", "ff"): "wind speed",
-        ("hourly", "data", "ffx"): "wind gust max",
-        ("hourly", "data", "p"): "air pressure at site",
-        ("hourly", "data", "pred"): "air pressure at sea level",
-        ("hourly", "data", "rf"): "relative humidity",
-        ("hourly", "data", "rr"): "precipitation height",
-        ("hourly", "data", "rrm"): "precipitation duration",
-        ("hourly", "data", "sh"): "snow depth",
-        ("hourly", "data", "so_h"): "sunshine duration",
+        ("daily", "data", "vv_mittel"): (
+            "Wind speed, daily mean of the observation times I, II and III (06, 13 and 18 UTC)."
+        ),
+        ("hourly", "data", "cglo"): "Global radiation, calibrated hourly mean value.",
+        ("hourly", "data", "dd"): (
+            "Wind direction [360°], vector hourly mean value. The source's 0 (a calm wind) is null."
+        ),
+        ("hourly", "data", "ddx"): "Wind direction of the maximum wind speed (peak gust), hourly value.",
+        ("hourly", "data", "ff"): "Wind speed, vector hourly mean value.",
+        ("hourly", "data", "ffx"): "Maximum wind speed (peak gust), hourly maximum value.",
+        ("hourly", "data", "p"): "Air pressure at station level, hourly measured value.",
+        ("hourly", "data", "pred"): "Reduced air pressure (reduced to sea level): calculated hourly value.",
+        ("hourly", "data", "rf"): "Relative humidity, hourly measured value.",
+        ("hourly", "data", "rr"): "Precipitation, hourly sum.",
+        ("hourly", "data", "rrm"): "Precipitation duration, hourly sum.",
+        ("hourly", "data", "sh"): "Total snow depth from snow gauge measurement, offset corrected.",
+        ("hourly", "data", "so_h"): "Sunshine duration, hourly sum.",
         ("hourly", "data", "tb10"): "Soil temperature at 10 cm depth, hourly measured value",
         ("hourly", "data", "tb100"): "Soil temperature at 100 cm depth, hourly measured value",
         ("hourly", "data", "tb20"): "Soil temperature at 20 cm depth, hourly measured value",
@@ -1339,20 +1380,32 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "bet0"): "Concrete temperature at 0 cm depth, monthly mean of the hourly values",
         ("monthly", "data", "bet0_max"): "Concrete temperature at 0 cm depth, monthly maximum of all hourly values",
         ("monthly", "data", "bet0_min"): "Concrete temperature at 0 cm depth, monthly minimum of all hourly values",
-        ("monthly", "data", "bewm_mittel"): "cloud cover total",
-        ("monthly", "data", "cglo_j"): "global radiation",
-        ("monthly", "data", "dampf_mittel"): "vapor pressure",
-        ("monthly", "data", "p"): "air pressure at site",
-        ("monthly", "data", "pmax"): "air pressure at site max",
-        ("monthly", "data", "pmin"): "air pressure at site min",
-        ("monthly", "data", "rf_mittel"): "relative humidity",
-        ("monthly", "data", "rr"): "precipitation height",
-        ("monthly", "data", "rr_max"): "precipitation height max",
-        ("monthly", "data", "sh_manu_max"): "snow depth max",
-        ("monthly", "data", "shneu_manu"): "snow depth new",
-        ("monthly", "data", "shneu_manu_max"): "snow depth new max",
-        ("monthly", "data", "so_h"): "sunshine duration",
-        ("monthly", "data", "so_r"): "sunshine duration relative",
+        ("monthly", "data", "bewm_mittel"): (
+            "Cloud cover, monthly mean calculated from the daily cloud cover means 10*(I+II+III)/3 (the source's unit "
+            "is 1/100, i.e. percent)."
+        ),
+        ("monthly", "data", "cglo_j"): "Global radiation, monthly sum of the calibrated hourly values.",
+        ("monthly", "data", "dampf_mittel"): "Vapor pressure, monthly mean of the daily values.",
+        ("monthly", "data", "p"): "Air pressure, monthly mean of the observation-time values.",
+        ("monthly", "data", "pmax"): "Air pressure, maximum of all observation-time values of the month.",
+        ("monthly", "data", "pmin"): "Air pressure, minimum of all observation-time values of the month.",
+        ("monthly", "data", "rf_mittel"): "Relative humidity, monthly mean of all daily means.",
+        ("monthly", "data", "rr"): "Precipitation, monthly sum of the 24-hour sums at observation time I (06 UTC).",
+        ("monthly", "data", "rr_max"): (
+            "Precipitation, monthly maximum of the 24-hour sums at observation time I (06 UTC)."
+        ),
+        ("monthly", "data", "sh_manu_max"): "Total snow depth, monthly maximum of the daily values.",
+        ("monthly", "data", "shneu_manu"): (
+            "New snow depth, monthly sum of the daily values at observation time I (06 UTC)."
+        ),
+        ("monthly", "data", "shneu_manu_max"): (
+            "New snow depth, monthly maximum of the daily values at observation time I (06 UTC)."
+        ),
+        ("monthly", "data", "so_h"): "Sunshine duration, monthly sum of the hourly values.",
+        ("monthly", "data", "so_r"): (
+            "Sunshine duration, share of the monthly sunshine duration in the effectively possible sunshine duration, "
+            "in percent."
+        ),
         ("monthly", "data", "tb100_max"): "Soil temperature at 100 cm depth, monthly maximum of all hourly values",
         ("monthly", "data", "tb100_min"): "Soil temperature at 100 cm depth, monthly minimum of all hourly values",
         ("monthly", "data", "tb100_mittel"): "Soil temperature at 100 cm depth, monthly mean of all hourly values",
@@ -1368,80 +1421,188 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "tb50_max"): "Soil temperature at 50 cm depth, monthly maximum of all hourly values",
         ("monthly", "data", "tb50_min"): "Soil temperature at 50 cm depth, monthly minimum of all hourly values",
         ("monthly", "data", "tb50_mittel"): "Soil temperature at 50 cm depth, monthly mean of all hourly values",
+        # the source says "Monats-Mittelwert aus Termin- und Extremwerten" and nothing of the weights. Fitted on 1,499
+        # station-months of klima-v2-1m (stations 105, 106, 107, 112 and 158, 2000-2024, 2026-10-21): tl_mittel is
+        # (tl_i_mittel + tl_iii_mittel + tlmax_mittel + tlmin_mittel) / 4 to within the 0.1 K rounding in 1,499 of
+        # 1,499 (least squares: 0.249, 0.002, 0.250, 0.249, 0.251 on I, II, III, mean max, mean min; a mean of the
+        # daily (tlmax + tlmin) / 2 is 0.45 K off on average and (I + II + III) / 3 is 1.0 K off). The daily
+        # tl_mittel is (tlmax + tlmin) / 2 to within 0.05 K in 1,460 of 1,460 days (stations 105 and 106, 2022-2023)
         ("monthly", "data", "tl_mittel"): (
-            "Air temperature at 2 m height, monthly mean from the values of the observation times and the "
-            "extremes (Termin- und Extremwerte)"
+            "Air temperature at 2 m height, monthly mean from observation-time and extreme values (Termin- und "
+            "Extremwerte): the mean of the monthly means at 06 and 18 UTC (observation times I and III) and of the "
+            "daily maxima and minima, each with a weight of one quarter."
         ),
         ("monthly", "data", "tlmax"): "Air temperature at 2 m height, monthly maximum of the 24-hour maxima",
         ("monthly", "data", "tlmin"): "Air temperature at 2 m height, monthly minimum of the 24-hour minima",
-        ("monthly", "data", "vv_mittel"): "wind speed",
+        ("monthly", "data", "vv_mittel"): "Wind speed, monthly mean of the 24-hour means.",
     },
     "ImgwHydrologyMetadata": {
-        ("daily", "hydrology", "przepływ"): "discharge",
-        ("daily", "hydrology", "stan wody"): "stage",
-        ("daily", "hydrology", "temperatura wody"): "temperature water",
-        ("monthly", "hydrology", "maksymalna przepływ"): "discharge max",
-        ("monthly", "hydrology", "maksymalna stan wody"): "stage max",
-        ("monthly", "hydrology", "maksymalna temperatura wody"): "temperature water max",
-        ("monthly", "hydrology", "minimalna przepływ"): "discharge min",
-        ("monthly", "hydrology", "minimalna stan wody"): "stage min",
-        ("monthly", "hydrology", "minimalna temperatura wody"): "temperature water min",
-        ("monthly", "hydrology", "średnia przepływ"): "discharge mean",
-        ("monthly", "hydrology", "średnia stan wody"): "stage mean",
-        ("monthly", "hydrology", "średnia temperatura wody"): "temperature water mean",
+        # CODZ_publiczne_format.txt: "COSTAN - Stan wody [cm]", "COPRZP - Przepływ [m^3/s]", "COPTMP - Temperatura
+        # wody [st. C]" and the sentinels "Stan wody 9999 albo NULL oznacza brak danych w bazie", "Przepływ 99999.999
+        # albo NULL oznacza, że przepływ w tym dniu nie był opracowywany", "Temperatura 99.9 albo NULL oznacza brak
+        # danych"; MIES_publiczne_format.txt: "MCWSKEX - Wskaźnik ekstremum (1 - minimum, 2 - średnia, 3 -
+        # maksimum)" over the same three fields, read 2026-10-21
+        ("daily", "hydrology", "przepływ"): (
+            "Discharge (Przepływ), in m³/s, one value per day. The source's 99999.999 or NULL, a discharge that was "
+            "not worked out for the day, is null."
+        ),
+        ("daily", "hydrology", "stan wody"): (
+            "Water level (Stan wody), in cm, one value per day. The source's 9999 or NULL (no data) is null."
+        ),
+        ("daily", "hydrology", "temperatura wody"): (
+            "Water temperature (Temperatura wody), in °C, one value per day. The source's 99.9 or NULL (no data, for "
+            "instance at a station that measures no temperature) is null."
+        ),
+        ("monthly", "hydrology", "maksymalna przepływ"): (
+            "Monthly maximum of the discharge (Przepływ), in m³/s (the extremum indicator of the file is 3). The "
+            "source's 99999.999 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "maksymalna stan wody"): (
+            "Monthly maximum of the water level (Stan wody), in cm (the extremum indicator of the file is 3). The "
+            "source's 9999 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "maksymalna temperatura wody"): (
+            "Monthly maximum of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is "
+            "3). The source's 99.9 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "minimalna przepływ"): (
+            "Monthly minimum of the discharge (Przepływ), in m³/s (the extremum indicator of the file is 1). The "
+            "source's 99999.999 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "minimalna stan wody"): (
+            "Monthly minimum of the water level (Stan wody), in cm (the extremum indicator of the file is 1). The "
+            "source's 9999 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "minimalna temperatura wody"): (
+            "Monthly minimum of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is "
+            "1). The source's 99.9 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "średnia przepływ"): (
+            "Monthly mean of the discharge (Przepływ), in m³/s (the extremum indicator of the file is 2). The source's "
+            "99999.999 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "średnia stan wody"): (
+            "Monthly mean of the water level (Stan wody), in cm (the extremum indicator of the file is 2). The "
+            "source's 9999 or NULL, no data or gaps in the month's observations, is null."
+        ),
+        ("monthly", "hydrology", "średnia temperatura wody"): (
+            "Monthly mean of the water temperature (Temperatura wody), in °C (the extremum indicator of the file is "
+            "2). The source's 99.9 or NULL, no data or gaps in the month's observations, is null."
+        ),
     },
     "ImgwMeteorologyMetadata": {
-        ("daily", "climate", "średnia dobowa wilgotność względna"): "Humidity.",
-        ("daily", "climate", "średnie dobowe zachmurzenie ogólne"): "Cloud cover total.",
-        ("daily", "synop", "średnia dobowa wilgotność względna"): "Humidity.",
-        ("daily", "synop", "średnia dobowe ciśnienie na poziomie stacji"): "Pressure air site.",
-        ("daily", "synop", "średnia dobowe ciśnienie pary wodnej"): "Pressure vapor.",
-        ("daily", "synop", "średnie dobowe zachmurzenie ogólne"): "Cloud cover total.",
-        ("monthly", "climate", "średnia miesięczna wilgotność względna"): "Humidity.",
-        ("monthly", "climate", "średnie miesięczne zachmurzenie ogólne"): "Cloud cover total.",
-        ("monthly", "synop", "średnia miesięczna wilgotność względna"): "Humidity.",
-        ("monthly", "synop", "średnie miesięczne zachmurzenie ogólne"): "Cloud cover total.",
-        ("daily", "climate", "maksymalna temperatura dobowa"): "temperature air max 2m",
-        ("daily", "climate", "minimalna temperatura dobowa"): "temperature air min 2m",
-        ("daily", "climate", "suma dobowa opadów"): "precipitation height",
-        ("daily", "climate", "temperatura minimalna przy gruncie"): "temperature air min 0 05m",
-        ("daily", "climate", "wysokość pokrywy śnieżnej"): "snow depth",
-        ("daily", "climate", "średnia dobowa prędkość wiatru"): "wind speed",
-        ("daily", "climate", "średnia dobowa temperatura"): "temperature air mean",
-        ("daily", "precipitation", "suma dobowa opadów"): "precipitation height",
-        ("daily", "precipitation", "wysokość pokrywy śnieżnej"): "snow depth",
-        ("daily", "precipitation", "wysokość świeżospałego śniegu"): "snow depth new",
-        ("daily", "synop", "maksymalna temperatura dobowa"): "temperature air max 2m",
-        ("daily", "synop", "minimalna temperatura dobowa"): "temperature air min 2m",
-        ("daily", "synop", "suma dobowa opadów"): "precipitation height",
-        ("daily", "synop", "temperatura minimalna przy gruncie"): "temperature air min 0 05m",
-        ("daily", "synop", "wysokość pokrywy śnieżnej"): "snow depth",
-        ("daily", "synop", "średnia dobowa prędkość wiatru"): "wind speed",
-        ("daily", "synop", "średnia dobowa temperatura"): "temperature air mean",
-        ("monthly", "climate", "absolutna temperatura maksymalna"): "temperature air max 2m",
-        ("monthly", "climate", "absolutna temperatura minimalna"): "temperature air min 2m",
-        ("monthly", "climate", "maksymalna dobowa suma opadów"): "precipitation height max",
-        ("monthly", "climate", "maksymalna wysokość pokrywy śnieżnej"): "snow depth max",
-        ("monthly", "climate", "miesieczna suma opadów"): "precipitation height",
-        ("monthly", "climate", "minimalna temperatura przy gruncie"): "temperature air min 0 05m",
-        ("monthly", "climate", "średnia miesięczna prędkość wiatru"): "wind speed",
-        ("monthly", "climate", "średnia miesięczna temperatura"): "temperature air mean 2m",
-        ("monthly", "climate", "średnia temperatura maksymalna"): "temperature air max 2m mean",
-        ("monthly", "climate", "średnia temperatura minimalna"): "temperature air min 2m mean",
-        ("monthly", "precipitation", "miesięczna suma opadów"): "precipitation height",
-        ("monthly", "precipitation", "opad maksymalny"): "precipitation height max",
-        ("monthly", "synop", "absolutna temperatura maksymalna"): "temperature air max 2m",
-        ("monthly", "synop", "absolutna temperatura minimalna"): "temperature air min 2m",
-        ("monthly", "synop", "maksymalna wysokość pokrywy śnieżnej"): "snow depth max",
-        ("monthly", "synop", "miesięczna suma opadów"): "precipitation height",
-        ("monthly", "synop", "minimalna temperatura przy gruncie"): "temperature air min 0 05m",
-        ("monthly", "synop", "średnia miesięczna prędkość wiatru"): "wind speed",
-        ("monthly", "synop", "średnia miesięczna temperatura"): "temperature air mean 2m",
-        ("monthly", "synop", "średnia temperatura maksymalna"): "temperature air max 2m mean",
-        ("monthly", "synop", "średnia temperatura minimalna"): "temperature air min 2m mean",
-        ("monthly", "synop", "średnie miesięczne ciśnienie na pozimie morza"): "pressure air sea level",
-        ("monthly", "synop", "średnie miesięczne ciśnienie na poziomie stacji"): "pressure air site",
-        ("monthly", "synop", "średnie miesięczne ciśnienie pary wodnej"): "pressure vapor",
+        # the wording is that of the Polish field lists (k_d, k_d_t, o_d, s_d, s_d_t, k_m_d, k_m_t, o_m, s_m_d and
+        # s_m_t `_format.txt`, read 2026-10-21): "Średnia dobowa temperatura powietrza [°C]", "Średnie dobowe
+        # zachmurzenie ogólne [oktanty]", "Maksymalna dobowa suma opadów w miesiącu [mm]" and so on. The files state
+        # no more than that, so that the monthly statistics are those of the daily values is read off the data:
+        # June 2020, monthly TMAX, TMIN, TMNG, TMXS, TMNS and STM against the max, min, min, mean, mean and mean of
+        # the daily TMAX, TMIN, TMNG, TMAX, TMIN and STD to within 0.06 degC at 63 climate stations and 3 synop
+        # stations (all of them), and o_m MAXO against the maximum and SUMM against the sum of the daily SMDB at
+        # 596 stations (all of them)
+        ("daily", "climate", "średnia dobowa wilgotność względna"): "Average daily relative humidity, in percent.",
+        ("daily", "climate", "średnie dobowe zachmurzenie ogólne"): "Average daily total cloud cover, in oktas.",
+        ("daily", "synop", "średnia dobowa wilgotność względna"): "Average daily relative humidity, in percent.",
+        ("daily", "synop", "średnia dobowe ciśnienie na poziomie stacji"): (
+            "Average daily air pressure at station level, in hPa."
+        ),
+        ("daily", "synop", "średnia dobowe ciśnienie pary wodnej"): "Average daily water vapor pressure, in hPa.",
+        ("daily", "synop", "średnie dobowe zachmurzenie ogólne"): "Average daily total cloud cover, in oktas.",
+        ("monthly", "climate", "średnia miesięczna wilgotność względna"): (
+            "Average monthly relative humidity, in percent."
+        ),
+        ("monthly", "climate", "średnie miesięczne zachmurzenie ogólne"): (
+            "Average monthly total cloud cover, in oktas."
+        ),
+        ("monthly", "synop", "średnia miesięczna wilgotność względna"): (
+            "Average monthly relative humidity, in percent."
+        ),
+        ("monthly", "synop", "średnie miesięczne zachmurzenie ogólne"): "Average monthly total cloud cover, in oktas.",
+        ("daily", "climate", "maksymalna temperatura dobowa"): "Maximum daily air temperature, in °C.",
+        ("daily", "climate", "minimalna temperatura dobowa"): "Minimum daily air temperature, in °C.",
+        ("daily", "climate", "suma dobowa opadów"): "Daily precipitation sum, in mm.",
+        ("daily", "climate", "temperatura minimalna przy gruncie"): (
+            "Minimum daily air temperature at the ground (przy gruncie, no height stated), in °C."
+        ),
+        ("daily", "climate", "wysokość pokrywy śnieżnej"): "Height of the snow cover, in cm.",
+        ("daily", "climate", "średnia dobowa prędkość wiatru"): "Average daily wind speed, in m/s.",
+        ("daily", "climate", "średnia dobowa temperatura"): "Average daily air temperature, in °C.",
+        ("daily", "precipitation", "suma dobowa opadów"): (
+            "Daily precipitation sum, in mm. The status Z marks an opad zbiorczy: the sum of the preceding days "
+            "without a measurement, without saying when it fell."
+        ),
+        ("daily", "precipitation", "wysokość pokrywy śnieżnej"): "Height of the snow cover, in cm.",
+        ("daily", "precipitation", "wysokość świeżospałego śniegu"): "Height of the freshly fallen snow, in cm.",
+        ("daily", "synop", "maksymalna temperatura dobowa"): "Maximum daily air temperature, in °C.",
+        ("daily", "synop", "minimalna temperatura dobowa"): "Minimum daily air temperature, in °C.",
+        ("daily", "synop", "suma dobowa opadów"): "Daily precipitation sum, in mm.",
+        ("daily", "synop", "temperatura minimalna przy gruncie"): (
+            "Minimum daily air temperature at the ground (przy gruncie, no height stated), in °C."
+        ),
+        ("daily", "synop", "wysokość pokrywy śnieżnej"): "Height of the snow cover, in cm.",
+        ("daily", "synop", "średnia dobowa prędkość wiatru"): "Average daily wind speed, in m/s.",
+        ("daily", "synop", "średnia dobowa temperatura"): "Average daily air temperature, in °C.",
+        ("monthly", "climate", "absolutna temperatura maksymalna"): (
+            "Absolute maximum air temperature of the month, in °C."
+        ),
+        ("monthly", "climate", "absolutna temperatura minimalna"): (
+            "Absolute minimum air temperature of the month, in °C."
+        ),
+        ("monthly", "climate", "maksymalna dobowa suma opadów"): "Maximum daily precipitation sum of the month, in mm.",
+        ("monthly", "climate", "maksymalna wysokość pokrywy śnieżnej"): (
+            "Maximum height of the snow cover in the month, in cm. A 0 without a status means that there was no snow "
+            "cover in the month or that the maximum cannot be determined."
+        ),
+        ("monthly", "climate", "miesieczna suma opadów"): "Monthly precipitation sum, in mm.",
+        ("monthly", "climate", "minimalna temperatura przy gruncie"): (
+            "Minimum air temperature of the month at the ground (przy gruncie, no height stated), in °C."
+        ),
+        ("monthly", "climate", "średnia miesięczna prędkość wiatru"): "Average monthly wind speed, in m/s.",
+        ("monthly", "climate", "średnia miesięczna temperatura"): (
+            "Average monthly air temperature (the mean of the daily means), in °C."
+        ),
+        ("monthly", "climate", "średnia temperatura maksymalna"): (
+            "Average maximum air temperature of the month (the mean of the daily maxima), in °C."
+        ),
+        ("monthly", "climate", "średnia temperatura minimalna"): (
+            "Average minimum air temperature of the month (the mean of the daily minima), in °C."
+        ),
+        ("monthly", "precipitation", "miesięczna suma opadów"): "Monthly precipitation sum, in mm.",
+        ("monthly", "precipitation", "opad maksymalny"): (
+            "Maximum precipitation of the month, in mm. The file names no period; it is the maximum daily sum of the "
+            "month, as the climate and synop files state it."
+        ),
+        ("monthly", "synop", "absolutna temperatura maksymalna"): (
+            "Absolute maximum air temperature of the month, in °C."
+        ),
+        ("monthly", "synop", "absolutna temperatura minimalna"): (
+            "Absolute minimum air temperature of the month, in °C."
+        ),
+        ("monthly", "synop", "maksymalna wysokość pokrywy śnieżnej"): (
+            "Maximum height of the snow cover in the month, in cm."
+        ),
+        ("monthly", "synop", "miesięczna suma opadów"): "Monthly precipitation sum, in mm.",
+        ("monthly", "synop", "minimalna temperatura przy gruncie"): (
+            "Minimum air temperature of the month at the ground (przy gruncie, no height stated), in °C."
+        ),
+        ("monthly", "synop", "średnia miesięczna prędkość wiatru"): "Average monthly wind speed, in m/s.",
+        ("monthly", "synop", "średnia miesięczna temperatura"): (
+            "Average monthly air temperature (the mean of the daily means), in °C."
+        ),
+        ("monthly", "synop", "średnia temperatura maksymalna"): (
+            "Average maximum air temperature of the month (the mean of the daily maxima), in °C."
+        ),
+        ("monthly", "synop", "średnia temperatura minimalna"): (
+            "Average minimum air temperature of the month (the mean of the daily minima), in °C."
+        ),
+        ("monthly", "synop", "średnie miesięczne ciśnienie na pozimie morza"): (
+            "Average monthly air pressure at sea level, in hPa."
+        ),
+        ("monthly", "synop", "średnie miesięczne ciśnienie na poziomie stacji"): (
+            "Average monthly air pressure at station level, in hPa."
+        ),
+        ("monthly", "synop", "średnie miesięczne ciśnienie pary wodnej"): (
+            "Average monthly water vapor pressure, in hPa."
+        ),
     },
     "NoaaGhcnMetadata": {
         ("daily", "data", "tavg"): (
@@ -1773,11 +1934,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "dewpoint"): (
             "dew point temperature, to 0.1 °C in the METAR (the T group) and in whole degrees in the 5-minute rows"
         ),
-        # the endpoint's key is all there is: the OpenAPI document describes no property. The METAR's 24 hour group
-        # ("402000061" at 05:51 UTC in KORD on 2026-10-20) came back null, as it did in the last 500 observations of
-        # some 70 stations (2026-10-21), so the field may never be filled
-        ("hourly", "data", "maxtemperaturelast24hours"): "maximum air temperature in the last 24 hours",
-        ("hourly", "data", "mintemperaturelast24hours"): "minimum air temperature in the last 24 hours",
+        # the endpoint's key is all there is: the OpenAPI document describes no property. The fields came back null in
+        # all 49,688 observations of 108 stations read on 2026-10-21 (the last 500 of each, 2026-10-14 to 21), also
+        # where the METAR carries the 24 hour group: 33 of 9,660 reports of 20 airports have it in the remarks
+        # (KORD 2026-10-21 05:51 UTC "402060067", maximum 20.6 and minimum 6.7 degC) and none has the field set
+        ("hourly", "data", "maxtemperaturelast24hours"): (
+            "maximum air temperature in the last 24 hours (the 24 hour group of the METAR); api.weather.gov served "
+            "it as null in every observation checked, also where the METAR carries the group"
+        ),
+        ("hourly", "data", "mintemperaturelast24hours"): (
+            "minimum air temperature in the last 24 hours (the 24 hour group of the METAR); api.weather.gov served "
+            "it as null in every observation checked, also where the METAR carries the group"
+        ),
         # the 6RRRR group of the METAR: the 3 hour amount in the reports of 03, 09, 15 and 21 UTC, the 6 hour amount
         # in those of 00, 06, 12 and 18 UTC (KABQ 14:52 "60000" is the 3 hour amount of 15 UTC, KABQ 23:52 "60001"
         # the 6 hour amount of 00 UTC, 2026-10-20), and null in every other row
@@ -2064,16 +2232,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "core", "FFM"): "Daily mean of the wind force averaged over 10 minutes, at 10 m.",
         ("daily", "core", "FXI"): "Daily maximum of the hourly maximum instantaneous wind force, at 10 m.",
         ("daily", "core", "RR"): (
-            "Precipitation amount over 24 hours, from 06h UTC on day J to 06h UTC on day J+1. The value recorded at "
-            "J+1 is attributed to day J."
+            "Precipitation amount over 24 hours, from 06h FU on day J to 06h FU on day J+1 (the source writes its "
+            "hours in UTC for metropolitan France and in FU overseas). The value recorded at J+1 is attributed to day "
+            "J."
         ),
         ("daily", "core", "TM"): "Daily mean of the hourly air temperatures under shelter.",
         ("daily", "core", "TN"): "Minimum air temperature under shelter.",
         ("daily", "core", "TX"): "Maximum air temperature under shelter.",
         ("daily", "others", "GLOT"): "Daily global radiation.",
         ("daily", "others", "HNEIGEF"): (
-            "Depth of fresh snow fallen over 24 hours, from 06h UTC on day J to 06h UTC on day J+1, that remains on "
-            "the ground at 06h UTC."
+            "Depth of fresh snow fallen over 24 hours, from 06h FU on day J to 06h FU on day J+1, that remains on the "
+            "ground at 06h FU (the source writes its hours in UTC for metropolitan France and in FU overseas). The "
+            "value recorded at J+1 is attributed to day J."
         ),
         ("daily", "others", "INST"): "Daily sunshine duration.",
         ("daily", "others", "NEIGETOT06"): "Total depth of snow on the ground measured at 06h.",
@@ -2680,10 +2850,13 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
         ("monthly", "data"): "Historical monthly station observations for Canada.",
     },
     "GeosphereObservationMetadata": {
-        ("10_minutes", "data"): "historical 10 minute data.",
-        ("daily", "data"): "Historical daily station observations of 2m air temperature and humidity for Germany.",
-        ("hourly", "data"): "Historical hourly station observations of 2m air temperature and humidity for Germany.",
-        ("monthly", "data"): "Historical monthly station observations of 2m air temperature and humidity for Germany.",
+        # the titles of the datasets on the API, "Stationsdaten-v2 (10 min): Stationsdaten für Österreich in
+        # zehnminütiger Auflösung mit Qualitätsinformationen" and so on for 1 h, 1 d and 1 m. These said "for Germany"
+        # and, for three of them, "of 2m air temperature and humidity", which is a fraction of what they hold
+        ("10_minutes", "data"): "Historical 10-minute station observations for Austria, with quality information.",
+        ("daily", "data"): "Historical daily station observations for Austria, with quality information.",
+        ("hourly", "data"): "Historical hourly station observations for Austria, with quality information.",
+        ("monthly", "data"): "Historical monthly station observations for Austria, with quality information.",
     },
     "HubeauMetadata": {(resolution, "data"): "Flow and stage for France." for resolution in _HUBEAU_RESOLUTIONS},
     "ImgwHydrologyMetadata": {
