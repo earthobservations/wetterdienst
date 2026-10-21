@@ -23,21 +23,21 @@
 
 #### parameters
 
-| name                              | original name | description                  | unit  | constraints |
-|-----------------------------------|---------------|------------------------------|-------|-------------|
-| {term}`cloud_cover_total_mean` | bewm_mittel | total cloud cover | % | >=0,<=100 |
-| {term}`humidity_relative_mean` | rf_mittel | relative humidity | % | >=0,<=100 |
-| {term}`precipitation_amount` | rr | precipitation height | mm | >=0 |
-| {term}`pressure_air_site_mean` | p_mittel | air pressure at site | hPa | >=0 |
-| {term}`pressure_vapor_mean` | dampf_mittel | vapor pressure | hPa | >=0 |
-| {term}`radiation_global` | cglo_j | global radiation | J/cm² | >=0 |
-| {term}`snow_depth` | sh | snow depth | cm | >=0 |
-| {term}`snow_depth_manual` | sh_manu | manually measured snow depth | cm | >=0 |
-| {term}`snow_depth_new` | shneu_manu | new snow depth | cm | >=0 |
-| {term}`sunshine_duration` | so_h | sunshine duration | h | >=0 |
-| {term}`temperature_air_max_2m` | tlmax | air temperature max at 2m | °C | - |
-| {term}`temperature_air_mean_minmax_2m` | tl_mittel | air temperature mean at 2m, calculated from (tlmax + tlmin)/2 | °C | - |
-| {term}`temperature_air_min_2m` | tlmin | air temperature min at 2m | °C | - |
-| {term}`temperature_air_min_0_05m_night` | tsmin | air temperature min at 0.05m at night (18 UTC of the previous day to 06 UTC) | °C | - |
-| {term}`wind_gust_max` | ffx | wind gust max | m/s | - |
-| {term}`wind_speed_mean` | vv_mittel | wind speed | m/s | - |
+| name                                    | original name | description                                                                                                                      | unit  | constraints |
+|-----------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------|-------|-------------|
+| {term}`cloud_cover_total_mean`          | bewm_mittel   | total cloud cover                                                                                                                | %     | >=0,<=100   |
+| {term}`humidity_relative_mean`          | rf_mittel     | relative humidity                                                                                                                | %     | >=0,<=100   |
+| {term}`precipitation_amount`            | rr            | precipitation height                                                                                                             | mm    | >=0         |
+| {term}`pressure_air_site_mean`          | p_mittel      | air pressure at site                                                                                                             | hPa   | >=0         |
+| {term}`pressure_vapor_mean`             | dampf_mittel  | vapor pressure                                                                                                                   | hPa   | >=0         |
+| {term}`radiation_global`                | cglo_j        | global radiation                                                                                                                 | J/cm² | >=0         |
+| {term}`snow_depth`                      | sh            | snow depth                                                                                                                       | cm    | >=0         |
+| {term}`snow_depth_manual`               | sh_manu       | manually measured snow depth                                                                                                     | cm    | >=0         |
+| {term}`snow_depth_new`                  | shneu_manu    | new snow depth                                                                                                                   | cm    | >=0         |
+| {term}`sunshine_duration`               | so_h          | sunshine duration                                                                                                                | h     | >=0         |
+| {term}`temperature_air_max_2m`          | tlmax         | Air temperature at 2 m height, maximum of the ten-minute values (tlmax) from 18:10 UTC of the day before to 18:00 UTC of the day | °C    | -           |
+| {term}`temperature_air_mean_minmax_2m`  | tl_mittel     | air temperature mean at 2m, calculated from (tlmax + tlmin)/2                                                                    | °C    | -           |
+| {term}`temperature_air_min_2m`          | tlmin         | Air temperature at 2 m height, minimum of the ten-minute values (tlmin) from 18:10 UTC of the day before to 18:00 UTC of the day | °C    | -           |
+| {term}`temperature_air_min_0_05m_night` | tsmin         | Air temperature at 5 cm height, minimum in the night from 18:10 UTC of the day before to 06:00 UTC of the day                    | °C    | -           |
+| {term}`wind_gust_max`                   | ffx           | wind gust max                                                                                                                    | m/s   | -           |
+| {term}`wind_speed_mean`                 | vv_mittel     | wind speed                                                                                                                       | m/s   | -           |

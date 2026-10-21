@@ -26,19 +26,19 @@
 | name                                  | original name                            | description                      | unit | constraints |
 |---------------------------------------|------------------------------------------|----------------------------------|------|-------------|
 | {term}`humidity_relative_mean` | relativeHumidity | mean humidity | % | >=0,<=100 |
-| {term}`precipitation_type_flags` | precipitationType | types of precipitation, as flags | - | - |
-| {term}`precipitation_amount` | totalPrecipitationOrTotalWaterEquivalent | precipitation height | mm | >=0 |
+| {term}`precipitation_type_flags` | precipitationType | type of precipitation, the bit flags of BUFR 0 20 021 (rain is bit 5 of 30, 33554432) | - | - |
+| {term}`precipitation_amount` | totalPrecipitationOrTotalWaterEquivalent | precipitation height over the period the station states (15 minutes in most station groups, 10 at KO, RP and SD, none stated in some) | mm | >=0 |
 | {term}`precipitation_intensity` | intensityOfPrecipitation | precipitation intensity | mm/s | >=0 |
-| {term}`road_surface_condition` | roadSurfaceCondition | road surface condition | - | - |
+| {term}`road_surface_condition` | roadSurfaceCondition | road surface condition, a code: 0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry (BUFR code table 0 20 241, the same codes as 0 20 138) | - | - |
 | {term}`temperature_air_2m` | airTemperature | air temperature (BUFR 0 12 101, no time period or statistic attached) | K | - |
 | {term}`temperature_dew_point_2m` | dewpointTemperature | dew point temperature (BUFR 0 12 103, no time period or statistic attached) | K | - |
-| {term}`temperature_surface` | roadSurfaceTemperature | road surface temperature | K | - |
+| {term}`temperature_surface` | roadSurfaceTemperature | road surface temperature (BUFR 0 12 241, no time period or statistic attached) | K | - |
 | {term}`visibility` | horizontalVisibility | visibility range | m | >=0 |
 | {term}`water_film_thickness` | waterFilmThickness | thickness of water film | m | >=0 |
-| {term}`wind_direction` | windDirection | mean direction of wind | ° | >=0,<=360 |
+| {term}`wind_direction` | windDirection | mean direction of wind over the period the station states (10 or 15 minutes, none stated in some station groups) | ° | >=0,<=360 |
 | {term}`wind_direction_gust_max` | maximumWindGustDirection | direction of maximum wind gust | ° | >=0,<=360 |
-| {term}`wind_gust_max` | maximumWindGustSpeed | maximum wind gust | m/s | >=0 |
-| {term}`wind_speed` | windSpeed | mean wind speed | m/s | >=0 |
+| {term}`wind_gust_max` | maximumWindGustSpeed | maximum wind gust over the period the station states (10 or 15 minutes, none stated in some station groups) | m/s | >=0 |
+| {term}`wind_speed` | windSpeed | mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups) | m/s | >=0 |
 
 :::{note}
 `wind_speed`, `wind_direction` and `wind_gust_max` carry no averaging window in their names because the
