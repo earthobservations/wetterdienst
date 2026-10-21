@@ -24,7 +24,7 @@ uv run poe sync              # uv sync
 uv run poe "contracts:snapshot"  # regenerate the OpenAPI, CLI --help and Python-surface snapshots after an intended change
 uv run poe "contracts:baseline"  # the baselines of the last release (OpenAPI, CLI, Python surface, MCP, parameters): in a release commit only
 uv run poe "frames:snapshot"  # regenerate tests/provider/frames.snapshot.json, the frames the core hands out for every offline provider test, after an intended change to one
-uv run poe "renames:baseline"  # the parameters of 0.139.0 that are gone (tests/metadata/gone_since_0_139_0.json): only if a name came back
+uv run poe "renames:baseline"  # the parameters of 0.139.0 that are gone (tests/metadata/gone_since_0_139_0.json): when a 0.139.0 name is renamed, removed (add it to `REMOVED`) or back
 uv run poe docs              # sphinx build into docs/_build/html, as Read the Docs runs it
 uv run poe "docs:clean"      # remove docs/_build
 uv run poe "docs:linkcheck"  # check the external links of the docs (needs the internet)
