@@ -47,6 +47,10 @@ Types of changes:
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind
   ("global", "horizontal") are not stated by the source (the old text said global, horizontal and
   per interval; the daily course only suggests an hourly sum) (GH-3136)
+- `dwd/derived` `daily/soil` and `monthly/soil` listed 479 of the 484 stations of DWD's list: the
+  soil files of the stations 44, 73, 78, 91 and 96 (`..._v2_44.txt.gz`, the index is not padded)
+  were not found, so those stations were missing and a request for one answered "No station". They
+  are listed now and return their values (GH-3257)
 - The REST API's row limit estimated a `values` request with `periods=recent` from the whole
   record of each station, so the first documented sample (`daily/kl`, stations 1048 and 4411, 12,319
   rows) was refused on a default server as "about 714,308 rows". The estimate now counts only what

@@ -510,14 +510,6 @@ ACCEPTED_LIVE: dict[str, tuple[Accepted, ...]] = {
                 in {"01584", "02110", "02814", "02968", "03612", "04261", "05941", "07350", "13710"}
             ),
         ),
-        Accepted(
-            "data_orphan",
-            "the soil files of the stations 44, 73, 78, 91 and 96 are named `..._v2_44.txt.gz`, which the file index "
-            "of the provider does not read (GH-3257)",
-            where=lambda row: (
-                row["dataset"] == "soil" and row["station_id"] in {"00044", "00073", "00078", "00091", "00096"}
-            ),
-        ),
     ),
     "noaa/ghcn": (GHCN_NO_INVENTORY,),
     "meteoswiss/observation": (
