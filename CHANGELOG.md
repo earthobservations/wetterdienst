@@ -59,6 +59,12 @@ Types of changes:
   06 UTC report only, with no period stated); the `dwd/derived` soil rows said "winter wheat" for
   DWD's winter cereals; the `dwd/mosmix` `ww3` read as plain `ww`. They now say what the
   sources say (GH-3136)
+- The REST API's row limit estimated a DWD `values` request with `periods=now` from the whole
+  record of each station, so `10_minutes/temperature_air` at a station recording since 1993 came
+  out at about 8.7 million rows against a few hundred read, and the caller was told to stream. The
+  estimate now counts the days the `now` files hold, measured on the real files with a margin of
+  two (five days for the 1 and 5 minute data, four for the 10 minute data); a request for the
+  whole record is still refused when it is over the limit (GH-3271)
 
 ## [0.165.0] - 2026-10-21
 

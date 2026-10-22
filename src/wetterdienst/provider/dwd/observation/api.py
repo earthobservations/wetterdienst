@@ -675,6 +675,27 @@ class DwdObservationRequest(TimeseriesRequest):
                 return dt.timedelta(days=366 * 6)
         return super()._recent_span_of(dataset)
 
+    def _now_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
+        """Give how far back the `now` release of a dataset reaches, which is a day or two (GH-3271).
+
+        Measured on the real `now` files (opendata.dwd.de, 2026-10-22 06:44 UTC, every station of every dataset that
+        has one): a file holds readings up to the last one, from 00:00 UTC of a day back. The 1 minute files held
+        2,846 readings at most (47.4 hours, files frozen at 23:25), the 5 minute files 588 (49 hours). Those files
+        run a day further back than the 10 minute ones: rewritten at 00:10 UTC (1 minute) or 01:25 to 02:05 (5
+        minute) they began two days back, and live ones at 06:10 and 06:30 began the day before, so a cut falls in
+        between. A file holds at most about 55 hours then, and five days is 2.2 times that. The 10 minute files
+        begin at 00:00 UTC of the day before until a cut in the morning moves the start to the day itself (the
+        precipitation after 06:10, a file fetched at 06:40 had moved on; the others between 05:50 and 06:20): none
+        was seen beginning two days back, and the largest held 180 readings (30 hours), the urban ones 36. Four
+        days is 3 times the 31 hours that leaves, and twice the 48 of a file that was never cut.
+        """
+        match dataset.resolution.value:
+            case Resolution.MINUTE_1 | Resolution.MINUTE_5:
+                return dt.timedelta(days=5)
+            case Resolution.MINUTE_10:
+                return dt.timedelta(days=4)
+        return super()._now_span_of(dataset)
+
     @property
     def interval(self) -> Interval | None:
         """Interval of the request."""

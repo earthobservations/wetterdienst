@@ -414,8 +414,67 @@ def test_each_dataset_of_a_request_is_narrowed_by_its_own_span() -> None:
     assert estimate_rows(solar) > 2 * 732 * len(solar.parameters)
 
 
-def test_only_the_recent_release_narrows_the_rows() -> None:
-    """A request for `now` alone is counted from the record, as the window of the day is not a span of this module's."""
+@pytest.mark.parametrize(
+    ("parameters", "span_days"),
+    [
+        # measured on the real `now` files (see `DwdObservationRequest._now_span_of`): up to about 55 hours
+        ("1_minute/precipitation", 5),
+        ("5_minutes/precipitation", 5),
+        # the previous day and today: up to 48 hours
+        ("10_minutes/temperature_air", 4),
+        ("10_minutes/precipitation", 4),
+        ("10_minutes/solar", 4),
+        ("10_minutes/urban_temperature_air", 4),
+    ],
+)
+def test_the_rows_of_a_request_for_the_now_release_are_those_of_its_span(parameters: str, span_days: int) -> None:
+    """`periods=now` reads a day or two, whatever a station has recorded since (GH-3271)."""
+    end = dt.datetime(2026, 10, 20, tzinfo=dt.UTC)
+    start = dt.datetime(1993, 1, 1, tzinfo=dt.UTC)
+    now = _long_running_stations("now", parameters, start=start)
+    dataset = now.parameters[0].dataset
+
+    readings = count_readings(dataset.resolution.value, end - dt.timedelta(days=span_days), end)
+    assert estimate_rows(now) == 2 * readings * len(now.parameters)
+    # the record counted whole is what the request was refused for
+    for periods in (None, "historical", ["historical", "now"]):
+        assert estimate_rows(_long_running_stations(periods, parameters, start=start)) > 1000 * estimate_rows(now)
+
+
+@pytest.mark.parametrize(
+    ("parameters", "readings_held"),
+    [
+        # what the largest `now` file can hold, from the measurement (`DwdObservationRequest._now_span_of`): about 55
+        # hours of 1 and 5 minute readings (2,846 and 588 were the most seen), 48 of 10 minute ones (180 at most seen)
+        ("1_minute/precipitation", 55 * 60),
+        ("5_minutes/precipitation", 55 * 12),
+        ("10_minutes/precipitation", 48 * 6),
+        ("10_minutes/temperature_air", 48 * 6),
+    ],
+)
+def test_the_margin_over_the_now_files_measured_is_twice_what_they_held(parameters: str, readings_held: int) -> None:
+    """A `now` file that holds more than the estimate does would let a request through that is over the limit."""
+    stations = _long_running_stations("now", parameters)
+    two_stations, margin = 2, 2
+    assert estimate_rows(stations) >= margin * two_stations * readings_held * len(stations.parameters)
+
+
+def test_a_request_for_the_now_release_is_counted_by_the_widest_period_it_reads() -> None:
+    """With `recent` it reads that release, with `historical` the record: `now` narrows only when it is alone."""
+    parameters = "10_minutes/temperature_air"
+    recent = estimate_rows(_long_running_stations("recent", parameters))
+    assert estimate_rows(_long_running_stations(["recent", "now"], parameters)) == recent
+    assert estimate_rows(_long_running_stations("now", parameters)) < recent
+    assert estimate_rows(_long_running_stations(["historical", "now"], parameters)) > recent
+
+
+def test_a_provider_with_no_span_for_its_now_release_is_counted_from_its_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """None says the release is not measured: the request is counted as it was before (GH-3271)."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    monkeypatch.setattr(DwdObservationRequest, "_now_span_of", lambda _self, _dataset: None)
     assert estimate_rows(_long_running_stations("now", "10_minutes/temperature_air")) == estimate_rows(
         _long_running_stations(None, "10_minutes/temperature_air")
     )
@@ -467,6 +526,30 @@ def test_the_documented_values_request_for_the_recent_release_passes_the_default
 
     # the same stations read as a whole are about 700,000 rows (GH-3249): still refused
     response = client.get("/api/v1/values", params=_STATIONS)
+    assert response.status_code == 400
+    assert response.json()["limit"] == "rows"
+
+
+def test_a_values_request_for_the_now_release_passes_the_default_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two long-running stations, `periods=now`, 10 minute air temperature: refused as the whole record (GH-3271)."""
+    parameters = "10_minutes/temperature_air"
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")], stations_df=_long_running_stations(None).df)
+
+    def stations_of(**kwargs: Any) -> StationsResult:  # noqa: ANN401
+        """Give the two stations for the periods the route passed on."""
+        return _long_running_stations(
+            kwargs["request"].periods or None, parameters, start=dt.datetime(1993, 1, 1, tzinfo=dt.UTC)
+        )
+
+    monkeypatch.setattr(restapi, "get_stations", stations_of)
+    monkeypatch.setattr("wetterdienst.ui.core.get_stations", stations_of)
+    query = {**_STATIONS, "parameters": parameters}
+
+    assert client.get("/api/v1/values", params={**query, "periods": "now"}).status_code == 200
+    # the same stations read as a whole are about 21 million rows: still refused
+    response = client.get("/api/v1/values", params=query)
     assert response.status_code == 400
     assert response.json()["limit"] == "rows"
 

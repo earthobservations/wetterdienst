@@ -15,9 +15,10 @@ one off. They hold for the REST API and the MCP tools, which are its routes; the
   of it, within the window of the request, times the parameters asked for. The periods the request reads narrow it
   as well: `periods=recent` of a provider that reads per period holds what that release reaches back
   (`_assumed_start`, with the span the request gives for the dataset), not the whole record of the station
-  (GH-3249). A station whose record is not published is
-  counted from that assumed start too, so that a request without a `timestamp` is held to the limit as well;
-  `drop_nulls` or a station with less data than its record makes the answer smaller.
+  (GH-3249), and `periods=now` alone the days that release holds, as measured on the real files (`_now_span_of`,
+  GH-3271). A station whose record is not published is counted from that assumed start too, so that a request
+  without a `timestamp` is held to the limit as well; `drop_nulls` or a station with less data than its record
+  makes the answer smaller.
 
 The time span of a request is bounded through the rows: a window of a year of 1-minute readings is half a million
 rows for one parameter, a century of daily ones is 36,500.
@@ -37,7 +38,8 @@ from wetterdienst.ui.problems import ProblemError, ProblemKind
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.metadata import DatasetModel, ParameterModel
+    from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.model.result import StationsResult
     from wetterdienst.settings import Settings
 
@@ -164,6 +166,26 @@ def _assumed_start(
     return None
 
 
+def _start_of_periods_read(
+    request: TimeseriesRequest, dataset: DatasetModel, periods: set[Period], end: dt.datetime
+) -> dt.datetime | None:
+    """Give where what a request reads from the periods begins, if they hold less than the record of a station.
+
+    The release of `recent` reaches back as far as the request says for the dataset (`_recent_span_of`), that of `now`
+    as far as it says for that (`_now_span_of`; `now` is the periods read only when it is alone, `recent` having the
+    wider reach). None where `historical` is read, or the request has no span to give: the record is counted.
+    """
+    if Period.HISTORICAL in periods:
+        return None
+    if Period.RECENT in periods:
+        span = request._recent_span_of(dataset)  # noqa: SLF001
+    elif Period.NOW in periods:
+        span = request._now_span_of(dataset)  # noqa: SLF001
+    else:
+        span = None
+    return end - span if span is not None else None
+
+
 def _utc(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
@@ -208,16 +230,9 @@ def estimate_rows(stations: StationsResult) -> int:
             if assumed is not None:
                 starts.append(assumed if span is not None else _ASSUMED_RECORD_START)
         # the periods the request reads, where the provider reads per period, hold less than the record of a station
-        # if `historical` is not among them (`recent`): bound by what they hold
+        # if `historical` is not among them (`recent`, `now`): bound by what they hold
         read_periods = requested_periods & dataset_periods or dataset_periods
-        narrowed = (
-            _assumed_start(read_periods, end, span)
-            if requested_periods
-            and span is not None
-            and Period.RECENT in read_periods
-            and Period.HISTORICAL not in read_periods
-            else None
-        )
+        narrowed = _start_of_periods_read(request, dataset, read_periods, end) if requested_periods else None
         if narrowed is not None:
             starts.append(narrowed)
         if not starts:
