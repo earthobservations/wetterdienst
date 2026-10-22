@@ -6,7 +6,7 @@ The listings are lines of the real ones, read on 2026-10-22; the files in `files
 smallest of their product (DWD's open data, https://opendata.dwd.de/weather/radar/): `composite_VII_*` and
 `composite_HymecNG_*` are composites, `composite_rs_*_000-hd5` is the analysis in a `.tar` of RS, `raa01-yw_*` is YW,
 `ras07-vol5minng01_sweeph5onem_uzdr_07-*` a sweep of the volume scan, `KONRAD3D_*` and `meso_*` the XML files.
-The reflectivity composites HX and DMAX (1 to 2 MB a file), and the sweeps of the precipitation scan, of RHOHV and of
+The reflectivity composites HX and DMAX (1 to 10 MB a file), and the sweeps of the precipitation scan, of RHOHV and of
 PHIDP, are read by the remote tests only.
 """
 
@@ -433,7 +433,9 @@ def test_the_latest_of_rs_is_the_analysis_in_its_tar(monkeypatch: pytest.MonkeyP
         (DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS, 10),
         (DwdRadarParameter.MESOCYCLONE_DETECTION, 10),
         (DwdRadarParameter.VII_INTEGRATED_ICE, 10),
-        (DwdRadarParameter.HX_REFLECTIVITY, 10),
+        (DwdRadarParameter.RS_PRECIPITATION_SUM, 10),
+        (DwdRadarParameter.DMAX_REFLECTIVITY, 10),
+        (DwdRadarParameter.HX_REFLECTIVITY, 5),
         (DwdRadarParameter.RV_REFLECTIVITY, 5),
     ],
 )
@@ -853,10 +855,8 @@ def test_radar_request_site_sweep_pcp_polarimetric_latest(default_settings: Sett
 @pytest.mark.parametrize(
     "parameter",
     [
-        DwdRadarParameter.HX_REFLECTIVITY,
         DwdRadarParameter.DMAX_REFLECTIVITY,
         DwdRadarParameter.VII_INTEGRATED_ICE,
-        DwdRadarParameter.HYMECNG_PRECIPITATION_TYPE,
         DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS,
         DwdRadarParameter.MESOCYCLONE_DETECTION,
     ],
