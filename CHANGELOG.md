@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `wsv/pegel` docs no longer constrain `stage` to `>=0`: a stage is read against the gauge's own
+  datum, and on 2026-10-22 nine gauges stood below it (Schillig -250 cm, Rotterdam -35 cm). The
+  values were never clipped; only the constraints column of the five resolution pages said so.
+  The `ipma/observation` page no longer calls `radiacao` global radiation: the source says only
+  "radiação solar (kJ/m2)" (Part of GH-3242)
+
 ## [0.168.0] - 2026-10-22
 
 ### Added
