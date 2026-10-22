@@ -15,6 +15,10 @@ exception behind. The live test cannot hold to that, as a source that fixes a de
 
 To hold a new provider to the rules, add a stub of its catalogue to `station_catalogue_stubs.py` and, if it is
 published for one country, its bounding box to `COUNTRY_BBOX`.
+
+Two rules need the data files beside the list (GH-3248): a listed station has data in its resolution, and every data
+file has a station in the catalogue. `check_coverage` applies them to the ids that `station_data_index.py` reads, and
+`Accepted` names the mismatches of a source in the same way.
 """
 
 from __future__ import annotations
@@ -78,6 +82,12 @@ RULES = (
     "name_padding",
     "name_encoding",
 )
+
+# the two rules that need the data beside the list (GH-3248, point 6 of GH-2616), applied by `check_coverage` to a
+# catalogue and the ids of the data files of its resolution: a station that is listed and has no data, and a data file
+# of a station the list does not carry. An id that differs from the file name only in padding or case breaks both,
+# where the reader does not join the list to the files
+COVERAGE_RULES = ("data_missing", "data_orphan")
 
 # what a UTF-8 text read as Latin-1 or Windows-1252 turns into: the lead byte of a two-byte character (Ã, Â for the
 # Latin-1 letters, Å, Ä for Latin Extended-A such as ż and č) followed by a continuation byte read as a control
@@ -151,8 +161,8 @@ class Accepted:
 
     def __post_init__(self) -> None:
         """Refuse a rule that does not exist and an exception that gives no reason."""
-        if self.rule not in RULES:
-            msg = f"unknown rule {self.rule!r}, the rules are {', '.join(RULES)}"
+        if self.rule not in (*RULES, *COVERAGE_RULES):
+            msg = f"unknown rule {self.rule!r}, the rules are {', '.join((*RULES, *COVERAGE_RULES))}"
             raise ValueError(msg)
         if not self.reason.strip():
             msg = f"the exception for {self.rule} has no reason"
@@ -378,7 +388,10 @@ def assert_sound(
     """
     assert not df.is_empty(), f"{catalogue}: the catalogue is empty, so no rule was applied"
     left, stale = unaccepted(check_catalogue(df, catalogue, bbox=bbox, now=now), accepted)
-    stale = stale if fail_on_stale else []
+    _assert_none_left(left, stale if fail_on_stale else [], catalogue, limit)
+
+
+def _assert_none_left(left: list[Violation], stale: list[Accepted], catalogue: str, limit: int) -> None:
     # at most `limit` of each rule, so that a rule broken by thousands of stations does not hide the others
     problems = []
     for rule in dict.fromkeys(violation.rule for violation in left):
@@ -390,3 +403,81 @@ def assert_sound(
         f"{catalogue}: the exception for {exception.rule} matches no station: {exception.reason}" for exception in stale
     ]
     assert not problems, "\n".join(problems)
+
+
+def _same_id(station_id: str) -> str:
+    """Give an id as the rule `id_collision` reads it: without whitespace, case or the zeros of a padding."""
+    return station_id.strip().upper().lstrip("0")
+
+
+def check_coverage(
+    df: pl.DataFrame,
+    data_ids: Iterable[str],
+    catalogue: str,
+    *,
+    rules: Iterable[str] = COVERAGE_RULES,
+) -> list[Violation]:
+    """Compare the stations of a catalogue with the ids of the data files of the same resolution and dataset.
+
+    Args:
+        df: the stations of one resolution and dataset, with the base columns of a station request
+        data_ids: the station ids the data files of that resolution and dataset are named for
+        catalogue: how the failure names the catalogue, such as `chmi/observation daily/data`
+        rules: the coverage rules to apply, for a source whose data cannot be held to both
+
+    Returns:
+        a violation for every station without a data file and for every data file without a station, which an
+        `Accepted` may still cover. Where the one is the other under another spelling (padding, case), the detail
+        says which, so the reader that normalises one side and not the other is found.
+
+    """
+    rules = set(rules)
+    assert rules <= set(COVERAGE_RULES), f"unknown coverage rules {sorted(rules - set(COVERAGE_RULES))}"
+    listed = {station_id for station_id in df.get_column("station_id") if station_id is not None}
+    data = set(data_ids)
+    resolution, dataset = df.row(0, named=True)["resolution"], df.row(0, named=True)["dataset"]
+    spelled_as_data = {_same_id(station_id): station_id for station_id in data - listed}
+    spelled_as_listed = {_same_id(station_id): station_id for station_id in listed - data}
+    found: list[Violation] = []
+    if "data_missing" in rules:
+        for row in df.sort("station_id").iter_rows(named=True):
+            station_id = row["station_id"]
+            if station_id is None or station_id in data:
+                continue
+            detail = f"listed in {resolution}/{dataset} and no data file is named for it"
+            if (other := spelled_as_data.get(_same_id(station_id))) is not None:
+                detail += f", the data files name {other!r}, the same id but for padding or case"
+            found.append(Violation(catalogue, "data_missing", station_id, detail, row))
+    if "data_orphan" in rules:
+        for station_id in sorted(data - listed):
+            detail = f"a data file of {resolution}/{dataset} is named for it and the catalogue does not list it"
+            if (other := spelled_as_listed.get(_same_id(station_id))) is not None:
+                detail += f", the catalogue lists {other!r}, the same id but for padding or case"
+            row = {"station_id": station_id, "resolution": resolution, "dataset": dataset}
+            found.append(Violation(catalogue, "data_orphan", station_id, detail, row))
+    return found
+
+
+def assert_covered(
+    df: pl.DataFrame,
+    data_ids: Iterable[str],
+    catalogue: str,
+    *,
+    accepted: Iterable[Accepted] = (),
+    rules: Iterable[str] = COVERAGE_RULES,
+    limit: int = 10,
+    fail_on_stale: bool = True,
+) -> None:
+    """Raise an `AssertionError` that lists the station and rule of every coverage violation left after `accepted`.
+
+    An empty catalogue fails, and so does an empty list of data ids: a rule over nothing passes whatever is wrong, and
+    a source whose listing came back empty is a listing that failed, not a network without data.
+    """
+    data_ids = list(data_ids)
+    assert not df.is_empty(), f"{catalogue}: the catalogue is empty, so no rule was applied"
+    assert data_ids, f"{catalogue}: no data file is listed, so no rule was applied"
+    rules, accepted = tuple(rules), list(accepted)
+    not_applied = [exception.rule for exception in accepted if exception.rule not in rules]
+    assert not not_applied, f"{catalogue}: an exception names {not_applied}, which is not applied to this source"
+    left, stale = unaccepted(check_coverage(df, data_ids, catalogue, rules=rules), accepted)
+    _assert_none_left(left, stale if fail_on_stale else [], catalogue, limit)
