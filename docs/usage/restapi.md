@@ -578,13 +578,18 @@ the `timeout` in seconds and `max_concurrent`), so a client can size its request
 The stations are counted from the selection, which the server holds already. The rows of `values` are an
 estimate, and an upper bound: for each station the readings its resolution can hold between the start and the end
 of its record, within the `timestamp` of the request, times the parameters asked for (once for each timestamp in the
-wide `shape`). A station whose record is not published is counted from an assumed start, so that a request without a
+wide `shape`). Where the provider reads per period (DWD does), `periods=recent` narrows it to what that release
+holds, counted as the last two years, rather than the whole record of the station; a dataset whose recent release
+reaches back further (the 1 and 5 minute data, the annual data) is counted from further back, and one with no
+release of its own (the hourly and daily solar data, the hourly urban data) or one that holds years (the monthly
+derived data, the phenology) is counted from its record. A request for `now` alone is counted from the record too.
+A station whose record is not published is counted from an assumed start, so that a request without a
 `timestamp` is held to the limit as well. That concerns the datasets that need no date and whose station list publishes
 no record (the phenology of DWD is one; a network that requires a date has the window of the request). The start is
-assumed from the periods of the dataset: 1 January 1950 for one with historical data, which is before the oldest
-archive of this kind that the library reads (IMGW's begins in 1951), two years before the end for recent data and two
-days for current data. A forecast has no record to assume and is not counted:
-its answer is bounded by the horizon of the model. `drop_nulls` or a station with less data than its record makes
+assumed from the periods of the dataset: 1 January 1950 for one with historical data (or one whose recent data
+reaches back years, as the phenology's does), which is before the oldest archive of this kind that the library reads
+(IMGW's begins in 1951), two years before the end for recent data and two days for current data. A forecast has no
+record to assume and is not counted: its answer is bounded by the horizon of the model. `drop_nulls` or a station with less data than its record makes
 the answer smaller. For `interpolate` and
 `summarize` it is the readings of the window for each parameter. So the time span of a request is bounded through
 the rows: a year of 1-minute readings of one parameter is 525,600 of them, a century of daily ones 36,500.

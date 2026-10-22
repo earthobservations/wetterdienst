@@ -23,9 +23,9 @@ on:
   # Allow job to be triggered manually
   workflow_dispatch:
 
-# Cancel in-progress jobs when pushing to the same branch
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 permissions: {}
@@ -34,6 +34,7 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     defaults:
       run:
@@ -64,6 +65,7 @@ jobs:
   lint:
     name: Lint App
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -94,6 +96,7 @@ jobs:
   unit-tests:
     name: Unit & Component Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -119,7 +122,7 @@ jobs:
         id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
       
       - name: Setup pnpm cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

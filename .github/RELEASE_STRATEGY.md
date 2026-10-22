@@ -36,7 +36,6 @@ This repository uses a **monorepo structure** with separate release workflows fo
 - **Tags**: 
   - `0.117.0` (specific version)
   - `0.117` (major.minor)
-  - `nightly` (daily builds)
 
 ### App Image
 - **Triggered by**: `app-v*.*.*` tags
@@ -44,7 +43,6 @@ This repository uses a **monorepo structure** with separate release workflows fo
 - **Example**: Tag `app-v0.28.0` creates Docker tags:
   - `0.28.0` (specific version - without "app-" prefix)
   - `0.28` (major.minor)
-  - `nightly` (daily builds)
 
 **Key point**: Backend releases only build backend images, app releases only build app images.
 
@@ -285,7 +283,7 @@ The files `chore: release 0.162.0 and app 0.27.0` touched, plus the 1.0 ones. Ba
 - [ ] `release.yml` finished: `pip index versions wetterdienst` (or the PyPI page) lists 1.0.0; in a fresh
   environment `uvx --from wetterdienst==1.0.0 wetterdienst --version` prints 1.0.0 and `wetterdienst info` runs.
 - [ ] Docker: the `Release Docker Backend` run for the tag finished; `ghcr.io/earthobservations/wetterdienst:1.0.0`
-  and `:1.0` exist (the workflow's tags are `{{version}}`, `{{major}}.{{minor}}` and `nightly`; there is no `:1`) and
+  and `:1.0` exist (the workflow's tags are `{{version}}` and `{{major}}.{{minor}}`; there is no `:1`) and
   `docker run --rm ghcr.io/earthobservations/wetterdienst:1.0.0 wetterdienst --version` prints 1.0.0.
   `docs/usage/docker.md` and `README.md` pull the image without a tag: check that `:latest` points to the same digest
   as `:1.0.0` (`docker buildx imagetools inspect`); `latest` is not in the workflow's tag list and comes from the

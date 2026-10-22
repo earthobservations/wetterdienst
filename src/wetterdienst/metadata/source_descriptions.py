@@ -38,7 +38,11 @@ are taken as they come:
   line, translated
 - DWD forecast codes: `MetElementDefinition.xml`. It defines the MOSMIX elements, and swsmos reuses
   their names while publishing different units -- MOSMIX `TD` is Kelvin, swsmos `TD` is Celsius -- so
-  its wording is used only where it says nothing about the unit
+  its wording is used only where it says nothing about the unit: the swsmos rows are the German list of
+  variables of its own sheet. Where the catalogue leaves out what a caller needs (`Rad1h` is an energy,
+  `RRad1` a share, the codes of `ww`, `ww3`, `WPc*` and `W1W2` are in `mosmix_element_weather_xls.xlsx`),
+  or the element is given at a few steps of the day only, the entry says so after the catalogue's words (for the
+  elements GH-3136 checked, not for every windowed one)
 
 The AEMET, SMHI, LHMT and Météo-France translations are ours, as are the Geosphere rows
 (the German ``description`` of each parameter in ``/v1/station/historical/<resource>/metadata``, with
@@ -47,7 +51,8 @@ the IMGW rows (the Polish ``*_format.txt`` field lists beside the data in each d
 ``dane_meteorologiczne``, and ``CODZ_publiczne_format.txt`` and ``MIES_publiczne_format.txt`` of
 ``dane_hydrologiczne``, both under https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/),
 IPMA (the field list of the observations section of https://api.ipma.pt/, "temperatura do ar registada a 1.5
-metros de altura, média da hora") and the DWD SWSMOS ``TS`` row
+metros de altura, média da hora"), the DWD derived rows (the English sheet of each directory of
+``derived_germany``, the German one for the daily soil data, which has no English sheet) and the DWD SWSMOS rows
 (``swis_swsmos_beschreibung.pdf``). Where a source gives no description of a field, the entry names
 what it does give: NWS ``temperature`` and ``dewpoint`` (api.weather.gov documents neither; the
 OpenAPI document describes no observation property but ``qualityControl``), the DWD road fields (the
@@ -64,7 +69,13 @@ checked against the source; the sub-daily temperature rows listed in GH-2660 wer
 Geosphere, IPMA, NWS, DWD road and WSV ``LT`` rows named above (GH-3136, the first provider group), and
 then the rest of the Geosphere rows, the IMGW rows and the Météo-France observation and synop rows (GH-3136,
 the second group: the ones translated, or derived from the canonical name, against the source's text), and
-the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3136, the third group).
+the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3136, the third group), and
+the DWD POI, MOSMIX, DMO, derived and SWSMOS rows (GH-3136, the fourth group), and the SMHI,
+CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group). CHMI describes its elements only by
+name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
+statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
+show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
+states a unit and an update interval and nothing else, and the entries say so.
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -167,74 +178,241 @@ _MO_DAILY_STAMP = (
     "after most of its coverage."
 )
 
+# the window of a daily value of the Environment Agency hydrology API (see the comment at its entries)
+_EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (the source gives no zone; read as UTC)"
+
+
+# The evidence of the DWD claims that the sources do not state (GH-3136, 2026-10-21, key-less):
+# - POI: the 974 files of 2026-10-21 for the reporting hours; 25 of the 156 stations that have a DWD 10-minute station
+#   within 1.5 km and the previous-day columns at 06 UTC against those 10-minute observations. The previous-day columns
+#   equal the temperature extremes (to 0.0), gust (to 0.5 km/h), mean (to 0.11) and sunshine (to 0.04 h, 10 stations) of
+#   the previous UTC day, not those of 06 to 06 UTC; the 10-minute stamps are ends of intervals, so the window is
+#   23:50 to 23:50 UTC. The hourly columns equal the 10-minute values of the synoptic hour before the stamp, (HH-2):50
+#   to (HH-1):50 (precipitation 625 of 625, gust 625 of 625, global and diffuse radiation as J/cm2 * 10000 / 3600 on
+#   250 of 250, within 0.89 W/m2, on 10 stations); the clock hour fits worse (precipitation 573, gust 468 of 625).
+#   `direct_solar_radiation_last_hour` is sent by 5 French stations and exceeds the global value in 5 of 15 daytime
+#   reports. The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
+#   stations, previous-day sunshine at 06 UTC at 123 of 158 stations (all 60 in Germany), at 00 or 03 UTC only at
+#   33 stations outside Germany and at every synoptic hour at 2.
+# - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations (run of 15 UTC) and MOSMIX_S of 30
+#   stations (run of 20 UTC) of 2026-10-21; `RRad1` is `Rad1h` over the extraterrestrial radiation of the hour (6
+#   stations, mean difference under 3 points, single hours up to about 20 apart); `W1W2` is two digits (tens never
+#   below units) at every station of both runs (MOSMIX_S: all 5648 stations).
+# - derived: Monatsgradtage (72.9, 71.6, 62.5), Kuehlgradstunden (2562.3, 2782.8, 2633.5) and the numbers of heating
+#   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
+#   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
+#   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
+    # The page of the hydrometry API (https://hubeau.eaufrance.fr/page/api-hydrometrie, read 2026-10-21 through
+    # data.gouv.fr's copy of it, because the site itself reset every connection from here that day): "Deux grandeurs
+    # hydrométriques sont disponibles via l'opération observations_tr", the water height H and the flow Q, "exprimées
+    # en mm pour les hauteurs d'eau et en l/s pour les débits", which the producer updates "toutes les 5 à 60
+    # minutes". It states neither a statistic (instant or mean) nor a reference level of the height, which these say
     "HubeauMetadata": {
         (resolution, "data", name_original): description
         for resolution in _HUBEAU_RESOLUTIONS
-        for name_original, description in (("H", "Stage."), ("Q", "Flow."))
+        for name_original, description in (
+            (
+                "H",
+                (
+                    "Water height (hauteur d'eau, grandeur H), published in mm and updated by the producer every 5 to "
+                    "60 minutes. The source states no statistic and no reference level."
+                ),
+            ),
+            (
+                "Q",
+                (
+                    "Flow (débit, grandeur Q), published in l/s and updated by the producer every 5 to 60 minutes. "
+                    "The source states no statistic."
+                ),
+            ),
+        )
     },
+    # CHMI describes its elements only by name, unit, height and schedule: ``metadata/meta2.csv`` (NAME, UN_DESCRIPTION,
+    # HEIGHT, SCHEDULE, in Czech: "Teplota" "°C" 2 "AVG,06:00,13:00,20:00") and, for the monthly and annual files, the
+    # TIMEFUNCTION and MDFUNCTION of each row; Klimatologicka_data_popis.pdf says only that the monthly and annual
+    # characteristics ("průměr, úhrn, maximum, minimum") are derived from the daily ones. What is more than that was
+    # read off the data of 2026-10-21 and is said where the descriptions state it:
+    # - the daily mean of the temperature ("AVG") is (T06 + T13 + 2 * T20) / 4 on every one of 75,261 days of five
+    #   stations (the plain average of the three also matches on 8,084 of them); the humidity, pressure and wind speed
+    #   ("AVG") are the plain average (62,763 of 62,763, 30,487 of 30,487 and 58,765 of 58,765 days). Humidity is whole
+    #   percent, so a day counts within 0.5. All 260 active daily T series list the terms 06:00, 13:00 and 20:00, which
+    #   is what the descriptions say; 124 older series of 41 stations list other term sets (05:00, 13:00, 21:00 for 30
+    #   of them), for which the weighting was not checked;
+    # - the monthly and annual temperature "AVG"/"AVG" is the mean of the daily "AVG" (1,191 of 1,191 months, 99 of 99
+    #   years of Cheb), TMA "20:00"/"AVG" the mean of the daily values (1,171 of 1,171 months, 97 of 97 years; TMI
+    #   was not counted), and SRA "06:00"/"SUM" their sum (780 of 780 months, 65 of 65 years);
+    # - the 10 minute wind speed F is not the 10 minute mean, which is the element Fprum (F equals Fprum in 1,311 of
+    #   13,248 readings of Cheb, Jun to Aug 2024); P is the pressure at the station: 956.0 hPa at Cheb (483 m) where
+    #   the hourly SYNOP P_hm (sea level) is 1012.5 for the same hour;
+    # - the daily maximum and minimum temperature (the source stamps them 20:00 and the reader dates them by that
+    #   day) are the extremes of the 24 hours up to 20:00 UTC of that day: of the 10 minute TMA/TMI readings of Cheb
+    #   (Jun to Jul 2024) that window reproduces the daily value on 54 and 53 of 55 days, the best of the hourly ends
+    #   (a window shifted by 10 minutes fits more days, so the end is known to within 10 minutes: the 10 minute
+    #   stamp convention is not stated);
+    # - the daily precipitation (the source stamps it 06:00) is the sum of the 10 minute SRA10M stamped from 06:10 of
+    #   that day to 06:00 of the next, i.e. the 24 hours that begin at the source's stamp, not those that end at it:
+    #   39 of 39, 30 of 30 and 19 of 21 wet days at three stations, the best window of all (neighbours within 20
+    #   minutes tie); the hourly SRA1H is the sum of the six 10 minute values stamped up to the hour (60 of 60, 76 of
+    #   76 and 51 of 51 wet hours);
+    # - not settled, and said so: the window of the daily wind maximum (a maximum does not pin the end) and of the
+    #   daily sunshine duration (the 10 minute SSV10M sums reproduce it by no window: at best 23, 28 and 33 of 56 days).
+    # HEIGHT is exactly 2 at 257 of the 299 active stations' 10 minute temperature (the rest 1.88 to 6.66) and exactly
+    # 10 at 161 of 210 for the wind speed (the rest 3 to 26), so the heights in the descriptions are the conventions of
+    # the names, not a stated fact for every station
     "ChmiObservationMetadata": {
-        ("10_minutes", "data", "F"): "Wind speed at 10 m, measured every ten minutes.",
-        ("10_minutes", "data", "H"): "Relative humidity at 2 m, measured every ten minutes.",
-        ("10_minutes", "data", "P"): "Air pressure at station level, measured every ten minutes.",
-        ("10_minutes", "data", "T"): "Air temperature at 2 m, measured every ten minutes.",
-        ("annual", "data", "SRA"): "Precipitation, read at 06:00 each day.",
+        ("10_minutes", "data", "F"): (
+            "Wind speed at 10 m by convention (the source gives each series its own height: 10 m at most stations), "
+            'one value every ten minutes. The source states no statistic; its "Rychlost prům" (prům = průměr) is '
+            "the separate element Fprum."
+        ),
+        ("10_minutes", "data", "H"): (
+            "Relative humidity at 2 m, one value every ten minutes. The source states no statistic."
+        ),
+        ("10_minutes", "data", "P"): (
+            "Air pressure at station level (the hourly sea-level pressure is the separate element P_hm), one value "
+            "every ten minutes. The source states no statistic."
+        ),
+        ("10_minutes", "data", "T"): (
+            "Air temperature at 2 m, one value every ten minutes. The source states no statistic; it publishes the "
+            "10 minute maximum and minimum separately, as TMA and TMI."
+        ),
+        ("annual", "data", "SRA"): (
+            "Precipitation, the total of the year: the sum of the daily values (the source's SRA with the term 06:00)."
+        ),
         ("annual", "data", "T"): (
-            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Air temperature at 2 m, the mean of the year: the mean of the daily means (T06 + T13 + 2 T20) / 4."
         ),
-        ("annual", "data", "TMA"): "Annual mean of the daily maximum air temperature at 2 m, read at 20:00.",
-        ("annual", "data", "TMI"): "Annual mean of the daily minimum air temperature at 2 m, read at 20:00.",
+        ("annual", "data", "TMA"): (
+            "Annual mean of the daily maximum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
+        ("annual", "data", "TMI"): (
+            "Annual mean of the daily minimum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
         ("daily", "data", "F"): (
-            "Wind speed at 10 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Wind speed at 10 m by convention (the source gives each series its own height: 10 m at most stations), "
+            "the daily mean: the plain average of the observations at 06:00, 13:00 and 20:00 UTC."
         ),
-        ("daily", "data", "Fmax"): "Maximum wind speed at 10 m.",
+        ("daily", "data", "Fmax"): (
+            "Maximum wind speed at 10 m by convention (the source gives each series its own height: 10 m at most "
+            "stations) of the day it is dated. The source states no window."
+        ),
         ("daily", "data", "H"): (
-            "Relative humidity at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Relative humidity at 2 m, the daily mean: the plain average of the observations at 06:00, 13:00 and "
+            "20:00 UTC."
         ),
         ("daily", "data", "P"): (
-            "Air pressure at station level, the daily value being the average of the 06:00, 13:00 and "
-            "20:00 observations."
+            "Air pressure at station level, the daily mean: the plain average of the observations at 06:00, 13:00 "
+            "and 20:00 UTC."
         ),
-        ("daily", "data", "SCE"): "Snow depth at ground level, read at 06:00.",
-        ("daily", "data", "SRA"): "Precipitation, read at 06:00.",
-        ("daily", "data", "SSV"): "Sunshine duration, in hours.",
+        ("daily", "data", "SCE"): "Snow depth at ground level, a reading at 06:00 UTC.",
+        ("daily", "data", "SRA"): (
+            "Precipitation, the source's 06:00 UTC term: the total of the 24 hours from 06:00 UTC of the day it is "
+            "dated to 06:00 UTC of the next day. The source states no window."
+        ),
+        ("daily", "data", "SSV"): (
+            "Sunshine duration of the day it is dated, published in hours. The source states no window."
+        ),
         ("daily", "data", "T"): (
-            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Air temperature at 2 m, the daily mean: the observations at 06:00, 13:00 and 20:00 UTC, the last counted "
+            "twice, (T06 + T13 + 2 T20) / 4, not their plain average."
         ),
-        ("daily", "data", "TMA"): "Maximum air temperature at 2 m, read at 20:00.",
-        ("daily", "data", "TMI"): "Minimum air temperature at 2 m, read at 20:00.",
-        ("hourly", "data", "P"): "Air pressure at station level.",
-        ("hourly", "data", "SRA1H"): "Precipitation over one hour.",
-        ("hourly", "data", "Td"): "Dew point temperature at 2 m.",
-        ("monthly", "data", "SRA"): "Precipitation, read at 06:00 each day.",
+        ("daily", "data", "TMA"): (
+            "Maximum air temperature at 2 m, the source's 20:00 UTC term: the maximum of the 24 hours up to 20:00 UTC "
+            "of the day it is dated. The source states no window."
+        ),
+        ("daily", "data", "TMI"): (
+            "Minimum air temperature at 2 m, the source's 20:00 UTC term: the minimum of the 24 hours up to 20:00 UTC "
+            "of the day it is dated. The source states no window."
+        ),
+        ("hourly", "data", "P"): (
+            "Air pressure at station level, from the hourly SYNOP report (the sea-level pressure is the separate "
+            "element P_hm)."
+        ),
+        ("hourly", "data", "SRA1H"): (
+            "Precipitation total of the hour up to the stamp. The source states no window; the 10 minute "
+            "precipitation values stamped up to the hour add up to it (taking those to be stamped at the end of "
+            "their interval, which the source does not state)."
+        ),
+        ("hourly", "data", "Td"): "Dew point temperature at 2 m, from the hourly SYNOP report.",
+        ("monthly", "data", "SRA"): (
+            "Precipitation, the total of the month: the sum of the daily values (the source's SRA with the term 06:00)."
+        ),
         ("monthly", "data", "T"): (
-            "Air temperature at 2 m, the daily value being the average of the 06:00, 13:00 and 20:00 observations."
+            "Air temperature at 2 m, the mean of the month: the mean of the daily means (T06 + T13 + 2 T20) / 4."
         ),
-        ("monthly", "data", "TMA"): "Monthly mean of the daily maximum air temperature at 2 m, read at 20:00.",
-        ("monthly", "data", "TMI"): "Monthly mean of the daily minimum air temperature at 2 m, read at 20:00.",
+        ("monthly", "data", "TMA"): (
+            "Monthly mean of the daily maximum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
+        ("monthly", "data", "TMI"): (
+            "Monthly mean of the daily minimum air temperature at 2 m, the 24 hours up to 20:00 UTC of each day."
+        ),
     },
     "DwdSwsmosMetadata": {
-        ("hourly", "data", "R650"): "Probability of precipitation > 5.0mm during the last 6 hours",
-        ("hourly", "data", "RR6"): "Total liquid precipitation during the last 6 hours",
-        ("hourly", "data", "RRL1c"): (
-            "Total liquid precipitation during the last hour consistent with significant weather"
+        ("hourly", "data", "R650"): (
+            "Probability of more than 5 mm of liquid and solid precipitation in the last 6 hours, in % (DWD: "
+            '"Niederschlag flüssig+fest mehr als 5mm der letzten 6 Stunden Wahrscheinlichkeit"; from DWD\'s MOS).'
         ),
-        ("hourly", "data", "TD"): "Dew point temperature 2m above surface.",
-        ("hourly", "data", "TS"): "Temperature of the road surface.",
-        ("hourly", "data", "WWL6"): "Probability: Occurrence of liquid precipitation within the last 6 hours",
+        ("hourly", "data", "RC"): (
+            "Condition of the road surface, as a code: 1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, "
+            '6 glaze ice (DWD: "Straßenzustand", from the METRo road weather model driven by DWD\'s MOS values).'
+        ),
+        ("hourly", "data", "RR6"): (
+            'Liquid precipitation of the last 6 hours, accumulated, in mm (DWD: "Niederschlag flüssig der '
+            "letzten 6 Stunden akkumuliert\"; from DWD's MOS)."
+        ),
+        ("hourly", "data", "RRL1c"): (
+            'Liquid precipitation of the last hour, in mm (DWD: "Niederschlag flüssig der letzten Stunde", from '
+            "DWD's MOS)."
+        ),
+        ("hourly", "data", "TD"): (
+            "Dew point temperature (DWD: \"Taupunkttemperatur\", from DWD's MOS, model output statistics); DWD's "
+            "sheet states no height."
+        ),
+        ("hourly", "data", "TL"): (
+            "Air temperature (DWD: \"Lufttemperatur\", from DWD's MOS, model output statistics); DWD's sheet "
+            "states no height."
+        ),
+        ("hourly", "data", "TS"): (
+            'Temperature of the road surface (DWD: "Temperatur der Fahrbahnoberfläche"), from the METRo road '
+            "weather model driven by DWD's MOS values."
+        ),
+        ("hourly", "data", "WWL6"): (
+            'Probability of liquid precipitation in the last 6 hours, in % (DWD: "Niederschlag flüssig der '
+            "letzten 6 Stunden Wahrscheinlichkeit\"; from DWD's MOS)."
+        ),
     },
     "DwdPoiMetadata": {
-        ("hourly", "data", "depth_of_new_snow"): "Depth of the snow that fell since the previous observation.",
+        (
+            "hourly",
+            "data",
+            "daily_mean_of_temperature_previous_day",
+        ): "Mean air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
+        ("hourly", "data", "depth_of_new_snow"): (
+            'Depth of new snow (DWD: "Neuschneehoehe"). The file states no period; it is reported in the 06 UTC '
+            "report only."
+        ),
         ("hourly", "data", "dew_point_temperature_at_2_meter_above_ground"): (
             "Dew point temperature at 2 m above ground."
         ),
-        ("hourly", "data", "diffuse_solar_radiation_last_hour"): "Diffuse short-wave irradiance in the preceding hour.",
-        ("hourly", "data", "direct_solar_radiation_last_hour"): "Direct short-wave irradiance in the preceding hour.",
+        ("hourly", "data", "diffuse_solar_radiation_last_hour"): (
+            'Diffuse short-wave irradiance of the preceding hour in W/m2 (DWD: "Diffuse Strahlung (letzte '
+            'Stunde)"): the energy of that hour divided by 3600 s, not a reading at one moment.'
+        ),
+        ("hourly", "data", "direct_solar_radiation_last_hour"): (
+            'Direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
+            'Stunde)", no surface stated). It exceeds the global irradiance in some reports, so it is not the '
+            "component on a horizontal surface."
+        ),
         ("hourly", "data", "dry_bulb_temperature_at_2_meter_above_ground"): "Air temperature at 2 m above ground.",
         ("hourly", "data", "evaporation/evapotranspiration_last_24_hours"): (
-            "Evaporation and evapotranspiration in the preceding 24 hours."
+            'Evaporation and evapotranspiration in the preceding 24 hours (DWD: "Evaporation (vergangene 24 '
+            'Stunden)"), reported almost only at 06 UTC.'
         ),
-        ("hourly", "data", "global_radiation_last_hour"): "Global irradiance in the preceding hour.",
+        ("hourly", "data", "global_radiation_last_hour"): (
+            'Global irradiance of the preceding hour in W/m2 (DWD: "Globalstrahlung (letzte Stunde)"): the '
+            "energy of that hour divided by 3600 s, not a reading at one moment."
+        ),
         ("hourly", "data", "height_of_base_of_lowest_cloud_above_station"): (
             "Height above the station of the base of the lowest cloud."
         ),
@@ -242,13 +420,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             'Highest 10-minute mean wind speed in the 6 hours up to the stamp. DWD names the column "previous day", '
             "but it is carried at 00, 06, 12 and 18 UTC and is the maximum of the 6 hourly values up to the stamp."
         ),
+        (
+            "hourly",
+            "data",
+            "maximum_of_temperature_for_previous_day",
+        ): "Maximum air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "maximum_temperature_last_12_hours_2_meters_above_ground"): (
-            "Maximum air temperature at 2 m above ground in the preceding 12 hours."
+            "Maximum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06 and 18 UTC."
         ),
         ("hourly", "data", "maximum_wind_speed_as_10_minutes_mean_during_last_hour"): (
             "Highest 10-minute mean wind speed in the preceding hour."
         ),
-        ("hourly", "data", "maximum_wind_speed_during_last_6_hours"): "Strongest gust in the preceding 6 hours.",
+        (
+            "hourly",
+            "data",
+            "maximum_wind_speed_during_last_6_hours",
+        ): "Strongest gust in the preceding 6 hours, reported at 00, 06, 12 and 18 UTC.",
+        (
+            "hourly",
+            "data",
+            "maximum_wind_speed_for_previous_day",
+        ): "Strongest gust on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "maximum_wind_speed_last_hour"): "Strongest gust in the preceding hour.",
         ("hourly", "data", "mean_wind_direction_during_last_10 min_at_10_meters_above_ground"): (
             "Mean wind direction over the last 10 minutes, at 10 m above ground. "
@@ -257,20 +449,56 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "mean_wind_speed_during last_10_min_at_10_meters_above_ground"): (
             "Mean wind speed over the last 10 minutes, at 10 m above ground."
         ),
-        ("hourly", "data", "minimum_of_temperature_at_5_cm_above_ground_for_previous_day"): (
-            "Minimum air temperature at 5 cm above ground on the previous day."
-        ),
+        (
+            "hourly",
+            "data",
+            "minimum_of_temperature_at_5_cm_above_ground_for_previous_day",
+        ): "Minimum air temperature at 5 cm above ground on the previous day (UTC), reported at 06 UTC.",
+        (
+            "hourly",
+            "data",
+            "minimum_of_temperature_for_previous_day",
+        ): "Minimum air temperature at 2 m above ground on the previous day (UTC), reported at 06 UTC.",
         ("hourly", "data", "minimum_temperature_last_12_hours_2_meters_above_ground"): (
-            "Minimum air temperature at 2 m above ground in the preceding 12 hours."
+            "Minimum air temperature at 2 m above ground in the preceding 12 hours, reported mostly at 06, 09 "
+            "and 18 UTC."
         ),
         ("hourly", "data", "minimum_temperature_last_12_hours_5_cm_above_ground"): (
-            "Minimum air temperature at 5 cm above ground in the preceding 12 hours."
+            "Minimum air temperature at 5 cm above ground in the preceding 12 hours, reported mostly at 06, 09 "
+            "and 18 UTC."
         ),
-        ("hourly", "data", "precipitation_amount_last_24_hours"): "Precipitation collected in the preceding 24 hours.",
-        ("hourly", "data", "precipitation_amount_last_3_hours"): "Precipitation collected in the preceding 3 hours.",
-        ("hourly", "data", "precipitation_amount_last_6_hours"): "Precipitation collected in the preceding 6 hours.",
+        ("hourly", "data", "past_weather_1"): (
+            'Coded past weather of a synoptic report (DWD: "vergangenes Wetter 1"). The values, 0 to 18, fit '
+            "BUFR 0 20 004: 0 to 9 of WMO code table 4561 for a manned station, 10 to 19 (WMO code table 4531 "
+            "plus 10) for an automatic one. Reported at the eight synoptic hours. DWD states no period; the "
+            "WMO's is the 6 hours before the reports of 00, 06, 12 and 18 UTC and the 3 hours before those of "
+            "03, 09, 15 and 21 UTC."
+        ),
+        ("hourly", "data", "past_weather_2"): (
+            'Second coded past weather of a synoptic report (DWD: "vergangenes Wetter 2"; BUFR 0 20 005, coded '
+            "as `past_weather_1`), reported at the eight synoptic hours. DWD states no period either (the WMO's, "
+            "as for `past_weather_1`)."
+        ),
+        (
+            "hourly",
+            "data",
+            "precipitation_amount_last_24_hours",
+        ): "Precipitation collected in the preceding 24 hours, reported mostly at 06 UTC.",
+        ("hourly", "data", "precipitation_amount_last_3_hours"): (
+            "Precipitation collected in the preceding 3 hours, reported at the eight synoptic hours (00, 03, ... "
+            "21 UTC)."
+        ),
+        (
+            "hourly",
+            "data",
+            "precipitation_amount_last_6_hours",
+        ): "Precipitation collected in the preceding 6 hours, reported at 00, 06, 12 and 18 UTC.",
         ("hourly", "data", "precipitation_amount_last_hour"): "Precipitation collected in the preceding hour.",
-        ("hourly", "data", "precipitation_last_12_hours"): "Precipitation collected in the preceding 12 hours.",
+        (
+            "hourly",
+            "data",
+            "precipitation_last_12_hours",
+        ): "Precipitation collected in the preceding 12 hours, reported mostly at 06 and 18 UTC.",
         ("hourly", "data", "present_weather"): (
             "Coded present weather at the time of observation, on DWD's 1..31 scale."
         ),
@@ -279,70 +507,190 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "sea/water_temperature"): "Temperature of the sea or lake water at the station.",
         ("hourly", "data", "temperature_at_5_cm_above_ground"): "Air temperature at 5 cm above ground.",
         ("hourly", "data", "total_time_of_sunshine_during_last_hour"): (
-            "Length of time the sun shone in the preceding hour."
+            "Length of time the sun shone in the preceding hour, in minutes; it agrees with the sum of DWD's "
+            "10-minute sunshine duration of that hour."
         ),
-        ("hourly", "data", "total_time_of_sunshine_past_day"): "Length of time the sun shone on the previous day.",
+        ("hourly", "data", "total_time_of_sunshine_past_day"): (
+            "Length of time the sun shone on the previous day (UTC at DWD's stations, checked at 06 UTC), in "
+            "hours, reported at 06 UTC at most stations; some stations outside Germany report it at 00 or 03 UTC "
+            "instead, with no day stated."
+        ),
     },
     "DwdDerivedMetadata": {
         ("hourly", "radiation_global", "qn_952"): "Quality flag.",
         ("hourly", "sunshine_duration", "qn_952"): "Quality flag.",
-        ("daily", "soil", "bfgl01_ag"): "soil moisture for meadow on loamy silt 0-10cm",
-        ("daily", "soil", "bfgl02_ag"): "soil moisture for meadow on loamy silt 10-20cm",
-        ("daily", "soil", "bfgl03_ag"): "soil moisture for meadow on loamy silt 20-30cm",
-        ("daily", "soil", "bfgl04_ag"): "soil moisture for meadow on loamy silt 30-40cm",
-        ("daily", "soil", "bfgl05_ag"): "soil moisture for meadow on loamy silt 40-50cm",
-        ("daily", "soil", "bfgl06_ag"): "soil moisture for meadow on loamy silt 50-60cm",
-        ("daily", "soil", "bfgl_ag"): "soil moisture for meadow on loamy silt 0-60cm",
-        ("daily", "soil", "bfgs_ag"): "soil moisture for meadow on sand 0-60cm",
-        ("daily", "soil", "bfml_ag"): "soil moisture for corn on loamy silt 0-60cm",
-        ("daily", "soil", "bfms_ag"): "soil moisture for corn on sand 0-60cm",
-        ("daily", "soil", "bfwl_ag"): "soil moisture for winter wheat on loamy silt 0-60cm",
-        ("daily", "soil", "bfws_ag"): "soil moisture for winter wheat on sand 0-60cm",
-        ("daily", "soil", "ts05"): "mean soil temperature at 0.05m depth",
-        ("daily", "soil", "ts10"): "mean soil temperature at 0.1m depth",
-        ("daily", "soil", "ts100"): "mean soil temperature at 1m depth",
-        ("daily", "soil", "ts20"): "mean soil temperature at 0.2m depth",
-        ("daily", "soil", "ts50"): "mean soil temperature at 0.5m depth",
-        ("daily", "soil", "tsls05"): "mean soil temperature for loamy sand at 0.05m depth",
-        ("daily", "soil", "tssl05"): "mean soil temperature for loamy silt at 0.05m depth",
-        ("daily", "soil", "vpgfao"): "potential evapotranspiration for meadow (FAO method)",
-        ("daily", "soil", "vpgh"): "potential evapotranspiration for meadow (Haude method)",
-        ("daily", "soil", "vrgl_ag"): "evaporation height for meadow on loamy silt",
-        ("daily", "soil", "vrgs_ag"): "evaporation height for meadow on sand",
-        ("daily", "soil", "vrml_ag"): "evaporation height for corn on loamy silt",
-        ("daily", "soil", "vrms_ag"): "evaporation height for corn on sand",
-        ("daily", "soil", "vrwl_ag"): "evaporation height for winter wheat on loamy silt",
-        ("daily", "soil", "vrws_ag"): "evaporation height for winter wheat on sand",
-        ("daily", "soil", "zfumi"): "frozen ground layer thickness",
-        ("daily", "soil", "ztkmi"): "thawing thickness under vegetation",
-        ("daily", "soil", "ztumi"): "thawing thickness under bare soil",
-        ("hourly", "radiation_global", "fg_duett"): "global radiation",
-        ("hourly", "radiation_global", "fg_un_duett"): "uncertainty of global radiation",
-        ("hourly", "sunshine_duration", "sd_un_duett"): "uncertainty of sunshine duration",
-        ("hourly", "sunshine_duration", "sd_duett"): "sunshine duration",
+        ("daily", "soil", "bfgl01_ag"): (
+            "Soil moisture under grass on loamy silt at 0 to 10 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgl02_ag"): (
+            "Soil moisture under grass on loamy silt at 10 to 20 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgl03_ag"): (
+            "Soil moisture under grass on loamy silt at 20 to 30 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgl04_ag"): (
+            "Soil moisture under grass on loamy silt at 30 to 40 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgl05_ag"): (
+            "Soil moisture under grass on loamy silt at 40 to 50 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgl06_ag"): (
+            "Soil moisture under grass on loamy silt at 50 to 60 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgl_ag"): (
+            "Soil moisture under grass on loamy silt at 0 to 60 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfgs_ag"): (
+            "Soil moisture under grass on sand at 0 to 60 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfml_ag"): (
+            "Soil moisture under maize on loamy silt at 0 to 60 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfms_ag"): (
+            "Soil moisture under maize on sand at 0 to 60 cm depth, in % nFK (percent of the usable field "
+            "capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfwl_ag"): (
+            "Soil moisture under winter cereals on loamy silt at 0 to 60 cm depth, in % nFK (percent of the "
+            "usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "bfws_ag"): (
+            "Soil moisture under winter cereals on sand at 0 to 60 cm depth, in % nFK (percent of the usable "
+            "field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("daily", "soil", "ts05"): (
+            "Mean soil temperature of a typical bare soil at 5 cm depth, calculated with the AMBETI model from "
+            "observed weather, not measured."
+        ),
+        ("daily", "soil", "ts10"): (
+            "Mean soil temperature of a typical bare soil at 10 cm depth, calculated with the AMBETI model from "
+            "observed weather, not measured."
+        ),
+        ("daily", "soil", "ts100"): (
+            "Mean soil temperature of a typical bare soil at 1 m depth, calculated with the AMBETI model from "
+            "observed weather, not measured."
+        ),
+        ("daily", "soil", "ts20"): (
+            "Mean soil temperature of a typical bare soil at 20 cm depth, calculated with the AMBETI model from "
+            "observed weather, not measured."
+        ),
+        ("daily", "soil", "ts50"): (
+            "Mean soil temperature of a typical bare soil at 50 cm depth, calculated with the AMBETI model from "
+            "observed weather, not measured."
+        ),
+        ("daily", "soil", "tsls05"): (
+            "Mean soil temperature at 5 cm depth in unvegetated loamy sand (BEKLIMA), calculated with the AMBETI "
+            "model, not measured."
+        ),
+        ("daily", "soil", "tssl05"): (
+            "Mean soil temperature at 5 cm depth in unvegetated loamy silt (BEKLIMA), calculated with the AMBETI "
+            "model, not measured."
+        ),
+        ("daily", "soil", "vpgfao"): (
+            "Potential evapotranspiration over grass (FAO method), in mm, a daily sum (AMBAV model). DWD prefers "
+            "it to Haude's method because it takes many more influencing factors into account."
+        ),
+        (
+            "daily",
+            "soil",
+            "vpgh",
+        ): "Potential evapotranspiration over grass (Haude method), in mm, a daily sum (AMBAV model).",
+        ("daily", "soil", "vrgl_ag"): (
+            "Real (actual) evaporation over grass on loamy silt, in mm, a daily sum calculated with the AMBAV model."
+        ),
+        ("daily", "soil", "vrgs_ag"): (
+            "Real (actual) evaporation over grass on sand, in mm, a daily sum calculated with the AMBAV model."
+        ),
+        ("daily", "soil", "vrml_ag"): (
+            "Real (actual) evaporation over maize on loamy silt, in mm, a daily sum calculated with the AMBAV model."
+        ),
+        ("daily", "soil", "vrms_ag"): (
+            "Real (actual) evaporation over maize on sand, in mm, a daily sum calculated with the AMBAV model."
+        ),
+        ("daily", "soil", "vrwl_ag"): (
+            "Real (actual) evaporation over winter cereals on loamy silt, in mm, a daily sum calculated with the "
+            "AMBAV model."
+        ),
+        ("daily", "soil", "vrws_ag"): (
+            "Real (actual) evaporation over winter cereals on sand, in mm, a daily sum calculated with the AMBAV model."
+        ),
+        ("daily", "soil", "zfumi"): "Frost penetration depth at midday on unvegetated ground, in cm (AMBETI model).",
+        (
+            "daily",
+            "soil",
+            "ztkmi",
+        ): "Thawing layer at midday under vegetation (the sheet: unter Bestand; BEKLIMA), in cm.",
+        ("daily", "soil", "ztumi"): "Thawing layer at midday under unvegetated ground (BEKLIMA), in cm.",
+        ("hourly", "radiation_global", "fg_duett"): (
+            "Global radiation (the sheet: surface irradiance, hourly mean surface downwelling shortwave "
+            "radiation) of a DWD pseudo-station, in J/cm2: derived from gridded satellite and station data "
+            "(DUETT) with a topography correction, not measured at the station. The sheet calls the stamp the "
+            "end of the synoptic hour and gives that hour as (HH-1):50 to HH:50 in one place and (HH-2):50 to "
+            "(HH-1):50 in another; DWD's 10-minute station data fit (HH-2):50 to (HH-1):50 best."
+        ),
+        ("hourly", "radiation_global", "fg_un_duett"): (
+            "Uncertainty of the hourly global radiation of the pseudo-station, in J/cm2 (the sheet: estimated "
+            "from the differences between the satellite and station data, the variability around the point and "
+            "the geometric uncertainty of the cloud observation)."
+        ),
+        ("hourly", "sunshine_duration", "sd_un_duett"): (
+            "Uncertainty of the hourly sunshine duration of the pseudo-station, in minutes (estimated in the "
+            "same way as that of the global radiation)."
+        ),
+        ("hourly", "sunshine_duration", "sd_duett"): (
+            "Sunshine duration of a DWD pseudo-station in the hour, in minutes: derived from gridded satellite "
+            "and station data (DUETT), not measured at the station. The sheet calls the stamp the end of the "
+            "synoptic hour and gives that hour as (HH-1):50 to HH:50 in one place and (HH-2):50 to (HH-1):50 in "
+            "another; DWD's 10-minute station data fit (HH-2):50 to (HH-1):50 best."
+        ),
         ("monthly", "climate_correction_factor", "KF"): (
-            "quotient of yearly degree days of reference station in Potsdam and postal code"
+            "Climate factor (KF) of a delivery postal code for the weather adjustment of energy consumption, "
+            "relative to the reference location Potsdam (the test reference years TRY 2011), for the 12 months "
+            "starting at the timestamp: KF = G(TRY, P) / G, the mean annual degree days of the reference station "
+            "Potsdam computed with its test reference years (3666.8) over the annual degree days of the postal "
+            "code in those 12 months (DWD's climate-factor page; the sheet states no formula)."
         ),
         ("monthly", "cooling_degreehours_13", "Anzahl Kuehlstunden"): (
-            "number of hours with positive temperature differences between air temperature and reference temperature"
+            "Number of hours of the month with a positive difference between the hourly air temperature and the "
+            "reference temperature of the dataset (13, 16 or 18 degree Celsius)."
         ),
         ("monthly", "cooling_degreehours_13", "Anzahl Stunden"): "number of hours per month",
         ("monthly", "cooling_degreehours_13", "Kuehlgradstunden"): (
-            "accumulated hourly temperature differences between air temperature and reference temperature"
+            "Cooling degree hours: the sum over the hours of the month of the hourly air temperature minus the "
+            "reference temperature of the dataset (13, 16 or 18 degree Celsius), for the hours above it, in K*h. "
+            "The sheet gives the unit as Kelvin * day, which the values rule out (for example 2,562.3 for 545 "
+            "cooling hours at the reference of 13 degree Celsius, Grossenkneten, September 2026)."
         ),
         ("monthly", "cooling_degreehours_16", "Anzahl Kuehlstunden"): (
-            "number of hours with positive temperature differences between air temperature and reference temperature"
+            "Number of hours of the month with a positive difference between the hourly air temperature and the "
+            "reference temperature of the dataset (13, 16 or 18 degree Celsius)."
         ),
         ("monthly", "cooling_degreehours_16", "Anzahl Stunden"): "number of hours per month",
         ("monthly", "cooling_degreehours_16", "Kuehlgradstunden"): (
-            "accumulated hourly temperature differences between air temperature and reference temperature"
+            "Cooling degree hours: the sum over the hours of the month of the hourly air temperature minus the "
+            "reference temperature of the dataset (13, 16 or 18 degree Celsius), for the hours above it, in K*h. "
+            "The sheet gives the unit as Kelvin * day, which the values rule out (for example 2,562.3 for 545 "
+            "cooling hours at the reference of 13 degree Celsius, Grossenkneten, September 2026)."
         ),
         ("monthly", "cooling_degreehours_18", "Anzahl Kuehlstunden"): (
-            "number of hours with positive temperature differences between air temperature and reference temperature"
+            "Number of hours of the month with a positive difference between the hourly air temperature and the "
+            "reference temperature of the dataset (13, 16 or 18 degree Celsius)."
         ),
         ("monthly", "cooling_degreehours_18", "Anzahl Stunden"): "number of hours per month",
         ("monthly", "cooling_degreehours_18", "Kuehlgradstunden"): (
-            "accumulated hourly temperature differences between air temperature and reference temperature"
+            "Cooling degree hours: the sum over the hours of the month of the hourly air temperature minus the "
+            "reference temperature of the dataset (13, 16 or 18 degree Celsius), for the hours above it, in K*h. "
+            "The sheet gives the unit as Kelvin * day, which the values rule out (for example 2,562.3 for 545 "
+            "cooling hours at the reference of 13 degree Celsius, Grossenkneten, September 2026)."
         ),
         ("monthly", "heating_degreedays", "Anzahl Heiztage"): (
             "number of days with daily mean air temperature less than 15 degree Celsius"
@@ -350,37 +698,132 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "heating_degreedays", "Anzahl Tage"): (
             "number of available values of mean daily air temperatures per month"
         ),
-        ("monthly", "heating_degreedays", "Monatsgradtage"): "sum of degree days over a month",
-        ("monthly", "soil", "maximum von zfumi"): "maximum frozen ground layer thickness in the month",
-        ("monthly", "soil", "maximum von ztkmi"): "maximum thawing thickness under vegetation in the month",
-        ("monthly", "soil", "maximum von ztumi"): "maximum thawing thickness under bare soil in the month",
-        ("monthly", "soil", "mittel von bfgl01_ag"): "mean soil moisture for meadow on loamy silt 0-10cm",
-        ("monthly", "soil", "mittel von bfgl02_ag"): "mean soil moisture for meadow on loamy silt 10-20cm",
-        ("monthly", "soil", "mittel von bfgl03_ag"): "mean soil moisture for meadow on loamy silt 20-30cm",
-        ("monthly", "soil", "mittel von bfgl04_ag"): "mean soil moisture for meadow on loamy silt 30-40cm",
-        ("monthly", "soil", "mittel von bfgl05_ag"): "mean soil moisture for meadow on loamy silt 40-50cm",
-        ("monthly", "soil", "mittel von bfgl06_ag"): "mean soil moisture for meadow on loamy silt 50-60cm",
-        ("monthly", "soil", "mittel von bfgl_ag"): "mean soil moisture for meadow on loamy silt 0-60cm",
-        ("monthly", "soil", "mittel von bfgs_ag"): "mean soil moisture for meadow on sand 0-60cm",
-        ("monthly", "soil", "mittel von bfml_ag"): "mean soil moisture for corn on loamy silt 0-60cm",
-        ("monthly", "soil", "mittel von bfms_ag"): "mean soil moisture for corn on sand 0-60cm",
-        ("monthly", "soil", "mittel von bfwl_ag"): "mean soil moisture for winter wheat on loamy silt 0-60cm",
-        ("monthly", "soil", "mittel von bfws_ag"): "mean soil moisture for winter wheat on sand 0-60cm",
-        ("monthly", "soil", "mittel von ts05"): "mean soil temperature at 0.05m depth",
-        ("monthly", "soil", "mittel von ts10"): "mean soil temperature at 0.1m depth",
-        ("monthly", "soil", "mittel von ts100"): "mean soil temperature at 1m depth",
-        ("monthly", "soil", "mittel von ts20"): "mean soil temperature at 0.2m depth",
-        ("monthly", "soil", "mittel von ts50"): "mean soil temperature at 0.5m depth",
-        ("monthly", "soil", "mittel von tsls05"): "mean soil temperature for loamy sand at 0.05m depth",
-        ("monthly", "soil", "mittel von tssl05"): "mean soil temperature for loamy silt at 0.05m depth",
-        ("monthly", "soil", "summe von vpgfao"): "sum of potential evapotranspiration for meadow (FAO method)",
-        ("monthly", "soil", "summe von vpgh"): "sum of potential evapotranspiration for meadow (Haude method)",
-        ("monthly", "soil", "summe von vrgl_ag"): "sum of evaporation height for meadow on loamy silt",
-        ("monthly", "soil", "summe von vrgs_ag"): "sum of evaporation height for meadow on sand",
-        ("monthly", "soil", "summe von vrml_ag"): "sum of evaporation height for corn on loamy silt",
-        ("monthly", "soil", "summe von vrms_ag"): "sum of evaporation height for corn on sand",
-        ("monthly", "soil", "summe von vrwl_ag"): "sum of evaporation height for winter wheat on loamy silt",
-        ("monthly", "soil", "summe von vrws_ag"): "sum of evaporation height for winter wheat on sand",
+        ("monthly", "heating_degreedays", "Monatsgradtage"): (
+            "Degree days of the month (VDI 3807 part 1), in K*day: the sum, over the days with a daily mean air "
+            "temperature below 15 degree Celsius, of 20 degree Celsius minus the daily mean (20 degree Celsius "
+            "is the mean room temperature the file header states). Only given where every daily value of the "
+            "month is available."
+        ),
+        ("monthly", "soil", "maximum von zfumi"): (
+            "Maximum in the month of the frost penetration depth at midday on unvegetated ground, in cm (AMBETI model)."
+        ),
+        ("monthly", "soil", "maximum von ztkmi"): (
+            "Maximum in the month of the thawing layer at midday under vegetation (the sheet: unter Bestand; "
+            "BEKLIMA), in cm."
+        ),
+        (
+            "monthly",
+            "soil",
+            "maximum von ztumi",
+        ): "Maximum in the month of the thawing layer at midday under unvegetated ground (BEKLIMA), in cm.",
+        ("monthly", "soil", "mittel von bfgl01_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 0 to 10 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgl02_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 10 to 20 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgl03_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 20 to 30 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgl04_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 30 to 40 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgl05_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 40 to 50 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgl06_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 50 to 60 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgl_ag"): (
+            "Monthly mean of the daily soil moisture under grass on loamy silt at 0 to 60 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfgs_ag"): (
+            "Monthly mean of the daily soil moisture under grass on sand at 0 to 60 cm depth, in % nFK (percent "
+            "of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfml_ag"): (
+            "Monthly mean of the daily soil moisture under maize on loamy silt at 0 to 60 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfms_ag"): (
+            "Monthly mean of the daily soil moisture under maize on sand at 0 to 60 cm depth, in % nFK (percent "
+            "of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfwl_ag"): (
+            "Monthly mean of the daily soil moisture under winter cereals on loamy silt at 0 to 60 cm depth, in "
+            "% nFK (percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von bfws_ag"): (
+            "Monthly mean of the daily soil moisture under winter cereals on sand at 0 to 60 cm depth, in % nFK "
+            "(percent of the usable field capacity), calculated with the AMBAV model, not measured."
+        ),
+        ("monthly", "soil", "mittel von ts05"): (
+            "Monthly mean of the daily mean soil temperature of a typical bare soil at 5 cm depth (AMBETI model, "
+            "not measured)."
+        ),
+        ("monthly", "soil", "mittel von ts10"): (
+            "Monthly mean of the daily mean soil temperature of a typical bare soil at 10 cm depth (AMBETI "
+            "model, not measured)."
+        ),
+        ("monthly", "soil", "mittel von ts100"): (
+            "Monthly mean of the daily mean soil temperature of a typical bare soil at 1 m depth (AMBETI model, "
+            "not measured)."
+        ),
+        ("monthly", "soil", "mittel von ts20"): (
+            "Monthly mean of the daily mean soil temperature of a typical bare soil at 20 cm depth (AMBETI "
+            "model, not measured)."
+        ),
+        ("monthly", "soil", "mittel von ts50"): (
+            "Monthly mean of the daily mean soil temperature of a typical bare soil at 50 cm depth (AMBETI "
+            "model, not measured)."
+        ),
+        ("monthly", "soil", "mittel von tsls05"): (
+            "Monthly mean of the daily mean soil temperature at 5 cm depth in unvegetated loamy sand (BEKLIMA, "
+            "AMBETI model, not measured)."
+        ),
+        ("monthly", "soil", "mittel von tssl05"): (
+            "Monthly mean of the daily mean soil temperature at 5 cm depth in unvegetated loamy silt (BEKLIMA, "
+            "AMBETI model, not measured)."
+        ),
+        (
+            "monthly",
+            "soil",
+            "summe von vpgfao",
+        ): "Monthly sum of the daily potential evapotranspiration over grass (FAO method), in mm.",
+        (
+            "monthly",
+            "soil",
+            "summe von vpgh",
+        ): "Monthly sum of the daily potential evapotranspiration over grass (Haude method), in mm.",
+        ("monthly", "soil", "summe von vrgl_ag"): (
+            "Monthly sum of the daily real (actual) evaporation over grass on loamy silt, in mm (AMBAV model)."
+        ),
+        (
+            "monthly",
+            "soil",
+            "summe von vrgs_ag",
+        ): "Monthly sum of the daily real (actual) evaporation over grass on sand, in mm (AMBAV model).",
+        ("monthly", "soil", "summe von vrml_ag"): (
+            "Monthly sum of the daily real (actual) evaporation over maize on loamy silt, in mm (AMBAV model)."
+        ),
+        (
+            "monthly",
+            "soil",
+            "summe von vrms_ag",
+        ): "Monthly sum of the daily real (actual) evaporation over maize on sand, in mm (AMBAV model).",
+        ("monthly", "soil", "summe von vrwl_ag"): (
+            "Monthly sum of the daily real (actual) evaporation over winter cereals on loamy silt, in mm (AMBAV model)."
+        ),
+        ("monthly", "soil", "summe von vrws_ag"): (
+            "Monthly sum of the daily real (actual) evaporation over winter cereals on sand, in mm (AMBAV model)."
+        ),
     },
     "DwdDmoMetadata": {
         ("hourly", "icon", "dd"): "Wind direction",
@@ -392,7 +835,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "nl"): "Low cloud cover (lower than 2 km).",
         ("hourly", "icon", "nm"): "Midlevel cloud cover (2-7 km)",
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
-        ("hourly", "icon", "rad1h"): "Global Irradiance",
+        ("hourly", "icon", "rad1h"): (
+            "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour)."
+        ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): "Short wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rr1"): "Total precipitation during the last hour",
@@ -404,8 +850,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "tn"): "Minimum temperature - within the last 12 hours",
         ("hourly", "icon", "ttt"): "Temperature 2m above surface",
         ("hourly", "icon", "tx"): "Maximum temperature - within the last 12 hours",
-        ("hourly", "icon", "w1w2"): "Past weather during the last 6 hours",
-        ("hourly", "icon", "ww"): "Significant Weather",
+        ("hourly", "icon", "w1w2"): (
+            "Past weather during the last 6 hours, as a class of DWD's MOSMIX list (the DMO values fit it): 9 "
+            "thunderstorm, 8 shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the "
+            "effective cloud cover (at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says of MOSMIX "
+            "that 0 to 3 are not reliable and mean no thunderstorm, no precipitation and no fog. Given at 00, "
+            "06, 12 and 18 UTC."
+        ),
+        ("hourly", "icon", "ww"): (
+            "Significant Weather, as a code of DWD's MOSMIX list of codes (DWD publishes it as "
+            "mosmix_element_weather_xls.xlsx; the DMO values fit it): 95 (thunderstorm) has the highest "
+            "priority, then freezing drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, "
+            "down to 3 to 0 (cloud development)."
+        ),
         ("hourly", "icon_eu", "dd"): "Wind direction",
         ("hourly", "icon_eu", "ff"): "Wind speed",
         ("hourly", "icon_eu", "fx3"): "Maximum wind gust within the last 3 hours",
@@ -415,7 +872,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "nl"): "Low cloud cover (lower than 2 km).",
         ("hourly", "icon_eu", "nm"): "Midlevel cloud cover (2-7 km)",
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
-        ("hourly", "icon_eu", "rad1h"): "Global Irradiance",
+        ("hourly", "icon_eu", "rad1h"): (
+            "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour)."
+        ),
         ("hourly", "icon_eu", "rr1"): "Total precipitation during the last hour",
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
@@ -423,8 +883,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "tn"): "Minimum temperature - within the last 12 hours",
         ("hourly", "icon_eu", "ttt"): "Temperature 2m above surface",
         ("hourly", "icon_eu", "tx"): "Maximum temperature - within the last 12 hours",
-        ("hourly", "icon_eu", "w1w2"): "Past weather during the last 6 hours",
-        ("hourly", "icon_eu", "ww"): "Significant Weather",
+        ("hourly", "icon_eu", "w1w2"): (
+            "Past weather during the last 6 hours, as a class of DWD's MOSMIX list (the DMO values fit it): 9 "
+            "thunderstorm, 8 shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the "
+            "effective cloud cover (at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says of MOSMIX "
+            "that 0 to 3 are not reliable and mean no thunderstorm, no precipitation and no fog. Given at 00, "
+            "06, 12 and 18 UTC."
+        ),
+        ("hourly", "icon_eu", "ww"): (
+            "Significant Weather, as a code of DWD's MOSMIX list of codes (DWD publishes it as "
+            "mosmix_element_weather_xls.xlsx; the DMO values fit it): 95 (thunderstorm) has the highest "
+            "priority, then freezing drizzle and rain, showers, snowfall, rain and snow, drizzle, rain and fog, "
+            "down to 3 to 0 (cloud development)."
+        ),
     },
     "DwdMosmixMetadata": {
         ("hourly", "large", "nl"): "Low cloud cover (lower than 2 km)",
@@ -453,11 +924,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "nh"): "High cloud cover (>7 km)",
         ("hourly", "large", "nlm"): "Cloud cover low and mid level clouds below 7000 m",
         ("hourly", "large", "nm"): "Midlevel cloud cover (2-7 km)",
-        ("hourly", "large", "pevap"): "Potential evapotranspiration within the last 24 hours",
+        (
+            "hourly",
+            "large",
+            "pevap",
+        ): "Potential evapotranspiration within the last 24 hours, given at the 06 UTC steps",
         ("hourly", "large", "pppp"): "Surface pressure, reduced",
-        ("hourly", "large", "psd00"): "Probability: relative sunshine duration > 0 % within 24 hours",
-        ("hourly", "large", "psd30"): "Probability: relative sunshine duration > 30 % within 24 hours",
-        ("hourly", "large", "psd60"): "Probability: relative sunshine duration > 60 % within 24 hours",
+        (
+            "hourly",
+            "large",
+            "psd00",
+        ): "Probability: relative sunshine duration > 0 % within 24 hours, given at the 06 UTC steps",
+        (
+            "hourly",
+            "large",
+            "psd30",
+        ): "Probability: relative sunshine duration > 30 % within 24 hours, given at the 06 UTC steps",
+        (
+            "hourly",
+            "large",
+            "psd60",
+        ): "Probability: relative sunshine duration > 60 % within 24 hours, given at the 06 UTC steps",
         ("hourly", "large", "r101"): "Probability of precipitation > 0.1 mm during the last hour",
         ("hourly", "large", "r102"): "Probability of precipitation > 0.2 mm during the last hour",
         ("hourly", "large", "r103"): "Probability of precipitation > 0.3 mm during the last hour",
@@ -471,7 +958,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "r602"): "Probability of precipitation > 0.2mm during the last 6 hours",
         ("hourly", "large", "r610"): "Probability of precipitation > 1.0mm during the last 6 hours",
         ("hourly", "large", "r650"): "Probability of precipitation > 5.0mm during the last 6 hours",
-        ("hourly", "large", "rad1h"): "Global Irradiance",
+        ("hourly", "large", "rad1h"): (
+            "Global Irradiance, which the source gives in kJ/m2 and so is the energy of the last hour: the "
+            "values follow the daylight (0 at night, largest around noon)."
+        ),
         ("hourly", "large", "rd00"): "Probability of precipitation > 0.0mm during the last 24 hours",
         ("hourly", "large", "rd02"): "Probability of precipitation > 0.2mm during the last 24 hours",
         ("hourly", "large", "rd10"): "Probability of precipitation > 1.0mm during the last 24 hours",
@@ -486,7 +976,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rr1w1"): "Probability of precipitation > 15.0 mm during the last hour",
         ("hourly", "large", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
         ("hourly", "large", "rr6c"): "Total precipitation during the last 6 hours consistent with significant weather",
-        ("hourly", "large", "rrad1"): "Global irradiance within the last hour",
+        ("hourly", "large", "rrad1"): (
+            "Global irradiance within the last hour as a percentage: the source gives % (0..80) and no "
+            "reference. Rad1h over the extraterrestrial radiation on a horizontal surface in the same hour "
+            "reproduces it roughly (mean difference under 3 points at 6 stations, single hours up to about 20 "
+            "points apart), so it is read as a share of that."
+        ),
         ("hourly", "large", "rrdc"): "Total precipitation during the last 24 hours consistent with significant weather",
         ("hourly", "large", "rrhc"): "Total precipitation during the last 12 hours consistent with significant weather",
         ("hourly", "large", "rrl1c"): (
@@ -494,8 +989,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "large", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "large", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
-        ("hourly", "large", "rsund"): "Relative sunshine duration within the last 24 hours",
-        ("hourly", "large", "sund"): "Yesterdays total sunshine duration",
+        ("hourly", "large", "rsund"): "Relative sunshine duration within the last 24 hours, given at the 06 UTC steps",
+        ("hourly", "large", "sund"): "Yesterdays total sunshine duration, given at the 06 UTC steps",
         ("hourly", "large", "sund1"): "Sunshine duration during the last Hour",
         ("hourly", "large", "sund3"): (
             "Sunshine duration during the last 3 hours. Not a sliding 3 hour total: it does not agree with the sum "
@@ -504,21 +999,52 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "large", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "large", "td"): "Dewpoint 2m above surface",
-        ("hourly", "large", "tg"): "Minimum surface temperature at 5cm within the last 12 hours",
-        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours",
-        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours",
+        (
+            "hourly",
+            "large",
+            "tg",
+        ): "Minimum surface temperature at 5cm within the last 12 hours, given at the 06 UTC steps",
+        ("hourly", "large", "tm"): "Mean temperature during the last 24 hours, given at the 06 UTC steps",
+        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
-        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours",
+        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
         ("hourly", "large", "vv"): "Visibility",
         ("hourly", "large", "vv10"): "Probability: Visibility below 1000m",
-        ("hourly", "large", "w1w2"): "Past weather during the last 6 hours",
-        ("hourly", "large", "wpc11"): "Optional significant weather (highest priority) during the last hour",
-        ("hourly", "large", "wpc31"): "Optional significant weather (highest priority) during the last 3 hours",
-        ("hourly", "large", "wpc61"): "Optional significant weather (highest priority) during the last 6 hours",
-        ("hourly", "large", "wpcd1"): "Optional significant weather (highest priority) during the last 24 hours",
-        ("hourly", "large", "wpch1"): "Optional significant weather (highest priority) during the last 12 hours",
-        ("hourly", "large", "ww"): "Significant Weather",
-        ("hourly", "large", "ww3"): "Significant Weather",
+        ("hourly", "large", "w1w2"): (
+            "Past weather during the last 6 hours, as two digits W1 and W2 (two-digit values from 0 to 99, such "
+            "as 30, 65 or 86; the tens never below the units), each a class of DWD's list: 9 thunderstorm, 8 "
+            "shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover "
+            "(at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and "
+            "mean no thunderstorm, no precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
+        ),
+        ("hourly", "large", "wpc11"): (
+            "Optional significant weather (highest priority) during the last hour, as a code of the same list as `ww`."
+        ),
+        ("hourly", "large", "wpc31"): (
+            "Optional significant weather (highest priority) during the last 3 hours, as a code of the same list "
+            "as `ww`, given at 00, 03, ... 21 UTC."
+        ),
+        ("hourly", "large", "wpc61"): (
+            "Optional significant weather (highest priority) during the last 6 hours, as a code of the same list "
+            "as `ww`, given at 00, 03, ... 21 UTC."
+        ),
+        ("hourly", "large", "wpcd1"): (
+            "Optional significant weather (highest priority) during the last 24 hours, as a code of the same "
+            "list as `ww`, given at 00 and 12 UTC."
+        ),
+        ("hourly", "large", "wpch1"): (
+            "Optional significant weather (highest priority) during the last 12 hours, as a code of the same "
+            "list as `ww`, given at 00, 06, 12 and 18 UTC."
+        ),
+        ("hourly", "large", "ww"): (
+            "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
+            "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
+            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "development)."
+        ),
+        ("hourly", "large", "ww3"): (
+            "Significant Weather of the last 3 hours, as a code of the same list as `ww`, given at 00, 03, ... 21 UTC."
+        ),
         ("hourly", "large", "wwc"): "Probability: Occurrence of convective precipitation within the last hour",
         ("hourly", "large", "wwc6"): "Probability: Occurrence of convective precipitation within the last 6 hours",
         ("hourly", "large", "wwch"): "Probability: Occurrence of convective precipitation within the last 12 hours",
@@ -533,7 +1059,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "wwlh"): "Probability: Occurrence of liquid precipitation within the last 12 hours",
         ("hourly", "large", "wwm"): "Probability for fog within the last hour",
         ("hourly", "large", "wwm6"): "Probability for fog within the last 6 hours",
-        ("hourly", "large", "wwmd"): "Probability for fog within the last 24 hours",
+        ("hourly", "large", "wwmd"): "Probability: Occurrence of fog within the last 24 hours, given at 00 and 12 UTC",
         ("hourly", "large", "wwmh"): "Probability for fog within the last 12 hours",
         ("hourly", "large", "wwp"): "Probability: Occurrence of precipitation within the last hour",
         ("hourly", "large", "wwp6"): "Probability: Occurrence of precipitation within the last 6 hours",
@@ -564,7 +1090,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "pppp"): "Surface pressure, reduced",
         ("hourly", "small", "r602"): "Probability of precipitation > 0.2mm during the last 6 hours",
         ("hourly", "small", "r650"): "Probability of precipitation > 5.0mm during the last 6 hours",
-        ("hourly", "small", "rad1h"): "Global Irradiance",
+        ("hourly", "small", "rad1h"): (
+            "Global Irradiance, which the source gives in kJ/m2 and so is the energy of the last hour: the "
+            "values follow the daylight (0 at night, largest around noon)."
+        ),
         ("hourly", "small", "rd02"): "Probability of precipitation > 0.2mm during the last 24 hours",
         ("hourly", "small", "rd50"): "Probability of precipitation > 5.0mm during the last 24 hours",
         ("hourly", "small", "rh00"): "Probability of precipitation > 0.0mm during the last 12 hours",
@@ -578,12 +1107,31 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "sund1"): "Sunshine duration during the last Hour",
         ("hourly", "small", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "small", "td"): "Dewpoint 2m above surface",
-        ("hourly", "small", "tn"): "Minimum temperature - within the last 12 hours",
+        (
+            "hourly",
+            "small",
+            "tn",
+        ): "Minimum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
         ("hourly", "small", "ttt"): "Temperature 2m above surface",
-        ("hourly", "small", "tx"): "Maximum temperature - within the last 12 hours",
+        (
+            "hourly",
+            "small",
+            "tx",
+        ): "Maximum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
         ("hourly", "small", "vv"): "Visibility",
-        ("hourly", "small", "w1w2"): "Past weather during the last 6 hours",
-        ("hourly", "small", "ww"): "Significant Weather",
+        ("hourly", "small", "w1w2"): (
+            "Past weather during the last 6 hours, as two digits W1 and W2 (two-digit values from 0 to 99, such "
+            "as 30, 65 or 86; the tens never below the units), each a class of DWD's list: 9 thunderstorm, 8 "
+            "shower, 7 snow or rain and snow mixed, 6 rain, 5 drizzle, 4 fog, 3 to 0 the effective cloud cover "
+            "(at least 7/8, 4.6/8 to 6/8, 1/8 to 4.5/8, below 1/8). DWD says that 0 to 3 are not reliable and "
+            "mean no thunderstorm, no precipitation and no fog. Given at 00, 06, 12 and 18 UTC."
+        ),
+        ("hourly", "small", "ww"): (
+            "Significant Weather, as a code of DWD's list of the codes used in MOSMIX (DWD publishes it as "
+            "mosmix_element_weather_xls.xlsx): 95 (thunderstorm) has the highest priority, then freezing drizzle "
+            "and rain, showers, snowfall, rain and snow, drizzle, rain and fog, down to 3 to 0 (cloud "
+            "development)."
+        ),
         ("hourly", "small", "wwm"): "Probability for fog within the last hour",
         ("hourly", "small", "wwm6"): "Probability for fog within the last 6 hours",
         ("hourly", "small", "wwmh"): "Probability for fog within the last 12 hours",
@@ -1244,17 +1792,35 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "mean wind speed over the period the station states (10 or 15 minutes, none stated in some station groups)"
         ),
     },
+    # the "Revised service" table of https://environment.data.gov.uk/hydrology/doc/reference (read 2026-10-21): "Flow
+    # 15min instantaneous m3/s", "Flow daily mean, min, max m3/s", "Level 15min instantaneous m", "Level daily min,
+    # max m", "GroundwaterLevel sub-daily instantaneous Groundwater Logged mAOD" ("for logged groundwater data the
+    # sub-daily values may be a mix of 15min and hourly intervals"), and of the unit "m (for meters with an unspecified
+    # datum)", against "mAOD" and "mASD". Every river level measure of the measures listing has the unit m (2,638 each
+    # of level-i-900, level-max-86400 and level-min-86400). The daily window is not in the documentation: a daily
+    # reading is stamped 09:00 and the mean of a day equals the mean of the 15 minute flows from that 09:00 to the
+    # next in 27 of 27, 30 of 30 and 27 of 27 days (Felsted in Feb and Jul 2025, Ulting Sarasota in Feb 2025; no
+    # other start hour does), and a maximum or minimum is stamped at the instant of the extreme inside it
     "EAHydrologyMetadata": {
         ("15_minutes", "data", "flow-i-900"): "instant flow at timestamp",
-        ("15_minutes", "data", "level-i-900"): "instant river water level at timestamp",
+        ("15_minutes", "data", "level-i-900"): (
+            "instant river water level at timestamp, in the source's unit m, relative to an unspecified datum (the "
+            "unit is not mAOD or mASD)"
+        ),
         ("15_minutes", "data", "gw-logged-i-subdaily"): (
             "logged groundwater level at timestamp, in metres above ordnance datum, every 15 minutes to every hour"
         ),
-        ("daily", "data", "flow-m-86400"): "daily mean flow",
-        ("daily", "data", "flow-max-86400"): "daily maximum flow",
-        ("daily", "data", "flow-min-86400"): "daily min flow",
-        ("daily", "data", "level-max-86400"): "daily maximum river water level",
-        ("daily", "data", "level-min-86400"): "daily minimum river water level",
+        ("daily", "data", "flow-m-86400"): f"daily mean flow, over {_EA_DAY}",
+        ("daily", "data", "flow-max-86400"): f"daily maximum flow, within {_EA_DAY}",
+        ("daily", "data", "flow-min-86400"): f"daily minimum flow, within {_EA_DAY}",
+        ("daily", "data", "level-max-86400"): (
+            f"daily maximum river water level, within {_EA_DAY}, in the source's unit m, relative to an unspecified "
+            "datum"
+        ),
+        ("daily", "data", "level-min-86400"): (
+            f"daily minimum river water level, within {_EA_DAY}, in the source's unit m, relative to an unspecified "
+            "datum"
+        ),
     },
     "EcccObservationMetadata": {
         ("daily", "data", "max_temperature"): "Daily maximum 2m air temperature.",
@@ -2171,8 +2737,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "TD"): "Dew point temperature",
         ("hourly", "data", "U"): "Relative atmospheric humidity",
     },
+    # the observation section of the field list on https://api.meteo.lt/ (Lithuanian, read 2026-10-21), translated
+    # sentence by sentence: "airTemperature - oro temperatūra, °C.", "windGust - vėjo gūsis, m/s. Maksimalus gūsis per
+    # valandą.", "precipitation - kritulių kiekis, mm. Kritulių suma per valandą." and so on. It states no height for
+    # any field, so the 2 m of the temperature's name is the shelter convention
     "LhmtObservationMetadata": {
-        ("hourly", "data", "airTemperature"): "Air temperature, °C.",
+        ("hourly", "data", "airTemperature"): (
+            "Air temperature, °C. The source states no height; the 2 m of the name is the shelter convention."
+        ),
         ("hourly", "data", "cloudCover"): (
             "Cloud cover, %. Values: 0 is clear, 100 is overcast. Where the cloud cover cannot be "
             "determined, for example because of fog, null is returned."
@@ -2575,46 +3147,77 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "sum(duration_of_sunshine P1M)"): "Number of hours of sunshine over the last month.",
         ("monthly", "data", "sum(precipitation_amount P1M)"): "Monthly precipitation sum.",
     },
+    # The parameter listing of the metobs API ("summary", e.g. "medelvärde 1 dygn, 1 gång/dygn, kl 00"), translated:
+    # the first sentence and the statistic. What the listing leaves out comes from the CSV of each station (read
+    # 2026-10-21): the "Från Datum Tid (UTC)" and "Till Datum Tid (UTC)" columns of the daily and monthly files give the
+    # window of each value, and the station header's "Mäthöjd (meter över marken)" was 2.0 for temperature, dew point,
+    # humidity and visibility and 10.0 for wind and gust at all of 25 active stations sampled for each (precipitation:
+    # 21 of 25 at 2.0, the others 1.4 to 4.6, which is why it states none). The windows are the same in the corrected
+    # archive and in the last months: parameter 2 (mean) 00:00:01 to 00:00:00 UTC, dated by that day; 19 and 20
+    # (minimum, maximum) 18:00:01 of the day before to 18:00:00 UTC, dated by the day they end on (hourly 21, the
+    # gust, says "Samplingstid = 1 timme" in the footer of its CSV, which is the "over the hour"); 5 (precipitation)
+    # 06:00:01 to 06:00:00 UTC of the next day, dated by the day they begin on; 22 (monthly mean) the calendar month;
+    # 23 (monthly sum) 06:00:01 of the 1st to 06:00:00 of the 1st of the next month. The monthly temperature is the
+    # mean of the daily means (356 of 356 months at Stockholm-Observatoriekullen, 684 of 686 at Göteborg A); the
+    # listing does not say so. The monthly precipitation equals the sum of the daily values in 37 of 43 and 532 of 544
+    # months, and the others were not traced, so the description says only the window
     "SmhiObservationMetadata": {
-        ("1_minute", "data", "43"): "Relative humidity. Instantaneous value, every minute.",
+        ("1_minute", "data", "43"): "Relative humidity at 2 m. Instantaneous value, every minute.",
         ("1_minute", "data", "44"): "Air pressure reduced to sea level. Instantaneous value, every minute.",
-        ("1_minute", "data", "45"): "Air temperature. Instantaneous value, every minute.",
+        ("1_minute", "data", "45"): "Air temperature at 2 m. Instantaneous value, every minute.",
         ("1_minute", "data", "46"): "Precipitation amount. Precipitation during one minute.",
-        ("1_minute", "data", "47"): "Wind speed. One minute mean, every minute.",
+        ("1_minute", "data", "47"): "Wind speed at 10 m. One minute mean, every minute.",
         (
             "1_minute",
             "data",
             "48",
         ): (
-            "Wind direction. One minute mean, every minute. "
+            "Wind direction at 10 m. One minute mean, every minute. "
             "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
         ("1_minute", "data", "51"): "Visibility. One minute mean, every minute.",
         ("1_minute", "data", "52"): "Snow depth. Instantaneous value, every minute.",
-        ("daily", "data", "19"): "Air temperature. Minimum, once per day.",
-        ("daily", "data", "2"): "Air temperature. Daily mean, once per day at 00.",
-        ("daily", "data", "20"): "Air temperature. Maximum, once per day.",
-        ("daily", "data", "5"): "Precipitation amount. Daily sum, once per day at 06.",
-        ("daily", "data", "8"): "Snow depth. Instantaneous value, once per day at 06.",
-        ("hourly", "data", "1"): "Air temperature. Instantaneous value, once per hour.",
+        ("daily", "data", "19"): (
+            "Air temperature at 2 m. Minimum, once per day, over the 24 hours ending at 18:00 UTC of the day it is "
+            "dated."
+        ),
+        ("daily", "data", "2"): (
+            "Air temperature at 2 m. Daily mean, once per day at 00, over the 24 hours from 00:00 UTC of the day it "
+            "is dated to 00:00 UTC of the next."
+        ),
+        ("daily", "data", "20"): (
+            "Air temperature at 2 m. Maximum, once per day, over the 24 hours ending at 18:00 UTC of the day it is "
+            "dated."
+        ),
+        ("daily", "data", "5"): (
+            "Precipitation amount. Daily sum, once per day at 06, over the 24 hours from 06:00 UTC of the day it is "
+            "dated to 06:00 UTC of the next day."
+        ),
+        ("daily", "data", "8"): "Snow depth. Instantaneous value, once per day at 06 UTC.",
+        ("hourly", "data", "1"): "Air temperature at 2 m. Instantaneous value, once per hour.",
         ("hourly", "data", "12"): "Visibility. Instantaneous value, once per hour.",
         ("hourly", "data", "16"): "Total cloud amount. Instantaneous value, once per hour.",
-        ("hourly", "data", "21"): "Wind gust. Maximum, once per hour.",
+        ("hourly", "data", "21"): "Wind gust at 10 m. Maximum over the hour, once per hour.",
         (
             "hourly",
             "data",
             "3",
         ): (
-            "Wind direction. Mean over 10 minutes, once per hour. "
+            "Wind direction at 10 m. Mean over 10 minutes, once per hour. "
             "The source's 0 beside a wind speed of 0 (a calm wind) is null; a 0 beside a wind that blows stays."
         ),
-        ("hourly", "data", "39"): "Dew point temperature. Instantaneous value, once per hour.",
-        ("hourly", "data", "4"): "Wind speed. Mean over 10 minutes, once per hour.",
-        ("hourly", "data", "6"): "Relative humidity. Instantaneous value, once per hour.",
+        ("hourly", "data", "39"): "Dew point temperature at 2 m. Instantaneous value, once per hour.",
+        ("hourly", "data", "4"): "Wind speed at 10 m. Mean over 10 minutes, once per hour.",
+        ("hourly", "data", "6"): "Relative humidity at 2 m. Instantaneous value, once per hour.",
         ("hourly", "data", "7"): "Precipitation amount. Hourly sum, once per hour.",
-        ("hourly", "data", "9"): "Air pressure reduced to sea level. At sea level, instantaneous value, once per hour.",
-        ("monthly", "data", "22"): "Air temperature. Mean, once per month.",
-        ("monthly", "data", "23"): "Precipitation amount. Sum, once per month.",
+        ("hourly", "data", "9"): "Air pressure reduced to sea level. Instantaneous value, once per hour.",
+        ("monthly", "data", "22"): (
+            "Air temperature at 2 m. Mean, once per month: the mean of the daily means of the calendar month (UTC)."
+        ),
+        ("monthly", "data", "23"): (
+            "Precipitation amount. Sum, once per month, over the month from 06:00 UTC of its first day to 06:00 UTC "
+            "of the first day of the next month."
+        ),
     },
     # the field list on api.ipma.pt, translated; it says "média da hora" (the mean of the hour) of temperatura, humidade
     # and pressao ("temperatura do ar registada a 1.5 metros de altura", "humidade relativa do ar registada a 1.5 metros
@@ -3105,9 +3708,6 @@ DERIVED_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("subdaily", "visibility", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
         ("subdaily", "wind", "qn_4"): "Quality flag published by the source for the values in the same dataset.",
-    },
-    "DwdSwsmosMetadata": {
-        ("hourly", "data", "TL"): "Temperature 2m above surface.",
     },
     "DmiObservationMetadata": {
         # DMI's documentation (https://www.dmi.dk/friedata/dokumentation/climate-data): "Maximum 30 minutes intensity in

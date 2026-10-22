@@ -23,7 +23,7 @@
 
 #### parameters
 
-| name              | original name | description | unit | constraints |
-|-------------------|---------------|-------------|------|-------------|
-| {term}`discharge` | Q             | Flow.       | l/s  | >=0         |
-| {term}`stage`     | H             | Stage.      | mm   | -           |
+| name              | original name | description                                                                                                                                                         | unit | constraints |
+|-------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|-------------|
+| {term}`discharge` | Q             | Flow (débit, grandeur Q), published in l/s and updated by the producer every 5 to 60 minutes. The source states no statistic.                                       | l/s  | >=0         |
+| {term}`stage`     | H             | Water height (hauteur d'eau, grandeur H), published in mm and updated by the producer every 5 to 60 minutes. The source states no statistic and no reference level. | mm   | -           |
