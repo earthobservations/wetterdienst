@@ -561,7 +561,7 @@ OGL_UK_3_0 = LicenseModel(
 ETALAB_2_0 = LicenseModel(
     spdx_id="etalab-2.0",
     name="Etalab Open License 2.0",
-    url="https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+    url="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0",
 )
 
 

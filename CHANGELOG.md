@@ -37,6 +37,14 @@ Types of changes:
   The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
   installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
 
+### Fixed
+
+- `metadata.provider.license.url` of Météo-France and Eaufrance answers
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, the Etalab 2.0 text; the old
+  etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
+  SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
+  redirected (GH-3255)
+
 ## [0.167.0] - 2026-10-22
 
 ### Security
