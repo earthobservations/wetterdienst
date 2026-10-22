@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `[Build]` `nuxt` and `@nuxt/nitro-server` are 4.6.2, which fixes the case-variant paths that
+  skipped the server's route rules (GHSA-vjh5-4x84-xrqp; the app's `routeRules` set a response
+  header), the unsanitised `useHeadSafe` input of server islands (GHSA-xfq5-w38q-pc2x) and the
+  `javascript:` link of `<NuxtLink>` (GHSA-jjm6-p2m9-9w4x). `vue` is 3.5.44, which Nuxt 4.6 needs
+  (GH-3280)
+
 ## [0.31.0] - 2026-10-22
 
 ### Security

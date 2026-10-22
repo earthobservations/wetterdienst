@@ -9,8 +9,9 @@ rolling window of roughly the last day, so only the ``recent`` period is availab
 historical archive here.
 
 Field semantics and units follow the IPMA open-data documentation (https://api.ipma.pt/): pressure
-is reduced to mean sea level, radiation is global solar radiation in kJ/m², and wind direction is
-published as an 8-point *code* (``idDireccVento``) that ``parser.py`` converts to degrees. The
+is reduced to mean sea level, radiation is "radiação solar (kJ/m2)" (the source says neither global
+nor a period, see the description of ``radiacao``), and wind direction is published as an 8-point
+*code* (``idDireccVento``) that ``parser.py`` converts to degrees. The
 ``intensidadeVentoKM`` field (the same wind speed in km/h) is intentionally not mapped -- it
 duplicates ``intensidadeVento`` (m/s). ``-99.0`` is the missing-value sentinel and becomes null.
 """
