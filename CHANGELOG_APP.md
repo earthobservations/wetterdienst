@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `[Build]` The advisories of `vite` and `launch-editor` (six, three of them shared),
+  `@vitest/mocker` and the MCP SDK are resolved with `vite` 8.3.4, `launch-editor` 2.14.2, `vitest`
+  4.1.12 and `@modelcontextprotocol/*` 2.3.1, and the four of `simple-git` and
+  `@simple-git/argv-parser` with `@nuxt/devtools` 3.4.4, which no longer depends on them. All of
+  these are build, lint and test tooling the built app does not ship. `braces` and `node-forge`
+  have no fixed release and stay open (GH-3280)
+
 ## [0.30.0] - 2026-10-22
 
 ### Changed
