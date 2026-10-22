@@ -1,29 +1,27 @@
 name: Zizmor
 
-# zizmor lints the workflow files themselves, configured by the zizmor.yml at the repo
-# root. Its own paths list therefore covers all of .github/ rather than naming this file.
+# zizmor lints the workflow files and dependabot.yml, with every rule on (no config file). Its own
+# paths list therefore covers all of .github/ rather than naming this file.
 on:
   push:
     branches: [ main ]
     paths:
       - '.github/**'
-      - 'zizmor.yml'
       - 'pyproject.toml'
       - 'uv.lock'
   pull_request:
     branches: [ main ]
     paths:
       - '.github/**'
-      - 'zizmor.yml'
       - 'pyproject.toml'
       - 'uv.lock'
 
   # Allow job to be triggered manually.
   workflow_dispatch:
 
-# Cancel in-progress jobs when pushing to the same branch.
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 env:
@@ -34,6 +32,7 @@ permissions: {}
 jobs:
   zizmor:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Acquire sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

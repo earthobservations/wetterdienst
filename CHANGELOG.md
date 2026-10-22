@@ -32,6 +32,9 @@ Types of changes:
   `chloride_concentration` is no parameter of any provider now, so `chlorid_concentration`, its old
   misspelling, is unknown too; the other providers keep `precipitation_amount` and
   `precipitation_intensity` (GH-3242)
+- The `nightly` tag of `ghcr.io/earthobservations/wetterdienst` and `-app` is no longer published:
+  the images are built on release tags only. An image pulled by `:nightly` stays at its last
+  build, so pull a release tag (`:0.165.0` of the backend, `:0.29.0` of the app) instead (GH-2477)
 
 ### Fixed
 
@@ -44,6 +47,12 @@ Types of changes:
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind
   ("global", "horizontal") are not stated by the source (the old text said global, horizontal and
   per interval; the daily course only suggests an hourly sum) (GH-3136)
+- DWD descriptions that stated what the source does not: the `dwd/swsmos` liquid precipitation
+  (`RRL1c`) read MOSMIX's "consistent with significant weather", and `TL` and `TD` said 2 m (the
+  sheet gives no height); the `dwd/poi` new snow was "since the previous observation" (it is in the
+  06 UTC report only, with no period stated); the `dwd/derived` soil rows said "winter wheat" for
+  DWD's winter cereals; the `dwd/mosmix` `ww3` read as plain `ww`. They now say what the
+  sources say (GH-3136)
 - The `chmi/observation` descriptions called the daily mean temperature the average of the 06:00,
   13:00 and 20:00 observations; it is (T06 + T13 + 2 T20) / 4, while humidity, pressure and wind
   speed are the plain average. The monthly and annual rows said "read at 06:00 each day"

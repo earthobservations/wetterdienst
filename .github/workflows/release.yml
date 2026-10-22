@@ -12,6 +12,7 @@ permissions: {}
 jobs:
   check-release-type:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       is-backend: ${{ steps.check.outputs.is-backend }}
     steps:
@@ -22,9 +23,9 @@ jobs:
         run: |
           # Backend releases use tags like v0.117.0 (not starting with 'app-')
           if [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "is-backend=true" >> $GITHUB_OUTPUT
+            echo "is-backend=true" >> "$GITHUB_OUTPUT"
           else
-            echo "is-backend=false" >> $GITHUB_OUTPUT
+            echo "is-backend=false" >> "$GITHUB_OUTPUT"
           fi
 
   # Builds the distributions in a job without `id-token`: `uv sync` and `uv build` run the build code
@@ -34,6 +35,7 @@ jobs:
     needs: check-release-type
     if: needs.check-release-type.outputs.is-backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Acquire sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,6 +65,7 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       id-token: write
     steps:
