@@ -22,8 +22,8 @@ The data as offered by the DWD through ``wetterdienst`` includes:
     - hourly resolution, roughly the last day, for the ~970 MOSMIX stations that report
     - 39 parameters, including the previous day's temperature and wind extremes
 - [Radar](radar/index.md) — radar-based precipitation products
-    - composite, radolan, radvor, sites and radolan_cdc
-    - RADOLAN: gauge-calibrated areal precipitation; RADVOR: radar-based precipitation forecast
+    - composite, radolan, sites and radolan_cdc
+    - RADOLAN: gauge-calibrated areal precipitation; the composites RV (5-minute precipitation) and WN (reflectivity), each with a two-hour forecast
 - [Derived products](derived/index.md) — secondary products computed from primary observations
     - technical products (heating/cooling degree days, climate correction factor) and climate
       products (radiation & sunshine duration, soil data)

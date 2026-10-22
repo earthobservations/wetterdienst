@@ -184,7 +184,6 @@ radar data available at different locations within the DWD data repository:
 
 - [composite](https://opendata.dwd.de/weather/radar/composite/)
 - [radolan](https://opendata.dwd.de/weather/radar/radolan/)
-- [radvor](https://opendata.dwd.de/weather/radar/radvor/)
 - [sites](https://opendata.dwd.de/weather/radar/sites/)
 - [radolan cdc daily](https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/)
 - [radolan cdc hourly](https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/)

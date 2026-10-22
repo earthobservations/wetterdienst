@@ -19,16 +19,15 @@ from wetterdienst.provider.dwd.radar.metadata import (
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
-def test_radar_request_site_historic_pe_wrong_parameters(default_settings: Settings) -> None:
-    """Verify acquisition of radar/site/PE_ECHO_TOP data croaks when omitting RadarDataFormat."""
+def test_radar_request_site_historic_pe_without_format(default_settings: Settings) -> None:
+    """Verify acquisition of radar/site/PE_ECHO_TOP data needs no RadarDataFormat: it is HDF5 only (GH-3279)."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
         site=DwdRadarSite.BOO,
         start=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
         settings=default_settings,
     )
-    with pytest.raises(ValueError, match="Argument 'format' is missing"):
-        next(request.query())
+    assert request.format == DwdRadarDataFormat.HDF5
 
 
 @pytest.mark.remote
@@ -43,7 +42,7 @@ def test_radar_request_site_historic_pe_future(
     request = DwdRadarValues(
         parameter=DwdRadarParameter.PE_ECHO_TOP,
         site=DwdRadarSite.BOO,
-        fmt=DwdRadarDataFormat.BUFR,
+        fmt=DwdRadarDataFormat.HDF5,
         start="2099-01-01 00:00:00",
         settings=default_settings,
     )
@@ -56,7 +55,7 @@ def test_radar_request_site_historic_pe_future(
 
 def test_radar_request_site_latest_sweep_pcp_v_hdf5(default_settings: Settings) -> None:
     """Verify requesting latest HDF5 data croaks."""
-    with pytest.raises(ValueError, match="HDF5 data has no '-latest-' files"):
+    with pytest.raises(ValueError, match="HDF5 sweep data has no '-latest-' files"):
         DwdRadarValues(
             parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
             site=DwdRadarSite.BOO,
@@ -67,14 +66,14 @@ def test_radar_request_site_latest_sweep_pcp_v_hdf5(default_settings: Settings) 
 
 
 def test_radar_request_site_latest_sweep_pcp_v_hdf5_wrong_parameters(default_settings: Settings) -> None:
-    """Verify requesting HDF5 data without RadarDataFormat croaks."""
+    """Verify requesting sweep data without the subset croaks, whether the format is named or not."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
         site=DwdRadarSite.BOO,
         start=DwdRadarDate.CURRENT,
         settings=default_settings,
     )
-    with pytest.raises(ValueError, match="Argument 'format' is missing"):
+    with pytest.raises(ValueError, match="Argument 'subset' is missing"):
         list(request.query())
 
 
@@ -82,7 +81,7 @@ def test_radar_request_site_without_site(default_settings: Settings) -> None:
     """Verify requesting site data without site croaks."""
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
-        start=DwdRadarDate.LATEST,
+        start=DwdRadarDate.CURRENT,
         settings=default_settings,
     )
     with pytest.raises(ValueError, match="Argument 'site' is missing"):

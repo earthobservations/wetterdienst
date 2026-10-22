@@ -17,38 +17,18 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_fileindex_composite_pg_reflectivity_bin(default_settings: Settings) -> None:
-    """Test file index creation for DWD radar PG reflectivity."""
-    file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PG_REFLECTIVITY,
-        fmt=DwdRadarDataFormat.BINARY,
-        settings=default_settings,
-    )
+@pytest.mark.parametrize(
+    ("parameter", "folder"),
+    [(DwdRadarParameter.RV_REFLECTIVITY, "rv"), (DwdRadarParameter.WN_REFLECTIVITY, "wn")],
+)
+def test_radar_fileindex_composite_tar(parameter: DwdRadarParameter, folder: str, default_settings: Settings) -> None:
+    """Test file index creation for the DWD radar composites, one .tar of ODIM HDF5 files a run (GH-3279)."""
+    file_index = create_fileindex_radar(parameter=parameter, settings=default_settings)
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
-    assert all(PurePath(url).match("*/weather/radar/composite/pg/*---bin") for url in urls)
-
-
-@pytest.mark.remote
-def test_radar_fileindex_composite_pg_reflectivity_bufr(default_settings: Settings) -> None:
-    """Test file index creation for DWD radar PG reflectivity."""
-    file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PG_REFLECTIVITY,
-        fmt=DwdRadarDataFormat.BUFR,
-        settings=default_settings,
-    )
-    assert not file_index.is_empty()
-    urls = file_index.get_column("filename").to_list()
-    assert all(PurePath(url).match("*/weather/radar/composite/pg/*---bufr") for url in urls)
-
-
-@pytest.mark.remote
-def test_radar_fileindex_composite_rv_reflectivity_bin(default_settings: Settings) -> None:
-    """Test file index creation for DWD radar RV reflectivity."""
-    file_index = create_fileindex_radar(parameter=DwdRadarParameter.RV_REFLECTIVITY, settings=default_settings)
-    assert not file_index.is_empty()
-    urls = file_index.get_column("filename").to_list()
-    assert all(PurePath(url).match("*/weather/radar/composite/rv/*.tar.bz2") for url in urls)
+    assert all(PurePath(url).match(f"*/weather/radar/composite/{folder}/composite_{folder}_*.tar") for url in urls)
+    # the file of the latest run is one of them, named with one underscore or two
+    assert sum("_LATEST.tar" in url for url in urls) == 1
 
 
 @pytest.mark.remote
@@ -73,44 +53,39 @@ def test_radar_fileindex_radolan_reflectivity_bin(parameter: DwdRadarParameter, 
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_px_reflectivity_bin(default_settings: Settings) -> None:
-    """Test file index creation for DWD radar PX reflectivity."""
+def test_radar_fileindex_sites_dx_reflectivity_bin(default_settings: Settings) -> None:
+    """Test file index creation for DWD radar DX reflectivity, which is still the binary file."""
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PX_REFLECTIVITY,
+        parameter=DwdRadarParameter.DX_REFLECTIVITY,
         site=DwdRadarSite.BOO,
-        fmt=DwdRadarDataFormat.BINARY,
         settings=default_settings,
     )
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
-    assert all(PurePath(url).match("*/weather/radar/sites/px/boo/*---bin") for url in urls)
+    assert all(PurePath(url).match("*/weather/radar/sites/dx/boo/*---bin") for url in urls)
 
 
 @pytest.mark.remote
-def test_radar_fileindex_sites_px_reflectivity_bufr(default_settings: Settings) -> None:
-    """Test file index creation for DWD radar PX reflectivity."""
+@pytest.mark.parametrize(
+    ("parameter", "folder"),
+    [
+        (DwdRadarParameter.LMAX_VOLUME_SCAN, "lmax"),
+        (DwdRadarParameter.PE_ECHO_TOP, "pe"),
+        (DwdRadarParameter.PR_VELOCITY, "pr"),
+        (DwdRadarParameter.PX250_REFLECTIVITY, "px250"),
+        (DwdRadarParameter.PZ_CAPPI, "pz"),
+    ],
+)
+def test_radar_fileindex_sites_hdf5(parameter: DwdRadarParameter, folder: str, default_settings: Settings) -> None:
+    """Test file index creation for the DWD radar site products, which are ODIM HDF5 files (GH-3279)."""
     file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PX_REFLECTIVITY,
-        site=DwdRadarSite.BOO,
-        fmt=DwdRadarDataFormat.BUFR,
-        settings=default_settings,
-    )
-    assert not file_index.is_empty()
-    urls = file_index.get_column("filename").to_list()
-    assert all(PurePath(url).match("*/weather/radar/sites/px/boo/*---buf") for url in urls)
-
-
-@pytest.mark.remote
-def test_radar_fileindex_sites_px250_reflectivity_bufr(default_settings: Settings) -> None:
-    """Test file index creation for DWD radar PX250 reflectivity."""
-    file_index = create_fileindex_radar(
-        parameter=DwdRadarParameter.PX250_REFLECTIVITY,
+        parameter=parameter,
         site=DwdRadarSite.BOO,
         settings=default_settings,
     )
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
-    assert all("/weather/radar/sites/px250/boo" in url for url in urls)
+    assert all(PurePath(url).match(f"*/weather/radar/sites/{folder}/boo/*-hd5") for url in urls)
 
 
 @pytest.mark.remote
