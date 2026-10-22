@@ -629,6 +629,11 @@ _MEAN_REST_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
             "soil_moisture_grass_loamy_silt_40cm_50cm": "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
             "soil_moisture_grass_loamy_silt_50cm_60cm": "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
             "soil_moisture_grass_sand_00cm_60cm": "soil_moisture_mean_grass_sand_00cm_60cm",
+            # GH-3276: the daily names of winter cereals, which the monthly dataset has as means
+            **{
+                old: old.replace("soil_moisture_", "soil_moisture_mean_")
+                for old in _WINTER_WHEAT_SOIL_MOISTURE.values()
+            },
             # GH-3263: the names of before the rename to winter cereals
             "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
             "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",

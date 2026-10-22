@@ -23,7 +23,7 @@ for a requested date range.
 
 Data is © SMHI, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See
-[SMHI Open Data](https://www.smhi.se/data/utforskaren-oppna-data) for further
+[SMHI Open Data](https://www.smhi.se/data/sok-oppna-data-i-utforskaren) for further
 information and usage conditions.
 
 ```{toctree}
