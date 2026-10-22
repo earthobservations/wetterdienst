@@ -11,7 +11,7 @@ API, covering 1-minute, hourly, daily and monthly resolution. No authentication 
 
 SMHI open data is published under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See the
-[SMHI open data explorer](https://www.smhi.se/data/utforskaren-oppna-data) for details.
+[SMHI open data explorer](https://www.smhi.se/data/sok-oppna-data-i-utforskaren) for details.
 
 ```{toctree}
 :hidden:

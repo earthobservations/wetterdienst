@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.168.0] - 2026-10-22
+
 ### Added
 
 - `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
@@ -44,6 +46,11 @@ Types of changes:
   datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,
   NOAA GHCNh, SWSMOS and DMI, and `soil_moisture_gras_*`, `soil_moisture_winterwheat_*` and
   `soil_moisture_corn_loamysilt_*` in `dwd/derived` `monthly/soil` (GH-3276)
+- `metadata.provider.license.url` of Météo-France and Eaufrance answers
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, the Etalab 2.0 text; the old
+  etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
+  SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
+  redirected (GH-3255)
 
 ## [0.167.0] - 2026-10-22
 
@@ -6211,7 +6218,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...HEAD
+[0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0
 [0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0
