@@ -6,37 +6,27 @@ on:
 
 permissions: {}
 
+# `release.yml` and this workflow both run on every published release. The two tag families never
+# overlap: this one takes tags that start with `app-v`, `release.yml` takes `^v[0-9]+\.[0-9]+\.[0-9]+$`
+# (an `if:` cannot express that regex, and it guards a PyPI publish), and a `v...` tag does not start
+# with `app-v`. A tag such as `app-v1.0.0-rc1` is therefore taken by this workflow, which the strict
+# `^app-v[0-9]+\.[0-9]+\.[0-9]+$` check it replaces skipped. With the `if:` on `build`, and `upload`
+# needing it, a backend release shows this run as skipped, not as a green run with its job skipped.
+# `startsWith` ignores case, so a mistyped `App-v...` tag is taken too; it gets no image, as the glob
+# of `docker-publish-app.yml` is case-sensitive.
 jobs:
-  check-release-type:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      is-app: ${{ steps.check.outputs.is-app }}
-    steps:
-      - name: Check if app release
-        id: check
-        env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
-          if [[ "$TAG_NAME" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "is-app=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is-app=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  release:
-    needs: check-release-type
-    if: needs.check-release-type.outputs.is-app == 'true'
+  # Builds the tarball in a job without a token that can write: `pnpm install` and `pnpm run build`
+  # run the build code of the app and of every package in `app/pnpm-lock.yaml`, and must not hold
+  # `contents: write`, which lets it write to the releases, the tags and the code of the repository
+  build:
+    if: startsWith(github.event.release.tag_name, 'app-v')
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    
+
     defaults:
       run:
         working-directory: app
-    
-    permissions:
-      contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,22 +44,45 @@ jobs:
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 11
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build app
         run: pnpm run build
-      
+
       - name: Create release artifact
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
+          mkdir ../release
           cd .output
-          tar -czf ../app-"${TAG_NAME#app-}".tar.gz .
+          tar -czf ../../release/app-"${TAG_NAME#app-}".tar.gz .
 
       - name: Upload release artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-release
+          path: release/
+          if-no-files-found: error
+
+  # Holds the token and runs no project or dependency code: no checkout, no `pnpm install`, only the
+  # tarball the build job produced
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: app-release
+          path: release/
+
+      - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG_NAME" "app-${TAG_NAME#app-}.tar.gz"
+        run: gh release upload "$TAG_NAME" release/app-"${TAG_NAME#app-}".tar.gz --repo "$GITHUB_REPOSITORY"

@@ -97,7 +97,12 @@ A secret goes in the `env:` of the step that reads it, never of the job or the w
 the package managers and third-party actions run code that is not ours and would be handed it. The
 provider keys (`WD_AUTH__*`) are therefore on the test steps of `tests.yml` and `coverage.yml`
 only. In `release.yml` the `build` job runs the project's build code and has no `id-token`; the
-`publish` job has it and runs only `uv publish` on the artifact `build` uploaded.
+`publish` job has it and runs only `uv publish` on the artifact `build` uploaded. `app-release.yml`
+is split the same way: `build` installs and builds the app without a token that can write, `upload`
+has `contents: write` and runs only `gh release upload` on the tarball `build` uploaded. The two
+release workflows tell their tags apart differently: `app-release.yml` by an `if:` on its `build`
+job (the tag starts with `app-v`), so a backend release shows it as skipped, and `release.yml` by
+the strict `^v[0-9]+\.[0-9]+\.[0-9]+$` check job, which guards the PyPI publish.
 
 ## App CI
 
