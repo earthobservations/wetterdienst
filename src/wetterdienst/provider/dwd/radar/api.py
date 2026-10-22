@@ -32,10 +32,10 @@ from wetterdienst.provider.dwd.radar.index import (
 )
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS_NOT_PUBLISHED,
+    RADAR_DATA_SUBSETS,
     RADAR_PARAMETERS_NOT_PUBLISHED,
     RADAR_PARAMETERS_SLOW,
     RADAR_PARAMETERS_SWEEPS,
-    RADAR_PARAMETERS_SWEEPS_LATEST,
     RADAR_PARAMETERS_SWEEPS_VOLUME,
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -214,12 +214,24 @@ class DwdRadarValues:  # noqa: PLW1641
                 msg = "RADOLAN_CDC data has no '-latest-' files"
                 raise ValueError(msg)
 
-            # The folders of a filter have no latest file, the composites and the other site products do; the unfiltered
-            # folders have one for each elevation, which is one file of the precipitation scan and ten of the volume.
-            if self.parameter in RADAR_PARAMETERS_SWEEPS and self.parameter not in RADAR_PARAMETERS_SWEEPS_LATEST:
+            # The folders of a filter have no latest file, the composites and the other site products do. The unfiltered
+            # folders have one for each sweep: the precipitation scan one (two for the reflectivity, TH and TV), the
+            # volume scan ten, which DWD replaces one by one as the scan is published, so that for minutes they are of
+            # two volumes (read 2026-10-22 15:53 UTC: the sweeps 0 to 4 listed 15:51 to 15:53 and 5 to 9 at 15:48 to
+            # 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45).
+            if self.parameter in RADAR_PARAMETERS_SWEEPS and self.subset != DwdRadarDataSubset.UNFILTERED:
                 msg = "HDF5 sweep data has no '-latest-' files"
-                if self.subset == DwdRadarDataSubset.UNFILTERED and self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
-                    msg += " (the unfiltered folders have one for each elevation: ask for a time instead)"
+                if (
+                    DwdRadarDataSubset.UNFILTERED in RADAR_DATA_SUBSETS.get(self.parameter, ())
+                    and self.parameter not in RADAR_PARAMETERS_SWEEPS_VOLUME
+                ):
+                    msg += " (the unfiltered folder has them: subset=UNFILTERED)"
+                raise ValueError(msg)
+            if self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
+                msg = (
+                    "HDF5 sweep data has no '-latest-' files of a whole volume (the unfiltered folders have one for "
+                    "each elevation, replaced one by one, so they can be of two volumes): ask for a time instead"
+                )
                 raise ValueError(msg)
 
             # nor has KONRAD3D, as the mesocyclones have
@@ -373,18 +385,25 @@ class DwdRadarValues:  # noqa: PLW1641
                 parameter=self.parameter,
                 site=self.site,
                 fmt=self.format,
+                subset=self.subset,
                 parse_datetime=False,
                 settings=self.settings,
             )
 
             # Find "-latest-" or "LATEST" or similar file.
-            latest_file = (
-                file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
-                .get_column("filename")
-                .item()
-            )
+            file_index = file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
+
+            if self.parameter in RADAR_PARAMETERS_SWEEPS:
+                # the one sweep of the precipitation scan, the two files TH and TV of the reflectivity
+                if file_index.is_empty():
+                    log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
+                    return
+                for url in file_index.sort("filename").get_column("filename"):
+                    yield from self._download_generic_data(url=url)
+                return
 
             # Yield single "RadarResult" item.
+            latest_file = file_index.get_column("filename").item()
             result = next(self._download_generic_data(url=latest_file))
             yield result
 
@@ -455,13 +474,16 @@ class DwdRadarValues:  # noqa: PLW1641
             )
 
             # Filter the sweeps of the volume scan by elevation: the number of the sweep follows the moment in the
-            # name, `..._vradh_00-`, `..._dbzh_00-`, `..._uzdr_00-`, `..._urhohv_00-`, `..._uphidp_00-`.
+            # name, `..._vradh_00-`, `..._dbzh_00-`, `..._th_00-`, `..._tv_00-`, `..._uzdr_00-`, `..._urhohv_00-`,
+            # `..._uphidp_00-`.
             if self.elevation is not None:
                 file_index = file_index.filter(
                     pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
                     | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}")
+                    | pl.col("filename").str.contains(f"_th_{self.elevation:02d}")
+                    | pl.col("filename").str.contains(f"_tv_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"uzdr_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"urhohv_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"uphidp_{self.elevation:02d}"),

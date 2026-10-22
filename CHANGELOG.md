@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `eaufrance/hubeau` descriptions of `stage` and `discharge` no longer say the source states no
+  statistic and, for the height, no reference level. The swagger dates a value by the instant it
+  occurred, with no interval, and the height is relative to the zero of the station's gauge, so
+  stations share no level; the station's `gauge_zero` (metres, in `gauge_zero_datum`, not given for
+  every station) is that zero. No value or name changed (Part of GH-3264)
+- `wsv/pegel` docs no longer constrain `stage` to `>=0`: a stage is read against the gauge's own
+  datum, and on 2026-10-22 nine gauges stood below it (Schillig -250 cm, Rotterdam -35 cm). The
+  values were never clipped; only the constraints column of the five resolution pages said so.
+  The `ipma/observation` page no longer calls `radiacao` global radiation: the source says only
+  "radiação solar (kJ/m2)" (Part of GH-3242)
+
 ## [0.168.0] - 2026-10-22
 
 ### Added
@@ -28,6 +41,12 @@ Types of changes:
   `subset` need not name); and the XML of `KONRAD3D_CONVECTIVE_CELLS` and
   `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
   radar docs page says what each is (GH-3283)
+- `dwd/radar` reads the folder `unfiltered` of the reflectivity sweeps, which holds the total
+  reflectivity `TH` and `TV` (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H`
+  and `SWEEP_VOL_REFLECTIVITY_H`): both files of each sweep are answered, told apart by
+  `result.url`. `start=DwdRadarDate.LATEST` of the precipitation sweep is its `-LATEST-` files, TH
+  and TV. That of the volume sweeps stays refused, as DWD replaces the ten files one by one and
+  they come from two volumes for minutes; ask for a time (GH-3288)
 
 ### Changed
 
@@ -57,6 +76,10 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY` and
+  `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
+  5 minutes after the run in 18 of 577 runs (up to 8 minutes), and the 5 minute slot was empty
+  then (GH-3288)
 - `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
   have data files and no line in the station description of any period, when all periods of a
   dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read

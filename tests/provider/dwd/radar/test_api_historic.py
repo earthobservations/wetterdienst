@@ -86,9 +86,7 @@ def test_radar_request_radolan_cdc_historic_hourly_data(default_settings: Settin
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # Verify number of results.
     assert len(results) == 1
@@ -134,9 +132,7 @@ def test_radar_request_radolan_cdc_historic_daily_data(default_settings: Setting
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # Verify number of results.
     assert len(results) == 1
@@ -223,9 +219,7 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     buffer = results[0].data
 
@@ -319,9 +313,7 @@ def test_radar_request_site_historic_dx_yesterday(default_settings: Settings) ->
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     buffer = results[0].data
 
@@ -363,9 +355,7 @@ def test_radar_request_site_historic_dx_timerange(default_settings: Settings) ->
     # Verify number of elements.
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     assert len(results) == 6
 
@@ -453,9 +443,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_yesterday(default_settings
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # Verify number of elements.
     assert len(results) == 10
@@ -488,9 +476,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_yesterday(default_settings
     )
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # Verify number of elements.
     assert len(results) == 1
@@ -542,9 +528,7 @@ def test_radar_request_site_historic_sweep_pcp_v_hdf5_timerange(default_settings
     # Verify number of elements.
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # a 1-hour window holds ~12-13 five-minute scans; DWD occasionally drops a scan, so tolerate a
     # small shortfall rather than asserting an exact count (which flakes on any gap)
@@ -581,9 +565,7 @@ def test_radar_request_site_historic_sweep_vol_v_hdf5_timerange(default_settings
     # Verify number of elements.
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     assert len(results) == IsInt(ge=51, le=60)
 
