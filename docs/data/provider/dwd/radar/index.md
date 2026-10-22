@@ -37,8 +37,8 @@ Which formats the products are served in, as read from the
 | `KONRAD3D_CONVECTIVE_CELLS`, `MESOCYCLONE_DETECTION` | XML files, `KONRAD3D_20261022T130500.xml` and `meso_20261022_1305.xml`, a run every 5 minutes |
 | `RADOLAN_CDC` | as before: `.gz` and `.tar.gz` of RADOLAN binary files |
 
-A request names a format only to say which one it wants, and a format the product is not served in is refused (for
-the products of the first rows, with the format it is served in). Leave `fmt` out: it is the one format the product
+A request names a format only to say which one it wants, and a format the product is not served in is refused, saying the format it is
+served in (RADOLAN's products, which are no choice of format, refuse XML only). Leave `fmt` out: it is the one format the product
 has. DWD no longer publishes any radar product as BUFR (`fmt="bufr"` is refused, the reader of it was removed), and the composites HG and PG, the site product PF and the
 RADVOR products RE and RQ hold no file, nor does the site product PX but for stale files of one site (they are no `DwdRadarParameter` any more, and a request for one says so). `start=DwdRadarDate.LATEST` reads
 the file named latest: `composite_rv_LATEST.tar` (`composite_wn__LATEST.tar` with two underscores) of a composite

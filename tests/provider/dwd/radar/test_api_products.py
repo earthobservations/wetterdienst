@@ -185,7 +185,7 @@ def test_a_composite_that_is_a_file_a_run_is_listed_and_dated_by_its_name(
 
 
 def test_rs_is_a_tar_a_run_as_rv_is() -> None:
-    """Test that RS, which has a lead time forecasts, is listed as the .tar of the run, and LATEST is not dated."""
+    """Test that RS, which has forecasts for lead times, is listed as the .tar of the run, and LATEST is not dated."""
     listed = create_fileindex_radar(
         parameter=DwdRadarParameter.RS_PRECIPITATION_SUM, settings=Settings(), parse_datetime=True
     )
