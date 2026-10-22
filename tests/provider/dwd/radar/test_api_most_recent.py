@@ -39,9 +39,7 @@ def test_radar_request_site_most_recent_sweep_pcp_v_hdf5(default_settings: Setti
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # Verify number of results.
     assert len(results) == 1
@@ -86,9 +84,7 @@ def test_radar_request_site_most_recent_sweep_vol_v_hdf5(default_settings: Setti
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     # Verify number of results.
     assert 4 <= len(results) <= 10
@@ -135,9 +131,7 @@ def test_radar_request_radolan_cdc_most_recent(default_settings: Settings, radar
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no file for this request"
 
     assert len(results) == 1
 
