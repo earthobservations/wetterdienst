@@ -39,10 +39,11 @@ Types of changes:
 
 ### Fixed
 
-- `dwd/observation` and `dwd/derived` log a warning that names the stations that have data files
-  and no line in the station description (01018, 02996 and 05047 in `daily/climate_summary`, nine
-  in `derived` soil, read 2026-10-22). They were dropped without a word and still are not listed,
-  as DWD gives no name or position for them; the docs pages say so (Part of GH-3258)
+- `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
+  have data files and no line in the station description of any period, when all periods of a
+  dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read
+  2026-10-22). They were dropped without a word and still are not listed, as DWD gives no name or
+  position for them; the docs pages say so (Part of GH-3258)
 
 ## [0.167.0] - 2026-10-22
 

@@ -856,20 +856,22 @@ class DwdObservationRequest(TimeseriesRequest):
                     log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
                     continue
                 file_index = create_file_index_for_climate_observations(dataset, period, settings)
-                file_index_ids = file_index.select(pl.col("station_id")).unique()
+                file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                 df = df.join(
-                    other=file_index_ids,
+                    other=file_index_ids.lazy(),
                     on=["station_id"],
                     how="inner",
-                )
+                ).collect(background=False)
                 # a station with files and no line in the description of its period is dropped by the join, which is
                 # told below for the periods together: the description of another period may have the line (GH-3258)
-                file_ids.update(file_index_ids.collect(background=False).get_column("station_id"))
-                listed_ids.update(df.select(pl.col("station_id")).collect(background=False).get_column("station_id"))
-                stations.append(df)
-            warn_files_without_description(
-                "dwd/observation", f"{dataset.resolution.name}/{dataset.name}", file_ids, listed_ids
-            )
+                file_ids.update(file_index_ids.get_column("station_id"))
+                listed_ids.update(df.get_column("station_id"))
+                stations.append(df.lazy())
+            # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
+            if set(periods) == set(dataset.periods):
+                warn_files_without_description(
+                    "dwd/observation", f"{dataset.resolution.name}/{dataset.name}", file_ids, listed_ids
+                )
         try:
             stations_df = pl.concat(stations)
         except ValueError:

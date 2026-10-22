@@ -720,22 +720,23 @@ class DwdDerivedRequest(TimeseriesRequest):
                 df = self._process_dataframe_to_expected_format(df, dataset)
                 file_index = create_file_index_for_climate_derived(dataset, period, settings)
                 if dataset not in TECHNICAL_DATASETS:
-                    file_index_ids = file_index.select(pl.col("station_id")).unique()
+                    file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                     df = df.join(
-                        other=file_index_ids,
+                        other=file_index_ids.lazy(),
                         on=["station_id"],
                         how="inner",
-                    )
+                    ).collect(background=False)
                     # a station with files and no line in the description is dropped by the join (GH-3258)
-                    file_ids.update(file_index_ids.collect(background=False).get_column("station_id"))
-                    listed_ids.update(
-                        df.select(pl.col("station_id")).collect(background=False).get_column("station_id")
-                    )
+                    file_ids.update(file_index_ids.get_column("station_id"))
+                    listed_ids.update(df.get_column("station_id"))
+                    df = df.lazy()
 
                 stations.append(df)
-            warn_files_without_description(
-                "dwd/derived", f"{dataset.resolution.name}/{dataset.name}", file_ids, listed_ids
-            )
+            # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
+            if set(periods) == set(dataset.periods):
+                warn_files_without_description(
+                    "dwd/derived", f"{dataset.resolution.name}/{dataset.name}", file_ids, listed_ids
+                )
         try:
             # the lists of the datasets do not have the same columns (the soil list has no dates, the postal codes of
             # the correction factor have a station id and nothing else), the core fills in what is missing

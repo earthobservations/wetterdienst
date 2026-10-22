@@ -81,11 +81,13 @@ parameters can be queried.
 The name and the position of a station come from the station description of its dataset and period
 (e.g. `KL_Tageswerte_Beschreibung_Stationen.txt`), and the stations that you can request are those that the
 description lists and that have a data file. A few stations have data files and no line in the description
-(read 2026-10-22: 01018, 02996 and 05047 in `daily/climate_summary`, eleven stations in
-`daily/weather_phenomena_more`, two in `1_minute/precipitation`). They are not listed and their data cannot be
-requested, as there is no position and no name to offer them with. wetterdienst logs a warning that names them
-whenever the stations of a dataset are read, so that a missing station is explained. The remedy is DWD's, which
-publishes the files and not the lines ([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
+of any period (read 2026-10-22, among others: 01018, 02996 and 05047 in `daily/climate_summary`, eleven stations in
+`daily/weather_phenomena_more`, seven in `10_minutes/precipitation`, two in `1_minute/precipitation`). They are
+not listed and their data cannot be requested, as there is no position and no name to offer them with. When the
+stations of a dataset are read for all of its periods, wetterdienst logs a warning that names them, once for each
+process, so that a missing station is explained; a request for some periods only does not, as another period
+may list the station. The remedy is DWD's, which publishes the files and not the lines
+([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
 
 ## Parameter details
 

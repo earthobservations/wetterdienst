@@ -21,11 +21,15 @@ log = logging.getLogger(__name__)
 # the stations named in one message, the rest is counted: a dataset of 10 minutes lists a handful, none more than 12
 _NAMED = 20
 
+# what was told in this process: every call that reads the stations (`all()` and each filter) reads the list again,
+# and a message for the same stations would be repeated for each of them
+_TOLD: set[tuple[str, str, tuple[str, ...]]] = set()
+
 
 def warn_files_without_description(
     network: str, dataset: str, file_ids: Iterable[str], listed_ids: Iterable[str]
 ) -> None:
-    """Log the stations of the file index that the description does not list, if there are any.
+    """Log the stations of the file index that the description does not list, if there are any, once a process.
 
     :param network: the network, such as `dwd/observation`
     :param dataset: the resolution and dataset, such as `daily/climate_summary`
@@ -35,6 +39,10 @@ def warn_files_without_description(
     unlisted = sorted(set(file_ids) - set(listed_ids))
     if not unlisted:
         return
+    key = (network, dataset, tuple(unlisted))
+    if key in _TOLD:
+        return
+    _TOLD.add(key)
     named = ", ".join(unlisted[:_NAMED])
     if len(unlisted) > _NAMED:
         named = f"{named} and {len(unlisted) - _NAMED} more"
