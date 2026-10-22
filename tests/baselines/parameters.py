@@ -35,27 +35,7 @@ from tests.baselines.common import DIRECTORY, RELEASE, read, write
 BASELINE = DIRECTORY / "parameters.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {
-    # GH-3242: PEGELONLINE's `stations.json?timeseries=<shortname>` answered 0 stations for each of the three shortnames
-    # (786 stations, 2026-10-21), so no request ever returned a value
-    **{
-        f"wsv/pegel/{resolution}/data/{name} was removed": (
-            f"`{shortname}` is on no station of PEGELONLINE's list (`stations.json?timeseries={shortname}` answers 0 "
-            "stations), so no request ever returned a value (GH-3242)"
-        )
-        for resolution in ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
-        for name, shortname in (
-            ("chloride_concentration", "CL"),
-            ("precipitation_amount", "NIEDERSCHLAG"),
-            ("precipitation_intensity", "NIEDERSCHLAGSINTENSITÄT"),
-        )
-    },
-    "rename of chlorid_concentration was removed": (
-        "the only dataset that declared `chloride_concentration` (`wsv/pegel`, series `CL`, served by no station) is "
-        "gone, so the misspelling it renamed (GH-2032) has no name to point at and is an unknown parameter like the "
-        "name itself (GH-3242)"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: a rename that ends up in a name that is renamed again is followed this far
 _CHAIN = 10

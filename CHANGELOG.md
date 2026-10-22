@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.166.0] - 2026-10-22
+
 ### Changed
 
 - **Breaking**: the air temperature of `wsv/pegel` (`LT`, `LUFTTEMPERATUR`) is `temperature_air`,
@@ -6145,7 +6147,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...HEAD
+[0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0
 [0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0
 [0.164.0]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...v0.164.0
 [0.163.0]: https://github.com/earthobservations/wetterdienst/compare/v0.162.0...v0.163.0
