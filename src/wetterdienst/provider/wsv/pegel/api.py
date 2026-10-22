@@ -47,7 +47,8 @@ _STATIONS_ENDPOINT = (
 # parameter observed with more than one source unit is listed here; the rest were checked once and
 # published one unit everywhere, so a table entry would only ever be an identity.
 #
-# `m+NN` is metres above sea level and is used by the 66 gauges that have no gauge zero, so the
+# `m+NN` is metres above sea level and is used by 67 series, none of which has a gauge zero (stations list of
+# 2026-10-22; the 2 `m+PNP` series both have one, 28 of the `cm` series have none), so the
 # datum differs from the cm gauges even after scaling -- see the `gauge_zero` station column.
 _SOURCE_UNIT_FACTORS: dict[str, dict[str, float]] = {
     "W": {"cm": 1.0, "m+NN": 100.0, "m+PNP": 100.0},
@@ -280,7 +281,7 @@ class WsvPegelValues(TimeseriesValues[ParameterModel]):
         Two things are declared per *timeseries* rather than per parameter, and stations disagree
         on both:
 
-        - the unit. Water level is cm at most gauges but m+NN at 66 of them, conductivity µS/cm or
+        - the unit. Water level is cm at most gauges but m+NN at 67 of them, conductivity µS/cm or
           mS/cm, wave height cm or m, wave period s or 1/100s. No single declaration in the
           metadata can be right for all of them, so the value is scaled to the declared unit per
           station.
