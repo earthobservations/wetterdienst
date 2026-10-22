@@ -34,6 +34,7 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterS
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.dwd.coverage import warn_files_without_description
 from wetterdienst.provider.dwd.observation.download import (
     download_climate_observations_data,
 )
@@ -839,6 +840,8 @@ class DwdObservationRequest(TimeseriesRequest):
                 datasets.append(parameter.dataset)
         stations = []
         for dataset in datasets:
+            file_ids: set[str] = set()
+            listed_ids: set[str] = set()
             # An empty period set means the interval reaches no release at all; the stations
             # themselves do not depend on that, so discovery reads every period the dataset has
             # and the values stay empty, rather than the request reporting no stations
@@ -853,12 +856,20 @@ class DwdObservationRequest(TimeseriesRequest):
                     log.warning("No meta file found for %s/%s, skipping.", dataset.name, period.name)
                     continue
                 file_index = create_file_index_for_climate_observations(dataset, period, settings)
+                file_index_ids = file_index.select(pl.col("station_id")).unique()
                 df = df.join(
-                    other=file_index.select(pl.col("station_id")),
+                    other=file_index_ids,
                     on=["station_id"],
                     how="inner",
                 )
+                # a station with files and no line in the description of its period is dropped by the join, which is
+                # told below for the periods together: the description of another period may have the line (GH-3258)
+                file_ids.update(file_index_ids.collect(background=False).get_column("station_id"))
+                listed_ids.update(df.select(pl.col("station_id")).collect(background=False).get_column("station_id"))
                 stations.append(df)
+            warn_files_without_description(
+                "dwd/observation", f"{dataset.resolution.name}/{dataset.name}", file_ids, listed_ids
+            )
         try:
             stations_df = pl.concat(stations)
         except ValueError:
