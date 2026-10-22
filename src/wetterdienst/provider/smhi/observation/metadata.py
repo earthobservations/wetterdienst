@@ -19,7 +19,7 @@ _SmhiObservationMetadataSpec = {
     "copyright": "© SMHI",
     "license": CC_BY_4_0,
     "attribution": "© SMHI",
-    "url": "https://www.smhi.se/data/utforskaren-oppna-data",
+    "url": "https://www.smhi.se/data/sok-oppna-data-i-utforskaren",
     "kind": "observation",
     "timezone": "Europe/Stockholm",
     "resolutions": [

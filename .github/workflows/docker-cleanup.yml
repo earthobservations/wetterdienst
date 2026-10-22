@@ -3,6 +3,11 @@ name: Docker Cleanup
 
 on:
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only list the package versions that would be deleted, delete none
+        type: boolean
+        default: true
   schedule:
     - cron: '0 0 * * *' # everyday at midnight
 
@@ -12,6 +17,10 @@ jobs:
   delete:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # The delete call needs packages: write. For GITHUB_TOKEN it also needs this repository to hold
+    # the Admin role in the package's "Manage Actions access" settings (see the action's README).
+    permissions:
+      packages: write
     steps:
       - name: Delete untagged images
         uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
@@ -21,6 +30,8 @@ jobs:
           image-names: "wetterdienst"
           tag-selection: untagged
           cut-off: 0d
+          # a manual run is a dry run unless asked otherwise, the schedule always deletes
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
       - name: Delete pr tagged images
         uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
@@ -29,3 +40,5 @@ jobs:
           image-names: "wetterdienst"
           image-tags: "pr-*"
           cut-off: 0d
+          # a manual run is a dry run unless asked otherwise, the schedule always deletes
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}

@@ -333,6 +333,57 @@ def test_noaa_ghcn_daily_station_reporting_this_year_has_no_end(
     ]
 
 
+def test_noaa_ghcn_daily_stations_without_an_inventory_line_are_left_out(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A station of the list that the inventory has no line for has no data, and is not a station of the catalogue.
+
+    The two station rows are copied as NOAA publishes them (2026-10-22): `CAN03010010` has no line in the
+    inventory and its `access/CAN03010010.csv` is a 404, as are those of 145 more. `USC00144840` has a file, with
+    PRCP flagged `Z` in every row, and no inventory line. 147 of the 133,039 stations are in this case (GH-3260).
+    """
+    _serve_ghcnd(
+        monkeypatch,
+        stations=(
+            "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
+            "CAN03010010  54.2833 -112.9667  664.0 AB ABEE AGDM                              71285\n"
+            "USC00144840  39.2911  -96.2303  290.5 KS LOUISVILLE 5 NE                             \n"
+        ),
+        inventory="GM000010147  53.6350    9.9900 TMAX 1891 1990\n",
+    )
+    request = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings)
+    assert request.all().df.get_column("station_id").to_list() == ["GM000010147"]
+    with caplog.at_level(logging.INFO):
+        found = request.filter_by_station_id(["CAN03010010", "USC00144840"]).df
+    assert found.is_empty()
+    assert "No station with station_id CAN03010010, USC00144840" in caplog.text
+
+
+def test_noaa_ghcn_stations_hourly_and_daily_without_an_inventory_line_keep_the_hourly_row(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A station with hourly data and no inventory line keeps its hourly row, with the daily list's elevation (GH-3260).
+
+    Only its daily row is left out: the hourly list writes `CAN03010010` at -999.9 where the daily list gives
+    664.0, and the elevation is settled before the daily row goes.
+    """
+    contents = {
+        "ghcnh-station-list.csv": (
+            "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+            "CAN03010010,54.2833,-112.9667,-999.9,AB,ABEE AGDM,,,,,CA\n"
+        ),
+        "ghcnd-stations.txt": "CAN03010010  54.2833 -112.9667  664.0 AB ABEE AGDM                              71285\n",
+        "ghcnd-inventory.txt": "GM000010147  53.6350    9.9900 TMAX 1891 1990\n",
+    }
+
+    def fake_download_file(url: str, **_kwargs: object) -> File:
+        return File(url=url, content=BytesIO(contents[url.rsplit("/", 1)[-1]].encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+    df = NoaaGhcnRequest(parameters=[("hourly", "data"), ("daily", "data")], settings=default_settings).all().df
+    assert df.select("resolution", "station_id", "elevation").rows() == [("hourly", "CAN03010010", 664.0)]
+
+
 def test_noaa_ghcn_hourly_stations_placeholder_elevation(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:

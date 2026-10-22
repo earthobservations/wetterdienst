@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.168.0] - 2026-10-22
+
 ### Added
 
 - `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
@@ -36,6 +38,12 @@ Types of changes:
   and 2), and a failed listing raises `NoInternetError` or `DownloadError`. The monthly and annual
   files of 29 and 22 ids that `meta1.csv` does not carry, with no position anywhere, stay unlisted
   (Part of GH-3259)
+- `noaa/ghcn` `daily` no longer lists the 147 stations of `ghcnd-stations.txt` that have no line
+  in `ghcnd-inventory.txt` (133,039 listed, read 2026-10-22): 83 Canadian `CAN030...`, 58 US
+  `USC...`, 5 Swedish and 1 `GMM`. 146 have no data file (`access/<id>.csv` is a 404); `USC00144840`
+  has one, PRCP of 2013 flagged `Z`. They had null `start_timestamp` and `end_timestamp` and the
+  nearest-station search could pick them. Looking one up by id now warns that there is no such
+  station and answers an empty frame (GH-3260)
 
 ### Removed
 
@@ -46,6 +54,19 @@ Types of changes:
   `Settings(read_bufr=...)` a `ValueError`, each with the reason; read the ODIM HDF5 `result.data`.
   The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
   installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
+
+### Fixed
+
+- A parameter name renamed before 0.139.0 whose new name a dataset renamed again is refused with
+  "It was renamed to <current name>", not a "Did you mean" guess or no hint: `humidity` in 26
+  datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,
+  NOAA GHCNh, SWSMOS and DMI, and `soil_moisture_gras_*`, `soil_moisture_winterwheat_*` and
+  `soil_moisture_corn_loamysilt_*` in `dwd/derived` `monthly/soil` (GH-3276)
+- `metadata.provider.license.url` of Météo-France and Eaufrance answers
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, the Etalab 2.0 text; the old
+  etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
+  SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
+  redirected (GH-3255)
 
 ## [0.167.0] - 2026-10-22
 
@@ -6213,7 +6234,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...HEAD
+[0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0
 [0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0
