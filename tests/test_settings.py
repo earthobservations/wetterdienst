@@ -54,7 +54,6 @@ def test_default_settings(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.
     assert "User-Agent" in default_settings.fsspec_client_kwargs["headers"]
     assert default_settings.fsspec_client_kwargs["headers"]["User-Agent"].startswith("wetterdienst/")
     assert not default_settings.use_certifi
-    assert not default_settings.read_bufr
     # SQL from REST API and MCP clients stays off until the operator turns it on
     assert not default_settings.restapi_sql
     assert re.match(WD_CACHE_ENABLED_PATTERN, caplog.messages[0])
@@ -84,7 +83,6 @@ def test_settings_mixed(caplog: pytest.LogCaptureFixture) -> None:
     assert settings.cache_disable
     assert caplog.messages[0] == "Wetterdienst cache is disabled"  # env variable
     assert settings.use_certifi  # argument variable overrules env variable
-    assert not settings.read_bufr  # default variable
 
 
 def test_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

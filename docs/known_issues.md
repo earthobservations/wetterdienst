@@ -56,8 +56,8 @@ installer that reads its wheel's dependencies pulls in the `eccodeslib` and `eck
 This is the upstream bug [ecmwf/eckit#354](https://github.com/ecmwf/eckit/issues/354), see also
 [#2441](https://github.com/earthobservations/wetterdienst/issues/2441).
 
-wetterdienst imports `pyproj`, where it is installed, before it loads `eccodes` for DWD road and
-radar BUFR, so its own reads do not set this off. Code that imports `eccodes` before wetterdienst
+wetterdienst imports `pyproj`, where it is installed, before it loads `eccodes` for DWD road
+BUFR, so its own reads do not set this off. Code that imports `eccodes` before wetterdienst
 does, itself or through a library such as `pdbufr` or `cfgrib`, still can:
 
 ```bash

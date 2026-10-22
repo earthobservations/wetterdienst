@@ -31,12 +31,12 @@ Which formats the products are served in, as read from the
 | `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY`, `PX250_REFLECTIVITY`, `PZ_CAPPI` (site) | ODIM HDF5 files, `rab02-pe_10132-20261022113000-deboo-hd5` |
 | `SWEEP_*` (site) | ODIM HDF5 files, in the folder of the filter (`subset`) |
 | `DX_REFLECTIVITY` (site) | binary files, `raa00-dx_10132-2610221130-boo---bin` |
-| `RW_REFLECTIVITY`, `RY_REFLECTIVITY`, `SF_REFLECTIVITY` (radolan) | HDF5 files named `raa01-rw_10000-2610221130-dwd---bin.hdf5` (the name says bin, the file is HDF5); `fmt` need not be named, and BUFR is refused |
+| `RW_REFLECTIVITY`, `RY_REFLECTIVITY`, `SF_REFLECTIVITY` (radolan) | HDF5 files named `raa01-rw_10000-2610221130-dwd---bin.hdf5` (the name says bin, the file is HDF5); `fmt` need not be named |
 | `RADOLAN_CDC` | as before: `.gz` and `.tar.gz` of RADOLAN binary files |
 
 A request names a format only to say which one it wants, and a format the product is not served in is refused (for
 the products of the first rows, with the format it is served in). Leave `fmt` out: it is the one format the product
-has. DWD no longer publishes any radar product as BUFR, and the composites HG and PG, the site product PF and the
+has. DWD no longer publishes any radar product as BUFR (`fmt="bufr"` is refused, the reader of it was removed), and the composites HG and PG, the site product PF and the
 RADVOR products RE and RQ hold no file, nor does the site product PX but for stale files of one site (they are no `DwdRadarParameter` any more, and a request for one says so). `start=DwdRadarDate.LATEST` reads
 `composite_rv_LATEST.tar` (`composite_wn__LATEST.tar` with two underscores) and answers its first file, the analysis;
 the sweeps have no latest file.
@@ -60,11 +60,3 @@ for result in request.query():
 `result.data` is an ODIM HDF5 file (`ODIM_H5/V2_3`), which [h5py](https://www.h5py.org/) or
 [wradlib](https://docs.wradlib.org/) read; with h5py installed (the `radar` extra) every file of a window is opened once to
 check it is HDF5 (the one of `LATEST` is not).
-
-## BUFR products as DataFrame
-
-The `read_bufr` setting parses a radar site product published in BUFR format into a [polars](https://pola.rs/)
-DataFrame on `RadarResult.df`. **DWD no longer publishes a radar product as BUFR** (the products this was written for,
-the echo top and the reflectivity, are ODIM HDF5 now), so no request reaches it and the setting does nothing for the
-products that are served. `wetterdienst.provider.dwd.radar.api.read_radar_bufr` still reads a BUFR file of the earlier
-layout.

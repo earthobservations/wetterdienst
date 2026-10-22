@@ -88,7 +88,6 @@ class DwdRadarDataFormat(Enum):
     """Radar data formats."""
 
     BINARY = "binary"
-    BUFR = "bufr"
     HDF5 = "hdf5"
 
 
@@ -140,6 +139,14 @@ _NOT_PUBLISHED_SITE = (
     "opendata.dwd.de/weather/radar/sites/{value}/ holds no current file of any site (found on 2026-10-22: "
     "{found}), and DWD no longer publishes BUFR radar products"
 )
+# A format DWD no longer publishes any radar product in, by the value it was requested by
+RADAR_DATA_FORMATS_NOT_PUBLISHED: dict[str, str] = {
+    "bufr": (
+        "DWD no longer publishes any radar product as BUFR (found on 2026-10-22: no BUFR file in "
+        "opendata.dwd.de/weather/radar/, whose products are ODIM HDF5, binary RADOLAN or XML), and the reader "
+        "of it was removed: use the format a product is served in, see RADAR_DATA_FORMATS"
+    ),
+}
 RADAR_PARAMETERS_NOT_PUBLISHED: dict[str, str] = {
     "hg": _NOT_PUBLISHED_COMPOSITE.format(value="hg"),
     "pg": _NOT_PUBLISHED_COMPOSITE.format(value="pg"),
@@ -159,10 +166,6 @@ def radar_data_format(parameter: DwdRadarParameter, fmt: DwdRadarDataFormat | No
     """
     served = RADAR_DATA_FORMATS.get(parameter)
     if served is None:
-        # no product of the others is published as BUFR either
-        if fmt == DwdRadarDataFormat.BUFR:
-            msg = f"{parameter.name} is not published as BUFR: DWD publishes no radar product as BUFR"
-            raise RequestError(msg)
         return fmt
     if fmt is None:
         return served[0] if len(served) == 1 else None

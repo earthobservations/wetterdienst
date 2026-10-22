@@ -2078,10 +2078,7 @@ NO_STUB = {
         "sentinel in the 424 files of annual and immediate reporters (crops, farming, fruit, vine, wild; recent and "
         "historical, 2026-10-14), whose lowest JULTAG is -130 and highest 443"
     ),
-    "dwd/radar": (
-        "no timeseries: the files are handed over as DWD wrote them, and the BUFR path (`read_radar_bufr`) turns the "
-        "NaN of a missing pixel into null"
-    ),
+    "dwd/radar": ("no timeseries: the files are handed over as DWD wrote them, no value is read from them"),
     "ea/hydrology": (
         "no reader maps a sentinel; a reading without a value is a JSON null with the quality `Missing`, and the "
         "daily (2015) and 15 minute (2024) discharge of the first six stations by id has no value that is no reading "

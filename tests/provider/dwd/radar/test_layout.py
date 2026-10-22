@@ -25,6 +25,7 @@ from wetterdienst.provider.dwd.radar import (
     DwdRadarParameter,
     DwdRadarValues,
 )
+from wetterdienst.provider.dwd.radar import api as radar_api
 from wetterdienst.provider.dwd.radar.index import build_path_to_parameter, create_fileindex_radar
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename
@@ -186,11 +187,10 @@ def test_sweep_without_its_filter_is_refused() -> None:
 @pytest.mark.parametrize(
     ("parameter", "fmt"),
     [
-        (DwdRadarParameter.PE_ECHO_TOP, DwdRadarDataFormat.BUFR),
         (DwdRadarParameter.PE_ECHO_TOP, DwdRadarDataFormat.BINARY),
-        (DwdRadarParameter.PX250_REFLECTIVITY, DwdRadarDataFormat.BUFR),
+        (DwdRadarParameter.PX250_REFLECTIVITY, DwdRadarDataFormat.BINARY),
         (DwdRadarParameter.DX_REFLECTIVITY, DwdRadarDataFormat.HDF5),
-        (DwdRadarParameter.SWEEP_VOL_VELOCITY_H, DwdRadarDataFormat.BUFR),
+        (DwdRadarParameter.SWEEP_VOL_VELOCITY_H, DwdRadarDataFormat.BINARY),
     ],
 )
 def test_a_format_the_product_is_not_published_in_is_refused(
@@ -261,12 +261,21 @@ def test_radolan_is_listed_as_before_whatever_format_it_is_asked_in(fmt: DwdRada
     ]
 
 
-def test_no_product_is_published_as_bufr() -> None:
-    """Test that BUFR is refused for the RADOLAN products too, which had no BUFR files either."""
-    with pytest.raises(RequestError, match="DWD publishes no radar product as BUFR"):
-        create_fileindex_radar(
-            parameter=DwdRadarParameter.RW_REFLECTIVITY, fmt=DwdRadarDataFormat.BUFR, settings=Settings()
-        )
+@pytest.mark.parametrize("fmt", ["bufr", "BUFR"])
+def test_bufr_is_refused_with_the_reason_and_is_no_format_any_more(fmt: str) -> None:
+    """Test that DWD publishes no radar product as BUFR: the format and its reader are gone, and a request says why."""
+    with pytest.raises(InvalidEnumerationError, match=r"not offered any more: DWD no longer publishes any radar"):
+        DwdRadarValues(parameter=DwdRadarParameter.PE_ECHO_TOP, site=DwdRadarSite.BOO, fmt=fmt, start="2026-10-22")
+    assert "BUFR" not in DwdRadarDataFormat.__members__
+
+
+def test_the_radar_bufr_reader_and_its_setting_are_gone() -> None:
+    """Test that nothing of the radar BUFR path is left: the reader, the hook, the frame of a result and the setting."""
+    assert not hasattr(radar_api, "read_radar_bufr")
+    assert not hasattr(DwdRadarValues, "_attach_bufr")
+    assert "df" not in radar_api.RadarResult.__dataclass_fields__
+    with pytest.raises(ValueError, match="read_bufr is no setting any more: DWD publishes no radar product as BUFR"):
+        Settings(read_bufr=True)
 
 
 @pytest.mark.parametrize(

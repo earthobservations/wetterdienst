@@ -215,9 +215,6 @@ radar = [
     "h5py>=3.11,<4",
 ]
 radarplus = [
-    # pybufrkit 0.2.25 calls bitstring.BitStream, which bitstring 5 removed
-    "bitstring>=4,<5",
-    "pybufrkit>=0.2,<1",
     "wradlib>=2.0.1,<3",
     "xradar>=0.8,<1",
 ]
@@ -268,8 +265,6 @@ dev = [
     "matplotlib>=3.10,<4",
     # in-memory span and metric readers for the tests of the REST API's OpenTelemetry
     "opentelemetry-sdk>=1.45",
-    "bitstring>=4,<5",
-    "pybufrkit>=0.2.25",
     "pytest>=9.1",
     "pytest-cov>=7.1",
     # 16.7 matches `--only-rerun` against the cause chain too, which tests/conftest.py's `_rerun_will_retry` models
@@ -447,8 +442,6 @@ scikit-learn = "sklearn"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
-    # a version bound only: `pybufrkit` calls `bitstring`, which 5.0.0 broke (GH-2930)
-    "bitstring",
     # imported by name through `util.extras.import_optional`, which deptry does not read as an import
     "duckdb",
     "h5netcdf",
@@ -461,7 +454,6 @@ DEP002 = [
     "pandas",
     "plotly",
     "psycopg",
-    "pybufrkit",
     "pypdf",
     "sqlalchemy-cratedb",
     "tzdata",
