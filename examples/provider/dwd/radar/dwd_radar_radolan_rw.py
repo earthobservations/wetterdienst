@@ -1,13 +1,15 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Example for DWD RADOLAN Composite RW/SF using wetterdienst and wradlib.
+"""Example for DWD RADOLAN Composite RW using wetterdienst and wradlib.
 
-Hourly and gliding 24h sum of radar- and station-based measurements (German).
+Hourly sum of radar- and station-based measurements (German).
 
 See Also:
 - https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html.
 
-This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00 and plot the outcome with matplotlib.
+This program will request the latest RADOLAN RW data and plot the outcome with matplotlib. DWD names the file
+`...-bin.hdf5` and publishes it as ODIM HDF5, not as the RADOLAN binary format: `xr.open_dataset(..., engine="radolan")`
+of wradlib reads it, `wrl.io.read_radolan_header` and `wrl.io.read_radolan_composite` do not.
 
 Details
 -------
@@ -15,8 +17,8 @@ Details
 RADOLAN: Radar Online Adjustment
 Radar based quantitative precipitation estimation
 
-RADOLAN Composite RW/SF
-Hourly and gliding 24h sum of radar- and station-based measurements (German)
+RADOLAN Composite RW
+Hourly sum of radar- and station-based measurements (German)
 
 The routine procedure RADOLAN (Radar-Online-Calibration) provides area-wide, spatially and temporally high-resolution
 quantitative precipitation data in real-time for Germany.
@@ -25,8 +27,7 @@ quantitative precipitation data in real-time for Germany.
 - https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_poster_201711_en_pdf.pdf?__blob=publicationFile&v=2
 - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
 - https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-Composite
-- Hourly: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-RW-Product
-- Daily: https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-SF-Product
+- https://docs.wradlib.org/en/stable/notebooks/fileio/radolan/radolan_showcase.html#RADOLAN-RW-Product
 
 """
 

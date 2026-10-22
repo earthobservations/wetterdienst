@@ -100,7 +100,6 @@ def test_gaussian_example(tmp_path: Path) -> None:
 
 
 @pytest.mark.remote
-@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.cflake
 def test_radar_examples() -> None:
     """Test DWD radar examples."""

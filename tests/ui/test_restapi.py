@@ -15,7 +15,7 @@ from dataclasses import replace
 from http import HTTPStatus
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 import polars as pl
 import pytest
@@ -62,14 +62,50 @@ _IMAGE_MEDIA_TYPES = {
 }
 
 
+#: the request timeout of the server (`WD_RESTAPI_TIMEOUT`) while a `remote` test runs, in seconds; the default is 60
+_REMOTE_REQUEST_TIMEOUT = "300"
+
+
+@pytest.fixture(autouse=True)
+def _remote_requests_are_not_cut_short(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give the server of a `remote` test the time a slow provider needs, so it is not its 504 that fails the test.
+
+    A request that downloads a large file (the MOSMIX KMZ, a spread of observation archives for an
+    interpolation) from a provider that is slow that minute took longer than the server's 60 seconds on
+    the CI runners, and was answered as a 504 `request-timeout`: the server giving up, not the
+    provider (GH-2522). `skip_if_upstream_problem` does not skip that kind, because nothing in it says the provider
+    was slow. With the limit raised a stalled provider is the library's own timeout, which is answered
+    as an `upstream-timeout` and, in a test that uses `client`, skips (see there); a test that calls the MCP
+    tools itself sees it as a tool error. A request that is slow for any other reason still fails, only after
+    300 seconds. A test that sets the timeout itself keeps its value, as it sets it after this fixture.
+    """
+    if request.node.get_closest_marker("remote") is not None:
+        monkeypatch.setenv("WD_RESTAPI_TIMEOUT", _REMOTE_REQUEST_TIMEOUT)
+
+
 @pytest.fixture
-def client() -> TestClient:
-    """Create test client."""
+def client(request: pytest.FixtureRequest) -> TestClient:
+    """Create test client.
+
+    The client of a `remote` test skips on a response that says the provider did not answer in time, whichever
+    request it makes (`skip_if_upstream_problem`, GH-2522); it would otherwise fail on the status it asserts.
+    """
     from fastapi.testclient import TestClient  # noqa: PLC0415
 
     from wetterdienst.ui.restapi import app  # noqa: PLC0415
 
-    return TestClient(app)
+    if request.node.get_closest_marker("remote") is None:
+        return TestClient(app)
+
+    class _RemoteClient(TestClient):
+        """A client that skips the test on a provider's 504, once the response is read (a hook would see it unread)."""
+
+        def request(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            response = super().request(*args, **kwargs)
+            skip_if_upstream_problem(response)
+            return response
+
+    return _RemoteClient(app)
 
 
 def _is_a_500_naming_only(response: object, exception_type: str, *, hides: str) -> None:
@@ -153,12 +189,55 @@ def test_index_examples(client: TestClient, url: str) -> None:
     """Test index examples.
 
     Every example URL fetches live provider data, so this is marked ``remote``. The REST API answers a
-    provider that did not answer in time with a 504 ``upstream-timeout``, which skips the test (GH-2522);
-    any other status, a 502 from a provider that sent what the parser did not expect included, fails it.
+    provider that did not answer in time with a 504 ``upstream-timeout``, which skips the test through the
+    ``client`` (GH-2522); any other status, a 502 from a provider that sent what the parser did not expect
+    included, fails it.
     """
     response = client.get(url)
-    skip_if_upstream_problem(response)
     assert response.status_code == 200
+
+
+def _answers_with(monkeypatch: pytest.MonkeyPatch, status: int, kind: str) -> None:
+    """Make every request of a test client end in a 504 problem of this kind, without any request being made."""
+    from unittest.mock import MagicMock  # noqa: PLC0415
+
+    response = MagicMock()
+    response.status_code = status
+    response.json.return_value = {"type": f"urn:wetterdienst:problem:{kind}", "status": status}
+    monkeypatch.setattr(TestClient, "request", lambda *_args, **_kwargs: response)
+
+
+def test_the_client_of_a_remote_test_skips_on_a_provider_that_timed_out(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that a remote test's `client` skips on a 504 `upstream-timeout` and on no other answer (GH-2522)."""
+    request.node.add_marker(pytest.mark.remote)  # the fixture reads it when it is asked for, below
+    remote_client = request.getfixturevalue("client")
+
+    _answers_with(monkeypatch, 504, "upstream-timeout")
+    with pytest.raises(pytest.skip.Exception, match="upstream did not answer"):
+        remote_client.get("/api/values")
+
+    # the server giving up is not the provider's timeout (see `_remote_requests_are_not_cut_short`)
+    _answers_with(monkeypatch, 504, "request-timeout")
+    assert remote_client.get("/api/values").status_code == 504
+
+
+def test_the_client_of_a_test_that_is_not_remote_is_left_as_it_is(client: TestClient) -> None:
+    """Test that a test that makes no live request is not turned into a skip by a 504 it mocks or provokes."""
+    assert type(client) is TestClient
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_request_timeout_of_the_server_is_its_default_in_a_test_that_is_not_remote() -> None:
+    """Test that only a remote test is given more than the 60 seconds, so a test of the timeout itself is unaffected."""
+    assert Settings().restapi_timeout == 60
+
+
+@pytest.mark.remote
+def test_the_request_timeout_of_the_server_is_longer_in_a_remote_test() -> None:
+    """Test that a remote test's server waits 300 seconds for a slow provider (marked remote, but makes no request)."""
+    assert Settings().restapi_timeout == float(_REMOTE_REQUEST_TIMEOUT)
 
 
 def test_robots(client: TestClient) -> None:

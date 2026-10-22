@@ -243,7 +243,8 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     feed = {
         "2026-10-10T12:00": {"1200579": reading},
         "2026-10-10T13:00": {"1200579": dict.fromkeys(reading, -99.0)},
-        # code 0 is "no direction (calm)", which the feed writes as the integer 0 (checked on the live feed)
+        # code 0 is "sem rumo" (no direction), which the feed writes as the integer 0 (checked on the live feed), also
+        # beside a wind that blows, as here
         "2026-10-10T14:00": {"1200579": {**reading, "idDireccVento": 0}},
     }
     serve(

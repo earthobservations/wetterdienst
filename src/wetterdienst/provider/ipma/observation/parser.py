@@ -14,9 +14,11 @@ from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, no_di
 # (`"radiacao": -99.0`; on the live feed of 2026-10-12 it is the only one, in every field)
 _MISSING = Sentinel("-99.0")
 
-# ``idDireccVento`` is an 8-point wind-direction code, not degrees. Per the IPMA docs: 0 = no
-# direction (calm) -> null; 1 and 9 both mean N; 2..8 step clockwise through NE, E, SE, S, SW, W, NW.
-# The 0 is a code on a scale whose north is 1 or 9, so it can never be a bearing: it is null whatever the speed, the
+# ``idDireccVento`` is an 8-point wind-direction code, not degrees. Per the IPMA docs: 0 = "sem rumo" (no
+# direction) -> null; 1 and 9 both mean N; 2..8 step clockwise through NE, E, SE, S, SW, W, NW.
+# The docs do not say calm: the code 0 is also served with a wind that blows (26 of the 558 rows with code 0 in the
+# feed of 2026-10-21 21:00 to 2026-10-22 20:00 have a speed above 0, 101 a speed of 0.0 and 431 none).
+# It is a code on a scale whose north is 1 or 9, so it can never be a bearing: it is null whatever the speed, the
 # rule of a no-direction code (GH-3222), and so is a code no table lists
 _DIRECTION = "idDireccVento"
 _NO_DIRECTION = no_direction_code("0", where=pl.col("parameter") == _DIRECTION)

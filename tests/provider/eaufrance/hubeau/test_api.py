@@ -602,3 +602,22 @@ def test_all_types_the_end_as_a_timestamp_when_no_station_has_one() -> None:
     assert not df.is_empty()
     assert df.get_column("end_timestamp").null_count() == len(df)
     assert df.schema["end_timestamp"] == pl.Datetime(time_zone="UTC")
+
+
+@pytest.mark.parametrize("resolution", sorted(set(_STEP_TO_RESOLUTION.values())))
+def test_descriptions_say_what_the_swagger_says_of_the_stamp_and_the_height(resolution: str) -> None:
+    """The descriptions say a value is dated by its instant and the height is relative to the gauge zero (GH-3264).
+
+    The swagger of the hydrometry API (read 2026-10-22) gives ``date_obs`` as the "date, exprimée en TU, d'occurence de
+    la donnée" and no interval, and the station referential gives ``altitude_ref_alti_station`` as the altitude of the
+    zero of the gauge, which "permet de convertir des hauteurs relatives en hauteurs absolues". A description that
+    left the reference out, as the page of the API does, would let stations of different gauge zeros be compared.
+    """
+    descriptions = {p.name_original: p.description for p in HubeauRequest.metadata[resolution]["data"]}
+    assert set(descriptions) == {"H", "Q"}
+    for notation, description in descriptions.items():
+        assert "dated by the instant it occurred" in description, notation
+    assert "relative to the zero of the station's gauge" in descriptions["H"]
+    assert "`gauge_zero`" in descriptions["H"]
+    assert "states no mean or interval" in descriptions["H"]
+    assert "gauge" not in descriptions["Q"]

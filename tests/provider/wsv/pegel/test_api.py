@@ -131,8 +131,8 @@ def test_wsv_flow_direction_is_a_bearing() -> None:
 def test_wsv_stage_is_scaled_for_metre_gauges() -> None:
     """Test that gauges publishing water level in metres are scaled to centimetres.
 
-    Most gauges publish cm above gauge zero, but 66 have no gauge zero and publish metres above sea
-    level, which used to be reported unscaled as centimetres -- 56.5 where the true figure is 5650.
+    Most gauges publish cm above gauge zero, but 67 series have no gauge zero and publish metres above
+    sea level, which used to be reported unscaled as centimetres -- 56.5 where the true figure is 5650.
     The datum still differs between the two groups; `gauge_zero` in the station metadata says which.
     """
     stations = WsvPegelRequest(parameters=[("1_minute", "data", "stage")]).filter_by_station_id("27800090")

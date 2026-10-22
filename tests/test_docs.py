@@ -667,6 +667,29 @@ def test_docs_change_parameters_are_not_constrained_to_be_positive() -> None:
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
+def test_docs_stage_parameters_are_not_constrained_to_be_positive() -> None:
+    """Test that a documented `stage*` parameter is not constrained to `>=0`.
+
+    A stage is read against the datum of its gauge, so it is negative when the water stands below it: on
+    2026-10-22 nine of the 737 `wsv/pegel` gauges with a reading were below zero (Schillig -250 cm, Rotterdam
+    -35 cm), yet the row said `>=0` (GH-3242).
+    """
+    wrong = []
+    for provider, network, resolution, path in _documented_resolutions():
+        constraints = _documented_column(path, "constraints")
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                if not parameter.name.startswith("stage"):
+                    continue
+                key = (dataset.name, parameter.name, parameter.name_original)
+                wrong.extend(
+                    f"{provider}/{network}/{resolution.name}/{dataset.name} {parameter.name}: docs {shown!r}"
+                    for shown in constraints.get(key, [])
+                    if ">=0" in shown
+                )
+    assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
+
+
 def _documented_unit_spellings(
     resolution: "ResolutionModel",
     path: Path,
