@@ -428,15 +428,29 @@ def test_the_latest_of_rs_is_the_analysis_in_its_tar(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.parametrize(
-    "parameter", [DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS, DwdRadarParameter.MESOCYCLONE_DETECTION]
+    ("parameter", "lag"),
+    [
+        (DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS, 10),
+        (DwdRadarParameter.MESOCYCLONE_DETECTION, 10),
+        (DwdRadarParameter.VII_INTEGRATED_ICE, 10),
+        (DwdRadarParameter.HX_REFLECTIVITY, 10),
+        (DwdRadarParameter.RV_REFLECTIVITY, 5),
+    ],
 )
-def test_the_xml_products_synthesize_the_most_recent_file_as_the_hdf5_ones_do(parameter: DwdRadarParameter) -> None:
-    """Test that MOST_RECENT is the 5 minute slot before now, as DWD publishes a few minutes after the run."""
+def test_the_most_recent_file_is_the_slot_before_the_publication_delay(parameter: DwdRadarParameter, lag: int) -> None:
+    """Test that MOST_RECENT is the slot 5 minutes before now, 10 where DWD publishes later than 5 min."""
     request = DwdRadarValues(parameter=parameter, start=DwdRadarDate.MOST_RECENT)
     assert isinstance(request.start, dt.datetime)
     now = dt.datetime.now(UTC)
-    assert dt.timedelta(minutes=5) <= now - request.start <= dt.timedelta(minutes=15)
+    assert dt.timedelta(minutes=lag) <= now - request.start <= dt.timedelta(minutes=lag + 5)
     assert request.end - request.start == dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
+
+
+@pytest.mark.parametrize("parameter", ["rw", "yw", "radolan_cdc"])
+def test_xml_is_no_format_of_the_radolan_products(parameter: str) -> None:
+    """Test that XML is refused for the products that are no XML ones, whose format is otherwise not checked."""
+    with pytest.raises(RequestError, match="is no XML product"):
+        DwdRadarValues(parameter=parameter, fmt="xml", start="2026-10-22 13:10", resolution="daily")
 
 
 def test_a_vii_file_is_read_whole(monkeypatch: pytest.MonkeyPatch) -> None:

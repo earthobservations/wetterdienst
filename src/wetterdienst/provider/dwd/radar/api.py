@@ -33,6 +33,7 @@ from wetterdienst.provider.dwd.radar.index import (
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS_NOT_PUBLISHED,
     RADAR_PARAMETERS_NOT_PUBLISHED,
+    RADAR_PARAMETERS_SLOW,
     RADAR_PARAMETERS_SWEEPS,
     RADAR_PARAMETERS_SWEEPS_LATEST,
     RADAR_PARAMETERS_SWEEPS_VOLUME,
@@ -245,7 +246,9 @@ class DwdRadarValues:  # noqa: PLW1641
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
         if self.format in (DwdRadarDataFormat.HDF5, DwdRadarDataFormat.XML) and start == DwdRadarDate.MOST_RECENT:
-            start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=5)
+            # the products that DWD publishes late are gone back another 5 minutes, to a file that is there
+            lag = 10 if self.parameter in RADAR_PARAMETERS_SLOW else 5
+            start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=lag)
             end = None
 
         if start == DwdRadarDate.MOST_RECENT and parameter == DwdRadarParameter.RADOLAN_CDC:

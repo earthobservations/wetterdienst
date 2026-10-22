@@ -125,6 +125,17 @@ RADAR_PARAMETERS_SWEEPS = [
     DwdRadarParameter.SWEEP_VOL_RHOHV,
     DwdRadarParameter.SWEEP_VOL_PHIDP,
 ]
+# the products DWD publishes more than 5 minutes after their run (read 2026-10-22: VII 342 to 523 s, a median of 347 s;
+# KONRAD3D, DMAX and the mesocyclones sometimes later than 300 s), whose most recent file is the slot 10 minutes before
+# now, where that of the others is the one 5 minutes before
+RADAR_PARAMETERS_SLOW = [
+    DwdRadarParameter.HX_REFLECTIVITY,
+    DwdRadarParameter.DMAX_REFLECTIVITY,
+    DwdRadarParameter.VII_INTEGRATED_ICE,
+    DwdRadarParameter.HYMECNG_PRECIPITATION_TYPE,
+    DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS,
+    DwdRadarParameter.MESOCYCLONE_DETECTION,
+]
 # the sweeps whose folder holds one `-LATEST-` file, which `start=DwdRadarDate.LATEST` reads: the precipitation scan
 # has one elevation. The volume scan has one for each of its ten, and the folders of a filter none
 RADAR_PARAMETERS_SWEEPS_LATEST = [
@@ -268,6 +279,10 @@ def radar_data_format(parameter: DwdRadarParameter, fmt: DwdRadarDataFormat | No
     """
     served = RADAR_DATA_FORMATS.get(parameter)
     if served is None:
+        # the RADOLAN products are HDF5 or binary as they are asked, and no XML
+        if fmt == DwdRadarDataFormat.XML:
+            msg = f"{parameter.name} is no XML product: DWD publishes XML for KONRAD3D and the mesocyclones only"
+            raise RequestError(msg)
         return fmt
     if fmt is None:
         return served[0] if len(served) == 1 else None

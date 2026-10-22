@@ -47,8 +47,9 @@ that is a `.tar`, whose first file, the analysis, it answers, `composite_hx_LATE
 of the polarimetric moments have one (`..._uzdr_00-LATEST-boo-10132-hd5`); the other sweeps have none to ask for (the
 folders `unfiltered` of the volume scan hold one for each of the ten elevations, the folders of a filter none) and
 KONRAD3D has none.
-`start=DwdRadarDate.MOST_RECENT` of a product that has a format in the table (the HDF5 and XML ones, not RADOLAN's) is
-the 5 minute slot before now.
+`start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product (not RADOLAN's) is the 5 minute slot before now; for HX,
+DMAX, VII, HymecNG, KONRAD3D and the mesocyclones, which DWD publishes up to 9 minutes after the run, the slot 10
+minutes before now.
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 
@@ -67,7 +68,7 @@ for result in request.query():
 ```
 
 `result.data` is an ODIM HDF5 file (`ODIM_H5/V2_3`, the sweeps declare `V2_2`), which [h5py](https://www.h5py.org/) or
-[wradlib](https://docs.wradlib.org/) read; with h5py installed (the `radar` extra) every file of a window of a product that has a format in the table is opened once to
+[wradlib](https://docs.wradlib.org/) read; with h5py installed (the `radar` extra) every file of a window of an HDF5 product (not RADOLAN's) is opened once to
 check it is HDF5 (the one of `LATEST` is not). The XML products are handed over as the bytes DWD wrote, to be parsed
 by the caller; nothing is read from any file.
 
