@@ -14,7 +14,7 @@ Météo-France publishes two distinct open data products as part of its Open Gov
 
 ## License
 
-Météo-France data is published under the [Etalab Open License 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/).
+Météo-France data is published under the [Etalab Open License 2.0](https://www.data.gouv.fr/pages/legal/licences/etalab-2.0).
 
 ```{toctree}
 :hidden:

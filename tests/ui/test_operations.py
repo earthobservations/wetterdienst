@@ -909,21 +909,31 @@ def test_the_timeout_leaves_the_rest_alone(client: TestClient, monkeypatch: pyte
 def test_a_stream_is_held_to_the_timeout_between_its_chunks(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A stream may outlast the timeout; a chunk that takes longer ends it with a `request-timeout` error."""
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.5")
+    """A stream may outlast the timeout; a chunk that takes longer ends it with a `request-timeout` error.
+
+    The one gap that may not exceed the timeout is a pause of a quarter of it, so a runner that is slow by a
+    factor of four still passes (a timeout of half a second with a pause of 0.35 s did not, GH-3251). The chunk
+    that is too late is not a longer sleep but one that waits for the end of the test, which is as late as any
+    timeout can make it, however fast the runner is.
+    """
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "2")
     result = _values_result_of_shape("long")
     _stub_stream(monkeypatch, [])
+    never = threading.Event()
 
     def query(_reader: object) -> Iterator[ValuesResult]:
         yield _chunk_of(result, "01048")
-        time.sleep(0.35)
+        time.sleep(0.5)
         yield _chunk_of(result, "01049")
-        time.sleep(1.5)
+        never.wait(30)
         yield _chunk_of(result, "01050")
 
     monkeypatch.setattr(type(result.stations.request)._values, "query", query)  # noqa: SLF001
 
-    lines = _lines(client.get("/api/v1/values", params={**_VALUES, "format": "ndjson"}))
+    try:
+        lines = _lines(client.get("/api/v1/values", params={**_VALUES, "format": "ndjson"}))
+    finally:
+        never.set()
 
     ids = [line.get("station_id") for line in lines[1:-1]]
     assert set(ids) == {"01048", "01049"}
