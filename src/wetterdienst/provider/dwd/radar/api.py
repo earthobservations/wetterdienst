@@ -34,11 +34,13 @@ from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS_NOT_PUBLISHED,
     RADAR_PARAMETERS_NOT_PUBLISHED,
     RADAR_PARAMETERS_SWEEPS,
+    RADAR_PARAMETERS_SWEEPS_VOLUME,
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarPeriod,
     DwdRadarResolution,
     radar_data_format,
+    radar_data_subset,
 )
 from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarDate,
@@ -104,6 +106,9 @@ class DwdRadarValues:  # noqa: PLW1641
     Request radar data from different places on the DWD data repository.
 
     - https://opendata.dwd.de/weather/radar/composite/
+    - https://opendata.dwd.de/weather/radar/radolan/
+    - https://opendata.dwd.de/weather/radar/konrad3d/
+    - https://opendata.dwd.de/weather/radar/mesocyclones/
     - https://opendata.dwd.de/weather/radar/sites/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
@@ -155,8 +160,8 @@ class DwdRadarValues:  # noqa: PLW1641
         Args:
             parameter: requested parameter (e.g. RADOLAN_CDC)
             site: requested site (e.g. DX_REFLECTIVITY)
-            fmt: requested format (e.g. BINARY)
-            subset: requested subset (e.g. RADOLAN)
+            fmt: requested format (e.g. BINARY), which a product is served in only one of: see RADAR_DATA_FORMATS
+            subset: requested folder of a sweep (SIMPLE, POLARIMETRIC or UNFILTERED): see RADAR_DATA_SUBSETS
             elevation: requested elevation (e.g. 10)
             start: start of the requested data
             end: end of the requested data
@@ -184,7 +189,8 @@ class DwdRadarValues:  # noqa: PLW1641
         self.site = parse_enumeration_from_template(site, DwdRadarSite)
         # a product is served in one format, which a request need not name; one it is not served in is refused
         self.format = radar_data_format(self.parameter, parse_enumeration_from_template(fmt, DwdRadarDataFormat))
-        self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
+        # a sweep with one folder need not be asked for it; one with two is, and a folder it has not is refused
+        self.subset = radar_data_subset(self.parameter, parse_enumeration_from_template(subset, DwdRadarDataSubset))
         self.elevation = elevation and int(elevation)
         self.resolution: Resolution | None = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)
         self.period: Period | None = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
@@ -197,12 +203,8 @@ class DwdRadarValues:  # noqa: PLW1641
             msg = "RADOLAN_CDC only supports daily and hourly resolutions"
             raise ValueError(msg)
 
-        elevation_parameters = [
-            DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-            DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
-        ]
-        if self.elevation is not None and self.parameter not in elevation_parameters:
-            msg = f"Argument 'elevation' only valid for parameter={elevation_parameters}"
+        if self.elevation is not None and self.parameter not in RADAR_PARAMETERS_SWEEPS_VOLUME:
+            msg = f"Argument 'elevation' only valid for parameter={RADAR_PARAMETERS_SWEEPS_VOLUME}"
             raise ValueError(msg)
 
         if start == DwdRadarDate.LATEST:
@@ -215,12 +217,17 @@ class DwdRadarValues:  # noqa: PLW1641
                 msg = "HDF5 sweep data has no '-latest-' files"
                 raise ValueError(msg)
 
+            # nor has KONRAD3D, as the mesocyclones have
+            if self.parameter == DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS:
+                msg = "KONRAD3D data has no 'latest' file"
+                raise ValueError(msg)
+
         if start == DwdRadarDate.CURRENT and not self.period:
             self.period = Period.RECENT
 
         # Evaluate "RadarDate.MOST_RECENT" for "start".
         #
-        # HDF5 folders do not have "-latest-" files, so we will have to synthesize them
+        # HDF5 folders do not have "-latest-" files (nor has KONRAD3D's), so we will have to synthesize them
         # appropriately by going back to the second last volume of 5 minute intervals.
         #
         # The reason for this is that when requesting sweep data in HDF5 format at
@@ -233,7 +240,7 @@ class DwdRadarValues:  # noqa: PLW1641
         # volume by addressing the **previous** volume. So, when requesting data at
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
-        if self.format == DwdRadarDataFormat.HDF5 and start == DwdRadarDate.MOST_RECENT:
+        if self.format in (DwdRadarDataFormat.HDF5, DwdRadarDataFormat.XML) and start == DwdRadarDate.MOST_RECENT:
             start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=5)
             end = None
 
@@ -440,13 +447,17 @@ class DwdRadarValues:  # noqa: PLW1641
                 ),
             )
 
-            # Filter SWEEP_VOL_VELOCITY_H and SWEEP_VOL_REFLECTIVITY_H by elevation.
+            # Filter the sweeps of the volume scan by elevation: the number of the sweep follows the moment in the
+            # name, `..._vradh_00-`, `..._dbzh_00-`, `..._uzdr_00-`, `..._urhohv_00-`, `..._uphidp_00-`.
             if self.elevation is not None:
                 file_index = file_index.filter(
                     pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
                     | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
-                    | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}"),
+                    | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}")
+                    | pl.col("filename").str.contains(f"uzdr_{self.elevation:02d}")
+                    | pl.col("filename").str.contains(f"urhohv_{self.elevation:02d}")
+                    | pl.col("filename").str.contains(f"uphidp_{self.elevation:02d}"),
                 )
 
             if file_index.is_empty():

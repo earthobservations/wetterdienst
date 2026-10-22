@@ -288,6 +288,15 @@ def test_the_radar_bufr_reader_and_its_setting_are_gone() -> None:
         ("raa00-dx_10132-2610221130-boo---bin", "2610221130"),
         ("composite_rv_LATEST.tar", None),
         ("composite_wn__LATEST.tar", None),
+        # GH-3283
+        ("composite_HymecNG_20261022_1305_000-hd5", "202610221305"),
+        ("composite_VII_latest-hd5", None),
+        ("KONRAD3D_20261022T130500.xml", "202610221305"),
+        ("meso_20261022_1305.xml", "202610221305"),
+        ("meso_latest.xml", None),
+        ("raa01-yw_10000-2610221245-dwd---bin.hdf5", "2610221245"),
+        ("ras07-vol5minng01_sweeph5onem_uzdr_09-2026102213140200-boo-10132-hd5", "202610221314"),
+        ("ras07-vol5minng01_sweeph5onem_uzdr_09-LATEST-boo-10132-hd5", None),
     ],
 )
 def test_the_date_of_a_file_is_its_digits(name: str, expected: str | None) -> None:

@@ -15,7 +15,10 @@ from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS,
+    RADAR_DATA_SUBSETS,
     RADAR_PARAMETERS_COMPOSITES,
+    RADAR_PARAMETERS_COMPOSITES_TAR,
+    RADAR_PARAMETERS_DETECTIONS,
     RADAR_PARAMETERS_RADOLAN,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_SWEEPS,
@@ -23,6 +26,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataSubset,
     DwdRadarParameter,
     radar_data_format,
+    radar_data_subset,
 )
 from wetterdienst.provider.dwd.radar.util import (
     RADAR_DT_PATTERN,
@@ -66,7 +70,7 @@ def create_fileindex_radar(
     *,
     parse_datetime: bool = False,
 ) -> pl.DataFrame:
-    """Create a file index of the DWD radar data, which is shipped as binary or ODIM HDF5 files.
+    """Create a file index of the DWD radar data, which is shipped as binary, ODIM HDF5 or XML files.
 
     The file index is created for a single parameter.
 
@@ -74,8 +78,8 @@ def create_fileindex_radar(
         parameter: The radar moment to request
         settings: Settings for the request
         site: Site/station if parameter is one of RADAR_PARAMETERS_SITES
-        fmt: Data format (BINARY or HDF5), which a product is served in only one of: see RADAR_DATA_FORMATS
-        subset: The subset (simple or polarimetric) for HDF5 data.
+        fmt: Data format (BINARY, HDF5 or XML), which a product is served in only one of: see RADAR_DATA_FORMATS
+        subset: The subset (simple, polarimetric or unfiltered) for the HDF5 sweeps: see RADAR_DATA_SUBSETS.
         resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                     either daily or hourly or 5 minutes.
         period: Period type for RadarParameter.RADOLAN_CDC
@@ -98,11 +102,14 @@ def create_fileindex_radar(
     files_serv = list_remote_files_fsspec(url, settings=settings, cache_expiry=CacheExpiry.NO_CACHE)
     df_fileindex = pl.DataFrame(files_serv, schema={"filename": pl.String}, orient="col")
 
-    # The composites are one .tar a run (composite_rv_20261022_1130.tar, composite_rv_LATEST.tar), each
-    # holding an ODIM HDF5 file for every lead time; the other HDF5 products are the files themselves.
+    # Some composites are one .tar a run (composite_rv_20261022_1130.tar, composite_rv_LATEST.tar), each
+    # holding an ODIM HDF5 file for every lead time; the other HDF5 products, the other composites among them
+    # (composite_hx_20261022_1130-hd5), are the files themselves; the detections are XML files.
     # https://opendata.dwd.de/weather/radar/composite/rv/
-    if parameter in RADAR_PARAMETERS_COMPOSITES:
+    if parameter in RADAR_PARAMETERS_COMPOSITES_TAR:
         df_fileindex = df_fileindex.filter(pl.col("filename").str.ends_with(f".{Extension.TAR.value}"))
+    elif parameter in RADAR_PARAMETERS_DETECTIONS:
+        df_fileindex = df_fileindex.filter(pl.col("filename").str.ends_with(".xml"))
     elif parameter in RADAR_DATA_FORMATS and fmt == DwdRadarDataFormat.HDF5:
         df_fileindex = df_fileindex.filter(pl.col("filename").str.ends_with("-hd5"))
     elif fmt == DwdRadarDataFormat.BINARY:
@@ -112,9 +119,10 @@ def create_fileindex_radar(
     if not df_fileindex.get_column("filename").str.ends_with(".bz2").all():
         df_fileindex = df_fileindex.filter(~pl.col("filename").str.ends_with(".bz2"))
 
-    # the HDF5 products, the composites and the site ones, are dated with the year in four digits, the others in two
-    is_hdf5 = parameter in RADAR_DATA_FORMATS and fmt == DwdRadarDataFormat.HDF5
-    format_ = "%Y%m%d%H%M" if is_hdf5 else "%y%m%d%H%M"
+    # the HDF5 and XML products, the composites, the site ones and the detections, are dated with the year in four
+    # digits, the others in two
+    four_digit_year = parameter in RADAR_DATA_FORMATS and fmt in (DwdRadarDataFormat.HDF5, DwdRadarDataFormat.XML)
+    format_ = "%Y%m%d%H%M" if four_digit_year else "%y%m%d%H%M"
 
     # Decode datetime of file for filtering.
     if parse_datetime:
@@ -162,6 +170,18 @@ def create_fileindex_radolan_cdc(resolution: Resolution, period: Period, setting
     return df_fileindex.drop_nulls()
 
 
+def _sweep_folder(parameter: DwdRadarParameter, subset: DwdRadarDataSubset | None) -> str:
+    """Give the folder of a sweep product a subset is, below the folder of its site."""
+    subset = radar_data_subset(parameter, subset)
+    if subset is None:
+        candidates = list(RADAR_DATA_SUBSETS[parameter])
+        msg = f"Argument 'subset' is missing, use one of {candidates}"
+        raise ValueError(msg)
+    if subset == DwdRadarDataSubset.UNFILTERED:
+        return "unfiltered"
+    return f"hdf5/filter_{subset.value}"
+
+
 def build_path_to_parameter(
     parameter: DwdRadarParameter,
     site: DwdRadarSite | None = None,
@@ -178,6 +198,8 @@ def build_path_to_parameter(
     ----------
     - https://opendata.dwd.de/weather/radar/composite/
     - https://opendata.dwd.de/weather/radar/radolan/
+    - https://opendata.dwd.de/weather/radar/konrad3d/
+    - https://opendata.dwd.de/weather/radar/mesocyclones/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/daily/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/hourly/radolan/
     - https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/radolan/
@@ -189,8 +211,8 @@ def build_path_to_parameter(
     Args:
         parameter: The radar moment to request
         site: Site/station if parameter is one of RADAR_PARAMETERS_SITES
-        fmt: Data format (BINARY or HDF5), which a product is served in only one of: see RADAR_DATA_FORMATS
-        subset: The subset (simple or polarimetric) for HDF5 data.
+        fmt: Data format (BINARY, HDF5 or XML), which a product is served in only one of: see RADAR_DATA_FORMATS
+        subset: The subset (simple, polarimetric or unfiltered) for the HDF5 sweeps: see RADAR_DATA_SUBSETS.
         resolution: Time resolution for RadarParameter.RADOLAN_CDC,
                     either daily or hourly or 5 minutes.
         period: Period type for RadarParameter.RADOLAN_CDC
@@ -216,6 +238,9 @@ def build_path_to_parameter(
     if parameter in RADAR_PARAMETERS_RADOLAN:
         return f"weather/radar/radolan/{parameter.value}"
 
+    if parameter in RADAR_PARAMETERS_DETECTIONS:
+        return f"weather/radar/{parameter.value}"
+
     if parameter in RADAR_PARAMETERS_SITES:
         # Sanity checks.
         if site is None:
@@ -225,17 +250,11 @@ def build_path_to_parameter(
         # refuse a format the product is not served in, as the file index does
         radar_data_format(parameter, fmt)
 
-        # The sweeps keep their HDF5 files in a folder of the filter, the other products in the one of the site.
+        # The sweeps keep their HDF5 files in a folder of the filter (or the unfiltered one), the other products in
+        # the one of the site.
         parameter_path = f"weather/radar/sites/{parameter.value}/{site.value}"
         if parameter in RADAR_PARAMETERS_SWEEPS:
-            if subset is None:
-                candidates = [
-                    DwdRadarDataSubset.SIMPLE,
-                    DwdRadarDataSubset.POLARIMETRIC,
-                ]
-                msg = f"Argument 'subset' is missing, use one of {candidates}"
-                raise ValueError(msg)
-            return f"{parameter_path}/hdf5/filter_{subset.value}/"
+            return f"{parameter_path}/{_sweep_folder(parameter, subset)}/"
 
         return parameter_path
 

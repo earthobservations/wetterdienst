@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nowcast-data>
+  <radar-stations>ASB,BOO,ROS,HNR,UMD,PRO,ESS,FLD,DRS,NEU,NHB,OFT,EIS,TUR,ISN,FBG,MEM</radar-stations>
+  <event ID="14">
+    <time time-coordinate="UTC">2026-10-21T16:30:00</time>
+    <location>
+      <area>
+        <ellipse>
+          <moving-point>
+            <latitude>50.503028</latitude>
+            <longitude>10.577372</longitude>
+            <polar_motion>
+              <speed units="km/h">0.0</speed>
+            </polar_motion>
+          </moving-point>
+          <major_axis units="km">6.70</major_axis>
+          <minor_axis units="km">6.70</minor_axis>
+          <orientation units="degrees true">0</orientation>
+        </ellipse>
+      </area>
+    </location>
+    <nowcast-parameters>
+      <mesocyclone_shear_mean units="m/s/km">4.647486</mesocyclone_shear_mean>
+      <mesocyclone_shear_max units="m/s/km">9.827300</mesocyclone_shear_max>
+      <mesocyclone_momentum_mean units="m/s/km">80.876098</mesocyclone_momentum_mean>
+      <mesocyclone_momentum_max units="m/s/km">194.892545</mesocyclone_momentum_max>
+      <mesocyclone_diameter units="km">6.702591</mesocyclone_diameter>
+      <mesocyclone_diameter_equivalent units="km">3.819974</mesocyclone_diameter_equivalent>
+      <mesocyclone_top units="km">5.019058</mesocyclone_top>
+      <mesocyclone_base units="km">1.584570</mesocyclone_base>
+      <mesocyclone_echotop units="km">5.587302</mesocyclone_echotop>
+      <mesocyclone_vil units="kg/m*m">3.247576</mesocyclone_vil>
+      <mesocyclone_shear_vectors>11</mesocyclone_shear_vectors>
+      <mesocyclone_shear_features>2</mesocyclone_shear_features>
+      <elevations>
+        <elevation site="fld" units="&#176;">0.5</elevation>
+        <elevation site="eis" units="&#176;">0.5</elevation>
+      </elevations>
+      <mean_dbz units="DBZ">33.77</mean_dbz>
+      <max_dbz units="DBZ">50.10</max_dbz>
+      <mesocyclone_velocity_max units="m/s">18.383374</mesocyclone_velocity_max>
+      <mesocyclone_velocity_rotational_max units="m/s">14.687948</mesocyclone_velocity_rotational_max>
+      <mesocyclone_velocity_rotational_mean units="m/s">8.438832</mesocyclone_velocity_rotational_mean>
+      <mesocyclone_velocity_rotational_max_closest_to_ground units="m/s">8.367443</mesocyclone_velocity_rotational_max_closest_to_ground>
+      <meso_intensity>2</meso_intensity>
+    </nowcast-parameters>
+  </event>
+</nowcast-data>

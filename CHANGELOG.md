@@ -26,6 +26,17 @@ Types of changes:
   wetterdienst only through matplotlib. An installation from PyPI resolves its own versions:
   upgrade these there (GH-3280)
 
+### Added
+
+- `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
+  `DwdRadarParameter`: the composites `RS_PRECIPITATION_SUM` (a `.tar` a run as `RV_`, the
+  precipitation of the hour), `HX_REFLECTIVITY` and `DMAX_REFLECTIVITY`, `VII_INTEGRATED_ICE` and
+  `HYMECNG_PRECIPITATION_TYPE`, each ODIM HDF5; the RADOLAN `YW_REFLECTIVITY`; the unfiltered
+  `SWEEP_VOL_` and `SWEEP_PCP_` `ZDR`, `RHOHV` and `PHIDP` (`DwdRadarDataSubset.UNFILTERED`, which
+  `subset` need not name); and the XML of `KONRAD3D_CONVECTIVE_CELLS` and
+  `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
+  radar docs page says what each is (GH-3283)
+
 ### Changed
 
 - **Breaking**: `dwd/radar` reads the layout DWD publishes now (read 2026-10-22). The composites
