@@ -424,7 +424,15 @@ class NoaaGhcnRequest(TimeseriesRequest):
         # get nulls
         df = pl.concat(data, how="diagonal")
         # a request for one resolution has no pairs to settle
-        return self._take_daily_elevation(df) if len(data) > 1 else df
+        if len(data) > 1:
+            df = self._take_daily_elevation(df)
+        # the list holds 147 stations (of 133,039) that the inventory has no line for, because they have no data in
+        # any element: 146 have no data file either, and one has a file whose rows are all quality flagged
+        # (USC00144840). Their daily rows are left out, as dwd/observation leaves out a station without a file, but
+        # only now: their hourly rows are still given the daily list's elevation above (GH-3260)
+        if "start_timestamp" not in df.collect_schema().names():
+            return df
+        return df.filter(~(pl.col("resolution").eq("daily") & pl.col("start_timestamp").is_null()))
 
     @staticmethod
     def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:

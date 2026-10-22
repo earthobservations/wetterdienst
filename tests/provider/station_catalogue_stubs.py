@@ -233,7 +233,7 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
     # the directories of the daily elements, with files of the stations above as listed (2026-10-21), among them
     # elements the provider does not read (`TPM`, `API30`), and the other directories left out: Sadská, a station
-    # closed in 1945, has no file (GH-3259)
+    # closed in 1945, has no file, which the provider narrows the list by (GH-3259)
     base = f"{chmi_api._BASE_URL}/data/daily"  # noqa: SLF001
     files = {
         f"{base}/temperature/": [
@@ -242,11 +242,12 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         ],
         f"{base}/precipitation/": ["0-20000-0-11406-API30", "0-20000-0-11406-SRA", "0-203-0-41302035001-SRA"],
     }
-    monkeypatch.setattr(
-        data_index,
-        "list_files",
-        lambda url, *_args, **_kwargs: [f"{url}dly-{name}.csv" for name in files.get(url, [])],
-    )
+
+    def list_files(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        return [f"{url}dly-{name}.csv" for name in files.get(url, [])]
+
+    monkeypatch.setattr(data_index, "list_files", list_files)
+    monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
     return _stations(ChmiObservationRequest, ("daily", "data"))
 
 
@@ -290,7 +291,7 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "FRE00104116  43.1881    0.0000  360.0    TARBES - OSSUN                         07621\n"
         "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
         "GME00102292  51.4358   12.2414  131.0    LEIPZIG-SCHKEUDITZ                     10469\n"
-        # one of the 147 stations the inventory has no line for, and no data file either (GH-3260)
+        # a station the inventory has no line for, and no data file either: the catalogue leaves it out (GH-3260)
         "CAN03010010  54.2833 -112.9667  664.0 AB ABEE AGDM                              71285\n"
     )
     # the stations that report this year have no end, so the rule against an end in the future holds them (GH-2643)

@@ -429,6 +429,27 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
             "monthly/soil/soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
             "It was renamed to 'soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm' in this dataset.",
         ),
+        # GH-3276: the misspellings of before 0.139.0 are renamed to the daily name, which the monthly dataset has
+        # as a mean: the answer follows both renames and is no guess at a near spelling
+        *[
+            (DwdDerivedMetadata, f"monthly/soil/{old}", f"It was renamed to '{new}'.")
+            for old, new in (
+                ("soil_moisture_gras_sand_00cm_60cm", "soil_moisture_mean_grass_sand_00cm_60cm"),
+                ("soil_moisture_gras_loamysilt_10cm_20cm", "soil_moisture_mean_grass_loamy_silt_10cm_20cm"),
+                ("soil_moisture_corn_loamysilt_00cm_60cm", "soil_moisture_mean_corn_loamy_silt_00cm_60cm"),
+                ("soil_moisture_winterwheat_sand_00cm_60cm", "soil_moisture_mean_winter_cereals_sand_00cm_60cm"),
+                (
+                    "soil_moisture_winterwheat_loamysilt_00cm_60cm",
+                    "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
+                ),
+            )
+        ],
+        # the daily name of winter cereals, which the monthly dataset has as a mean
+        (
+            DwdDerivedMetadata,
+            "monthly/soil/soil_moisture_winter_cereals_sand_00cm_60cm",
+            "It was renamed to 'soil_moisture_mean_winter_cereals_sand_00cm_60cm' in this dataset.",
+        ),
         (
             DwdDerivedMetadata,
             "monthly/soil/soil_moisture_mean_winter_wheat_sand_00cm_60cm",
@@ -809,6 +830,18 @@ def test_a_request_for_several_parameters_names_the_renamed_one_and_keeps_the_re
 def test_the_spot_name_of_a_mean_temperature(name: str, spot: str | None) -> None:
     """A sub-daily `_mean_` temperature of a reading maps to its spot name, any other name to none."""
     assert _spot_name(name) == spot
+
+
+def test_every_misspelling_of_a_soil_moisture_is_renamed_in_the_monthly_dataset_too() -> None:
+    """A global rename whose target the dataset renamed again is followed, not answered with a guess (GH-3276)."""
+    dataset = DwdDerivedMetadata["monthly"]["soil"]
+    in_dataset = RENAMED_PARAMETERS_IN_DATASET["DwdDerivedMetadata"][("monthly", "soil")]
+    misspellings = [old for old, new in RENAMED_PARAMETERS.items() if new in in_dataset]
+    assert misspellings
+    for old in misspellings:
+        message = _not_found("parameters", old, dataset.parameters, dataset)
+        assert f"It was renamed to '{in_dataset[RENAMED_PARAMETERS[old]]}'." in message, old
+        assert "Did you mean" not in message
 
 
 def test_the_hint_never_names_a_parameter_the_dataset_lacks() -> None:

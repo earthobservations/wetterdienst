@@ -9,6 +9,9 @@ import platform
 import re
 import socket
 import sys
+import threading
+import time
+import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
 from http import HTTPStatus
@@ -492,6 +495,112 @@ def blocked_network() -> list[object]:
     """
     _GUARD_STATE["expected"] = True
     return _GUARD_STATE["refused"]
+
+
+#: how long the Chrome of the image tests may take to start and draw a first figure, in seconds
+_KALEIDO_START_TIMEOUT = 300
+
+
+def _draw_a_figure() -> None:
+    """Draw an empty figure to PNG, which does not return before Chrome is up."""
+    import plotly.graph_objects as go  # noqa: PLC0415 -- only the image tests need it
+
+    go.Figure().to_image(format="png")
+
+
+@pytest.fixture(scope="session")
+def _kaleido_server() -> Generator[None]:
+    """Start the Chrome of kaleido once, before the first image of the session is drawn (GH-3250).
+
+    Without it every `fig.to_image` starts a Chrome of its own and stops it again. On the Intel macOS runners
+    that start took so long that the REST API gave up on the request after its 60 seconds (`request-timeout`),
+    the log showing Chrome's updater and `choreographer` lines right before: the render is slow there, not the
+    provider, and a test that waits for a request is no place to measure it. Here the start is paid for outside
+    any timed request, and the images after it are drawn by the Chrome that is up. The request timeout, which
+    other tests hold the REST API to, is left as it is.
+
+    Where kaleido, plotly or Chrome are not there, or a first figure fails, nothing is started and the image
+    tests find out for themselves as they did before. A server that dies or does not come up while it starts
+    fails the tests with that said, rather than leaving each of them waiting on a server that never answers.
+
+    kaleido's server hands every caller the next result of one queue, so two renders at once could swap their
+    images: a REST request that gave up after its timeout leaves its render running, and the next test would
+    queue behind it. `calc_fig_sync` is therefore called under a lock for the session.
+    """
+    try:
+        import kaleido  # noqa: PLC0415 -- optional, and only the image tests need it
+
+        _draw_a_figure()  # one-shot: raises at once where Chrome is missing, which the server would not
+    except Exception:  # noqa: BLE001 -- the tests that draw an image say what is wrong, this only warms up
+        yield
+        return
+    server = kaleido._global_server  # noqa: SLF001 -- there is no way to ask a server whether its thread is alive
+    import plotly.io as pio  # noqa: PLC0415 -- only the image tests need it
+
+    # what plotly would hand a one-shot render (the request header of the map tiles); None is kaleido's default
+    kaleido.start_sync_server(
+        headers=pio.defaults.headers,
+        plotlyjs=pio.defaults.plotlyjs,
+        mathjax=pio.defaults.mathjax,
+        silence_warnings=True,
+    )
+    failures: list[BaseException] = []
+
+    def warm_up() -> None:
+        try:
+            with warnings.catch_warnings():  # the kopts that plotly hands a server, which ignores them
+                warnings.filterwarnings("ignore", message="The kopts argument is ignored", category=UserWarning)
+                _draw_a_figure()
+        except BaseException as error:  # noqa: BLE001 -- handed to the fixture, which fails with it
+            failures.append(error)
+
+    drawn = threading.Thread(target=warm_up, daemon=True)
+    lock, calc_fig_sync = threading.Lock(), kaleido.calc_fig_sync
+
+    def calc_fig_one_at_a_time(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        with lock:
+            return calc_fig_sync(*args, **kwargs)
+
+    try:
+        drawn.start()
+        deadline = time.monotonic() + _KALEIDO_START_TIMEOUT
+        # a server whose thread died (Chrome failed to start) never answers: ask for it as well as for the figure
+        while drawn.is_alive() and server._thread.is_alive() and time.monotonic() < deadline:  # noqa: SLF001
+            drawn.join(1)
+        if drawn.is_alive():
+            pytest.fail(
+                f"the Chrome of kaleido did not draw a first figure: its server thread is "
+                f"{'alive' if server._thread.is_alive() else 'dead'} after at most {_KALEIDO_START_TIMEOUT} seconds"  # noqa: SLF001
+            )
+        if failures:
+            pytest.fail(f"the Chrome of kaleido failed to draw a first figure: {failures[0]!r}")
+        kaleido.calc_fig_sync = calc_fig_one_at_a_time
+        yield
+    finally:
+        kaleido.calc_fig_sync = calc_fig_sync
+        if drawn.is_alive():
+            # the server is stuck or dead and its queue is never read: have kaleido take the one-shot path again,
+            # and its exit hook (which joins the thread without a timeout) do nothing
+            server._initialized = False  # noqa: SLF001
+        else:
+            kaleido.stop_sync_server(silence_warnings=True)
+
+
+@pytest.fixture(autouse=True)
+def _kaleido_for_image_tests(request: pytest.FixtureRequest) -> Generator[None]:
+    """Give a remote test that draws an image the Chrome of `_kaleido_server`.
+
+    Picked by the name, as the image tests are named for it (`test_..._image`, `test_index_examples[...image...]`),
+    and only for those that reach the provider: the others draw no image, or draw one with kaleido stubbed.
+    """
+    if not (request.node.get_closest_marker("remote") and "image" in request.node.name):
+        yield
+        return
+    request.getfixturevalue("_kaleido_server")
+    with warnings.catch_warnings():
+        # plotly hands kaleido its `kopts` (request headers), which a running server says it ignores
+        warnings.filterwarnings("ignore", message="The kopts argument is ignored", category=UserWarning)
+        yield
 
 
 @pytest.fixture(autouse=True)
