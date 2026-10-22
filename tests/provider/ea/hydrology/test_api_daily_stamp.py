@@ -330,3 +330,29 @@ def test_ea_15_minute_reading_without_completeness_has_the_quality_alone(
     )
     df = request.all().values().all().df
     assert df.get_column("quality_flags").to_list() == ["Good"]
+
+
+def test_ea_daily_descriptions_name_the_09_00_window_and_the_level_datum() -> None:
+    """Every daily description says the day runs 09:00 to 09:00, and a level says its datum is unspecified (GH-3136).
+
+    The reference page lists the daily mean, minimum and maximum without a window; the readings are dated 09:00 (the
+    premise `_READINGS` above carries) and the mean equals that of the 15 minute flows from 09:00 to 09:00 on 84 of 84
+    days of three station-months (2026-10-21). The unit of every river level measure is m, "meters with an
+    unspecified datum" in the page's words, which the descriptions of the river water levels must not leave out.
+    """
+    descriptions = {
+        parameter.name_original: parameter.description for parameter in EAHydrologyRequest.metadata["daily"]["data"]
+    }
+    assert set(descriptions) == {
+        "flow-m-86400",
+        "flow-max-86400",
+        "flow-min-86400",
+        "level-max-86400",
+        "level-min-86400",
+    }
+    for notation, description in descriptions.items():
+        assert "24 hours from 09:00 of the day it is dated to 09:00 of the next" in description, notation
+        if notation.startswith("level"):
+            assert "unspecified datum" in description, notation
+    river_level = next(p for p in EAHydrologyRequest.metadata["15_minutes"]["data"] if p.name_original == "level-i-900")
+    assert "unspecified datum" in river_level.description
