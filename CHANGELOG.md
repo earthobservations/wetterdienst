@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.167.0] - 2026-10-22
+
 ### Security
 
 - The Docker image, and an environment synced from `uv.lock`, now hold certifi 2026.10.19 and
@@ -6180,7 +6182,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...HEAD
+[0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0
 [0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0
 [0.164.0]: https://github.com/earthobservations/wetterdienst/compare/v0.163.0...v0.164.0
