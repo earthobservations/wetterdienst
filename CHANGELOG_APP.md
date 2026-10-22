@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-22
+
 ### Changed
 
 - `[Glossary]` The labels of `soil_moisture_winter_cereals_*`, `soil_moisture_mean_winter_cereals_*`
@@ -23,6 +25,12 @@ Types of changes:
   `road_surface_condition_forecast` and `wind_speed_max` have labels, in all eleven languages
   (GH-3263, GH-3264). Needs the backend that serves them: release the backend first. The Low German
   and Luxembourgish labels are not reviewed by a native speaker
+
+### Fixed
+
+- `[Meteogram]` The wind barbs were missing when the chart was first drawn and showed only once
+  something made Plotly draw again, such as a resize of the browser window. They are drawn with the
+  chart now, in the meteogram page and in the embeddable widget (GH-3240)
 
 ## [0.29.0] - 2026-10-21
 
@@ -1462,7 +1470,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...HEAD
+[0.30.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...app-v0.30.0
 [0.29.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...app-v0.29.0
 [0.28.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.27.0...app-v0.28.0
 [0.27.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.26.0...app-v0.27.0

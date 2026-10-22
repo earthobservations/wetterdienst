@@ -116,7 +116,7 @@
           "temperature_air_max_2m",
           "temperature_air_mean_2m",
           "temperature_air_min_2m",
-          "wind_gust_max",
+          "wind_speed_max",
           "wind_speed_mean"
         ]
       },
@@ -224,8 +224,8 @@
           "evaporation_amount_corn_sand",
           "evaporation_amount_grass_loamy_silt",
           "evaporation_amount_grass_sand",
-          "evaporation_amount_winter_wheat_loamy_silt",
-          "evaporation_amount_winter_wheat_sand",
+          "evaporation_amount_winter_cereals_loamy_silt",
+          "evaporation_amount_winter_cereals_sand",
           "evapotranspiration_potential_grass_fao",
           "evapotranspiration_potential_grass_haude",
           "frozen_ground_layer_thickness",
@@ -239,8 +239,8 @@
           "soil_moisture_grass_loamy_silt_40cm_50cm",
           "soil_moisture_grass_loamy_silt_50cm_60cm",
           "soil_moisture_grass_sand_00cm_60cm",
-          "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
-          "soil_moisture_winter_wheat_sand_00cm_60cm",
+          "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
+          "soil_moisture_winter_cereals_sand_00cm_60cm",
           "temperature_soil_mean_0_05m",
           "temperature_soil_mean_0_1m",
           "temperature_soil_mean_0_2m",
@@ -284,8 +284,8 @@
           "evaporation_amount_corn_sand",
           "evaporation_amount_grass_loamy_silt",
           "evaporation_amount_grass_sand",
-          "evaporation_amount_winter_wheat_loamy_silt",
-          "evaporation_amount_winter_wheat_sand",
+          "evaporation_amount_winter_cereals_loamy_silt",
+          "evaporation_amount_winter_cereals_sand",
           "evapotranspiration_potential_grass_fao",
           "evapotranspiration_potential_grass_haude",
           "frozen_ground_layer_thickness_max_month",
@@ -299,8 +299,8 @@
           "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
           "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
           "soil_moisture_mean_grass_sand_00cm_60cm",
-          "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
-          "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+          "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
+          "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
           "temperature_soil_mean_0_05m",
           "temperature_soil_mean_0_1m",
           "temperature_soil_mean_0_2m",
@@ -1613,9 +1613,9 @@
           "precipitation_amount_liquid_last_6h",
           "probability_precipitation_amount_gt_5mm_last_6h",
           "probability_precipitation_liquid_last_6h",
-          "road_surface_condition",
-          "temperature_air_2m",
-          "temperature_dew_point_2m",
+          "road_surface_condition_forecast",
+          "temperature_air",
+          "temperature_dew_point",
           "temperature_surface"
         ]
       }
@@ -2741,7 +2741,6 @@
     "wsv/pegel": {
       "1_minute": {
         "data": [
-          "chloride_concentration",
           "clearance_height",
           "discharge",
           "electric_conductivity",
@@ -2751,10 +2750,8 @@
           "humidity_relative",
           "oxygen_level",
           "ph_value",
-          "precipitation_amount",
-          "precipitation_intensity",
           "stage",
-          "temperature_air_2m",
+          "temperature_air",
           "temperature_water",
           "turbidity",
           "wave_height_max",
@@ -2766,7 +2763,6 @@
       },
       "5_minutes": {
         "data": [
-          "chloride_concentration",
           "clearance_height",
           "discharge",
           "electric_conductivity",
@@ -2776,10 +2772,8 @@
           "humidity_relative",
           "oxygen_level",
           "ph_value",
-          "precipitation_amount",
-          "precipitation_intensity",
           "stage",
-          "temperature_air_2m",
+          "temperature_air",
           "temperature_water",
           "turbidity",
           "wave_height_max",
@@ -2791,7 +2785,6 @@
       },
       "10_minutes": {
         "data": [
-          "chloride_concentration",
           "clearance_height",
           "discharge",
           "electric_conductivity",
@@ -2801,10 +2794,8 @@
           "humidity_relative",
           "oxygen_level",
           "ph_value",
-          "precipitation_amount",
-          "precipitation_intensity",
           "stage",
-          "temperature_air_2m",
+          "temperature_air",
           "temperature_water",
           "turbidity",
           "wave_height_max",
@@ -2816,7 +2807,6 @@
       },
       "15_minutes": {
         "data": [
-          "chloride_concentration",
           "clearance_height",
           "discharge",
           "electric_conductivity",
@@ -2826,10 +2816,8 @@
           "humidity_relative",
           "oxygen_level",
           "ph_value",
-          "precipitation_amount",
-          "precipitation_intensity",
           "stage",
-          "temperature_air_2m",
+          "temperature_air",
           "temperature_water",
           "turbidity",
           "wave_height_max",
@@ -2841,7 +2829,6 @@
       },
       "hourly": {
         "data": [
-          "chloride_concentration",
           "clearance_height",
           "discharge",
           "electric_conductivity",
@@ -2851,10 +2838,8 @@
           "humidity_relative",
           "oxygen_level",
           "ph_value",
-          "precipitation_amount",
-          "precipitation_intensity",
           "stage",
-          "temperature_air_2m",
+          "temperature_air",
           "temperature_water",
           "turbidity",
           "wave_height_max",
@@ -2868,7 +2853,6 @@
   },
   "renamed": {
     "parameters": {
-      "chlorid_concentration": "chloride_concentration",
       "cloud_cover_below_1000ft": "cloud_cover_below_2km",
       "cloud_cover_between_2km_to_7km": "cloud_cover_between_2km_and_7km",
       "cloud_cover_total_midnight_to_midnight": "cloud_cover_total_mean_midnight_to_midnight",
@@ -2888,14 +2872,16 @@
       "count_weather_type_sleet": "count_weather_type_graupel",
       "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
       "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
+      "evaporation_amount_winter_wheat_loamy_silt": "evaporation_amount_winter_cereals_loamy_silt",
+      "evaporation_amount_winter_wheat_sand": "evaporation_amount_winter_cereals_sand",
       "evaporation_height": "evaporation_amount",
       "evaporation_height_corn_loamysilt": "evaporation_amount_corn_loamy_silt",
       "evaporation_height_corn_sand": "evaporation_amount_corn_sand",
       "evaporation_height_gras_loamysilt": "evaporation_amount_grass_loamy_silt",
       "evaporation_height_gras_sand": "evaporation_amount_grass_sand",
       "evaporation_height_multiday": "evaporation_amount_multiday",
-      "evaporation_height_winterwheat_loamysilt": "evaporation_amount_winter_wheat_loamy_silt",
-      "evaporation_height_winterwheat_sand": "evaporation_amount_winter_wheat_sand",
+      "evaporation_height_winterwheat_loamysilt": "evaporation_amount_winter_cereals_loamy_silt",
+      "evaporation_height_winterwheat_sand": "evaporation_amount_winter_cereals_sand",
       "evapotranspiration_potential_gras_fao_last_24h": "evapotranspiration_potential_grass_fao",
       "evapotranspiration_potential_gras_haude_last_24h": "evapotranspiration_potential_grass_haude",
       "humidity": "humidity_relative",
@@ -2965,8 +2951,10 @@
       "soil_moisture_gras_loamysilt_40cm_50cm": "soil_moisture_grass_loamy_silt_40cm_50cm",
       "soil_moisture_gras_loamysilt_50cm_60cm": "soil_moisture_grass_loamy_silt_50cm_60cm",
       "soil_moisture_gras_sand_00cm_60cm": "soil_moisture_grass_sand_00cm_60cm",
-      "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
-      "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_wheat_sand_00cm_60cm",
+      "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
+      "soil_moisture_mean_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
+      "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
+      "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_cereals_sand_00cm_60cm",
       "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
       "temperature_soil_mean_loamysand_0_05m": "temperature_soil_mean_loamy_sand_0_05m",
       "temperature_soil_mean_loamysilt_0_05m": "temperature_soil_mean_loamy_silt_0_05m",
@@ -3016,6 +3004,7 @@
         "daily/data": {
           "humidity_relative": "humidity_relative_mean",
           "pressure_air_site": "pressure_air_site_mean",
+          "wind_gust_max": "wind_speed_max",
           "wind_speed": "wind_speed_mean"
         },
         "monthly/data": {
@@ -3053,7 +3042,9 @@
       "dwd/derived": {
         "daily/soil": {
           "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
-          "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude"
+          "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude",
+          "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
+          "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_winter_cereals_sand_00cm_60cm"
         },
         "monthly/soil": {
           "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
@@ -3068,8 +3059,8 @@
           "soil_moisture_grass_loamy_silt_40cm_50cm": "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
           "soil_moisture_grass_loamy_silt_50cm_60cm": "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
           "soil_moisture_grass_sand_00cm_60cm": "soil_moisture_mean_grass_sand_00cm_60cm",
-          "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
-          "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_wheat_sand_00cm_60cm"
+          "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
+          "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm"
         }
       },
       "dwd/dmo": {
@@ -3155,7 +3146,12 @@
       },
       "dwd/swsmos": {
         "hourly/data": {
-          "precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h"
+          "precipitation_amount_last_6h": "precipitation_amount_liquid_last_6h",
+          "road_surface_condition": "road_surface_condition_forecast",
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air",
+          "temperature_dew_point_2m": "temperature_dew_point",
+          "temperature_dew_point_mean_2m": "temperature_dew_point"
         }
       },
       "ea/hydrology": {
@@ -3411,6 +3407,28 @@
           "wind_direction": "wind_direction_mean_last_10min",
           "wind_speed": "wind_speed_mean_last_10min"
         }
+      },
+      "wsv/pegel": {
+        "10_minutes/data": {
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air"
+        },
+        "15_minutes/data": {
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air"
+        },
+        "1_minute/data": {
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air"
+        },
+        "5_minutes/data": {
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air"
+        },
+        "hourly/data": {
+          "temperature_air_2m": "temperature_air",
+          "temperature_air_mean_2m": "temperature_air"
+        }
       }
     },
     "resolutions": {
@@ -3421,5 +3439,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.165.0"
+  "x-release": "0.166.0"
 }
