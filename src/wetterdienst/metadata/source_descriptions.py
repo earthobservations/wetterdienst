@@ -75,7 +75,8 @@ CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group). CHMI
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
-states a unit and an update interval and nothing else, and the entries say so.
+states a unit, an update interval, the instant a value occurred and (for the height) the gauge zero it is relative
+to, and the entries say so.
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -203,11 +204,17 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
 #   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
-    # The page of the hydrometry API (https://hubeau.eaufrance.fr/page/api-hydrometrie, read 2026-10-21 through
-    # data.gouv.fr's copy of it, because the site itself reset every connection from here that day): "Deux grandeurs
-    # hydrométriques sont disponibles via l'opération observations_tr", the water height H and the flow Q, "exprimées
-    # en mm pour les hauteurs d'eau et en l/s pour les débits", which the producer updates "toutes les 5 à 60
-    # minutes". It states neither a statistic (instant or mean) nor a reference level of the height, which these say
+    # The swagger of the hydrometry API (https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs, read 2026-10-22):
+    # `date_obs` is the "Date d'observation hydro : date, exprimée en TU, d'occurence de la donnée" and `resultat_obs`
+    # the "valeur de la mesure hydrométrique", so a value is dated by the instant it occurred and no mean or interval
+    # is stated; the station referential's `altitude_ref_alti_station` is the "altitude du zéro de l'échelle dans le
+    # système altimétrique spécifié (en mètres)", of which the swagger says "Cette information permet de convertir
+    # des hauteurs relatives en hauteurs absolues sur une échelle", so the height H is relative to the zero of the
+    # gauge. 1,478 of the 4,195 stations in service give no such altitude and 215 more name no known system, so the
+    # conversion is not possible everywhere (read 2026-10-22). The page of the API
+    # (https://hubeau.eaufrance.fr/page/api-hydrometrie, read 2026-10-21 through data.gouv.fr's copy of it) gives the
+    # units, "exprimées en mm pour les hauteurs d'eau et en l/s pour les débits", and the update interval, "toutes les
+    # 5 à 60 minutes".
     "HubeauMetadata": {
         (resolution, "data", name_original): description
         for resolution in _HUBEAU_RESOLUTIONS
@@ -216,14 +223,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
                 "H",
                 (
                     "Water height (hauteur d'eau, grandeur H), published in mm and updated by the producer every 5 to "
-                    "60 minutes. The source states no statistic and no reference level."
+                    "60 minutes. Each value is dated by the instant it occurred; the source states no mean or "
+                    "interval. It is relative to the zero of the station's gauge, so stations share no reference "
+                    "level. The station's `gauge_zero` is the altitude of that zero in metres, in the system "
+                    "`gauge_zero_datum` names, where the source gives one."
                 ),
             ),
             (
                 "Q",
                 (
                     "Flow (débit, grandeur Q), published in l/s and updated by the producer every 5 to 60 minutes. "
-                    "The source states no statistic."
+                    "Each value is dated by the instant it occurred; the source states no mean or interval."
                 ),
             ),
         )
