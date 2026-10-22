@@ -27,6 +27,15 @@ Types of changes:
   `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
   radar docs page says what each is (GH-3283)
 
+### Changed
+
+- `noaa/ghcn` `daily` no longer lists the 147 stations of `ghcnd-stations.txt` that have no line
+  in `ghcnd-inventory.txt` (133,039 listed, read 2026-10-22): 83 Canadian `CAN030...`, 58 US
+  `USC...`, 5 Swedish and 1 `GMM`. 146 have no data file (`access/<id>.csv` is a 404); `USC00144840`
+  has one, PRCP of 2013 flagged `Z`. They had null `start_timestamp` and `end_timestamp` and the
+  nearest-station search could pick them. Looking one up by id now warns that there is no such
+  station and answers an empty frame (GH-3260)
+
 ### Removed
 
 - **Breaking**: the radar BUFR reader is removed: `read_radar_bufr`, `DwdRadarDataFormat.BUFR`,
