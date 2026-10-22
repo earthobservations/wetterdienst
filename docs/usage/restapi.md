@@ -104,9 +104,9 @@ What is deprecated keeps working for at least two minor releases of wetterdienst
 a removal is announced in the changelog under `Deprecated` when it is deprecated. Meanwhile:
 
 - the OpenAPI document marks the endpoint or the parameter `deprecated`;
-- every response to a request that uses it carries a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745)),
+- every response to a request that uses it carries a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/info/rfc9745/)),
   `@` and the unix time of the day it was deprecated, for instance `Deprecation: @1791158400`;
-- where a day is set from which it may stop working, `Sunset` ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594))
+- where a day is set from which it may stop working, `Sunset` ([RFC 8594](https://www.rfc-editor.org/info/rfc8594/))
   says it as an HTTP date, and a `Link` with `rel="deprecation"` points to where the replacement is told;
 - for a parameter, the `metadata` block of the answer has a `deprecated-parameter` warning; the old name of a
   renamed canonical parameter, which stays an alias for at least two minor releases, is marked so, without a `Sunset`.
@@ -701,7 +701,7 @@ and what follows is for an instance that others can reach (the
 
 ## Errors
 
-Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
+Every error of the `/api/v1` routes and their `/api` alias is an [RFC 9457](https://www.rfc-editor.org/info/rfc9457/)
 problem, served as `application/problem+json`, whatever its status: a 400, a 404, a 422, a 500 or
 the 404 of a path that does not exist. The MCP endpoint (`/mcp/v1`) answers its own errors as JSON-RPC, but for the `Host` and `Origin` check, which is a problem
 as well (see [Allowed hosts](#allowed-hosts)).
