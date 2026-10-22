@@ -168,7 +168,10 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
     1. the rename declared for this dataset (`RENAMED_PARAMETERS_IN_DATASET`), for a name another
        dataset of the provider still has: `wind_speed` is `wind_speed_mean_last_10min` in
        `hourly/data` but stays `wind_speed` in `daily/data`;
-    2. the rename for 1.0 that holds everywhere (`RENAMED_PARAMETERS`);
+    2. the rename for 1.0 that holds everywhere (`RENAMED_PARAMETERS`), followed once through the
+       rename declared for this dataset where the dataset lacks its target: a misspelling of before
+       0.139.0 (`soil_moisture_gras_sand_00cm_60cm`) is renamed to the daily name
+       (`soil_moisture_grass_sand_00cm_60cm`), which `monthly/soil` has as a mean (GH-3276);
     3. the spot name of a sub-daily `_mean_` temperature, which no table lists since the move
        covers the sub-daily temperatures of most providers (GH-2673).
 
@@ -178,17 +181,22 @@ def _renamed_hint(item: str, canonical: Iterable[str], dataset: DatasetModel | N
     """
     # canonical names only: a source's own name may resolve to another parameter (Frost's `wind_speed`)
     names = set(canonical)
+    in_dataset: dict[str, str] = {}
     if dataset is not None and dataset.resolution is not None:
         resolution = dataset.resolution
-        in_dataset = RENAMED_PARAMETERS_IN_DATASET.get(resolution.metadata_name, {}).get(
-            (resolution.name, dataset.name)
+        in_dataset = (
+            RENAMED_PARAMETERS_IN_DATASET.get(resolution.metadata_name, {}).get((resolution.name, dataset.name)) or {}
         )
-        new = (in_dataset or {}).get(item)
+        new = in_dataset.get(item)
         if new in names:
             return f" It was renamed to '{new}' in this dataset."
     new = RENAMED_PARAMETERS.get(item)
     if new in names:
         # a name this dataset had, renamed for 1.0: say so rather than guess at a near spelling
+        return f" It was renamed to '{new}'."
+    # the name it was renamed to everywhere is one the dataset lacks and renamed again: follow it once
+    new = in_dataset.get(new) if new else None
+    if new in names:
         return f" It was renamed to '{new}'."
     spot = _spot_name(item)
     # a daily or coarser `_mean_` is a mean of the interval where the source says so, not a renamed one
