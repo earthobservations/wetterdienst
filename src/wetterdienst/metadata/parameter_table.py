@@ -478,15 +478,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_amount_winter_wheat_loamy_silt",
+        "evaporation_amount_winter_cereals_loamy_silt",
         "precipitation",
-        "Depth of water evaporated from loamy silt under winter wheat.",
+        "Depth of water evaporated from loamy silt under winter cereals.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "evaporation_amount_winter_wheat_sand",
+        "evaporation_amount_winter_cereals_sand",
         "precipitation",
-        "Depth of water evaporated from sand under winter wheat.",
+        "Depth of water evaporated from sand under winter cereals.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -1529,7 +1529,18 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "road_surface_condition", "dimensionless", "Coded condition of the road surface, such as dry, wet or icy."
+        "road_surface_condition",
+        "dimensionless",
+        "Coded condition of the road surface as a road station reports it: the codes of BUFR table 0 20 241 "
+        "(0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry). The forecast of DWD's SWSMOS has "
+        "other codes and is `road_surface_condition_forecast`.",
+    ),
+    CanonicalParameter(
+        "road_surface_condition_forecast",
+        "dimensionless",
+        "Coded condition of the road surface as a road weather model forecasts it: the codes of DWD's SWSMOS "
+        "(1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, 6 glaze ice), which are not those of the "
+        "road stations' `road_surface_condition` (0 dry, 1 moist, 2 wet, ...).",
     ),
     CanonicalParameter(
         "snow_depth",
@@ -1731,31 +1742,31 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
+        "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
         "fraction",
-        "Mean soil moisture in loamy silt under winter wheat, between the surface and 60 cm over the period.",
+        "Mean soil moisture in loamy silt under winter cereals, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+        "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
         "fraction",
-        "Mean soil moisture in sand under winter wheat, between the surface and 60 cm over the period.",
+        "Mean soil moisture in sand under winter cereals, between the surface and 60 cm over the period.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+        "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
         "fraction",
-        "Soil moisture in loamy silt under winter wheat, between the surface and 60 cm, where the source "
+        "Soil moisture in loamy silt under winter cereals, between the surface and 60 cm, where the source "
         "states no statistic or a reading at one moment; the stated mean is "
-        "`soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm`.",
+        "`soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "soil_moisture_winter_wheat_sand_00cm_60cm",
+        "soil_moisture_winter_cereals_sand_00cm_60cm",
         "fraction",
-        "Soil moisture in sand under winter wheat, between the surface and 60 cm, where the source states no "
+        "Soil moisture in sand under winter cereals, between the surface and 60 cm, where the source states no "
         "statistic or a reading at one moment; the stated mean is "
-        "`soil_moisture_mean_winter_wheat_sand_00cm_60cm`.",
+        "`soil_moisture_mean_winter_cereals_sand_00cm_60cm`.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(
@@ -3289,6 +3300,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "wind_speed_arithmetic",
         "speed",
         "Arithmetic mean of the wind speed, unweighted by direction.",
+        interpolation="homogeneous",
+    ),
+    CanonicalParameter(
+        "wind_speed_max",
+        "speed",
+        "Highest wind speed over the period, where the source states a maximum speed and neither a gust "
+        "(`wind_gust_max`) nor the window it is averaged over (`wind_speed_rolling_mean_max` is the highest rolling "
+        "mean).",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

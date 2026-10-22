@@ -30,8 +30,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "evaporation_height_corn_loamysilt": "evaporation_amount_corn_loamy_silt",
     "evaporation_height_gras_loamysilt": "evaporation_amount_grass_loamy_silt",
     "evaporation_height_gras_sand": "evaporation_amount_grass_sand",
-    "evaporation_height_winterwheat_loamysilt": "evaporation_amount_winter_wheat_loamy_silt",
-    "evaporation_height_winterwheat_sand": "evaporation_amount_winter_wheat_sand",
+    "evaporation_height_winterwheat_loamysilt": "evaporation_amount_winter_cereals_loamy_silt",
+    "evaporation_height_winterwheat_sand": "evaporation_amount_winter_cereals_sand",
     "evapotranspiration_potential_gras_fao_last_24h": "evapotranspiration_potential_grass_fao",
     "evapotranspiration_potential_gras_haude_last_24h": "evapotranspiration_potential_grass_haude",
     "number_of_days_per_month": "count_days_in_month",
@@ -45,8 +45,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "soil_moisture_gras_loamysilt_40cm_50cm": "soil_moisture_grass_loamy_silt_40cm_50cm",
     "soil_moisture_gras_loamysilt_50cm_60cm": "soil_moisture_grass_loamy_silt_50cm_60cm",
     "soil_moisture_gras_sand_00cm_60cm": "soil_moisture_grass_sand_00cm_60cm",
-    "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
-    "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_wheat_sand_00cm_60cm",
+    "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
+    "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_cereals_sand_00cm_60cm",
     "temperature_soil_mean_loamysand_0_05m": "temperature_soil_mean_loamy_sand_0_05m",
     "temperature_soil_mean_loamysilt_0_05m": "temperature_soil_mean_loamy_silt_0_05m",
     "thawing_thickness_bare": "thawing_thickness_bare_ground",
@@ -160,6 +160,11 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # and sky radiation. No dataset declares either of them, so they are no table entries either
     "radiation_global_last_3h": "radiation_short_wave_net_last_3h",
     "radiation_sky_long_wave_last_3h": "radiation_long_wave_net_last_3h",
+    # GH-3263: DWD's derived sheets say "Wintergetreide", winter cereals, no wheat; no other provider has these
+    "evaporation_amount_winter_wheat_loamy_silt": "evaporation_amount_winter_cereals_loamy_silt",
+    "evaporation_amount_winter_wheat_sand": "evaporation_amount_winter_cereals_sand",
+    "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
+    "soil_moisture_mean_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
 }
 
 _WIND_LAST_10MIN = {
@@ -186,6 +191,12 @@ _EXTREMES_MEAN_OF_DAILY = {
 }
 # GH-2839: a mean computed from the daily extremes, (max + min) / 2, is no mean of the day's readings
 _MIDRANGE_MEAN = {"temperature_air_mean_2m": "temperature_air_mean_minmax_2m"}
+# GH-3263: DWD's derived sheets say "Wintergetreide", winter cereals. The old names stay a rename per dataset, because
+# the daily rows became `soil_moisture_winter_cereals_...` and the monthly ones `soil_moisture_mean_winter_cereals_...`
+_WINTER_WHEAT_SOIL_MOISTURE = {
+    "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
+    "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_winter_cereals_sand_00cm_60cm",
+}
 _POTENTIAL_EVAPOTRANSPIRATION_TOTALS = {
     "evapotranspiration_potential_grass_fao_last_24h": "evapotranspiration_potential_grass_fao",
     "evapotranspiration_potential_grass_haude_last_24h": "evapotranspiration_potential_grass_haude",
@@ -275,7 +286,8 @@ RENAMED_PARAMETERS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] 
         },
     },
     "DwdDerivedMetadata": {
-        ("daily", "soil"): _POTENTIAL_EVAPOTRANSPIRATION_TOTALS,
+        # GH-3263: the daily names of before the rename to winter cereals (the monthly ones are means, below)
+        ("daily", "soil"): {**_POTENTIAL_EVAPOTRANSPIRATION_TOTALS, **_WINTER_WHEAT_SOIL_MOISTURE},
         # GH-3168: the monthly ones were renamed before the daily ones, and the 0.139.0 names went unanswered
         ("monthly", "soil"): _POTENTIAL_EVAPOTRANSPIRATION_TOTALS,
     },
@@ -617,8 +629,9 @@ _MEAN_REST_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
             "soil_moisture_grass_loamy_silt_40cm_50cm": "soil_moisture_mean_grass_loamy_silt_40cm_50cm",
             "soil_moisture_grass_loamy_silt_50cm_60cm": "soil_moisture_mean_grass_loamy_silt_50cm_60cm",
             "soil_moisture_grass_sand_00cm_60cm": "soil_moisture_mean_grass_sand_00cm_60cm",
-            "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
-            "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+            # GH-3263: the names of before the rename to winter cereals
+            "soil_moisture_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
+            "soil_moisture_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
         },
     },
     "DwdObservationMetadata": {
@@ -704,6 +717,21 @@ _WHAT_IT_IS_IN_DATASET: dict[str, dict[tuple[str, str], dict[str, str]]] = {
         }
         for resolution in ("1_minute", "5_minutes", "10_minutes", "15_minutes", "hourly")
     },
+    # SWSMOS's `TL` and `TD` are "Lufttemperatur" and "Taupunkttemperatur" and its sheet states no height, so the 2 m of
+    # the old names was an assumption (as for the road and WSV above); the names were `..._mean_2m` in 0.139.0. `RC`
+    # holds the codes of the road model of SWSMOS (1 dry, 2 moist, 3 snow, ...), which are not the BUFR codes of the
+    # road stations (0 dry, 1 moist, 2 wet, ...) that `road_surface_condition` keeps
+    "DwdSwsmosMetadata": {
+        ("hourly", "data"): {
+            "road_surface_condition": "road_surface_condition_forecast",
+            "temperature_air_2m": "temperature_air",
+            "temperature_air_mean_2m": "temperature_air",
+            "temperature_dew_point_2m": "temperature_dew_point",
+            "temperature_dew_point_mean_2m": "temperature_dew_point",
+        },
+    },
+    # CHMI's `Fmax` is "Max rychlost", the maximum speed, and the source says nothing of a gust
+    "ChmiObservationMetadata": {("daily", "data"): {"wind_gust_max": "wind_speed_max"}},
     # IPMA's `humidade` and `pressao` are, as `temperatura` is, the mean of the hour ("media da hora")
     "IpmaObservationMetadata": {
         ("hourly", "data"): {

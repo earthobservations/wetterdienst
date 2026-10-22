@@ -295,7 +295,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("daily", "data", "Fmax"): (
             "Maximum wind speed at 10 m by convention (the source gives each series its own height: 10 m at most "
-            "stations) of the day it is dated. The source states no window."
+            "stations) of the day it is dated. The source states no window and calls it the maximum speed, not a gust."
         ),
         ("daily", "data", "H"): (
             "Relative humidity at 2 m, the daily mean: the plain average of the observations at 06:00, 13:00 and "
@@ -355,7 +355,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "RC"): (
             "Condition of the road surface, as a code: 1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, "
-            '6 glaze ice (DWD: "Straßenzustand", from the METRo road weather model driven by DWD\'s MOS values).'
+            "6 glaze ice, which are not the BUFR codes of the road stations' `road_surface_condition` (0 dry, 1 "
+            'moist, 2 wet, ...) (DWD: "Straßenzustand", from the METRo road weather model driven by DWD\'s MOS '
+            "values)."
         ),
         ("hourly", "data", "RR6"): (
             'Liquid precipitation of the last 6 hours, accumulated, in mm (DWD: "Niederschlag flüssig der '
@@ -1772,7 +1774,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ): "relative humidity (BUFR 0 13 003, no time period or statistic attached)",
         ("15_minutes", "data", "roadSurfaceCondition"): (
             "road surface condition, a code: 0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry "
-            "(BUFR code table 0 20 241, the same codes as 0 20 138)"
+            "(BUFR code table 0 20 241, the same codes as 0 20 138); not the codes of DWD's SWSMOS forecast "
+            "(1 dry, 2 moist, 3 snow, ...), which is `road_surface_condition_forecast`"
         ),
         (
             "15_minutes",

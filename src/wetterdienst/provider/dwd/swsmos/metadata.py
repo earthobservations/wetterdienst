@@ -50,8 +50,8 @@ _DwdSwsmosMetadataSpec = {
                     "name_original": DATASET_NAME_DEFAULT,
                     "grouped": True,
                     "parameters": [
-                        {"name": "temperature_air_2m", "name_original": "TL", **_TEMPERATURE},
-                        {"name": "temperature_dew_point_2m", "name_original": "TD", **_TEMPERATURE},
+                        {"name": "temperature_air", "name_original": "TL", **_TEMPERATURE},
+                        {"name": "temperature_dew_point", "name_original": "TD", **_TEMPERATURE},
                         {"name": "temperature_surface", "name_original": "TS", **_TEMPERATURE},
                         {"name": "precipitation_amount_liquid", "name_original": "RRL1c", **_PRECIPITATION},
                         # DWD says the liquid precipitation of the last 6 hours, accumulated
@@ -68,7 +68,7 @@ _DwdSwsmosMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "road_surface_condition",
+                            "name": "road_surface_condition_forecast",
                             "name_original": "RC",
                             "unit": "dimensionless",
                         },

@@ -90,14 +90,14 @@ def test_swsmos_values() -> None:
     assert not df.is_empty()
     assert df["resolution"].unique().to_list() == ["hourly"]
     assert set(df["parameter"].unique().to_list()) <= {
-        "temperature_air_2m",
-        "temperature_dew_point_2m",
+        "temperature_air",
+        "temperature_dew_point",
         "temperature_surface",
         "precipitation_amount_liquid",
         "precipitation_amount_liquid_last_6h",
         "probability_precipitation_liquid_last_6h",
         "probability_precipitation_amount_gt_5mm_last_6h",
-        "road_surface_condition",
+        "road_surface_condition_forecast",
     }
     # the forecast is hourly and lies in the future of the run
     dates = df["timestamp"].unique().sort()
@@ -105,12 +105,12 @@ def test_swsmos_values() -> None:
     deltas = dates.diff().drop_nulls().unique().to_list()
     assert deltas == [dt.timedelta(hours=1)]
     # air temperature in a physically plausible range
-    air = df.filter(pl.col("parameter") == "temperature_air_2m")["value"].drop_nulls()
+    air = df.filter(pl.col("parameter") == "temperature_air")["value"].drop_nulls()
     assert air.min() > -40.0
     assert air.max() < 55.0
     # dew point likewise -- swsmos publishes Celsius, unlike MOSMIX's Kelvin, and the whole of
     # Germany reading above 250 would mean we had silently inherited the MOSMIX unit
-    dew_point = df.filter(pl.col("parameter") == "temperature_dew_point_2m")["value"].drop_nulls()
+    dew_point = df.filter(pl.col("parameter") == "temperature_dew_point")["value"].drop_nulls()
     assert dew_point.min() > -40.0
     assert dew_point.max() < 40.0
     # and it cannot exceed the air temperature it is measured against
@@ -944,3 +944,30 @@ def test_swsmos_latest_run_failing_with_a_server_error_is_raised_not_fallen_back
             "A006",
             DwdSwsmosRequest.metadata["hourly"]["data"],
         )
+
+
+def test_swsmos_names_the_air_temperature_the_dew_point_and_the_road_condition_for_what_the_sheet_says(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`TL`, `TD` and `RC` arrive as `temperature_air`, `temperature_dew_point` and `road_surface_condition_forecast`.
+
+    DWD's sheet says "Lufttemperatur" and "Taupunkttemperatur" and no height, so the `_2m` they had was ours; the `RC`
+    codes (1 dry, 2 moist, 3 snow, ...) are not the BUFR ones of `dwd/road`, where 2 is wet, which keeps
+    `road_surface_condition` (GH-3263).
+    """
+    raw = b"ID;Lat;Lon;YYYYMMDDHHmm;TL;TD;RC\n202607310700\nA006;54.889156;8.908735;202607310800;17.9;12.1;2\n"
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [f"{api._BASE_URL}/{_LATEST_FILE}"])  # noqa: SLF001
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(bz2.compress(raw)), status=200),
+    )
+
+    df = _stub_stations().values().all().df
+
+    assert dict(zip(df["parameter"].to_list(), df["value"].to_list(), strict=True)) == {
+        "temperature_air": 17.9,
+        "temperature_dew_point": 12.1,
+        "road_surface_condition_forecast": 2.0,
+    }
+    assert DwdSwsmosRequest.metadata["hourly"]["data"]["road_surface_condition_forecast"].name_original == "RC"

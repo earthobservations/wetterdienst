@@ -183,6 +183,8 @@ LEFT_THE_TABLE = {
     "evapotranspiration_potential_grass_haude_last_24h",
     "groundwater_level_max",
     "groundwater_level_min",
+    "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+    "soil_moisture_winter_wheat_sand_00cm_60cm",
 }
 
 _RENAMES_IN_DATASET = [
@@ -404,6 +406,48 @@ def test_a_rename_in_a_dataset_is_declared_for_a_dataset_of_the_provider() -> No
             IpmaObservationMetadata,
             "hourly/data/pressure_air_sea_level",
             "It was renamed to 'pressure_air_sea_level_mean' in this dataset.",
+        ),
+        # GH-3263, GH-3264: SWSMOS states no height and has its own road condition codes, DWD's derived sheets say
+        # winter cereals, and CHMI's `Fmax` is the maximum speed
+        *[
+            (DwdSwsmosMetadata, f"hourly/data/{old}", f"It was renamed to '{new}' in this dataset.")
+            for old, new in (
+                ("temperature_air_2m", "temperature_air"),
+                ("temperature_air_mean_2m", "temperature_air"),
+                ("temperature_dew_point_2m", "temperature_dew_point"),
+                ("temperature_dew_point_mean_2m", "temperature_dew_point"),
+                ("road_surface_condition", "road_surface_condition_forecast"),
+            )
+        ],
+        (
+            DwdDerivedMetadata,
+            "daily/soil/soil_moisture_winter_wheat_sand_00cm_60cm",
+            "It was renamed to 'soil_moisture_winter_cereals_sand_00cm_60cm' in this dataset.",
+        ),
+        (
+            DwdDerivedMetadata,
+            "monthly/soil/soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+            "It was renamed to 'soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm' in this dataset.",
+        ),
+        (
+            DwdDerivedMetadata,
+            "monthly/soil/soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+            "It was renamed to 'soil_moisture_mean_winter_cereals_sand_00cm_60cm'.",
+        ),
+        (
+            DwdDerivedMetadata,
+            "daily/soil/evaporation_amount_winter_wheat_loamy_silt",
+            "It was renamed to 'evaporation_amount_winter_cereals_loamy_silt'.",
+        ),
+        (
+            DwdDerivedMetadata,
+            "monthly/soil/evaporation_amount_winter_wheat_sand",
+            "It was renamed to 'evaporation_amount_winter_cereals_sand'.",
+        ),
+        (
+            ChmiObservationMetadata,
+            "daily/data/wind_gust_max",
+            "It was renamed to 'wind_speed_max' in this dataset.",
         ),
         # GH-2614: Geosphere's nine means that kept the plain name of a reading
         (
@@ -665,6 +709,53 @@ def test_imgw_says_that_its_heights_are_not_the_files() -> None:
                     assert "file states no height" in parameter.description, parameter
                     assert "shelter convention" in parameter.description
     assert (ground, two_m) == (4, 16)
+
+
+def test_the_swsmos_road_condition_is_not_the_road_stations_and_the_names_say_what_the_sources_state() -> None:
+    """SWSMOS's `RC` and the road stations' BUFR 0 20 241 are two code tables, so two parameters (GH-3263, GH-3264).
+
+    A caller reading `road_surface_condition` = 2 got "moist" from SWSMOS (1 dry, 2 moist, 3 snow, ...) and "wet" from
+    the road stations (0 dry, 1 moist, 2 wet, ...). Each name carries its own table in its canonical description and in
+    the provider's description of the field. DWD's SWSMOS sheet names no height for `TL` and `TD`, the derived sheets
+    say "Wintergetreide", and CHMI's `Fmax` is "Max rychlost", the maximum speed, with no word of a gust.
+    """
+    swsmos = {p.name_original: p for p in DwdSwsmosMetadata["hourly"]["data"]}
+    road = {p.name_original: p for p in DwdRoadMetadata["15_minutes"]["data"]}
+    assert swsmos["RC"].name == "road_surface_condition_forecast"
+    assert road["roadSurfaceCondition"].name == "road_surface_condition"
+    assert swsmos["TL"].name == "temperature_air"
+    assert swsmos["TD"].name == "temperature_dew_point"
+    assert "1 dry, 2 moist, 3 snow" in swsmos["RC"].description
+    assert "0 dry, 1 moist, 2 wet" in road["roadSurfaceCondition"].description
+    assert "1 dry, 2 moist, 3 snow" in PARAMETERS["road_surface_condition_forecast"].description
+    assert "0 dry, 1 moist, 2 wet" in PARAMETERS["road_surface_condition"].description
+    assert PARAMETERS["road_surface_condition"].unit_type == PARAMETERS["road_surface_condition_forecast"].unit_type
+    # no dataset of the one has the other's name, so nothing treats them as one parameter
+    assert "road_surface_condition" not in {p.name for p in swsmos.values()}
+    assert "road_surface_condition_forecast" not in {p.name for p in road.values()}
+    # every declared winter row of the derived datasets is cereals, and the crop of the phenology is the one left
+    derived = {
+        parameter.name
+        for resolution in DwdDerivedMetadata
+        for dataset in resolution
+        for parameter in dataset.parameters
+        if "winter" in parameter.name
+    }
+    assert derived
+    assert all("winter_cereals" in name and "winter_wheat" not in name for name in derived)
+    assert sorted(name for name in PARAMETERS if "winter_wheat" in name) == []
+    # CHMI's maximum is a speed and no gust, and no other CHMI row has the name
+    chmi = [
+        (resolution.name, parameter.name_original)
+        for resolution in ChmiObservationMetadata
+        for dataset in resolution
+        for parameter in dataset.parameters
+        if parameter.name == "wind_speed_max"
+    ]
+    assert chmi == [("daily", "Fmax")]
+    assert "wind_gust_max" not in {
+        parameter.name for resolution in ChmiObservationMetadata for dataset in resolution for parameter in dataset
+    }
 
 
 def test_the_road_humidity_is_a_name_again_that_the_dataset_answers_to() -> None:

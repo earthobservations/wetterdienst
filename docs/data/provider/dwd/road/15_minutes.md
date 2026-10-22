@@ -29,7 +29,7 @@
 | {term}`precipitation_type_flags` | precipitationType | type of precipitation, the bit flags of BUFR 0 20 021 (rain is bit 5 of 30, 33554432) | - | - |
 | {term}`precipitation_amount` | totalPrecipitationOrTotalWaterEquivalent | precipitation height over the period the station states (15 minutes in most station groups, 10 at KO, RP and SD, none stated in some) | mm | >=0 |
 | {term}`precipitation_intensity` | intensityOfPrecipitation | precipitation intensity | mm/s | >=0 |
-| {term}`road_surface_condition` | roadSurfaceCondition | road surface condition, a code: 0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry (BUFR code table 0 20 241, the same codes as 0 20 138) | - | - |
+| {term}`road_surface_condition` | roadSurfaceCondition | road surface condition, a code: 0 dry, 1 moist, 2 wet, 3 rime, 4 snow, 5 ice, 6 glaze, 7 not dry (BUFR code table 0 20 241, the same codes as 0 20 138); not the codes of DWD's SWSMOS forecast (1 dry, 2 moist, 3 snow, ...), which is `road_surface_condition_forecast` | - | - |
 | {term}`temperature_air` | airTemperature | air temperature (BUFR 0 12 101, no time period or statistic attached); the sensor stands 4 to 5 m above ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them) | K | - |
 | {term}`temperature_dew_point` | dewpointTemperature | dew point temperature (BUFR 0 12 103, no time period or statistic attached); the sensor stands 4 to 5 m above ground (BUFR 0 07 032 reads 4.0, 4.05 or 5.0 m by station group, none in four of them) | K | - |
 | {term}`temperature_surface` | roadSurfaceTemperature | road surface temperature (BUFR 0 12 241, no time period or statistic attached) | K | - |
