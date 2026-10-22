@@ -11,7 +11,10 @@ Station metadata comes from `metadata/meta1.csv`. A station whose sensor was rel
 under several operational periods; these are collapsed to a single station using the most recent
 position for the coordinates and the full extent for the operational dates. The catalogue does
 not expose a region, so `region` is always null, and a station's `end_timestamp` is null while it
-is still active.
+is still active. The catalogue is one list for every resolution, so the `daily`, `monthly` and
+`annual` resolutions list only the stations that have a file of one of their elements, read from
+the directories of the portal; the `10_minutes` and `hourly` resolutions list the whole catalogue.
+Files of stations that `meta1.csv` does not carry stay unlisted, as no file gives them a position.
 
 Observations are addressed per station and element. The `daily`, `monthly` and `annual`
 resolutions store one flat CSV per station/element (e.g. `dly-<WSI>-T.csv`); the `10_minutes`

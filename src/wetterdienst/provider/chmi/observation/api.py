@@ -19,9 +19,10 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 import polars as pl
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
-from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
@@ -31,7 +32,7 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_daily,
     parse_chmi_values_subdaily,
 )
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -120,6 +121,36 @@ def _months(start: dt.datetime, end: dt.datetime) -> Iterator[tuple[int, int]]:
         month += 1
         if month > 12:
             year, month = year + 1, 1
+
+
+def _stations_with_file(config: dict, settings: Settings) -> set[str]:
+    """Read the ids of the stations that have a file of an element of a resolution from the directories of its elements.
+
+    A directory of a category lists the files ``<prefix>-<WSI>-<element>.csv`` of all stations; only the elements the
+    provider reads count, so a station with a file of an element it does not read (``TPM``, ``API30``) has none.
+
+    Raises:
+        NoInternetError: a directory could not be listed because no connection could be made.
+        DownloadError: a directory could not be listed, or no directory lists a file of the resolution at all. A
+            directory that is not there is a listing of no file, which narrows the stations of its element away;
+            all of them gone is the portal having changed, not a network without stations (GH-2519).
+
+    """
+    ids: set[str] = set()
+    for category in dict.fromkeys(element_config[0] for element_config in config["elements"].values()):
+        url = f"{_BASE_URL}/data/{config['path']}/{category}/"
+        elements = {element for element, element_config in config["elements"].items() if element_config[0] == category}
+        for file in list_remote_files_fsspec(url, settings, CacheExpiry.METAINDEX):
+            name = file.rsplit("/", 1)[-1]
+            if not (name.startswith(f"{config['prefix']}-") and name.endswith(".csv")):
+                continue
+            station, _, element = name.removeprefix(f"{config['prefix']}-").removesuffix(".csv").rpartition("-")
+            if element in elements:
+                ids.add(station)
+    if not ids:
+        url = f"{_BASE_URL}/data/{config['path']}/"
+        raise DownloadError(url, f"no file of the form {config['prefix']}-<station>-<element>.csv is listed")
+    return ids
 
 
 class ChmiObservationValues(TimeseriesValues):
@@ -242,6 +273,26 @@ class ChmiObservationRequest(TimeseriesRequest):
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
-        # the catalogue is provider-wide; the core copies it across each requested (resolution, dataset)
-        # so stations not reporting a requested parameter simply return no values.
-        return parse_chmi_stations(file.content.read()).lazy()
+        catalogue = parse_chmi_stations(file.content.read())
+        if catalogue.is_empty():
+            return pl.LazyFrame()
+        # `meta1.csv` is one list for every resolution, and lists closed stations that have no file in the daily,
+        # monthly and annual one (GH-3259): each of these is narrowed to the stations whose files the directories
+        # list. The sub-daily files are one for each month, under a directory for each year, so the 10 minute and
+        # hourly stations stay the whole list.
+        frames = []
+        for dataset, _ in group_parameters_by_dataset(
+            parameter for parameter in self.parameters if isinstance(parameter, ParameterModel)
+        ):
+            config = _RESOLUTION_CONFIG[dataset.resolution.value]
+            stations = catalogue
+            if config["layout"] != "subdaily":
+                with_file = _stations_with_file(config, settings)
+                stations = stations.filter(pl.col("station_id").is_in(with_file))
+            frames.append(
+                stations.with_columns(
+                    pl.lit(dataset.resolution.name, dtype=pl.String).alias("resolution"),
+                    pl.lit(dataset.name, dtype=pl.String).alias("dataset"),
+                )
+            )
+        return pl.concat(frames).lazy() if frames else pl.LazyFrame()

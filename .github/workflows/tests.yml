@@ -131,6 +131,31 @@ jobs:
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
+      # frost.met.no does not resolve on some macOS runners (GH-3252). Which of the CNAME chain, the DNSSEC
+      # algorithm or the AAAA record the resolver stumbles on is not known, so this prints what the system
+      # resolver and dig say about it, and what Python's getaddrinfo (the call the tests make) answers, for
+      # the next red run to be read against. It fails nothing: each command is allowed to fail.
+      - name: Resolver diagnostics (macOS only)
+        if: ${{ startsWith(matrix.os, 'macos-') }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          for host in frost.met.no api.met.no; do
+            echo "::group::dscacheutil $host"
+            dscacheutil -q host -a name "$host" || true
+            echo "::endgroup::"
+            echo "::group::dig $host +dnssec"
+            dig "$host" +dnssec || true
+            dig "$host" AAAA +short || true
+            echo "::endgroup::"
+            echo "::group::getaddrinfo $host"
+            uv run python -c 'import socket, sys; print(socket.getaddrinfo(sys.argv[1], 443))' "$host" || true
+            echo "::endgroup::"
+          done
+          echo "::group::scutil --dns"
+          scutil --dns || true
+          echo "::endgroup::"
+
       # the provider keys are given to this step alone: `uv sync` builds packages of the lock, and
       # apt, brew and `install.sh` run code that is not ours; none of them may see the keys
       - name: Run tests

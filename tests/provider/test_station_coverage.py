@@ -255,9 +255,10 @@ def test_a_stub_catalogue_has_its_data(stub: Stub, monkeypatch: pytest.MonkeyPat
 
     The ids of the files are read from the listing or feed the stub serves beside the catalogue, the way the provider
     reads it (for the DWD networks the raw listing, with a pattern of `station_data_index.py`, not the file index).
-    A reader that joins the list to the files (`dwd/observation`, `dwd/derived`, `dwd/poi`, `dwd/dmo`) shows what it
-    drops silently, a file whose station the list does not carry, as `dwd/observation` does with 01018; one that does
-    not join (`chmi/observation`, `meteoswiss/observation`) shows a station it lists and has no file for.
+    A reader that joins the list to the files (`dwd/observation`, `dwd/derived`, `dwd/poi`, `dwd/dmo` and
+    `chmi/observation` for its daily, monthly and annual files) shows what it drops silently, a file whose station the
+    list does not carry, as `dwd/observation` does with 01018; one that does not join (`meteoswiss/observation`) shows
+    a station it lists and has no file for.
     """
     network, resolution, dataset = _stub_dataset(stub)
     stations = stub.build(monkeypatch)

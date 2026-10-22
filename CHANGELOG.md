@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.168.0] - 2026-10-22
+
 ### Added
 
 - `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
@@ -33,6 +35,22 @@ Types of changes:
   and TV. That of the volume sweeps stays refused, as DWD replaces the ten files one by one and
   they come from two volumes for minutes; ask for a time (GH-3288)
 
+### Changed
+
+- `chmi/observation` lists, for `daily`, `monthly` and `annual`, only the stations that have a file
+  in the resolution: 25, 24 and 29 of the 1,562 stations of `meta1.csv` (closed ones such as
+  Sadská) answered every request with an empty frame (read 2026-10-22). `10_minutes` and `hourly`
+  still list all 1,562. A stations request for the three now lists the element directories (7, 2
+  and 2), and a failed listing raises `NoInternetError` or `DownloadError`. The monthly and annual
+  files of 29 and 22 ids that `meta1.csv` does not carry, with no position anywhere, stay unlisted
+  (Part of GH-3259)
+- `noaa/ghcn` `daily` no longer lists the 147 stations of `ghcnd-stations.txt` that have no line
+  in `ghcnd-inventory.txt` (133,039 listed, read 2026-10-22): 83 Canadian `CAN030...`, 58 US
+  `USC...`, 5 Swedish and 1 `GMM`. 146 have no data file (`access/<id>.csv` is a 404); `USC00144840`
+  has one, PRCP of 2013 flagged `Z`. They had null `start_timestamp` and `end_timestamp` and the
+  nearest-station search could pick them. Looking one up by id now warns that there is no such
+  station and answers an empty frame (GH-3260)
+
 ### Removed
 
 - **Breaking**: the radar BUFR reader is removed: `read_radar_bufr`, `DwdRadarDataFormat.BUFR`,
@@ -49,6 +67,21 @@ Types of changes:
   `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
   5 minutes after the run in 18 of 577 runs (up to 8 minutes), and the 5 minute slot was empty
   then (GH-3288)
+- `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
+  have data files and no line in the station description of any period, when all periods of a
+  dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read
+  2026-10-22). They were dropped without a word and still are not listed, as DWD gives no name or
+  position for them; the docs pages say so (Part of GH-3258)
+- A parameter name renamed before 0.139.0 whose new name a dataset renamed again is refused with
+  "It was renamed to <current name>", not a "Did you mean" guess or no hint: `humidity` in 26
+  datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,
+  NOAA GHCNh, SWSMOS and DMI, and `soil_moisture_gras_*`, `soil_moisture_winterwheat_*` and
+  `soil_moisture_corn_loamysilt_*` in `dwd/derived` `monthly/soil` (GH-3276)
+- `metadata.provider.license.url` of Météo-France and Eaufrance answers
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, the Etalab 2.0 text; the old
+  etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
+  SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
+  redirected (GH-3255)
 
 ## [0.167.0] - 2026-10-22
 
@@ -6216,7 +6249,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...HEAD
+[0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0
 [0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0

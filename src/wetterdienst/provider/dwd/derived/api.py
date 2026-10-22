@@ -22,6 +22,7 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
+from wetterdienst.provider.dwd.coverage import warn_files_without_description
 from wetterdienst.provider.dwd.derived.download import download_climate_derived_data
 from wetterdienst.provider.dwd.derived.fileindex import (
     create_file_index_for_climate_derived,
@@ -705,6 +706,8 @@ class DwdDerivedRequest(TimeseriesRequest):
                 datasets.append(parameter.dataset)
         stations = []
         for dataset in datasets:
+            file_ids: set[str] = set()
+            listed_ids: set[str] = set()
             # An empty period set means the interval reaches no release at all; the stations
             # themselves do not depend on that, so discovery reads every period the dataset has
             # and the values stay empty, rather than the request reporting no stations
@@ -717,13 +720,23 @@ class DwdDerivedRequest(TimeseriesRequest):
                 df = self._process_dataframe_to_expected_format(df, dataset)
                 file_index = create_file_index_for_climate_derived(dataset, period, settings)
                 if dataset not in TECHNICAL_DATASETS:
+                    file_index_ids = file_index.select(pl.col("station_id")).unique().collect(background=False)
                     df = df.join(
-                        other=file_index.select(pl.col("station_id")),
+                        other=file_index_ids.lazy(),
                         on=["station_id"],
                         how="inner",
-                    )
+                    ).collect(background=False)
+                    # a station with files and no line in the description is dropped by the join (GH-3258)
+                    file_ids.update(file_index_ids.get_column("station_id"))
+                    listed_ids.update(df.get_column("station_id"))
+                    df = df.lazy()
 
                 stations.append(df)
+            # of the periods asked for, a station may be listed by one that is not: it is told for all of them only
+            if set(periods) == set(dataset.periods):
+                warn_files_without_description(
+                    "dwd/derived", f"{dataset.resolution.name}/{dataset.name}", file_ids, listed_ids
+                )
         try:
             # the lists of the datasets do not have the same columns (the soil list has no dates, the postal codes of
             # the correction factor have a station id and nothing else), the core fills in what is missing
