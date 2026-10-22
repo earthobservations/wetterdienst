@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.168.0] - 2026-10-22
+
 ### Added
 
 - `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
@@ -6203,7 +6205,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...HEAD
+[0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0
 [0.165.0]: https://github.com/earthobservations/wetterdienst/compare/v0.164.0...v0.165.0

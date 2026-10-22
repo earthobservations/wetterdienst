@@ -32,12 +32,7 @@ from tests.public_surface import build_surface
 BASELINE = DIRECTORY / "surface.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {
-    "Settings: read_bufr was removed": (
-        "it parsed the BUFR products of the DWD radar sites onto RadarResult.df, and DWD publishes no radar product "
-        "as BUFR any more (GH-3287): the setting does nothing, and Settings(read_bufr=...) is refused with the reason"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 
 def read_baseline() -> dict[str, Any]:
