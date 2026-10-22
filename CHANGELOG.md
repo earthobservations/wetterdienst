@@ -37,6 +37,14 @@ Types of changes:
   The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
   installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
 
+### Fixed
+
+- A parameter name renamed before 0.139.0 whose new name a dataset renamed again is refused with
+  "It was renamed to <current name>", not a "Did you mean" guess or no hint: `humidity` in 26
+  datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,
+  NOAA GHCNh, SWSMOS and DMI, and `soil_moisture_gras_*`, `soil_moisture_winterwheat_*` and
+  `soil_moisture_corn_loamysilt_*` in `dwd/derived` `monthly/soil` (GH-3276)
+
 ## [0.167.0] - 2026-10-22
 
 ### Security
