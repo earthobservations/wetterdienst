@@ -432,6 +432,15 @@ class TimeseriesRequest:
         """
         return dt.timedelta(days=731)
 
+    def _now_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:  # noqa: ARG002
+        """Say how far back the `now` release of a dataset reaches, as a margin over what it holds.
+
+        What the row limit of the REST API reads a request for `now` alone as at most (`ui.limits`). None says that
+        asking for `now` is not counted as less than the record of a station, which is what a provider that publishes
+        no such release, or has not measured it, gets. A provider that reads per period and has one overrides it.
+        """
+        return None
+
     @classmethod
     def available_periods(cls) -> set[Period]:
         """Periods the provider publishes, across all of its datasets."""
