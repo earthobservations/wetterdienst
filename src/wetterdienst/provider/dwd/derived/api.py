@@ -665,6 +665,14 @@ class DwdDerivedRequest(TimeseriesRequest):
     _values = DwdDerivedValues
     _selects_by_period = True
 
+    def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
+        """Give no span for the monthly datasets, whose recent directories hold years.
+
+        The heating and cooling degrees reach back to 2018, the correction factor to 2019, and a monthly estimate is
+        small whatever the span.
+        """
+        return None if dataset.resolution.value == Resolution.MONTHLY else super()._recent_span_of(dataset)
+
     @staticmethod
     def _process_dataframe_to_expected_format(
         stations_data: pl.LazyFrame,

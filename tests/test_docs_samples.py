@@ -791,14 +791,7 @@ def test_cli_samples_run(
 #: kind of problem it answers, a piece of the line of a request of the same kind that is answered (the wide shape is
 #: counted a row for each timestamp, not each parameter) and the reason. Each is a defect of the server, with its
 #: issue, and goes when it is fixed (the test fails if the request is answered)
-REST_KNOWN_FAILURES: dict[str, tuple[int, str, str, str]] = {
-    "periods==recent stations==1048,4411": (
-        400,
-        "limit-exceeded",
-        'shape=="wide"',
-        "GH-3249: the row estimate ignores `periods`",
-    ),
-}
+REST_KNOWN_FAILURES: dict[str, tuple[int, str, str, str]] = {}
 
 #: the limits of a server, which a developer's environment may set to other values than the defaults the pages state
 _LIMIT_VARIABLES = (

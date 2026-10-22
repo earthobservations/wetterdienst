@@ -12,10 +12,12 @@ one off. They hold for the REST API and the MCP tools, which are its routes; the
 - **rows**: how many rows an answer sent as one body (JSON, GeoJSON, a chart) may have, and, for a streamed answer
   (NDJSON, CSV), a higher number. There is no row to count before the download, so the rows are *estimated*, as an
   upper bound: for each station, the readings its resolution can hold between the start of its record and the end
-  of it, within the window of the request, times the parameters asked for. A station whose record is not
-  published is counted from an assumed start that the periods of its dataset give (`_assumed_start`), so that a
-  request without a `timestamp` is held to the limit as well; `drop_nulls` or a station with less data than its
-  record makes the answer smaller.
+  of it, within the window of the request, times the parameters asked for. The periods the request reads narrow it
+  as well: `periods=recent` of a provider that reads per period holds what that release reaches back
+  (`_assumed_start`, with the span the request gives for the dataset), not the whole record of the station
+  (GH-3249). A station whose record is not published is
+  counted from that assumed start too, so that a request without a `timestamp` is held to the limit as well;
+  `drop_nulls` or a station with less data than its record makes the answer smaller.
 
 The time span of a request is bounded through the rows: a window of a year of 1-minute readings is half a million
 rows for one parameter, a century of daily ones is 36,500.
@@ -24,7 +26,7 @@ rows for one parameter, a century of daily ones is 36,500.
 from __future__ import annotations
 
 import datetime as dt
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,7 +35,7 @@ from wetterdienst.metadata.resolution import count_readings
 from wetterdienst.ui.problems import ProblemError, ProblemKind
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.result import StationsResult
@@ -132,7 +134,8 @@ def check_rows(rows: int, limits: Limits, *, streamed: bool) -> None:
 
 
 #: where the record of a station is assumed to begin if its provider publishes none and the dataset has historical
-#: data: before the oldest archive of that kind the library reads (IMGW's begins in 1951). It matters for the datasets
+#: data, or the request has no span to give for its recent data (`_recent_span_of`): before the oldest archive of that
+#: kind the library reads (IMGW's begins in 1951). It matters for the datasets
 #: that need no date, as a request for the others has the window of its `timestamp`; a station list that
 #: publishes its record is not estimated from this. From 1950, daily readings are about 27,000 rows a parameter
 _ASSUMED_RECORD_START = dt.datetime(1950, 1, 1, tzinfo=dt.UTC)
@@ -142,17 +145,20 @@ _ASSUMED_RECENT_SPAN = dt.timedelta(days=731)
 _ASSUMED_NOW_SPAN = dt.timedelta(days=2)
 
 
-def _assumed_start(periods: Sequence[Period], end: dt.datetime) -> dt.datetime | None:
-    """Give where the record of a station without published bounds is assumed to begin, from the periods of its dataset.
+def _assumed_start(
+    periods: Iterable[Period], end: dt.datetime, recent_span: dt.timedelta = _ASSUMED_RECENT_SPAN
+) -> dt.datetime | None:
+    """Give where the data of the periods is assumed to begin, to count what a request reads from them.
 
-    The widest period of the dataset counts: historical data from `_ASSUMED_RECORD_START`, recent data two years and
-    current data two days before `end`. A dataset of forecasts (`future`) has no record: what it holds is bounded by
-    the horizon of the model, which no limit of this module needs to count, so None.
+    The widest period counts: historical data from `_ASSUMED_RECORD_START`, recent data `recent_span` (two years,
+    unless the provider says otherwise) and current data two days before `end`. Forecasts (`future`) have no record:
+    what they hold is bounded by the horizon of the model, which no limit of this module needs to count, so None.
     """
+    periods = set(periods)
     if Period.HISTORICAL in periods:
         return _ASSUMED_RECORD_START
     if Period.RECENT in periods:
-        return end - _ASSUMED_RECENT_SPAN
+        return end - recent_span
     if Period.NOW in periods:
         return end - _ASSUMED_NOW_SPAN
     return None
@@ -178,6 +184,9 @@ def estimate_rows(stations: StationsResult) -> int:
     tidy = stations.options.tidy
     window_start = _utc(stations.start) if stations.start else None
     window_end = _utc(stations.end) if stations.end else None
+    request = stations.request
+    # resolved to the set of periods the request reads, by its __post_init__
+    requested_periods = set(cast("set[Period]", request.periods)) if request._selects_by_period else set()  # noqa: SLF001
     has_bounds = {"start_timestamp", "end_timestamp"} <= set(df.columns)
     rows = 0
     for row in df.select(
@@ -189,12 +198,30 @@ def estimate_rows(stations: StationsResult) -> int:
         starts = [t for t in (window_start, _utc(row["start_timestamp"]) if row.get("start_timestamp") else None) if t]
         ends = [t for t in (window_end, _utc(row["end_timestamp"]) if row.get("end_timestamp") else None) if t]
         end = min(ends or [dt.datetime.now(dt.UTC)])
+        dataset = parameters[0].dataset
+        dataset_periods = set(dataset.periods)
+        span = request._recent_span_of(dataset)  # noqa: SLF001
         if not starts:
-            # no record bounds are published and the request names no start: assumed from the dataset
-            assumed = _assumed_start(parameters[0].dataset.periods, end)
-            if assumed is None:
-                continue
-            starts = [assumed]
+            # no record bounds are published and the request names no start: assumed from the dataset, from its
+            # record if the request has no span to give for its recent data
+            assumed = _assumed_start(dataset_periods, end, span or _ASSUMED_RECENT_SPAN)
+            if assumed is not None:
+                starts.append(assumed if span is not None else _ASSUMED_RECORD_START)
+        # the periods the request reads, where the provider reads per period, hold less than the record of a station
+        # if `historical` is not among them (`recent`): bound by what they hold
+        read_periods = requested_periods & dataset_periods or dataset_periods
+        narrowed = (
+            _assumed_start(read_periods, end, span)
+            if requested_periods
+            and span is not None
+            and Period.RECENT in read_periods
+            and Period.HISTORICAL not in read_periods
+            else None
+        )
+        if narrowed is not None:
+            starts.append(narrowed)
+        if not starts:
+            continue
         readings = count_readings(parameters[0].dataset.resolution.value, max(starts), end)
         rows += (readings or 0) * (len(parameters) if tidy else 1)
     return rows
