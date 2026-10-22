@@ -7,8 +7,9 @@ import re
 from zoneinfo import ZoneInfo
 
 import pytest
-from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
+from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric
 
+from tests.provider.dwd.radar.odim import assert_rw_file
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import DwdRadarValues
 from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
@@ -47,11 +48,10 @@ def test_radar_request_composite_latest_reflectivity(parameter: DwdRadarParamete
         assert f["dataset1/data1/data"].shape == (1200, 1100)
 
 
-@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.remote
 def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settings, radar_locations: list[str]) -> None:
-    """Example for testing radar COMPOSITES (RADOLAN) latest."""
-    wrl = pytest.importorskip("wradlib", reason="wradlib not installed")
+    """Example for testing radar COMPOSITES (RADOLAN) latest: RW, which DWD names `bin` and publishes as ODIM HDF5."""
+    pytest.importorskip("h5py", reason="h5py not installed")
 
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RW_REFLECTIVITY,
@@ -61,35 +61,12 @@ def test_radar_request_composite_latest_rw_reflectivity(default_settings: Settin
 
     results = list(request.query())
 
-    assert results, "DWD holds no file for this request"
+    assert len(results) == 1, "DWD holds no file for this request"
+    assert results[0].url == "https://opendata.dwd.de/weather/radar/radolan/rw/raa01-rw_10000-latest-dwd---bin.hdf5"
 
-    buffer = results[0][1]
-    requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
-
-    # Verify data.
-    attrs = IsDict(
-        {
-            "datasize": 1620000,
-            "datetime": IsDatetime(
-                approx=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None),
-                delta=dt.timedelta(minutes=90),
-            ),
-            "formatversion": 3,
-            "intervalseconds": 3600,
-            "maxrange": "150 km",
-            "moduleflag": 1,
-            "ncol": 900,
-            "nrow": 900,
-            "precision": 0.1,
-            "producttype": "RW",
-            "radarid": "10000",
-            "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
-            "radolanversion": "2.29.1",
-        },
-    )
-
-    assert requested_attrs == attrs
+    # the hour that ends at the time of the file, which DWD publishes some 25 minutes after it
+    end = assert_rw_file(results[0].data, radar_locations)
+    assert end == IsDatetime(approx=dt.datetime.now(ZoneInfo("UTC")), delta=dt.timedelta(minutes=90))
 
 
 @pytest.mark.remote

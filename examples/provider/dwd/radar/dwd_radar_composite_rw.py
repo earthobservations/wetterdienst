@@ -5,7 +5,9 @@
 See Also:
 - https://docs.wradlib.org/en/stable/notebooks/radolan/radolan_showcase.html.
 
-This program will request daily (RADOLAN SF) data for 2020-09-04T12:00:00 and plot the outcome with matplotlib.
+This program will request the latest RADOLAN RW data, the precipitation of the last hour, and plot the outcome with
+matplotlib. DWD names the file `...-bin.hdf5` and publishes it as ODIM HDF5, which the `radolan` backend of wradlib
+reads as the variable `ACRR`, the accumulated precipitation in mm.
 
 """
 
@@ -32,8 +34,8 @@ def plot(ds: xr.Dataset) -> None:
     """
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, aspect="equal")
-    ds.RW.plot(ax=ax, cmap="viridis", shading="auto")
-    plt.title(f"RW Product\n{ds.time.min().values}")
+    ds.ACRR.plot(ax=ax, cmap="viridis", shading="auto")
+    plt.title(f"RW Product, ACRR\n{ds.time.min().values}")
     plt.grid(color="r")
 
 
@@ -54,7 +56,7 @@ def radar_rw_example() -> None:
         print(ds)
 
         # show DataArray
-        print(ds["RW"])
+        print(ds["ACRR"])
 
         # Plot and display data.
         plot(ds)

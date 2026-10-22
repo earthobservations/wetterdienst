@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The example `dwd_radar_composite_rw.py` plots `ACRR`, the variable wradlib reads from a RADOLAN RW
+  file (it asked for `RW` and failed). The radar docs say what an RW file holds and that it is ODIM
+  HDF5, which `wrl.io.read_radolan_header` cannot read: use h5py or
+  `xr.open_dataset(..., engine="radolan")` (GH-3298)
+
 ## [0.168.0] - 2026-10-22
 
 ### Added

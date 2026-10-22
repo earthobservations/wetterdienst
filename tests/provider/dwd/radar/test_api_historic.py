@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric, IsStr
 
+from tests.provider.dwd.radar.odim import assert_rw_file
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -202,13 +203,15 @@ def test_radar_request_composite_historic_timerange(parameter: DwdRadarParameter
             assert f["dataset1/data1/data"].shape == (1200, 1100)
 
 
-@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_yesterday(
     default_settings: Settings,
     radar_locations: list[str],
 ) -> None:
-    """Verify acquisition of radar/composite/radolan_rw data works when using a specific date."""
+    """Verify acquisition of radar/composite/radolan_rw data works when using a specific date.
+
+    RW is ODIM HDF5, though DWD names the file `bin` (GH-3298).
+    """
     timestamp = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(days=1)
 
     request = DwdRadarValues(
@@ -221,36 +224,12 @@ def test_radar_request_composite_historic_radolan_rw_yesterday(
 
     assert results, "DWD holds no file for this request"
 
-    buffer = results[0].data
-
-    # Verify data.
-    requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
-
-    requested_attrs["datetime"] = requested_attrs["datetime"].replace(tzinfo=None)
-
-    attrs = IsDict(
-        {
-            "datasize": 1620000,
-            "datetime": IsDatetime(approx=timestamp, delta=dt.timedelta(minutes=65)),
-            "formatversion": 3,
-            "intervalseconds": 3600,
-            "maxrange": "150 km",
-            "moduleflag": 1,
-            "ncol": 900,
-            "nrow": 900,
-            "precision": 0.1,
-            "producttype": "RW",
-            "radarid": "10000",
-            "radarlocations": IsList(IsStr(regex="|".join(radar_locations)), length=(10, len(radar_locations))),
-            "radolanversion": "2.29.1",
-        },
-    )
-
-    assert requested_attrs == attrs
+    # the hour that ends at the time of the file, which its name and the timestamp of the result carry
+    end = assert_rw_file(results[0].data, radar_locations)
+    assert end == results[0].timestamp
+    assert end == IsDatetime(approx=timestamp.replace(tzinfo=ZoneInfo("UTC")), delta=dt.timedelta(minutes=65))
 
 
-@pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")
 @pytest.mark.remote
 def test_radar_request_composite_historic_radolan_rw_timerange(
     default_settings: Settings,
@@ -270,33 +249,10 @@ def test_radar_request_composite_historic_radolan_rw_timerange(
     # Verify number of results.
     assert len(results) == IsInt(ge=18, le=19)
 
-    buffer = results[0].data
-
     # Verify data.
-    requested_header = wrl.io.read_radolan_header(buffer)
-    requested_attrs = wrl.io.parse_dwd_composite_header(requested_header)
-
-    radarlocations_pattern = r"|".join(radar_locations)
-
-    attrs = IsDict(
-        {
-            "datasize": 1620000,
-            "datetime": IsDatetime(approx=timestamp, delta=dt.timedelta(minutes=65)),
-            "formatversion": 3,
-            "intervalseconds": 3600,
-            "maxrange": "150 km",
-            "moduleflag": 1,
-            "ncol": 900,
-            "nrow": 900,
-            "precision": 0.1,
-            "producttype": "RW",
-            "radarid": "10000",
-            "radarlocations": IsList(IsStr(regex=radarlocations_pattern), length=(10, len(radar_locations))),
-            "radolanversion": "2.29.1",
-        },
-    )
-
-    assert requested_attrs == attrs
+    end = assert_rw_file(results[0].data, radar_locations)
+    assert end == results[0].timestamp
+    assert end == IsDatetime(approx=timestamp.replace(tzinfo=ZoneInfo("UTC")), delta=dt.timedelta(minutes=65))
 
 
 @pytest.mark.remote
