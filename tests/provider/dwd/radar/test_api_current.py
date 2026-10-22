@@ -5,6 +5,11 @@
 import pytest
 from dirty_equals import IsNumeric, IsTuple
 
+from tests.provider.dwd.radar.published import (
+    RADOLAN_CDC_DELAY,
+    SWEEP_FIRST_FILE_DELAY,
+    require_published,
+)
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -37,9 +42,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings)
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, SWEEP_FIRST_FILE_DELAY, "the sweep")
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -81,9 +84,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, SWEEP_FIRST_FILE_DELAY, "the sweep")
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -126,9 +127,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, SWEEP_FIRST_FILE_DELAY, "the sweep")
 
     assert len(results) <= 1
 
@@ -152,8 +151,8 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
 def test_radar_request_radolan_cdc_current(default_settings: Settings, resolution: DwdRadarResolution) -> None:
     """Verify data acquisition for current RADOLAN_CDC/daily+hourly.
 
-    Remark: More often than not, this data is not
-    available when looking at CURRENT.
+    The file of the mark HH:50 is published 26 to 31 minutes later: the request for it is empty until then, and
+    only until then it is no failure (`require_published`).
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
@@ -165,9 +164,7 @@ def test_radar_request_radolan_cdc_current(default_settings: Settings, resolutio
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, RADOLAN_CDC_DELAY, "the RADOLAN_CDC file")
 
     assert len(results) == 1
 
