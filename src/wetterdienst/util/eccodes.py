@@ -55,8 +55,7 @@ def quiet_eccodes_version_advice() -> None:
     not load, so the caller was told to install what they have. A caller who wants the advice gets
     it by importing eccodes before this runs.
 
-    Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
-    them first. Once `gribapi` is imported the advice has been given or not, and this does nothing:
+    Called by both probes. Once `gribapi` is imported the advice has been given or not, and this does nothing:
     every change to the filters makes Python forget which warnings it has shown once, so it should
     not change them for nothing. Until then it is not cached, but asked each time -- a
     `catch_warnings` that was open when it ran, a test's or another thread's, puts back a list
@@ -82,12 +81,11 @@ def import_pyproj_before_eccodes() -> None:
     findlibs loads it with `RTLD_GLOBAL`. pyproj bundles another. A process that loads eccodes and
     then imports pyproj aborts at exit (`double free or corruption`, exit 134 or 139), while one
     that imports pyproj first exits cleanly: ecmwf/eckit#354, GH-2441. pyproj comes with the
-    `radarplus` extra and with libraries such as geopandas, so a caller reading DWD road or radar
+    `radarplus` extra and with libraries such as geopandas, so a caller reading DWD road
     BUFR could not tell what they had done to get a failing exit status (GH-2468). Drop this once
     the floor requires an eckitlib with the upstream fix.
 
-    Called by both probes, and by `read_radar_bufr`, the one reader that can run without asking
-    them first; DWD road's reader asks `require_bufr` before it imports pdbufr. Where the bindings
+    Called by both probes; DWD road's reader asks `require_bufr` before it imports pdbufr. Where the bindings
     are loaded already the order is settled, and importing pyproj then would only make the abort
     reachable for a process that never imports it. Where the bindings are not installed there is
     nothing to put pyproj ahead of, and where pyproj is not -- a `bufr` install without
@@ -139,8 +137,7 @@ def ensure_eccodes() -> bool:
         # of gribapi, an AttributeError if `eccodes.eccodes` ever moves -- one answer for all of
         # them, and naming the ones seen so far is how this came to be widened twice already.
         # Whatever it was, it happened on the way to decoding, and a question that raises is no use
-        # to `_attach_bufr`, which logs and carries on, nor to the constant the suite computes
-        # while collecting, where a raise ends the collection
+        # to the constant the suite computes while collecting, where a raise ends the collection
         log.warning("eccodes is installed but did not load", exc_info=True)
         return False
     return True
@@ -152,10 +149,9 @@ def ensure_pdbufr() -> bool:
 
     Any `RuntimeError` out of the import is an answer and not an incident. It used to be read for
     the words "Cannot find the ecCodes library" and re-raised otherwise, which is gribapi's current
-    phrasing and no promise -- and this question is asked from two places that cannot take a raise:
-    `_attach_bufr`, documented to log and carry on rather than fail a query, and the `BUFR_AVAILABLE`
-    the test suite computes while collecting, where raising aborts the collection instead of
-    skipping the tests that need a reader. Whatever went wrong, it went wrong on the way to reading
+    phrasing and no promise -- and this question is asked from a place that cannot take a raise: the
+    `BUFR_AVAILABLE` the test suite computes while collecting, where raising aborts the collection
+    instead of skipping the tests that need a reader. Whatever went wrong, it went wrong on the way to reading
     BUFR, which is the whole of what this answers.
     """
     try:

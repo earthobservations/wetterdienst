@@ -39,7 +39,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - hourly, daily and monthly resolution, for stations in Germany
     - Radar
         - 17 locations in Germany
-        - Composite (RV, WN), Radolan, Sites and Radolan_CDC
+        - Composite (RV, WN, RS, HX, DMAX, VII, HymecNG), Radolan (RW, RY, SF, YW), Sites (including the unfiltered polarimetric sweeps), KONRAD3D, mesocyclones and Radolan_CDC
         - Radolan: calibrated radar precipitation
         - Composite RV (5-minute precipitation) and WN (reflectivity), each with a two-hour forecast
     - Alerts

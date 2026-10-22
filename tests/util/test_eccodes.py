@@ -3,7 +3,6 @@
 """Tests for the BUFR reader availability helpers."""
 
 import builtins
-import contextlib
 import importlib
 import importlib.util
 import json
@@ -46,8 +45,8 @@ def test_ensure_eccodes_reads_a_library_it_cannot_load_as_absent(monkeypatch: py
     It raises the plain `ImportError` out of the import -- "libeccodes.so: cannot open shared
     object file" -- where a missing package raises `ModuleNotFoundError`. Only the second was
     caught, so the first came back out of a question that exists to be answered rather than
-    raised: `_attach_bufr` logs and carries on where the reader is unavailable, and cannot do
-    that if asking whether it is available is itself what fails.
+    raised: the `BUFR_AVAILABLE` the suite computes while collecting cannot take a raise, and a question
+    about whether the reader is available that itself fails is no answer.
     """
     real_import = builtins.__import__
 
@@ -87,9 +86,8 @@ def test_ensure_pdbufr_reads_any_import_failure_as_absent(monkeypatch: pytest.Mo
     """A RuntimeError out of the import is an answer, whatever it says.
 
     It used to be read for the words "Cannot find the ecCodes library" and re-raised otherwise --
-    gribapi's present phrasing, and no promise. Two callers cannot take a raise: `_attach_bufr`,
-    which logs and carries on rather than fail a query, and the `BUFR_AVAILABLE` the suite computes
-    while collecting, where raising aborts collection instead of skipping the tests that want a
+    gribapi's present phrasing, and no promise. The `BUFR_AVAILABLE` the suite computes
+    while collecting cannot take a raise: it aborts collection instead of skipping the tests that want a
     reader.
     """
     real_import = builtins.__import__
@@ -195,8 +193,8 @@ def test_the_probe_answers_whatever_the_import_does(
 
     It was widened twice by naming what had been seen -- `ModuleNotFoundError`, then `ImportError`,
     then `RuntimeError` -- and an `AttributeError` from `eccodes.eccodes` moving, or a gribapi
-    error class, would have escaped all three. Two callers cannot take a raise: the radar path that
-    logs and carries on, and `BUFR_AVAILABLE`, computed while the suite is collecting.
+    error class, would have escaped all three. `BUFR_AVAILABLE`, computed while the suite is
+    collecting, cannot take a raise.
     """
     real_import = builtins.__import__
 
@@ -348,27 +346,6 @@ def test_the_library_version_is_logged_in_its_place(stale_library: str, caplog: 
     assert f"ecCodes library {stale_library}" in caplog.text
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-@pytest.mark.usefixtures("stale_library")
-def test_a_radar_bufr_read_asked_directly_is_quiet_too() -> None:
-    """`read_radar_bufr` imports pdbufr itself and can be called without asking either probe first.
-
-    What it is handed here is not BUFR, so the read fails -- after the import, which is the part
-    this is about. How it fails is not: gribapi's error for bytes that are not BUFR.
-    """
-    from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr  # noqa: PLC0415
-
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
-        with contextlib.suppress(Exception):
-            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
-    # the read got as far as importing the reader, so the advice had its chance
-    assert "pdbufr" in sys.modules
-    said = [str(warning.message) for warning in seen]
-    assert not [message for message in said if "or higher is recommended" in message]
-    assert "something else the bindings say on import" in said
-
-
 #: the filter is installed only where the bindings are, and these tests watch it being installed
 needs_the_bindings = pytest.mark.skipif(importlib.util.find_spec("gribapi") is None, reason="eccodes required")
 #: Python 3.14's context-aware warnings keep `catch_warnings`' list apart from `warnings.filters`,
@@ -472,9 +449,8 @@ def test_the_filters_are_left_alone_where_the_bindings_are_not_installed(monkeyp
 def test_quieting_the_advice_cannot_make_a_probe_raise(probe: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Asking whether BUFR can be read is answered, not raised, whatever fails on the way.
 
-    `find_spec` runs import hooks of its own -- a broken one raises -- and two callers cannot take a
-    raise: `_attach_bufr`, which logs and carries on, and `BUFR_AVAILABLE`, computed while the suite
-    collects.
+    `find_spec` runs import hooks of its own -- a broken one raises -- and `BUFR_AVAILABLE`, computed while the
+    suite collects, cannot take a raise.
     """
 
     def broken(*_: object) -> None:
@@ -549,39 +525,6 @@ def test_a_road_file_decodes_through_the_reader() -> None:
     ]
 
 
-@pytest.mark.skipif(not BUFR_AVAILABLE, reason="eccodes and pdbufr required")
-def test_a_radar_file_decodes_through_the_reader() -> None:
-    """A radar BUFR product is read by pdbufr from the file it is written to, on every platform.
-
-    On Windows that read failed for the reason the road read did, and `_attach_bufr` logged "Unable
-    to read BUFR file." and left the result's frame empty (GH-2446).
-    """
-    from wetterdienst.provider.dwd.radar.api import read_radar_bufr  # noqa: PLC0415
-    from wetterdienst.provider.dwd.radar.metadata import DwdRadarParameter  # noqa: PLC0415
-
-    message = _bufr_message(
-        # shortStationName, the time, latitude, longitude, heightOfStation, projectionType,
-        # pictureType, and three echoTops
-        [1018, *_TIME_DESCRIPTORS, 5001, 6001, 7001, 29001, 30031, 101003, 21021],
-        {
-            "shortStationName": "BOO",
-            **_TIME,
-            "latitude": 54.0,
-            "longitude": 10.0,
-            "heightOfStation": 125.0,
-            "projectionType": 0,
-            "pictureType": 2,
-            "echoTops": [1000.0, 2000.0, 3000.0],
-        },
-    )
-    data = BytesIO(message)
-    df = read_radar_bufr(data, DwdRadarParameter.PE_ECHO_TOP)
-    assert df.get_column("station_id").unique().to_list() == ["BOO"]
-    assert df.get_column("value").to_list() == [1000.0, 2000.0, 3000.0]
-    # and the caller's bytes are still there to be read
-    assert data.read() == message
-
-
 def test_bufr_file_a_file_that_will_not_go_does_not_fail_the_read(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -628,21 +571,11 @@ class Watch(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, Watch())
 """
 
-#: each way a read can be the first to load eccodes: DWD road asks `require_bufr` and radar's
-#: `_attach_bufr` asks `bufr_is_available`, both through `ensure_eccodes`; `ensure_pdbufr` and
-#: `read_radar_bufr` can each be asked first
+#: each way a read can be the first to load eccodes: DWD road asks `require_bufr`, which asks `bufr_is_available`,
+#: through `ensure_eccodes`; `ensure_pdbufr` can be asked first
 _LOADS_ECCODES = {
     "ensure_eccodes": "from wetterdienst.util.eccodes import ensure_eccodes; ensure_eccodes()",
     "ensure_pdbufr": "from wetterdienst.util.eccodes import ensure_pdbufr; ensure_pdbufr()",
-    "read_radar_bufr": textwrap.dedent(
-        """
-        import contextlib
-        from io import BytesIO
-        from wetterdienst.provider.dwd.radar.api import _BUFR_VALUE_FIELD, read_radar_bufr
-        with contextlib.suppress(Exception):
-            read_radar_bufr(BytesIO(b"not BUFR"), next(iter(_BUFR_VALUE_FIELD)))
-        """
-    ),
 }
 
 #: the probes are asked to load the library, so it has to load -- not only the bindings be there
@@ -667,7 +600,7 @@ def test_pyproj_is_imported_before_wetterdienst_loads_eccodes(entry: str) -> Non
     """Pyproj is there before the bindings load their library, whichever way a read gets to them.
 
     On Linux the eckitlib wheel the bindings pull in bundles its own PROJ, and a process that loads
-    it before pyproj aborts at exit (ecmwf/eckit#354, GH-2441). A read of DWD road or radar BUFR
+    it before pyproj aborts at exit (ecmwf/eckit#354, GH-2441). A read of DWD road BUFR
     loaded it first, so a caller that went on to use pyproj or wradlib failed with exit status 134
     or 139 after its work was done (GH-2468). The order is what is checked, being what avoids the
     abort, and can be checked where the abort does not happen.

@@ -3,7 +3,6 @@
 """Tests for radar sites."""
 
 import datetime as dt
-from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -18,7 +17,6 @@ from wetterdienst.provider.dwd.radar import (
     DwdRadarResolution,
     DwdRadarValues,
 )
-from wetterdienst.provider.dwd.radar.api import RadarResult
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 from wetterdienst.util.datetime import round_minutes
 
@@ -393,17 +391,6 @@ def test_radar_request_site_historic_dx_timerange(default_settings: Settings) ->
     )
 
     assert requested_attrs == attrs
-
-
-def test_attach_bufr_noop_when_read_bufr_disabled() -> None:
-    """Without read_bufr, RadarResult.df stays None even for BUFR requests (no parsing, no deps)."""
-    request = object.__new__(DwdRadarValues)
-    request.format = DwdRadarDataFormat.BUFR
-    request.parameter = DwdRadarParameter.PE_ECHO_TOP
-    request.settings = Settings(read_bufr=False)
-    result = RadarResult(data=BytesIO(b"not-a-bufr-payload"))
-    request._attach_bufr(result)  # noqa: SLF001
-    assert result.df is None
 
 
 @pytest.mark.remote

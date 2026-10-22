@@ -477,10 +477,6 @@ class Settings(BaseSettings):
     fsspec_client_kwargs: dict[str, Any] = Field(default_factory=_default_fsspec_client_kwargs)
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
-    # opt-in: parse DWD radar BUFR files into a polars DataFrame (RadarResult.df). Requires the
-    # optional eccodes + pdbufr dependencies; off by default because parsing is expensive. DWD publishes
-    # no radar product as BUFR (listings read 2026-10-22), so no request reaches it.
-    read_bufr: bool = Field(default=False)
     # opt-in: let REST API and MCP clients pass `sql` / `sql_values` clauses. Off by default because
     # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);
     # the library and the CLI, whose caller is the host's own user, are not gated
@@ -534,7 +530,6 @@ class Settings(BaseSettings):
             fsspec_client_kwargs: Mapping[str, Any] = ...,
             auth: Auth | Mapping[str, Any] = ...,
             use_certifi: bool = ...,
-            read_bufr: bool = ...,
             restapi_sql: bool = ...,
             restapi_max_stations: int = ...,
             restapi_max_rows: int = ...,
@@ -544,6 +539,23 @@ class Settings(BaseSettings):
             restapi_allowed_hosts: str | list[str] | tuple[str, ...] = ...,
         ) -> None:
             """Build the settings from the fields, which the environment and `.env` fill where they are not given."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_removed_read_bufr(cls, data: object) -> object:
+        """Refuse ``read_bufr`` with the reason it is gone (GH-3287).
+
+        It parsed the BUFR products of the DWD radar sites onto ``RadarResult.df``, and DWD publishes no radar
+        product as BUFR any more, so the setting and the reader are removed. The ``WD_READ_BUFR`` variable is
+        ignored, as every variable no setting reads is; the BUFR of ``dwd/road`` is read without a setting.
+        """
+        if isinstance(data, Mapping) and "read_bufr" in data:
+            msg = (
+                "read_bufr is no setting any more: DWD publishes no radar product as BUFR and the radar BUFR reader "
+                "was removed (RadarResult.df with it); the BUFR of dwd/road needs no setting"
+            )
+            raise ValueError(msg)
+        return data
 
     @model_validator(mode="before")
     @classmethod

@@ -38,9 +38,16 @@ RADAR_DT_REGEX_LONG = r"(?<!\d)\d{12}"
 # - composite_rv_20261022_1130_005-hd5 (a file in the tar: the lead time of the forecast in minutes follows)
 RADAR_DT_REGEX_COMPOSITE = r"(?<!\d)\d{8}_\d{4}(?!\d)"
 
+# The date and the time of the run, split by a T, are used for data within "weather/radar/konrad3d"; the two digits of
+# the seconds are cut off, as the long timestamps' are.
+# Examples:
+# - KONRAD3D_20261022T130500.xml
+RADAR_DT_REGEX_KONRAD3D = r"(?<!\d)\d{8}T\d{4}(?=\d{2}(?!\d))"
+
 
 RADAR_DT_PATTERN = re.compile(
-    f"{RADAR_DT_REGEX_COMPOSITE}|{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}|{RADAR_DT_REGEX_SHORT}"
+    f"{RADAR_DT_REGEX_COMPOSITE}|{RADAR_DT_REGEX_KONRAD3D}|{RADAR_DT_REGEX_LONG}|{RADAR_DT_REGEX_MEDIUM}"
+    f"|{RADAR_DT_REGEX_SHORT}"
 )
 RADOLAN_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_SHORT}|{RADAR_DT_REGEX_MEDIUM}")
 
@@ -48,10 +55,11 @@ RADOLAN_DT_PATTERN = re.compile(f"{RADAR_DT_REGEX_SHORT}|{RADAR_DT_REGEX_MEDIUM}
 def get_date_string_from_filename(filename: str, pattern: re.Pattern) -> str | None:
     """Extract the digits of the first datetime in a filename using a regex pattern.
 
-    The underscore of a composite's ``YYYYMMDD_HHMM`` is dropped, so that every date string is digits only.
+    The underscore of a composite's ``YYYYMMDD_HHMM`` and the T of KONRAD3D's ``YYYYMMDDThhmm`` are dropped, so that
+    every date string is digits only.
     """
     try:
-        return pattern.findall(filename)[0].replace("_", "")
+        return pattern.findall(filename)[0].replace("_", "").replace("T", "")
     except IndexError:
         return None
 

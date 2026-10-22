@@ -19,7 +19,11 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 @pytest.mark.remote
 @pytest.mark.parametrize(
     ("parameter", "folder"),
-    [(DwdRadarParameter.RV_REFLECTIVITY, "rv"), (DwdRadarParameter.WN_REFLECTIVITY, "wn")],
+    [
+        (DwdRadarParameter.RV_REFLECTIVITY, "rv"),
+        (DwdRadarParameter.WN_REFLECTIVITY, "wn"),
+        (DwdRadarParameter.RS_PRECIPITATION_SUM, "rs"),
+    ],
 )
 def test_radar_fileindex_composite_tar(parameter: DwdRadarParameter, folder: str, default_settings: Settings) -> None:
     """Test file index creation for the DWD radar composites, one .tar of ODIM HDF5 files a run (GH-3279)."""
@@ -38,6 +42,7 @@ def test_radar_fileindex_composite_tar(parameter: DwdRadarParameter, folder: str
         DwdRadarParameter.RW_REFLECTIVITY,
         DwdRadarParameter.RY_REFLECTIVITY,
         DwdRadarParameter.SF_REFLECTIVITY,
+        DwdRadarParameter.YW_REFLECTIVITY,
     ],
 )
 def test_radar_fileindex_radolan_reflectivity_bin(parameter: DwdRadarParameter, default_settings: Settings) -> None:
@@ -63,6 +68,72 @@ def test_radar_fileindex_sites_dx_reflectivity_bin(default_settings: Settings) -
     assert not file_index.is_empty()
     urls = file_index.get_column("filename").to_list()
     assert all(PurePath(url).match("*/weather/radar/sites/dx/boo/*---bin") for url in urls)
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("parameter", "folder"),
+    [
+        (DwdRadarParameter.HX_REFLECTIVITY, "hx"),
+        (DwdRadarParameter.DMAX_REFLECTIVITY, "dmax"),
+        (DwdRadarParameter.VII_INTEGRATED_ICE, "vii"),
+        (DwdRadarParameter.HYMECNG_PRECIPITATION_TYPE, "hymecng"),
+    ],
+)
+def test_radar_fileindex_composite_hdf5_files(
+    parameter: DwdRadarParameter, folder: str, default_settings: Settings
+) -> None:
+    """Test file index creation for the composites that are one ODIM HDF5 file a run (GH-3283)."""
+    file_index = create_fileindex_radar(parameter=parameter, settings=default_settings, parse_datetime=True)
+    assert not file_index.is_empty()
+    urls = file_index.get_column("filename").to_list()
+    assert all(PurePath(url).match(f"*/weather/radar/composite/{folder}/composite_*-hd5") for url in urls)
+    # the LATEST file has no date and is left out of the dated index
+    assert not any("latest" in url.lower() for url in urls)
+    # a run every 5 minutes, for about two days
+    assert 500 <= file_index.height <= 600
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("parameter", "folder", "pattern"),
+    [
+        (DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS, "konrad3d", "KONRAD3D_*.xml"),
+        (DwdRadarParameter.MESOCYCLONE_DETECTION, "mesocyclones", "meso_*.xml"),
+    ],
+)
+def test_radar_fileindex_xml(
+    parameter: DwdRadarParameter, folder: str, pattern: str, default_settings: Settings
+) -> None:
+    """Test file index creation for the XML files of the detections (GH-3283)."""
+    file_index = create_fileindex_radar(parameter=parameter, settings=default_settings, parse_datetime=True)
+    assert not file_index.is_empty()
+    urls = file_index.get_column("filename").to_list()
+    assert all(PurePath(url).match(f"*/weather/radar/{folder}/{pattern}") for url in urls)
+    assert 500 <= file_index.height <= 600
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        DwdRadarParameter.SWEEP_VOL_ZDR,
+        DwdRadarParameter.SWEEP_VOL_RHOHV,
+        DwdRadarParameter.SWEEP_VOL_PHIDP,
+        DwdRadarParameter.SWEEP_PCP_ZDR,
+        DwdRadarParameter.SWEEP_PCP_RHOHV,
+        DwdRadarParameter.SWEEP_PCP_PHIDP,
+    ],
+)
+def test_radar_fileindex_sites_sweep_polarimetric_unfiltered(
+    parameter: DwdRadarParameter, default_settings: Settings
+) -> None:
+    """Test file index creation for the polarimetric sweeps, which have the folder `unfiltered` only (GH-3283)."""
+    file_index = create_fileindex_radar(parameter=parameter, site=DwdRadarSite.BOO, settings=default_settings)
+    assert not file_index.is_empty()
+    urls = file_index.get_column("filename").to_list()
+    assert all(f"/weather/radar/sites/{parameter.value}/boo/unfiltered/" in url for url in urls)
+    assert all(url.endswith("-hd5") for url in urls)
 
 
 @pytest.mark.remote

@@ -94,7 +94,7 @@ Providers are trusted for their address, not their content. Provider and network
 are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). XML is parsed
 with entities off and no network (`resolve_entities=False`: FMI, DWD alerts, MOSMIX, DMO), archives are read in memory,
 and the one file written is the BUFR message, in a private temporary directory removed afterwards (`util/eccodes.py`,
-opt-in `WD_READ_BUFR`). Nothing is unpickled, evaluated or loaded from YAML that a caller or provider sent. The native
+`dwd/road`). Nothing is unpickled, evaluated or loaded from YAML that a caller or provider sent. The native
 parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong numbers from a provider are a
 data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the sentinels it can).
 

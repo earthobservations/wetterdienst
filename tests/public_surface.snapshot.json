@@ -40,7 +40,6 @@
     "cache_dir",
     "cache_disable",
     "fsspec_client_kwargs",
-    "read_bufr",
     "restapi_allowed_hosts",
     "restapi_max_concurrent",
     "restapi_max_rows",
