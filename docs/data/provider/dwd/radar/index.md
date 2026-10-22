@@ -47,11 +47,14 @@ that is a `.tar`, whose first file, the analysis, it answers, `composite_hx_LATE
 one for each sweep (`..._uzdr_00-LATEST-boo-10132-hd5`), which LATEST reads for the precipitation scan, whose one sweep it is
 (two files, TH and TV, for the reflectivity). It does not for the volume scan: DWD replaces its ten files one by one as
 the scan is published, so for minutes they are of two volumes (on 2026-10-22 at 15:53 UTC the sweeps 0 to 4 were
-listed 15:51 to 15:53 and 5 to 9 at 15:48 to 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45): ask for a time instead (`MOST_RECENT` can lack the last sweeps of a volume, GH-3302). The folders of a filter hold none and KONRAD3D has none.
+listed 15:51 to 15:53 and 5 to 9 at 15:48 to 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45): ask for a time instead (`MOST_RECENT` is the volume of the slot 10 minutes before now, see below). The folders of a filter hold none and KONRAD3D has none.
+The name of a latest file has no time (but the `.tar` of a composite, whose first file names its run), so `result.timestamp` is the time the file says it is of: with h5py installed (the `radar` extra) `date` and `time` of the `/what` group of an ODIM HDF5 file, the time of the header of a `DX` file (which needs no h5py), the time of the first event of `meso_latest.xml`. It is the run, as the name of the dated files says it (read 2026-10-22: the two agree to the minute for the composites, RADOLAN, the site products and the sweeps of the precipitation scan, 20:35 for a run of 20:35). A run with no event carries no time (554 of the 576 `meso_` files of 2026-10-20 to 22), and the `timestamp` of `meso_latest.xml` stays `None` then, as it does for any latest HDF5 file read without h5py, which is warned about once.
 `start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product (not RADOLAN's, unless `fmt` is named) is the 5 minute slot
 before now; for RS, DMAX, VII, KONRAD3D and the mesocyclones, which DWD publishes more than 5 minutes after the run in
 more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now, and so for the site products PE, PZ, PR
-and LMAX, which are as late as RS in 18 of 577 runs (up to 8 minutes, read 2026-10-22).
+and LMAX, which are as late as RS in 18 of 577 runs (up to 8 minutes, read 2026-10-22), and for the sweeps of the volume
+scan, whose last sweeps are listed up to 485 s after their slot starts (more than 300 s in 3 % of the volumes of the 17 sites, read
+2026-10-20 to 22): a request at a lag of 5 minutes is 5 to 10 minutes after the slot starts, and 0.6 % of them lacked a sweep.
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 

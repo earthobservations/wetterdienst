@@ -125,11 +125,22 @@ RADAR_PARAMETERS_SWEEPS = [
     DwdRadarParameter.SWEEP_VOL_RHOHV,
     DwdRadarParameter.SWEEP_VOL_PHIDP,
 ]
+# the sweeps of the volume scan, which has ten elevations: the ones `elevation` selects among
+RADAR_PARAMETERS_SWEEPS_VOLUME = [
+    DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
+    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+    DwdRadarParameter.SWEEP_VOL_ZDR,
+    DwdRadarParameter.SWEEP_VOL_RHOHV,
+    DwdRadarParameter.SWEEP_VOL_PHIDP,
+]
 # the products that DWD publishes more than 5 minutes after their run in more than one run of a hundred, whose most
 # recent file is the slot 10 minutes before now, where that of the others (HX never, HymecNG twice) is the one 5 minutes
 # before. The 576 runs of the two days of 2026-10-20 to 22 (the longest delay 523 s): VII all, KONRAD3D 161, the
 # mesocyclones 56, DMAX 55, RS 7 (GH-3283); the site products PE, PZ, PR and LMAX at BOO, 18 of 577 runs each, the
-# longest 484 s (GH-3288)
+# longest 484 s (GH-3288); the sweeps of the volume scan, whose last sweep is listed late: more than 5 minutes after
+# the slot starts in 3 % of the volumes (of the 564 of BOO and the 9556 of the 17 sites), the longest 485 s. At a lag of
+# 5 minutes a request is 5 to 10 minutes after the slot starts, so that 0.6 % of the answers lacked a sweep and 0.1 %
+# had fewer than four; at a lag of 10 minutes (a request 10 to 15 minutes after) none did (GH-3302)
 RADAR_PARAMETERS_SLOW = [
     DwdRadarParameter.RS_PRECIPITATION_SUM,
     DwdRadarParameter.DMAX_REFLECTIVITY,
@@ -140,14 +151,7 @@ RADAR_PARAMETERS_SLOW = [
     DwdRadarParameter.PE_ECHO_TOP,
     DwdRadarParameter.PR_VELOCITY,
     DwdRadarParameter.PZ_CAPPI,
-]
-# the sweeps of the volume scan, which has ten elevations: the ones `elevation` selects among
-RADAR_PARAMETERS_SWEEPS_VOLUME = [
-    DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
-    DwdRadarParameter.SWEEP_VOL_ZDR,
-    DwdRadarParameter.SWEEP_VOL_RHOHV,
-    DwdRadarParameter.SWEEP_VOL_PHIDP,
+    *RADAR_PARAMETERS_SWEEPS_VOLUME,
 ]
 
 
