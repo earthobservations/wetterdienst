@@ -81,9 +81,13 @@ def _is_server_fault(failure: Exception) -> bool:
 
 #: Hosts that any machine running this suite reaches: where its dependencies came from.
 _CONNECTIVITY_PROBES = (("pypi.org", 443), ("github.com", 443))
-#: What a connection that a host did not take up fails with: it timed out, was refused or reset, or has no route.
-#: On Windows `errno` carries the Winsock codes (10060, 10061, ...), so these are the same names there.
-_UNANSWERED_ERRNOS = frozenset({errno.ETIMEDOUT, errno.ECONNREFUSED, errno.ECONNRESET, errno.EHOSTUNREACH})
+#: What a connection that a host did not take up fails with: it timed out, was refused or reset, or has no route
+#: to the host (`EHOSTUNREACH`) or to its network (`ENETUNREACH`, what a runner reports for an address, an IPv6 one
+#: say, that its interface has no route to). On Windows `errno` carries the Winsock codes (10060, 10061, ...), so
+#: these are the same names there.
+_UNANSWERED_ERRNOS = frozenset(
+    {errno.ETIMEDOUT, errno.ECONNREFUSED, errno.ECONNRESET, errno.EHOSTUNREACH, errno.ENETUNREACH}
+)
 #: `ERROR_SEM_TIMEOUT`, "The semaphore timeout period has expired": how Windows reports a connect that timed out
 #: through the overlapped I/O asyncio uses, as a plain `OSError` that no `errno` names.
 _WINDOWS_SEMAPHORE_TIMEOUT = 121
@@ -103,7 +107,7 @@ def _runner_has_network() -> bool:
 def _host_did_not_answer(failure: BaseException | None) -> bool:
     """Say whether the `OSError` under a `NoInternetError` is a host that did not take up the connection.
 
-    A timeout, a refusal, a reset or abort, or no route to the host. Not a name that did not resolve
+    A timeout, a refusal, a reset or abort, or no route to the host or its network. Not a name that did not resolve
     (`socket.gaierror`): that is also what a decommissioned or misspelt host looks like, which this
     suite has to be able to fail on.
 

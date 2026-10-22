@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `eaufrance/hubeau` descriptions of `stage` and `discharge` no longer say the source states no
+  statistic and, for the height, no reference level. The swagger dates a value by the instant it
+  occurred, with no interval, and the height is relative to the zero of the station's gauge, so
+  stations share no level; the station's `gauge_zero` (metres, in `gauge_zero_datum`, not given for
+  every station) is that zero. No value or name changed (Part of GH-3264)
+- `wsv/pegel` docs no longer constrain `stage` to `>=0`: a stage is read against the gauge's own
+  datum, and on 2026-10-22 nine gauges stood below it (Schillig -250 cm, Rotterdam -35 cm). The
+  values were never clipped; only the constraints column of the five resolution pages said so.
+  The `ipma/observation` page no longer calls `radiacao` global radiation: the source says only
+  "radiação solar (kJ/m2)" (Part of GH-3242)
+
 ### Security
 
 - The Docker image, and an environment synced from `uv.lock`, now hold opentelemetry-api 1.45.1,
