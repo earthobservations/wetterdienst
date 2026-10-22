@@ -125,24 +125,21 @@ RADAR_PARAMETERS_SWEEPS = [
     DwdRadarParameter.SWEEP_VOL_RHOHV,
     DwdRadarParameter.SWEEP_VOL_PHIDP,
 ]
-# the products of GH-3283 that DWD publishes more than 5 minutes after their run in more than one run of a hundred (the
-# 576 runs of the two days of 2026-10-20 to 22: VII all, KONRAD3D 161, the mesocyclones 56, DMAX 55, RS 7; the longest
-# delay 523 s), whose most recent file is the slot 10 minutes before now, where that of the others (HX never, HymecNG
-# twice) is the one 5 minutes before. The older products keep the 5 minutes: the site products PE, PZ, PR and LMAX are
-# as late as RS (19 runs of 576, GH-3288)
+# the products that DWD publishes more than 5 minutes after their run in more than one run of a hundred, whose most
+# recent file is the slot 10 minutes before now, where that of the others (HX never, HymecNG twice) is the one 5 minutes
+# before. The 576 runs of the two days of 2026-10-20 to 22 (the longest delay 523 s): VII all, KONRAD3D 161, the
+# mesocyclones 56, DMAX 55, RS 7 (GH-3283); the site products PE, PZ, PR and LMAX at BOO, 18 of 577 runs each, the
+# longest 484 s (GH-3288)
 RADAR_PARAMETERS_SLOW = [
     DwdRadarParameter.RS_PRECIPITATION_SUM,
     DwdRadarParameter.DMAX_REFLECTIVITY,
     DwdRadarParameter.VII_INTEGRATED_ICE,
     DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS,
     DwdRadarParameter.MESOCYCLONE_DETECTION,
-]
-# the sweeps whose folder holds one `-LATEST-` file, which `start=DwdRadarDate.LATEST` reads: the precipitation scan
-# has one elevation. The volume scan has one for each of its ten, and the folders of a filter none
-RADAR_PARAMETERS_SWEEPS_LATEST = [
-    DwdRadarParameter.SWEEP_PCP_ZDR,
-    DwdRadarParameter.SWEEP_PCP_RHOHV,
-    DwdRadarParameter.SWEEP_PCP_PHIDP,
+    DwdRadarParameter.LMAX_VOLUME_SCAN,
+    DwdRadarParameter.PE_ECHO_TOP,
+    DwdRadarParameter.PR_VELOCITY,
+    DwdRadarParameter.PZ_CAPPI,
 ]
 # the sweeps of the volume scan, which has ten elevations: the ones `elevation` selects among
 RADAR_PARAMETERS_SWEEPS_VOLUME = [
@@ -178,7 +175,8 @@ class DwdRadarDataSubset(Enum):
 
     SIMPLE = "simple"
     POLARIMETRIC = "polarimetric"
-    # the polarimetric moments ZDR, RHOHV and PHIDP are published as measured, in the folder `unfiltered`
+    # the folder `unfiltered`: the polarimetric moments ZDR, RHOHV and PHIDP as measured, and the total reflectivity
+    # TH and TV of SWEEP_PCP_REFLECTIVITY_H and SWEEP_VOL_REFLECTIVITY_H
     UNFILTERED = "unfiltered"
 
 
@@ -221,16 +219,25 @@ RADAR_DATA_FORMATS: dict[DwdRadarParameter, tuple[DwdRadarDataFormat, ...]] = {
     DwdRadarParameter.SWEEP_VOL_PHIDP: (DwdRadarDataFormat.HDF5,),
 }
 
-# The folders of a sweep product a request can choose between, as far as they are offered: the velocity and the
-# reflectivity hold a folder for each filter, the polarimetric moments only the unfiltered one (their quantities are
-# the ODIM ones of the unfiltered moments, UZDR, URHOHV and UPHIDP). The reflectivity has a third folder, `unfiltered`,
-# with the total reflectivity TH and TV, which is not offered (GH-3288). A product with one folder need not be asked
-# for it; one with two is asked, as it always was.
+# The folders of a sweep product a request can choose between: the velocity holds a folder for each filter, the
+# reflectivity those two and `unfiltered`, which holds the total (uncorrected) reflectivity factor TH and TV, the
+# horizontally and the vertically polarized one, as two files for each sweep; the polarimetric moments have only the
+# unfiltered folder (their quantities are the ODIM ones of the unfiltered moments, UZDR, URHOHV and UPHIDP). A product
+# with one folder need not be asked for it; one with several is asked, as it always was. The two quantities of the
+# unfiltered reflectivity cannot be told apart by the request: it answers both (GH-3288).
 RADAR_DATA_SUBSETS: dict[DwdRadarParameter, tuple[DwdRadarDataSubset, ...]] = {
     DwdRadarParameter.SWEEP_PCP_VELOCITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
-    DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
+    DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H: (
+        DwdRadarDataSubset.SIMPLE,
+        DwdRadarDataSubset.POLARIMETRIC,
+        DwdRadarDataSubset.UNFILTERED,
+    ),
     DwdRadarParameter.SWEEP_VOL_VELOCITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
-    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
+    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H: (
+        DwdRadarDataSubset.SIMPLE,
+        DwdRadarDataSubset.POLARIMETRIC,
+        DwdRadarDataSubset.UNFILTERED,
+    ),
     DwdRadarParameter.SWEEP_PCP_ZDR: (DwdRadarDataSubset.UNFILTERED,),
     DwdRadarParameter.SWEEP_PCP_RHOHV: (DwdRadarDataSubset.UNFILTERED,),
     DwdRadarParameter.SWEEP_PCP_PHIDP: (DwdRadarDataSubset.UNFILTERED,),

@@ -30,7 +30,7 @@ Which formats the products are served in, as read from the
 | `RV_REFLECTIVITY`, `WN_REFLECTIVITY`, `RS_PRECIPITATION_SUM` (composite) | one `.tar` a run, `composite_rv_20261022_1130.tar`, holding an ODIM HDF5 file for the analysis and for every forecast lead time (`..._1130_000-hd5` to `..._1130_120-hd5`, every 5 minutes) |
 | `HX_REFLECTIVITY`, `DMAX_REFLECTIVITY`, `VII_INTEGRATED_ICE`, `HYMECNG_PRECIPITATION_TYPE` (composite) | one ODIM HDF5 file a run, `composite_hx_20261022_1130-hd5` (`composite_HymecNG_20261022_1130_000-hd5`: the lead time 0 is in its name) |
 | `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY`, `PX250_REFLECTIVITY`, `PZ_CAPPI` (site) | ODIM HDF5 files, `rab02-pe_10132-20261022113000-deboo-hd5` |
-| `SWEEP_PCP_VELOCITY_H`, `SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_VELOCITY_H`, `SWEEP_VOL_REFLECTIVITY_H` (site) | ODIM HDF5 files, in the folder of the filter (`subset`: `SIMPLE` or `POLARIMETRIC`) |
+| `SWEEP_PCP_VELOCITY_H`, `SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_VELOCITY_H`, `SWEEP_VOL_REFLECTIVITY_H` (site) | ODIM HDF5 files, in the folder of the filter (`subset`: `SIMPLE` or `POLARIMETRIC`); the reflectivity has a third folder, `unfiltered` (`subset=DwdRadarDataSubset.UNFILTERED`), with two files for each sweep, `..._th_00-2026102213105700-boo-10132-hd5` and `..._tv_00-...`: the total (uncorrected) reflectivity factor ODIM `TH` and `TV`, the horizontally and the vertically polarized one. A request answers both (there is no choosing one): tell them apart by `result.url` or the `quantity` of the file |
 | `SWEEP_PCP_ZDR`, `SWEEP_PCP_RHOHV`, `SWEEP_PCP_PHIDP`, `SWEEP_VOL_ZDR`, `SWEEP_VOL_RHOHV`, `SWEEP_VOL_PHIDP` (site) | ODIM HDF5 files, `ras07-vol5minng01_sweeph5onem_uzdr_00-2026102213105700-boo-10132-hd5`, in the folder `unfiltered`, the only one they have (`subset` need not be named) |
 | `DX_REFLECTIVITY` (site) | binary files, `raa00-dx_10132-2610221130-boo---bin` |
 | `RW_REFLECTIVITY`, `RY_REFLECTIVITY`, `SF_REFLECTIVITY`, `YW_REFLECTIVITY` (radolan) | HDF5 files named `raa01-rw_10000-2610221130-dwd---bin.hdf5` (the name says bin, the file is HDF5); `fmt` need not be named |
@@ -43,14 +43,15 @@ has. DWD no longer publishes any radar product as BUFR (`fmt="bufr"` is refused,
 RADVOR products RE and RQ hold no file, nor does the site product PX but for stale files of one site (they are no `DwdRadarParameter` any more, and a request for one says so). `start=DwdRadarDate.LATEST` reads
 the file named latest: `composite_rv_LATEST.tar` (`composite_wn__LATEST.tar` with two underscores) of a composite
 that is a `.tar`, whose first file, the analysis, it answers, `composite_hx_LATEST-hd5`, `composite_VII_latest-hd5`,
-`composite_HymecNG_LATEST_000-hd5`, `raa01-yw_10000-latest-dwd---bin.hdf5` and `meso_latest.xml`. The precipitation sweeps
-of the polarimetric moments have one (`..._uzdr_00-LATEST-boo-10132-hd5`); the other sweeps have none to ask for (the
-folders `unfiltered` of the volume scan hold one for each of the ten elevations, the folders of a filter none) and
-KONRAD3D has none.
+`composite_HymecNG_LATEST_000-hd5`, `raa01-yw_10000-latest-dwd---bin.hdf5` and `meso_latest.xml`. The folders `unfiltered` hold
+one for each sweep (`..._uzdr_00-LATEST-boo-10132-hd5`), which LATEST reads for the precipitation scan, whose one sweep it is
+(two files, TH and TV, for the reflectivity). It does not for the volume scan: DWD replaces its ten files one by one as
+the scan is published, so for minutes they are of two volumes (on 2026-10-22 at 15:53 UTC the sweeps 0 to 4 were
+listed 15:51 to 15:53 and 5 to 9 at 15:48 to 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45): ask for a time or `MOST_RECENT` instead. The folders of a filter hold none and KONRAD3D has none.
 `start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product (not RADOLAN's, unless `fmt` is named) is the 5 minute slot
 before now; for RS, DMAX, VII, KONRAD3D and the mesocyclones, which DWD publishes more than 5 minutes after the run in
-more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now. The site products PE, PZ, PR and LMAX
-are as late as RS in about 3 % of the runs, and the 5 minute slot is empty then.
+more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now, and so for the site products PE, PZ, PR
+and LMAX, which are as late as RS in 18 of 577 runs (up to 8 minutes, read 2026-10-22).
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 

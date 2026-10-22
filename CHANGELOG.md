@@ -26,6 +26,12 @@ Types of changes:
   `subset` need not name); and the XML of `KONRAD3D_CONVECTIVE_CELLS` and
   `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
   radar docs page says what each is (GH-3283)
+- `dwd/radar` reads the folder `unfiltered` of the reflectivity sweeps, which holds the total
+  reflectivity `TH` and `TV` (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H`
+  and `SWEEP_VOL_REFLECTIVITY_H`): both files of each sweep are answered, told apart by
+  `result.url`. `start=DwdRadarDate.LATEST` of the precipitation sweep is its `-LATEST-` files, TH
+  and TV. That of the volume sweeps stays refused, as DWD replaces the ten files one by one and
+  they come from two volumes for minutes; ask for a time (GH-3288)
 
 ### Removed
 
@@ -36,6 +42,13 @@ Types of changes:
   `Settings(read_bufr=...)` a `ValueError`, each with the reason; read the ODIM HDF5 `result.data`.
   The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
   installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
+
+### Fixed
+
+- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY` and
+  `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
+  5 minutes after the run in 18 of 577 runs (up to 8 minutes), where about 3 % of the requests
+  found no file (GH-3288)
 
 ## [0.167.0] - 2026-10-22
 
