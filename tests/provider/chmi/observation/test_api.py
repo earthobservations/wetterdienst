@@ -363,6 +363,44 @@ def test_chmi_observation_period_extremes_are_named_for_the_function_they_are_re
     assert daily[element] == f"temperature_air_{extreme}_2m"
 
 
+def test_chmi_daily_mean_temperature_weighs_the_20_00_observation_twice() -> None:
+    """The daily mean temperature is (T06 + T13 + 2 T20) / 4, not the average of the three observations (GH-3136).
+
+    The first two days of the daily file of Cheb (1863-10-01 and 1863-10-02) as CHMI writes them: the weighted mean
+    gives its "AVG" (10.05 is 10.1, 9.75 is 9.8), the plain average (10.23 and 9.73) does not. It held for all 75,261
+    days of five stations on 2026-10-21, while for the humidity, pressure and wind speed the plain average does. The
+    description says which it is.
+    """
+    content = (
+        b"STATION,ELEMENT,TIMEFUNC,DT,VALUE,FLAG,QUALITY,\n"
+        b"0-20000-0-11406,T,06:00,1863-10-01T06:00Z,7.4,,0.0,\n"
+        b"0-20000-0-11406,T,13:00,1863-10-01T13:00Z,13.8,,0.0,\n"
+        b"0-20000-0-11406,T,20:00,1863-10-01T20:00Z,9.5,,0.0,\n"
+        b"0-20000-0-11406,T,AVG,1863-10-01T00:00Z,10.1,,0.0,\n"
+        b"0-20000-0-11406,T,06:00,1863-10-02T06:00Z,7.0,,0.0,\n"
+        b"0-20000-0-11406,T,13:00,1863-10-02T13:00Z,12.4,,0.0,\n"
+        b"0-20000-0-11406,T,20:00,1863-10-02T20:00Z,9.8,,0.0,\n"
+        b"0-20000-0-11406,T,AVG,1863-10-02T00:00Z,9.8,,0.0,\n"
+    )
+    terms = {
+        timefunc: _read(parse_chmi_values_daily(content, element="T", timefunc=timefunc)).get_column("value").to_list()
+        for timefunc in ("06:00", "13:00", "20:00", "AVG")
+    }
+    for day, mean in enumerate(terms["AVG"]):
+        t06, t13, t20 = terms["06:00"][day], terms["13:00"][day], terms["20:00"][day]
+        assert round((t06 + t13 + 2 * t20) / 4 + 1e-9, 1) == mean
+        assert round((t06 + t13 + t20) / 3, 1) != mean
+    descriptions = {p.name_original: p.description for p in ChmiObservationMetadata["daily"]["data"]}
+    assert "(T06 + T13 + 2 T20) / 4" in descriptions["T"]
+    assert "not their plain average" in descriptions["T"]
+    for element in ("H", "P", "F"):
+        assert "plain average" in descriptions[element]
+        assert "2 T20" not in descriptions[element]
+    for resolution in ("monthly", "annual"):
+        by_element = {p.name_original: p.description for p in ChmiObservationMetadata[resolution]["data"]}
+        assert "(T06 + T13 + 2 T20) / 4" in by_element["T"]
+
+
 def test_parse_chmi_values_returns_the_quality_code_as_the_whole_number_meta4_lists() -> None:
     """The QUALITY code of a daily or sub-daily row is returned as "0" to "5", the keys of metadata/meta4.csv (GH-2018).
 

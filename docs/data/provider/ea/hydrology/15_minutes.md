@@ -23,8 +23,8 @@
 
 #### parameters
 
-| name                      | original name        | description                                                                                           | unit | constraints |
-|---------------------------|----------------------|-------------------------------------------------------------------------------------------------------|------|-------------|
-| {term}`discharge`         | flow-i-900           | instant flow at timestamp                                                                             | m³/s | >=0         |
-| {term}`stage`             | level-i-900          | instant river water level at timestamp                                                                | m    | -           |
-| {term}`groundwater_level` | gw-logged-i-subdaily | logged groundwater level at timestamp, in metres above ordnance datum, every 15 minutes to every hour | m    | -           |
+| name                      | original name        | description                                                                                                                     | unit | constraints |
+|---------------------------|----------------------|---------------------------------------------------------------------------------------------------------------------------------|------|-------------|
+| {term}`discharge`         | flow-i-900           | instant flow at timestamp                                                                                                       | m³/s | >=0         |
+| {term}`stage`             | level-i-900          | instant river water level at timestamp, in the source's unit m, relative to an unspecified datum (the unit is not mAOD or mASD) | m    | -           |
+| {term}`groundwater_level` | gw-logged-i-subdaily | logged groundwater level at timestamp, in metres above ordnance datum, every 15 minutes to every hour                           | m    | -           |

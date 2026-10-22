@@ -191,12 +191,12 @@ def test_the_datasets_and_networks_that_are_named_exist() -> None:
 
 
 def test_the_dwd_listings_are_read_by_a_pattern_that_takes_short_ids(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Read the stations of a DWD directory whatever the digits of the id, which the file index of the provider cannot.
+    """Read the stations of a DWD directory whatever the digits of the id, which the zip pattern of the provider cannot.
 
-    The soil files of the stations 44, 73, 78, 91 and 96 carry no padding, and `SOIL_ID_REGEX` of the provider needs
-    three digits, so those stations are dropped on both sides of a join and no rule fires (GH-3257). The soil names are
-    those of `soil/daily/historical/` as listed on 2026-10-21. The names of the zip files are made up, but for the
-    third: no zip of DWD has an unpadded id today, so a short one is a precaution, and the name with a leading
+    The soil files of the stations 44, 73, 78, 91 and 96 carry no padding, and `SOIL_ID_REGEX` of the provider once
+    needed three digits, so those stations were dropped on both sides of a join and no rule fired (GH-3257). The soil
+    names are those of `soil/daily/historical/` as listed on 2026-10-21. The names of the zip files are made up, but
+    for the third: no zip of DWD has an unpadded id today, so a short one is a precaution, and the name with a leading
     underscore stands for the temporary files DWD once published under `10_minutes/extreme_wind/now`.
     """
     names = {

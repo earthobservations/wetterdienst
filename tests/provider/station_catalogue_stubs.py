@@ -841,6 +841,27 @@ def _dwd_derived(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     return _stations(DwdDerivedRequest, ("hourly", "radiation_global"))
 
 
+def _dwd_derived_soil(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
+    # `stations_list_soil.txt` (2026-10-21): the first two rows and two more, with the blanks the name and the
+    # Bundesland are padded with (to 80 and 74 characters) cut off, latin-1, CRLF
+    catalogue = (
+        "Stationsindex; Höhe in m;Breite   ;Länge    ;Name;Bundesland\r\n"
+        "           44;        44;    52.93;     8.24;Großenkneten;Niedersachsen\r\n"
+        "           73;       374;    48.62;    13.06;Aldersbach-Kramersepp;Bayern\r\n"
+        "         1001;        97;    51.65;    13.57;Doberlug-Kirchhain;Brandenburg\r\n"
+        "         1048;       228;    51.13;    13.75;Dresden-Klotzsche;Sachsen\r\n"
+    )
+    _serve(monkeypatch, derived_metaindex, {"stations_list_soil": catalogue.encode("latin-1")})
+    # a file for each station, named `derived_germany_soil_<resolution>_<period>_v2_<index>.txt.gz` as listed, the
+    # index without the padding of the list (the files of 44 and 73, which the reader once did not see, GH-3257), and
+    # what else the directory holds
+    base = "https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/daily/recent/"
+    files = [f"{base}derived_germany_soil_daily_recent_v2_{index}.txt.gz" for index in ("44", "73", "1001", "1048")]
+    files += [f"{base}AMBETI.pdf", f"{base}derived_germany_soil_daily_recent_stations_list.txt"]
+    monkeypatch.setattr(dwd_fileindex, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
+    return _stations(DwdDerivedRequest, ("daily", "soil"))
+
+
 def _dwd_phenology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # `PH_Beschreibung_Phaenologie_Stationen_Jahresmelder.txt` and `..._Sofortmelder.txt` (2026-10-15), the values of
     # five rows as published, laid out again with narrower padding (the lines are padded to 800 characters):
@@ -1566,6 +1587,7 @@ STUBS = [
     Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),
     Stub("dwd/observation daily/climate_summary", _dwd_observation, expected=OBSERVATION_EXPECTED),
     Stub("dwd/derived hourly/radiation_global", _dwd_derived),
+    Stub("dwd/derived daily/soil", _dwd_derived_soil),
     Stub("dwd/phenology annual/annual_apple", _dwd_phenology),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),
