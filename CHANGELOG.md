@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- The Docker image, and an environment synced from `uv.lock`, now hold opentelemetry-api 1.45.1,
+  which bounds the parsing of the `tracestate` header (GHSA-xcq7-p3pf-p88h). It reaches
+  wetterdienst through FastAPI and the MCP server (`restapi` and `mcp` extras). An installation
+  from PyPI resolves its own version: upgrade it there (GH-3280)
+
 ## [0.168.0] - 2026-10-22
 
 ### Added

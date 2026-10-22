@@ -165,7 +165,9 @@ function catchDownload() {
   const saved: Blob[] = []
   vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
     saved.push(blob as Blob)
-    return 'blob:download'
+    // happy-dom follows the clicked link, so this becomes `window.location`; Nuxt 4.6's prefetch
+    // scheduler resolves the route against it, which a `blob:` URL cannot be a base for
+    return 'http://localhost:3000/download'
   })
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
   return saved
