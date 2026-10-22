@@ -16,12 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the air temperature of `wsv/pegel` (`LT`, `LUFTTEMPERATUR`) is `temperature_air`,
+  no longer `temperature_air_2m`: PEGELONLINE states no height for it. The old name, and
+  `temperature_air_mean_2m` of 0.139.0, are refused with the new one named; values and units are
+  unchanged. Request, filter and key by the new name (GH-3242)
+
+### Removed
+
+- **Breaking**: `wsv/pegel` no longer has `chloride_concentration` (`CL`), `precipitation_amount`
+  (`NIEDERSCHLAG`) and `precipitation_intensity` (`NIEDERSCHLAGSINTENSITÄT`):
+  `stations.json?timeseries=` answers 0 stations for each shortname (786 stations read on
+  2026-10-21), so no request could return a value. A request for them is an unknown parameter.
+  `chloride_concentration` is no parameter of any provider now, so `chlorid_concentration`, its old
+  misspelling, is unknown too; the other providers keep `precipitation_amount` and
+  `precipitation_intensity` (GH-3242)
+
 ### Fixed
 
 - The `wsv/pegel` descriptions called every series "a reading"; PEGELONLINE states "ungeprüfte
   Rohdaten", one value per recording interval of the series, and no statistic, so they now say that
-  and name the units the series are published in (e.g. `m+NN` stage, `MGN` flow direction), and
-  that no station served `CL`, `NIEDERSCHLAG` and `NIEDERSCHLAGSINTENSITÄT` on 2026-10-21 (GH-3136)
+  and name the units the series are published in (e.g. `m+NN` stage, `MGN` flow direction)
+  (GH-3136)
 - The `ipma/observation` wind, precipitation and radiation descriptions were the canonical
   sentences: they now give the source's 10 m (wind) and 1.5 m (precipitation, accumulated over the
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind

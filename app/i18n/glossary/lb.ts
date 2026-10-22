@@ -402,7 +402,6 @@ export const parameters: Record<string, string> = {
   weather_type_vicinity_rain_snow_shower: 'Wiederaart, Reen- oder Schnéischauer an der Ëmgéigend',
   weather_type_vicinity_snow_ice_crystals: 'Wiederaart, Schnéi oder Äisnolen an der Ëmgéigend',
   weather_type_vicinity_thunder: 'Wiederaart, Donnerwieder an der Ëmgéigend',
-  chloride_concentration: 'Chloridkonzentratioun',
   clearance_height: 'Duerchfaartshéicht',
   climate_correction_factor: 'Klimakorrekturfaktor',
   cloud_cover_above_7km: 'Bewölkungsgrad iwwer 7 km',

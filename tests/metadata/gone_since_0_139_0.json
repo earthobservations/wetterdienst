@@ -313,11 +313,16 @@
   },
   "GeosphereObservationMetadata": {
    "10_minutes/data": [
+    "radiation_global_intensity",
+    "radiation_sky_short_wave_diffuse_intensity",
+    "snow_depth",
     "temperature_air_mean_0_05m",
     "temperature_air_mean_2m",
     "temperature_soil_mean_0_1m",
     "temperature_soil_mean_0_2m",
-    "temperature_soil_mean_0_5m"
+    "temperature_soil_mean_0_5m",
+    "wind_direction",
+    "wind_speed"
    ],
    "daily/data": [
     "cloud_cover_total",
@@ -329,16 +334,20 @@
     "wind_speed"
    ],
    "hourly/data": [
+    "radiation_global_intensity",
     "temperature_air_mean_2m",
     "temperature_soil_mean_0_1m",
     "temperature_soil_mean_0_2m",
     "temperature_soil_mean_0_5m",
     "temperature_soil_mean_1m",
-    "temperature_soil_mean_2m"
+    "temperature_soil_mean_2m",
+    "wind_direction",
+    "wind_speed"
    ],
    "monthly/data": [
     "cloud_cover_total",
     "humidity_relative",
+    "pressure_air_site",
     "pressure_vapor",
     "wind_speed"
    ]
@@ -564,7 +573,9 @@
    "hourly/data": [
     "precipitation_amount",
     "pressure_air_site",
+    "temperature_air_max_2m_last_24h",
     "temperature_air_mean_2m",
+    "temperature_air_min_2m_last_24h",
     "temperature_dew_point_mean_2m",
     "wind_direction",
     "wind_gust_max",
@@ -604,18 +615,33 @@
   },
   "WsvPegelMetadata": {
    "10_minutes/data": [
+    "chloride_concentration",
+    "precipitation_amount",
+    "precipitation_intensity",
     "temperature_air_mean_2m"
    ],
    "15_minutes/data": [
+    "chloride_concentration",
+    "precipitation_amount",
+    "precipitation_intensity",
     "temperature_air_mean_2m"
    ],
    "1_minute/data": [
+    "chloride_concentration",
+    "precipitation_amount",
+    "precipitation_intensity",
     "temperature_air_mean_2m"
    ],
    "5_minutes/data": [
+    "chloride_concentration",
+    "precipitation_amount",
+    "precipitation_intensity",
     "temperature_air_mean_2m"
    ],
    "hourly/data": [
+    "chloride_concentration",
+    "precipitation_amount",
+    "precipitation_intensity",
     "temperature_air_mean_2m"
    ]
   }

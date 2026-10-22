@@ -133,6 +133,19 @@ def test_every_unit_type_has_a_range_or_says_it_has_none() -> None:
     assert set(UNIT_TYPE_RANGES) == set(get_args(UnitType))
 
 
+def test_a_dissolved_oxygen_reading_passes_and_a_sentinel_does_not() -> None:
+    """`concentration` is held to what dissolved oxygen can be, and the parameter has no range of its own (GH-3246)."""
+    assert [name for name, parameter in PARAMETERS.items() if parameter.unit_type == "concentration"] == [
+        "oxygen_level"
+    ]
+    assert "oxygen_level" not in PARAMETER_RANGES
+    assert bounds_for("oxygen_level") == UNIT_TYPE_RANGES["concentration"]
+    # saturation at 0 °C, a summer reading and the supersaturation of an algal bloom
+    assert out_of_range(_frame("oxygen_level", 0.0, 8.7, 14.6, 21.0)).is_empty()
+    sentinels = [-9999.0, -999.0, -99.0, -1.0, 99.9, 999.0, 9999.0]
+    assert out_of_range(_frame("oxygen_level", *sentinels)).get_column("value").to_list() == sentinels
+
+
 def test_every_canonical_parameter_resolves_to_a_range_or_none() -> None:
     """A parameter is never left unlooked at by a name that falls between the tables."""
     for name in PARAMETERS:

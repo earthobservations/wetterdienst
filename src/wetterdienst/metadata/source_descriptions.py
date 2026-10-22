@@ -64,7 +64,7 @@ checked against the source; the sub-daily temperature rows listed in GH-2660 wer
 Geosphere, IPMA, NWS, DWD road and WSV ``LT`` rows named above (GH-3136, the first provider group), and
 then the rest of the Geosphere rows, the IMGW rows and the Météo-France observation and synop rows (GH-3136,
 the second group: the ones translated, or derived from the canonical name, against the source's text), and
-the four IPMA rows that read the canonical sentence and the 21 WSV parameters (GH-3136, the third group).
+the four IPMA rows that read the canonical sentence and the WSV parameters (GH-3136, the third group).
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -104,13 +104,11 @@ _DMI_MEAN_WIND_DIRECTION = (
 # and units are those of the stations list of 2026-10-21 (786 stations): a series is named ``X ROHDATEN`` or
 # ``X_ROHDATEN`` in most series (not for every shortname: 9 of the 18 served ones have none), and some are named
 # ``X``, which the source does not label raw but whose values are the ``measurements.json`` the sentence above
-# covers (no station has both for one shortname). CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT are on
+# covers (no station has both for one shortname). The shortnames CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT are on
 # no station of that list (``stations.json?timeseries=<shortname>`` answers 0 stations for each, as for ``N`` and
-# ``NI``), so they have no longname to quote.
+# ``NI``), so the three parameters that declared them are gone (GH-3242).
 _WSV_PEGEL_RAW = "unchecked raw data (the source's ungeprüfte Rohdaten), one value per recording interval of the series"
-_WSV_PEGEL_NO_SERIES = "No station on the source's stations list of 2026-10-21 has a series of this shortname."
 _WSV_PEGEL_PARAMETERS = {
-    "CL": f"Chloride concentration. {_WSV_PEGEL_NO_SERIES}",
     "DFH": f"Clearance height (DURCHFAHRTSHÖHE), in cm: {_WSV_PEGEL_RAW}.",
     "GRU": f"Groundwater level (GRUNDWASSER ROHDATEN), in m above NHN (the series' unit m+NHN): {_WSV_PEGEL_RAW}.",
     "HL": f"Relative humidity of the air (LUFTFEUCHTE), in %: {_WSV_PEGEL_RAW}.",
@@ -123,8 +121,6 @@ _WSV_PEGEL_PARAMETERS = {
         f"height: {_WSV_PEGEL_RAW}."
     ),
     "MAXH": f"Maximum wave height (MAXIMALEWELLENHÖHE), in cm (the reader also accepts m): {_WSV_PEGEL_RAW}.",
-    "NIEDERSCHLAG": f"Precipitation height. {_WSV_PEGEL_NO_SERIES}",
-    "NIEDERSCHLAGSINTENSITÄT": f"Precipitation intensity. {_WSV_PEGEL_NO_SERIES}",
     "O2": (
         f"Oxygen level (SAUERSTOFFGEHALT, or SAUERSTOFFGEHALT ROHDATEN at some stations), in mg/l: {_WSV_PEGEL_RAW}."
     ),
