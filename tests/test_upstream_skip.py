@@ -294,6 +294,16 @@ def _semaphore_timeout() -> OSError:
     return error
 
 
+def _network_name_deleted() -> OSError:
+    """Build `[WinError 64]`: a `ConnectionResetError` whose `errno` is not `errno.ECONNRESET`.
+
+    The class says what the number does not; `EINVAL` is, as far as is known, the number asyncio's error carries.
+    """
+    error = ConnectionResetError(errno.EINVAL, "The specified network name is no longer available")
+    error.winerror = 64  # ty: ignore[unresolved-attribute]
+    return error
+
+
 _UNANSWERED = [
     pytest.param(TimeoutError(), id="timeout"),
     pytest.param(ConnectionRefusedError(errno.ECONNREFUSED, "refused"), id="refused"),
@@ -301,6 +311,9 @@ _UNANSWERED = [
     pytest.param(OSError(errno.EHOSTUNREACH, "no route to host"), id="no route"),
     # how a Windows runner reports a connect that timed out, as the log of the failing eccc tests shows
     pytest.param(_semaphore_timeout(), id="windows semaphore timeout"),
+    # hubeau.eaufrance.fr on windows-latest in the Tests runs of main 39625581086 and 39643833924
+    pytest.param(_network_name_deleted(), id="windows network name no longer available"),
+    pytest.param(ConnectionAbortedError(errno.EINVAL, "aborted"), id="aborted"),
 ]
 
 

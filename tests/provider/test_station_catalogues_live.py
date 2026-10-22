@@ -14,13 +14,18 @@ the networks whose catalogue differs from one to the next. The one-time run of G
 station list for each of the resolutions it could be, which takes about 7 minutes, in every leg of the matrix; the
 one-time run found it sound. The providers that need a credential (`aemet`, `knmi`, `metno`, `metoffice`) are held
 when the credential is set.
+
+The coverage rules (GH-3248), that a listed station has data and that every data file has a station, are held below for
+the networks of `station_data_index.INDEXES` whose index is a directory listing or one file the catalogue pass reads
+anyway, a dataset at a time.
+The networks that are held in their stub only, and those that cannot be held, are named there with the reason.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_sound
+from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_covered, assert_sound
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
@@ -30,6 +35,13 @@ from tests.provider.station_catalogue_stubs import (
     GHCN_NO_POSITION,
     WSV_NO_POSITION,
     WSV_TIEL,
+)
+from tests.provider.station_data_index import (
+    ACCEPTED_LIVE,
+    INDEXES,
+    NOT_HELD_DATASETS,
+    NOT_LIVE,
+    dataset_of,
 )
 from wetterdienst import Wetterdienst
 from wetterdienst.ui.core import resolve_network
@@ -131,5 +143,38 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
         f"{key} {resolution}/{dataset}",
         bbox=COUNTRY_BBOX.get(key),
         accepted=ACCEPTED.get(key, ()),
+        fail_on_stale=False,
+    )
+
+
+def _coverage_cases() -> list[object]:
+    cases = []
+    for key in INDEXES:
+        if key in NOT_LIVE:
+            continue
+        provider, network = key.split("/")
+        for resolution in resolve_network(provider, network).metadata:
+            for dataset in resolution.datasets:
+                if f"{key} {resolution.name}/{dataset.name}" in NOT_HELD_DATASETS:
+                    continue
+                cases.append(
+                    pytest.param(key, resolution.name, dataset.name, id=f"{key} {resolution.name}/{dataset.name}")
+                )
+    return cases
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(("key", "resolution", "dataset"), _coverage_cases())
+def test_a_live_catalogue_has_its_data(key: str, resolution: str, dataset: str) -> None:
+    """Hold the live station list to the data files beside it, naming the provider, station and rule that fails."""
+    provider, network = key.split("/")
+    request = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)])
+    index = INDEXES[key]
+    assert_covered(
+        request.all().df,
+        index.ids(request.settings, dataset_of(key, resolution, dataset)),
+        f"{key} {resolution}/{dataset}",
+        accepted=ACCEPTED_LIVE.get(key, ()),
+        rules=index.rules,
         fail_on_stale=False,
     )

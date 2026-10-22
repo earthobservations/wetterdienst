@@ -100,14 +100,19 @@ def _runner_has_network() -> bool:
 def _host_did_not_answer(failure: BaseException | None) -> bool:
     """Say whether the `OSError` under a `NoInternetError` is a host that did not take up the connection.
 
-    A timeout, a refusal, a reset or no route to the host. Not a name that did not resolve
+    A timeout, a refusal, a reset or abort, or no route to the host. Not a name that did not resolve
     (`socket.gaierror`): that is also what a decommissioned or misspelt host looks like, which this
     suite has to be able to fail on.
+
+    A connection that was refused, reset or aborted is told by its class (`ConnectionError`) as well as by
+    `errno`: asyncio raises a Windows `[WinError 64] The specified network name is no longer available` as a
+    `ConnectionResetError`, and its `errno` (probably `EINVAL`, which CPython has no better mapping of that
+    code for) is not `ECONNRESET`. That error failed three hubeau.eaufrance.fr tests as no outage (GH-2522).
     """
     if not isinstance(failure, OSError) or isinstance(failure, socket.gaierror):
         return False
     return (
-        isinstance(failure, TimeoutError)
+        isinstance(failure, (TimeoutError, ConnectionError))
         or failure.errno in _UNANSWERED_ERRNOS
         or getattr(failure, "winerror", None) == _WINDOWS_SEMAPHORE_TIMEOUT
     )
@@ -135,10 +140,10 @@ def skip_if_upstream_unavailable() -> Generator[None]:
       5xx -- which `download_file` asks twice, so a request made through it is skipped on only after
       its second attempt failed as well;
     - a 5xx that arrives as the status of an envelope rather than of the response (AEMET);
-    - a `NoInternetError` whose connection timed out, was refused or reset, or had no route (a
-      Windows runner's "semaphore timeout" included), *and* only while this machine can still
-      connect to other hosts (`_runner_has_network`), so a runner that has lost its network is red
-      and not a wall of skips (GH-2640).
+    - a `NoInternetError` whose connection timed out, was refused, reset or aborted, or had no route (a
+      Windows runner's "semaphore timeout" and "network name is no longer available" included), *and*
+      only while this machine can still connect to other hosts (`_runner_has_network`), so a runner
+      that has lost its network is red and not a wall of skips (GH-2640).
 
     It does not skip on anything else, and in particular not on:
 
@@ -172,7 +177,9 @@ def skip_if_upstream_problem(response: Any) -> None:  # noqa: ANN401
     `upstream-timeout` skips: the provider did not answer in time, which is what a timeout is for
     `skip_if_upstream_unavailable` too. Not skipped, each for a reason of its own:
 
-    - a 504 `request-timeout`: this server gave up, which a request too large for it also does;
+    - a 504 `request-timeout`: this server gave up, which a request too large for it also does, and so does an
+      image that a slow runner takes longer than 60 seconds to render (the image tests on the Intel macOS runners,
+      3 to 10 seconds on a laptop): nothing in it says the provider was slow;
     - a 503 `upstream-unreachable`: it does not say why the connection failed, and a name that does
       not resolve (see `skip_if_upstream_unavailable`) is one;
     - a 502 `upstream-failed`: the provider sent what the parser did not expect, which can be our
