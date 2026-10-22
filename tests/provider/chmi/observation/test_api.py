@@ -3,6 +3,7 @@
 """Tests for CHMI observation provider."""
 
 import datetime as dt
+from collections.abc import Callable
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
@@ -10,6 +11,7 @@ import polars as pl
 import pytest
 
 from tests.provider.value_stubs import stations_result
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.schema import LONG_SCHEMA, STATIONS_SCHEMA
 from wetterdienst.provider.chmi.observation import ChmiObservationRequest
@@ -32,14 +34,43 @@ def _read(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(pl.col("value").cast(pl.Float64, strict=False))
 
 
-def _stations_of(monkeypatch: pytest.MonkeyPatch, catalogue: bytes) -> pl.DataFrame:
-    """Give the stations the core hands out for a catalogue `meta1.csv` of this content."""
+def _list_files(directories: dict[str, list[str]]) -> Callable[..., list[str]]:
+    """Serve the listing of a directory of the portal by the tail of its url, a directory it does not know as empty."""
+
+    def list_files(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        for tail, names in directories.items():
+            if url.endswith(tail):
+                return [f"{url}{name}" for name in names]
+        return []
+
+    return list_files
+
+
+def _serve_catalogue(monkeypatch: pytest.MonkeyPatch, catalogue: bytes, directories: dict[str, list[str]]) -> None:
     monkeypatch.setattr(
         chmi_api,
         "download_file",
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue), status=200),
     )
-    return ChmiObservationRequest(parameters=[("daily", "data", "temperature_air_mean_2m")]).all().df
+    monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", _list_files(directories))
+
+
+def _stations_of(
+    monkeypatch: pytest.MonkeyPatch,
+    catalogue: bytes,
+    directories: dict[str, list[str]] | None = None,
+    parameters: list[tuple[str, ...]] | None = None,
+) -> pl.DataFrame:
+    """Give the stations the core hands out for a catalogue `meta1.csv` of this content and these directories.
+
+    The directories default to a daily temperature file of each station the catalogue lists.
+    """
+    if directories is None:
+        ids = pl.read_csv(BytesIO(catalogue), infer_schema_length=0)["WSI"].unique().to_list()
+        directories = {"/daily/temperature/": [f"dly-{station}-T.csv" for station in ids]}
+    _serve_catalogue(monkeypatch, catalogue, directories)
+    request = ChmiObservationRequest(parameters=parameters or [("daily", "data", "temperature_air_mean_2m")])
+    return request.all().df
 
 
 def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -87,6 +118,78 @@ def test_chmi_observation_stations_of_a_catalogue_without_a_row_are_the_empty_fr
     df = _stations_of(monkeypatch, b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n")
     assert df.is_empty()
     assert df.schema == STATIONS_SCHEMA
+
+
+_CATALOGUE = (
+    b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n"
+    b"0-A,GA,1961-01-01T00:00Z,3999-12-31T23:59Z,Open,12.3,50.0,458,\n"
+    b"0-B,GB,1925-01-01T00:00Z,1926-12-31T23:59Z,Closed,13.0,49.5,300,\n"
+    b"0-C,GC,1990-01-01T00:00Z,3999-12-31T23:59Z,Rain only,14.0,49.0,200,\n"
+    b"0-D,GD,2002-01-01T00:00Z,2003-12-31T23:59Z,Probe,15.0,49.2,250,\n"
+)
+
+
+def _ids(df: pl.DataFrame, resolution: str) -> list[str]:
+    return sorted(df.filter(pl.col("resolution").eq(resolution))["station_id"])
+
+
+def test_chmi_observation_stations_are_those_with_a_file_in_the_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The one list `meta1.csv` is narrowed to the stations a daily, monthly or annual file is listed for (GH-3259).
+
+    A station that has files of an element the provider does not read (`TPM`, `API30`) has none, and a file of a
+    station the list does not carry (`0-X`, as the monthly files of ids `meta1.csv` lacks) adds no station.
+    """
+    df = _stations_of(
+        monkeypatch,
+        _CATALOGUE,
+        {
+            "/daily/temperature/": ["dly-0-A-T.csv", "dly-0-A-TMA.csv", "dly-0-D-TPM.csv"],
+            "/daily/precipitation/": ["dly-0-A-SRA.csv", "dly-0-C-SRA.csv", "dly-0-C-API30.csv"],
+            "/monthly/temperature/": ["mly-0-A-T.csv", "mly-0-X-T.csv"],
+            "/yearly/precipitation/": ["yrs-0-C-SRA.csv"],
+        },
+        parameters=[("daily", "data"), ("monthly", "data"), ("annual", "data")],
+    )
+    assert _ids(df, "daily") == ["0-A", "0-C"]
+    assert _ids(df, "monthly") == ["0-A"]
+    assert _ids(df, "annual") == ["0-C"]
+    assert df.schema == STATIONS_SCHEMA
+    assert df.filter(pl.col("station_id").eq("0-C"))["name"].to_list() == ["Rain only"] * 2
+
+
+def test_chmi_observation_sub_daily_stations_are_the_whole_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The month files of the 10 minute and hourly resolutions are under a directory for each year: no narrowing."""
+    asked: list[str] = []
+
+    def list_files(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        asked.append(url)
+        return []
+
+    _serve_catalogue(monkeypatch, _CATALOGUE, {})
+    monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
+    df = ChmiObservationRequest(parameters=[("10_minutes", "data"), ("hourly", "data")]).all().df
+    assert _ids(df, "10_minutes") == ["0-A", "0-B", "0-C", "0-D"]
+    assert _ids(df, "hourly") == ["0-A", "0-B", "0-C", "0-D"]
+    assert asked == []
+
+
+def test_chmi_observation_stations_raise_when_a_directory_cannot_be_listed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A listing that fails is raised, not read as a resolution whose stations all have no file."""
+
+    def list_files(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        raise NoInternetError(url)
+
+    _serve_catalogue(monkeypatch, _CATALOGUE, {})
+    monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
+    with pytest.raises(NoInternetError, match="/daily/"):
+        ChmiObservationRequest(parameters=[("daily", "data")]).all()
+
+
+def test_chmi_observation_stations_raise_when_no_directory_lists_a_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Directories of a resolution that list no file of an element are a portal that changed, not no stations."""
+    _serve_catalogue(monkeypatch, _CATALOGUE, {"/monthly/temperature/": ["mly-0-A-TPM.csv", "readme.txt"]})
+    with pytest.raises(DownloadError, match="/monthly/"):
+        ChmiObservationRequest(parameters=[("monthly", "data")]).all()
 
 
 def test_parse_chmi_values_daily_selects_timefunc_and_truncates() -> None:

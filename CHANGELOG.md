@@ -31,6 +31,13 @@ Types of changes:
 
 ### Changed
 
+- `chmi/observation` lists, for `daily`, `monthly` and `annual`, only the stations that have a file
+  in the resolution: 25, 24 and 29 of the 1,562 stations of `meta1.csv` (closed ones such as
+  Sadská) answered every request with an empty frame (read 2026-10-22). `10_minutes` and `hourly`
+  still list all 1,562. A stations request for the three now lists the element directories (7, 2
+  and 2), and a failed listing raises `NoInternetError` or `DownloadError`. The monthly and annual
+  files of 29 and 22 ids that `meta1.csv` does not carry, with no position anywhere, stay unlisted
+  (Part of GH-3259)
 - `noaa/ghcn` `daily` no longer lists the 147 stations of `ghcnd-stations.txt` that have no line
   in `ghcnd-inventory.txt` (133,039 listed, read 2026-10-22): 83 Canadian `CAN030...`, 58 US
   `USC...`, 5 Swedish and 1 `GMM`. 146 have no data file (`access/<id>.csv` is a 404); `USC00144840`
