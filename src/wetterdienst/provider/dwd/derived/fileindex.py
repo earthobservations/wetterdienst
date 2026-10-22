@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 
 STATION_ID_REGEX = r"_(\d{3,5})_"
-SOIL_ID_REGEX = r"_(\d{3,5})."
+# the soil files do not pad the id: `derived_germany_soil_daily_recent_v2_44.txt.gz` (GH-3257)
+SOIL_ID_REGEX = r"_(\d{1,5})\.txt\.gz$"
 DATE_RANGE_REGEX = r"_(\d{8}_\d{8})_"
 
 
