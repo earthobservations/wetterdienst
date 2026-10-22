@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from fsspec.implementations.tar import TarFileSystem
 
-from wetterdienst.exceptions import MissingDependencyError
+from wetterdienst.exceptions import InvalidEnumerationError, MissingDependencyError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.extension import Extension
 from wetterdienst.metadata.period import Period
@@ -31,10 +31,13 @@ from wetterdienst.provider.dwd.radar.index import (
     create_fileindex_radolan_cdc,
 )
 from wetterdienst.provider.dwd.radar.metadata import (
+    RADAR_PARAMETERS_NOT_PUBLISHED,
+    RADAR_PARAMETERS_SWEEPS,
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarPeriod,
     DwdRadarResolution,
+    radar_data_format,
 )
 from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarDate,
@@ -64,10 +67,10 @@ log = logging.getLogger(__name__)
 DATETIME_FORMATS = ["%y%m%d%H%M", "%Y%m%d%H%M"]
 
 # The BUFR data descriptor that holds the pixel values for each site product, keyed by parameter.
-# Only the grid site products published as BUFR are covered; other formats/parameters have no entry.
+# Only the grid site products of the earlier layout, which DWD published as BUFR, are covered; no radar
+# product was published as BUFR when the listings were read on 2026-10-22.
 _BUFR_VALUE_FIELD = {
     DwdRadarParameter.PE_ECHO_TOP: "echoTops",
-    DwdRadarParameter.PG_REFLECTIVITY: "horizontalReflectivity",
     DwdRadarParameter.LMAX_VOLUME_SCAN: "horizontalReflectivity",
     DwdRadarParameter.PX250_REFLECTIVITY: "horizontalReflectivity",
 }
@@ -222,10 +225,18 @@ class DwdRadarValues:  # noqa: PLW1641
             settings: settings for the request
 
         """
+        # A product DWD no longer publishes is refused with the reason, which the list of valid values does not give.
+        if isinstance(parameter, str):
+            reason = RADAR_PARAMETERS_NOT_PUBLISHED.get(parameter.lower().removesuffix("_reflectivity"))
+            if reason:
+                msg = f"{parameter} is not published any more: {reason}"
+                raise InvalidEnumerationError(msg)
+
         # Convert parameters to enum types.
         self.parameter = parse_enumeration_from_template(parameter, DwdRadarParameter)
         self.site = parse_enumeration_from_template(site, DwdRadarSite)
-        self.format = parse_enumeration_from_template(fmt, DwdRadarDataFormat)
+        # a product is served in one format, which a request need not name; one it is not served in is refused
+        self.format = radar_data_format(self.parameter, parse_enumeration_from_template(fmt, DwdRadarDataFormat))
         self.subset = parse_enumeration_from_template(subset, DwdRadarDataSubset)
         self.elevation = elevation and int(elevation)
         self.resolution: Resolution | None = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)
@@ -248,14 +259,13 @@ class DwdRadarValues:  # noqa: PLW1641
             raise ValueError(msg)
 
         if start == DwdRadarDate.LATEST:
-            # HDF5 folders do not have "-latest-" files.
             if self.parameter == DwdRadarParameter.RADOLAN_CDC:
                 msg = "RADOLAN_CDC data has no '-latest-' files"
                 raise ValueError(msg)
 
-            # HDF5 folders do not have "-latest-" files.
-            if self.format == DwdRadarDataFormat.HDF5:
-                msg = "HDF5 data has no '-latest-' files"
+            # The sweep HDF5 folders have no latest file, the composites and the other site products do.
+            if self.parameter in RADAR_PARAMETERS_SWEEPS:
+                msg = "HDF5 sweep data has no '-latest-' files"
                 raise ValueError(msg)
 
         if start == DwdRadarDate.CURRENT and not self.period:
@@ -276,7 +286,7 @@ class DwdRadarValues:  # noqa: PLW1641
         # volume by addressing the **previous** volume. So, when requesting data at
         # 15:03, it will retrieve 14:55:00-14:59:59.
         #
-        if fmt == DwdRadarDataFormat.HDF5 and start == DwdRadarDate.MOST_RECENT:
+        if self.format == DwdRadarDataFormat.HDF5 and start == DwdRadarDate.MOST_RECENT:
             start = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - dt.timedelta(minutes=5)
             end = None
 
@@ -341,7 +351,7 @@ class DwdRadarValues:  # noqa: PLW1641
             and self.period == other.period
         )
 
-    def adjust_datetimes(self) -> None:  # noqa: C901
+    def adjust_datetimes(self) -> None:
         """Adjust ``start`` and ``end`` attributes to match minute marks for RadarParameter.
 
         - RADOLAN_CDC is always published at HH:50.
@@ -350,11 +360,8 @@ class DwdRadarValues:  # noqa: PLW1641
         - RW_REFLECTIVITY is published each 10 minutes.
           https://opendata.dwd.de/weather/radar/radolan/rw/
 
-        - RQ_REFLECTIVITY is published each 15 minutes.
-          https://opendata.dwd.de/weather/radar/radvor/rq/
-
         - All other radar formats are published in intervals of 5 minutes.
-          https://opendata.dwd.de/weather/radar/composit/fx/
+          https://opendata.dwd.de/weather/radar/composite/rv/
           https://opendata.dwd.de/weather/radar/sites/dx/boo/
 
         """
@@ -372,18 +379,6 @@ class DwdRadarValues:  # noqa: PLW1641
             # pick a single file from the fileindex.
             if not self.end:
                 self.end = self.start + dt.timedelta(microseconds=1)
-
-        elif self.parameter == DwdRadarParameter.RQ_REFLECTIVITY:
-            # Align "start" to the 15 minute mark before tm.
-            self.start = round_minutes(self.start, 15)
-
-            # When "end" is given as timedelta, resolve it.
-            if isinstance(self.end, dt.timedelta):
-                self.end = self.start + self.end - dt.timedelta(seconds=1)
-
-            # Expand "end" to the end of the 15 minute mark.
-            if self.end is None:
-                self.end = self.start + dt.timedelta(minutes=15) - dt.timedelta(seconds=1)
 
         elif self.parameter == DwdRadarParameter.RW_REFLECTIVITY:
             # Align "start" to the 5 minute mark before tm.
@@ -555,10 +550,11 @@ class DwdRadarValues:  # noqa: PLW1641
                     yield result
 
     @staticmethod
-    def _should_cache_download(url: str) -> bool:  # pragma: no cover
+    def _should_cache_download(url: str) -> bool:
         """Determine whether this specific result should be cached.
 
-        Here, we don't want to cache any files containing "-latest-" in their filenames.
+        Here, we don't want to cache any files named "latest", whatever the case: "-latest-" of the sites,
+        "_latest-" and "_LATEST." of the composites.
 
         Args:
             url: URL of the file to be downloaded
@@ -567,7 +563,7 @@ class DwdRadarValues:  # noqa: PLW1641
             Whether the file should be cached or not
 
         """
-        return "-latest-" not in url
+        return "latest" not in url.lower()
 
     def _download_generic_data(self, url: str) -> Iterator[RadarResult]:  # noqa: C901
         """Download radar data."""
@@ -585,9 +581,9 @@ class DwdRadarValues:  # noqa: PLW1641
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return
-        # RadarParameter.FX_REFLECTIVITY
-        if url.endswith(Extension.TAR_BZ2.value):
-            tfs = TarFileSystem(file.content, compression="bz2")
+        # RV_REFLECTIVITY, WN_REFLECTIVITY: a tar of one ODIM HDF5 file for every lead time
+        if url.endswith(f".{Extension.TAR.value}"):
+            tfs = TarFileSystem(file.content)
             for file in tfs.glob("*"):
                 try:
                     file_name = file.name
@@ -599,12 +595,12 @@ class DwdRadarValues:  # noqa: PLW1641
                     timestamp = _parse_datetime_from_formats(string=date_string, formats=DATETIME_FORMATS)
                     timestamp = timestamp.replace(tzinfo=ZoneInfo("UTC"))
                 yield RadarResult(
+                    url=url,
                     data=BytesIO(tfs.open(file).read()),
                     timestamp=timestamp,
                     filename=file_name,
                 )
 
-        # RadarParameter.WN_REFLECTIVITY, RADAR_PARAMETERS_SWEEPS (BUFR)  # noqa: ERA001
         elif url.endswith(Extension.BZ2.value):
             with bz2.BZ2File(file.content, mode="rb") as archive:
                 data = BytesIO(archive.read())
@@ -619,7 +615,7 @@ class DwdRadarValues:  # noqa: PLW1641
                     timestamp=timestamp,
                 )
 
-        # RADAR_PARAMETERS_RADVOR
+        # a gzipped file: the RADVOR products of the earlier layout, which no product is served as now
         elif url.endswith(Extension.GZ.value):
             with gzip.GzipFile(fileobj=file.content, mode="rb") as archive:
                 data = BytesIO(archive.read())

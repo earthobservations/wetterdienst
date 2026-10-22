@@ -39,9 +39,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
         - hourly, daily and monthly resolution, for stations in Germany
     - Radar
         - 17 locations in Germany
-        - All of Composite, Radolan, Radvor, Sites and Radolan_CDC
+        - Composite (RV, WN), Radolan, Sites and Radolan_CDC
         - Radolan: calibrated radar precipitation
-        - Radvor: radar precipitation forecast
+        - Composite RV (5-minute precipitation) and WN (reflectivity), each with a two-hour forecast
     - Alerts
         - the public weather warnings (CAP), all currently active ones, by community or district
         - a rolling window of about 48 hours of snapshots, no archive

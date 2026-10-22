@@ -16,26 +16,35 @@ from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
 @pytest.mark.remote
-def test_radar_request_composite_latest_rv_reflectivity(
-    default_settings: Settings,
-    station_reference_pattern_sorted_prefixed: str,
-) -> None:
-    """Example for testing radar COMPOSITES latest."""
+@pytest.mark.parametrize(
+    "parameter",
+    [DwdRadarParameter.RV_REFLECTIVITY, DwdRadarParameter.WN_REFLECTIVITY],
+)
+def test_radar_request_composite_latest_reflectivity(parameter: DwdRadarParameter, default_settings: Settings) -> None:
+    """Example for testing radar COMPOSITES latest: the analysis of the latest run, an ODIM HDF5 file (GH-3279)."""
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
+
     request = DwdRadarValues(
-        parameter=DwdRadarParameter.RV_REFLECTIVITY,
+        parameter=parameter,
         start=DwdRadarDate.LATEST,
         settings=default_settings,
     )
 
-    buffer = next(request.query())[1]
-    payload = buffer.getvalue()
+    results = list(request.query())
+    assert len(results) == 1
+    result = results[0]
 
-    month_year = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None).strftime("%m%y")
-    header = (
-        f"RV......10000{month_year}BY   2640...VS 5SW ........PR E-02INT   5GP1200x1100VV 000MF 00000008MS"
-        f"...<{station_reference_pattern_sorted_prefixed}>"
+    # the first file of the .tar of the run, at the lead time 0, dated to the run
+    assert re.fullmatch(rf"composite_{parameter.value}_\d{{8}}_\d{{4}}_000-hd5", result.filename)
+    assert result.timestamp == IsDatetime(
+        approx=dt.datetime.now(ZoneInfo("UTC")),
+        delta=dt.timedelta(minutes=90),
     )
-    assert re.match(bytes(header, encoding="ascii"), payload[:200]), payload[:200]
+
+    with h5py.File(result.data, mode="r") as f:
+        assert f.attrs["Conventions"] == b"ODIM_H5/V2_3"
+        assert f["what"].attrs["object"] == b"COMP"
+        assert f["dataset1/data1/data"].shape == (1200, 1100)
 
 
 @pytest.mark.xfail(reason="UnicodeDecodeError: invalid start byte")

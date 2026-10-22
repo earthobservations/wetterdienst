@@ -4,6 +4,8 @@
 
 from enum import Enum
 
+from wetterdienst.exceptions import RequestError
+
 
 class DwdRadarParameter(Enum):
     """All available radar moments."""
@@ -12,8 +14,7 @@ class DwdRadarParameter(Enum):
     # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-RADOLAN-(quantitative)-composit  # noqa: E501
 
     # https://opendata.dwd.de/weather/radar/composite/
-    HG_REFLECTIVITY = "hg"
-    PG_REFLECTIVITY = "pg"
+    # one .tar of ODIM HDF5 files a run, the analysis and the forecasts of the next two hours
     RV_REFLECTIVITY = "rv"
     WN_REFLECTIVITY = "wn"
 
@@ -23,20 +24,13 @@ class DwdRadarParameter(Enum):
     RY_REFLECTIVITY = "ry"
     SF_REFLECTIVITY = "sf"
 
-    # /radvor
-    # https://opendata.dwd.de/weather/radar/radvor/
-    RE_REFLECTIVITY = "re"
-    RQ_REFLECTIVITY = "rq"
-
     # /sites
     # https://opendata.dwd.de/weather/radar/sites/
     # https://docs.wradlib.org/en/stable/notebooks/fileio/wradlib_radar_formats.html#German-Weather-Service:-DX-format
     DX_REFLECTIVITY = "dx"
     LMAX_VOLUME_SCAN = "lmax"
     PE_ECHO_TOP = "pe"
-    PF_REFLECTIVITY = "pf"
     PR_VELOCITY = "pr"
-    PX_REFLECTIVITY = "px"
     PX250_REFLECTIVITY = "px250"
     PZ_CAPPI = "pz"
 
@@ -54,8 +48,6 @@ class DwdRadarParameter(Enum):
 
 
 RADAR_PARAMETERS_COMPOSITES = [
-    DwdRadarParameter.HG_REFLECTIVITY,
-    DwdRadarParameter.PG_REFLECTIVITY,
     DwdRadarParameter.RV_REFLECTIVITY,
     DwdRadarParameter.WN_REFLECTIVITY,
 ]
@@ -64,16 +56,10 @@ RADAR_PARAMETERS_RADOLAN = [
     DwdRadarParameter.RY_REFLECTIVITY,
     DwdRadarParameter.SF_REFLECTIVITY,
 ]
-RADAR_PARAMETERS_RADVOR = [
-    DwdRadarParameter.RE_REFLECTIVITY,
-    DwdRadarParameter.RQ_REFLECTIVITY,
-]
 RADAR_PARAMETERS_SITES = [
     DwdRadarParameter.DX_REFLECTIVITY,
     DwdRadarParameter.LMAX_VOLUME_SCAN,
     DwdRadarParameter.PE_ECHO_TOP,
-    DwdRadarParameter.PF_REFLECTIVITY,
-    DwdRadarParameter.PX_REFLECTIVITY,
     DwdRadarParameter.PR_VELOCITY,
     DwdRadarParameter.PX250_REFLECTIVITY,
     DwdRadarParameter.PZ_CAPPI,
@@ -114,3 +100,74 @@ class DwdRadarDataSubset(Enum):
 
     SIMPLE = "simple"
     POLARIMETRIC = "polarimetric"
+
+
+# What the source serves each product as, read from the directory listings on 2026-10-22, when the composites
+# were ODIM HDF5 (files back to 2026-10-20) and no radar product was published as BUFR: a request names the
+# format of the product it asks for, or none, and a format the product is not served in is refused
+# instead of answering an empty listing. The RADOLAN products and RADOLAN_CDC are not listed: they are
+# no choice of format (the RADOLAN files are HDF5 named `---bin.hdf5`).
+RADAR_DATA_FORMATS: dict[DwdRadarParameter, tuple[DwdRadarDataFormat, ...]] = {
+    # composite/{rv,wn}/composite_rv_YYYYMMDD_HHMM.tar, one ODIM HDF5 file in it for each lead time
+    DwdRadarParameter.RV_REFLECTIVITY: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.WN_REFLECTIVITY: (DwdRadarDataFormat.HDF5,),
+    # sites/dx/<site>/raa00-dx_10132-2610221130-boo---bin
+    DwdRadarParameter.DX_REFLECTIVITY: (DwdRadarDataFormat.BINARY,),
+    # sites/<product>/<site>/rab02-pe_10132-20261022113000-deboo-hd5
+    DwdRadarParameter.LMAX_VOLUME_SCAN: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.PE_ECHO_TOP: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.PR_VELOCITY: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.PX250_REFLECTIVITY: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.PZ_CAPPI: (DwdRadarDataFormat.HDF5,),
+    # sites/sweep_*/<site>/hdf5/filter_<subset>/
+    DwdRadarParameter.SWEEP_PCP_VELOCITY_H: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.SWEEP_VOL_VELOCITY_H: (DwdRadarDataFormat.HDF5,),
+    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H: (DwdRadarDataFormat.HDF5,),
+}
+
+# Products DWD no longer publishes, by the value they were requested by, and what a caller is told. They
+# are no members of `DwdRadarParameter` any more, so the request names why instead of the valid values.
+_NOT_PUBLISHED_COMPOSITE = (
+    "opendata.dwd.de/weather/radar/composite/{value}/ holds no file (found empty on 2026-10-22), and the "
+    "composites DWD publishes now are ODIM HDF5: use rv_reflectivity or wn_reflectivity"
+)
+_NOT_PUBLISHED_RADVOR = (
+    "opendata.dwd.de/weather/radar/radvor/{value}/ holds no file ({found}): use rv_reflectivity or wn_reflectivity, "
+    "the nowcasts of the composites"
+)
+_NOT_PUBLISHED_SITE = (
+    "opendata.dwd.de/weather/radar/sites/{value}/ holds no current file of any site (found on 2026-10-22: "
+    "{found}), and DWD no longer publishes BUFR radar products"
+)
+RADAR_PARAMETERS_NOT_PUBLISHED: dict[str, str] = {
+    "hg": _NOT_PUBLISHED_COMPOSITE.format(value="hg"),
+    "pg": _NOT_PUBLISHED_COMPOSITE.format(value="pg"),
+    "px": _NOT_PUBLISHED_SITE.format(value="px", found="no file for any site but mhp, whose newest is from 2026-10-21"),
+    "pf": _NOT_PUBLISHED_SITE.format(value="pf", found="no file for any site"),
+    "re": _NOT_PUBLISHED_RADVOR.format(value="re", found="found empty on 2026-10-22, its last files of 2026-10-20"),
+    "rq": _NOT_PUBLISHED_RADVOR.format(value="rq", found="found empty on 2026-10-22, empty since 2026-05-14"),
+}
+
+
+def radar_data_format(parameter: DwdRadarParameter, fmt: DwdRadarDataFormat | None) -> DwdRadarDataFormat | None:
+    """Give the format a request reads a product in: the one asked for, or the only one it is served in.
+
+    Raises:
+        RequestError: the product is not served in the format asked for.
+
+    """
+    served = RADAR_DATA_FORMATS.get(parameter)
+    if served is None:
+        # no product of the others is published as BUFR either
+        if fmt == DwdRadarDataFormat.BUFR:
+            msg = f"{parameter.name} is not published as BUFR: DWD publishes no radar product as BUFR"
+            raise RequestError(msg)
+        return fmt
+    if fmt is None:
+        return served[0] if len(served) == 1 else None
+    if fmt not in served:
+        names = ", ".join(f"{f.name} ({f.value})" for f in served)
+        msg = f"{parameter.name} is published as {names} only, not as {fmt.name}"
+        raise RequestError(msg)
+    return fmt

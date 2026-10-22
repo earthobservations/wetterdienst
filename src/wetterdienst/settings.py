@@ -478,7 +478,8 @@ class Settings(BaseSettings):
     auth: Auth = Field(default_factory=Auth)
     use_certifi: bool = Field(default=False)
     # opt-in: parse DWD radar BUFR files into a polars DataFrame (RadarResult.df). Requires the
-    # optional eccodes + pdbufr dependencies; off by default because parsing is expensive.
+    # optional eccodes + pdbufr dependencies; off by default because parsing is expensive. DWD publishes
+    # no radar product as BUFR (listings read 2026-10-22), so no request reaches it.
     read_bufr: bool = Field(default=False)
     # opt-in: let REST API and MCP clients pass `sql` / `sql_values` clauses. Off by default because
     # the clause runs in DuckDB on this host with only per-request limits (see `_filter_by_sql`);

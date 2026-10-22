@@ -26,6 +26,29 @@ Types of changes:
   wetterdienst only through matplotlib. An installation from PyPI resolves its own versions:
   upgrade these there (GH-3280)
 
+### Changed
+
+- **Breaking**: `dwd/radar` reads the layout DWD publishes now (read 2026-10-22). The composites
+  `RV_REFLECTIVITY` and `WN_REFLECTIVITY` are one `.tar` a run of ODIM HDF5 files, one for the
+  analysis and each lead time (`composite_rv_20261022_1130_005-hd5`), no longer RADOLAN binary
+  files packed as `.tar.bz2` or `.bz2`: decode `result.data` with h5py or wradlib's ODIM reader.
+  `LATEST` of `RV_REFLECTIVITY` failed with `can only call '.item()'` and that of
+  `WN_REFLECTIVITY` handed over the whole tar as one result; both answer the first file of the
+  latest run, the analysis, now. `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY`,
+  `PX250_REFLECTIVITY` and `PZ_CAPPI` are ODIM HDF5 only, no longer binary or BUFR: leave `fmt`
+  out, as a format a product is not served in is a `RequestError` naming the one it is, no longer
+  an empty answer (GH-3279)
+
+### Removed
+
+- **Breaking**: `DwdRadarParameter` no longer has `HG_REFLECTIVITY`, `PG_REFLECTIVITY`,
+  `PX_REFLECTIVITY`, `PF_REFLECTIVITY`, `RE_REFLECTIVITY` and `RQ_REFLECTIVITY`: `composite/hg`,
+  `composite/pg`, `sites/pf`, `radvor/re` and `radvor/rq` hold no file and `sites/px` only stale
+  files of a single site (found 2026-10-22), so no request could return a value. A request for
+  one is an `InvalidEnumerationError` that says so; use `RV_` or `WN_REFLECTIVITY` for a composite
+  or a forecast, `PX250_REFLECTIVITY` for a site. `RADAR_PARAMETERS_RADVOR` is gone with them.
+  DWD publishes no radar product as BUFR any more, so `read_bufr` has no effect (GH-3279, GH-3282)
+
 ## [0.166.0] - 2026-10-22
 
 ### Changed
