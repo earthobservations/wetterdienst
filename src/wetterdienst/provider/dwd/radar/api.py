@@ -32,6 +32,7 @@ from wetterdienst.provider.dwd.radar.index import (
 )
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS_NOT_PUBLISHED,
+    RADAR_DATA_SUBSETS,
     RADAR_PARAMETERS_NOT_PUBLISHED,
     RADAR_PARAMETERS_SLOW,
     RADAR_PARAMETERS_SWEEPS,
@@ -220,6 +221,11 @@ class DwdRadarValues:  # noqa: PLW1641
             # 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45).
             if self.parameter in RADAR_PARAMETERS_SWEEPS and self.subset != DwdRadarDataSubset.UNFILTERED:
                 msg = "HDF5 sweep data has no '-latest-' files"
+                if (
+                    DwdRadarDataSubset.UNFILTERED in RADAR_DATA_SUBSETS.get(self.parameter, ())
+                    and self.parameter not in RADAR_PARAMETERS_SWEEPS_VOLUME
+                ):
+                    msg += " (the unfiltered folder has them: subset=UNFILTERED)"
                 raise ValueError(msg)
             if self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
                 msg = (

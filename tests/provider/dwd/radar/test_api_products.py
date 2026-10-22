@@ -363,13 +363,20 @@ def test_the_precipitation_sweeps_have_no_elevation_to_choose() -> None:
         )
 
 
-@pytest.mark.parametrize("parameter", ["sweep_vol_zdr", "sweep_vol_phidp"])
-def test_the_volume_sweeps_have_no_latest_volume(parameter: str) -> None:
+@pytest.mark.parametrize(
+    ("parameter", "subset"),
+    [
+        ("sweep_vol_zdr", None),
+        ("sweep_vol_phidp", None),
+        ("sweep_vol_z", DwdRadarDataSubset.UNFILTERED),
+    ],
+)
+def test_the_volume_sweeps_have_no_latest_volume(parameter: str, subset: DwdRadarDataSubset | None) -> None:
     """Test that LATEST is refused for the volume sweeps: DWD replaces the ten `-LATEST-` files one by one (GH-3288)."""
     with pytest.raises(
         ValueError, match=r"has no '-latest-' files of a whole volume \(the unfiltered folders have one for each"
     ):
-        DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+        DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, subset=subset, start=DwdRadarDate.LATEST)
 
 
 @pytest.mark.parametrize("parameter", ["sweep_pcp_v", "sweep_vol_v", "sweep_vol_z"])
@@ -377,6 +384,15 @@ def test_the_sweeps_of_a_filter_have_no_latest_file(parameter: str) -> None:
     """Test that LATEST is refused as it was for the sweeps whose folders of a filter hold none, with no hint."""
     with pytest.raises(ValueError, match=r"HDF5 sweep data has no '-latest-' files$"):
         DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+
+
+@pytest.mark.parametrize("subset", [None, DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC])
+def test_the_reflectivity_of_the_precipitation_scan_has_latest_files_in_the_unfiltered_folder_only(
+    subset: DwdRadarDataSubset | None,
+) -> None:
+    """Test that the refusal for a filter folder names the unfiltered folder, which has the LATEST files."""
+    with pytest.raises(ValueError, match=r"no '-latest-' files \(the unfiltered folder has them: subset=UNFILTERED\)$"):
+        DwdRadarValues(parameter="sweep_pcp_z", site=DwdRadarSite.BOO, subset=subset, start=DwdRadarDate.LATEST)
 
 
 @pytest.mark.parametrize(

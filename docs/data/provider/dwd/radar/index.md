@@ -97,6 +97,7 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 
 The sweeps are the polar data of one site (`site=DwdRadarSite.BOO`): 360 rays of 250 m bins, as many bins as the
 elevation has. The volume scan has ten elevations, which are ten files a run (`elevation=0` to `9` picks one of them,
-for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file. The unfiltered
+for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file (twice that for the
+unfiltered reflectivity, which has TH and TV for each sweep, and `elevation` picks both). The unfiltered
 polarimetric moments have no folder of a filter, as the velocity and the reflectivity sweeps do (`hdf5/filter_simple`
 and `hdf5/filter_polarimetric`).

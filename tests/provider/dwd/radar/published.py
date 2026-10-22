@@ -20,7 +20,12 @@ if TYPE_CHECKING:
 # How long after the start of a slot of 5 minutes the first file of a sweep of BOO is listed at the latest: 227 s of
 # the 576 slots of 2026-10-20 to 22 (the median 61 s for the precipitation scan, 85 s for the volume scan; the listing
 # times of `content.log.bz2` of https://opendata.dwd.de/weather/radar/ against the times in the names), and 13 s more.
+# It holds for any file of the precipitation scan and for the first of the volume scan, the sweep 0, not for the others.
 SWEEP_FIRST_FILE_DELAY = dt.timedelta(seconds=240)
+
+# The same for the sweep 1 of the volume scan, which is scanned after the sweep 0: 323 s of 1152 files (median 108 s),
+# and 17 s more.
+SWEEP_ELEVATION_1_DELAY = dt.timedelta(seconds=340)
 
 # How long after its mark HH:50 the file of RADOLAN_CDC `recent` (daily and hourly) is listed: 26 to 31 minutes in all
 # but a few that were put there again days later (the 99th percentile 31.3 minutes of 15831 marks, read 2026-10-22).

@@ -7,6 +7,7 @@ from dirty_equals import IsNumeric, IsTuple
 
 from tests.provider.dwd.radar.published import (
     RADOLAN_CDC_DELAY,
+    SWEEP_ELEVATION_1_DELAY,
     SWEEP_FIRST_FILE_DELAY,
     require_published,
 )
@@ -127,7 +128,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
 
     results = list(request.query())
 
-    require_published(results, request.start, SWEEP_FIRST_FILE_DELAY, "the sweep")
+    require_published(results, request.start, SWEEP_ELEVATION_1_DELAY, "the sweep 1")
 
     assert len(results) <= 1
 

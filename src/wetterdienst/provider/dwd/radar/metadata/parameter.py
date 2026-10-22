@@ -206,7 +206,7 @@ RADAR_DATA_FORMATS: dict[DwdRadarParameter, tuple[DwdRadarDataFormat, ...]] = {
     DwdRadarParameter.PR_VELOCITY: (DwdRadarDataFormat.HDF5,),
     DwdRadarParameter.PX250_REFLECTIVITY: (DwdRadarDataFormat.HDF5,),
     DwdRadarParameter.PZ_CAPPI: (DwdRadarDataFormat.HDF5,),
-    # sites/sweep_*/<site>/hdf5/filter_<subset>/, sites/sweep_*_{zdr,rhohv,phidp}/<site>/unfiltered/
+    # sites/sweep_*/<site>/hdf5/filter_<subset>/, sites/sweep_*_{z,zdr,rhohv,phidp}/<site>/unfiltered/
     DwdRadarParameter.SWEEP_PCP_VELOCITY_H: (DwdRadarDataFormat.HDF5,),
     DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H: (DwdRadarDataFormat.HDF5,),
     DwdRadarParameter.SWEEP_VOL_VELOCITY_H: (DwdRadarDataFormat.HDF5,),

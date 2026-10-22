@@ -47,8 +47,8 @@ Types of changes:
 
 - `dwd/radar`: `DwdRadarDate.MOST_RECENT` of `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY` and
   `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
-  5 minutes after the run in 18 of 577 runs (up to 8 minutes), where about 3 % of the requests
-  found no file (GH-3288)
+  5 minutes after the run in 18 of 577 runs (up to 8 minutes), and the 5 minute slot was empty
+  then (GH-3288)
 
 ## [0.167.0] - 2026-10-22
 
