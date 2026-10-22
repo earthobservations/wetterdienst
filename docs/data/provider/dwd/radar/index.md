@@ -49,7 +49,8 @@ folders `unfiltered` of the volume scan hold one for each of the ten elevations,
 KONRAD3D has none.
 `start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product (not RADOLAN's, unless `fmt` is named) is the 5 minute slot
 before now; for RS, DMAX, VII, KONRAD3D and the mesocyclones, which DWD publishes more than 5 minutes after the run in
-more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now.
+more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now. The site products PE, PZ, PR and LMAX
+are as late as RS in about 3 % of the runs, and the 5 minute slot is empty then.
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 

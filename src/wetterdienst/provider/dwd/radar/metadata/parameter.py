@@ -125,10 +125,11 @@ RADAR_PARAMETERS_SWEEPS = [
     DwdRadarParameter.SWEEP_VOL_RHOHV,
     DwdRadarParameter.SWEEP_VOL_PHIDP,
 ]
-# the products DWD publishes more than 5 minutes after their run in more than one run of a hundred (the 576 runs of the
-# two days of 2026-10-20 to 22: VII all, KONRAD3D 161, the mesocyclones 56, DMAX 55, RS 7; the longest delay 523 s),
-# whose most recent file is the slot 10 minutes before now, where that of the others (HX never, HymecNG twice, RV 5)
-# is the one 5 minutes before
+# the products of GH-3283 that DWD publishes more than 5 minutes after their run in more than one run of a hundred (the
+# 576 runs of the two days of 2026-10-20 to 22: VII all, KONRAD3D 161, the mesocyclones 56, DMAX 55, RS 7; the longest
+# delay 523 s), whose most recent file is the slot 10 minutes before now, where that of the others (HX never, HymecNG
+# twice) is the one 5 minutes before. The older products keep the 5 minutes: the site products PE, PZ, PR and LMAX are
+# as late as RS (19 runs of 576, GH-3288)
 RADAR_PARAMETERS_SLOW = [
     DwdRadarParameter.RS_PRECIPITATION_SUM,
     DwdRadarParameter.DMAX_REFLECTIVITY,
