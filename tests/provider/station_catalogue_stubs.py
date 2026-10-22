@@ -290,7 +290,7 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "FRE00104116  43.1881    0.0000  360.0    TARBES - OSSUN                         07621\n"
         "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
         "GME00102292  51.4358   12.2414  131.0    LEIPZIG-SCHKEUDITZ                     10469\n"
-        # one of the 147 stations the inventory has no line for, and no data file either (GH-3260)
+        # a station the inventory has no line for, and no data file either: the catalogue leaves it out (GH-3260)
         "CAN03010010  54.2833 -112.9667  664.0 AB ABEE AGDM                              71285\n"
     )
     # the stations that report this year have no end, so the rule against an end in the future holds them (GH-2643)
