@@ -66,6 +66,11 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
+  have data files and no line in the station description of any period, when all periods of a
+  dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read
+  2026-10-22). They were dropped without a word and still are not listed, as DWD gives no name or
+  position for them; the docs pages say so (Part of GH-3258)
 - A parameter name renamed before 0.139.0 whose new name a dataset renamed again is refused with
   "It was renamed to <current name>", not a "Did you mean" guess or no hint: `humidity` in 26
   datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,

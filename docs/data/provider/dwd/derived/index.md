@@ -32,6 +32,10 @@ The derived products currently supported are:
 - [soil multiannual](https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/multi_annual/)
 - [fire danger index](https://opendata.dwd.de/climate_environment/CDC/derived_germany/fire_danger_index/)
 
+**Stations without a line in the station list:** the `soil` directories hold files of nine stations that
+`stations_list_soil.txt` does not carry (01584, 02110, 02814, 02968, 03612, 04261, 05941, 07350, 13710, read
+2026-10-22). They are not listed and their data cannot be requested; a warning that names them is logged,
+once a process, when the stations are read for all periods ([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
 
 ```{toctree}
 :hidden:
