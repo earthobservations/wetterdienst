@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-22
+
 ### Security
 
 - `[Build]` The advisories of `vite` and `launch-editor` (six, three of them shared),
@@ -1479,7 +1481,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...HEAD
+[0.31.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...app-v0.31.0
 [0.30.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...app-v0.30.0
 [0.29.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...app-v0.29.0
 [0.28.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.27.0...app-v0.28.0
