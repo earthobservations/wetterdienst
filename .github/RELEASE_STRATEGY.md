@@ -15,7 +15,7 @@ This repository uses a **monorepo structure** with separate release workflows fo
 
 ### App (Nuxt Application)
 - **Tag format**: `app-v{major}.{minor}.{patch}` (e.g., `app-v0.28.0`; the app stays 0.x, see `docs/usage/compatibility.md`)
-- **Trigger**: GitHub Release with tag matching `app-v*.*.*`
+- **Trigger**: GitHub Release with tag matching `app-v*.*.*` (`app-release.yml` runs on any release whose tag starts with `app-v`)
 - **Workflows**: 
   - `.github/workflows/app-release.yml` - Creates GitHub Release artifact
   - `.github/workflows/docker-publish-app.yml` - Publishes Docker image to GHCR
