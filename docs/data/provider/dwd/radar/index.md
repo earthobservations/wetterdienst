@@ -43,9 +43,12 @@ has. DWD no longer publishes any radar product as BUFR (`fmt="bufr"` is refused,
 RADVOR products RE and RQ hold no file, nor does the site product PX but for stale files of one site (they are no `DwdRadarParameter` any more, and a request for one says so). `start=DwdRadarDate.LATEST` reads
 the file named latest: `composite_rv_LATEST.tar` (`composite_wn__LATEST.tar` with two underscores) of a composite
 that is a `.tar`, whose first file, the analysis, it answers, `composite_hx_LATEST-hd5`, `composite_VII_latest-hd5`,
-`composite_HymecNG_LATEST_000-hd5`, `raa01-yw_10000-latest-dwd---bin.hdf5` and `meso_latest.xml`. The sweeps have no
-single latest file (the folder `unfiltered` has one `-LATEST-` file for each elevation) and KONRAD3D has none.
-`start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product is the 5 minute slot before now.
+`composite_HymecNG_LATEST_000-hd5`, `raa01-yw_10000-latest-dwd---bin.hdf5` and `meso_latest.xml`. The precipitation sweeps
+of the polarimetric moments have one (`..._uzdr_00-LATEST-boo-10132-hd5`); the other sweeps have none to ask for (the
+folders `unfiltered` of the volume scan hold one for each of the ten elevations, the folders of a filter none) and
+KONRAD3D has none.
+`start=DwdRadarDate.MOST_RECENT` of a product that has a format in the table (the HDF5 and XML ones, not RADOLAN's) is
+the 5 minute slot before now.
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 
@@ -63,7 +66,7 @@ for result in request.query():
     print(result.timestamp, result.filename)  # composite_rv_20261022_1130_000-hd5, ..._005-hd5, ...
 ```
 
-`result.data` is an ODIM HDF5 file (`ODIM_H5/V2_3`), which [h5py](https://www.h5py.org/) or
+`result.data` is an ODIM HDF5 file (`ODIM_H5/V2_3`, the sweeps declare `V2_2`), which [h5py](https://www.h5py.org/) or
 [wradlib](https://docs.wradlib.org/) read; with h5py installed (the `radar` extra) every file of a window is opened once to
 check it is HDF5 (the one of `LATEST` is not). The XML products are handed over as the bytes DWD wrote, to be parsed
 by the caller; nothing is read from any file.
@@ -83,11 +86,11 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 | `HYMECNG_PRECIPITATION_TYPE` | "ein Deutschland-Komposit der Niederschlagsart in 2 m Höhe über Grund", 1 km × 1 km, 11 classes (large hail, small hail, graupel, freezing rain, freezing drizzle, snow, sleet, rain, drizzle, not classifiable, no precipitation) | `CLASS`, 8 bit, the classes in the dataset `dataset1/data1/legend` (`NO_PRECIPITATION` 0, `NOT_CLASSIFIED` 1, `DRIZZLE` 2, `RAIN` 3, `FREEZING_DRIZZLE` 4, `FREEZING_RAIN` 5, `SNOW_RAIN` 6, `SNOW` 7, `GRAUPEL` 8, `HAIL` 9, `LARGE_HAIL` 10) |
 | `RS_PRECIPITATION_SUM` | "ein Deutschland-Komposit der über einen Zeitraum von 1 Stunde akkumulierten Niederschlagsmenge in mm", 1 km × 1 km, value range 0 mm to 4.3 · 10⁶ mm, step 0.001 mm | `ACRR` (accumulated precipitation, mm); each file spans the hour before its lead time (`startdate`/`starttime` to `enddate`/`endtime`), where `RV_REFLECTIVITY` has the same quantity over 5 minutes |
 | `YW_REFLECTIVITY` | RADOLAN's "quasi-angeeichte Radardaten auf der Basis der RY-, RH- und RW-Produkte" ([RADOLAN-RADVOR format description](https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile) 2.6), every 5 minutes | `RATE` (precipitation rate), `gain` 0.01, `camethod` `QUASI-ADJUSTED WITH GAUGES`. DWD publishes it 35 to 40 minutes after its time, two files every 10 minutes |
-| `SWEEP_VOL_ZDR`, `SWEEP_PCP_ZDR` | the sheets of the sweeps ("Standort-Reflektivitäts- und Radialgeschwindigkeitsprodukte") name no polarimetric moment; DWD's [ODIM-DWD-E_1-0 description](https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/hdf/ODIM-Beschreibung.pdf) lists the moment `uzdr` as ODIM `UZDR` | `UZDR`, which ODIM 2.3 defines as "Logged differential reflectivity that has not been subject to a Doppler filter", ZDR in dB |
+| `SWEEP_VOL_ZDR`, `SWEEP_PCP_ZDR` | the sheets of the sweeps ("Standort-Reflektivitäts- und Radialgeschwindigkeitsprodukte") name no polarimetric moment; DWD's [ODIM-DWD-E_1-0 description](https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/hdf/ODIM-Beschreibung.pdf?__blob=publicationFile) lists the moment `uzdr` as ODIM `UZDR` | `UZDR`, which ODIM 2.3 defines as "Logged differential reflectivity that has not been subject to a Doppler filter", ZDR in dB |
 | `SWEEP_VOL_RHOHV`, `SWEEP_PCP_RHOHV` | as above, `urhohv` is ODIM `URHOHV` | `URHOHV`: "Correlation between Zh and Zv that has not been subject to any filter or correction", ρhv from 0 to 1 |
 | `SWEEP_VOL_PHIDP`, `SWEEP_PCP_PHIDP` | as above, `uphidp` is ODIM `UPHIDP` | `UPHIDP`: "Differential phase that has not been subject to any filter or correction", φdp in degrees |
-| `KONRAD3D_CONVECTIVE_CELLS` | "Erkennung, Verfolgung und Nowcasting konvektiver Zellen" ([Kurzdokumentation KONRAD3D](https://www.dwd.de/DE/leistungen/radarprodukte/konrad3d_kurzbeschreibung.pdf)); "Ausgabeformat: xml", one file every five minutes, `KONRAD3D_YYYYMMDDThhmmss.xml`, the run's reference time being the start of the radar scan cycle | an XML document, root `konrad3d` (`data_model_name`, `data_model_version`), a `head` (reference time, the run, the grid, the sweeps used) and `cells`, with a `feature` for each cell: its geometry, intensity and further groups; no cell is an empty `cells`. The [format description](https://www.dwd.de/DE/leistungen/radarprodukte/formatbeschreibung_konrad3d.pdf) is DWD's |
-| `MESOCYCLONE_DETECTION` | "xml-Dateien mit sämtlichen Mesozyklonenerkennungen eines Referenzzeitpunktes" ([Dokumentation Mesozyklonenerkennung](https://www.dwd.de/DE/leistungen/radarprodukte/dokumentation_mcd.pdf), 07.2022), the volume scans of the 17 sites, a run every 5 minutes | an XML document, root `nowcast-data`, with the `radar-stations` and an `event` for each detected mesocyclone (its time, a `location` ellipse and `nowcast-parameters` such as `mesocyclone_shear_max` and `mesocyclone_diameter`, each with its `units`); a run without a mesocyclone is the station list alone (173 bytes) |
+| `KONRAD3D_CONVECTIVE_CELLS` | "Erkennung, Verfolgung und Nowcasting konvektiver Zellen" ([Kurzdokumentation KONRAD3D](https://www.dwd.de/DE/leistungen/radarprodukte/konrad3d_kurzbeschreibung.pdf?__blob=publicationFile)); "Ausgabeformat: xml", one file every five minutes, `KONRAD3D_YYYYMMDDThhmmss.xml`, the run's reference time being the start of the radar scan cycle | an XML document, root `konrad3d` (`data_model_name`, `data_model_version`), a `head` (reference time, the run, the grid, the sweeps used) and `cells`, with a `feature` for each cell: its geometry, intensity and further groups; no cell is an empty `cells`. The [format description](https://www.dwd.de/DE/leistungen/radarprodukte/formatbeschreibung_konrad3d.pdf?__blob=publicationFile) is DWD's |
+| `MESOCYCLONE_DETECTION` | "xml-Dateien mit sämtlichen Mesozyklonenerkennungen eines Referenzzeitpunktes" ([Dokumentation Mesozyklonenerkennung](https://www.dwd.de/DE/leistungen/radarprodukte/dokumentation_mcd.pdf?__blob=publicationFile), 07.2022), the volume scans of the 17 sites, a run every 5 minutes | an XML document, root `nowcast-data`, with the `radar-stations` and an `event` for each detected mesocyclone (its time, a `location` ellipse and `nowcast-parameters` such as `mesocyclone_shear_max` and `mesocyclone_diameter`, each with its `units`); a run without a mesocyclone is the station list alone (173 bytes) |
 
 The sweeps are the polar data of one site (`site=DwdRadarSite.BOO`): 360 rays of 250 m bins, as many bins as the
 elevation has. The volume scan has ten elevations, which are ten files a run (`elevation=0` to `9` picks one of them,

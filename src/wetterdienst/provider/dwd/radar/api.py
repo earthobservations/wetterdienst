@@ -34,6 +34,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS_NOT_PUBLISHED,
     RADAR_PARAMETERS_NOT_PUBLISHED,
     RADAR_PARAMETERS_SWEEPS,
+    RADAR_PARAMETERS_SWEEPS_LATEST,
     RADAR_PARAMETERS_SWEEPS_VOLUME,
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -212,9 +213,12 @@ class DwdRadarValues:  # noqa: PLW1641
                 msg = "RADOLAN_CDC data has no '-latest-' files"
                 raise ValueError(msg)
 
-            # The sweep HDF5 folders have no latest file, the composites and the other site products do.
-            if self.parameter in RADAR_PARAMETERS_SWEEPS:
+            # The folders of a filter have no latest file, the composites and the other site products do; the unfiltered
+            # folders have one for each elevation, which is one file of the precipitation scan and ten of the volume.
+            if self.parameter in RADAR_PARAMETERS_SWEEPS and self.parameter not in RADAR_PARAMETERS_SWEEPS_LATEST:
                 msg = "HDF5 sweep data has no '-latest-' files"
+                if self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
+                    msg += " (the unfiltered folders have one for each elevation: ask for a time instead)"
                 raise ValueError(msg)
 
             # nor has KONRAD3D, as the mesocyclones have

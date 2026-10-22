@@ -125,6 +125,13 @@ RADAR_PARAMETERS_SWEEPS = [
     DwdRadarParameter.SWEEP_VOL_RHOHV,
     DwdRadarParameter.SWEEP_VOL_PHIDP,
 ]
+# the sweeps whose folder holds one `-LATEST-` file, which `start=DwdRadarDate.LATEST` reads: the precipitation scan
+# has one elevation. The volume scan has one for each of its ten, and the folders of a filter none
+RADAR_PARAMETERS_SWEEPS_LATEST = [
+    DwdRadarParameter.SWEEP_PCP_ZDR,
+    DwdRadarParameter.SWEEP_PCP_RHOHV,
+    DwdRadarParameter.SWEEP_PCP_PHIDP,
+]
 # the sweeps of the volume scan, which has ten elevations: the ones `elevation` selects among
 RADAR_PARAMETERS_SWEEPS_VOLUME = [
     DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
@@ -202,10 +209,11 @@ RADAR_DATA_FORMATS: dict[DwdRadarParameter, tuple[DwdRadarDataFormat, ...]] = {
     DwdRadarParameter.SWEEP_VOL_PHIDP: (DwdRadarDataFormat.HDF5,),
 }
 
-# The folders of a sweep product a request can choose between, read from the listings on 2026-10-22: the products of
-# the velocity and the reflectivity hold a folder for each filter, the polarimetric moments only the unfiltered one
-# (their quantities are the ODIM ones of the unfiltered moments, UZDR, URHOHV and UPHIDP). A product with one folder
-# need not be asked for it; one with two is asked, as it always was.
+# The folders of a sweep product a request can choose between, as far as they are offered: the velocity and the
+# reflectivity hold a folder for each filter, the polarimetric moments only the unfiltered one (their quantities are
+# the ODIM ones of the unfiltered moments, UZDR, URHOHV and UPHIDP). The reflectivity has a third folder, `unfiltered`,
+# with the total reflectivity TH and TV, which is not offered (GH-3288). A product with one folder need not be asked
+# for it; one with two is asked, as it always was.
 RADAR_DATA_SUBSETS: dict[DwdRadarParameter, tuple[DwdRadarDataSubset, ...]] = {
     DwdRadarParameter.SWEEP_PCP_VELOCITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
     DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
@@ -286,6 +294,6 @@ def radar_data_subset(parameter: DwdRadarParameter, subset: DwdRadarDataSubset |
         return served[0] if len(served) == 1 else None
     if subset not in served:
         names = ", ".join(f"{s.name} ({s.value})" for s in served)
-        msg = f"{parameter.name} is published as {names} only, not as {subset.name}"
+        msg = f"{parameter.name} is offered as {names} only, not as {subset.name}"
         raise RequestError(msg)
     return subset

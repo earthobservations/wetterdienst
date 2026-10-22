@@ -111,8 +111,14 @@ LISTINGS = {
         f"{_PCP}_uzdr_00-2026102213153300-boo-10132-hd5",
         f"{_PCP}_uzdr_00-LATEST-boo-10132-hd5",
     ],
-    f"{RADAR}/sites/sweep_pcp_rhohv/boo/unfiltered": [f"{_PCP}_urhohv_00-2026102213103300-boo-10132-hd5"],
-    f"{RADAR}/sites/sweep_pcp_phidp/boo/unfiltered": [f"{_PCP}_uphidp_00-2026102213103300-boo-10132-hd5"],
+    f"{RADAR}/sites/sweep_pcp_rhohv/boo/unfiltered": [
+        f"{_PCP}_urhohv_00-2026102213103300-boo-10132-hd5",
+        f"{_PCP}_urhohv_00-LATEST-boo-10132-hd5",
+    ],
+    f"{RADAR}/sites/sweep_pcp_phidp/boo/unfiltered": [
+        f"{_PCP}_uphidp_00-2026102213103300-boo-10132-hd5",
+        f"{_PCP}_uphidp_00-LATEST-boo-10132-hd5",
+    ],
 }
 
 
@@ -268,16 +274,15 @@ def test_the_polarimetric_sweeps_are_the_files_of_the_unfiltered_folder(
     )
     assert all(f"_{quantity}_" in url and f"/sites/{folder}/boo/unfiltered/" in url for url in listed["filename"])
     assert not any("LATEST" in url for url in listed["filename"])
-    assert listed.height == len(LISTINGS[f"{RADAR}/sites/{folder}/boo/unfiltered"]) - (
-        1 if parameter in (DwdRadarParameter.SWEEP_VOL_ZDR, DwdRadarParameter.SWEEP_PCP_ZDR) else 0
-    )
+    dated = [name for name in LISTINGS[f"{RADAR}/sites/{folder}/boo/unfiltered"] if "LATEST" not in name]
+    assert listed.height == len(dated)
 
 
 @pytest.mark.parametrize("subset", [DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC])
 def test_the_polarimetric_sweeps_have_no_filter_folder(subset: DwdRadarDataSubset, listings: list[str]) -> None:
     """Test that a folder of a filter, which only the velocity and the reflectivity have, is refused, not listed."""
     with pytest.raises(
-        RequestError, match=rf"SWEEP_VOL_ZDR is published as UNFILTERED \(unfiltered\) only, not as {subset.name}"
+        RequestError, match=rf"SWEEP_VOL_ZDR is offered as UNFILTERED \(unfiltered\) only, not as {subset.name}"
     ):
         DwdRadarValues(parameter="sweep_vol_zdr", site=DwdRadarSite.BOO, subset=subset, start="2026-10-22 13:10")
     with pytest.raises(RequestError, match="only, not as"):
@@ -291,7 +296,7 @@ def test_the_velocity_and_the_reflectivity_sweeps_are_asked_for_their_filter_as_
     """Test that SWEEP_VOL_VELOCITY_H still has two folders: naming none is the error it was, `unfiltered` is none."""
     with pytest.raises(ValueError, match="Argument 'subset' is missing"):
         build_path_to_parameter(DwdRadarParameter.SWEEP_VOL_VELOCITY_H, site=DwdRadarSite.BOO)
-    with pytest.raises(RequestError, match=r"SWEEP_VOL_VELOCITY_H is published as SIMPLE .* only, not as UNFILTERED"):
+    with pytest.raises(RequestError, match=r"SWEEP_VOL_VELOCITY_H is offered as SIMPLE .* only, not as UNFILTERED"):
         DwdRadarValues(
             parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
             site=DwdRadarSite.BOO,
@@ -337,11 +342,40 @@ def test_the_precipitation_sweeps_have_no_elevation_to_choose() -> None:
         )
 
 
-@pytest.mark.parametrize("parameter", ["sweep_vol_zdr", "sweep_pcp_rhohv", "sweep_vol_phidp"])
-def test_the_sweeps_have_no_single_latest_file(parameter: str) -> None:
-    """Test that LATEST is refused for the sweeps: the folder holds one `-LATEST-` file for each elevation."""
-    with pytest.raises(ValueError, match="HDF5 sweep data has no '-latest-' files"):
+@pytest.mark.parametrize("parameter", ["sweep_vol_zdr", "sweep_vol_phidp"])
+def test_the_volume_sweeps_have_no_single_latest_file(parameter: str) -> None:
+    """Test that LATEST is refused for the volume sweeps: the folder holds one `-LATEST-` file for each elevation."""
+    with pytest.raises(
+        ValueError, match=r"has no '-latest-' files \(the unfiltered folders have one for each elevation"
+    ):
         DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+
+
+def test_the_sweeps_of_a_filter_have_no_latest_file() -> None:
+    """Test that LATEST is refused as it was for the sweeps whose folders of a filter hold none."""
+    with pytest.raises(ValueError, match=r"HDF5 sweep data has no '-latest-' files$"):
+        DwdRadarValues(parameter="sweep_pcp_v", site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+
+
+@pytest.mark.parametrize(
+    ("parameter", "folder", "latest"),
+    [
+        (DwdRadarParameter.SWEEP_PCP_ZDR, "sweep_pcp_zdr", f"{_PCP}_uzdr_00-LATEST-boo-10132-hd5"),
+        (DwdRadarParameter.SWEEP_PCP_RHOHV, "sweep_pcp_rhohv", f"{_PCP}_urhohv_00-LATEST-boo-10132-hd5"),
+        (DwdRadarParameter.SWEEP_PCP_PHIDP, "sweep_pcp_phidp", f"{_PCP}_uphidp_00-LATEST-boo-10132-hd5"),
+    ],
+)
+def test_the_polarimetric_precipitation_sweeps_have_one_latest_file(
+    parameter: DwdRadarParameter, folder: str, latest: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that LATEST is the one `-LATEST-` file of the unfiltered folder, which is asked for again."""
+    base = f"{RADAR}/sites/{folder}/boo/unfiltered"
+    downloaded = _served(monkeypatch, {f"{base}/{latest}": b"\x89HDF"})
+
+    results = list(DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST).query())
+
+    assert downloaded == [(f"{base}/{latest}", CacheExpiry.NO_CACHE)]
+    assert len(results) == 1
 
 
 def test_konrad3d_has_no_latest_file() -> None:
@@ -778,3 +812,23 @@ def test_radar_request_site_sweep_pcp_polarimetric(
         assert f["how"].attrs["task"] == b"Sc_Pcp-NG-01_BOO"
         assert f["how"].attrs["scan_count"] == 1
         assert f["dataset1/how"].attrs["scan_index"] == 1
+
+
+@pytest.mark.remote
+def test_radar_request_site_sweep_pcp_polarimetric_latest(default_settings: Settings) -> None:
+    """Test that LATEST of a polarimetric sweep of the precipitation scan is the one file DWD names so."""
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_RHOHV,
+            site=DwdRadarSite.BOO,
+            start=DwdRadarDate.LATEST,
+            settings=default_settings,
+        ).query()
+    )
+
+    assert len(results) == 1
+    assert results[0].url.endswith("_urhohv_00-LATEST-boo-10132-hd5")
+    with h5py.File(results[0].data, mode="r") as f:
+        assert f["dataset1/data1/what"].attrs["quantity"] == b"URHOHV"

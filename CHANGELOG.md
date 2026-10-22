@@ -58,7 +58,7 @@ Types of changes:
   files of a single site (found 2026-10-22), so no request could return a value. A request for
   one is an `InvalidEnumerationError` that says so; use `RV_` or `WN_REFLECTIVITY` for a composite
   or a forecast, `PX250_REFLECTIVITY` for a site. `RADAR_PARAMETERS_RADVOR` is gone with them.
-  DWD publishes no radar product as BUFR any more, so `read_bufr` has no effect (GH-3279, GH-3282)
+  DWD publishes no radar product as BUFR any more (GH-3279, GH-3282)
 - **Breaking**: the radar BUFR reader is removed: `read_radar_bufr`, `DwdRadarDataFormat.BUFR`,
   `RadarResult.df` and the `read_bufr` setting (`WD_READ_BUFR`, now ignored). DWD's index of
   weather/radar (1.03 million files, read 2026-10-22) holds no BUFR file, nor does any other
