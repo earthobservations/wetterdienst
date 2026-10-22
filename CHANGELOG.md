@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- The example `dwd_radar_composite_rw.py` plots `ACRR`, the variable wradlib reads from a RADOLAN RW
+  file (it asked for `RW` and failed). The radar docs say what an RW file holds and that it is ODIM
+  HDF5, which `wrl.io.read_radolan_header` cannot read: use h5py or
+  `xr.open_dataset(..., engine="radolan")` (GH-3298)
 - `eaufrance/hubeau` descriptions of `stage` and `discharge` no longer say the source states no
   statistic and, for the height, no reference level. The swagger dates a value by the instant it
   occurred, with no interval, and the height is relative to the zero of the station's gauge, so
