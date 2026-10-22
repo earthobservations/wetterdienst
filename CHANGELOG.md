@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- The Docker image, and an environment synced from `uv.lock`, now hold certifi 2026.10.19 and
+  Pillow 13.0.0 (30 vulnerabilities in `uv audit`), and pypdf 6.21.1 where the `pdf` extra is
+  installed (the image has none). certifi drops the `emSign ECC Root CA - G3`, under which eight
+  intermediate CA keys are compromised (GHSA-6q48-6c7w-9gw2): a host whose certificate chains to
+  it fails the TLS check wherever certifi is the trust store (`WD_USE_CERTIFI`). Pillow reaches
+  wetterdienst only through matplotlib. An installation from PyPI resolves its own versions:
+  upgrade these there (GH-3280)
+
 ## [0.166.0] - 2026-10-22
 
 ### Changed

@@ -63,14 +63,14 @@
     "@types/luxon": "^3.7.6",
     "@types/plotly.js": "^3.0.14",
     "@types/tz-lookup": "^6.1.2",
-    "@vitest/expect": "^4.1.11",
+    "@vitest/expect": "^4.1.12",
     "@vue/test-utils": "^2.5.1",
     "eslint": "^10.11.0",
     "eslint-plugin-oxlint": "^1.86.0",
     "happy-dom": "^20.14.5",
     "oxlint": "^1.86.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11",
+    "vitest": "^4.1.12",
     "vue-tsc": "^3.3.12"
   }
 }
