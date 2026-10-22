@@ -67,7 +67,7 @@ for result in request.query():
 ```
 
 `result.data` is an ODIM HDF5 file (`ODIM_H5/V2_3`, the sweeps declare `V2_2`), which [h5py](https://www.h5py.org/) or
-[wradlib](https://docs.wradlib.org/) read; with h5py installed (the `radar` extra) every file of a window is opened once to
+[wradlib](https://docs.wradlib.org/) read; with h5py installed (the `radar` extra) every file of a window of a product that has a format in the table is opened once to
 check it is HDF5 (the one of `LATEST` is not). The XML products are handed over as the bytes DWD wrote, to be parsed
 by the caller; nothing is read from any file.
 

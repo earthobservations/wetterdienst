@@ -6,7 +6,7 @@ The listings are lines of the real ones, read on 2026-10-22; the files in `files
 smallest of their product (DWD's open data, https://opendata.dwd.de/weather/radar/): `composite_VII_*` and
 `composite_HymecNG_*` are composites, `composite_rs_*_000-hd5` is the analysis in a `.tar` of RS, `raa01-yw_*` is YW,
 `ras07-vol5minng01_sweeph5onem_uzdr_07-*` a sweep of the volume scan, `KONRAD3D_*` and `meso_*` the XML files.
-The reflectivity composites HX and DMAX (0.6 and 1.5 MB), and the sweeps of the precipitation scan, of RHOHV and of
+The reflectivity composites HX and DMAX (1 to 2 MB a file), and the sweeps of the precipitation scan, of RHOHV and of
 PHIDP, are read by the remote tests only.
 """
 
@@ -351,10 +351,11 @@ def test_the_volume_sweeps_have_no_single_latest_file(parameter: str) -> None:
         DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
 
 
-def test_the_sweeps_of_a_filter_have_no_latest_file() -> None:
-    """Test that LATEST is refused as it was for the sweeps whose folders of a filter hold none."""
+@pytest.mark.parametrize("parameter", ["sweep_pcp_v", "sweep_vol_v", "sweep_vol_z"])
+def test_the_sweeps_of_a_filter_have_no_latest_file(parameter: str) -> None:
+    """Test that LATEST is refused as it was for the sweeps whose folders of a filter hold none, with no hint."""
     with pytest.raises(ValueError, match=r"HDF5 sweep data has no '-latest-' files$"):
-        DwdRadarValues(parameter="sweep_pcp_v", site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+        DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
 
 
 @pytest.mark.parametrize(

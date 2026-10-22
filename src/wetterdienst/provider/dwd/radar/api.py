@@ -217,7 +217,7 @@ class DwdRadarValues:  # noqa: PLW1641
             # folders have one for each elevation, which is one file of the precipitation scan and ten of the volume.
             if self.parameter in RADAR_PARAMETERS_SWEEPS and self.parameter not in RADAR_PARAMETERS_SWEEPS_LATEST:
                 msg = "HDF5 sweep data has no '-latest-' files"
-                if self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
+                if self.subset == DwdRadarDataSubset.UNFILTERED and self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
                     msg += " (the unfiltered folders have one for each elevation: ask for a time instead)"
                 raise ValueError(msg)
 
