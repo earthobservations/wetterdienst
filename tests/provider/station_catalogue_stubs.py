@@ -9,9 +9,12 @@ the provider's own reader (`_all()` and the frame handling of `all()`), so a rea
 shows here without the network. What a stub serves in place of the reader's lower layer is said in its comment: the
 sheet of `dwd/road` for the Excel read, the directory listings of `dwd/dmo`, `dwd/poi`, `dwd/observation` and
 `dwd/derived`, the paged and the parallel downloads of `eaufrance/hubeau` and `smhi/observation`, the NetCDF file of
-`knmi/observation`, which needs a key, written with h5netcdf. A comment also says
-which fields a stub made up (the observations a Hubeau station's resolution is measured from, the file names of
-`dwd/observation` but two) and which it left out.
+`knmi/observation`, which needs a key, written with h5netcdf. A comment also says which fields a stub made up (the
+observations a Hubeau station's resolution is measured from, the file names of `dwd/observation` but two) and which
+it left out. A network whose data files are listed serves the listing or feed beside the catalogue as well
+(`dwd/observation`, `dwd/derived`, `dwd/poi`, `dwd/dmo`, `chmi/observation`, `meteoswiss/observation`,
+`ipma/observation`, `noaa/ghcn`), and `test_station_coverage.py` holds the two to one another (`station_data_index.py`,
+GH-3248).
 
 To hold another provider to the rules, add a stub to `STUBS`: serve the rows through `_serve`, call the request, and
 give the rows a fault the source really has if there is one, so that the rule is seen to find it. A rule finds a value
@@ -33,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
+from tests.provider import station_data_index as data_index
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, has_encoding_damage
 from wetterdienst import Settings
 from wetterdienst.provider.aemet.observation import AemetObservationRequest
@@ -223,8 +227,26 @@ def _chmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "18.627222,49.628333,930,\n"
         "0-203-0-41302035001,B1NLHO01,1957-02-01T00:00Z,1959-11-30T23:59Z,Nová Lhota,17.5947,48.8614,500,\n"
         "0-203-0-41302035001,B1NLHO01,1976-07-20T00:00Z,1980-06-30T23:59Z,Nová Lhota  ?,17.6133,48.8736,420,\n"
+        "0-203-0-11566,P2SADS01,1897-01-01T00:00Z,1934-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
+        "0-203-0-11566,P2SADS01,1936-01-01T00:00Z,1945-12-31T23:59Z,Sadská,14.9833,50.1333,187,\n"
     )
     _serve(monkeypatch, chmi_api, {"meta1.csv": catalogue.encode("utf8")})
+    # the directories of the daily elements, with files of the stations above as listed (2026-10-21), among them
+    # elements the provider does not read (`TPM`, `API30`), and the other directories left out: Sadská, a station
+    # closed in 1945, has no file (GH-3259)
+    base = f"{chmi_api._BASE_URL}/data/daily"  # noqa: SLF001
+    files = {
+        f"{base}/temperature/": [
+            *("0-20000-0-11406-T", "0-20000-0-11406-TMA", "0-20000-0-11406-TMI", "0-20000-0-11406-TPM"),
+            "0-203-0-20303032003-T",
+        ],
+        f"{base}/precipitation/": ["0-20000-0-11406-API30", "0-20000-0-11406-SRA", "0-203-0-41302035001-SRA"],
+    }
+    monkeypatch.setattr(
+        data_index,
+        "list_files",
+        lambda url, *_args, **_kwargs: [f"{url}dly-{name}.csv" for name in files.get(url, [])],
+    )
     return _stations(ChmiObservationRequest, ("daily", "data"))
 
 
@@ -268,6 +290,8 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "FRE00104116  43.1881    0.0000  360.0    TARBES - OSSUN                         07621\n"
         "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
         "GME00102292  51.4358   12.2414  131.0    LEIPZIG-SCHKEUDITZ                     10469\n"
+        # one of the 147 stations the inventory has no line for, and no data file either (GH-3260)
+        "CAN03010010  54.2833 -112.9667  664.0 AB ABEE AGDM                              71285\n"
     )
     # the stations that report this year have no end, so the rule against an end in the future holds them (GH-2643)
     this_year = dt.datetime.now(dt.UTC).year
@@ -298,7 +322,16 @@ def _ipma(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         feature(1210883, "Tavira", -7.62050375, 37.12166968),
         feature(6210817, "Ponte de Sôr / Aeródromo", -8.05417, 39.21536),
     ]
-    _serve(monkeypatch, ipma_api, {"stations.json": json.dumps(catalogue).encode("utf8")})
+    # the feed of the last day names a station by its id, with a reading or `null` for each hour
+    feed = {
+        "2026-10-21T19:00": {"1210881": {"temperatura": 16.5, "humidade": 68.0}, "1210883": None},
+        "2026-10-21T20:00": {"1210881": {"temperatura": 15.9, "humidade": 71.0}, "1210883": {"temperatura": 15.1}},
+    }
+    bodies = {
+        "stations.json": json.dumps(catalogue).encode("utf8"),
+        "observations.json": json.dumps(feed).encode("utf8"),
+    }
+    _serve(monkeypatch, ipma_api, bodies)
     return _stations(IpmaObservationRequest, ("hourly", "data"))
 
 
@@ -775,6 +808,8 @@ def _dwd_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         if line.startswith("00106"):
             continue
         files.append(f"{base}tageswerte_KL_{line[:5]}_{line[6:14]}_{line[15:23]}_hist.zip")
+    # and the file of 01018, which the description has no line for (GH-3258)
+    files.append(f"{base}tageswerte_KL_01018_19510101_20041231_hist.zip")
     monkeypatch.setattr(dwd_fileindex, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
     _serve(monkeypatch, dwd_metaindex, {"Beschreibung_Stationen": catalogue.encode("latin-1")})
     return _stations(DwdObservationRequest, ("daily", "climate_summary"), periods="historical")
@@ -1170,7 +1205,21 @@ def _meteoswiss(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         ),
     ]
     catalogue = "\r\n".join([header, *rows]) + "\r\n"
-    _serve(monkeypatch, meteoswiss_api, {"ogd-smn_meta_stations": catalogue.encode("windows-1252")})
+    # the STAC collection lists an item for each station, with an asset for each of its files (2026-10-21): a daily, an
+    # hourly, a monthly and a 10 minute file of each of the four, named as the files of ABO are, a subset of its many
+    items = [
+        {
+            "id": abbr.lower(),
+            "assets": {
+                f"ogd-smn_{abbr.lower()}_{name}.csv": {"href": f"https://data.geo.admin.ch/{abbr.lower()}/{name}"}
+                for name in ("d_historical", "d_recent", "h_now", "m", "t_now")
+            },
+        }
+        for abbr in ("ABO", "AEG", "GSB", "SMA")
+    ]
+    stac = {"features": items, "links": [{"rel": "self", "href": data_index.STAC_ITEMS}]}
+    bodies = {"ogd-smn_meta_stations": catalogue.encode("windows-1252"), "/items": json.dumps(stac).encode("utf8")}
+    _serve(monkeypatch, meteoswiss_api, bodies)
     return _stations(MeteoswissObservationRequest, ("daily", "data"))
 
 
