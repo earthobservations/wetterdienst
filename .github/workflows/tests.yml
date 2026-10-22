@@ -70,8 +70,11 @@ jobs:
         # h5py, duckdb, numcodecs and pyyaml have no 3.15 wheel and are built from source
         python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
+          # stays on 3.14: h5py is in the dev group that `uv sync` installs, has no cp315 wheel, and
+          # windows-latest has no HDF5 to build it against. Move it to 3.15 when h5py ships a cp315
+          # Windows wheel (the macOS legs below install HDF5 with brew)
           - os: "windows-latest"
-            python-version: "3.15"
+            python-version: "3.14"
           - os: "macos-15-intel" # x86_64 (Intel, macOS 15)
             python-version: "3.15"
           - os: "macos-26" # arm64 (Apple Silicon, macOS 26 Tahoe)
@@ -107,9 +110,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y libhdf5-dev pkg-config
 
-      # the same for macOS. Windows has no HDF5 to install this way, and h5py is in the dev group that the
-      # plain `uv sync` below installs: until h5py publishes a 3.15 wheel the Windows leg fails there
-      # (the matrix is `continue-on-error`), and no test runs on Windows but the offline selection below
+      # the same for macOS (the Windows leg stays on 3.14, see the matrix)
       - name: Install HDF5 (macOS, Python 3.15 only)
         if: ${{ startsWith(matrix.os, 'macos-') && matrix.python-version == '3.15' }}
         run: brew install hdf5 pkg-config
@@ -233,8 +234,8 @@ jobs:
             polars: "1.43.2"
           # the one platform where `socket.connect` is not asyncio's path -- `ProactorEventLoop`
           # connects through `_overlapped.ConnectEx` - which is why the guard refuses names as well
-          # as addresses. Nothing else in CI asks whether the selection is offline here: when the
-          # Windows leg of the matrix above runs `poe test`, remote tests and all, it warms the
+          # as addresses. Nothing else in CI asks whether the selection is offline here: the
+          # Windows leg of the matrix above runs `poe test`, remote tests and all, which warms the
           # cache and the connection an unmarked test would then be served from
           - os: "windows-latest"
             python-version: "3.14"
