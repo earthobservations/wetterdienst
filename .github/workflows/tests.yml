@@ -25,6 +25,8 @@ on:
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
+      - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
       - '.github/workflows/tests.yml'
   push:
@@ -42,15 +44,17 @@ on:
       - 'README.md'
       - 'CHANGELOG.md'
       - 'CITATION.cff'
+      # tests/test_docs.py ties the extras the image installs to the ones docs/usage/docker.md lists
+      - 'docker/Dockerfile'
       - '.github/workflows/install.sh'
       - '.github/workflows/tests.yml'
 
   # Allow job to be triggered manually.
   workflow_dispatch:
 
-# Cancel in-progress jobs when pushing to the same branch.
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 permissions: {}
@@ -58,6 +62,7 @@ permissions: {}
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
 
     strategy:
       matrix:
@@ -65,14 +70,17 @@ jobs:
         # h5py, duckdb, numcodecs and pyyaml have no 3.15 wheel and are built from source
         python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
+          # stays on 3.14: h5py is in the dev group that `uv sync` installs, has no cp315 wheel, and
+          # windows-latest has no HDF5 to build it against. Move it to 3.15 when h5py ships a cp315
+          # Windows wheel (the macOS legs below install HDF5 with brew)
           - os: "windows-latest"
             python-version: "3.14"
           - os: "macos-15-intel" # x86_64 (Intel, macOS 15)
-            python-version: "3.14"
+            python-version: "3.15"
           - os: "macos-26" # arm64 (Apple Silicon, macOS 26 Tahoe)
-            python-version: "3.14"
+            python-version: "3.15"
           - os: "macos-26-intel" # x86_64 (Intel, macOS 26 Tahoe)
-            python-version: "3.14"
+            python-version: "3.15"
 
     continue-on-error: true
 
@@ -102,6 +110,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y libhdf5-dev pkg-config
 
+      # the same for macOS (the Windows leg stays on 3.14, see the matrix)
+      - name: Install HDF5 (macOS, Python 3.15 only)
+        if: ${{ startsWith(matrix.os, 'macos-') && matrix.python-version == '3.15' }}
+        run: brew install hdf5 pkg-config
+
       - name: Install project
         run: uv sync
 
@@ -113,9 +126,7 @@ jobs:
 
       - name: Install eccodes (Mac only)
         if: ${{ startsWith(matrix.os, 'macos-') }}
-        run: |
-          brew install eccodes
-          export WD_ECCODES_DIR=$(brew --prefix eccodes)
+        run: brew install eccodes
 
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
@@ -138,6 +149,7 @@ jobs:
   minimum-versions:
     name: Minimum dependency versions
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     continue-on-error: true
 
@@ -196,6 +208,7 @@ jobs:
   offline:
     name: Offline selection on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.polars && format(' / polars {0}', matrix.polars) || '' }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
 
     strategy:
       # the guard reasons about an interpreter difference, so the version it names is run here: 3.12

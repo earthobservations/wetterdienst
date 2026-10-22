@@ -16,7 +16,7 @@ on:
 # group of its own: its run is skipped, but it would otherwise queue behind, or cancel while waiting,
 # the run the `a11y` label started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'a11y' && format('-{0}', github.run_id) || '' }}
 
 permissions: {}
@@ -25,6 +25,7 @@ jobs:
   accessibility:
     name: Accessibility scan
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     # the image the baseline was recorded in (Firefox on Linux, with its fonts): the layout-dependent
     # rules differ on another system. Keep the tag in step with @playwright/test in app/package.json
     container:
@@ -64,7 +65,7 @@ jobs:
         id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

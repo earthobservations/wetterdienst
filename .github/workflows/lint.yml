@@ -27,9 +27,9 @@ on:
   # Allow job to be triggered manually.
   workflow_dispatch:
 
-# Cancel in-progress jobs when pushing to the same branch.
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 env:
@@ -40,6 +40,7 @@ permissions: {}
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Acquire sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
