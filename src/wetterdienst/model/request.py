@@ -420,6 +420,18 @@ class TimeseriesRequest:
     # `periods` field it replaces used to cost.
     _selects_by_period: ClassVar[bool] = False
 
+    def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:  # noqa: ARG002
+        """Say how far back the `recent` release of a dataset reaches, as a margin over what it holds.
+
+        What the row limit of the REST API reads a request for `recent` alone as at most (`ui.limits`): the default
+        is two years, over the 500 days DWD's holds for most of its data. None says that asking for `recent` is not
+        counted as less than the record of a station (a dataset that has no release of its own, or one that reaches
+        back further than any margin), so the estimate is not narrowed and a station without a record is counted
+        from `ui.limits._ASSUMED_RECORD_START`. A provider that reads per period overrides it for the
+        datasets whose release is not like that default.
+        """
+        return dt.timedelta(days=731)
+
     @classmethod
     def available_periods(cls) -> set[Period]:
         """Periods the provider publishes, across all of its datasets."""

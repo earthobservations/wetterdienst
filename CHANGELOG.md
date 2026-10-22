@@ -47,6 +47,12 @@ Types of changes:
   hour) heights, the 8-point wind direction class, and say the radiation's period and kind
   ("global", "horizontal") are not stated by the source (the old text said global, horizontal and
   per interval; the daily course only suggests an hourly sum) (GH-3136)
+- The REST API's row limit estimated a `values` request with `periods=recent` from the whole
+  record of each station, so the first documented sample (`daily/kl`, stations 1048 and 4411, 12,319
+  rows) was refused on a default server as "about 714,308 rows". The estimate now counts only what
+  the requested periods hold (about two years for `recent`, longer for the 1 and 5 minute and the
+  annual data, the whole record for datasets with no `recent` release of their own, as hourly
+  solar has); a request for the whole record is still refused when it is over the limit (GH-3249)
 - DWD descriptions that stated what the source does not: the `dwd/swsmos` liquid precipitation
   (`RRL1c`) read MOSMIX's "consistent with significant weather", and `TL` and `TD` said 2 m (the
   sheet gives no height); the `dwd/poi` new snow was "since the previous observation" (it is in the
