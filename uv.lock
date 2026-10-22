@@ -6950,7 +6950,7 @@ wheels = [
 
 [[package]]
 name = "wetterdienst"
-version = "0.166.0"
+version = "0.167.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
