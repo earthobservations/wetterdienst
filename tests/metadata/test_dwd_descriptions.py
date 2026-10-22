@@ -82,6 +82,19 @@ def test_the_poi_radiation_of_the_hour_is_an_energy_expressed_as_power() -> None
         assert "averag" not in text.lower()
 
 
+@pytest.mark.parametrize(
+    ("dataset", "name_original"),
+    [("icon", "rad1h"), ("icon_eu", "rad1h"), ("icon", "rads3"), ("icon", "rr1"), ("icon_eu", "rr1"), ("icon", "rr3")],
+)
+def test_the_dmo_elements_that_run_below_zero_say_so(dataset: str, name_original: str) -> None:
+    """ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` are not clipped at 0, and the description says it.
+
+    Read 2026-10-22: `Rad1h` negative in 411 of 1872 icon-eu values, `RadS3` in 273 of 1209 icon values, `RR1` in 3 of
+    1872 icon-eu values and `RR3` in 143 of 182,714 icon values.
+    """
+    assert "not clipped at 0" in _description(DwdDmoMetadata, "hourly", dataset, name_original)
+
+
 def test_the_mosmix_ratio_and_energy_are_not_called_irradiance_alone() -> None:
     """`Rad1h` is in kJ/m2 (J/cm2 in DMO), an energy; `RRad1` is a percentage, not an irradiance.
 

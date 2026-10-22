@@ -95,6 +95,9 @@ These values are returned as the source writes them, with no token:
 - a relative humidity of 100 % and above: a hygrometer reads past 100 now and then, and no blanket rule nulls it.
   DMI, RMI and DWD road null a humidity above 130 %, outside the physical range;
 - a radiation of 0 at night; a net radiation that is negative (DWD DMO);
+- the small negative values of DWD DMO's direct model output: `rad1h` at night (mostly above -0.2 J/cm2, at a few
+  stations to about -0.8), `rads3` (to about -0.4 J/cm2) and, rarely, `rr1` and `rr3` (up to about a tenth of a mm).
+  ICON writes them (read 2026-10-22; the MOSMIX_L file of station 10382 holds none); no rule nulls or clips them;
 - a snow depth below 0 that no source documents: MeteoSwiss' automatic gauge `htoautd0` reads -1 to -5 cm on warm
   days (11 % of the hours at PLF), a spread around a bare ground and not a code;
 - a sunshine duration longer than the day, unless a station's sensor is known to be stuck (RMI).
