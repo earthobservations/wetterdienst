@@ -847,3 +847,27 @@ def test_radar_request_site_sweep_pcp_polarimetric_latest(default_settings: Sett
     assert results[0].url.endswith("_urhohv_00-LATEST-boo-10132-hd5")
     with h5py.File(results[0].data, mode="r") as f:
         assert f["dataset1/data1/what"].attrs["quantity"] == b"URHOHV"
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        DwdRadarParameter.HX_REFLECTIVITY,
+        DwdRadarParameter.DMAX_REFLECTIVITY,
+        DwdRadarParameter.VII_INTEGRATED_ICE,
+        DwdRadarParameter.HYMECNG_PRECIPITATION_TYPE,
+        DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS,
+        DwdRadarParameter.MESOCYCLONE_DETECTION,
+    ],
+)
+def test_radar_request_most_recent_of_the_products_published_late(
+    parameter: DwdRadarParameter, default_settings: Settings
+) -> None:
+    """Test that MOST_RECENT finds a file whenever it is asked, though DWD publishes these up to 9 minutes late."""
+    results = list(
+        DwdRadarValues(parameter=parameter, start=DwdRadarDate.MOST_RECENT, settings=default_settings).query()
+    )
+
+    assert len(results) == 1
+    assert dt.datetime.now(UTC) - results[0].timestamp <= dt.timedelta(minutes=20)
