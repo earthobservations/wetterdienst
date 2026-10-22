@@ -86,6 +86,7 @@
   "tests/provider/dwd/road/test_api.py::test_dwd_road_weather_group_with_nothing_published": [["DwdRoadValues 15_minutes/data", "d9b22919", 0, "e3b0c44298fc1c14"]],
   "tests/provider/dwd/road/test_api.py::test_dwd_road_weather_still_drops_a_142_byte_file_that_downloaded": [["DwdRoadValues 15_minutes/data", "d9b22919", 0, "e3b0c44298fc1c14"]],
   "tests/provider/dwd/road/test_api.py::test_dwd_road_weather_warns_for_files_that_failed_among_files_that_arrived": [["DwdRoadValues 15_minutes/data", "d9b22919", 1, "8c99cdcc37d052c2"]],
+  "tests/provider/dwd/swsmos/test_api.py::test_swsmos_names_the_air_temperature_the_dew_point_and_the_road_condition_for_what_the_sheet_says": [["DwdSwsmosValues hourly/data", "d9b22919", 3, "63b0a84b639987be"]],
   "tests/provider/dwd/swsmos/test_api.py::test_swsmos_query_asks_for_the_latest_run_again": [["DwdSwsmosValues hourly/data", "d9b22919", 1, "5d7c25bca1fc3422"], ["DwdSwsmosValues hourly/data", "d9b22919", 1, "94e2d0f41a770fb0"]],
   "tests/provider/dwd/swsmos/test_api.py::test_swsmos_run_does_not_outlive_the_query": [["DwdSwsmosValues hourly/data", "d9b22919", 1, "5d7c25bca1fc3422"]],
   "tests/provider/dwd/test_forecast_networks_frames.py::test_dmo_icon_eu_comes_out_as_the_long_form": [["DwdDmoValues hourly/icon_eu", "d9b22919", 3, "175d711db1804838"]],

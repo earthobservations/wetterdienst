@@ -33,6 +33,7 @@
    "daily/data": [
     "humidity_relative",
     "pressure_air_site",
+    "wind_gust_max",
     "wind_speed"
    ],
    "hourly/data": [
@@ -72,10 +73,16 @@
   },
   "DwdDerivedMetadata": {
    "daily/soil": [
+    "evaporation_amount_winter_wheat_loamy_silt",
+    "evaporation_amount_winter_wheat_sand",
     "evapotranspiration_potential_grass_fao_last_24h",
-    "evapotranspiration_potential_grass_haude_last_24h"
+    "evapotranspiration_potential_grass_haude_last_24h",
+    "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+    "soil_moisture_winter_wheat_sand_00cm_60cm"
    ],
    "monthly/soil": [
+    "evaporation_amount_winter_wheat_loamy_silt",
+    "evaporation_amount_winter_wheat_sand",
     "evapotranspiration_potential_grass_fao_last_24h",
     "evapotranspiration_potential_grass_haude_last_24h",
     "soil_moisture_corn_loamy_silt_00cm_60cm",
@@ -276,6 +283,7 @@
   "DwdSwsmosMetadata": {
    "hourly/data": [
     "precipitation_amount_last_6h",
+    "road_surface_condition",
     "temperature_air_mean_2m",
     "temperature_dew_point_mean_2m",
     "temperature_surface_mean"

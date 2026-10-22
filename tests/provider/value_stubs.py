@@ -1996,8 +1996,8 @@ STUBS = [
     ValueStub(
         "dwd/swsmos hourly/data",
         _dwd_swsmos,
-        reading=("temperature_air_2m", 6.2),
-        tokens=(("temperature_air_2m", "---", None),),
+        reading=("temperature_air", 6.2),
+        tokens=(("temperature_air", "---", None),),
     ),
     # Météo-France's climatological files, as audited in GH-2719 and GH-2720. RR (6 minutes, daily, monthly) and RR1
     # (hourly) hold no code: the descriptions (the descriptif_champs files and the climatologie-*-descriptif PDFs)

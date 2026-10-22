@@ -188,12 +188,12 @@ _DwdDerivedMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_winter_wheat_sand_00cm_60cm",
+                            "name": "soil_moisture_winter_cereals_sand_00cm_60cm",
                             "name_original": "bfws_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_winter_wheat_loamy_silt_00cm_60cm",
+                            "name": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
                             "name_original": "bfwl_ag",
                             "unit": "percent",
                         },
@@ -228,12 +228,12 @@ _DwdDerivedMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_amount_winter_wheat_sand",
+                            "name": "evaporation_amount_winter_cereals_sand",
                             "name_original": "vrws_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_amount_winter_wheat_loamy_silt",
+                            "name": "evaporation_amount_winter_cereals_loamy_silt",
                             "name_original": "vrwl_ag",
                             "unit": "millimeter",
                         },
@@ -407,12 +407,12 @@ _DwdDerivedMetadataSpec = {
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_mean_winter_wheat_sand_00cm_60cm",
+                            "name": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
                             "name_original": "mittel von bfws_ag",
                             "unit": "percent",
                         },
                         {
-                            "name": "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm",
+                            "name": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
                             "name_original": "mittel von bfwl_ag",
                             "unit": "percent",
                         },
@@ -447,12 +447,12 @@ _DwdDerivedMetadataSpec = {
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_amount_winter_wheat_sand",
+                            "name": "evaporation_amount_winter_cereals_sand",
                             "name_original": "summe von vrws_ag",
                             "unit": "millimeter",
                         },
                         {
-                            "name": "evaporation_amount_winter_wheat_loamy_silt",
+                            "name": "evaporation_amount_winter_cereals_loamy_silt",
                             "name_original": "summe von vrwl_ag",
                             "unit": "millimeter",
                         },

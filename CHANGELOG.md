@@ -22,6 +22,19 @@ Types of changes:
   no longer `temperature_air_2m`: PEGELONLINE states no height for it. The old name, and
   `temperature_air_mean_2m` of 0.139.0, are refused with the new one named; values and units are
   unchanged. Request, filter and key by the new name (GH-3242)
+- **Breaking**: parameters of `dwd/swsmos` and `dwd/derived` are named for what DWD's sheets state.
+  `dwd/swsmos`: `temperature_air_2m` (`TL`) is `temperature_air` and `temperature_dew_point_2m`
+  (`TD`) is `temperature_dew_point` (no height is stated; the 0.139.0 `..._mean_2m` names too);
+  `road_surface_condition` (`RC`) is `road_surface_condition_forecast`, its codes (1 dry, 2 moist,
+  3 snow, ...) are not the BUFR ones of `dwd/road` (0 dry, 1 moist, 2 wet, ...), which keeps the
+  name. `dwd/derived`: `soil_moisture_winter_wheat_*`, `soil_moisture_mean_winter_wheat_*` and
+  `evaporation_amount_winter_wheat_*` are `..._winter_cereals_...` ("Wintergetreide"). The old name
+  is refused with the new one named; values and units are unchanged: request, filter and key by the
+  new name. Release the app after this backend (GH-3263)
+- **Breaking**: the daily maximum wind of `chmi/observation` (`Fmax`) is `wind_speed_max`, no longer
+  `wind_gust_max`: CHMI calls it "Max rychlost", the maximum speed, and states no gust. The old name
+  is refused with the new one named; values and units are unchanged. Request, filter and key by the
+  new name (GH-3264)
 
 ### Removed
 

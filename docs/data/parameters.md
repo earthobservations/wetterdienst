@@ -302,8 +302,8 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | `soil_moisture_grass_loamy_silt_40cm_50cm` | `soil_moisture_mean_grass_loamy_silt_40cm_50cm` | 1 |
 | `soil_moisture_grass_loamy_silt_50cm_60cm` | `soil_moisture_mean_grass_loamy_silt_50cm_60cm` | 1 |
 | `soil_moisture_grass_sand_00cm_60cm` | `soil_moisture_mean_grass_sand_00cm_60cm` | 1 |
-| `soil_moisture_winter_wheat_loamy_silt_00cm_60cm` | `soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm` | 1 |
-| `soil_moisture_winter_wheat_sand_00cm_60cm` | `soil_moisture_mean_winter_wheat_sand_00cm_60cm` | 1 |
+| `soil_moisture_winter_wheat_loamy_silt_00cm_60cm` | `soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm` | 1 |
+| `soil_moisture_winter_wheat_sand_00cm_60cm` | `soil_moisture_mean_winter_cereals_sand_00cm_60cm` | 1 |
 | `wind_force_beaufort` | `wind_force_beaufort_mean` | 2 |
 
 The rows, by network, resolution and dataset (`field` is the source's own name):
@@ -320,8 +320,8 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 | dwd/derived | monthly/soil | `mittel von bfgl05_ag` | `soil_moisture_grass_loamy_silt_40cm_50cm` | `soil_moisture_mean_grass_loamy_silt_40cm_50cm` |
 | dwd/derived | monthly/soil | `mittel von bfgl06_ag` | `soil_moisture_grass_loamy_silt_50cm_60cm` | `soil_moisture_mean_grass_loamy_silt_50cm_60cm` |
 | dwd/derived | monthly/soil | `mittel von bfgs_ag` | `soil_moisture_grass_sand_00cm_60cm` | `soil_moisture_mean_grass_sand_00cm_60cm` |
-| dwd/derived | monthly/soil | `mittel von bfwl_ag` | `soil_moisture_winter_wheat_loamy_silt_00cm_60cm` | `soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm` |
-| dwd/derived | monthly/soil | `mittel von bfws_ag` | `soil_moisture_winter_wheat_sand_00cm_60cm` | `soil_moisture_mean_winter_wheat_sand_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfwl_ag` | `soil_moisture_winter_wheat_loamy_silt_00cm_60cm` | `soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm` |
+| dwd/derived | monthly/soil | `mittel von bfws_ag` | `soil_moisture_winter_wheat_sand_00cm_60cm` | `soil_moisture_mean_winter_cereals_sand_00cm_60cm` |
 | dwd/observation | annual/climate_summary | `ja_fk` | `wind_force_beaufort` | `wind_force_beaufort_mean` |
 | dwd/observation | monthly/climate_summary | `mo_fk` | `wind_force_beaufort` | `wind_force_beaufort_mean` |
 | knmi/observation | 10_minutes/data | `rg` | `precipitation_intensity` | `precipitation_intensity_mean` |
@@ -432,6 +432,37 @@ height for it, so the 2 m of the name was an assumption (0.166.0, GH-3242). Thre
 `chlorid_concentration` that was renamed to it (an unknown parameter now). `precipitation_amount` and
 `precipitation_intensity` stay names of the datasets of the other providers that declare them. Values and units of the
 air temperature are unchanged, and the request for the old name is refused with the new one named.
+
+#### DWD SWSMOS, DWD derived and CHMI: names that did not say what the source's number is
+
+Ten names of three networks (DWD SWSMOS, DWD derived, CHMI) were changed before 1.0 (0.166.0, GH-3263,
+GH-3264). Values and units are unchanged, and
+a request for an old name is refused with the new one named.
+
+- DWD's SWSMOS sheet (`swis_swsmos_beschreibung.pdf`) says "Lufttemperatur" and "Taupunkttemperatur" and states no
+  height, so `_2m` was an assumption (MOSMIX's `TTT` is 2 m; SWSMOS's `TL` is not said to be). The 0.139.0 names
+  `temperature_air_mean_2m` and `temperature_dew_point_mean_2m` are answered with the new ones too.
+- The road condition of SWSMOS (`RC`, from the METRo road model) and that of the road stations (BUFR 0 20 241) are
+  different code tables under what was one name: a caller reading `road_surface_condition` = 2 got "moist" from the
+  one and "wet" from the other. The SWSMOS forecast is `road_surface_condition_forecast`; `dwd/road` keeps
+  `road_surface_condition`. The two are different parameters in the glossary, and each description lists its own codes.
+- The derived sheets of DWD say "Wintergetreide" ("winter cereals" in English) and no wheat.
+- CHMI's `Fmax` is "Max rychlost", the maximum speed, with `Dmax` "Směr Fmax" its direction; the source says nothing of
+  a gust, which `wind_gust_max` claims. `wind_speed_max` is the maximum of the speed where the source states no gust and no averaging window.
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| dwd/swsmos | hourly/data | `TL` | `temperature_air_2m` | `temperature_air` | "Lufttemperatur" with no height stated |
+| dwd/swsmos | hourly/data | `TD` | `temperature_dew_point_2m` | `temperature_dew_point` | "Taupunkttemperatur" with no height stated |
+| dwd/swsmos | hourly/data | `RC` | `road_surface_condition` | `road_surface_condition_forecast` | "Straßenzustand": 1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, 6 glaze ice |
+| dwd/derived | daily/soil | `bfws_ag`, `bfwl_ag` | `soil_moisture_winter_wheat_<soil>_00cm_60cm` | `soil_moisture_winter_cereals_<soil>_00cm_60cm` | "Wintergetreide", `<soil>` is `sand` or `loamy_silt` |
+| dwd/derived | daily/soil | `vrws_ag`, `vrwl_ag` | `evaporation_amount_winter_wheat_<soil>` | `evaporation_amount_winter_cereals_<soil>` | the same |
+| dwd/derived | monthly/soil | `mittel von bfws_ag`, `mittel von bfwl_ag` | `soil_moisture_mean_winter_wheat_<soil>_00cm_60cm` | `soil_moisture_mean_winter_cereals_<soil>_00cm_60cm` | the same |
+| dwd/derived | monthly/soil | `summe von vrws_ag`, `summe von vrwl_ag` | `evaporation_amount_winter_wheat_<soil>` | `evaporation_amount_winter_cereals_<soil>` | the same |
+| chmi/observation | daily/data | `Fmax` | `wind_gust_max` | `wind_speed_max` | "Max rychlost", the maximum speed |
+
+The `winter_wheat` of `dwd/phenology` (the plant of the phenological stations, and the `annual_winter_wheat` and
+`immediate_winter_wheat` reporters) is a crop and keeps its name.
 
 ## Glossary
 

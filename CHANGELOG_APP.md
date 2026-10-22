@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` The labels of `soil_moisture_winter_cereals_*`, `soil_moisture_mean_winter_cereals_*`
+  and `evaporation_amount_winter_cereals_*` replace those of the winter wheat names, and
+  `road_surface_condition_forecast` and `wind_speed_max` have labels, in all eleven languages
+  (GH-3263, GH-3264). Needs the backend that serves them: release the backend first. The Low German
+  and Luxembourgish labels are not reviewed by a native speaker
+
 ## [0.29.0] - 2026-10-21
 
 ### Changed
