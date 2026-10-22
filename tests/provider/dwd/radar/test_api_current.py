@@ -2,6 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD radar data access."""
 
+import datetime as dt
+from zoneinfo import ZoneInfo
+
 import pytest
 from dirty_equals import IsNumeric, IsTuple
 
@@ -112,13 +115,15 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
 
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Settings) -> None:
-    """Example for testing radar sites single current SWEEP_VOL.
+    """Example for testing radar sites single SWEEP_VOL of the slot that sweep 1 is published for.
 
-    This time in OPERA HDF5 (ODIM_H5) format.
+    This time in OPERA HDF5 (ODIM_H5) format. The slot of now cannot be asked for: it is under 5 minutes old, and the
+    sweep 1 is listed up to 323 s after it starts, so an empty answer could never be told from a late one. The slot
+    `SWEEP_ELEVATION_1_DELAY` ago is at least that old.
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start=DwdRadarDate.CURRENT,
+        start=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - SWEEP_ELEVATION_1_DELAY,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -128,7 +133,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
 
     results = list(request.query())
 
-    require_published(results, request.start, SWEEP_ELEVATION_1_DELAY, "the sweep 1")
+    assert results, "DWD holds no sweep 1 for a slot older than the time it takes to publish it"
 
     assert len(results) <= 1
 

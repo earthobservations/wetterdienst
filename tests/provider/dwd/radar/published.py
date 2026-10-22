@@ -27,8 +27,9 @@ SWEEP_FIRST_FILE_DELAY = dt.timedelta(seconds=240)
 # and 17 s more.
 SWEEP_ELEVATION_1_DELAY = dt.timedelta(seconds=340)
 
-# How long after its mark HH:50 the file of RADOLAN_CDC `recent` (daily and hourly) is listed: 26 to 31 minutes in all
-# but a few that were put there again days later (the 99th percentile 31.3 minutes of 15831 marks, read 2026-10-22).
+# How long after its mark HH:50 the file of RADOLAN_CDC `recent` (daily and hourly) is listed: 26 to 31 minutes for all
+# but about 0.5 % of the 15831 marks (the 99th percentile 31.3 minutes, read 2026-10-22), which are listed up to hours,
+# rarely days, later: a failure on one of those (about 0.2 % of the runs) is a late file, no regression.
 RADOLAN_CDC_DELAY = dt.timedelta(minutes=40)
 
 

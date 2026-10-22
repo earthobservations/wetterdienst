@@ -47,7 +47,7 @@ that is a `.tar`, whose first file, the analysis, it answers, `composite_hx_LATE
 one for each sweep (`..._uzdr_00-LATEST-boo-10132-hd5`), which LATEST reads for the precipitation scan, whose one sweep it is
 (two files, TH and TV, for the reflectivity). It does not for the volume scan: DWD replaces its ten files one by one as
 the scan is published, so for minutes they are of two volumes (on 2026-10-22 at 15:53 UTC the sweeps 0 to 4 were
-listed 15:51 to 15:53 and 5 to 9 at 15:48 to 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45): ask for a time or `MOST_RECENT` instead. The folders of a filter hold none and KONRAD3D has none.
+listed 15:51 to 15:53 and 5 to 9 at 15:48 to 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45): ask for a time instead (`MOST_RECENT` can lack the last sweeps of a volume, GH-3302). The folders of a filter hold none and KONRAD3D has none.
 `start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product (not RADOLAN's, unless `fmt` is named) is the 5 minute slot
 before now; for RS, DMAX, VII, KONRAD3D and the mesocyclones, which DWD publishes more than 5 minutes after the run in
 more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now, and so for the site products PE, PZ, PR
@@ -97,7 +97,7 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 
 The sweeps are the polar data of one site (`site=DwdRadarSite.BOO`): 360 rays of 250 m bins, as many bins as the
 elevation has. The volume scan has ten elevations, which are ten files a run (`elevation=0` to `9` picks one of them,
-for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file (twice that for the
-unfiltered reflectivity, which has TH and TV for each sweep, and `elevation` picks both). The unfiltered
+for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file. The unfiltered
+reflectivity has two files for each sweep, TH and TV, and `elevation` picks the pair. The unfiltered
 polarimetric moments have no folder of a filter, as the velocity and the reflectivity sweeps do (`hdf5/filter_simple`
 and `hdf5/filter_polarimetric`).
