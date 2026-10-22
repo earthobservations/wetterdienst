@@ -32,6 +32,9 @@ Types of changes:
   `chloride_concentration` is no parameter of any provider now, so `chlorid_concentration`, its old
   misspelling, is unknown too; the other providers keep `precipitation_amount` and
   `precipitation_intensity` (GH-3242)
+- The `nightly` tag of `ghcr.io/earthobservations/wetterdienst` and `-app` is no longer published:
+  the images are built on release tags only. An image pulled by `:nightly` stays at its last
+  build, so pull a release tag (`:0.165.0` of the backend, `:0.29.0` of the app) instead (GH-2477)
 
 ### Fixed
 

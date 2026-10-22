@@ -23,9 +23,9 @@ on:
   # Allow job to be triggered manually
   workflow_dispatch:
 
-# Cancel in-progress jobs when pushing to the same branch
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
 concurrency:
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 
 permissions: {}
@@ -34,6 +34,7 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     defaults:
       run:
@@ -59,7 +60,7 @@ jobs:
         id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -144,7 +145,7 @@ jobs:
         run: |
           if [ -f backend.pid ]; then
             echo "Stopping backend process $(cat backend.pid)"
-            kill $(cat backend.pid) || true
+            kill "$(cat backend.pid)" || true
             rm backend.pid
           fi
           # Also try to kill any remaining wetterdienst processes
