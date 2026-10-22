@@ -27,6 +27,16 @@ Types of changes:
   `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
   radar docs page says what each is (GH-3283)
 
+### Changed
+
+- `chmi/observation` lists, for `daily`, `monthly` and `annual`, only the stations that have a file
+  in the resolution: 25, 24 and 29 of the 1,562 stations of `meta1.csv` (closed ones such as
+  Sadská) answered every request with an empty frame (read 2026-10-22). `10_minutes` and `hourly`
+  still list all 1,562. A stations request for the three now lists the element directories (7, 2
+  and 2), and a failed listing raises `NoInternetError` or `DownloadError`. The monthly and annual
+  files of 29 and 22 ids that `meta1.csv` does not carry, with no position anywhere, stay unlisted
+  (Part of GH-3259)
+
 ### Removed
 
 - **Breaking**: the radar BUFR reader is removed: `read_radar_bufr`, `DwdRadarDataFormat.BUFR`,

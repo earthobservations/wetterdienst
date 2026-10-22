@@ -5,10 +5,10 @@
 A catalogue that breaks none of the rules of `station_catalogue.py` can still list a station that answers nothing, or
 leave out a station whose data is there: a caller never finds the second, and the first is every request that names
 it. Both show only against the data, so `DataIndex.ids` reads, for one resolution and dataset, the ids of the data
-files of a network from the listing or feed its provider reads (the directories of `dwd/observation` and
-`dwd/derived`, the feed of `ipma/observation`), or from the listing it would have to read (the directories of
-`chmi/observation`, the STAC collection of `meteoswiss/observation`). `check_coverage` then holds the catalogue to
-`COVERAGE_RULES`.
+files of a network from the listing or feed its provider reads (the directories of `dwd/observation`,
+`dwd/derived` and, for its daily, monthly and annual files, `chmi/observation`, the feed of `ipma/observation`), or
+from the listing it would have to read (the STAC collection of `meteoswiss/observation`). `check_coverage` then holds
+the catalogue to `COVERAGE_RULES`.
 
 Two tests apply them: `test_station_coverage.py` to the stub of each network, which serves the listing or feed beside
 the catalogue, so that what a reader drops silently (a data file whose station the list does not carry) or lists in
@@ -22,7 +22,8 @@ and not live says why in `NOT_LIVE`.
 
 The ids go through the downloader or the listing of the provider's own module (`download_file` of
 `meteoswiss/observation`, the listing of `dwd/poi`), which is what a stub replaces, so a listing is served where the
-catalogue is; `chmi/observation` has no listing of its own, and goes through `list_files` of this module.
+catalogue is; `chmi/observation` is read with `list_files` of this module, and its stub replaces that and the listing
+of its provider module alike, so that the pattern here, not the one the provider narrows with, finds the ids.
 
 The ids of `dwd/observation` and `dwd/derived` are read from the raw listing with a pattern of this module, not through
 the file index of the provider: the catalogue is joined to that index, so a name its pattern misses would drop out of
@@ -109,7 +110,7 @@ def _dwd_poi(settings: Settings, _dataset: DatasetModel) -> set[str]:
     return {poi_api._station_id_from_file_name(name) for name in names if name.endswith(poi_api._FILE_SUFFIX)}  # noqa: SLF001
 
 
-# the one place the listing of a directory is read from, which a stub of `chmi/observation` replaces
+# the listing of a directory of `chmi/observation` as the check reads it, which a stub of that network replaces
 list_files = list_remote_files_fsspec
 
 
@@ -275,28 +276,8 @@ def _chmi_ids(*suffixes: str) -> frozenset[str]:
     return frozenset(f"{_CHMI_PREFIX}{suffix}" for suffix in suffixes)
 
 
-# the stations of `meta1.csv` that have no file in a resolution, and the files of stations it does not list (GH-3259),
-# read from the directories of the elements on 2026-10-21
-_CHMI_NO_FILE = {
-    "daily": _chmi_ids(
-        *("11566", "11579", "11629", "20101066001", "20301043001", "20301050203", "20301056001", "41202002002"),
-        *("41202085001", "41301003002", "41301012003", "41403038001", "41501040101", "41502008001", "41502014001"),
-        *("41502109501", "41601096001", "41603044001", "41604006101", "41604023002", "41701001001", "41701043001"),
-        *("41701095001", "42108058001", "42108076001"),
-    ),
-    "monthly": _chmi_ids(
-        *("10407043001", "11004001001", "11480", "11566", "11579", "11629", "41202002002", "41202085001"),
-        *("41301003002", "41301012003", "41403038001", "41501040101", "41502008001", "41502014001", "41502109501"),
-        *("41601096001", "41603044001", "41604006101", "41604023002", "41701001001", "41701043001", "41701095001"),
-        *("42108058001", "42108076001"),
-    ),
-    "annual": _chmi_ids(
-        *("10407043001", "11004001001", "11301156001", "11480", "11566", "11579", "11629", "11799", "20303074001"),
-        *("41202002002", "41202085001", "41301003002", "41301012003", "41403038001", "41501027001", "41501040101"),
-        *("41502008001", "41502014001", "41502109501", "41601096001", "41602025001", "41603044001", "41604006101"),
-        *("41604023002", "41701001001", "41701043001", "41701095001", "42108058001", "42108076001"),
-    ),
-}
+# the files of stations that `meta1.csv` does not carry, read from the directories of the elements on 2026-10-21
+# (GH-3259); the stations it lists without a file are narrowed away by the provider
 _CHMI_NO_STATION = {
     "monthly": _chmi_ids(
         *("10101019002", "10201037002", "10501061001", "10501066001", "10502008001", "10602027002", "10801007001"),
@@ -313,12 +294,6 @@ _CHMI_NO_STATION = {
     ),
 }
 
-CHMI_NO_FILE = Accepted(
-    "data_missing",
-    "the catalogue is one list for every resolution and lists closed stations of a short record that have no file in "
-    "this one (GH-3259)",
-    where=lambda row: row["station_id"] in _CHMI_NO_FILE.get(row["resolution"], ()),
-)
 CHMI_NO_STATION = Accepted(
     "data_orphan",
     "the monthly and annual files of stations that `meta1.csv` does not carry, 8 of them beside another suffix of the "
@@ -492,14 +467,13 @@ GHCN_NO_INVENTORY = Accepted(
 
 # the exceptions of a stub, by its catalogue (`<network> <resolution>/<dataset>`): the mismatches of the source
 ACCEPTED_STUB: dict[str, tuple[Accepted, ...]] = {
-    "chmi/observation daily/data": (CHMI_NO_FILE,),
     "dwd/observation daily/climate_summary": (DWD_NO_DESCRIPTION,),
     "noaa/ghcn daily/data": (GHCN_NO_INVENTORY,),
 }
 
 # the exceptions of the live lists, by network
 ACCEPTED_LIVE: dict[str, tuple[Accepted, ...]] = {
-    "chmi/observation": (CHMI_NO_FILE, CHMI_NO_STATION),
+    "chmi/observation": (CHMI_NO_STATION,),
     "dwd/derived": (
         Accepted(
             "data_orphan",
