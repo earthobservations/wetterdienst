@@ -2,9 +2,18 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for DWD radar data access."""
 
+import datetime as dt
+from zoneinfo import ZoneInfo
+
 import pytest
 from dirty_equals import IsNumeric, IsTuple
 
+from tests.provider.dwd.radar.published import (
+    RADOLAN_CDC_DELAY,
+    SWEEP_ELEVATION_1_DELAY,
+    SWEEP_FIRST_FILE_DELAY,
+    require_published,
+)
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -37,9 +46,7 @@ def test_radar_request_site_current_sweep_pcp_v_hdf5(default_settings: Settings)
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, SWEEP_FIRST_FILE_DELAY, "the sweep")
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -81,9 +88,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, SWEEP_FIRST_FILE_DELAY, "the sweep")
 
     buffer = results[0].data
     payload = buffer.getvalue()
@@ -110,13 +115,15 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_full(default_settings: Sett
 
 @pytest.mark.remote
 def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Settings) -> None:
-    """Example for testing radar sites single current SWEEP_VOL.
+    """Example for testing radar sites single SWEEP_VOL of the slot that sweep 1 is published for.
 
-    This time in OPERA HDF5 (ODIM_H5) format.
+    This time in OPERA HDF5 (ODIM_H5) format. The slot of now cannot be asked for: it is under 5 minutes old, and the
+    sweep 1 is listed up to 323 s after it starts, so an empty answer could never be told from a late one. The slot
+    `SWEEP_ELEVATION_1_DELAY` ago is at least that old.
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.SWEEP_VOL_VELOCITY_H,
-        start=DwdRadarDate.CURRENT,
+        start=dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None) - SWEEP_ELEVATION_1_DELAY,
         site=DwdRadarSite.BOO,
         fmt=DwdRadarDataFormat.HDF5,
         subset=DwdRadarDataSubset.SIMPLE,
@@ -126,9 +133,7 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    assert results, "DWD holds no sweep 1 for a slot older than the time it takes to publish it"
 
     assert len(results) <= 1
 
@@ -152,8 +157,8 @@ def test_radar_request_site_current_sweep_vol_v_hdf5_single(default_settings: Se
 def test_radar_request_radolan_cdc_current(default_settings: Settings, resolution: DwdRadarResolution) -> None:
     """Verify data acquisition for current RADOLAN_CDC/daily+hourly.
 
-    Remark: More often than not, this data is not
-    available when looking at CURRENT.
+    The file of the mark HH:50 is published 26 to 31 minutes later: the request for it is empty until then, and
+    only until then it is no failure (`require_published`).
     """
     request = DwdRadarValues(
         parameter=DwdRadarParameter.RADOLAN_CDC,
@@ -165,9 +170,7 @@ def test_radar_request_radolan_cdc_current(default_settings: Settings, resolutio
 
     results = list(request.query())
 
-    if len(results) == 0:
-        msg = "Data currently not available"
-        raise pytest.skip(msg)
+    require_published(results, request.start, RADOLAN_CDC_DELAY, "the RADOLAN_CDC file")
 
     assert len(results) == 1
 
