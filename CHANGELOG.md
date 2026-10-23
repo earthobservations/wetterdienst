@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking**: `Wetterdienst(provider, network)`, the constructor form that returned a class
+  (deprecated in 0.156.0), is a `TypeError` that names the replacement. Write
+  `Wetterdienst.resolve(provider, network)`, or `Wetterdienst.resolve_standalone(provider, network)`
+  for `dwd/radar` and `dwd/alerts` (GH-3128)
+- **Breaking**: `wetterdienst stripes values`, the old name of `stripes image` (deprecated in
+  0.159.0), is gone: it fails as "No such command 'values'" with exit 2. Write
+  `wetterdienst stripes image`, which takes the same options and writes the same image. The name
+  is not reused. `/api/stripes/values` and the MCP tool `stripes_values` are unchanged (GH-3128)
+
 ## [0.171.0] - 2026-10-23
 
 ### Changed

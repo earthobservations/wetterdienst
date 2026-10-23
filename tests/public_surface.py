@@ -2,8 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The public surface of the Python API as committed, and the command that regenerates it (GH-3131).
 
-From 1.0 the top-level exports, `Wetterdienst` and `discover`, the request, the results, `Settings` and `Options`,
-the exceptions and the metadata enums are frozen (GH-2561); `wetterdienst.provider.*` internals, `util` and the model
+The top-level exports, `Wetterdienst` and `discover`, the request, the results, `Settings` and `Options`, the
+exceptions and the metadata enums are frozen (GH-2561); `wetterdienst.provider.*` internals, `util` and the model
 internals are not. `tests/public_surface.snapshot.json` holds, of the frozen part, what the other tests do not pin:
 
 - `wetterdienst.__all__`, and the members of `Period` and `Resolution`;

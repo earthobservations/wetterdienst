@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import importlib
 import logging
-import warnings
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, TypeAlias, overload
 
 from pydantic import ValidationError
 from pydantic_settings import SettingsError
@@ -249,33 +248,23 @@ class Wetterdienst:
             raise ApiNotFoundError(msg)
         return cls._import(provider, network)
 
-    def __new__(cls, provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
-        """Resolve provider and network to API request class.
+    def __new__(cls, *args: object, **kwargs: object) -> NoReturn:  # noqa: ARG004
+        """Refuse the constructor form `Wetterdienst(provider, network)`, which returned a class until 1.0.0.
 
-        Deprecated, removed in 1.0.0: a class constructed is no instance of it, and the return type cannot say
-        which kind of class comes back. Use `Wetterdienst.resolve(provider, network)` for a timeseries network and
-        `Wetterdienst.resolve_standalone(provider, network)` for `dwd/radar` and `dwd/alerts` (GH-3045).
-        It still returns the class of either kind until then.
+        A class constructed is no instance of it, and the return type could not say which kind of class came
+        back (GH-3045). It is refused by naming what to write instead, rather than as the arguments of a class
+        that takes none (GH-3128).
 
-        Args:
-            provider: Provider name
-            network: Network name
-
-        Returns:
-            API request class
+        Raises:
+            TypeError: always
 
         """
-        warnings.warn(
-            "Wetterdienst(provider, network) is deprecated and will be removed in 1.0.0: use "
-            "Wetterdienst.resolve(provider, network), or Wetterdienst.resolve_standalone(provider, network) for "
-            "dwd/radar and dwd/alerts",
-            DeprecationWarning,
-            stacklevel=2,
+        msg = (
+            "Wetterdienst(provider, network) was removed, and Wetterdienst is not instantiated: "
+            "use Wetterdienst.resolve(provider, network) for the request class of a timeseries network, "
+            "or Wetterdienst.resolve_standalone(provider, network) for dwd/radar and dwd/alerts"
         )
-        # Both provider and network should be fine (if not an exception is raised)
-        if cls.is_standalone(provider, network):
-            return cls.resolve_standalone(provider, network)
-        return cls.resolve(provider, network)
+        raise TypeError(msg)
 
     @staticmethod
     def is_configured(api: object) -> bool:

@@ -27,7 +27,7 @@ offers an interactive Climate Stripes view.
 
 The `stripes` command group has two subcommands: `stations` and `image`. The command line has no
 command for the yearly values the REST API answers at `/api/stripes/values`; `stripes values`, which
-wrote the image, is deprecated and removed in 1.0.0; until then it writes the image still, with a notice on stderr.
+wrote the image until 1.0.0, is gone: `stripes image` writes it, and the name is not reused.
 
 ### Stations
 
