@@ -699,8 +699,8 @@ and what follows is for an instance that others can reach (the
 - **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
 - **Response headers.** The server sends no `X-Content-Type-Options: nosniff` and no Content-Security-Policy, also on
   the `html` and `svg` answers. Its origin should hold no cookie or credential; a reverse proxy can add both headers.
-- **The cache directory.** `WD_CACHE_DIR` holds every downloaded body and the pickled directory listings: whoever can
-  write there can run code as the server. Keep it private to the user the server runs as.
+- **The cache directory.** `WD_CACHE_DIR` holds the downloaded bodies it caches and the pickled directory listings:
+  whoever can write there can run code as the server. Keep it private to the user the server runs as.
 
 ## Errors
 

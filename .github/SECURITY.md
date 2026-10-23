@@ -48,8 +48,8 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
    caller is anonymous and untrusted. Every route of `/api` is a `GET`.
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
    `NUXT_PUBLIC_API_BASE`; the browser calls its own origin only. It holds no secret.
-4. *Upstream providers.* Their addresses are fixed in the provider's code, but for the links a few of them follow
-   (see [Upstream data](#upstream-data)); what they send is data, never trusted.
+4. *Upstream providers.* Their addresses are fixed in the provider's code, but for the links a few of them follow and
+   the redirects any of them answers with (see [Upstream data](#upstream-data)); what they send is data, never trusted.
 
 ### The REST API and MCP
 
@@ -89,8 +89,8 @@ What it does not do:
   holds no cookie or credential, so this is hardening, not a hole; Plotly escapes `<` in the JSON of a figure, and no
   free text of the caller is drawn into one. A reverse proxy in front of a bare backend can add both headers.
 - **Text from an upstream is not filtered, for an MCP client too.** The tools answer what the REST routes answer:
-  station names, the free text of DWD alerts (`headline`, `description`, `instruction`), the names and instruments of a
-  station's history. That text is the provider's, and to a language model that reads it, it is untrusted input: it may
+  station names, the free text of DWD alerts (`headline`, `description`, `instruction`), the remarks and instruments of
+  a station's history. That text is the provider's, and to a language model that reads it, it is untrusted input: it may
   contain instructions, and nothing here removes or marks them. Whoever connects an agent to this endpoint along with
   tools that can act (send, write, run, fetch) should not let it follow what such a field says.
 
@@ -110,26 +110,28 @@ upstream's answer names (a `next` page, a `datos` or asset link), and a redirect
 host, with no check of host or scheme first (#3339). **A compromised upstream can therefore make the server fetch from
 another http(s) host**, its internal network included, with a `GET`; a followed link carries no credential (AEMET's
 `api_key` header can follow a redirect: #3338), and where the body parses as data it can reach the caller. A link in an
-HTML directory listing to the same host stays on it, but may step from `https` down to `http`. `file://` and bare paths
-are refused by the HTTP client.
+HTML directory listing is kept only below the listed directory, on its host, but may step from `https` down to `http`.
+`file://` and bare paths are refused by the HTTP client.
 
 XML is parsed with entities off (`resolve_entities=False`: FMI, DWD alerts, MOSMIX, DMO) and without network access: FMI
 and DWD alerts pass `no_network=True`, MOSMIX and DMO rely on lxml's default for `iterparse`, which is the same (#3350).
 Archives are read in memory. Apart from the cache directory (below) and what the host asks the library or the CLI to
-write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the one file written is the
-BUFR message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`). Nothing is
-unpickled, evaluated or loaded from YAML that a caller or provider sent. The native parsers (eccodes, lxml, polars) are
-dependencies with advisories of their own. Wrong numbers from a provider are a data-quality problem, not a vulnerability
-(`tests/provider/physical_ranges.py` catches the sentinels it can).
+write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the files written are the BUFR
+message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`), and the temporary
+directory and browser profile of the headless Chromium that renders a chart to an image (`png`, `jpg`, `webp`, `svg`,
+`pdf`; kaleido), which a REST or MCP request can start. Nothing is unpickled, evaluated or loaded from YAML that a
+caller or provider sent. The native parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong
+numbers from a provider are a data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the
+sentinels it can).
 
 ### The cache directory
 
-`WD_CACHE_DIR` (default: the user's cache directory, or a per-process temporary one where none resolves) holds every
-downloaded body, as a file named by the hash of its URL, and the directory listings, which `diskcache` stores with
-`pickle`: whoever can write there can run code as the process. Where the directory cannot be written, a temporary
-directory of the process takes its place until it exits (with a warning); the directory in use also gets a write probe,
-removed at once, and a usage marker. Keep it private to the user the server runs as. The image's cache belongs to its
-unprivileged user (uid 10001, `docker/Dockerfile`); the app image runs as `node`.
+`WD_CACHE_DIR` (default: the user's cache directory, or a per-process temporary one where none resolves) holds the
+downloaded bodies it caches, as files named by the hash of their URLs, and the directory listings, which `diskcache`
+stores with `pickle`: whoever can write there can run code as the process. Where the directory cannot be written, a
+temporary directory of the process takes its place until it exits (with a warning); the directory in use also gets a
+write probe, removed at once, and a usage marker. Keep it private to the user the server runs as. The image's cache
+belongs to its unprivileged user (uid 10001, `docker/Dockerfile`); the app image runs as `node`.
 
 **Dependabot alert 83 (`diskcache`, GHSA-w8v5-vhqr-4h9v / CVE-2025-69872, `<= 5.6.3`, no patched version).** It applies:
 the listings cache is that pickle. Exploiting it takes write access to the cache directory, which the operator controls,

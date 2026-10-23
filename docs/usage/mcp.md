@@ -88,11 +88,12 @@ does not take is refused with the name of the one it takes (`station was renamed
 
 ## Text from the providers
 
-A tool answers what the REST route answers, and some of that is text written by the provider: station names, the
-free text of DWD warnings (`headline`, `description`, `instruction`), the names and instruments of a station's history.
-The server does not filter or mark it. To the assistant that reads it, it is untrusted input, as a web page would be: an
-assistant that is connected to this endpoint together with tools that act (send, write, run, fetch) should not follow
-an instruction that such a field contains. The [threat model](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md)
+A tool answers what the REST route answers, and some of that is text written by the provider: station names, the free
+text of DWD warnings (`headline`, `description`, `instruction`), the remarks and instruments of a station's history. The
+server does not filter or mark it. To the assistant that reads it, it is untrusted input, as a web page would be: an
+assistant that is connected to this endpoint together with tools that act (send, write, run, fetch) should not follow an
+instruction that such a field contains. The
+[threat model](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md)
 has the rest.
 
 ## Stateless
