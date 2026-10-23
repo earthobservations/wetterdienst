@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Three pages stated what the code does not do. Scheduling said an unwritable cache directory fails
+  the run: it warns once and caches in a temporary directory for that run, so every run downloads
+  again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
+  since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
+  code nor DWD's files give (GH-2621)
+
 ### Security
 
 - The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
