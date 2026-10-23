@@ -51,6 +51,18 @@ Types of changes:
   writes the same image. The name is not reused. `/api/stripes/values` and the MCP tool
   `stripes_values` are unchanged (GH-3128)
 
+### Security
+
+- The Docker image, and an environment synced from `uv.lock`, now hold fastmcp 4.1.3 and pypdf
+  6.21.2; the floors are `fastmcp>=4.1.2` (`mcp` extra) and `pypdf>=6.21.2` (`pdf` extra).
+  fastmcp 4.0.0 to 4.1.1 have GHSA-vqqp-x5qm-5qp4 (OAuth client-credentials providers) and
+  GHSA-7xgj-8392-5q4r (authorization of transformed components); the MCP server of
+  `wetterdienst restapi` is open and uses neither, so neither reaches it. pypdf before 6.21.2 has
+  three advisories of long runtimes on a crafted PDF (GHSA-6c7f-9265-g8fw, GHSA-gmh7-3g9r-mjh5,
+  GHSA-jr96-gvgh-j3r4); wetterdienst reads PDFs only in `describe_fields` and
+  `wetterdienst about fields` (DWD's description files), not in the REST API or MCP. An
+  installation from PyPI resolves its own versions: upgrade them there (GH-3376)
+
 ## [0.172.0] - 2026-10-23
 
 ### Fixed
