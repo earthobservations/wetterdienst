@@ -26,6 +26,18 @@ Types of changes:
   `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h` (`rads3`) stay as written, a
   little negative at night (mostly above -0.2 J/cm2, at a few stations to about -0.8), and their
   descriptions say so (GH-3263)
+- `dwd/dmo` says in the descriptions of `radiation_global` (`rad1h`),
+  `radiation_short_wave_net_last_3h` (`rads3`), `precipitation_amount_last_1h` (`rr1`) and
+  `precipitation_amount_last_3h` (`rr3`) that ICON's output is not clipped at 0 and comes back as
+  written: `rad1h` is a little negative at night (mostly above -0.2 J/cm2, at a few stations to
+  about -0.8), `rads3` to about -0.4, and `rr1` and `rr3` by up to about a tenth of a mm in a few
+  steps (read 2026-10-22). No value changes (Part of GH-3263)
+- **Breaking**: the direct radiation of `dwd/poi` (`direct_solar_radiation_last_hour`) is
+  `radiation_sky_short_wave_direct_perpendicular_intensity`, no longer
+  `radiation_sky_short_wave_direct_intensity`: it is the irradiance on a plane perpendicular to the
+  sun's rays, not the component on a horizontal surface, so it can exceed the global radiation. The
+  old name is refused with the new one named; values and units are unchanged. Request, filter and key by the new name; multiply by the cosine of the solar zenith
+  angle for the horizontal component. Release the app after this backend (GH-3263)
 
 ### Fixed
 

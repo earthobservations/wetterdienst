@@ -82,7 +82,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Mean global irradiance',
   radiation_sky_short_wave_diffuse_intensity: 'Diffuse sky irradiance',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Mean diffuse sky irradiance',
-  radiation_sky_short_wave_direct_intensity: 'Direct solar irradiance',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Direct normal irradiance',
   radiation_sky_long_wave_intensity_mean: 'Mean long-wave irradiance',
 
   // Snow

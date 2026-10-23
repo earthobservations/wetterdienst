@@ -779,6 +779,39 @@ def test_the_swsmos_road_condition_is_not_the_road_stations_and_the_names_say_wh
     }
 
 
+def test_the_poi_direct_radiation_is_named_for_its_plane_and_the_old_name_is_refused(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Only DWD POI had `radiation_sky_short_wave_direct_intensity`, so the table has no entry any more (GH-3263).
+
+    DWD POI's `direct_solar_radiation_last_hour` is above the global radiation at the French stations (07280 at
+    09 UTC on 2026-10-22: 603 against 297 W/m2), so it is the irradiance perpendicular to the sun's rays, WMO-No. 8's
+    "direct solar radiation" of a pyrheliometer, and the name says so. `_normal` would read as a climatological normal.
+    """
+    old = "radiation_sky_short_wave_direct_intensity"
+    new = "radiation_sky_short_wave_direct_perpendicular_intensity"
+    poi = {p.name_original: p.name for p in DwdPoiMetadata["hourly"]["data"]}
+    assert poi["direct_solar_radiation_last_hour"] == new
+    assert old not in PARAMETERS
+    assert RENAMED_PARAMETERS[old] == new
+    assert "perpendicular" in PARAMETERS[new].description
+    assert PARAMETERS[new].unit_type == PARAMETERS["radiation_global_intensity"].unit_type
+    # nobody else declares either name
+    declared = {
+        (metadata.name, parameter.name_original)
+        for metadata in ALL_METADATA
+        for resolution in metadata
+        for dataset in resolution
+        for parameter in dataset
+        if parameter.name in (old, new)
+    }
+    assert declared == {("DwdPoiMetadata", "direct_solar_radiation_last_hour")}
+    assert parse_parameters(f"hourly/data/{old}", DwdPoiMetadata, on_unknown="warn") == []
+    assert f"It was renamed to '{new}'." in caplog.text
+    with pytest.raises(ValidationError, match=rf"'{old}' is now '{new}'"):
+        Options(geo_station_distance={old: 10.0})
+
+
 def test_the_road_humidity_is_a_name_again_that_the_dataset_answers_to() -> None:
     """`humidity_relative` was refused in the road dataset from 0.160.0 to 0.163.0 and is its name again (GH-2614)."""
     found = parse_parameters("15_minutes/data/humidity_relative", DwdRoadMetadata, on_unknown="raise")

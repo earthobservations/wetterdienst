@@ -226,3 +226,46 @@ def test_dwd_poi_maximum_wind_of_the_previous_day_is_the_maximum_of_the_last_6_h
     # the old name is not accepted and says what to use instead
     with pytest.raises(InvalidParameterError, match="wind_speed_rolling_mean_max_last_6h"):
         DwdPoiRequest(parameters=[("hourly", "data", "wind_speed_rolling_mean_max_yesterday")])
+
+
+def test_dwd_poi_direct_radiation_is_the_irradiance_perpendicular_to_the_sun_and_exceeds_the_global_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the direct radiation is named for its plane, not the horizontal component (GH-3263).
+
+    Rows of 07280-BEOB.csv (Dijon-Longvic), read 2026-10-23, 22.10.26: at 09:00 UTC `direct_solar_radiation_last_hour`
+    is 603 W/m2 against a `global_radiation_last_hour` of 297, which a component of the global radiation cannot be.
+    With the mean sun elevation over the hour (20 degrees) the direct value times its sine is 209 W/m2, below the global
+    one, as it is at 12:00 (252, 418) and 15:00 (141, 225). That is the irradiance on a plane perpendicular to the
+    sun's rays (WMO-No. 8, 7.2), so the old name is refused with the new one.
+    """
+    direct = "direct_solar_radiation_last_hour"
+    global_ = "global_radiation_last_hour"
+    csv = (
+        f"surface observations;Parameter description;{direct};{global_}\n"
+        "07280;Unit;W/m2;W/m2\n"
+        "Datum;Uhrzeit (UTC);Direkte Strahlung (letzte Stunde);Globalstrahlung (letzte Stunde)\n"
+        "22.10.26;15:00;141;225\n"
+        "22.10.26;12:00;252;418\n"
+        "22.10.26;09:00;603;297\n"
+    ).encode("latin-1")
+    serve(monkeypatch, dwd_poi_api, {"07280-BEOB.csv": csv})
+    perpendicular = "radiation_sky_short_wave_direct_perpendicular_intensity"
+    request = DwdPoiRequest(
+        parameters=[("hourly", "data", perpendicular), ("hourly", "data", "radiation_global_intensity")],
+        start=dt.datetime(2026, 10, 22, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 23, tzinfo=UTC),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=True),
+    )
+    df = stations_result(request, "hourly", "data", "07280").values().all().df
+    wide = df.pivot(on="parameter", index="timestamp", values="value").sort("timestamp")
+    assert wide[perpendicular].to_list() == [603.0, 252.0, 141.0]
+    assert wide["radiation_global_intensity"].to_list() == [297.0, 418.0, 225.0]
+    above = wide.filter(pl.col(perpendicular) > pl.col("radiation_global_intensity"))
+    assert above["timestamp"].dt.hour().to_list() == [9]
+    assert "perpendicular" in DwdPoiMetadata["hourly"]["data"][perpendicular].description
+
+    # the old name is not accepted and says what to use instead
+    with pytest.raises(InvalidParameterError, match=perpendicular):
+        DwdPoiRequest(parameters=[("hourly", "data", "radiation_sky_short_wave_direct_intensity")])

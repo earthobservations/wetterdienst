@@ -65,7 +65,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Middlere Globalstrahlen (Stärk)',
   radiation_sky_short_wave_diffuse_intensity: 'Diffuse Strahlen (Stärk)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Middlere diffuse Strahlen (Stärk)',
-  radiation_sky_short_wave_direct_intensity: 'Direkte Sünnenstrahlen (Stärk)',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Direkte Normalstrahlen (Stärk)',
   radiation_sky_long_wave_intensity_mean: 'Middlere langwellige Strahlen (Stärk)',
   snow_depth: 'Snééhööchd',
   snow_depth_mean: 'Middlere Snééhööchd',
