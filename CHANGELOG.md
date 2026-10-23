@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `dwd/observation` `hourly/temperature_soil` `historical`: the stamps of the periods
+  whose source is the eMD archive (up to 1991, 74 East German stations, the terms 01, 04, ..., 22)
+  are MEZ, not UTC, and come back one hour earlier (00, 03, ..., 21), per depth, with `zone:mez` in
+  `quality_flags`. The same holds for `hourly/temperature_air` of Diepholz from 1995-02-01 00 to
+  1996-05-31 23, which its plain MEZ label does not mark.
+  Add an hour to flagged stamps to get the old ones; the Diepholz stamp 1995-02-01 00 is the row of
+  1995-01-31 23 and is dropped. The hourly wind of Bückeburg and Celle is right as written (ISD is
+  the one an hour off there), and Regensburg-Oberhub and Stötten stay as written (GH-3029)
+
 ## [0.169.0] - 2026-10-23
 
 ### Added

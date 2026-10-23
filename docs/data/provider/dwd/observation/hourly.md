@@ -238,8 +238,8 @@ Codes (precipitation_form):
 
 | name                            | original name | description          | unit | constraints |
 |---------------------------------|---------------|----------------------|------|-------------|
-| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are UTC. | °C | - |
-| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are UTC. | % | >=0,<=100 |
+| {term}`temperature_air_2m`      | tt_tu | Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. The other stamps are UTC. | °C | - |
+| {term}`humidity_relative` | rf_tu | Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. The other stamps are UTC. | % | >=0,<=100 |
 
 ### temperature_soil
 
@@ -256,12 +256,12 @@ Codes (precipitation_form):
 
 | name                                | original name | description                      | unit | constraints |
 |-------------------------------------|---------------|----------------------------------|------|-------------|
-| {term}`temperature_soil_0_02m`      | v_te002 | Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none. | °C | - |
-| {term}`temperature_soil_0_05m`      | v_te005 | Soil temperature in 5 cm depth. | °C | - |
-| {term}`temperature_soil_0_1m`      | v_te010 | Soil temperature in 10 cm depth. | °C | - |
-| {term}`temperature_soil_0_2m`      | v_te020 | Soil temperature in 20 cm depth. | °C | - |
-| {term}`temperature_soil_0_5m`      | v_te050 | Soil temperature in 50 cm depth. | °C | - |
-| {term}`temperature_soil_1m`      | v_te100 | Soil temperature in 100 cm depth. | °C | - |
+| {term}`temperature_soil_0_02m`      | v_te002 | Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none. The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written. | °C | - |
+| {term}`temperature_soil_0_05m`      | v_te005 | Soil temperature in 5 cm depth. The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written. | °C | - |
+| {term}`temperature_soil_0_1m`      | v_te010 | Soil temperature in 10 cm depth. The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written. | °C | - |
+| {term}`temperature_soil_0_2m`      | v_te020 | Soil temperature in 20 cm depth. The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written. | °C | - |
+| {term}`temperature_soil_0_5m`      | v_te050 | Soil temperature in 50 cm depth. The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written. | °C | - |
+| {term}`temperature_soil_1m`      | v_te100 | Soil temperature in 100 cm depth. The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written. | °C | - |
 
 ### urban_precipitation
 

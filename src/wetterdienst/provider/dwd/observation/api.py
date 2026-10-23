@@ -205,7 +205,8 @@ class DwdObservationValues(TimeseriesValues):
                 series_quality = df.get_column(column)
             else:
                 # the stamps of the rows of a period in true solar time are flagged `zone:woz` (GH-2816), those of a
-                # period the archive calls MEZ (MD) are shifted to UTC and flagged `zone:mez` (GH-2709)
+                # period the archive calls MEZ (MD), the soil periods of the eMD archive and the air temperature
+                # stamps of `MEZ_BY_COMPARISON` are shifted to UTC and flagged `zone:mez` (GH-2709, GH-3029)
                 shifted = (
                     pl.col(mez_md_column(column)).fill_null(value=False)
                     if mez_md_column(column) in df.columns
@@ -232,8 +233,9 @@ class DwdObservationValues(TimeseriesValues):
                     shifted.alias(_SHIFTED),
                 )
                 if mez_md_column(column) in df.columns:
-                    # a stamp the shift moves onto one that is there already (30 stamps at 26 of the 80 stations, at the
-                    # start of an MD period; 28 hold the same value on both) goes: the row that was not moved is kept
+                    # a stamp the shift moves onto one that is there already (at the start of a MEZ span: 30 stamps at
+                    # 26 of the 80 MD stations, 28 hold the same value on both; Diepholz 1995-02-01 00) goes: the row
+                    # that was not moved is kept
                     df_parameter = (
                         df_parameter.sort(_SHIFTED, maintain_order=True)
                         .unique(subset=["station_id", "timestamp"], keep="first", maintain_order=True)

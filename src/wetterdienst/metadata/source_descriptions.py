@@ -91,6 +91,14 @@ of its quantity, so an entry that repeats that sentence is redundant and
 _IMGW_NO_HEIGHT_2M = " The file states no height; the 2 m of the name is the shelter convention."
 _IMGW_NO_HEIGHT_GROUND = " The source states no height: the file says at the ground, never 5 cm."
 
+# The hourly soil temperature stamps of the periods whose source is the archive of the eMD (74 stations, up to 1991,
+# the terms 01, 04, ..., 22 MEZ) are MEZ, shifted to UTC by the reader (GH-3029)
+_SOIL_EMD_ZONE = (
+    "The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East "
+    "German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their "
+    "`quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written."
+)
+
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
 # resolution names must stay in step with `_EQUIDISTANCE_TO_RESOLUTION` in the provider module; a
@@ -1569,23 +1577,28 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "temperature_air", "rf_tu"): (
             "Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "
             '"Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: '
-            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), "
+            "and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ "
+            "that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_air", "tt_tu"): (
             "Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "
             '"Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: '
-            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), "
+            "and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ "
+            "that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_soil", "v_te002"): (
-            "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none."
+            "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none. "
+            + _SOIL_EMD_ZONE
         ),
-        ("hourly", "temperature_soil", "v_te005"): "Soil temperature in 5 cm depth.",
-        ("hourly", "temperature_soil", "v_te010"): "Soil temperature in 10 cm depth.",
-        ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth.",
-        ("hourly", "temperature_soil", "v_te050"): "Soil temperature in 50 cm depth.",
-        ("hourly", "temperature_soil", "v_te100"): "Soil temperature in 100 cm depth.",
+        ("hourly", "temperature_soil", "v_te005"): "Soil temperature in 5 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te010"): "Soil temperature in 10 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te050"): "Soil temperature in 50 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te100"): "Soil temperature in 100 cm depth. " + _SOIL_EMD_ZONE,
         ("hourly", "urban_precipitation", "niederschlagshoehe"): (
             "Precipitation height, the sum of the six 10-minute intervals of the previous hour (at UTC 11 the sum of "
             "the precipitation during UTC10-UTC11)."
