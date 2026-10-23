@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the direct radiation of `metoffice/observation` (`direct_irad`, hourly `radiation`)
+  is `radiation_sky_short_wave_direct_perpendicular`, no longer `radiation_sky_short_wave_direct`:
+  it is the energy of the hour on a plane perpendicular to the sun's rays, not on a horizontal
+  surface, so it can exceed the global radiation. The old name is refused with the new one named;
+  values and units are unchanged. Request, filter and key by the new name; for the horizontal
+  component multiply by the cosine of the solar zenith angle (roughly, at the middle of the hour).
+  MIDAS holds no direct radiation past December 1997. Release the app after this backend (GH-3316)
+
 ### Removed
 
 - **Breaking**: `Wetterdienst(provider, network)`, the constructor form that returned a class

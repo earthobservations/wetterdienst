@@ -2842,7 +2842,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Diffuse solar irradiation amount, kJ per square metre over the observation period."
         ),
         ("hourly", "radiation", "direct_irad"): (
-            "Direct irradiation amount, kJ per square metre over the observation period."
+            'Direct irradiation amount, kJ per square metre over the observation period: "the solar radiation coming '
+            'directly from the sun but not from the rest of the sky", measured with a pyrheliometer on a sun tracker '
+            '"at normal incidence" (MIDAS table RO), so the energy on a plane perpendicular to the sun\'s rays and '
+            "no component on a horizontal surface. The documentation says MIDAS holds no direct radiation past "
+            "December 1997."
         ),
         ("hourly", "radiation", "glbl_irad_amt"): (
             "Global solar irradiation amount, kJ per square metre over the observation period."

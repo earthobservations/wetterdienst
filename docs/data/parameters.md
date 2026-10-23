@@ -482,6 +482,27 @@ normal everywhere else (`sunshine_duration_normal`), so the perpendicular plane 
 Values and units are unchanged, and a request for the old name is refused with the new one named. To get the component
 on a horizontal surface, multiply the values by the cosine of the solar zenith angle.
 
+#### Met Office: the direct radiation is the energy perpendicular to the sun's rays
+
+The MIDAS table `RO` (the radiation observations of the Met Office, read 2026-10-23 at
+`artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/RO_Table.html`, key-less) defines `direct_irad` as "the solar radiation
+coming directly from the sun but not from the rest of the sky", "measured using a pyrheliometer, which is like a
+pyranometer but with a tube attached to the front of the sensing element", mounted on a tracker, and adds: "The direct
+irradiance figure (to complicate things) is however the value coming directly from the sun itself but measured at normal
+incidence." Its unit is "Kjoules/ sq metre over the observation period", here the hour. The global and the diffuse
+radiation of the same table are those "on a horizontal surface". So the number is the energy of the hour on a plane
+perpendicular to the sun's rays, and no component on a horizontal surface. The name says so (0.173.0, GH-3316). The
+table also says that MIDAS holds no direct radiation past December 1997 and that only 3 stations ever reported it.
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| metoffice/observation | hourly/radiation | `direct_irad` | `radiation_sky_short_wave_direct` | `radiation_sky_short_wave_direct_perpendicular` | "Direct irradiation amount", kJ/m2 over the hour, on a plane perpendicular to the sun's rays |
+
+Values and units are unchanged, and a request for the old name is refused with the new one named. For the component on a
+horizontal surface, multiply the values by the cosine of the solar zenith angle at the middle of the hour; that is only
+an approximation, as the sun moves during the hour (the same table warns that the diffuse radiation cannot be calculated
+accurately from hourly direct and global figures).
+
 ## Glossary
 
 The unit type is a property of the parameter itself and decides which unit values are returned in;

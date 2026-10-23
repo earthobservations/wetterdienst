@@ -555,7 +555,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Air pressure reduced to sea level (standard atmosphere)',
   radiation_long_wave_net_last_3h: 'Net long-wave radiation (last 3 h)',
   radiation_short_wave_net_last_3h: 'Net short-wave radiation (last 3 h)',
-  radiation_sky_short_wave_direct: 'Direct short-wave radiation',
+  radiation_sky_short_wave_direct_perpendicular: 'Direct normal radiation',
   road_surface_condition: 'Road surface condition',
   road_surface_condition_forecast: 'Road surface condition (forecast)',
   snow_depth_sampled: 'Snow depth (sample)',
