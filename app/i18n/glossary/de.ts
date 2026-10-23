@@ -607,6 +607,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Auftautiefe, unter Bewuchs',
   thawing_thickness_plant_cover_max_month: 'Größte Auftautiefe des Monats, unter Bewuchs',
   turbidity: 'Trübung',
+  volume_reservoir: 'Speicherinhalt (Stausee)',
   water_equivalent_snow_depth_sampled: 'Wasseräquivalent der ausgestochenen Schneehöhe',
   water_equivalent_snow_depth_new: 'Neuschnee-Wasseräquivalent',
   water_equivalent_snow_depth_new_last_1h: 'Neuschnee-Wasseräquivalent (letzte 1 h)',

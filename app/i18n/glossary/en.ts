@@ -612,6 +612,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Thaw depth, under plant cover',
   thawing_thickness_plant_cover_max_month: 'Greatest thaw depth of the month, under plant cover',
   turbidity: 'Turbidity',
+  volume_reservoir: 'Reservoir volume',
   water_equivalent_snow_depth_sampled: 'Snow water equivalent (sample)',
   water_equivalent_snow_depth_new: 'Fresh snow water equivalent',
   water_equivalent_snow_depth_new_last_1h: 'Fresh snow water equivalent (last 1 h)',

@@ -229,6 +229,16 @@ _PARAMETERS = [
         "name_original": "PH",
         "unit": "dimensionless",
     },
+    {
+        "name": "visibility",
+        "name_original": "SW",
+        "unit": "meter",
+    },
+    {
+        "name": "volume_reservoir",
+        "name_original": "V",
+        "unit": "cubic_meter",
+    },
 ]
 
 

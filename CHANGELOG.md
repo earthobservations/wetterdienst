@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `wsv/pegel` serves the two series it did not map: `SW` (SICHTWEITE, one station, every minute) as
+  `visibility`, in m, and `V` (VOLUMEN, one station, every 15 minutes) as the new
+  `volume_reservoir`, in m³. `volume_reservoir` has the new unit type `volume` (`cubic_meter`, the
+  default, and `cubic_hectometer`), which the `unit_targets` option and the glossary's `unit_type`
+  filter accept (GH-3242)
+
 ### Changed
 
 - **Breaking**: the direct radiation of `metoffice/observation` (`direct_irad`, hourly `radiation`)

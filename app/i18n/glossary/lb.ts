@@ -589,6 +589,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Optaudéift, ënner Bewuess',
   thawing_thickness_plant_cover_max_month: 'Gréisst Optaudéift vum Mount, ënner Bewuess',
   turbidity: 'Tribheet',
+  volume_reservoir: 'Volumen vum Stauséi',
   water_equivalent_snow_depth_sampled: 'Waasserwäert vum Schnéi (Prouf)',
   water_equivalent_snow_depth_new: 'Neischnéi-Waasseräquivalent',
   water_equivalent_snow_depth_new_last_1h: 'Neischnéi-Waasseräquivalent (lescht 1 h)',

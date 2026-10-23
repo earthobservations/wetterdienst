@@ -39,6 +39,7 @@ def test_unit_converter_targets_defaults(unit_converter: UnitConverter) -> None:
         "temperature": "degree_celsius",
         "time": "second",
         "turbidity": "nephelometric_turbidity",
+        "volume": "cubic_meter",
         "volume_per_time": "cubic_meter_per_second",
         "wind_scale": "beaufort",
         "degree_day": "degree_celsius_day",
@@ -205,6 +206,10 @@ def test_unit_converter_lambda_dimensionless(unit_converter: UnitConverter) -> N
         ("minute", "hour", 42, 0.7),
         ("hour", "second", 42, 151200),
         ("hour", "minute", 42, 2520),
+        # volume
+        ("cubic_meter", "cubic_meter", 10_809_186, 10_809_186),
+        ("cubic_meter", "cubic_hectometer", 10_809_186, 10.809186),
+        ("cubic_hectometer", "cubic_meter", 10.809186, 10_809_186),
         # volume_per_time
         ("cubic_meter_per_second", "cubic_meter_per_second", 42, 42),
         ("cubic_meter_per_second", "liter_per_second", 42, 42000),

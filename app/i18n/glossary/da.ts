@@ -589,6 +589,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Optøningsdybde, under plantedække',
   thawing_thickness_plant_cover_max_month: 'Største optøningsdybde i måneden, under plantedække',
   turbidity: 'Turbiditet',
+  volume_reservoir: 'Reservoirvolumen',
   water_equivalent_snow_depth_sampled: 'Sneens vandindhold (prøve)',
   water_equivalent_snow_depth_new: 'Vandækvivalent af nysne',
   water_equivalent_snow_depth_new_last_1h: 'Vandækvivalent af nysne (seneste 1 t)',
