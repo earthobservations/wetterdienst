@@ -150,6 +150,7 @@
     "unitConcentration": "Concentration",
     "unitConductivity": "Conductivity",
     "unitVolumePerTime": "Flow rate",
+    "unitVolume": "Volume",
     "unitDegreeHour": "Degree hours",
     "unitDimensionless": "Dimensionless / index",
     "unitMassPerVolume": "Mass per volume",

@@ -16,6 +16,29 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dwd/radar` `DwdRadarValues` takes `polarization=` (`DwdRadarPolarization.HORIZONTAL` or
+  `VERTICAL`, or `"th"` / `"tv"`) to read only the `TH` or only the `TV` files of the unfiltered
+  reflectivity sweeps (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H` and
+  `SWEEP_VOL_REFLECTIVITY_H`); without it both are answered, as before. Naming one for any other
+  product or folder raises a `RequestError` (GH-3288)
+- `wsv/pegel` serves the two series it did not map: `SW` (SICHTWEITE, one station, every minute) as
+  `visibility`, in m, and `V` (VOLUMEN, one station, every 15 minutes) as the new
+  `volume_reservoir`, in m³. `volume_reservoir` has the new unit type `volume` (`cubic_meter`, the
+  default, and `cubic_hectometer`), which the `unit_targets` option and the glossary's `unit_type`
+  filter accept (GH-3242)
+
+### Changed
+
+- **Breaking**: the direct radiation of `metoffice/observation` (`direct_irad`, hourly `radiation`)
+  is `radiation_sky_short_wave_direct_perpendicular`, no longer `radiation_sky_short_wave_direct`:
+  it is the energy of the hour on a plane perpendicular to the sun's rays, not on a horizontal
+  surface, so it can exceed the global radiation. The old name is refused with the new one named;
+  values and units are unchanged. Request, filter and key by the new name; for the horizontal
+  component multiply by the cosine of the solar zenith angle (roughly, at the middle of the hour).
+  MIDAS holds no direct radiation past December 1997. Release the app after this backend (GH-3316)
+
 ### Removed
 
 - **Breaking**: `Wetterdienst(provider, network)`, the constructor form that returned a class

@@ -2118,6 +2118,9 @@ NO_STUB = {
     ),
     "wsv/pegel": (
         "no reader maps a sentinel; its values are JSON numbers, and the current measurement of its 1,168 timeseries "
-        "holds no value that is no reading (2026-10-12)"
+        "holds no value that is no reading (2026-10-12). The two series added in GH-3242, read over 31 days on "
+        "2026-10-23: SW (visibility) 44,624 values of 921.9 to 19,963 m at Herrendurchstich (77 % within 100 m of "
+        "the highest, which may be a limit of the instrument, not a sentinel), V (volume_reservoir) "
+        "2,914 values of 10,809,186 to 12,717,862 m³ at Diemeltalsperre, no sentinel and none outside the range"
     ),
 }

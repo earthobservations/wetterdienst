@@ -7,6 +7,7 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDate,
     DwdRadarParameter,
     DwdRadarPeriod,
+    DwdRadarPolarization,
     DwdRadarResolution,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
@@ -17,6 +18,7 @@ __all__ = [
     "DwdRadarDate",
     "DwdRadarParameter",
     "DwdRadarPeriod",
+    "DwdRadarPolarization",
     "DwdRadarResolution",
     "DwdRadarSite",
     "DwdRadarValues",

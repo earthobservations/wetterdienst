@@ -153,7 +153,7 @@ Usage: wetterdienst about glossary [OPTIONS]
 Options:
   --parameter TEXT                Match canonical parameter names containing this text, e.g.
                                   radiation.
-  --unit-type [angle|concentration|conductivity|degree_day|degree_hour|dimensionless|energy_per_area|fraction|length_long|length_medium|length_short|mass_per_volume|power_per_area|precipitation|precipitation_intensity|pressure|significant_weather|speed|temperature|time|turbidity|volume_per_time|wind_scale]
+  --unit-type [angle|concentration|conductivity|degree_day|degree_hour|dimensionless|energy_per_area|fraction|length_long|length_medium|length_short|mass_per_volume|power_per_area|precipitation|precipitation_intensity|pressure|significant_weather|speed|temperature|time|turbidity|volume|volume_per_time|wind_scale]
                                   Restrict to one quantity, e.g. temperature.
   --limit INTEGER RANGE           Return at most this many entries; the full vocabulary runs to
                                   several hundred parameters.  [x>=1]

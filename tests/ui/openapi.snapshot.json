@@ -886,6 +886,7 @@
                     "temperature",
                     "time",
                     "turbidity",
+                    "volume",
                     "volume_per_time",
                     "wind_scale"
                   ],
@@ -4679,6 +4680,7 @@
               "temperature",
               "time",
               "turbidity",
+              "volume",
               "volume_per_time",
               "wind_scale"
             ],
@@ -4816,6 +4818,7 @@
               "temperature",
               "time",
               "turbidity",
+              "volume",
               "volume_per_time",
               "wind_scale"
             ],

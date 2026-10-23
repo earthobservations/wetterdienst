@@ -40,9 +40,11 @@ from wetterdienst.provider.dwd.radar.metadata import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarPeriod,
+    DwdRadarPolarization,
     DwdRadarResolution,
     radar_data_format,
     radar_data_subset,
+    radar_polarization,
 )
 from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarDate,
@@ -161,6 +163,7 @@ class DwdRadarValues:  # noqa: PLW1641
         resolution: str | Resolution | DwdRadarResolution | None = None,
         period: str | Period | DwdRadarPeriod | None = None,
         settings: Settings | None = None,
+        polarization: str | DwdRadarPolarization | None = None,
     ) -> None:
         """Initialize the request object.
 
@@ -175,6 +178,8 @@ class DwdRadarValues:  # noqa: PLW1641
             resolution: requested resolution (e.g. MINUTE_5)
             period: requested period (e.g. RECENT)
             settings: settings for the request
+            polarization: HORIZONTAL (TH) or VERTICAL (TV) to read the files of one polarization of the unfiltered
+                reflectivity sweeps, which are answered for both without it: see RADAR_PARAMETERS_POLARIZED
 
         """
         # A product DWD no longer publishes is refused with the reason, which the list of valid values does not give.
@@ -198,6 +203,10 @@ class DwdRadarValues:  # noqa: PLW1641
         self.format = radar_data_format(self.parameter, parse_enumeration_from_template(fmt, DwdRadarDataFormat))
         # a sweep with one folder need not be asked for it; one with two is, and a folder it has not is refused
         self.subset = radar_data_subset(self.parameter, parse_enumeration_from_template(subset, DwdRadarDataSubset))
+        # the unfiltered reflectivity has a file for each polarization, all of which are read where none is asked for
+        self.polarization = radar_polarization(
+            self.parameter, self.subset, parse_enumeration_from_template(polarization, DwdRadarPolarization)
+        )
         self.elevation = elevation and int(elevation)
         self.resolution: Resolution | None = parse_enumeration_from_template(resolution, DwdRadarResolution, Resolution)
         self.period: Period | None = parse_enumeration_from_template(period, DwdRadarPeriod, Period)
@@ -327,6 +336,7 @@ class DwdRadarValues:  # noqa: PLW1641
             and self.site == other.site
             and self.format == other.format
             and self.subset == other.subset
+            and self.polarization == other.polarization
             and self.start == other.start
             and self.end == other.end
             and self.resolution == other.resolution
@@ -400,7 +410,9 @@ class DwdRadarValues:  # noqa: PLW1641
             )
 
             # Find "-latest-" or "LATEST" or similar file.
-            file_index = file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
+            file_index = self._of_polarization(
+                file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
+            )
 
             # a listing with no such file is no error but no result, as a time with no file is
             if file_index.is_empty():
@@ -489,6 +501,8 @@ class DwdRadarValues:  # noqa: PLW1641
                 ),
             )
 
+            file_index = self._of_polarization(file_index)
+
             # Filter the sweeps of the volume scan by elevation: the number of the sweep follows the moment in the
             # name, `..._vradh_00-`, `..._dbzh_00-`, `..._th_00-`, `..._tv_00-`, `..._uzdr_00-`, `..._urhohv_00-`,
             # `..._uphidp_00-`.
@@ -529,6 +543,12 @@ class DwdRadarValues:  # noqa: PLW1641
                         except Exception:  # pragma: no cover
                             log.exception("Unable to read HDF5 file.")
                     yield result
+
+    def _of_polarization(self, file_index: pl.DataFrame) -> pl.DataFrame:
+        """Keep the files of the polarization asked for, `..._th_00-...` or `..._tv_00-...`, or all where none is."""
+        if self.polarization is None:
+            return file_index
+        return file_index.filter(pl.col("filename").str.contains(f"_{self.polarization.value}_\\d{{2}}-"))
 
     def _dated_by_content(self, result: RadarResult) -> RadarResult:
         """Date a latest file by what it says, which its name does not (GH-3299).
