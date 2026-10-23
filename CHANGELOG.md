@@ -16,14 +16,22 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The threat model (`.github/SECURITY.md`) and the REST API page were inexact, and the MCP page
+  lacked a section. They now say that the cache directory holds the downloaded bodies it caches,
+  not only the listings; that seven providers fetch URLs an upstream's answer names, so a
+  compromised upstream can make the server fetch from another http(s) host (GH-3339); and that the
+  provider text the MCP tools return, such as DWD alert text, is unfiltered and untrusted for an
+  agent (GH-3347)
+- Three pages stated what the code does not do. Scheduling said an unwritable cache directory fails
+  the run: it warns once and caches in a temporary directory for that run, so every run downloads
+  again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
+  since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
+  code nor DWD's files give (GH-2621)
+
 ### Security
 
-- `wetterdienst restapi` (and the Docker image) now runs uvicorn on its h11 HTTP parser, which answers
-  400 and closes a connection whose request line and headers are still incomplete after 16 KiB,
-  instead of httptools, which has no such bound. A server started with
-  `uvicorn wetterdienst.ui.restapi:app` should be given `--http h11` and
-  `--h11-max-incomplete-event-size 16384`, and sit behind a proxy with its own request limits
-  (GH-2606)
 - The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
   (was `>=3.14.0`; every download), `duckdb>=1.1.0` (was `>=1`; the `sql` and `duckdb` extras:
   GHSA-w2gf-jxc9-pf2q, where `sniff_csv` read files with external access off, which the REST SQL
@@ -32,6 +40,20 @@ Types of changes:
   GHSA-6v7p-g79w-8964). An installation that holds an older release keeps it when wetterdienst is
   upgraded: upgrade these packages as well
   (`pip install --upgrade aiohttp duckdb pypdf influxdb msgpack`) (GH-3343)
+- **Breaking**: the REST API and the MCP tools bound the inputs of `interpolate` and `summarize`, so
+  that one request cannot ask for an unbounded amount of work: a station distance given is at most
+  200 km, `num_additional_stations` at most 20 and `min_gain_of_value_pairs` above 0 (a 422 past
+  them), and a request whose radius reaches more stations with a record in the window than
+  `WD_RESTAPI_MAX_STATIONS` (100) is refused as `limit-exceeded` before any download. A caller who
+  needs more uses the Python API or the command line, which take any value. Everywhere, the search
+  for a group of four stations to interpolate from looks at the 30 nearest stations of a parameter
+  at most, and falls back to one group around the point where none of them surrounds it. The
+  explorer of the app holds its inputs to the bounds (GH-2606)
+- The REST API sends `X-Content-Type-Options: nosniff` on every answer, errors and streams
+  included, and a `Content-Security-Policy` that allows no script or request on the index page and
+  the `svg` answers, so that a browser does not take a body for another media type or run script in
+  an SVG opened as a document. `/docs`, `/redoc` and `format=html` carry no policy, as they run
+  scripts (GH-3349)
 
 ## [0.171.0] - 2026-10-23
 

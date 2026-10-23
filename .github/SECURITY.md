@@ -48,7 +48,8 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
    caller is anonymous and untrusted. Every route of `/api` is a `GET`.
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
    `NUXT_PUBLIC_API_BASE`; the browser calls its own origin only. It holds no secret.
-4. *Upstream providers.* Their addresses are fixed in the provider's code; what they send is data, never trusted.
+4. *Upstream providers.* Their addresses are fixed in the provider's code, but for the links a few of them follow and
+   the redirects any of them answers with (see [Upstream data](#upstream-data)); what they send is data, never trusted.
 
 ### The REST API and MCP
 
@@ -67,12 +68,9 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
 - **Host and Origin.** `WD_RESTAPI_ALLOWED_HOSTS` lists the `Host` names it answers to (any other is a 400) and the
   `Origin` of an MCP request. `wetterdienst restapi` on a loopback address lists the loopback names itself, against
   DNS rebinding; any other address, and the Docker image (`0.0.0.0`), answers to every host until it is set.
-- **Request line and headers.** `wetterdienst restapi` runs uvicorn on its h11 parser, which answers 400 and closes a
-  connection whose request line and headers are still incomplete after 16 KiB (`MAX_REQUEST_HEAD_BYTES` in `ui/restapi.py`;
-  `tests/ui/test_operations.py`). Run a server started otherwise on a parser with bounded request-line and header sizes, and a public deployment behind
-  a proxy with limits of its own for requests, headers and slow connections (GH-2606).
 - **Limits, refused before any download:** 100 stations, 500,000 rows (10,000,000 streamed), a chart side of 8192 px
-  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request.
+  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request. For `interpolate` and
+  `summarize` the stations are those with a record in the window within the radius, which is bounded (`ui/core.py`, `tests/ui/test_geo_bounds.py`).
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
@@ -85,6 +83,23 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   where `sniff_csv` obeys that setting (GHSA-w2gf-jxc9-pf2q; `test_filter_by_sql_cannot_read_files[sniff_csv]`).
 - **Errors** are RFC 9457 problems. A 500 is a fixed body with no path, traceback or credential, and a 501 for a missing
   credential does not name the setting (`test_a_500_does_not_name_the_servers_paths_but_the_log_does`).
+- **Response headers** (GH-3349; `ui/middleware.py`, `ui/problems.py`; `tests/ui/test_security_headers.py`). Every
+  answer carries `X-Content-Type-Options: nosniff`, errors and streams included. A `Content-Security-Policy` goes with
+  the index page (`default-src 'none'; style-src 'unsafe-inline'; ...`) and the `svg` answers (`default-src 'none';
+  style-src 'unsafe-inline'; img-src data:`), the two whose bodies were read for what they need. It is not sent with
+  the data answers, where it has nothing to guard, nor with `pdf` and the other images, nor with `/docs` and `/redoc`,
+  which load Swagger UI and ReDoc from a CDN, nor with `format=html`: that is a Plotly figure whose script is in the
+  page, so a policy that lets it run guards little and was not checked in a browser. The backend's origin holds no
+  cookie or credential, so this is hardening: Plotly escapes `<` in the JSON of a figure, and no free text of the
+  caller is drawn into one. HSTS, `Referrer-Policy` and a policy for the rest are for a reverse proxy.
+
+What it does not do:
+
+- **Text from an upstream is not filtered, for an MCP client too.** The tools answer what the REST routes answer:
+  station names, the free text of DWD alerts (`headline`, `description`, `instruction`), the remarks and instruments of
+  a station's history. That text is the provider's, and to a language model that reads it, it is untrusted input: it may
+  contain instructions, and nothing here removes or marks them. Whoever connects an agent to this endpoint along with
+  tools that can act (send, write, run, fetch) should not let it follow what such a field says.
 
 ### Credentials
 
@@ -96,19 +111,34 @@ logs leave them out (`tests/test_settings.py`: `test_credentials_do_not_appear_i
 ### Upstream data
 
 Providers are trusted for their address, not their content. Provider and network come from a fixed registry, parameters
-are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). XML is parsed
-with entities off and no network (`resolve_entities=False`: FMI, DWD alerts, MOSMIX, DMO), archives are read in memory,
-and the one file written is the BUFR message, in a private temporary directory removed afterwards (`util/eccodes.py`,
-`dwd/road`). Nothing is unpickled, evaluated or loaded from YAML that a caller or provider sent. The native
-parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong numbers from a provider are a
-data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the sentinels it can).
+are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). Their address is
+not the whole story: seven providers (AEMET, KNMI, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA) fetch a URL that the
+upstream's answer names (a `next` page, a `datos` or asset link), and a redirect from any address is followed to any
+host, with no check of host or scheme first (#3339). **A compromised upstream can therefore make the server fetch from
+another http(s) host**, its internal network included, with a `GET`; a followed link carries no credential (AEMET's
+`api_key` header can follow a redirect: #3338), and where the body parses as data it can reach the caller. A link in an
+HTML directory listing is kept only below the listed directory, on its host, but may step from `https` down to `http`.
+`file://` and bare paths are refused by the HTTP client.
+
+XML is parsed with entities off, no network and no DTD, each option passed rather than left to a default
+(`util/xml.py`, the one parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own).
+Archives are read in memory. Apart from the cache directory (below) and what the host asks the library or the CLI to
+write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the files written are the BUFR
+message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`), and the temporary
+directory and browser profile of the headless Chromium that renders a chart to an image (`png`, `jpg`, `webp`, `svg`,
+`pdf`; kaleido), which a REST or MCP request can start. Nothing is unpickled, evaluated or loaded from YAML that a
+caller or provider sent. The native parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong
+numbers from a provider are a data-quality problem, not a vulnerability (`tests/provider/physical_ranges.py` catches the
+sentinels it can).
 
 ### The cache directory
 
 `WD_CACHE_DIR` (default: the user's cache directory, or a per-process temporary one where none resolves) holds the
-directory listings, which `diskcache` stores with `pickle`: whoever can write there can run code as the process. Keep it
-private to the user the server runs as. The image's cache belongs to its unprivileged user (uid 10001,
-`docker/Dockerfile`); the app image runs as `node`.
+downloaded bodies it caches, as files named by the hash of their URLs, and the directory listings, which `diskcache`
+stores with `pickle`: whoever can write there can run code as the process. Where the directory cannot be written, a
+temporary directory of the process takes its place until it exits (with a warning); the directory in use also gets a
+write probe, removed at once, and a usage marker. Keep it private to the user the server runs as. The image's cache
+belongs to its unprivileged user (uid 10001, `docker/Dockerfile`); the app image runs as `node`.
 
 **Dependabot alert 83 (`diskcache`, GHSA-w8v5-vhqr-4h9v / CVE-2025-69872, `<= 5.6.3`, no patched version).** It applies:
 the listings cache is that pickle. Exploiting it takes write access to the cache directory, which the operator controls,

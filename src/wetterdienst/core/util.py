@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 import polars as pl
@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
 
     from wetterdienst.metadata.resolution import Resolution
+    from wetterdienst.model.request import TimeseriesRequest
+    from wetterdienst.model.result import StationsResult
     from wetterdienst.model.unit import UnitConverter
     from wetterdienst.options import Options
 
@@ -205,6 +207,46 @@ class StationsInReach(NamedTuple):
     #: how far out the last station that reports an elevation stands, or None where there is none.
     #: Stations are walked in this order, so once it is passed there is no elevation left to find
     furthest_with_elevation: float | None
+
+
+def widest_station_distance(request: TimeseriesRequest) -> float:
+    """Give the widest radius, in km, any requested parameter may draw its stations from.
+
+    The stations a point is ranked against are those within it: a station a parameter's own radius leaves
+    out is passed over, but one the widest radius reaches is walked.
+    """
+    options = cast("Options", request.options)
+    return max(
+        options.geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
+        for parameter in request.parameters
+        if isinstance(parameter, ParameterModel)
+    )
+
+
+def hold_stations_in_reach(request: TimeseriesRequest, stations_ranked: StationsResult) -> StationsResult:
+    """Give the stations of a ranking the walk reads, and hand their number to the check of the request, if it has one.
+
+    The stations a point is ranked against are what the walk may read, one by one, until it has what it needs: a
+    check of the number raises before the first is. Where the request has one, the walk is held to the stations
+    with a record in the window, which are the ones counted: the ranking selects from the whole station list, with
+    the stations that closed long before the window, which have no readings to read. The library sets no check, and
+    walks the ranking as it is; the REST API and MCP set one, to hold a request to the limit of the server
+    (`ui.limits`).
+    """
+    if request._check_reach is None:  # noqa: SLF001
+        return stations_ranked
+    from wetterdienst.model.request import limit_to_window  # noqa: PLC0415
+
+    df = stations_ranked.df
+    if {"start_timestamp", "end_timestamp"} <= set(df.columns):
+        df = limit_to_window(
+            df,
+            cast("dt.datetime | None", request.start),
+            cast("dt.datetime | None", request.end),
+            cast("Options", request.options).station_window_end_buffer,
+        )
+    request._check_reach(df.get_column("station_id").n_unique())  # noqa: SLF001
+    return replace(stations_ranked, df=df)
 
 
 def one_row_per_station(df_stations_ranked: pl.DataFrame) -> pl.DataFrame:

@@ -72,6 +72,8 @@ from wetterdienst.ui.core import (
     InterpolationRequest,
     IssuesRequest,
     ProvidersRequest,
+    RestInterpolationRequest,
+    RestSummaryRequest,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -103,6 +105,7 @@ from wetterdienst.ui.limits import (
     Limits,
     check_rows,
     check_station_count,
+    check_stations_in_reach,
     estimate_point_rows,
     estimate_rows,
     limits_of,
@@ -640,6 +643,21 @@ _MEDIA_TYPES = {
 }
 
 
+#: the policy of the index page, which needs no script, request or image: its styles are in the page. It cannot be
+#: given a `<base>` to re-point its links, nor send a form (GH-3349)
+_PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+#: the policy of an SVG answer, which a browser shows as a document where its address is opened, and runs script in:
+#: no script and no request, styles in the file, images only inlined. That is all a chart written by Kaleido has;
+#: its `url(#...)` is a clip path of its own. Not for `html`, which is a script by design, and not for `pdf`, whose
+#: viewer a policy breaks
+_SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+
+
+def _image_headers(fmt: str) -> dict[str, str]:
+    """Give the `Content-Security-Policy` of an image answer, for the one format that has one: SVG."""
+    return {"Content-Security-Policy": _SVG_CSP} if fmt == "svg" else {}
+
+
 def _answer(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> Response:
     """Send a rendered answer with the headers that say what its `metadata` block says, in the one format or the other.
 
@@ -649,7 +667,7 @@ def _answer(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> Respo
     return Response(
         content=content,
         media_type=_MEDIA_TYPES.get(fmt, "application/json"),
-        headers=dict(response_headers(metadata)),
+        headers={**response_headers(metadata), **_image_headers(fmt)},
     )
 
 
@@ -890,6 +908,7 @@ def index() -> HTMLResponse:
         </body>
     </html>
     """,  # noqa:E501
+        headers={"Content-Security-Policy": _PAGE_CSP},
     )
 
 
@@ -994,8 +1013,8 @@ def version() -> VersionAnswer:
 # each endpoint's settings, by the request it takes them from
 _ENDPOINT_SETTINGS: tuple[tuple[str, type[BaseModel], type[_AppliedSettings]], ...] = (
     ("values", ValuesRequest, ValuesSettings),
-    ("interpolate", InterpolationRequest, InterpolationSettings),
-    ("summarize", SummaryRequest, SummarySettings),
+    ("interpolate", RestInterpolationRequest, InterpolationSettings),
+    ("summarize", RestSummaryRequest, SummarySettings),
 )
 
 
@@ -1533,6 +1552,18 @@ def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
                 cast("dt.datetime | None", request.end),
             )
             check_rows(rows, limits, streamed=False)
+
+    return check
+
+
+def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
+    """Give the check of `interpolate` and `summarize` of the stations within the radius around the point.
+
+    `distance` is the name of the field that sets the radius of the endpoint, which a refusal names.
+    """
+
+    def check(count: int) -> None:
+        check_stations_in_reach(count, limits, distance=distance)
 
     return check
 
@@ -2078,8 +2109,18 @@ def _geo_values(
     thing", as `/api/values` answers an issue. A reader missing on the server is a 501; the same
     decisions in both places, so they are made here rather than twice over.
     """
+    distance = (
+        "interpolation_station_distance" if isinstance(request, InterpolationRequest) else "summary_station_distance"
+    )
     try:
-        return get(api=api, request=request, settings=settings, options=options, check=_geo_limit_check(limits))
+        return get(
+            api=api,
+            request=request,
+            settings=settings,
+            options=options,
+            check=_geo_limit_check(limits),
+            check_reach=_geo_reach_check(limits, distance),
+        )
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix; and a limit that refused the request, which is its 400
@@ -2098,7 +2139,7 @@ def _geo_values(
     tags=[TAG_VALUES],
 )
 def interpolate(
-    request: Annotated[InterpolationRequest, Query()],
+    request: Annotated[RestInterpolationRequest, Query()],
     http_request: Request,
 ) -> Response:
     """Estimate a value series at a point between stations by spatial interpolation (opt-in; adds inaccuracy).
@@ -2141,7 +2182,7 @@ def interpolate(
     tags=[TAG_VALUES],
 )
 def summarize(
-    request: Annotated[SummaryRequest, Query()],
+    request: Annotated[RestSummaryRequest, Query()],
     http_request: Request,
 ) -> Response:
     """Build a value series at a point from the nearest stations with data (opt-in; not a text summary).
@@ -2267,6 +2308,7 @@ def stripes_image(
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
+        headers=_image_headers(request.format),
     )
 
 
@@ -2443,12 +2485,6 @@ def _answer_to_loopback_names_only(listen_host: str) -> None:
     )
 
 
-# What the server reads of a request before it has the whole request line and header block: a connection that sends
-# more is closed. The HTTP parser of uvicorn that is bounded this way is `h11`; its default is 16 KiB, written down here
-# so that a change of uvicorn's default is not one of ours (GH-2606)
-MAX_REQUEST_HEAD_BYTES = 16 * 1024
-
-
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
     run = import_optional("uvicorn.main", "The REST API", extra="restapi").run
@@ -2462,13 +2498,4 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    # `http="h11"`: the parser of `uvicorn[standard]` by default, httptools, puts no bound on the request line. `reload`
-    # hands these arguments on to the process it starts, so the development server is bounded as well
-    run(
-        app="wetterdienst.ui.restapi:app",
-        host=host,
-        port=port,
-        reload=reload or False,
-        http="h11",
-        h11_max_incomplete_event_size=MAX_REQUEST_HEAD_BYTES,
-    )
+    run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload or False)
