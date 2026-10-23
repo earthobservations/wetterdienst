@@ -2,14 +2,15 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """Tests for the one way the library reads XML a provider sent (GH-3350).
 
-Two things are held. A document that names an external DTD and external entities, on the network and on disk, is read
-by every parser the library builds without fetching either; and no module of the package builds a parser of its own,
-which is how one comes to leave an option to a default of lxml.
+Three things are held. A document that names an external DTD and external entities, on the network and on disk, is
+read by the helper's parsers without fetching either; every reader of a provider parses through those parsers; and no
+module of the package builds a parser of its own, which is how one comes to leave an option to a default of lxml.
 
-What the network half can and cannot tell: the libxml2 of the lxml wheels (2.14) has no HTTP client, so a parser given
-`no_network=False` does not reach the listener either, and the listener alone would stay silent on a parser that is
-wrong. The file half has a control (a parser that resolves entities does read the file), and the options half pins
-what each parser is given, so the guarantee does not rest on that build.
+What the hostile document can and cannot tell: the libxml2 of the lxml wheels (2.14) has no HTTP client, so a parser
+given `no_network=False` does not reach the listener either (the `minimum-versions` job, lxml 4.9.1 on libxml2 2.9,
+may), and the file entity of a provider's document lands in an element no reader returns. So the test of the
+helper's parsers has a control (a parser that resolves entities does read the file), the options each parser is given
+are pinned, and the providers are held to the helper by recording what reaches lxml and by the scan of the package.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from lxml.etree import XMLParser, fromstring, tostring
+from lxml.etree import XMLParser, fromstring, iterparse, tostring
 
 import wetterdienst
 from tests.provider.dwd.alerts.test_parser import CAP_XML
@@ -197,7 +198,7 @@ def hostile(document: bytes, listener: Listener, secret: Path) -> bytes:
 
 def _kml_reader_data(document: bytes) -> object:
     reader = KMLReader(station_ids=["01001"], settings=Settings(cache_disable=True))
-    reader.fetch = lambda _url: BytesIO(document)  # type: ignore[method-assign]
+    reader.fetch = lambda _url: BytesIO(document)  # ty: ignore[invalid-assignment]
     reader.read("https://example.invalid/run.kmz")
     return reader.data, reader.metadata["product_id"], reader.timesteps
 
@@ -227,7 +228,7 @@ READERS: dict[str, tuple[bytes, Callable[[bytes], object]]] = {
 def test_a_document_naming_an_external_dtd_and_entities_is_read_without_fetching_them(
     name: str, listener: Listener, secret: Path
 ) -> None:
-    """Every reader answers a document with a DOCTYPE as one without, and reaches neither its DTD nor its entities."""
+    """A DOCTYPE with external DTD and entities does not change what a reader answers, and nothing is fetched."""
     document, read = READERS[name]
     plain = read(document)
     assert plain not in (None, [], {}, ()), "a reader that answers nothing proves nothing"
@@ -238,6 +239,33 @@ def test_a_document_naming_an_external_dtd_and_entities_is_read_without_fetching
     assert SECRET not in repr(answer)
     if name not in {"parse_xml", "iterparse_xml"}:
         assert answer == plain
+
+
+@pytest.mark.parametrize("name", [name for name in READERS if name not in {"parse_xml", "iterparse_xml"}])
+def test_every_reader_of_a_provider_parses_through_the_helper(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """What reaches lxml from a provider's reader is a parser built with the safe options, and at least one.
+
+    The hostile document does not show it for a provider (see the module docstring), so this does: `XMLParser` and
+    `iterparse` as the helper calls them are recorded, and each call must carry `SAFE_OPTIONS` and nothing less.
+    """
+    given: list[dict[str, object]] = []
+
+    def parser(**kwargs: object) -> XMLParser:
+        given.append(kwargs)
+        return XMLParser(**kwargs)
+
+    def parse_incrementally(source: object, **kwargs: object) -> object:
+        given.append({k: v for k, v in kwargs.items() if k != "events"})
+        return iterparse(source, **kwargs)
+
+    monkeypatch.setattr(wd_xml, "XMLParser", parser)
+    monkeypatch.setattr(wd_xml, "iterparse", parse_incrementally)
+    document, read = READERS[name]
+
+    read(document)
+
+    assert given != []
+    assert all(kwargs == SAFE_OPTIONS for kwargs in given)
 
 
 def test_a_parser_that_resolves_entities_does_read_the_file(secret: Path) -> None:
@@ -280,7 +308,7 @@ def test_every_parser_is_given_the_safe_options(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(wd_xml, "iterparse", parse_incrementally)
 
     xml_parser()
-    iterparse_xml(BytesIO(b"<a/>"), events=["start", "end"])
+    iterparse_xml(BytesIO(b"<a/>"), events=("start", "end"))
     iterparse_xml(BytesIO(b"<a/>"))
 
     assert given[0] == ("XMLParser", SAFE_OPTIONS)
@@ -298,34 +326,56 @@ def test_every_parser_is_given_the_safe_options(monkeypatch: pytest.MonkeyPatch)
 
 #: the packages whose parsers a module may not import: `xml_parser`, `parse_xml` and `iterparse_xml` are the way
 _PARSER_PACKAGES = frozenset({"lxml", "xml", "defusedxml"})
+#: modules of those packages that write XML and parse none
+_NOT_PARSERS = frozenset({"xml.sax.saxutils"})
+#: the functions that import a module by the name they are given
+_IMPORTERS = frozenset({"import_optional", "import_module"})
+
+
+def _is_parser_module(name: str) -> bool:
+    return name.split(".", maxsplit=1)[0] in _PARSER_PACKAGES and name not in _NOT_PARSERS
+
+
+def _called(node: ast.Call) -> str | None:
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    return func.attr if isinstance(func, ast.Attribute) else None
 
 
 def _parsers_built_outside_the_helper(source: str) -> list[int]:
-    """Give the lines of a module that import an XML parser, or call pandas' `read_xml`, outside `if TYPE_CHECKING`."""
+    """Give the lines of a module that import an XML parser, or call `read_xml`, outside `if TYPE_CHECKING`.
+
+    An import is a statement or a call of `import_optional` or `import_module` with the name as a string. The
+    `else` branch of `if TYPE_CHECKING` is run, and so is read.
+    """
     tree = ast.parse(source)
     type_checking = {
         id(node)
         for block in ast.walk(tree)
         if isinstance(block, ast.If) and ast.unparse(block.test) in {"TYPE_CHECKING", "typing.TYPE_CHECKING"}
-        for node in ast.walk(block)
+        for statement in block.body
+        for node in ast.walk(statement)
     }
     lines = []
     for node in ast.walk(tree):
         if id(node) in type_checking:
             continue
+        hit = False
         if isinstance(node, ast.Import):
-            hit = any(alias.name.split(".")[0] in _PARSER_PACKAGES for alias in node.names)
+            hit = any(_is_parser_module(alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            hit = node.level == 0 and (node.module or "").split(".")[0] in _PARSER_PACKAGES
+            hit = node.level == 0 and _is_parser_module(node.module or "")
         elif isinstance(node, ast.Call):
-            func = node.func
-            hit = (isinstance(func, ast.Name) and func.id == "read_xml") or (
-                isinstance(func, ast.Attribute) and func.attr == "read_xml"
+            first = node.args[0] if node.args else None
+            hit = _called(node) == "read_xml" or (
+                _called(node) in _IMPORTERS
+                and isinstance(first, ast.Constant)
+                and isinstance(first.value, str)
+                and _is_parser_module(first.value)
             )
-        else:
-            hit = False
         if hit:
-            lines.append(node.lineno)
+            lines.append(node.lineno)  # ty: ignore[unresolved-attribute]
     return lines
 
 
@@ -359,6 +409,9 @@ def test_no_module_builds_an_xml_parser_of_its_own() -> None:
         "import defusedxml.ElementTree",
         "import pandas as pd\nframe = pd.read_xml(path)",
         "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\nfrom lxml.etree import fromstring",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\nelse:\n    from lxml.etree import XMLParser",
+        'etree = import_optional("lxml.etree", "radar")',
+        'etree = importlib.import_module("lxml.etree")',
     ],
 )
 def test_the_scan_finds_a_parser_built_outside_the_helper(source: str) -> None:
@@ -366,7 +419,14 @@ def test_the_scan_finds_a_parser_built_outside_the_helper(source: str) -> None:
     assert _parsers_built_outside_the_helper(source) != []
 
 
-def test_the_scan_leaves_the_types_of_elements_alone() -> None:
-    """An element is typed under `if TYPE_CHECKING`, which parses nothing."""
-    source = "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from lxml.etree import _Element\n"
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from lxml.etree import _Element\n",
+        "from xml.sax.saxutils import escape",
+        'frame = import_optional("polars", "x")',
+    ],
+)
+def test_the_scan_leaves_alone_what_parses_nothing(source: str) -> None:
+    """An element is typed under `if TYPE_CHECKING`, and `xml.sax.saxutils` only writes."""
     assert _parsers_built_outside_the_helper(source) == []

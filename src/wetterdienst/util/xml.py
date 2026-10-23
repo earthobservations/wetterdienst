@@ -4,11 +4,12 @@
 
 Every provider that parses XML does it here, so that what a document may make the parser do is written down once
 and not left to a default of lxml, which has changed between releases and differs between `iterparse`, `fromstring`
-and `XMLParser`: no entity is replaced (`resolve_entities=False`, which also ends a billion-laughs expansion), no
-external DTD or entity is fetched from the network (`no_network=True`), no DTD is loaded or validated against, none
-supplies default attributes, and the limits of libxml2 on the depth of a tree and the length of a text stay on
-(`huge_tree=False`). A reader of a document that needs more says so in the call, not by building its own parser:
-`tests/util/test_xml.py` fails for a module of the package that does.
+and `XMLParser`: no entity is replaced (`resolve_entities=False`; libxml2 refuses a document whose entities
+amplify, a billion-laughs one, as a syntax error), no external DTD or entity is fetched from the network
+(`no_network=True`), no DTD is loaded or validated against, none supplies default attributes, and the limits of
+libxml2 on the depth of a tree and the length of a text stay on (`huge_tree=False`). A reader of a document that
+needs more gets an option here, not a parser of its own: `tests/util/test_xml.py` fails for a module of the package
+that builds one.
 """
 
 from __future__ import annotations
@@ -18,7 +19,6 @@ from typing import TYPE_CHECKING, Any
 from lxml.etree import XMLParser, fromstring, iterparse
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
     from typing import BinaryIO
 
     from lxml.etree import _Element
@@ -44,9 +44,9 @@ def parse_xml(content: bytes | str) -> _Element:
     return fromstring(content, parser=xml_parser())
 
 
-def iterparse_xml(source: BinaryIO | str, events: Iterable[str] = ("end",)) -> Any:  # noqa: ANN401
+def iterparse_xml(source: BinaryIO | str, events: tuple[str, ...] = ("end",)) -> Any:  # noqa: ANN401
     """Parse a document as it is read and give its `(event, element)` pairs, with the options of `SAFE_OPTIONS`.
 
     `source` is a file object or a path, as for `lxml.etree.iterparse`, which returns an iterator of its own type.
     """
-    return iterparse(source, events=tuple(events), **SAFE_OPTIONS)
+    return iterparse(source, events=events, **SAFE_OPTIONS)
