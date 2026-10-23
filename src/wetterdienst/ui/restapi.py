@@ -72,6 +72,8 @@ from wetterdienst.ui.core import (
     InterpolationRequest,
     IssuesRequest,
     ProvidersRequest,
+    RestInterpolationRequest,
+    RestSummaryRequest,
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
@@ -103,6 +105,7 @@ from wetterdienst.ui.limits import (
     Limits,
     check_rows,
     check_station_count,
+    check_stations_in_reach,
     estimate_point_rows,
     estimate_rows,
     limits_of,
@@ -994,8 +997,8 @@ def version() -> VersionAnswer:
 # each endpoint's settings, by the request it takes them from
 _ENDPOINT_SETTINGS: tuple[tuple[str, type[BaseModel], type[_AppliedSettings]], ...] = (
     ("values", ValuesRequest, ValuesSettings),
-    ("interpolate", InterpolationRequest, InterpolationSettings),
-    ("summarize", SummaryRequest, SummarySettings),
+    ("interpolate", RestInterpolationRequest, InterpolationSettings),
+    ("summarize", RestSummaryRequest, SummarySettings),
 )
 
 
@@ -1533,6 +1536,18 @@ def _geo_limit_check(limits: Limits) -> Callable[[TimeseriesRequest], None]:
                 cast("dt.datetime | None", request.end),
             )
             check_rows(rows, limits, streamed=False)
+
+    return check
+
+
+def _geo_reach_check(limits: Limits, distance: str) -> Callable[[int], None]:
+    """Give the check of `interpolate` and `summarize` of the stations within the radius around the point.
+
+    `distance` is the name of the field that sets the radius of the endpoint, which a refusal names.
+    """
+
+    def check(count: int) -> None:
+        check_stations_in_reach(count, limits, distance=distance)
 
     return check
 
@@ -2078,8 +2093,18 @@ def _geo_values(
     thing", as `/api/values` answers an issue. A reader missing on the server is a 501; the same
     decisions in both places, so they are made here rather than twice over.
     """
+    distance = (
+        "interpolation_station_distance" if isinstance(request, InterpolationRequest) else "summary_station_distance"
+    )
     try:
-        return get(api=api, request=request, settings=settings, options=options, check=_geo_limit_check(limits))
+        return get(
+            api=api,
+            request=request,
+            settings=settings,
+            options=options,
+            check=_geo_limit_check(limits),
+            check_reach=_geo_reach_check(limits, distance),
+        )
     except (AssertionError, HTTPException):
         # a request its model should have refused reached the lookup: our bug, which FastAPI answers
         # as a 500, not the caller's to fix; and a limit that refused the request, which is its 400
@@ -2098,7 +2123,7 @@ def _geo_values(
     tags=[TAG_VALUES],
 )
 def interpolate(
-    request: Annotated[InterpolationRequest, Query()],
+    request: Annotated[RestInterpolationRequest, Query()],
     http_request: Request,
 ) -> Response:
     """Estimate a value series at a point between stations by spatial interpolation (opt-in; adds inaccuracy).
@@ -2141,7 +2166,7 @@ def interpolate(
     tags=[TAG_VALUES],
 )
 def summarize(
-    request: Annotated[SummaryRequest, Query()],
+    request: Annotated[RestSummaryRequest, Query()],
     http_request: Request,
 ) -> Response:
     """Build a value series at a point from the nearest stations with data (opt-in; not a text summary).

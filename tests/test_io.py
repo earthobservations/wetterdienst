@@ -2717,8 +2717,10 @@ def test_timeseries_values_to_target_logs_the_target_without_its_password(caplog
         ("name = (SELECT content FROM read_text('{d}/secret.txt'))", "read_text|secret.txt"),
         ("(SELECT count(*) FROM glob('{d}/*')) = 2", "glob|/\\*"),
         ("elevation IN (SELECT elevation FROM '{d}/secret.csv')", "read_csv|secret.csv"),
+        # DuckDB before 1.1.0 sniffed a file with external access off (GHSA-w2gf-jxc9-pf2q): the floor holds that out
+        ("(SELECT count(*) FROM sniff_csv('{d}/secret.csv')) = 1", "sniff_csv|secret.csv"),
     ],
-    ids=["read_csv", "read_text", "glob", "replacement_scan"],
+    ids=["read_csv", "read_text", "glob", "replacement_scan", "sniff_csv"],
 )
 def test_filter_by_sql_cannot_read_files(
     df_stations: pl.DataFrame,
