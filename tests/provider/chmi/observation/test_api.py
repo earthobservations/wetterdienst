@@ -157,6 +157,55 @@ def test_chmi_observation_stations_are_those_with_a_file_in_the_resolution(monke
     assert df.filter(pl.col("station_id").eq("0-C"))["name"].to_list() == ["Rain only"] * 2
 
 
+def test_chmi_observation_stations_are_those_with_a_file_of_the_requested_elements(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A parameter lists the stations with a file of its element, a dataset those with a file of any (GH-3295)."""
+    directories = {
+        "/daily/temperature/": ["dly-0-A-T.csv", "dly-0-B-TMA.csv", "dly-0-D-TPM.csv"],
+        "/daily/precipitation/": ["dly-0-A-SRA.csv", "dly-0-C-SRA.csv"],
+        "/daily/sunshine/": ["dly-0-C-SSV.csv"],
+    }
+    for parameters, expected in (
+        ([("daily", "data", "temperature_air_mean_2m")], ["0-A"]),
+        ([("daily", "data", "temperature_air_max_2m")], ["0-B"]),
+        ([("daily", "data", "precipitation_amount")], ["0-A", "0-C"]),
+        ([("daily", "data", "sunshine_duration")], ["0-C"]),
+        ([("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "sunshine_duration")], ["0-A", "0-C"]),
+        ([("daily", "data")], ["0-A", "0-B", "0-C"]),
+    ):
+        df = _stations_of(monkeypatch, _CATALOGUE, directories, parameters)
+        assert _ids(df, "daily") == expected, parameters
+
+
+@pytest.mark.parametrize("resolution", [Resolution.DAILY, Resolution.MONTHLY, Resolution.ANNUAL])
+def test_chmi_observation_every_parameter_of_a_narrowed_resolution_is_an_element_that_is_read(
+    resolution: Resolution,
+) -> None:
+    """A parameter whose `name_original` the config lacks would be left out of the narrowing, silently (GH-3295)."""
+    elements = _RESOLUTION_CONFIG[resolution]["elements"]
+    parameters = ChmiObservationMetadata[resolution.value].datasets[0].parameters
+    assert {parameter.name_original for parameter in parameters} <= set(elements)
+
+
+def test_chmi_observation_stations_list_only_the_directories_of_the_requested_elements(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The directory of an element that was not asked for is not read, and one holding two elements is read once."""
+    asked: list[str] = []
+
+    def list_files(url: str, *_args: object, **_kwargs: object) -> list[str]:
+        asked.append(url.rsplit("/daily/", 1)[-1])
+        return [f"{url}dly-0-A-T.csv", f"{url}dly-0-A-TMA.csv", f"{url}dly-0-C-SRA.csv"]
+
+    _serve_catalogue(monkeypatch, _CATALOGUE, {})
+    monkeypatch.setattr(chmi_api, "list_remote_files_fsspec", list_files)
+    parameters = [("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "temperature_air_max_2m")]
+    df = ChmiObservationRequest(parameters=parameters).all().df
+    assert asked == ["temperature/"]
+    assert _ids(df, "daily") == ["0-A"]
+
+
 def test_chmi_observation_sub_daily_stations_are_the_whole_list(monkeypatch: pytest.MonkeyPatch) -> None:
     """The month files of the 10 minute and hourly resolutions are under a directory for each year: no narrowing."""
     asked: list[str] = []
@@ -186,10 +235,14 @@ def test_chmi_observation_stations_raise_when_a_directory_cannot_be_listed(monke
 
 
 def test_chmi_observation_stations_raise_when_no_directory_lists_a_file(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Directories of a resolution that list no file of an element are a portal that changed, not no stations."""
-    _serve_catalogue(monkeypatch, _CATALOGUE, {"/monthly/temperature/": ["mly-0-A-TPM.csv", "readme.txt"]})
-    with pytest.raises(DownloadError, match="/monthly/"):
-        ChmiObservationRequest(parameters=[("monthly", "data")]).all()
+    """Directories that list no file of a requested element are a portal that changed, not no stations."""
+    _serve_catalogue(
+        monkeypatch,
+        _CATALOGUE,
+        {"/monthly/temperature/": ["mly-0-A-TPM.csv", "mly-0-A-TMA.csv", "readme.txt"]},
+    )
+    with pytest.raises(DownloadError, match=r"/monthly/.*for T"):
+        ChmiObservationRequest(parameters=[("monthly", "data", "temperature_air_mean_2m")]).all()
 
 
 def test_parse_chmi_values_daily_selects_timefunc_and_truncates() -> None:
