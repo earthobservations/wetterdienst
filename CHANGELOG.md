@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- `dwd/radar` `DwdRadarValues` takes `polarization=` (`DwdRadarPolarization.HORIZONTAL` or
+  `VERTICAL`, or `"th"` / `"tv"`) to read only the `TH` or only the `TV` files of the unfiltered
+  reflectivity sweeps (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H` and
+  `SWEEP_VOL_REFLECTIVITY_H`); without it both are answered, as before. Naming one for any other
+  product or folder raises a `RequestError` (GH-3288)
 - `wsv/pegel` serves the two series it did not map: `SW` (SICHTWEITE, one station, every minute) as
   `visibility`, in m, and `V` (VOLUMEN, one station, every 15 minutes) as the new
   `volume_reservoir`, in m³. `volume_reservoir` has the new unit type `volume` (`cubic_meter`, the

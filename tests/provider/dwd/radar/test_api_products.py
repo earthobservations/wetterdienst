@@ -23,13 +23,14 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import RequestError
+from wetterdienst.exceptions import InvalidEnumerationError, RequestError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
     DwdRadarDataSubset,
     DwdRadarDate,
     DwdRadarParameter,
+    DwdRadarPolarization,
     DwdRadarValues,
 )
 from wetterdienst.provider.dwd.radar.index import build_path_to_parameter, create_fileindex_radar
@@ -511,6 +512,158 @@ def test_the_latest_of_the_unfiltered_precipitation_reflectivity_is_th_and_tv(mo
         (f"{base}/{_PCP}_tv_00-LATEST-boo-10132-hd5", CacheExpiry.NO_CACHE),
     ]
     assert len(results) == 2
+
+
+@pytest.mark.parametrize(
+    ("polarization", "written", "other"),
+    [
+        (DwdRadarPolarization.HORIZONTAL, "th", "tv"),
+        (DwdRadarPolarization.VERTICAL, "tv", "th"),
+        ("horizontal", "th", "tv"),
+        ("TV", "tv", "th"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("parameter", "folder", "scan", "files"),
+    [
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, "sweep_vol_z", _VOL, 3),
+        (DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H, "sweep_pcp_z", _PCP, 1),
+    ],
+)
+def test_the_polarization_picks_the_th_or_the_tv_files_of_the_unfiltered_reflectivity(
+    parameter: DwdRadarParameter,
+    folder: str,
+    scan: str,
+    files: int,
+    polarization: DwdRadarPolarization | str,
+    written: str,
+    other: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that `polarization` reads one moment of the sweeps, as enumeration, name or file name (GH-3288)."""
+    base = f"{RADAR}/sites/{folder}/boo/unfiltered"
+    downloaded = _served(monkeypatch, {f"{base}/{name}": b"\x89HDF" for name in LISTINGS[base]})
+
+    request = DwdRadarValues(
+        parameter=parameter,
+        site=DwdRadarSite.BOO,
+        subset=DwdRadarDataSubset.UNFILTERED,
+        polarization=polarization,
+        start="2026-10-22 13:10",
+    )
+    results = list(request.query())
+
+    assert request.polarization == DwdRadarPolarization(written)
+    names = sorted(url.rsplit("/", 1)[1] for url, _ in downloaded)
+    assert len(names) == len(results) == files
+    assert all(f"{scan}_{written}_" in name and "-20261022131" in name for name in names)
+    assert not any(f"_{other}_" in name for name in names)
+
+
+@pytest.mark.parametrize(
+    ("polarization", "written"),
+    [(DwdRadarPolarization.HORIZONTAL, "th"), (DwdRadarPolarization.VERTICAL, "tv")],
+)
+def test_the_polarization_is_kept_with_the_elevation_and_the_latest_file(
+    polarization: DwdRadarPolarization, written: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that one polarization of one elevation is one file, and that LATEST of the precipitation scan is one."""
+    volume = f"{RADAR}/sites/sweep_vol_z/boo/unfiltered"
+    precipitation = f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered"
+    downloaded = _served(
+        monkeypatch,
+        {f"{base}/{name}": b"\x89HDF" for base in (volume, precipitation) for name in LISTINGS[base]},
+    )
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            polarization=polarization,
+            start="2026-10-22 13:10",
+            elevation=1,
+        ).query()
+    )
+    assert [url for url, _ in downloaded] == [f"{volume}/{_VOL}_{written}_01-2026102213112000-boo-10132-hd5"]
+    assert len(results) == 1
+
+    downloaded.clear()
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            polarization=polarization,
+            start=DwdRadarDate.LATEST,
+        ).query()
+    )
+    assert downloaded == [(f"{precipitation}/{_PCP}_{written}_00-LATEST-boo-10132-hd5", CacheExpiry.NO_CACHE)]
+    assert len(results) == 1
+
+
+def test_no_polarization_answers_both_as_it_did(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a request that names none still reads the TH and the TV file of each sweep, and compares unequal."""
+    base = f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered"
+    downloaded = _served(monkeypatch, {f"{base}/{name}": b"\x89HDF" for name in LISTINGS[base]})
+    arguments = {
+        "parameter": DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+        "site": DwdRadarSite.BOO,
+        "subset": DwdRadarDataSubset.UNFILTERED,
+        "start": "2026-10-22 13:10",
+    }
+
+    request = DwdRadarValues(**arguments)
+    assert request.polarization is None
+    assert len(list(request.query())) == 2
+    assert {url.rsplit("/", 1)[1].split("_")[2] for url, _ in downloaded} == {"th", "tv"}
+    assert request != DwdRadarValues(**arguments, polarization=DwdRadarPolarization.VERTICAL)
+
+
+@pytest.mark.parametrize(
+    ("parameter", "subset", "match"),
+    [
+        ("sweep_vol_zdr", None, r"SWEEP_VOL_ZDR has no polarization to choose: only the unfiltered folder of .*leave"),
+        ("sweep_vol_v", DwdRadarDataSubset.SIMPLE, r"SWEEP_VOL_VELOCITY_H has no polarization to choose"),
+        ("dx", None, r"DX_REFLECTIVITY has no polarization to choose"),
+        (
+            "sweep_vol_z",
+            DwdRadarDataSubset.SIMPLE,
+            (
+                r"SWEEP_VOL_REFLECTIVITY_H has a polarization to choose in the unfiltered folder only, "
+                r"not with subset=SIMPLE: use subset=UNFILTERED or leave 'polarization' out"
+            ),
+        ),
+        ("sweep_pcp_z", None, r"SWEEP_PCP_REFLECTIVITY_H .* not with no subset: use subset=UNFILTERED"),
+    ],
+)
+def test_a_polarization_is_refused_where_there_is_none_to_choose(
+    parameter: str, subset: DwdRadarDataSubset | None, match: str, listings: list[str]
+) -> None:
+    """Test that a polarization of a product, or a folder, that has no TH and TV files is an error with a hint."""
+    with pytest.raises(RequestError, match=match):
+        DwdRadarValues(
+            parameter=parameter,
+            site=DwdRadarSite.BOO,
+            subset=subset,
+            polarization=DwdRadarPolarization.VERTICAL,
+            start="2026-10-22 13:10",
+        )
+    assert listings == []
+
+
+def test_an_unknown_polarization_is_an_invalid_enumeration() -> None:
+    """Test that a value that names no polarization is an InvalidEnumerationError listing the valid ones."""
+    with pytest.raises(
+        InvalidEnumerationError, match=r"could not be parsed from DwdRadarPolarization. Valid values: th, tv"
+    ):
+        DwdRadarValues(
+            parameter="sweep_pcp_z",
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            polarization="diagonal",
+            start="2026-10-22 13:10",
+        )
 
 
 def test_the_latest_of_a_sweep_that_has_no_file_named_so_is_nothing(
