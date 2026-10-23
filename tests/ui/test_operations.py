@@ -13,6 +13,7 @@ import datetime as dt
 import json
 import os
 import re
+import socket
 import threading
 import time
 from dataclasses import replace
@@ -1318,6 +1319,88 @@ def test_a_list_that_is_given_is_not_replaced_on_the_loopback(monkeypatch: pytes
 
     assert os.environ["WD_RESTAPI_ALLOWED_HOSTS"] == "tunnel.example.org"
     assert (seen["local"], seen["ip"]) == (400, 400)
+
+
+def _uvicorn_arguments(monkeypatch: pytest.MonkeyPatch, *, reload: bool = False) -> dict[str, Any]:
+    """Return the arguments `start_service` hands to uvicorn."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "")  # restored afterwards: start_service sets the variable
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(
+        restapi, "import_optional", lambda *_args, **_kwargs: type("U", (), {"run": staticmethod(seen.update)})
+    )
+    monkeypatch.setattr(restapi, "setup_logging", lambda: None)
+    restapi.start_service("127.0.0.1:7890", reload=reload)
+    return seen
+
+
+@pytest.mark.parametrize("reload", [False, True])
+def test_the_server_is_started_on_a_parser_with_a_bounded_request_head(
+    reload: bool,  # noqa: FBT001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`wetterdienst restapi`, with and without `--reload`, runs uvicorn on h11 with a written bound (GH-2606)."""
+    seen = _uvicorn_arguments(monkeypatch, reload=reload)
+
+    assert seen["http"] == "h11"
+    assert seen["h11_max_incomplete_event_size"] == restapi.MAX_REQUEST_HEAD_BYTES == 16 * 1024
+    assert seen["reload"] is reload
+
+
+def test_a_request_line_beyond_the_bound_is_refused_by_the_server_start_service_configures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A server with the arguments of `start_service` closes a connection on a request line without end (GH-2606)."""
+    import uvicorn  # noqa: PLC0415
+
+    arguments = _uvicorn_arguments(monkeypatch)
+    config = uvicorn.Config(
+        restapi.app,
+        host="127.0.0.1",
+        port=0,
+        lifespan="off",
+        log_level="warning",
+        log_config=None,
+        http=arguments["http"],
+        h11_max_incomplete_event_size=arguments["h11_max_incomplete_event_size"],
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 15
+        while not server.started and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert server.started
+        port = server.servers[0].sockets[0].getsockname()[1]
+
+        started = time.monotonic()
+        answer = b""
+        with socket.create_connection(("127.0.0.1", port), timeout=10) as connection:
+            try:
+                connection.sendall(b"GET /api/version?x=")
+                for _ in range(8):  # 512 KiB of request line, never finished
+                    connection.sendall(b"a" * 65536)
+            except OSError:
+                pass  # the server closed the connection while it was being sent to
+            try:
+                while chunk := connection.recv(4096):
+                    answer += chunk
+            except OSError:
+                pass  # reset: closed as well
+        elapsed = time.monotonic() - started
+
+        assert answer == b"" or answer.startswith(b"HTTP/1.1 400")
+        assert elapsed < 8
+
+        with socket.create_connection(("127.0.0.1", port), timeout=10) as connection:
+            connection.sendall(b"GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+            body = b""
+            while chunk := connection.recv(4096):
+                body += chunk
+        assert body.startswith(b"HTTP/1.1 200")
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
 
 
 def test_a_malformed_listen_address_is_told(monkeypatch: pytest.MonkeyPatch) -> None:
