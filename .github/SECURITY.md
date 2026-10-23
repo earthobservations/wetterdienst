@@ -128,3 +128,21 @@ runs when the lock changes and weekly (`vulnerable.yml`), `dependency-review.yml
 code and workflows; Dependabot proposes uv, npm, Docker and Actions updates weekly. Actions are pinned to a commit SHA
 and base images to a digest (`.github/workflows/README.md`); workflows default to `permissions: {}` (read-only at most). A release builds
 in a job without `id-token` and publishes to PyPI by trusted publishing in a job that runs no project code (`release.yml`).
+
+### The emSign CA incident (October 2026)
+
+The intermediate certificates under the `emSign ECC Root CA - G3` (eMudhra) have compromised keys, and whoever holds one
+can impersonate any HTTPS host to a client that trusts the root
+([discussion](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576),
+certifi GHSA-6q48-6c7w-9gw2, uv GHSA-hq85-5cpj-mr62). wetterdienst verifies TLS against the trust store of the Python it
+runs on, or against the certifi bundle with `use_certifi` (`WD_USE_CERTIFI`, off by default). Affected is therefore a host
+whose trust store still holds the root, or that runs `use_certifi` with certifi older than 2026.10.19. From the release
+after 0.170.0 on, wetterdienst requires certifi 2026.10.19 and the Docker image is built on a python base image with
+Debian's `ca-certificates` update and pip 26.2.2 (GH-3331). An installation from PyPI resolves its own certifi, and the
+earlier releases and images keep the old one. To update:
+
+- `pip install --upgrade certifi`; for the system store, the operating system's update (Debian: `ca-certificates`); with
+  the python.org installer on macOS, run its `Install Certificates.command` again;
+- pip 26.2.2 or later and uv 0.13.4 or later, which carry their own bundle (`uv self update`, or the package manager that
+  installed it);
+- the Docker image: `docker pull` the new tag, and rebuild an image of your own on top of it with `docker build --pull`.
