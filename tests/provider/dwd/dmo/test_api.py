@@ -1987,6 +1987,50 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
     assert df.get_column("value").to_list() == pytest.approx([1420.9, 0.0, None])
 
 
+@pytest.mark.parametrize(
+    ("parameter", "element", "lead_time", "written"),
+    [
+        pytest.param("radiation_global", "Rad1h", "short", ["-0.16", "0.00", "142.09"], id="rad1h"),
+        # a precipitation below 0 is outside the physical range `tests/provider/physical_ranges.py` holds a test to,
+        # which is the question this test leaves open: the number is the model's, and no reading
+        pytest.param(
+            "precipitation_amount_last_1h",
+            "RR1",
+            "short",
+            ["-0.02", "0.00", "1.20"],
+            id="rr1",
+            marks=pytest.mark.synthetic_values,
+        ),
+        pytest.param("radiation_short_wave_net_last_3h", "RadS3", "long", ["-0.43", "0.00", "52.10"], id="rads3"),
+    ],
+)
+def test_dmo_returns_the_small_negative_values_of_the_model_as_written(
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    element: str,
+    lead_time: Literal["short", "long"],
+    written: list[str],
+) -> None:
+    """ICON's direct model output is not clipped at 0 and the core does not clip it either (GH-3263).
+
+    Station 10382, run 2026-10-22 00Z: `Rad1h` is negative in 18 of 78 hourly steps, to -0.17 J/cm2, at night;
+    `RadS3` is -0.21 at the lowest of the 3-hourly run, `RR1` -0.02 mm in one step. MOSMIX_L of the same station has
+    none. The values come back as the model writes them, with no flag, as `special_values` says; clipping or nulling
+    them is a decision for the maintainer, which this test would then change on purpose.
+    """
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    df = dwd_dmo_values(
+        monkeypatch,
+        {element: " ".join(written)},
+        [("hourly", "icon", parameter)],
+        lead_time,
+        Options(drop_nulls=False),
+    )
+    assert df.get_column("value").to_list() == pytest.approx([float(value) for value in written])
+    assert df.get_column("quality_flags").null_count() == df.height
+
+
 def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_products() -> None:
     """`icon_eu` serves `Rad1h` in the unit `icon` does; `radl3`, the long-wave balance, stays kJ/m2."""
     hourly = DwdDmoRequest.metadata.hourly
