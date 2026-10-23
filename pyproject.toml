@@ -235,7 +235,8 @@ sql = [
 ]
 mcp = [
     "wetterdienst[restapi]",
-    # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one
+    # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one;
+    # >=4.1.2 for GHSA-vqqp-x5qm-5qp4 and GHSA-7xgj-8392-5q4r
     "fastmcp>=4.1.2,<5",
     # ui/mcp.py builds the OpenAPIProvider's ASGI client with it; >=2.12 for CVE-2026-84379/80/82
     "httpx2>=2.12,<3",

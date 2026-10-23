@@ -53,8 +53,9 @@ Types of changes:
 
 ### Security
 
-- The Docker image, and an environment synced from `uv.lock`, now hold fastmcp 4.1.3 and pypdf
-  6.21.2; the floors are `fastmcp>=4.1.2` (`mcp` extra) and `pypdf>=6.21.2` (`pdf` extra).
+- The Docker image, and an environment synced from `uv.lock`, now hold fastmcp 4.1.3, and pypdf
+  6.21.2 where the `pdf` extra is installed (the image has none); the floors are `fastmcp>=4.1.2`
+  (`mcp` extra) and `pypdf>=6.21.2` (`pdf` extra).
   fastmcp 4.0.0 to 4.1.1 have GHSA-vqqp-x5qm-5qp4 (OAuth client-credentials providers) and
   GHSA-7xgj-8392-5q4r (authorization of transformed components); the MCP server of
   `wetterdienst restapi` is open and uses neither, so neither reaches it. pypdf before 6.21.2 has
