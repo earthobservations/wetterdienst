@@ -171,6 +171,8 @@ def test_the_values_of_the_emd_periods_are_shifted_to_utc_and_carry_zone_mez(mon
         (_at(1991, 11, 2, 7), 2.4, "3"),
         (_at(2005, 1, 1, 0), 3.4, "3"),
     ]
+    # V_TE010 has no table of periods in the metadata: as written
+    assert rows["temperature_soil_0_1m"][0] == (_at(1985, 12, 31, 19), 0.3, "3")
     # V_TE100 is MEZ only in its own period of 1990
     assert rows["temperature_soil_1m"] == [
         (_at(1985, 12, 31, 19), None, "3,raw:-999"),

@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Tests for the time zone of the hourly air temperature stamps of DWD observations (GH-2709)."""
+"""Tests for the time zone of the hourly air temperature stamps of DWD observations (GH-2709, GH-3029)."""
 
 import datetime as dt
 import zipfile
@@ -361,3 +361,35 @@ def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monk
         (_at(1996, 6, 1, 0), 15.0, "10"),
         (_at(1996, 6, 1, 1), 13.2, "10"),
     ]
+    # the humidity has a value of its own at each stamp: the row that was moved onto 1995-01-31 23 (72) is the one
+    # dropped, the stamp 1995-02-01 01 (72) becomes 00
+    rf = df.filter(pl.col("parameter") == "humidity_relative").select("timestamp", "value", "quality_flags").rows()
+    assert rf == [
+        (_at(1995, 1, 31, 22), 0.65, "3"),
+        (_at(1995, 1, 31, 23), 0.68, "3"),
+        (_at(1995, 2, 1, 0), 0.72, "3,zone:mez"),
+        (_at(1996, 5, 31, 22), 0.75, "10,zone:mez"),
+        (_at(1996, 6, 1, 0), 0.73, "10"),
+        (_at(1996, 6, 1, 1), 0.83, "10"),
+    ]
+
+
+def test_the_stamps_compared_with_isd_are_cut_where_the_plain_mez_period_ends_earlier(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that the compared span stops with the plain MEZ period if DWD turns the rest into UTC."""
+    metadata = (
+        _HEADER
+        + "".join(
+            _diepholz_row(parameter, first, last, info)
+            for parameter in ("RF_TU", "TT_TU")
+            for first, last, info in (("19940401", "19951231", "MEZ"), ("19960101", "20010401", "UTC"))
+        )
+        + _FOOTER
+    ).encode("latin-1")
+    _serve_diepholz(monkeypatch, metadata)
+    (file,) = download_climate_observations_data(
+        pl.Series(["unused"]), default_settings, DwdObservationMetadata.hourly.temperature_air
+    )
+    assert isinstance(file, ProductFile)
+    assert file.mez_md_spans == {p: ((_at(1995, 2, 1, 0), _at(1995, 12, 31, 23)),) for p in ("tt_tu", "rf_tu")}
