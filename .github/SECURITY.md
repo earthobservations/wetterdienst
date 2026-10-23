@@ -77,7 +77,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   external access off and the configuration locked, on one thread with 1 GiB (`io/export.py`; `tests/test_io.py`:
   `test_filter_by_sql_cannot_read_files`, `test_filter_by_sql_cannot_reach_the_network`). It can still read DuckDB's
   settings, run long and allocate outside the limit, per request: enable it for clients you trust with that
-  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled).
+  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled). The `duckdb` floor is 1.1.0, the first release
+  where `sniff_csv` obeys that setting (GHSA-w2gf-jxc9-pf2q; `test_filter_by_sql_cannot_read_files[sniff_csv]`).
 - **Errors** are RFC 9457 problems. A 500 is a fixed body with no path, traceback or credential, and a 501 for a missing
   credential does not name the setting (`test_a_500_does_not_name_the_servers_paths_but_the_log_does`).
 
