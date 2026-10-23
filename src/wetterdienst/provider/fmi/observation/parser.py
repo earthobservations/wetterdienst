@@ -7,7 +7,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import polars as pl
-from lxml.etree import XMLParser, fromstring
 
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
@@ -17,6 +16,7 @@ from wetterdienst.model.quality_flags import (
     null_sentinels,
     with_speed_beside,
 )
+from wetterdienst.util.xml import parse_xml
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -34,10 +34,6 @@ _NAN = "NaN"
 # documents neither. The 0 beside a speed of 0 is a calm, and null (GH-2794); the 0 beside a wind that blows stays, as
 # in every provider (`calm`, GH-3222), where it was null too.
 _WIND_SPEED_OF_DIRECTION = {"wd_10min": "ws_10min"}
-
-# Disable entity resolution and network access -- FMI is first-party, but there is no reason to
-# fetch external entities/DTDs and it guards against XXE (matching the DWD mosmix KML reader).
-_XML_PARSER = XMLParser(resolve_entities=False, no_network=True)
 
 
 def _local_name(tag: object) -> str:
@@ -118,7 +114,7 @@ def parse_fmi_stations(content: bytes) -> pl.DataFrame:
     the stamps are naive: the core reads them as numbers and as UTC (``shape_stations_frame``). A catalogue without
     a facility is a frame without a row.
     """
-    root = fromstring(content, parser=_XML_PARSER)
+    root = parse_xml(content)
     rows = [
         row
         for facility in root.iter()
@@ -142,7 +138,7 @@ def extract_exception_text(content: bytes) -> str | None:
     invalid stored query or rate limiting; those otherwise parse as an empty observation frame
     and would be indistinguishable from a station legitimately reporting no data.
     """
-    root = fromstring(content, parser=_XML_PARSER)
+    root = parse_xml(content)
     if _local_name(root.tag) != "ExceptionReport":
         return None
     texts = [text for el in root.iter() if _local_name(el.tag) == "ExceptionText" and (text := (el.text or "").strip())]
@@ -156,7 +152,7 @@ def parse_fmi_observations(content: bytes) -> pl.DataFrame:
     single ``Time`` / ``ParameterName`` / ``ParameterValue`` triple. Missing readings are
     emitted as ``NaN`` and normalised to null here.
     """
-    root = fromstring(content, parser=_XML_PARSER)
+    root = parse_xml(content)
     times: list[str] = []
     names: list[str] = []
     values: list[str | None] = []

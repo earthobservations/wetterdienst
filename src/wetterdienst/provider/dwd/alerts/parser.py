@@ -14,15 +14,10 @@ import datetime as dt
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from lxml.etree import XMLParser, fromstring
+from wetterdienst.util.xml import parse_xml
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
-
-# Disable entity resolution and network access -- DWD is first-party, but there is no reason to
-# fetch external entities/DTDs and it guards against XXE (matching the DWD mosmix KML reader and
-# the FMI parser).
-_XML_PARSER = XMLParser(resolve_entities=False, no_network=True)
 
 
 def _local_name(tag: object) -> str:
@@ -153,7 +148,7 @@ def parse_cap_alert(content: bytes) -> dict[str, Any] | None:  # noqa: C901
     Only the first ``<info>`` block is honoured, which for the single-language products is the only
     one; for the ``MUL`` product it is the first bundled language.
     """
-    root = fromstring(content, parser=_XML_PARSER)
+    root = parse_xml(content)
     if _local_name(root.tag) != "alert":
         return None
 

@@ -94,7 +94,8 @@ logs leave them out (`tests/test_settings.py`: `test_credentials_do_not_appear_i
 
 Providers are trusted for their address, not their content. Provider and network come from a fixed registry, parameters
 are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). XML is parsed
-with entities off and no network (`resolve_entities=False`: FMI, DWD alerts, MOSMIX, DMO), archives are read in memory,
+with entities off, no network and no DTD, each option passed rather than left to a default (`util/xml.py`, the one
+parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own), archives are read in memory,
 and the one file written is the BUFR message, in a private temporary directory removed afterwards (`util/eccodes.py`,
 `dwd/road`). Nothing is unpickled, evaluated or loaded from YAML that a caller or provider sent. The native
 parsers (eccodes, lxml, polars) are dependencies with advisories of their own. Wrong numbers from a provider are a

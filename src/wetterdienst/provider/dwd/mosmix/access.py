@@ -18,7 +18,6 @@ import polars as pl
 from aiohttp import ClientConnectorError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.zip import ZipFileSystem
-from lxml.etree import iterparse
 from tqdm import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
@@ -26,6 +25,7 @@ from wetterdienst.model.quality_flags import raw_column
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
 from wetterdienst.util.network import NetworkFilesystemManager, _failed_file
+from wetterdienst.util.xml import iterparse_xml
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -233,7 +233,7 @@ class KMLReader:
         # Stream straight from the (incrementally decompressed) zip handle. Using end-only events
         # plus sibling pruning in iter_items keeps peak memory bounded by the compressed file size
         # rather than the ~600MB of decompressed KML.
-        self.iter_elems = iterparse(handle, events=("end",), resolve_entities=False)
+        self.iter_elems = iterparse_xml(handle)
         prod_items = {
             "issuer": "Issuer",
             "product_id": "ProductID",
