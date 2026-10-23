@@ -131,17 +131,15 @@ journalctl -u wetterdienst.service -f      # the output of the runs
 `DynamicUser=yes` gives the service a transient account with no home directory of its own, and
 that is the part worth understanding. The default cache location comes from
 [platformdirs](https://platformdirs.readthedocs.io/) and resolves under `$HOME`, which here is not
-a directory the service may write to — and a cache directory that cannot be created is not a
-degraded run but a failed one:
-
-```
-PermissionError: [Errno 13] Cache directory "/.cache/wetterdienst/43200.0" does not exist
-and could not be created
-```
+a directory the service may write to. A cache directory that cannot be created or written to does not
+fail the run: wetterdienst warns once per run, `the cache directory ... cannot be used (PermissionError: ...), so
+this process caches in /tmp/wetterdienst-cache-... instead, which is removed when it exits ...`, and keeps
+the cache of that run in a temporary directory. The run works, but it is a degraded one: nothing is
+kept for the next run, so every run downloads again what the last one had already fetched.
 
 The `CacheDirectory=wetterdienst` and `Environment=WD_CACHE_DIR=%C/wetterdienst` pair replaces it
-with `/var/cache/wetterdienst`, created and owned by the service. `StateDirectory=wetterdienst`
-does the same for output, giving `%S` = `/var/lib`.
+with `/var/cache/wetterdienst`, created and owned by the service, where the cache survives the runs.
+`StateDirectory=wetterdienst` does the same for output, giving `%S` = `/var/lib`.
 
 One consequence to plan for: with `DynamicUser=yes`, systemd puts a state directory in
 `/var/lib/private/wetterdienst` and leaves `/var/lib/wetterdienst` as a symlink into it. Only the
