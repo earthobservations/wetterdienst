@@ -30,7 +30,7 @@ Which formats the products are served in, as read from the
 | `RV_REFLECTIVITY`, `WN_REFLECTIVITY`, `RS_PRECIPITATION_SUM` (composite) | one `.tar` a run, `composite_rv_20261022_1130.tar`, holding an ODIM HDF5 file for the analysis and for every forecast lead time (`..._1130_000-hd5` to `..._1130_120-hd5`, every 5 minutes) |
 | `HX_REFLECTIVITY`, `DMAX_REFLECTIVITY`, `VII_INTEGRATED_ICE`, `HYMECNG_PRECIPITATION_TYPE` (composite) | one ODIM HDF5 file a run, `composite_hx_20261022_1130-hd5` (`composite_HymecNG_20261022_1130_000-hd5`: the lead time 0 is in its name) |
 | `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY`, `PX250_REFLECTIVITY`, `PZ_CAPPI` (site) | ODIM HDF5 files, `rab02-pe_10132-20261022113000-deboo-hd5` |
-| `SWEEP_PCP_VELOCITY_H`, `SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_VELOCITY_H`, `SWEEP_VOL_REFLECTIVITY_H` (site) | ODIM HDF5 files, in the folder of the filter (`subset`: `SIMPLE` or `POLARIMETRIC`) |
+| `SWEEP_PCP_VELOCITY_H`, `SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_VELOCITY_H`, `SWEEP_VOL_REFLECTIVITY_H` (site) | ODIM HDF5 files, in the folder of the filter (`subset`: `SIMPLE` or `POLARIMETRIC`); the reflectivity has a third folder, `unfiltered` (`subset=DwdRadarDataSubset.UNFILTERED`), with two files for each sweep, `..._th_00-2026102213105700-boo-10132-hd5` and `..._tv_00-...`: the total (uncorrected) reflectivity factor ODIM `TH` and `TV`, the horizontally and the vertically polarized one. A request answers both (there is no choosing one): tell them apart by `result.url` or the `quantity` of the file |
 | `SWEEP_PCP_ZDR`, `SWEEP_PCP_RHOHV`, `SWEEP_PCP_PHIDP`, `SWEEP_VOL_ZDR`, `SWEEP_VOL_RHOHV`, `SWEEP_VOL_PHIDP` (site) | ODIM HDF5 files, `ras07-vol5minng01_sweeph5onem_uzdr_00-2026102213105700-boo-10132-hd5`, in the folder `unfiltered`, the only one they have (`subset` need not be named) |
 | `DX_REFLECTIVITY` (site) | binary files, `raa00-dx_10132-2610221130-boo---bin` |
 | `RW_REFLECTIVITY`, `RY_REFLECTIVITY`, `SF_REFLECTIVITY`, `YW_REFLECTIVITY` (radolan) | HDF5 files named `raa01-rw_10000-2610221130-dwd---bin.hdf5` (the name says bin, the file is HDF5); `fmt` need not be named |
@@ -43,14 +43,18 @@ has. DWD no longer publishes any radar product as BUFR (`fmt="bufr"` is refused,
 RADVOR products RE and RQ hold no file, nor does the site product PX but for stale files of one site (they are no `DwdRadarParameter` any more, and a request for one says so). `start=DwdRadarDate.LATEST` reads
 the file named latest: `composite_rv_LATEST.tar` (`composite_wn__LATEST.tar` with two underscores) of a composite
 that is a `.tar`, whose first file, the analysis, it answers, `composite_hx_LATEST-hd5`, `composite_VII_latest-hd5`,
-`composite_HymecNG_LATEST_000-hd5`, `raa01-yw_10000-latest-dwd---bin.hdf5` and `meso_latest.xml`. The precipitation sweeps
-of the polarimetric moments have one (`..._uzdr_00-LATEST-boo-10132-hd5`); the other sweeps have none to ask for (the
-folders `unfiltered` of the volume scan hold one for each of the ten elevations, the folders of a filter none) and
-KONRAD3D has none.
+`composite_HymecNG_LATEST_000-hd5`, `raa01-yw_10000-latest-dwd---bin.hdf5` and `meso_latest.xml`. The folders `unfiltered` hold
+one for each sweep (`..._uzdr_00-LATEST-boo-10132-hd5`), which LATEST reads for the precipitation scan, whose one sweep it is
+(two files, TH and TV, for the reflectivity). It does not for the volume scan: DWD replaces its ten files one by one as
+the scan is published, so for minutes they are of two volumes (on 2026-10-22 at 15:53 UTC the sweeps 0 to 4 were
+listed 15:51 to 15:53 and 5 to 9 at 15:48 to 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45): ask for a time instead (`MOST_RECENT` is the volume of the slot 10 minutes before now, see below). The folders of a filter hold none and KONRAD3D has none.
+The name of a latest file has no time (but the `.tar` of a composite, whose first file names its run), so `result.timestamp` is the time the file says it is of: with h5py installed (the `radar` extra) `date` and `time` of the `/what` group of an ODIM HDF5 file, the time of the header of a `DX` file (which needs no h5py), the time of the first event of `meso_latest.xml`. It is the run, as the name of the dated files says it (read 2026-10-22: the two agree to the minute for the composites, RADOLAN, the site products and the sweeps of the precipitation scan, 20:35 for a run of 20:35). A run with no event carries no time (554 of the 576 `meso_` files of 2026-10-20 to 22), and the `timestamp` of `meso_latest.xml` stays `None` then, as it does for any latest HDF5 file read without h5py, which is warned about once.
 `start=DwdRadarDate.MOST_RECENT` of an HDF5 or XML product (not RADOLAN's, unless `fmt` is named) is the 5 minute slot
 before now; for RS, DMAX, VII, KONRAD3D and the mesocyclones, which DWD publishes more than 5 minutes after the run in
-more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now. The site products PE, PZ, PR and LMAX
-are as late as RS in about 3 % of the runs, and the 5 minute slot is empty then.
+more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now, and so for the site products PE, PZ, PR
+and LMAX, which are as late as RS in 18 of 577 runs (up to 8 minutes, read 2026-10-22), and for the sweeps of the volume
+scan, whose last sweeps are listed up to 485 s after their slot starts (more than 300 s in 3 % of the volumes of the 17 sites, read
+2026-10-20 to 22): a request at a lag of 5 minutes is 5 to 10 minutes after the slot starts, and 0.6 % of them lacked a sweep.
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 
@@ -88,6 +92,7 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 | `HYMECNG_PRECIPITATION_TYPE` | "ein Deutschland-Komposit der Niederschlagsart in 2 m Höhe über Grund", 1 km × 1 km, 11 classes (large hail, small hail, graupel, freezing rain, freezing drizzle, snow, sleet, rain, drizzle, not classifiable, no precipitation) | `CLASS`, 8 bit, the classes in the dataset `dataset1/data1/legend` (`NO_PRECIPITATION` 0, `NOT_CLASSIFIED` 1, `DRIZZLE` 2, `RAIN` 3, `FREEZING_DRIZZLE` 4, `FREEZING_RAIN` 5, `SNOW_RAIN` 6, `SNOW` 7, `GRAUPEL` 8, `HAIL` 9, `LARGE_HAIL` 10) |
 | `RS_PRECIPITATION_SUM` | "ein Deutschland-Komposit der über einen Zeitraum von 1 Stunde akkumulierten Niederschlagsmenge in mm", 1 km × 1 km, value range 0 mm to 4.3 · 10⁶ mm, step 0.001 mm | `ACRR` (accumulated precipitation, mm); each file spans the hour before its lead time (`startdate`/`starttime` to `enddate`/`endtime`), where `RV_REFLECTIVITY` has the same quantity over 5 minutes |
 | `YW_REFLECTIVITY` | RADOLAN's "quasi-angeeichte Radardaten auf der Basis der RY-, RH- und RW-Produkte" ([RADOLAN-RADVOR format description](https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf?__blob=publicationFile) 2.6), every 5 minutes | `RATE` (precipitation rate), `gain` 0.01, `camethod` `QUASI-ADJUSTED WITH GAUGES`. DWD publishes it 35 to 40 minutes after its time, two files every 10 minutes |
+| `RW_REFLECTIVITY` | RADOLAN's hourly sum of the precipitation (the sheet is not quoted here), a file every 10 minutes | `ACRR` (accumulated precipitation, mm), `gain` 0.1, `camethod` `RGA: STANDARD ADJUSTMENT WITH GAUGES`; each file spans the hour before its time (`startdate`/`starttime` to `enddate`/`endtime`). wradlib's `read_radolan_header` and `read_radolan_composite` read RADOLAN binary and fail on it, `xr.open_dataset(..., engine="radolan")` and h5py read it |
 | `SWEEP_VOL_ZDR`, `SWEEP_PCP_ZDR` | the sheets of the sweeps ("Standort-Reflektivitäts- und Radialgeschwindigkeitsprodukte") name no polarimetric moment; DWD's [ODIM-DWD-E_1-0 description](https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/hdf/ODIM-Beschreibung.pdf?__blob=publicationFile) lists the moment `uzdr` as ODIM `UZDR` | `UZDR`, which ODIM 2.3 defines as "Logged differential reflectivity that has not been subject to a Doppler filter", ZDR in dB |
 | `SWEEP_VOL_RHOHV`, `SWEEP_PCP_RHOHV` | as above, `urhohv` is ODIM `URHOHV` | `URHOHV`: "Correlation between Zh and Zv that has not been subject to any filter or correction", ρhv from 0 to 1 |
 | `SWEEP_VOL_PHIDP`, `SWEEP_PCP_PHIDP` | as above, `uphidp` is ODIM `UPHIDP` | `UPHIDP`: "Differential phase that has not been subject to any filter or correction", φdp in degrees |
@@ -97,5 +102,6 @@ the sheets say). Where the sheet says nothing, the file's attribute is given as 
 The sweeps are the polar data of one site (`site=DwdRadarSite.BOO`): 360 rays of 250 m bins, as many bins as the
 elevation has. The volume scan has ten elevations, which are ten files a run (`elevation=0` to `9` picks one of them,
 for the polarimetric moments as for the velocity and the reflectivity), the precipitation scan one file. The unfiltered
+reflectivity has two files for each sweep, TH and TV, and `elevation` picks the pair. The unfiltered
 polarimetric moments have no folder of a filter, as the velocity and the reflectivity sweeps do (`hdf5/filter_simple`
 and `hdf5/filter_polarimetric`).

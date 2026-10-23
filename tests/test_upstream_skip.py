@@ -309,6 +309,8 @@ _UNANSWERED = [
     pytest.param(ConnectionRefusedError(errno.ECONNREFUSED, "refused"), id="refused"),
     pytest.param(ConnectionResetError(errno.ECONNRESET, "reset"), id="reset"),
     pytest.param(OSError(errno.EHOSTUNREACH, "no route to host"), id="no route"),
+    # opendata.chmi.cz on macos-26-intel in the Tests run of main 39771397946: `[Network is unreachable]`
+    pytest.param(OSError(errno.ENETUNREACH, "Network is unreachable"), id="network unreachable"),
     # how a Windows runner reports a connect that timed out, as the log of the failing eccc tests shows
     pytest.param(_semaphore_timeout(), id="windows semaphore timeout"),
     # hubeau.eaufrance.fr on windows-latest in the Tests runs of main 39625581086 and 39643833924

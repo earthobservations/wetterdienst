@@ -146,7 +146,7 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
 @pytest.mark.parametrize(
     ("code", "expected_degrees"),
     [
-        (0, None),  # calm / no direction -> null (not 0°)
+        (0, None),  # "sem rumo" (no direction) -> null (not 0°)
         (1, 0.0),  # N
         (2, 45.0),  # NE
         (3, 90.0),  # E
@@ -159,7 +159,7 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
     ],
 )
 def test_parse_ipma_observations_wind_direction_codes(code: int, expected_degrees: float | None) -> None:
-    """Every IPMA wind-direction code 0-9 maps to the expected degrees (0/calm -> null, 9 aliases N)."""
+    """Every IPMA wind-direction code 0-9 maps to the expected degrees (0/sem rumo -> null, 9 aliases N)."""
     content = f'{{"2026-07-29T14:00": {{"1200579": {{"idDireccVento": {code}}}}}}}'.encode()
     df = _read(parse_ipma_observations(content, station_id="1200579"))
     wind = df.filter(pl.col("parameter") == "idDireccVento")
