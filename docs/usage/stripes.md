@@ -15,7 +15,7 @@ The colours are scaled over the years shown: with `start_year` and `end_year`, t
 highest of those years take the two ends of the colour map, so the coolest is blue and the warmest
 red, or the driest brown and the wettest teal. At least two of the years must have data. The CSV of
 `/api/stripes/values` gives each year's `value_scaled`, from 0 for the highest to 1 for the lowest.
-Its JSON names the unit of the `value`s in the metadata's `unit`, e.g. `degree_celsius`. The
+Its JSON names the unit of the `value`s in `series.unit`, e.g. `degree_celsius`. The
 server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it, which a stripes request has no
 parameter for: the target of the quantity where the values are converted, the source's unit where not.
 
@@ -27,7 +27,7 @@ offers an interactive Climate Stripes view.
 
 The `stripes` command group has two subcommands: `stations` and `image`. The command line has no
 command for the yearly values the REST API answers at `/api/stripes/values`; `stripes values`, which
-wrote the image until 1.0.0, is gone: `stripes image` writes it, and the name is not reused.
+wrote the image until 0.172.0, is gone: `stripes image` writes it, and the name is not reused.
 
 ### Stations
 

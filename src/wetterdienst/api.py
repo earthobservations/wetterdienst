@@ -249,7 +249,7 @@ class Wetterdienst:
         return cls._import(provider, network)
 
     def __new__(cls, *args: object, **kwargs: object) -> NoReturn:  # noqa: ARG004
-        """Refuse the constructor form `Wetterdienst(provider, network)`, which returned a class until 1.0.0.
+        """Refuse the constructor form `Wetterdienst(provider, network)`, which returned a class until 0.172.0.
 
         A class constructed is no instance of it, and the return type could not say which kind of class came
         back (GH-3045). It is refused by naming what to write instead, rather than as the arguments of a class

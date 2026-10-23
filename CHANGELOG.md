@@ -19,13 +19,55 @@ Types of changes:
 ### Removed
 
 - **Breaking**: `Wetterdienst(provider, network)`, the constructor form that returned a class
-  (deprecated in 0.156.0), is a `TypeError` that names the replacement. Write
-  `Wetterdienst.resolve(provider, network)`, or `Wetterdienst.resolve_standalone(provider, network)`
-  for `dwd/radar` and `dwd/alerts` (GH-3128)
+  (deprecated in 0.156.0), is removed in 0.173.0, earlier than announced for 1.0.0, and raises a
+  `TypeError` that names the replacement. Write `Wetterdienst.resolve(provider, network)`, or
+  `Wetterdienst.resolve_standalone(provider, network)` for `dwd/radar` and `dwd/alerts` (GH-3128)
 - **Breaking**: `wetterdienst stripes values`, the old name of `stripes image` (deprecated in
-  0.159.0), is gone: it fails as "No such command 'values'" with exit 2. Write
-  `wetterdienst stripes image`, which takes the same options and writes the same image. The name
-  is not reused. `/api/stripes/values` and the MCP tool `stripes_values` are unchanged (GH-3128)
+  0.159.0), is removed in 0.173.0, earlier than announced for 1.0.0: it fails as "No such command
+  'values'" with exit 2. Write `wetterdienst stripes image`, which takes the same options and
+  writes the same image. The name is not reused. `/api/stripes/values` and the MCP tool
+  `stripes_values` are unchanged (GH-3128)
+
+## [0.172.0] - 2026-10-23
+
+### Fixed
+
+- The threat model (`.github/SECURITY.md`) and the REST API page were inexact, and the MCP page
+  lacked a section. They now say that the cache directory holds the downloaded bodies it caches,
+  not only the listings; that seven providers fetch URLs an upstream's answer names, so a
+  compromised upstream can make the server fetch from another http(s) host (GH-3339); and that the
+  provider text the MCP tools return, such as DWD alert text, is unfiltered and untrusted for an
+  agent (GH-3347)
+- Three pages stated what the code does not do. Scheduling said an unwritable cache directory fails
+  the run: it warns once and caches in a temporary directory for that run, so every run downloads
+  again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
+  since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
+  code nor DWD's files give (GH-2621)
+
+### Security
+
+- The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
+  (was `>=3.14.0`; every download), `duckdb>=1.1.0` (was `>=1`; the `sql` and `duckdb` extras:
+  GHSA-w2gf-jxc9-pf2q, where `sniff_csv` read files with external access off, which the REST SQL
+  filter relies on), `pypdf>=6.21.1` (was `>=3.12.1`; the `pdf` extra) and `influxdb>=5.3.1` (was
+  `>=5.3`), with `msgpack>=1.2.1` in the `influxdb` extra (5.3.0 pinned `msgpack==0.6.1`,
+  GHSA-6v7p-g79w-8964). An installation that holds an older release keeps it when wetterdienst is
+  upgraded: upgrade these packages as well
+  (`pip install --upgrade aiohttp duckdb pypdf influxdb msgpack`) (GH-3343)
+- **Breaking**: the REST API and the MCP tools bound the inputs of `interpolate` and `summarize`, so
+  that one request cannot ask for an unbounded amount of work: a station distance given is at most
+  200 km, `num_additional_stations` at most 20 and `min_gain_of_value_pairs` above 0 (a 422 past
+  them), and a request whose radius reaches more stations with a record in the window than
+  `WD_RESTAPI_MAX_STATIONS` (100) is refused as `limit-exceeded` before any download. A caller who
+  needs more uses the Python API or the command line, which take any value. Everywhere, the search
+  for a group of four stations to interpolate from looks at the 30 nearest stations of a parameter
+  at most, and falls back to one group around the point where none of them surrounds it. The
+  explorer of the app holds its inputs to the bounds (GH-2606)
+- The REST API sends `X-Content-Type-Options: nosniff` on every answer, errors and streams
+  included, and a `Content-Security-Policy` that allows no script or request on the index page and
+  the `svg` answers, so that a browser does not take a body for another media type or run script in
+  an SVG opened as a document. `/docs`, `/redoc` and `format=html` carry no policy, as they run
+  scripts (GH-3349)
 
 ## [0.171.0] - 2026-10-23
 
@@ -6357,7 +6399,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...HEAD
+[0.172.0]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...v0.172.0
 [0.171.0]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...v0.171.0
 [0.170.0]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...v0.170.0
 [0.169.0]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...v0.169.0

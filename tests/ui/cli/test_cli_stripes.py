@@ -351,7 +351,7 @@ def test_stripes_image_without_kaleido_is_one_logged_line(
 
 
 def test_stripes_values_is_no_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`stripes values` was removed in 1.0.0: click's "No such command", exit 2, and nothing is written (GH-3128).
+    """`stripes values` was removed in 0.173.0: click's "No such command", exit 2, and nothing is written (GH-3128).
 
     The name is never reused for other output (`docs/usage/compatibility.md`), so a script that still writes it
     fails rather than gets a file of something else.

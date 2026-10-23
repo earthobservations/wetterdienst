@@ -2,7 +2,8 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """What the REST API does for every request (GH-3065, GH-3087, GH-3089).
 
-The request id, the host check, the cap on requests served at once, the request timeout and the deprecation headers:
+The request id, the host check, the cap on requests served at once, the request timeout, the deprecation headers and
+`nosniff`:
 
 - **`X-Request-ID`** is sent with every response: the client's own where it sent a plain one, else made here.
   The problem of an error carries it as `instance` and `request_id` (`ui.problems`).
@@ -21,6 +22,9 @@ The request id, the host check, the cap on requests served at once, the request 
   cancelled either, but left to end with its answer dropped, and keeps its slot of the cap until it has. So the
   cap bounds the threads, which a timeout alone does not. Once the response has begun, the middleware leaves it
   alone: a streamed answer holds the timeout between its chunks itself (`ui.streaming`).
+- **`X-Content-Type-Options: nosniff`** is sent with every response, a problem's included (`ui.problems`), unless the
+  response has the header already, so that it is not sent twice (GH-3349). A `Content-Security-Policy` is not sent
+  here: the answers that carry one set it themselves (`ui.restapi`).
 - **`Deprecation`, `Sunset` and `Link`** are sent for what the request used and the handlers marked deprecated
   (`ui.deprecation`).
 """
@@ -36,6 +40,8 @@ from starlette.datastructures import Headers, MutableHeaders
 from wetterdienst.settings import RESTAPI_MAX_CONCURRENT, RESTAPI_TIMEOUT, Settings
 from wetterdienst.ui.deprecation import begin_deprecations, deprecation_headers
 from wetterdienst.ui.problems import (
+    CONTENT_TYPE_OPTIONS_HEADER,
+    NOSNIFF,
     REQUEST_ID_HEADER,
     ProblemKind,
     problem_response,
@@ -273,8 +279,10 @@ class RequestContextMiddleware:
 
 
 def _add_headers(message: Message, request_id: str, deprecation: dict[str, str]) -> None:
-    """Add the request id and the deprecation headers to the start of a response, keeping a request id it has."""
+    """Add the request id, `nosniff` and the deprecation headers to the start of a response, keeping those it has."""
     headers = MutableHeaders(scope=message)
+    if CONTENT_TYPE_OPTIONS_HEADER not in headers:
+        headers[CONTENT_TYPE_OPTIONS_HEADER] = NOSNIFF
     if REQUEST_ID_HEADER not in headers:
         headers[REQUEST_ID_HEADER] = request_id
     for name, value in deprecation.items():

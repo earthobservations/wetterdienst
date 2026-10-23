@@ -44,7 +44,7 @@ from wetterdienst.ui.render import ValuesSettings, render
 from wetterdienst.util.response_warnings import _COUNTED, _RECORDED, begin_response, warn_response
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from wetterdienst.model.result import StationsResult, ValuesResult
 
@@ -871,15 +871,19 @@ def test_the_listing_of_stations_is_what_the_command_line_writes(
 def test_a_request_over_the_timeout_is_a_504_problem(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The answer is a 504 of the kind `request-timeout` with `Retry-After`, sent when the timeout is over."""
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+    # the handler waits for the end of the test, so that an answer in hand proves the 504 did not wait for it
+    release, _begun, ended = _blocking_values(monkeypatch)
 
-    def slow(**_kwargs: object) -> None:
-        time.sleep(1.5)
-
-    monkeypatch.setattr(restapi, "get_values", slow)
     started = time.monotonic()
-    response = client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "slow-1"})
+    try:
+        response = client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "slow-1"})
+        still_running = list(ended)
+    finally:
+        release.set()
 
-    assert time.monotonic() - started < 1.2
+    assert still_running == []
+    # not before the timeout is over (a bound that holds on any runner, a slow one answers later, not earlier)
+    assert time.monotonic() - started >= 0.25
     assert response.status_code == 504
     body = response.json()
     assert body["type"] == "urn:wetterdienst:problem:request-timeout"
@@ -891,7 +895,8 @@ def test_a_request_over_the_timeout_is_a_504_problem(client: TestClient, monkeyp
 
 def test_the_timeout_leaves_the_rest_alone(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The index, the health check and a request in time are not held to it, and 0 switches it off."""
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+    # a timeout that no runner reaches: the request in time is a request that has nothing to do with it
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "30")
     _stub_result(monkeypatch, "/api/values")
     assert client.get("/api/v1/values", params=_VALUES).status_code == 200
     assert client.get("/health").status_code == 200
@@ -943,18 +948,24 @@ def test_a_stream_is_held_to_the_timeout_between_its_chunks(
 
 def test_a_csv_stream_that_is_too_slow_is_cut(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """CSV has no place to say the timeout: the stream stops, and the connection is cut."""
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.4")
+    # the first chunk must come within the timeout, the second never does: it waits for the end of the test, which
+    # is as late as any timeout can make it (see the stream above)
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "2")
     result = _values_result_of_shape("long")
     _stub_stream(monkeypatch, [])
+    never = threading.Event()
 
     def query(_reader: object) -> Iterator[ValuesResult]:
         yield _chunk_of(result, "01048")
-        time.sleep(1.2)
+        never.wait(30)
         yield _chunk_of(result, "01049")
 
     monkeypatch.setattr(type(result.stations.request)._values, "query", query)  # noqa: SLF001
 
-    response = client.get("/api/v1/values", params={**_VALUES, "format": "csv"})
+    try:
+        response = client.get("/api/v1/values", params={**_VALUES, "format": "csv"})
+    finally:
+        never.set()
 
     # the status was sent with the first chunk; the second never comes
     assert response.status_code == 200
@@ -1043,6 +1054,10 @@ def test_a_deprecated_parameter_answers_the_headers_and_is_a_warning() -> None:
 # --- the cap on requests served at once ---------------------------------------------------------------------------
 
 
+#: seconds after which a test that waits for the app gives up: a hang guard that no runner reaches, not a margin
+_HANG = 60
+
+
 def _async_client() -> Any:  # noqa: ANN401
     """Give a client that runs the app in the loop of the test, so that requests are in flight together."""
     import httpx2  # noqa: PLC0415
@@ -1052,18 +1067,39 @@ def _async_client() -> Any:  # noqa: ANN401
     )
 
 
-def _blocking_values(monkeypatch: pytest.MonkeyPatch) -> tuple[threading.Event, list[str]]:
-    """Make `values` wait in its thread until the test lets it go, and return the event and the ids that ended."""
-    release, ended = threading.Event(), []
+def _blocking_values(monkeypatch: pytest.MonkeyPatch) -> tuple[threading.Event, list[str], list[str]]:
+    """Make `values` wait in its thread until the test lets it go.
+
+    Returns the event that lets it go, the handlers that have begun and the handlers that have ended.
+    """
+    release, begun, ended = threading.Event(), [], []
 
     def blocked(**_kwargs: object) -> None:
-        release.wait(10)
+        begun.append("begun")
+        release.wait(_HANG)
         ended.append("done")
         msg = "released"
         raise exceptions.RequestError(msg)
 
     monkeypatch.setattr(restapi, "get_values", blocked)
-    return release, ended
+    return release, begun, ended
+
+
+async def _until(condition: Callable[[], bool], what: str, seconds: float = _HANG) -> None:
+    """Wait for a condition of the app, which takes as long as the runner needs: the deadline is for a hang only."""
+    deadline = time.monotonic() + seconds
+    while not condition():
+        assert time.monotonic() < deadline, f"no {what} within {seconds:g} seconds"
+        await asyncio.sleep(0.005)
+
+
+async def _first_served(client: Any) -> int:  # noqa: ANN401
+    """Ask until the request is no longer refused for want of a place, and give the status of the one that was not."""
+    deadline = time.monotonic() + _HANG
+    while (status := (await client.get("/api/v1/values", params=_VALUES)).status_code) == 503:
+        assert time.monotonic() < deadline, f"the place was not given back within {_HANG} seconds"
+        await asyncio.sleep(0.01)
+    return status
 
 
 def test_the_cap_is_a_setting_with_a_documented_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1080,12 +1116,16 @@ def test_the_cap_is_a_setting_with_a_documented_default(monkeypatch: pytest.Monk
 def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.MonkeyPatch) -> None:
     """With two requests being served, the third is not started: a `server-busy` problem with `Retry-After`."""
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "2")
-    release, _ended = _blocking_values(monkeypatch)
+    release, begun, _ended = _blocking_values(monkeypatch)
 
     async def run() -> tuple[list[Any], Any, Any, Any]:
         async with _async_client() as client:
             first = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(2)]
-            await asyncio.sleep(0.3)
+            # a request that is answered before then was refused or failed: its status says so below
+            await _until(
+                lambda: len(begun) == 2 or any(request.done() for request in first),
+                "handler of the two requests being served",
+            )
             busy = await client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "busy-1"})
             # what is not counted is served: the health check, the index
             health = await client.get("/health")
@@ -1110,12 +1150,16 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
 def test_a_cap_of_zero_is_no_cap(monkeypatch: pytest.MonkeyPatch) -> None:
     """0 switches the cap off: more requests than the default cap are all served."""
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "0")
-    release, _ended = _blocking_values(monkeypatch)
+    release, begun, _ended = _blocking_values(monkeypatch)
 
     async def run() -> list[int]:
         async with _async_client() as client:
             requests = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(40)]
-            await asyncio.sleep(0.5)
+            # all of them are in their handlers together, none was refused or waits for a place
+            await _until(
+                lambda: len(begun) == 40 or any(request.done() for request in requests),
+                "handler of the 40 requests being served",
+            )
             release.set()
             return [response.status_code for response in await asyncio.gather(*requests)]
 
@@ -1131,7 +1175,7 @@ def test_a_request_that_timed_out_keeps_its_place_until_its_thread_is_done(monke
     """The 504 is sent at the timeout, and the cap still counts the request: the thread it left running is its own."""
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.2")
-    release, ended = _blocking_values(monkeypatch)
+    release, _begun, ended = _blocking_values(monkeypatch)
 
     async def run() -> tuple[int, int, list[str], int]:
         async with _async_client() as client:
@@ -1139,14 +1183,12 @@ def test_a_request_that_timed_out_keeps_its_place_until_its_thread_is_done(monke
             # the answer is out, and the thread is still running
             refused = await client.get("/api/v1/values", params=_VALUES)
             still_running = list(ended)
+            # from here on the timeout is no part of the test: the request that follows must not be answered with a
+            # 504 because a slow runner took longer than 0.2 seconds to hand it to a thread
+            monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "60")
             release.set()
             # the thread ends, and the place is free again: the next request is served (and refused by the stub)
-            for _ in range(50):
-                await asyncio.sleep(0.1)
-                served = await client.get("/api/v1/values", params=_VALUES)
-                if served.status_code != 503:
-                    break
-            return timed_out.status_code, refused.status_code, still_running, served.status_code
+            return timed_out.status_code, refused.status_code, still_running, await _first_served(client)
 
     try:
         timed_out, refused, still_running, served = asyncio.run(run())
@@ -1164,9 +1206,11 @@ def test_a_request_that_fails_after_its_timeout_gives_its_place_back(
     """The failure of the dropped request is logged as a server error, and the next request is served."""
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.2")
+    begun, fail = threading.Event(), threading.Event()
 
     def late(**_kwargs: object) -> None:
-        time.sleep(0.5)
+        begun.set()
+        fail.wait(_HANG)
         raise RuntimeError
 
     monkeypatch.setattr(restapi, "get_values", late)
@@ -1174,14 +1218,21 @@ def test_a_request_that_fails_after_its_timeout_gives_its_place_back(
     async def run() -> tuple[int, int]:
         async with _async_client() as client:
             first = await client.get("/api/v1/values", params=_VALUES)
-            await asyncio.sleep(0.8)
+            # the 504 is out, and the handler of the request may be yet to begin: it must call `late`, not what follows
+            await _until(begun.is_set, "handler of the request that timed out")
+            # the timeout is no part of the rest of the test, see above
+            monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "60")
             monkeypatch.setattr(
                 restapi, "get_values", lambda **_kwargs: (_ for _ in ()).throw(exceptions.RequestError("x"))
             )
-            return first.status_code, (await client.get("/api/v1/values", params=_VALUES)).status_code
+            fail.set()
+            return first.status_code, await _first_served(client)
 
-    with caplog.at_level("WARNING"):
-        assert asyncio.run(run()) == (504, 400)
+    try:
+        with caplog.at_level("WARNING"):
+            assert asyncio.run(run()) == (504, 400)
+    finally:
+        fail.set()
 
     assert "failed with a 500: internal-error" in caplog.text
 
@@ -1333,10 +1384,12 @@ def test_a_malformed_listen_address_is_told(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.parametrize(
-    ("path", "name"),
-    [("stations", "rank"), ("values", "rank"), ("interpolate", "num_additional_stations")],
+    ("path", "name", "bound"),
+    [("stations", "rank", "1000000"), ("values", "rank", "1000000"), ("interpolate", "num_additional_stations", "20")],
 )
-def test_a_count_no_integer_holds_is_a_422_not_an_overflow(client: TestClient, path: str, name: str) -> None:
+def test_a_count_no_integer_holds_is_a_422_not_an_overflow(
+    client: TestClient, path: str, name: str, bound: str
+) -> None:
     """`rank=99999999999999999999` was a 500 `OverflowError`; a number the library cannot represent is malformed."""
     params = {**_OBSERVATION, "latitude": 50, "longitude": 10, name: "99999999999999999999"}
     if path == "interpolate":
@@ -1349,7 +1402,7 @@ def test_a_count_no_integer_holds_is_a_422_not_an_overflow(client: TestClient, p
     assert body["type"] == "urn:wetterdienst:problem:invalid-parameters"
     assert body["errors"][0]["loc"] == ["query", name]
     assert body["errors"][0]["type"] == "less_than_equal"
-    assert "1000000" in body["detail"]
+    assert bound in body["detail"]
 
 
 def test_a_count_at_the_bound_is_accepted(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

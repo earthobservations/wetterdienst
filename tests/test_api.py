@@ -211,7 +211,7 @@ def test_the_standalone_networks_are_exactly_the_ones_that_are_no_timeseries_req
     "args", [("dwd", "observation"), ("dwd", "radar"), ("dwd", "alerts"), ("foo", "bar"), ("dwd",), ()]
 )
 def test_the_constructor_form_is_refused_and_names_resolve(args: tuple[str, ...]) -> None:
-    """`Wetterdienst(provider, network)` was removed in 1.0.0: it is a `TypeError` naming what to write (GH-3128)."""
+    """`Wetterdienst(provider, network)` was removed in 0.173.0: it is a `TypeError` naming what to write (GH-3128)."""
     with pytest.raises(TypeError, match=r"Wetterdienst\(provider, network\) was removed") as excinfo:
         Wetterdienst(*args)
     assert "Wetterdienst.resolve(provider, network)" in str(excinfo.value)

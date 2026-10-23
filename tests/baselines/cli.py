@@ -41,7 +41,8 @@ BASELINE = DIRECTORY / "cli.baseline.json"
 ACCEPTED_BREAKS: dict[str, str] = {
     "wetterdienst stripes values was removed": (
         "announced since 0.159.0 (GH-3035) as the old name of `stripes image`, which writes the same image, and "
-        "removed at 1.0.0 as docs/usage/compatibility.md says (GH-3128); the name is not reused"
+        "removed in 0.173.0, earlier than the 1.0.0 that docs/usage/compatibility.md announced (GH-3128); "
+        "the name is not reused"
     ),
 }
 
