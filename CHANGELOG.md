@@ -26,6 +26,9 @@ Types of changes:
   Add an hour to flagged stamps to get the old ones; the Diepholz stamp 1995-02-01 00 is the row of
   1995-01-31 23 and is dropped. The hourly wind of Bückeburg and Celle is right as written (ISD is
   the one an hour off there), and Regensburg-Oberhub and Stötten stay as written (GH-3029)
+- The `radarplus` extra needs `wradlib>=2.6.0` (was `>=2.0.1`): the first release whose `radolan`
+  backend opens the ODIM HDF5 file DWD serves as the RADOLAN RW, where older ones raise a
+  `UnicodeDecodeError`. A host that pins an older wradlib upgrades it (GH-3329)
 
 ### Fixed
 
