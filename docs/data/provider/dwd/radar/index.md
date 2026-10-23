@@ -30,7 +30,7 @@ Which formats the products are served in, as read from the
 | `RV_REFLECTIVITY`, `WN_REFLECTIVITY`, `RS_PRECIPITATION_SUM` (composite) | one `.tar` a run, `composite_rv_20261022_1130.tar`, holding an ODIM HDF5 file for the analysis and for every forecast lead time (`..._1130_000-hd5` to `..._1130_120-hd5`, every 5 minutes) |
 | `HX_REFLECTIVITY`, `DMAX_REFLECTIVITY`, `VII_INTEGRATED_ICE`, `HYMECNG_PRECIPITATION_TYPE` (composite) | one ODIM HDF5 file a run, `composite_hx_20261022_1130-hd5` (`composite_HymecNG_20261022_1130_000-hd5`: the lead time 0 is in its name) |
 | `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY`, `PX250_REFLECTIVITY`, `PZ_CAPPI` (site) | ODIM HDF5 files, `rab02-pe_10132-20261022113000-deboo-hd5` |
-| `SWEEP_PCP_VELOCITY_H`, `SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_VELOCITY_H`, `SWEEP_VOL_REFLECTIVITY_H` (site) | ODIM HDF5 files, in the folder of the filter (`subset`: `SIMPLE` or `POLARIMETRIC`); the reflectivity has a third folder, `unfiltered` (`subset=DwdRadarDataSubset.UNFILTERED`), with two files for each sweep, `..._th_00-2026102213105700-boo-10132-hd5` and `..._tv_00-...`: the total (uncorrected) reflectivity factor ODIM `TH` and `TV`, the horizontally and the vertically polarized one. A request answers both (there is no choosing one): tell them apart by `result.url` or the `quantity` of the file |
+| `SWEEP_PCP_VELOCITY_H`, `SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_VELOCITY_H`, `SWEEP_VOL_REFLECTIVITY_H` (site) | ODIM HDF5 files, in the folder of the filter (`subset`: `SIMPLE` or `POLARIMETRIC`); the reflectivity has a third folder, `unfiltered` (`subset=DwdRadarDataSubset.UNFILTERED`), with two files for each sweep, `..._th_00-2026102213105700-boo-10132-hd5` and `..._tv_00-...`: the total (uncorrected) reflectivity factor ODIM `TH` and `TV`, the horizontally and the vertically polarized one. A request answers both, or the one `polarization` names (see below); they are told apart by `result.url` or the `quantity` of the file |
 | `SWEEP_PCP_ZDR`, `SWEEP_PCP_RHOHV`, `SWEEP_PCP_PHIDP`, `SWEEP_VOL_ZDR`, `SWEEP_VOL_RHOHV`, `SWEEP_VOL_PHIDP` (site) | ODIM HDF5 files, `ras07-vol5minng01_sweeph5onem_uzdr_00-2026102213105700-boo-10132-hd5`, in the folder `unfiltered`, the only one they have (`subset` need not be named) |
 | `DX_REFLECTIVITY` (site) | binary files, `raa00-dx_10132-2610221130-boo---bin` |
 | `RW_REFLECTIVITY`, `RY_REFLECTIVITY`, `SF_REFLECTIVITY`, `YW_REFLECTIVITY` (radolan) | HDF5 files named `raa01-rw_10000-2610221130-dwd---bin.hdf5` (the name says bin, the file is HDF5); `fmt` need not be named |
@@ -55,6 +55,33 @@ more than one run of a hundred (up to 9 minutes), the slot 10 minutes before now
 and LMAX, which are as late as RS in 18 of 577 runs (up to 8 minutes, read 2026-10-22), and for the sweeps of the volume
 scan, whose last sweeps are listed up to 485 s after their slot starts (more than 300 s in 3 % of the volumes of the 17 sites, read
 2026-10-20 to 22): a request at a lag of 5 minutes is 5 to 10 minutes after the slot starts, and 0.6 % of them lacked a sweep.
+
+The unfiltered reflectivity sweeps (`SWEEP_PCP_REFLECTIVITY_H`, `SWEEP_VOL_REFLECTIVITY_H` with `subset=DwdRadarDataSubset.UNFILTERED`)
+have a file for each polarization, which a request answers both of unless it names one with `polarization`:
+`DwdRadarPolarization.HORIZONTAL` is the `..._th_NN-...` files (ODIM `TH`, the horizontally polarized total reflectivity factor) and
+`DwdRadarPolarization.VERTICAL` the `..._tv_NN-...` files (`TV`, the vertically polarized one). The enumeration takes its member
+name or the file's spelling as a string, `"horizontal"` or `"th"`, `"vertical"` or `"tv"`. It combines with `elevation` and with
+`start=DwdRadarDate.LATEST` of the precipitation sweep, and it is refused with a `RequestError` saying why for any product other than
+those two and for any folder other than `unfiltered`, as the polarimetric moments (ZDR, RHOHV and PHIDP) and the velocity have one file
+for each sweep. The vertical files are those of `..._REFLECTIVITY_H` all the same: the `_H` of the product names is unchanged.
+
+```python
+from wetterdienst.provider.dwd.radar import (
+    DwdRadarDataSubset,
+    DwdRadarParameter,
+    DwdRadarPolarization,
+    DwdRadarSite,
+    DwdRadarValues,
+)
+
+request = DwdRadarValues(
+    parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+    site=DwdRadarSite.BOO,
+    subset=DwdRadarDataSubset.UNFILTERED,
+    polarization=DwdRadarPolarization.VERTICAL,  # only the ..._tv_NN-... files; leave it out for TH and TV
+    start="2026-10-22 13:10",
+)
+```
 
 A request for a window answers a file for every lead time of every run in it, `timestamp` being the run:
 
