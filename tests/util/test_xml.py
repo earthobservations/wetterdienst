@@ -333,7 +333,8 @@ _IMPORTERS = frozenset({"import_optional", "import_module"})
 
 
 def _is_parser_module(name: str) -> bool:
-    return name.split(".", maxsplit=1)[0] in _PARSER_PACKAGES and name not in _NOT_PARSERS
+    writes = any(name == module or name.startswith(f"{module}.") for module in _NOT_PARSERS)
+    return name.split(".", maxsplit=1)[0] in _PARSER_PACKAGES and not writes
 
 
 def _called(node: ast.Call) -> str | None:
@@ -365,9 +366,10 @@ def _parsers_built_outside_the_helper(source: str) -> list[int]:
         if isinstance(node, ast.Import):
             hit = any(_is_parser_module(alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            hit = node.level == 0 and _is_parser_module(node.module or "")
+            hit = node.level == 0 and any(_is_parser_module(f"{node.module}.{alias.name}") for alias in node.names)
         elif isinstance(node, ast.Call):
-            first = node.args[0] if node.args else None
+            named = {keyword.arg: keyword.value for keyword in node.keywords}
+            first = node.args[0] if node.args else named.get("module_name") or named.get("name")
             hit = _called(node) == "read_xml" or (
                 _called(node) in _IMPORTERS
                 and isinstance(first, ast.Constant)
@@ -412,6 +414,7 @@ def test_no_module_builds_an_xml_parser_of_its_own() -> None:
         "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\nelse:\n    from lxml.etree import XMLParser",
         'etree = import_optional("lxml.etree", "radar")',
         'etree = importlib.import_module("lxml.etree")',
+        'etree = import_optional(module_name="lxml.etree", extra="radar")',
     ],
 )
 def test_the_scan_finds_a_parser_built_outside_the_helper(source: str) -> None:
@@ -424,6 +427,7 @@ def test_the_scan_finds_a_parser_built_outside_the_helper(source: str) -> None:
     [
         "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from lxml.etree import _Element\n",
         "from xml.sax.saxutils import escape",
+        "from xml.sax import saxutils",
         'frame = import_optional("polars", "x")',
     ],
 )
