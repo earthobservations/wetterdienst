@@ -8,7 +8,9 @@ names the limit and says how to narrow the request. The limits are the `WD_RESTA
 one off. They hold for the REST API and the MCP tools, which are its routes; the library and the CLI have none.
 
 - **stations**: how many stations one `values` or `history` request may read. Counted from the selection, which
-  is a lookup in the station list the server already holds: a `rank` counts as that many.
+  is a lookup in the station list the server already holds: a `rank` counts as that many. For `interpolate` and
+  `summarize`, how many stations with a record in the window lie within the widest radius of the request, which
+  is the same lookup.
 - **rows**: how many rows an answer sent as one body (JSON, GeoJSON, a chart) may have, and, for a streamed answer
   (NDJSON, CSV), a higher number. There is no row to count before the download, so the rows are *estimated*, as an
   upper bound: for each station, the readings its resolution can hold between the start of its record and the end
@@ -50,7 +52,9 @@ class Limits(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     max_stations: int = Field(
-        description="The most stations one `values` or `history` request may read; a `rank` counts as that many.",
+        description="The most stations one `values` or `history` request may read; a `rank` counts as that many. "
+        "For `interpolate` and `summarize`, the most stations with a record in the window within the radius of "
+        "the request.",
     )
     max_rows: int = Field(
         description="The most rows (estimated) of an answer sent as one body: json, geojson, a chart, and the "
@@ -106,6 +110,22 @@ def check_station_count(count: int, limits: Limits) -> None:
             f"This request reads {count} stations, more than the {limits.max_stations} this server allows for one "
             "request. Name fewer stations, or narrow the selection: a smaller `rank`, a smaller `distance` or "
             "bounding box. Request the rest in further calls."
+        )
+        error = _refuse("stations", limits.max_stations, count, message)
+        raise error
+
+
+def check_stations_in_reach(count: int, limits: Limits, *, distance: str) -> None:
+    """Refuse an `interpolate` or `summarize` request whose radius reaches more stations than the limit.
+
+    Those are the stations the request may read, as it reads outwards from the point until it has what it needs
+    and a station without readings is read as well; `distance` names the field that narrows it.
+    """
+    if limits.max_stations and count > limits.max_stations:
+        message = (
+            f"This request reaches {count} stations, more than the {limits.max_stations} this server allows for one "
+            f"request. Narrow the radius: a smaller `{distance}`, `{distance}_homogeneous` or "
+            f"`{distance}_heterogeneous`, or fewer parameters."
         )
         error = _refuse("stations", limits.max_stations, count, message)
         raise error
