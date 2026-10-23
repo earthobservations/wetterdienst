@@ -28,6 +28,12 @@ Types of changes:
   Add an hour to flagged stamps to get the old ones; the Diepholz stamp 1995-02-01 00 is the row of
   1995-01-31 23 and is dropped. The hourly wind of Bückeburg and Celle is right as written (ISD is
   the one an hour off there), and Regensburg-Oberhub and Stötten stay as written (GH-3029)
+- `chmi/observation` stations of `daily`, `monthly` and `annual` are the ones with a file of a
+  requested parameter, not of any element of the resolution (0.169.0):
+  `daily/data/sunshine_duration` lists 312 of the 1,537 stations, the other 1,225 answered it with
+  no values (read 2026-10-23).
+  A dataset lists the stations with a file of any of its parameters, from the directories of the
+  requested elements only; `10_minutes` and `hourly` still list all stations (GH-3295)
 
 ### Fixed
 

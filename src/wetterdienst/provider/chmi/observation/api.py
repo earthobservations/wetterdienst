@@ -123,33 +123,39 @@ def _months(start: dt.datetime, end: dt.datetime) -> Iterator[tuple[int, int]]:
             year, month = year + 1, 1
 
 
-def _stations_with_file(config: dict, settings: Settings) -> set[str]:
-    """Read the ids of the stations that have a file of an element of a resolution from the directories of its elements.
+def _stations_with_file(config: dict, requested: set[str], settings: Settings) -> set[str]:
+    """Read the ids of the stations that have a file of one of the requested elements, from their directories.
 
-    A directory of a category lists the files ``<prefix>-<WSI>-<element>.csv`` of all stations; only the elements the
-    provider reads count, so a station with a file of an element it does not read (``TPM``, ``API30``) has none.
+    A directory of a category lists the files ``<prefix>-<WSI>-<element>.csv`` of all stations, so it is read once for
+    all the requested elements it holds, and only the categories of the requested elements are read. A station that
+    has a file of any of them counts: the values step then collects the elements it has. A file of an element that
+    was not requested, or that the provider does not read (``TPM``, ``API30``), counts for nothing.
 
     Raises:
         NoInternetError: a directory could not be listed because no connection could be made.
-        DownloadError: a directory could not be listed, or no directory lists a file of the resolution at all. A
-            directory that is not there is a listing of no file, which narrows the stations of its element away;
-            all of them gone is the portal having changed, not a network without stations (GH-2519).
+        DownloadError: a directory could not be listed, or the directories list no file of any requested element. A
+            directory that is not there lists no file, which narrows the stations of its element away; all of them
+            gone is the portal having changed, not a network without stations (GH-2519).
 
     """
     ids: set[str] = set()
-    for category in dict.fromkeys(element_config[0] for element_config in config["elements"].values()):
+    elements = {element: config["elements"][element] for element in requested if element in config["elements"]}
+    for category in dict.fromkeys(element_config[0] for element_config in elements.values()):
         url = f"{_BASE_URL}/data/{config['path']}/{category}/"
-        elements = {element for element, element_config in config["elements"].items() if element_config[0] == category}
+        in_category = {element for element, element_config in elements.items() if element_config[0] == category}
         for file in list_remote_files_fsspec(url, settings, CacheExpiry.METAINDEX):
             name = file.rsplit("/", 1)[-1]
             if not (name.startswith(f"{config['prefix']}-") and name.endswith(".csv")):
                 continue
             station, _, element = name.removeprefix(f"{config['prefix']}-").removesuffix(".csv").rpartition("-")
-            if element in elements:
+            if element in in_category:
                 ids.add(station)
     if not ids:
         url = f"{_BASE_URL}/data/{config['path']}/"
-        raise DownloadError(url, f"no file of the form {config['prefix']}-<station>-<element>.csv is listed")
+        wanted = ", ".join(sorted(elements)) or "none that is read"
+        raise DownloadError(
+            url, f"no file of the form {config['prefix']}-<station>-<element>.csv is listed for {wanted}"
+        )
     return ids
 
 
@@ -276,18 +282,19 @@ class ChmiObservationRequest(TimeseriesRequest):
         catalogue = parse_chmi_stations(file.content.read())
         if catalogue.is_empty():
             return pl.LazyFrame()
-        # `meta1.csv` is one list for every resolution, and lists closed stations that have no file in the daily,
-        # monthly and annual one (GH-3259): each of these is narrowed to the stations whose files the directories
-        # list. The sub-daily files are one for each month, under a directory for each year, so the 10 minute and
+        # `meta1.csv` is one list for every resolution and element, and lists stations that have no file of the
+        # requested ones (GH-3259, GH-3295): the daily, monthly and annual stations are narrowed to those whose files
+        # of the requested parameters the directories list. The sub-daily files are one for each month, under a
+        # directory for each year (a listing of every year, 1.6 MB each, for every request), so the 10 minute and
         # hourly stations stay the whole list.
         frames = []
-        for dataset, _ in group_parameters_by_dataset(
+        for dataset, parameters in group_parameters_by_dataset(
             parameter for parameter in self.parameters if isinstance(parameter, ParameterModel)
         ):
             config = _RESOLUTION_CONFIG[dataset.resolution.value]
             stations = catalogue
             if config["layout"] != "subdaily":
-                with_file = _stations_with_file(config, settings)
+                with_file = _stations_with_file(config, {parameter.name_original for parameter in parameters}, settings)
                 stations = stations.filter(pl.col("station_id").is_in(with_file))
             frames.append(
                 stations.with_columns(
