@@ -39,6 +39,10 @@ log = logging.getLogger(__name__)
 
 #: the header a request id is sent in, and read from
 REQUEST_ID_HEADER = "X-Request-ID"
+#: the header and value that tell a browser to take an answer for the media type it is sent as, sent with every answer
+#: (GH-3349): a JSON or CSV body is never read as HTML, nor an image as a script
+CONTENT_TYPE_OPTIONS_HEADER = "X-Content-Type-Options"
+NOSNIFF = "nosniff"
 #: a request id from a client that is let through: plain, short text; anything else is replaced by one made here
 _REQUEST_ID = re.compile(r"[A-Za-z0-9._~-]{1,128}")
 #: seconds a `Retry-After` of a 502, 503 or 504 says. A retry is worth making once the provider is back, and
@@ -261,9 +265,14 @@ def problem_body(
 
 
 def problem_headers(status_code: int, request_id: str, headers: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Give the headers of a problem: those it was raised with, the request id, and `Retry-After` where it applies."""
+    """Give the headers of a problem: those it was raised with, the request id, `nosniff` and a `Retry-After`.
+
+    A 500 is answered outside the middleware that adds the headers of the other answers: a problem carries its own.
+    """
     given = dict(headers or {})
     lowered = {name.lower() for name in given}
+    if CONTENT_TYPE_OPTIONS_HEADER.lower() not in lowered:
+        given[CONTENT_TYPE_OPTIONS_HEADER] = NOSNIFF
     if REQUEST_ID_HEADER.lower() not in lowered:
         given[REQUEST_ID_HEADER] = request_id
     if status_code in RETRY_AFTER_STATUSES and "retry-after" not in lowered:

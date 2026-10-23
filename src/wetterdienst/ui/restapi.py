@@ -640,6 +640,21 @@ _MEDIA_TYPES = {
 }
 
 
+#: the policy of the index page, which needs no script, request or image: its styles are in the page. It cannot be
+#: given a `<base>` to re-point its links, nor send a form (GH-3349)
+_PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+#: the policy of an SVG answer, which a browser shows as a document where its address is opened, and runs script in:
+#: no script and no request, styles in the file, images only inlined. That is all a chart written by Kaleido has;
+#: its `url(#...)` is a clip path of its own. Not for `html`, which is a script by design, and not for `pdf`, whose
+#: viewer a policy breaks
+_SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+
+
+def _image_headers(fmt: str) -> dict[str, str]:
+    """Give the `Content-Security-Policy` of an image answer, for the one format that has one: SVG."""
+    return {"Content-Security-Policy": _SVG_CSP} if fmt == "svg" else {}
+
+
 def _answer(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> Response:
     """Send a rendered answer with the headers that say what its `metadata` block says, in the one format or the other.
 
@@ -649,7 +664,7 @@ def _answer(content: str | bytes, fmt: str, metadata: ResponseMetadata) -> Respo
     return Response(
         content=content,
         media_type=_MEDIA_TYPES.get(fmt, "application/json"),
-        headers=dict(response_headers(metadata)),
+        headers={**response_headers(metadata), **_image_headers(fmt)},
     )
 
 
@@ -890,6 +905,7 @@ def index() -> HTMLResponse:
         </body>
     </html>
     """,  # noqa:E501
+        headers={"Content-Security-Policy": _PAGE_CSP},
     )
 
 
@@ -2267,6 +2283,7 @@ def stripes_image(
     return Response(
         content=fig.to_image(request.format, scale=request.dpi / 100),
         media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
+        headers=_image_headers(request.format),
     )
 
 

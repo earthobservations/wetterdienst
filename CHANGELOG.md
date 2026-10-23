@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- The REST API sends `X-Content-Type-Options: nosniff` on every answer, errors and streams
+  included, and a `Content-Security-Policy` that allows no script or request on the index page and
+  the `svg` answers, so that a browser does not take a body for another media type or run script in
+  an SVG opened as a document. `/docs`, `/redoc` and `format=html` carry no policy, as they run
+  scripts (GH-3349)
+
 ## [0.171.0] - 2026-10-23
 
 ### Changed

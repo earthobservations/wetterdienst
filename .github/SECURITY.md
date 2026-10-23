@@ -80,6 +80,15 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   (GHSA-rpwr-qmm5-m9wp; those documented limits are settled).
 - **Errors** are RFC 9457 problems. A 500 is a fixed body with no path, traceback or credential, and a 501 for a missing
   credential does not name the setting (`test_a_500_does_not_name_the_servers_paths_but_the_log_does`).
+- **Response headers** (GH-3349; `ui/middleware.py`, `ui/problems.py`; `tests/ui/test_security_headers.py`). Every
+  answer carries `X-Content-Type-Options: nosniff`, errors and streams included. A `Content-Security-Policy` goes with
+  the index page (`default-src 'none'; style-src 'unsafe-inline'; ...`) and the `svg` answers (`default-src 'none';
+  style-src 'unsafe-inline'; img-src data:`), the two whose bodies were read for what they need. It is not sent with
+  the data answers, where it has nothing to guard, nor with `pdf` and the other images, nor with `/docs` and `/redoc`,
+  which load Swagger UI and ReDoc from a CDN, nor with `format=html`: that is a Plotly figure whose script is in the
+  page, so a policy that lets it run guards little and was not checked in a browser. The backend's origin holds no
+  cookie or credential, so this is hardening: Plotly escapes `<` in the JSON of a figure, and no free text of the
+  caller is drawn into one. HSTS, `Referrer-Policy` and a policy for the rest are for a reverse proxy.
 
 ### Credentials
 
