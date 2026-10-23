@@ -1411,8 +1411,13 @@ describe('explorer Page point given by a station in a link (GH-2392)', () => {
 
     // the parameter selection takes back a resolution the provider does not have, which is a change too
     vm.parameterSelectionState.selection.resolution = 'hourly'
-    await vi.waitFor(() => expect(query()).toMatchObject({ interpolationSource: 'manual' }))
-    expect(query().resolution).toBeUndefined()
+    // the link is written twice, once with the resolution as it was set, and once more when the
+    // parameter selection has read the provider's coverage and taken it back: wait for the second,
+    // on both fields, as the first already names the point as unset
+    await vi.waitFor(() => {
+      expect(query().interpolationSource).toBe('manual')
+      expect(query().resolution).toBeUndefined()
+    })
     vm.stationSelectionState.interpolation = { source: 'station' }
     await vi.waitFor(() => expect(query().interpolationSource).toBe('station'))
     expect(query().interpolationStation).toBeUndefined()
