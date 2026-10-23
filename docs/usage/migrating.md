@@ -249,7 +249,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | `ea/hydrology` `daily` | 09:00 UTC for the mean, the instant of the extreme for the maximum and minimum | 00:00 UTC of the day it names; where the endpoint answers a day twice, the reading with a value is kept | 0.146.0, GH-2683 |
 | `dmi/observation` daily `precipitation_amount_max` | the day before the one it ends on | the day it ends on, as DMI defines it: its series moves one day later | 0.146.0, GH-2676 |
 | `meteofrance/observation` 6-minute and hourly, overseas departments (971-975, 984-988) | the file's fixed offset labelled UTC (Réunion 4 h late) | UTC: drop a shift you applied yourself | 0.145.0, GH-2677 |
-| `dwd/observation` `hourly/temperature_air` `historical`, the periods DWD calls "Stundenwerte in MEZ (MD)" (up to 1991, 80 East German stations) | read as UTC | MEZ, so one hour earlier, with `zone:mez` in `quality_flags` | add an hour to flagged stamps to get the old ones | 0.155.0, GH-2709 |
+| `dwd/observation` `hourly/temperature_air` `historical`, the periods DWD calls "Stundenwerte in MEZ (MD)" (up to 1991, 80 East German stations) | read as UTC | MEZ, so one hour earlier, with `zone:mez` in `quality_flags`: add an hour to flagged stamps to get the old ones | 0.155.0, GH-2709 |
 | `dwd/observation` `hourly/temperature_soil` `historical`, the periods whose source is the archive of the eMD (up to 1991, 74 East German stations); `hourly/temperature_air` of Diepholz (00963) from 1995-02-01 00 to 1996-05-31 23 | read as UTC | MEZ, so one hour earlier, with `zone:mez` in `quality_flags` (the soil stamps 01, 04, ..., 22 are 00, 03, ..., 21 UTC): add an hour to flagged stamps to get the old ones; the stamp 1995-02-01 00 of Diepholz is the report of 1995-01-31 23 and its row is dropped | 0.170.0, GH-3029 |
 | `knmi/observation` `hourly` | the start of the hour | the end of the hour, KNMI's own stamp: every hourly `timestamp` moves 1 hour later, and `start` = `end` = 12:00 returns the hour 11-12. `10_minutes` and `daily` are unchanged | 0.160.0, GH-2824 |
 
@@ -337,17 +337,21 @@ arguments are the query parameters. In addition:
 
 ## Verified
 
-The parameter tables above were checked against the code of both releases. 361 parameters that a dataset of 0.139.0
+The parameter tables above were checked against the code of both releases. 403 parameters that a dataset of 0.139.0
 has are not in the current release under the same name; each is requested from it, and a test
-(`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below. 347 of the refusals name a replacement,
-and that replacement exists in the same network, resolution and dataset. The other 14 are:
+(`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below; the numbers of this paragraph are
+computed from the same list. 372 of the refusals name a replacement, and that replacement exists in the same network, resolution
+and dataset. The other 31 are:
 
 - the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily (GH-2700), `wind_direction_gust_max` of
   Météo-France hourly (GH-2836), and the eight MOSMIX-L elements that the files never carry (GH-2851):
   `cloud_base_convective`, `radiation_global_last_3h`, `radiation_sky_long_wave_last_3h` and the five precipitation
   totals `precipitation_amount_last_1h`, `_3h`, `_6h`, `_12h` and `_24h`. The near spelling the error offers for the
   totals, `precipitation_amount_significant_weather_last_1h` and so on, is another element (`RR1c`, the total
-  consistent with the significant weather) and a guess, not a rename;
+  consistent with the significant weather) and a guess, not a rename. Also removed: `chloride_concentration`,
+  `precipitation_amount` and `precipitation_intensity` of each of the five WSV Pegel resolutions, which no station of
+  the service serves (GH-3245), and `temperature_air_max_2m_last_24h` and `temperature_air_min_2m_last_24h` of the NWS
+  hourly observations, which the API leaves null at every station (GH-3235);
 - the names the source itself uses, which still select their row and come back under the new name:
   `wind_speed` and `wind_direction` of the Met Office hourly weather, `wind_direction` of ECCC, and `wind_speed`
   of `metno/frost` (a request for it needs the met.no credential, so it was not run).
