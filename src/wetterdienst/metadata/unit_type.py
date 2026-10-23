@@ -42,6 +42,7 @@ UnitType = Literal[
     "temperature",
     "time",
     "turbidity",
+    "volume",
     "volume_per_time",
     "wind_scale",
 ]

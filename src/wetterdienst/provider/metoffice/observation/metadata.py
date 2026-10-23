@@ -98,7 +98,7 @@ _MEAN_WIND_PARAMETERS = [
 _RADIATION_PARAMETERS = [
     {"name": "radiation_global", "name_original": "glbl_irad_amt", **_RADIATION},
     {"name": "radiation_sky_short_wave_diffuse", "name_original": "difu_irad_amt", **_RADIATION},
-    {"name": "radiation_sky_short_wave_direct", "name_original": "direct_irad", **_RADIATION},
+    {"name": "radiation_sky_short_wave_direct_perpendicular", "name_original": "direct_irad", **_RADIATION},
 ]
 
 _SOIL_TEMPERATURE_PARAMETERS = [

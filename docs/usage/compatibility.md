@@ -360,15 +360,15 @@ Deprecated today:
 
 | What | Since | Use instead | Removed |
 | --- | --- | --- | --- |
-| `Wetterdienst(provider, network)`, the constructor form that returns a class | 0.156.0 | `Wetterdienst.resolve(provider, network)`, `resolve_standalone` for `dwd/radar` and `dwd/alerts` | 1.0.0 |
-| `wetterdienst stripes values`, which writes the image | 0.159.0 | `wetterdienst stripes image` | 1.0.0 |
 
-Nothing is deprecated on the REST API and the MCP endpoint. The deprecations before these were removed after more
-than two minor releases: the `ts_*` settings (deprecated in 0.148.0, removed in 0.160.0) and `use_nearby_station_distance`
-of `summarize` (deprecated in 0.140.0, removed in 0.158.0).
+Nothing is deprecated on any surface. The deprecations before were removed after more than two minor releases:
+the `ts_*` settings (deprecated in 0.148.0, removed in 0.160.0), `use_nearby_station_distance` of `summarize`
+(deprecated in 0.140.0, removed in 0.158.0), `Wetterdienst(provider, network)` (deprecated in 0.156.0) and
+`wetterdienst stripes values` (deprecated in 0.159.0), the last two announced for removal in 1.0.0 and removed
+in 0.173.0, earlier than announced.
 
-Both are removed at 1.0.0, with the tag. `wetterdienst
-stripes values` is then "No such command", and the name is **never reused** for other output: a command for the
+`Wetterdienst(provider, network)` is a `TypeError` that names `Wetterdienst.resolve`, and `wetterdienst stripes
+values` is "No such command". The name `stripes values` is **never reused** for other output: a command for the
 yearly values that `/api/stripes/values` answers would get another name, as an addition.
 
 Removal is a **Breaking** change, and so a major version from 1.0, with one exception: a provider, a network or a

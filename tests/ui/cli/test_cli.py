@@ -506,12 +506,12 @@ def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> No
     gap was a command gaining `--target` without the option that says what a second run does.
 
     Four commands are excluded because their `--target` never reaches a sink: `alerts` and
-    `history` write text with `Path.write_text`, and `stripes image` and its old name `stripes values` write an
+    `history` write text with `Path.write_text`, and `stripes image` writes an
     image with `fig.write_image`. There is nothing for them to ask what to do with an existing target.
     """
     import click  # noqa: PLC0415
 
-    writes_directly = {"alerts", "history", "stripes image", "stripes values"}
+    writes_directly = {"alerts", "history", "stripes image"}
 
     def walk(command: click.Command, path: tuple[str, ...] = ()) -> list[tuple[str, click.Command]]:
         here = (*path, command.name)
