@@ -133,7 +133,7 @@ _DwdPoiMetadataSpec = {
                             **_RADIATION,
                         },
                         {
-                            "name": "radiation_sky_short_wave_direct_intensity",
+                            "name": "radiation_sky_short_wave_direct_perpendicular_intensity",
                             "name_original": "direct_solar_radiation_last_hour",
                             **_RADIATION,
                         },

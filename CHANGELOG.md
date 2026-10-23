@@ -24,21 +24,101 @@ Types of changes:
   since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
   code nor DWD's files give (GH-2621)
 
-## [0.168.0] - 2026-10-22
+### Security
 
-### Added
+- The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
+  (was `>=3.14.0`; every download), `duckdb>=1.1.0` (was `>=1`; the `sql` and `duckdb` extras:
+  GHSA-w2gf-jxc9-pf2q, where `sniff_csv` read files with external access off, which the REST SQL
+  filter relies on), `pypdf>=6.21.1` (was `>=3.12.1`; the `pdf` extra) and `influxdb>=5.3.1` (was
+  `>=5.3`), with `msgpack>=1.2.1` in the `influxdb` extra (5.3.0 pinned `msgpack==0.6.1`,
+  GHSA-6v7p-g79w-8964). An installation that holds an older release keeps it when wetterdienst is
+  upgraded: upgrade these packages as well
+  (`pip install --upgrade aiohttp duckdb pypdf influxdb msgpack`) (GH-3343)
+- **Breaking**: the REST API and the MCP tools bound the inputs of `interpolate` and `summarize`, so
+  that one request cannot ask for an unbounded amount of work: a station distance given is at most
+  200 km, `num_additional_stations` at most 20 and `min_gain_of_value_pairs` above 0 (a 422 past
+  them), and a request whose radius reaches more stations with a record in the window than
+  `WD_RESTAPI_MAX_STATIONS` (100) is refused as `limit-exceeded` before any download. A caller who
+  needs more uses the Python API or the command line, which take any value. Everywhere, the search
+  for a group of four stations to interpolate from looks at the 30 nearest stations of a parameter
+  at most, and falls back to one group around the point where none of them surrounds it. The
+  explorer of the app holds its inputs to the bounds (GH-2606)
 
-- `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
-  `DwdRadarParameter`: the composites `RS_PRECIPITATION_SUM` (a `.tar` a run as `RV_`, the
-  precipitation of the hour), `HX_REFLECTIVITY` and `DMAX_REFLECTIVITY`, `VII_INTEGRATED_ICE` and
-  `HYMECNG_PRECIPITATION_TYPE`, each ODIM HDF5; the RADOLAN `YW_REFLECTIVITY`; the unfiltered
-  `SWEEP_VOL_` and `SWEEP_PCP_` `ZDR`, `RHOHV` and `PHIDP` (`DwdRadarDataSubset.UNFILTERED`, which
-  `subset` need not name); and the XML of `KONRAD3D_CONVECTIVE_CELLS` and
-  `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
-  radar docs page says what each is (GH-3283)
+## [0.171.0] - 2026-10-23
 
 ### Changed
 
+- The `radarplus` extra needs `wradlib>=2.6.0` (was `>=2.0.1`): the first release whose `radolan`
+  backend opens the ODIM HDF5 file DWD serves as the RADOLAN RW, where older ones raise a
+  `UnicodeDecodeError`. A host that pins an older wradlib upgrades it (GH-3329)
+- `chmi/observation` stations of `daily`, `monthly` and `annual` are the ones with a file of a
+  requested parameter, not of any element of the resolution (0.169.0):
+  `daily/data/sunshine_duration` lists 312 of the 1,537 stations, the other 1,225 answered it with
+  no values (read 2026-10-23).
+  A dataset lists the stations with a file of any of its parameters, from the directories of the
+  requested elements only; `10_minutes` and `hourly` still list all stations (GH-3295)
+
+### Security
+
+- wetterdienst now requires certifi 2026.10.19 or later (was 2024.2.2): older certifi releases still
+  trust the `emSign ECC Root CA - G3`, whose intermediate CA keys are compromised
+  (GHSA-6q48-6c7w-9gw2), and `use_certifi` (`WD_USE_CERTIFI`) hands that bundle to every download.
+  The Docker image is built on a python base image (3.15.1) with pip 26.2.2 and Debian's
+  `ca-certificates` update. An installation from PyPI resolves its own certifi: upgrade it there,
+  and the system trust store through the operating system, see `.github/SECURITY.md` (GH-3331)
+
+## [0.170.0] - 2026-10-23
+
+### Changed
+
+- **Breaking**: `dwd/observation` `hourly/temperature_soil` `historical`: the stamps of the periods
+  whose source is the eMD archive (up to 1991, 74 East German stations, the terms 01, 04, ..., 22)
+  are MEZ, not UTC, and come back one hour earlier (00, 03, ..., 21), per depth, with `zone:mez` in
+  `quality_flags`. The same holds for `hourly/temperature_air` of Diepholz from 1995-02-01 00 to
+  1996-05-31 23, which its plain MEZ label does not mark.
+  Add an hour to flagged stamps to get the old ones; the Diepholz stamp 1995-02-01 00 is the row of
+  1995-01-31 23 and is dropped. The hourly wind of Bückeburg and Celle is right as written (ISD is
+  the one an hour off there), and Regensburg-Oberhub and Stötten stay as written (GH-3029)
+
+### Fixed
+
+- The migration guide named no release for the `dwd/observation` hourly air temperature of the MEZ
+  periods (0.155.0, GH-2709), and its "Verified" section counted 361 parameters of 0.139.0 that are
+  gone where there are 403, with two removals (WSV Pegel, NWS) missing from its list (GH-3321)
+- `dwd/radar` `DwdRadarValues` with `start=DwdRadarDate.LATEST` of a product that is no sweep: a
+  folder with no file named latest (warns `No radar file found`, as the sweeps do) or a latest
+  `.tar` with no member (warns `No radar data found in <url>`) now answers no result instead of
+  raising a polars `ValueError` or a `RuntimeError`. Two files named latest are both answered, the
+  first result of each, in the order of their names. A connection failure is still raised (GH-3311)
+
+## [0.169.0] - 2026-10-23
+
+### Added
+
+- `dwd/radar` reads the folder `unfiltered` of the reflectivity sweeps, which holds the total
+  reflectivity `TH` and `TV` (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H`
+  and `SWEEP_VOL_REFLECTIVITY_H`): both files of each sweep are answered, told apart by
+  `result.url`. `start=DwdRadarDate.LATEST` of the precipitation sweep is its `-LATEST-` files, TH
+  and TV. That of the volume sweeps stays refused, as DWD replaces the ten files one by one and
+  they come from two volumes for minutes; ask for a time (GH-3288)
+
+### Changed
+
+- **Breaking**: `dwd/dmo` `precipitation_amount_last_1h` (`rr1`) and `precipitation_amount_last_3h`
+  (`rr3`) are 0.0 where ICON writes a little below 0 (to -0.10 and -0.04 mm; 2769 of 459,732 `RR1`
+  values of the icon run of 2026-10-22 12Z), with the number kept as `raw:-0.1` in `quality_flags`;
+  they were negative, and a `-0.00` was `-0.0`. Nothing to change in a caller; filter on `raw:` for
+  the old numbers.
+  `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h` (`rads3`) stay as written, a
+  little negative at night (mostly above -0.2 J/cm2, at a few stations to about -0.8), and their
+  descriptions say so (GH-3263)
+- **Breaking**: the direct radiation of `dwd/poi` (`direct_solar_radiation_last_hour`) is
+  `radiation_sky_short_wave_direct_perpendicular_intensity`, no longer
+  `radiation_sky_short_wave_direct_intensity`: it is the irradiance on a plane perpendicular to the
+  sun's rays, not the component on a horizontal surface, so it can exceed the global radiation. The
+  old name is refused with the new one named; values and units are unchanged. Request, filter and
+  key by the new name; multiply by the cosine of the solar zenith angle for the horizontal
+  component. Release the app after this backend (GH-3263)
 - `chmi/observation` lists, for `daily`, `monthly` and `annual`, only the stations that have a file
   in the resolution: 25, 24 and 29 of the 1,562 stations of `meta1.csv` (closed ones such as
   Sadská) answered every request with an empty frame (read 2026-10-22). `10_minutes` and `hourly`
@@ -53,18 +133,35 @@ Types of changes:
   nearest-station search could pick them. Looking one up by id now warns that there is no such
   station and answers an empty frame (GH-3260)
 
-### Removed
-
-- **Breaking**: the radar BUFR reader is removed: `read_radar_bufr`, `DwdRadarDataFormat.BUFR`,
-  `RadarResult.df` and the `read_bufr` setting (`WD_READ_BUFR`, now ignored). DWD's index of
-  weather/radar (1.03 million files, read 2026-10-22) holds no BUFR file, nor does any other
-  directory of weather/ hold a radar one. `fmt="bufr"` is an `InvalidEnumerationError` and
-  `Settings(read_bufr=...)` a `ValueError`, each with the reason; read the ODIM HDF5 `result.data`.
-  The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
-  installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
-
 ### Fixed
 
+- `dwd/radar`: `start=DwdRadarDate.LATEST` answers `RadarResult.timestamp` for the latest files
+  whose name has no time, which was `None`: the `-latest-` files of the site products, the
+  `-LATEST-` sweeps of the precipitation scan, HX, DMAX, VII, HymecNG and the RADOLAN products.
+  It is `date` and `time` of the `/what` group of the ODIM HDF5 file (needs h5py, the `radar`
+  extra; without it `None` and one warning), the header of a `DX` file, or the event time of
+  `meso_latest.xml`, which stays `None` for a run with no event (GH-3299)
+- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of the volume sweeps (`SWEEP_VOL_*`) is the 5 minute slot
+  10 minutes before now, no longer 5: their last sweeps are listed up to 485 s after the slot
+  starts, so 0.6 % of the answers lacked sweeps (0.1 % had fewer than four) (GH-3302)
+- The example `dwd_radar_composite_rw.py` plots `ACRR`, the variable wradlib reads from a RADOLAN RW
+  file (it asked for `RW` and failed). The radar docs say what an RW file holds and that it is ODIM
+  HDF5, which `wrl.io.read_radolan_header` cannot read: use h5py or
+  `xr.open_dataset(..., engine="radolan")` (GH-3298)
+- `eaufrance/hubeau` descriptions of `stage` and `discharge` no longer say the source states no
+  statistic and, for the height, no reference level. The swagger dates a value by the instant it
+  occurred, with no interval, and the height is relative to the zero of the station's gauge, so
+  stations share no level; the station's `gauge_zero` (metres, in `gauge_zero_datum`, not given for
+  every station) is that zero. No value or name changed (Part of GH-3264)
+- `wsv/pegel` docs no longer constrain `stage` to `>=0`: a stage is read against the gauge's own
+  datum, and on 2026-10-22 nine gauges stood below it (Schillig -250 cm, Rotterdam -35 cm). The
+  values were never clipped; only the constraints column of the five resolution pages said so.
+  The `ipma/observation` page no longer calls `radiacao` global radiation: the source says only
+  "radiação solar (kJ/m2)" (Part of GH-3242)
+- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY` and
+  `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
+  5 minutes after the run in 18 of 577 runs (up to 8 minutes), and the 5 minute slot was empty
+  then (GH-3288)
 - `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
   have data files and no line in the station description of any period, when all periods of a
   dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read
@@ -80,6 +177,36 @@ Types of changes:
   etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
   SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
   redirected (GH-3255)
+
+### Security
+
+- The Docker image, and an environment synced from `uv.lock`, now hold opentelemetry-api 1.45.1,
+  which bounds the parsing of the `tracestate` header (GHSA-xcq7-p3pf-p88h). It reaches
+  wetterdienst through FastAPI and the MCP server (`restapi` and `mcp` extras). An installation
+  from PyPI resolves its own version: upgrade it there (GH-3280)
+
+## [0.168.0] - 2026-10-22
+
+### Added
+
+- `dwd/radar` offers the products DWD publishes and it did not (read 2026-10-22), all in
+  `DwdRadarParameter`: the composites `RS_PRECIPITATION_SUM` (a `.tar` a run as `RV_`, the
+  precipitation of the hour), `HX_REFLECTIVITY` and `DMAX_REFLECTIVITY`, `VII_INTEGRATED_ICE` and
+  `HYMECNG_PRECIPITATION_TYPE`, each ODIM HDF5; the RADOLAN `YW_REFLECTIVITY`; the unfiltered
+  `SWEEP_VOL_` and `SWEEP_PCP_` `ZDR`, `RHOHV` and `PHIDP` (`DwdRadarDataSubset.UNFILTERED`, which
+  `subset` need not name); and the XML of `KONRAD3D_CONVECTIVE_CELLS` and
+  `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
+  radar docs page says what each is (GH-3283)
+
+### Removed
+
+- **Breaking**: the radar BUFR reader is removed: `read_radar_bufr`, `DwdRadarDataFormat.BUFR`,
+  `RadarResult.df` and the `read_bufr` setting (`WD_READ_BUFR`, now ignored). DWD's index of
+  weather/radar (1.03 million files, read 2026-10-22) holds no BUFR file, nor does any other
+  directory of weather/ hold a radar one. `fmt="bufr"` is an `InvalidEnumerationError` and
+  `Settings(read_bufr=...)` a `ValueError`, each with the reason; read the ODIM HDF5 `result.data`.
+  The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
+  installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
 
 ## [0.167.0] - 2026-10-22
 
@@ -6247,7 +6374,10 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...HEAD
+[0.171.0]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...v0.171.0
+[0.170.0]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...v0.170.0
+[0.169.0]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...v0.169.0
 [0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0

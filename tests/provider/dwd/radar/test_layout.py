@@ -8,6 +8,8 @@ composite/pg, sites/pf, radvor/re and radvor/rq hold no file, and sites/px only 
 """
 
 import datetime as dt
+import logging
+import sys
 import tarfile
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -16,7 +18,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import InvalidEnumerationError, RequestError
+from wetterdienst.exceptions import DownloadError, InvalidEnumerationError, NoInternetError, RequestError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -33,6 +35,7 @@ from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
 RADAR = "https://opendata.dwd.de/weather/radar"
+_PCP = "ras07-pcpng01_sweeph5onem"
 
 # lines of the listings of 2026-10-22 ~11:35 UTC
 LISTINGS = {
@@ -392,3 +395,241 @@ def test_the_latest_composite_is_read_from_its_tar_and_asked_for_again(monkeypat
     # the first file of the tar is the analysis, which is what LATEST has always answered
     assert [result.filename for result in results] == ["composite_rv_20261022_1130_000-hd5"]
     assert results[0].timestamp == dt.datetime(2026, 10, 22, 11, 30, tzinfo=UTC)
+
+
+def _latest_composite() -> DwdRadarValues:
+    return DwdRadarValues(parameter=DwdRadarParameter.RV_REFLECTIVITY, start=DwdRadarDate.LATEST)
+
+
+def test_the_latest_of_a_product_whose_listing_has_no_latest_file_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a listing with no file named latest answers no result and says so, as the sweeps do (GH-3311)."""
+    monkeypatch.setitem(LISTINGS, f"{RADAR}/composite/rv", ["composite_rv_20261022_1130.tar"])
+    _serve(monkeypatch, b"")
+
+    with caplog.at_level(logging.WARNING):
+        results = list(_latest_composite().query())
+
+    assert results == []
+    assert "No radar file found" in caplog.text
+
+
+def test_the_latest_of_a_product_whose_listing_is_empty_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a folder with no file at all answers no result and says so (GH-3311)."""
+    monkeypatch.setitem(LISTINGS, f"{RADAR}/composite/rv", [])
+    _serve(monkeypatch, b"")
+
+    with caplog.at_level(logging.WARNING):
+        results = list(_latest_composite().query())
+
+    assert results == []
+    assert "No radar file found" in caplog.text
+
+
+def test_the_latest_whose_tar_holds_no_file_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a latest .tar with no member answers no result and says so, not a RuntimeError (GH-3311)."""
+    _serve(monkeypatch, _tar("20261022_1130", ()))
+
+    with caplog.at_level(logging.WARNING):
+        results = list(_latest_composite().query())
+
+    assert results == []
+    assert f"No radar data found in {RADAR}/composite/rv/composite_rv_LATEST.tar" in caplog.text
+
+
+def test_the_latest_of_a_product_with_two_latest_files_is_the_first_of_each(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that two files named latest are both answered, in the order of their names, not an error (GH-3311)."""
+    pytest.importorskip("h5py")
+    monkeypatch.setitem(
+        LISTINGS,
+        f"{RADAR}/composite/rv",
+        ["composite_rv_LATEST.tar", "composite_rv_20261022_1130.tar", "composite_rv__LATEST.tar"],
+    )
+    served = {
+        f"{RADAR}/composite/rv/composite_rv__LATEST.tar": _tar("20261022_1130", (0, 5)),
+        f"{RADAR}/composite/rv/composite_rv_LATEST.tar": _tar("20261022_1135", (0, 5)),
+    }
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=BytesIO(served[url]), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    results = list(_latest_composite().query())
+
+    assert [result.filename for result in results] == [
+        "composite_rv_20261022_1135_000-hd5",  # composite_rv_LATEST.tar
+        "composite_rv_20261022_1130_000-hd5",  # composite_rv__LATEST.tar
+    ]
+
+
+def test_the_latest_of_a_product_raises_when_the_file_cannot_be_reached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a connection failure while the latest file is downloaded is raised, not answered as no result."""
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=NoInternetError(f"No internet connection: could not reach {url}"), status=0)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    with pytest.raises(NoInternetError, match=r"composite_rv_LATEST\.tar"):
+        list(_latest_composite().query())
+
+
+def test_the_latest_of_a_product_raises_when_the_listing_cannot_be_reached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a connection failure while the folder is listed is raised, not answered as an empty folder."""
+
+    def list_remote_files(url: str, **_: object) -> list[str]:
+        message = f"No internet connection: could not reach {url}"
+        raise NoInternetError(message)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.index.list_remote_files_fsspec", list_remote_files)
+
+    with pytest.raises(NoInternetError):
+        list(_latest_composite().query())
+
+
+def test_the_latest_of_a_product_raises_when_the_file_download_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a download that failed is a DownloadError naming the file, not an empty answer."""
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=TimeoutError(), status=0)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    with pytest.raises(DownloadError, match=r"composite_rv_LATEST\.tar"):
+        list(_latest_composite().query())
+
+
+def _odim(date: str, time: str) -> bytes:
+    """Give an ODIM HDF5 file of a site product, with the date and the time its `/what` group says the scan is of."""
+    h5py = pytest.importorskip("h5py")
+    buffer = BytesIO()
+    with h5py.File(buffer, "w") as f:
+        f.attrs["Conventions"] = b"ODIM_H5/V2_1"
+        what = f.create_group("what")
+        what.attrs.update({"object": "PVOL", "version": "H5rad 2.1", "date": date.encode(), "time": time.encode()})
+    return buffer.getvalue()
+
+
+# the first bytes of the file `raa00-dx_10132-latest-boo---bin` of 2026-10-22 21:15 UTC (DDHHMM 222110, MMYY 1026)
+DX_HEADER = b"DX222110101321026BY31755VS 2CO0CD4CS0EP0.80.80.80.80.80.80.80.8MS  0\x03\x03\x00 \x00\x00\x08\x00"
+
+
+def _serve(monkeypatch: pytest.MonkeyPatch, content: bytes) -> None:
+    """Serve the same content for any file asked for."""
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=BytesIO(content), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+
+def test_the_latest_of_a_site_hdf5_product_is_dated_by_the_scan_time_in_the_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the latest file of PE, whose name has no time, is dated by `/what` `date` and `time` (GH-3299)."""
+    _serve(monkeypatch, _odim("20261022", "211000"))
+
+    (result,) = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST
+    ).query()
+
+    assert result.timestamp == dt.datetime(2026, 10, 22, 21, 10, tzinfo=UTC)
+    # the file is handed over whole, from its start, as it was without the reading
+    assert result.data.tell() == 0
+    assert result.data.getvalue() == _odim("20261022", "211000")
+
+
+def test_the_latest_of_dx_is_dated_by_its_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the binary DX file, which h5py cannot read, says its time in its header: DDHHMM, the site, MMYY."""
+    _serve(monkeypatch, DX_HEADER)
+
+    (result,) = DwdRadarValues(
+        parameter=DwdRadarParameter.DX_REFLECTIVITY, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST
+    ).query()
+
+    assert result.timestamp == dt.datetime(2026, 10, 22, 21, 10, tzinfo=UTC)
+    assert result.data.getvalue() == DX_HEADER
+
+
+def test_the_latest_of_dx_is_dated_without_h5py(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that the DX header needs no h5py, and that no warning about it is made."""
+    monkeypatch.setitem(sys.modules, "h5py", None)
+    _serve(monkeypatch, DX_HEADER)
+
+    with caplog.at_level(logging.WARNING):
+        (result,) = DwdRadarValues(
+            parameter=DwdRadarParameter.DX_REFLECTIVITY, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST
+        ).query()
+
+    assert result.timestamp == dt.datetime(2026, 10, 22, 21, 10, tzinfo=UTC)
+    assert "h5py" not in caplog.text
+
+
+def test_the_latest_hdf5_is_undated_without_h5py_and_says_so_once(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that without h5py (the `radar` extra) the timestamps are None as before, with one warning per request."""
+    monkeypatch.setitem(sys.modules, "h5py", None)
+    content = b"\x89HDF\r\n\x1a\n" + bytes(64)
+    _serve(monkeypatch, content)
+    monkeypatch.setitem(
+        LISTINGS,
+        f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered",
+        [f"{_PCP}_{q}_00-LATEST-boo-10132-hd5" for q in ("th", "tv")],
+    )
+
+    with caplog.at_level(logging.WARNING):
+        results = list(
+            DwdRadarValues(
+                parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+                site=DwdRadarSite.BOO,
+                subset=DwdRadarDataSubset.UNFILTERED,
+                start=DwdRadarDate.LATEST,
+            ).query()
+        )
+
+    # TH and TV: two files, one warning
+    assert [result.timestamp for result in results] == [None, None]
+    assert all(result.data.getvalue() == content for result in results)
+    records = [record for record in caplog.records if "h5py" in record.getMessage()]
+    assert len(records) == 1
+    assert "pip install wetterdienst[radar]" in records[0].getMessage()
+    assert "without a timestamp" in records[0].getMessage()
+
+
+@pytest.mark.parametrize("content", [b"\x89HDF", b"\x89HDF\r\n\x1a\n" + bytes(64), b"", b"<nowcast-data/>"])
+def test_the_latest_file_that_says_no_time_is_undated_and_is_no_error(
+    content: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that a truncated file, an empty one, and one with no time in it (an XML) answer None, not an exception."""
+    pytest.importorskip("h5py")
+    _serve(monkeypatch, content)
+
+    (result,) = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST
+    ).query()
+
+    assert result.timestamp is None
+    assert result.data.getvalue() == content
+
+
+def test_a_file_dated_by_its_name_keeps_the_time_of_its_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that only a file with no time in its name is dated by its content: the name is what a window selects by."""
+    # the file says 11:10, the name and the slot asked for 11:30: the timestamp stays the slot's
+    _serve(monkeypatch, _odim("20261022", "111000"))
+
+    (result,) = DwdRadarValues(
+        parameter=DwdRadarParameter.PE_ECHO_TOP, site=DwdRadarSite.BOO, start="2026-10-22 11:30"
+    ).query()
+
+    assert result.timestamp == dt.datetime(2026, 10, 22, 11, 30, tzinfo=UTC)

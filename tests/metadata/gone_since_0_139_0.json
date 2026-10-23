@@ -263,6 +263,7 @@
   },
   "DwdPoiMetadata": {
    "hourly/data": [
+    "radiation_sky_short_wave_direct_intensity",
     "temperature_air_mean_0_05m",
     "temperature_air_mean_2m",
     "temperature_dew_point_mean_2m",

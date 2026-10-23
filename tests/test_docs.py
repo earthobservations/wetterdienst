@@ -667,6 +667,29 @@ def test_docs_change_parameters_are_not_constrained_to_be_positive() -> None:
     assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
 
 
+def test_docs_stage_parameters_are_not_constrained_to_be_positive() -> None:
+    """Test that a documented `stage*` parameter is not constrained to `>=0`.
+
+    A stage is read against the datum of its gauge, so it is negative when the water stands below it: on
+    2026-10-22 nine of the 737 `wsv/pegel` gauges with a reading were below zero (Schillig -250 cm, Rotterdam
+    -35 cm), yet the row said `>=0` (GH-3242).
+    """
+    wrong = []
+    for provider, network, resolution, path in _documented_resolutions():
+        constraints = _documented_column(path, "constraints")
+        for dataset in resolution:
+            for parameter in dataset.parameters:
+                if not parameter.name.startswith("stage"):
+                    continue
+                key = (dataset.name, parameter.name, parameter.name_original)
+                wrong.extend(
+                    f"{provider}/{network}/{resolution.name}/{dataset.name} {parameter.name}: docs {shown!r}"
+                    for shown in constraints.get(key, [])
+                    if ">=0" in shown
+                )
+    assert not wrong, "\n".join(_capped(wrong, 20, "the report"))
+
+
 def _documented_unit_spellings(
     resolution: "ResolutionModel",
     path: Path,
@@ -1728,3 +1751,60 @@ def test_docs_quickstart_lists_every_extra() -> None:
     rows = list(takewhile(lambda line: line.startswith("|"), rest.splitlines()[2:]))
     listed = {name for row in rows for name in re.findall(r"`(\w+)`", row.strip().strip("|").split("|")[0])}
     assert listed == extras
+
+
+def _split_cells(line: str) -> list[str]:
+    """Split a markdown table row into its cells: on every ``|`` that is not escaped, without the outer pipes."""
+    row = line.strip()
+    row = row.removeprefix("|")
+    if row.endswith("|") and not row.endswith("\\|"):
+        row = row[:-1]
+    return re.split(r"(?<!\\)\|", row)
+
+
+def _ragged_table_rows(path: Path) -> list[str]:
+    """Give the rows of the tables on a page whose cell count differs from the header's, with the counts.
+
+    A row with more cells than the header is rendered without the surplus ones, so a cell that a writer
+    meant for a fifth column vanishes from the page and nothing fails (GH-3321: the release of a migration
+    row). A row with fewer is padded with empty ones, which hides a cell that was never written.
+    A table is a line of cells followed by a delimiter row of dashes; a code block is not read. Only rows
+    that begin with a pipe are read, which is how every table of this tree is written.
+    """
+    problems = []
+    header: list[str] | None = None
+    in_table = False
+    previous = ""
+    for line in _prose_lines(path):
+        if not line.lstrip().startswith("|"):
+            header, in_table, previous = None, False, ""
+            continue
+        cells = _split_cells(line)
+        is_delimiter = all(re.fullmatch(r"\s*:?-+:?\s*", cell) for cell in cells)
+        if in_table and header is not None:
+            if len(cells) != len(header):
+                problems.append(f"{_cells(len(cells))} under {len(header)}: {line.strip()[:100]}")
+        elif is_delimiter and previous:
+            header, in_table = _split_cells(previous), True
+            if len(cells) != len(header):
+                # the renderer shows no table at all then
+                problems.append(f"the delimiter has {_cells(len(cells))} under {len(header)}: {previous.strip()[:100]}")
+        previous = line
+    return problems
+
+
+def test_docs_table_rows_have_as_many_cells_as_their_header(tmp_path: Path) -> None:
+    """Test that no table of the documentation or the README has a row with more or fewer cells than its header."""
+    sample = tmp_path / "sample.md"
+    sample.write_text(
+        "| a | b |\n| --- | --- |\n| 1 | 2 |\n| 1 | 2 | 3 |\n| 1 |\n| `x\\|y` | 2 |\n\n```text\n| 1 | 2 | 3 |\n```\n\n"
+        "| a | b |\n| --- | --- | --- |\n",
+        encoding="utf8",
+    )
+    assert _ragged_table_rows(sample) == [
+        "3 cells under 2: | 1 | 2 | 3 |",
+        "1 cell under 2: | 1 |",
+        "the delimiter has 3 cells under 2: | a | b |",
+    ]
+    errors = [f"{path.relative_to(ROOT)}: {problem}" for path in _prose_files() for problem in _ragged_table_rows(path)]
+    assert not errors, "\n".join(_capped(errors, 40, "the report"))

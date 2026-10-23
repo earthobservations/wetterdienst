@@ -243,7 +243,8 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     feed = {
         "2026-10-10T12:00": {"1200579": reading},
         "2026-10-10T13:00": {"1200579": dict.fromkeys(reading, -99.0)},
-        # code 0 is "no direction (calm)", which the feed writes as the integer 0 (checked on the live feed)
+        # code 0 is "sem rumo" (no direction), which the feed writes as the integer 0 (checked on the live feed), also
+        # beside a wind that blows, as here
         "2026-10-10T14:00": {"1200579": {**reading, "idDireccVento": 0}},
     }
     serve(
@@ -886,11 +887,11 @@ def dwd_dmo_values(
 
 
 def _dwd_dmo(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # the same KML as MOSMIX's, with the same `-`
+    # the same KML as MOSMIX's, with the same `-`, and an hour's precipitation of -0.02 mm, which is 0.0 (GH-3263)
     return dwd_dmo_values(
         monkeypatch,
-        {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -"},
-        [("hourly", "icon", "ttt"), ("hourly", "icon", "td")],
+        {"TTT": "275.15 - 276.15", "Td": "273.15 274.15 -", "RR1": "-0.02 0.40 -"},
+        [("hourly", "icon", "ttt"), ("hourly", "icon", "td"), ("hourly", "icon", "rr1")],
         options=_options(drop_nulls),
     )
 
@@ -1978,7 +1979,11 @@ STUBS = [
         "dwd/dmo hourly/icon",
         _dwd_dmo,
         reading=("temperature_air_2m", 2.0),
-        tokens=(("temperature_air_2m", "-", None), ("temperature_dew_point_2m", "-", None)),
+        tokens=(
+            ("temperature_air_2m", "-", None),
+            ("temperature_dew_point_2m", "-", None),
+            ("precipitation_amount_last_1h", "-0.02", 0.0),
+        ),
     ),
     ValueStub(
         "dwd/poi hourly/data",

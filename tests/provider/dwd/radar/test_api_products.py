@@ -106,6 +106,27 @@ LISTINGS = {
         f"{_VOL}_uphidp_00-2026102213105700-boo-10132-hd5",
         f"{_VOL}_uphidp_09-2026102213140200-boo-10132-hd5",
     ],
+    # TH and TV, the two files a sweep of the reflectivity has in the folder `unfiltered`, and the `-LATEST-` of each
+    f"{RADAR}/sites/sweep_vol_z/boo/unfiltered": [
+        f"{_VOL}_th_00-2026102213105700-boo-10132-hd5",
+        f"{_VOL}_th_01-2026102213112000-boo-10132-hd5",
+        f"{_VOL}_th_09-2026102213140200-boo-10132-hd5",
+        f"{_VOL}_tv_00-2026102213105700-boo-10132-hd5",
+        f"{_VOL}_tv_01-2026102213112000-boo-10132-hd5",
+        f"{_VOL}_tv_09-2026102213140200-boo-10132-hd5",
+        f"{_VOL}_th_00-2026102213155700-boo-10132-hd5",
+        f"{_VOL}_th_00-LATEST-boo-10132-hd5",
+        f"{_VOL}_th_01-LATEST-boo-10132-hd5",
+        f"{_VOL}_tv_00-LATEST-boo-10132-hd5",
+    ],
+    f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered": [
+        f"{_PCP}_th_00-2026102213103300-boo-10132-hd5",
+        f"{_PCP}_tv_00-2026102213103300-boo-10132-hd5",
+        f"{_PCP}_th_00-2026102213153300-boo-10132-hd5",
+        f"{_PCP}_tv_00-2026102213153300-boo-10132-hd5",
+        f"{_PCP}_tv_00-LATEST-boo-10132-hd5",
+        f"{_PCP}_th_00-LATEST-boo-10132-hd5",
+    ],
     f"{RADAR}/sites/sweep_pcp_zdr/boo/unfiltered": [
         f"{_PCP}_uzdr_00-2026102213103300-boo-10132-hd5",
         f"{_PCP}_uzdr_00-2026102213153300-boo-10132-hd5",
@@ -342,13 +363,20 @@ def test_the_precipitation_sweeps_have_no_elevation_to_choose() -> None:
         )
 
 
-@pytest.mark.parametrize("parameter", ["sweep_vol_zdr", "sweep_vol_phidp"])
-def test_the_volume_sweeps_have_no_single_latest_file(parameter: str) -> None:
-    """Test that LATEST is refused for the volume sweeps: the folder holds one `-LATEST-` file for each elevation."""
+@pytest.mark.parametrize(
+    ("parameter", "subset"),
+    [
+        ("sweep_vol_zdr", None),
+        ("sweep_vol_phidp", None),
+        ("sweep_vol_z", DwdRadarDataSubset.UNFILTERED),
+    ],
+)
+def test_the_volume_sweeps_have_no_latest_volume(parameter: str, subset: DwdRadarDataSubset | None) -> None:
+    """Test that LATEST is refused for the volume sweeps: DWD replaces the ten `-LATEST-` files one by one (GH-3288)."""
     with pytest.raises(
-        ValueError, match=r"has no '-latest-' files \(the unfiltered folders have one for each elevation"
+        ValueError, match=r"has no '-latest-' files of a whole volume \(the unfiltered folders have one for each"
     ):
-        DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+        DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, subset=subset, start=DwdRadarDate.LATEST)
 
 
 @pytest.mark.parametrize("parameter", ["sweep_pcp_v", "sweep_vol_v", "sweep_vol_z"])
@@ -356,6 +384,15 @@ def test_the_sweeps_of_a_filter_have_no_latest_file(parameter: str) -> None:
     """Test that LATEST is refused as it was for the sweeps whose folders of a filter hold none, with no hint."""
     with pytest.raises(ValueError, match=r"HDF5 sweep data has no '-latest-' files$"):
         DwdRadarValues(parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST)
+
+
+@pytest.mark.parametrize("subset", [None, DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC])
+def test_the_reflectivity_of_the_precipitation_scan_has_latest_files_in_the_unfiltered_folder_only(
+    subset: DwdRadarDataSubset | None,
+) -> None:
+    """Test that the refusal for a filter folder names the unfiltered folder, which has the LATEST files."""
+    with pytest.raises(ValueError, match=r"no '-latest-' files \(the unfiltered folder has them: subset=UNFILTERED\)$"):
+        DwdRadarValues(parameter="sweep_pcp_z", site=DwdRadarSite.BOO, subset=subset, start=DwdRadarDate.LATEST)
 
 
 @pytest.mark.parametrize(
@@ -377,6 +414,122 @@ def test_the_polarimetric_precipitation_sweeps_have_one_latest_file(
 
     assert downloaded == [(f"{base}/{latest}", CacheExpiry.NO_CACHE)]
     assert len(results) == 1
+
+
+@pytest.mark.parametrize(
+    ("parameter", "folder", "scan"),
+    [
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, "sweep_vol_z", _VOL),
+        (DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H, "sweep_pcp_z", _PCP),
+    ],
+)
+def test_the_unfiltered_reflectivity_sweeps_are_the_th_and_the_tv_files(
+    parameter: DwdRadarParameter, folder: str, scan: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that `unfiltered` is a folder of the reflectivity sweeps, which answers TH and TV and no LATEST file."""
+    assert RADAR_DATA_SUBSETS[parameter] == (
+        DwdRadarDataSubset.SIMPLE,
+        DwdRadarDataSubset.POLARIMETRIC,
+        DwdRadarDataSubset.UNFILTERED,
+    )
+    base = f"{RADAR}/sites/{folder}/boo"
+    assert (
+        build_path_to_parameter(parameter, site=DwdRadarSite.BOO, subset=DwdRadarDataSubset.UNFILTERED)
+        == f"weather/radar/sites/{folder}/boo/unfiltered/"
+    )
+    # the folders of the filters are where they were, and a folder is still to be named
+    assert (
+        build_path_to_parameter(parameter, site=DwdRadarSite.BOO, subset=DwdRadarDataSubset.SIMPLE)
+        == f"weather/radar/sites/{folder}/boo/hdf5/filter_simple/"
+    )
+    with pytest.raises(ValueError, match="Argument 'subset' is missing"):
+        build_path_to_parameter(parameter, site=DwdRadarSite.BOO)
+
+    downloaded = _served(
+        monkeypatch, {f"{base}/unfiltered/{name}": b"\x89HDF" for name in LISTINGS[f"{base}/unfiltered"]}
+    )
+    request = DwdRadarValues(
+        parameter=parameter,
+        site=DwdRadarSite.BOO,
+        subset=DwdRadarDataSubset.UNFILTERED,
+        start="2026-10-22 13:10",
+    )
+    assert request.subset == DwdRadarDataSubset.UNFILTERED
+    results = list(request.query())
+
+    # both moments of the run at 13:10, for the sweeps it has: not the run of 13:15, and not the LATEST
+    names = sorted(url.rsplit("/", 1)[1] for url, _ in downloaded)
+    assert {name.split("_")[2] for name in names} == {"th", "tv"}
+    assert not any("LATEST" in name for name in names)
+    assert all(f"{scan}_" in name and "-20261022131" in name for name in names)
+    assert len(results) == len(names) == (6 if folder == "sweep_vol_z" else 2)
+    assert {result.timestamp for result in results} <= {
+        dt.datetime(2026, 10, 22, 13, 10, tzinfo=UTC),
+        dt.datetime(2026, 10, 22, 13, 11, tzinfo=UTC),
+        dt.datetime(2026, 10, 22, 13, 14, tzinfo=UTC),
+    }
+
+
+def test_the_unfiltered_volume_reflectivity_is_selected_by_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `elevation` picks both TH and TV of the sweep out of the unfiltered folder."""
+    base = f"{RADAR}/sites/sweep_vol_z/boo/unfiltered"
+    downloaded = _served(monkeypatch, {f"{base}/{name}": b"\x89HDF" for name in LISTINGS[base]})
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            start="2026-10-22 13:10",
+            elevation=1,
+        ).query()
+    )
+
+    assert sorted(url for url, _ in downloaded) == [
+        f"{base}/{_VOL}_th_01-2026102213112000-boo-10132-hd5",
+        f"{base}/{_VOL}_tv_01-2026102213112000-boo-10132-hd5",
+    ]
+    assert len(results) == 2
+
+
+def test_the_latest_of_the_unfiltered_precipitation_reflectivity_is_th_and_tv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that LATEST is the two `-LATEST-` files of the folder, TH then TV, asked for again (GH-3288)."""
+    base = f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered"
+    downloaded = _served(monkeypatch, {f"{base}/{name}": b"\x89HDF" for name in LISTINGS[base]})
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            start=DwdRadarDate.LATEST,
+        ).query()
+    )
+
+    assert downloaded == [
+        (f"{base}/{_PCP}_th_00-LATEST-boo-10132-hd5", CacheExpiry.NO_CACHE),
+        (f"{base}/{_PCP}_tv_00-LATEST-boo-10132-hd5", CacheExpiry.NO_CACHE),
+    ]
+    assert len(results) == 2
+
+
+def test_the_latest_of_a_sweep_that_has_no_file_named_so_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a folder without a `-LATEST-` file answers no result and says so, as a time with no file does."""
+    monkeypatch.setitem(
+        LISTINGS, f"{RADAR}/sites/sweep_pcp_zdr/boo/unfiltered", [f"{_PCP}_uzdr_00-2026102213103300-boo-10132-hd5"]
+    )
+    _served(monkeypatch, {})
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_ZDR, site=DwdRadarSite.BOO, start=DwdRadarDate.LATEST
+        ).query()
+    )
+
+    assert results == []
+    assert "No radar file found" in caplog.text
 
 
 def test_konrad3d_has_no_latest_file() -> None:
@@ -428,6 +581,132 @@ def test_the_latest_of_rs_is_the_analysis_in_its_tar(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.parametrize(
+    ("parameter", "latest", "file", "expected"),
+    [
+        (
+            DwdRadarParameter.VII_INTEGRATED_ICE,
+            "composite/vii/composite_VII_latest-hd5",
+            "composite_VII_20261020_1325-hd5",
+            dt.datetime(2026, 10, 20, 13, 25, tzinfo=UTC),
+        ),
+        (
+            DwdRadarParameter.HYMECNG_PRECIPITATION_TYPE,
+            "composite/hymecng/composite_HymecNG_LATEST_000-hd5",
+            "composite_HymecNG_20261020_1325_000-hd5",
+            dt.datetime(2026, 10, 20, 13, 25, tzinfo=UTC),
+        ),
+        (
+            DwdRadarParameter.YW_REFLECTIVITY,
+            "radolan/yw/raa01-yw_10000-latest-dwd---bin.hdf5",
+            "raa01-yw_10000-2610201300-dwd---bin.hdf5",
+            dt.datetime(2026, 10, 20, 13, 0, tzinfo=UTC),
+        ),
+    ],
+)
+def test_the_latest_file_of_a_composite_is_dated_by_the_scan_time_in_the_real_file(
+    parameter: DwdRadarParameter, latest: str, file: str, expected: dt.datetime, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that `composite_VII_latest-hd5` and the other LATEST files with no time in the name are dated (GH-3299)."""
+    pytest.importorskip("h5py")
+    _served(monkeypatch, {f"{RADAR}/{latest}": (FILES / file).read_bytes()})
+
+    (result,) = DwdRadarValues(parameter=parameter, start=DwdRadarDate.LATEST).query()
+
+    assert result.timestamp == expected
+
+
+def test_the_latest_of_a_precipitation_sweep_is_dated_by_the_scan_time_in_the_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that TH and TV of `-LATEST-` are each dated, to the second the file says.
+
+    The file is a real sweep of BOO, of the volume scan, which stands in for the two of the precipitation scan: it has
+    the time of its volume in `/what`, 23:55:20 (the name says 23:58:35). The precipitation sweeps say
+    the slot, 21:25:00.
+    """
+    pytest.importorskip("h5py")
+    base = f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered"
+    sweep = (FILES / "ras07-vol5minng01_sweeph5onem_uzdr_07-2026102123583500-boo-10132-hd5").read_bytes()
+    _served(
+        monkeypatch,
+        {f"{base}/{_PCP}_th_00-LATEST-boo-10132-hd5": sweep, f"{base}/{_PCP}_tv_00-LATEST-boo-10132-hd5": sweep},
+    )
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            start=DwdRadarDate.LATEST,
+        ).query()
+    )
+
+    # `/what` of that file: date 20261021, time 235520
+    assert [result.timestamp for result in results] == [dt.datetime(2026, 10, 21, 23, 55, 20, tzinfo=UTC)] * 2
+
+
+def test_the_latest_of_the_mesocyclones_with_an_event_is_dated_by_the_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `meso_latest.xml` of a run with an event is dated by its time, `2026-10-21T16:30:00` (a real file)."""
+    content = (FILES / "meso_20261021_1630.xml").read_bytes()
+    assert b'<time time-coordinate="UTC">2026-10-21T16:30:00</time>' in content
+    _served(monkeypatch, {f"{RADAR}/mesocyclones/meso_latest.xml": content})
+
+    (result,) = DwdRadarValues(parameter=DwdRadarParameter.MESOCYCLONE_DETECTION, start=DwdRadarDate.LATEST).query()
+
+    assert result.timestamp == dt.datetime(2026, 10, 21, 16, 30, tzinfo=UTC)
+    assert result.data.getvalue() == content
+
+
+def test_the_latest_of_the_mesocyclones_with_no_event_has_no_time_in_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `meso_latest.xml`, which holds no event and no time (a real one), stays undated: none is made up."""
+    content = (FILES / "meso_20261020_1325.xml").read_bytes()
+    assert b"time-coordinate" not in content
+    _served(monkeypatch, {f"{RADAR}/mesocyclones/meso_latest.xml": content})
+
+    (result,) = DwdRadarValues(parameter=DwdRadarParameter.MESOCYCLONE_DETECTION, start=DwdRadarDate.LATEST).query()
+
+    assert result.timestamp is None
+    assert result.data.getvalue() == content
+
+
+@pytest.mark.parametrize(
+    ("parameter", "subset"),
+    [
+        (DwdRadarParameter.SWEEP_VOL_VELOCITY_H, DwdRadarDataSubset.SIMPLE),
+        (DwdRadarParameter.SWEEP_VOL_VELOCITY_H, DwdRadarDataSubset.POLARIMETRIC),
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, DwdRadarDataSubset.SIMPLE),
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, DwdRadarDataSubset.POLARIMETRIC),
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, DwdRadarDataSubset.UNFILTERED),
+        (DwdRadarParameter.SWEEP_VOL_ZDR, None),
+        (DwdRadarParameter.SWEEP_VOL_RHOHV, None),
+        (DwdRadarParameter.SWEEP_VOL_PHIDP, None),
+    ],
+)
+def test_the_most_recent_volume_of_the_sweeps_is_the_slot_10_minutes_before(
+    parameter: DwdRadarParameter, subset: DwdRadarDataSubset | None
+) -> None:
+    """Test that the last sweeps of a volume, listed up to 485 s after its slot starts, are waited for (GH-3302)."""
+    request = DwdRadarValues(parameter=parameter, subset=subset, site=DwdRadarSite.BOO, start=DwdRadarDate.MOST_RECENT)
+    assert isinstance(request.start, dt.datetime)
+    now = dt.datetime.now(UTC)
+    # the slot started more than 600 s ago, longer than the 485 s of the longest listing of the last sweep
+    assert dt.timedelta(minutes=10) <= now - request.start <= dt.timedelta(minutes=15)
+    assert request.end - request.start == dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
+
+
+def test_the_most_recent_sweep_of_the_precipitation_scan_keeps_the_slot_5_minutes_before() -> None:
+    """Test that the one sweep of the precipitation scan, first listed within 240 s, is not made to wait longer."""
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        subset=DwdRadarDataSubset.SIMPLE,
+        site=DwdRadarSite.BOO,
+        start=DwdRadarDate.MOST_RECENT,
+    )
+    assert isinstance(request.start, dt.datetime)
+    assert dt.timedelta(minutes=5) <= dt.datetime.now(UTC) - request.start <= dt.timedelta(minutes=10)
+
+
+@pytest.mark.parametrize(
     ("parameter", "lag"),
     [
         (DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS, 10),
@@ -435,6 +714,11 @@ def test_the_latest_of_rs_is_the_analysis_in_its_tar(monkeypatch: pytest.MonkeyP
         (DwdRadarParameter.VII_INTEGRATED_ICE, 10),
         (DwdRadarParameter.RS_PRECIPITATION_SUM, 10),
         (DwdRadarParameter.DMAX_REFLECTIVITY, 10),
+        (DwdRadarParameter.LMAX_VOLUME_SCAN, 10),
+        (DwdRadarParameter.PE_ECHO_TOP, 10),
+        (DwdRadarParameter.PR_VELOCITY, 10),
+        (DwdRadarParameter.PZ_CAPPI, 10),
+        (DwdRadarParameter.PX250_REFLECTIVITY, 5),
         (DwdRadarParameter.HX_REFLECTIVITY, 5),
         (DwdRadarParameter.RV_REFLECTIVITY, 5),
     ],
@@ -859,6 +1143,10 @@ def test_radar_request_site_sweep_pcp_polarimetric_latest(default_settings: Sett
         DwdRadarParameter.VII_INTEGRATED_ICE,
         DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS,
         DwdRadarParameter.MESOCYCLONE_DETECTION,
+        DwdRadarParameter.LMAX_VOLUME_SCAN,
+        DwdRadarParameter.PE_ECHO_TOP,
+        DwdRadarParameter.PR_VELOCITY,
+        DwdRadarParameter.PZ_CAPPI,
     ],
 )
 def test_radar_request_most_recent_of_the_products_published_late(
@@ -866,8 +1154,82 @@ def test_radar_request_most_recent_of_the_products_published_late(
 ) -> None:
     """Test that MOST_RECENT finds a file whenever it is asked, though DWD publishes these up to 9 minutes late."""
     results = list(
-        DwdRadarValues(parameter=parameter, start=DwdRadarDate.MOST_RECENT, settings=default_settings).query()
+        DwdRadarValues(
+            parameter=parameter, site=DwdRadarSite.BOO, start=DwdRadarDate.MOST_RECENT, settings=default_settings
+        ).query()
     )
 
     assert len(results) == 1
     assert dt.datetime.now(UTC) - results[0].timestamp <= dt.timedelta(minutes=20)
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("parameter", "sweeps", "task"),
+    [
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, 10, b"Sc_Vol-5Min-NG-01_BOO"),
+        (DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H, 1, b"Sc_Pcp-NG-01_BOO"),
+    ],
+)
+def test_radar_request_site_sweep_unfiltered_reflectivity(
+    parameter: DwdRadarParameter, sweeps: int, task: bytes, default_settings: Settings
+) -> None:
+    """Test the total reflectivity of the unfiltered folder: TH and TV of each sweep of a run, a pair by `elevation`."""
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
+
+    request = DwdRadarValues(
+        parameter=parameter,
+        site=DwdRadarSite.BOO,
+        subset=DwdRadarDataSubset.UNFILTERED,
+        start=_yesterday(),
+        settings=default_settings,
+    )
+    results = list(request.query())
+
+    assert len(results) == 2 * sweeps
+    quantities = []
+    for result in results:
+        with h5py.File(result.data, mode="r") as f:
+            quantities.append(f["dataset1/data1/what"].attrs["quantity"])
+            assert f["how"].attrs["task"] == task
+            assert f["how"].attrs["scan_count"] == sweeps
+    assert sorted(set(quantities)) == [b"TH", b"TV"]
+    assert quantities.count(b"TH") == quantities.count(b"TV") == sweeps
+
+    if sweeps > 1:
+        pair = list(
+            DwdRadarValues(
+                parameter=parameter,
+                site=DwdRadarSite.BOO,
+                subset=DwdRadarDataSubset.UNFILTERED,
+                start=request.start,
+                elevation=9,
+                settings=default_settings,
+            ).query()
+        )
+        assert len(pair) == 2
+        for result in pair:
+            with h5py.File(result.data, mode="r") as f:
+                assert f["dataset1/how"].attrs["scan_index"] == 10
+
+
+@pytest.mark.remote
+def test_radar_request_site_sweep_pcp_unfiltered_reflectivity_latest(default_settings: Settings) -> None:
+    """Test that LATEST of the unfiltered reflectivity of the precipitation scan is its TH and TV files (GH-3288)."""
+    h5py = pytest.importorskip("h5py", reason="h5py not installed")
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            start=DwdRadarDate.LATEST,
+            settings=default_settings,
+        ).query()
+    )
+
+    assert [result.url.rsplit("/", 1)[1].split("_")[2] for result in results] == ["th", "tv"]
+    assert all("-LATEST-" in result.url for result in results)
+    for result, quantity in zip(results, [b"TH", b"TV"], strict=True):
+        with h5py.File(result.data, mode="r") as f:
+            assert f["dataset1/data1/what"].attrs["quantity"] == quantity

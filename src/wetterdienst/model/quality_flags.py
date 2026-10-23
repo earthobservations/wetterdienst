@@ -27,6 +27,9 @@ rule for every provider, and ``with_speed_beside`` lays the speed beside the dir
 
 A stuck or dead sensor over a period of time gives values inside every range. ``NoReading`` maps what a
 station, a parameter and a period select to null the same way, keeping the value as ``raw`` (GH-3031).
+
+A model that writes a little below the floor of its quantity (an amount of precipitation of -0.02 mm) rounds to
+nothing: ``Floor`` maps what is below the floor to the floor and keeps the number as ``raw``, as a trace is (GH-3263).
 """
 
 from __future__ import annotations
@@ -161,6 +164,30 @@ class NoReading:
         self.where = where
 
 
+class Floor:
+    """A value below the floor of its quantity, which a model writes as the noise around nothing: it is the floor.
+
+    The rule of an amount that cannot be negative and of which a model's output is a little: DWD's ICON writes
+    -0.02 mm for the precipitation of an hour (GH-3263). It maps such a value to ``floor``, as the trace of FMI or KNMI
+    is 0.0, and keeps the number as the ``raw`` token: from a number as short as it goes (``-0.10`` as ``-0.1``),
+    from a text the cell as written. A NaN or a null is not touched, and neither is a value of -0.0, which is not
+    below the floor. Of a column of text, a floor makes numbers: a text that is no number becomes null, with no token
+    unless ``non_numeric`` is set. Declare a code of the source (``-999``) as a ``Sentinel`` before it: the first rule
+    that matches decides.
+
+    Args:
+        floor: the lowest value the quantity has, included, in the unit of the source, and the value a lower one is
+            mapped to.
+        where: restricts the rule to the values this expression selects (a parameter).
+
+    """
+
+    def __init__(self, floor: float, *, where: pl.Expr | None = None) -> None:
+        """Declare the floor."""
+        self.floor = floor
+        self.where = where
+
+
 # the text of the direction of a calm wind, as every source that writes one writes it
 CALM = "0"
 # the column a long frame carries the speed of a wind direction's own reading in, beside the direction
@@ -239,7 +266,7 @@ def with_speed_beside(
 
 def null_sentinels(
     value: pl.Expr,
-    *sentinels: Sentinel | OutOfRange | NoReading,
+    *sentinels: Sentinel | OutOfRange | NoReading | Floor,
     text: bool = True,
     non_numeric: bool = False,
 ) -> tuple[pl.Expr, pl.Expr]:
@@ -255,19 +282,20 @@ def null_sentinels(
     Args:
         value: the expression of the reading. With ``text=True`` the text the source wrote, a String column,
             which is what a reader that sets ``infer_schema_length=0`` has; with ``text=False`` a number.
-        *sentinels: the sentinels, ranges and periods (``Sentinel``, ``OutOfRange``, ``NoReading``), the first that
-            matches decides.
+        *sentinels: the sentinels, ranges and periods (``Sentinel``, ``OutOfRange``, ``NoReading``,
+            ``Floor``), the first that matches decides.
         text: whether ``value`` is the text of the source. Then the ``raw`` text is the stripped cell as it was
             written (``-999.0`` stays ``-999.0``); from a number it is the text the matching sentinel was
-            declared with, or for an ``OutOfRange`` the number as ``OutOfRange`` writes it.
+            declared with, or for an ``OutOfRange`` or a ``Floor`` the number as short as it goes.
         non_numeric: also map every non-blank text that is no number (``mq``, ``---``, ``Ip``, ``nan``, ``inf``) to
             null, with the text as its ``raw`` token (a comma in it is written as a semicolon, as the tokens are
             separated by commas). Needs ``text=True``.
 
     Returns:
         ``(cleaned, raw)``. With ``text=True`` the cleaned value is the stripped text, String, unless
-        ``non_numeric`` or a sentinel's ``to`` is set, which make it Float64; with ``text=False`` it is the
-        number as it was, an integer staying one unless a sentinel's ``to`` is set, which makes it Float64.
+        ``non_numeric``, a sentinel's ``to`` or a ``Floor`` is set, which make it Float64; with ``text=False`` it is the
+        number as it was, an integer staying one unless a sentinel's ``to`` is set or a ``Floor`` is given, which make
+        it Float64.
 
     """
     if non_numeric and not text:
@@ -275,9 +303,7 @@ def null_sentinels(
         raise ValueError(msg)
     cell = value.str.strip_chars() if text else value
     number = cell.cast(pl.Float64, strict=False)
-    reads_number = text and (
-        non_numeric or any(isinstance(sentinel, Sentinel) and sentinel.to is not None for sentinel in sentinels)
-    )
+    reads_number = text and (non_numeric or _maps_to_a_value(sentinels))
     # a number keeps its dtype (an integer column stays one), a text its String unless it is read as a number
     base = number if reads_number else (cell if text else value)
     null = pl.lit(None, dtype=pl.Float64 if reads_number else (pl.String if text else None))
@@ -289,13 +315,14 @@ def null_sentinels(
             chosen = sentinel.where & number.is_not_null()
             branches.append((chosen.fill_null(value=False), null, cell if text else _written(number)))
             continue
-        if isinstance(sentinel, OutOfRange):
-            outside = (number < sentinel.low) | (number > sentinel.high)
+        if isinstance(sentinel, (OutOfRange, Floor)):
+            outside = _outside(number, sentinel)
             if sentinel.where is not None:
                 outside = outside & sentinel.where
             # a number is written as short as it goes, `4021.0` as `4021`; a text as it was written
             written = cell if text else _written(number)
-            branches.append((outside.fill_null(value=False), null, written))
+            to = pl.lit(sentinel.floor, dtype=pl.Float64) if isinstance(sentinel, Floor) else null
+            branches.append((outside.fill_null(value=False), to, written))
             continue
         mapped = null if sentinel.to is None else pl.lit(sentinel.to, dtype=pl.Float64)
         for sentinel_text in sentinel.texts:
@@ -309,6 +336,18 @@ def null_sentinels(
         no_number = number.is_null() | number.is_nan() | number.is_infinite()
         branches.append(((cell.str.len_chars() > 0) & no_number, null, cell.str.replace_all(",", ";")))
     return _first_hit(branches, 1, base), _first_hit(branches, 2, pl.lit(None, dtype=pl.String))
+
+
+def _maps_to_a_value(sentinels: tuple[Sentinel | OutOfRange | NoReading | Floor, ...]) -> bool:
+    """Tell whether a rule maps to a number (a ``Sentinel`` with ``to``, a ``Floor``), which makes a text column one."""
+    return any(isinstance(rule, Floor) or (isinstance(rule, Sentinel) and rule.to is not None) for rule in sentinels)
+
+
+def _outside(number: pl.Expr, rule: OutOfRange | Floor) -> pl.Expr:
+    """Select the numbers a range or a floor takes: those outside the range, those below the floor."""
+    if isinstance(rule, Floor):
+        return number < rule.floor
+    return (number < rule.low) | (number > rule.high)
 
 
 def _written(number: pl.Expr) -> pl.Expr:
@@ -344,7 +383,7 @@ def raw_column(column: str) -> str:
 def clear_sentinels(
     df: Frame,
     columns: Iterable[str],
-    *sentinels: Sentinel | OutOfRange | NoReading,
+    *sentinels: Sentinel | OutOfRange | NoReading | Floor,
     non_numeric: bool = False,
 ) -> Frame:
     """Map the sentinels and out-of-range values of the given columns of a wide frame, keeping their ``raw`` text.

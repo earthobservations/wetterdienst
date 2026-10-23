@@ -1333,10 +1333,12 @@ def test_a_malformed_listen_address_is_told(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.parametrize(
-    ("path", "name"),
-    [("stations", "rank"), ("values", "rank"), ("interpolate", "num_additional_stations")],
+    ("path", "name", "bound"),
+    [("stations", "rank", "1000000"), ("values", "rank", "1000000"), ("interpolate", "num_additional_stations", "20")],
 )
-def test_a_count_no_integer_holds_is_a_422_not_an_overflow(client: TestClient, path: str, name: str) -> None:
+def test_a_count_no_integer_holds_is_a_422_not_an_overflow(
+    client: TestClient, path: str, name: str, bound: str
+) -> None:
     """`rank=99999999999999999999` was a 500 `OverflowError`; a number the library cannot represent is malformed."""
     params = {**_OBSERVATION, "latitude": 50, "longitude": 10, name: "99999999999999999999"}
     if path == "interpolate":
@@ -1349,7 +1351,7 @@ def test_a_count_no_integer_holds_is_a_422_not_an_overflow(client: TestClient, p
     assert body["type"] == "urn:wetterdienst:problem:invalid-parameters"
     assert body["errors"][0]["loc"] == ["query", name]
     assert body["errors"][0]["type"] == "less_than_equal"
-    assert "1000000" in body["detail"]
+    assert bound in body["detail"]
 
 
 def test_a_count_at_the_bound_is_accepted(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

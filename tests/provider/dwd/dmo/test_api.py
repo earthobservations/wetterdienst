@@ -1987,6 +1987,94 @@ def test_dmo_radiation_is_read_in_joule_per_square_centimeter(
     assert df.get_column("value").to_list() == pytest.approx([1420.9, 0.0, None])
 
 
+@pytest.mark.parametrize(
+    ("parameter", "element", "lead_time", "written"),
+    [
+        pytest.param("radiation_global", "Rad1h", "short", ["-0.16", "0.00", "142.09"], id="rad1h"),
+        pytest.param("radiation_short_wave_net_last_3h", "RadS3", "long", ["-0.43", "0.00", "52.10"], id="rads3"),
+    ],
+)
+def test_dmo_returns_the_small_negative_radiation_of_the_model_as_written(
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    element: str,
+    lead_time: Literal["short", "long"],
+    written: list[str],
+) -> None:
+    """ICON's radiation below 0 at night is returned as the model writes it, with no flag (GH-3263).
+
+    Station 10382, run 2026-10-22 00Z: `Rad1h` is negative in 18 of 78 hourly steps, to -0.17 J/cm2, and `RadS3` to
+    -0.21; all stations of the icon run of 12Z go to -0.77 and -0.46. MOSMIX_L of the same station has none.
+    """
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    df = dwd_dmo_values(
+        monkeypatch,
+        {element: " ".join(written)},
+        [("hourly", "icon", parameter)],
+        lead_time,
+        Options(drop_nulls=False),
+    )
+    assert df.get_column("value").to_list() == pytest.approx([float(value) for value in written])
+    assert df.get_column("quality_flags").null_count() == df.height
+
+
+@pytest.mark.parametrize(
+    ("parameter", "element", "lead_time"),
+    [
+        pytest.param("precipitation_amount_last_1h", "RR1", "short", id="rr1"),
+        pytest.param("precipitation_amount_last_3h", "RR3", "long", id="rr3"),
+    ],
+)
+def test_dmo_precipitation_below_zero_is_zero_and_keeps_the_number(
+    monkeypatch: pytest.MonkeyPatch,
+    parameter: str,
+    element: str,
+    lead_time: Literal["short", "long"],
+) -> None:
+    """A precipitation ICON writes below 0 is 0.0 with the number as `raw:`, a missing one keeps its `-` (GH-3263).
+
+    The icon run of 2026-10-22 12Z holds `RR1` below 0 in 2769 of 459,732 values (to -0.10 mm) and `RR3` to -0.04; the
+    file writes two decimals and the token the number as short as it goes (`-0.10` is `raw:-0.1`). A precipitation
+    stays, and so does the value of another element of the same file.
+    """
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    elements = {element: "-0.10 1.20 -", "TTT": "275.15 275.15 275.15"}
+    df = dwd_dmo_values(
+        monkeypatch,
+        elements,
+        [("hourly", "icon", parameter), ("hourly", "icon", "temperature_air_2m")],
+        lead_time,
+        Options(drop_nulls=False),
+    ).filter(pl.col("parameter") == parameter)
+    assert df.get_column("value").to_list() == pytest.approx([0.0, 1.2, None], nan_ok=True)
+    assert df.get_column("quality_flags").to_list() == ["raw:-0.1", None, "raw:-"]
+
+
+def test_dmo_precipitation_of_minus_zero_is_a_plain_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ICON writes `-0.00` too (308 of the 3077 cells of `RR1` that start with `-` in the run of 2026-10-22 12Z).
+
+    It is not below 0, so it has no `raw:` token, but it must not print a minus sign: the sign of the zero is checked,
+    which `pytest.approx` does not.
+    """
+    import math  # noqa: PLC0415
+
+    from tests.provider.value_stubs import dwd_dmo_values  # noqa: PLC0415
+
+    df = dwd_dmo_values(
+        monkeypatch,
+        {"RR1": "-0.00 -0.10 0.40"},
+        [("hourly", "icon", "precipitation_amount_last_1h")],
+        "short",
+        Options(drop_nulls=False),
+    )
+    values = df.get_column("value").to_list()
+    assert values == [0.0, 0.0, 0.4]
+    assert [math.copysign(1.0, value) for value in values] == [1.0, 1.0, 1.0]
+    assert df.get_column("quality_flags").to_list() == [None, "raw:-0.1", None]
+
+
 def test_dmo_radiation_is_declared_in_joule_per_square_centimeter_by_both_products() -> None:
     """`icon_eu` serves `Rad1h` in the unit `icon` does; `radl3`, the long-wave balance, stays kJ/m2."""
     hourly = DwdDmoRequest.metadata.hourly

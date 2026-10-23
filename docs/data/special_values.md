@@ -53,6 +53,7 @@ library maps the code to 0.0 and keeps it as `raw:<code>`.
 | --- | --- | --- |
 | a trace written as a code in the value | 0.0, `raw:<code>` | AEMET `Ip`, KNMI `-1` (also a trace of sunshine), Météo-France synop `-0.1` |
 | a trace written as 0 and flagged | 0.0, the source's flag | CHMI `element:T`, ECCC `T`, NOAA GHCN `measurement:T`, NWS (`P0000`, quality `C`) |
+| a precipitation a model writes a little below 0 | 0.0, `raw:<number>` | DWD DMO `rr1` and `rr3` (ICON, to -0.10 mm) |
 | a trace written as a plain 0 | 0.0 | Geosphere daily ("0=weniger als 1/10 mm"), Météo-France observation |
 | no precipitation or no snow written as a code | 0.0, `raw:<code>` | FMI `-1.0`, Geosphere daily `-1.0` and `-1`, MET Norway Frost `-1` (snow depth) |
 | no precipitation written as a status | 0, the status as the quality flag | IMGW meteorology `9` |
@@ -95,6 +96,9 @@ These values are returned as the source writes them, with no token:
 - a relative humidity of 100 % and above: a hygrometer reads past 100 now and then, and no blanket rule nulls it.
   DMI, RMI and DWD road null a humidity above 130 %, outside the physical range;
 - a radiation of 0 at night; a net radiation that is negative (DWD DMO);
+- the small negative radiation of DWD DMO's direct model output: `rad1h` at night (mostly above -0.2 J/cm2, at a
+  few stations to about -0.8) and `rads3` (to about -0.4 J/cm2). ICON writes them (read 2026-10-22; the MOSMIX_L
+  file of station 10382 holds none); no rule nulls or clips them. Its precipitation below 0 is 0.0 (above);
 - a snow depth below 0 that no source documents: MeteoSwiss' automatic gauge `htoautd0` reads -1 to -5 cm on warm
   days (11 % of the hours at PLF), a spread around a bare ground and not a code;
 - a sunshine duration longer than the day, unless a station's sensor is known to be stuck (RMI).

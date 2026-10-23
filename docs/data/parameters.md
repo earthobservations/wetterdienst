@@ -464,6 +464,24 @@ a request for an old name is refused with the new one named.
 The `winter_wheat` of `dwd/phenology` (the plant of the phenological stations, and the `annual_winter_wheat` and
 `immediate_winter_wheat` reporters) is a crop and keeps its name.
 
+#### DWD POI: the direct radiation is the irradiance perpendicular to the sun's rays
+
+POI's `direct_solar_radiation_last_hour` ("Direkte Strahlung (letzte Stunde)", W/m2) states no surface, and it is not
+the component on a horizontal surface: the file of 2026-10-23 shows it above the global radiation of the same hour at the
+French stations (07280 Dijon at 09 UTC on 2026-10-22: 603 against 297 W/m2; 07761 Ajaccio: 454 against 373), which a
+part of the global radiation cannot be. Multiplied by the sine of the sun's elevation (20 and 26 degrees on average over
+the hour) it is 209 and 198 W/m2 and stays below the global value in all six daytime reports of the two stations. That
+is the direct normal irradiance, which WMO-No. 8 (chapter 7.2) has a pyrheliometer measure with its receiving surface
+"normal to the solar direction". The name says so (0.169.0, GH-3263). The `_normal` of a name is a climatological
+normal everywhere else (`sunshine_duration_normal`), so the perpendicular plane is spelt out.
+
+| network | resolution/dataset | field | old name | new name | what the number is |
+| --- | --- | --- | --- | --- | --- |
+| dwd/poi | hourly/data | `direct_solar_radiation_last_hour` | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity` | "Direkte Strahlung (letzte Stunde)", W/m2, on a plane perpendicular to the sun's rays |
+
+Values and units are unchanged, and a request for the old name is refused with the new one named. To get the component
+on a horizontal surface, multiply the values by the cosine of the solar zenith angle.
+
 ## Glossary
 
 The unit type is a property of the parameter itself and decides which unit values are returned in;

@@ -32,10 +32,10 @@ from wetterdienst.provider.dwd.radar.index import (
 )
 from wetterdienst.provider.dwd.radar.metadata import (
     RADAR_DATA_FORMATS_NOT_PUBLISHED,
+    RADAR_DATA_SUBSETS,
     RADAR_PARAMETERS_NOT_PUBLISHED,
     RADAR_PARAMETERS_SLOW,
     RADAR_PARAMETERS_SWEEPS,
-    RADAR_PARAMETERS_SWEEPS_LATEST,
     RADAR_PARAMETERS_SWEEPS_VOLUME,
     DwdRadarDataFormat,
     DwdRadarDataSubset,
@@ -49,7 +49,12 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarParameter,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
-from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename, verify_hdf5
+from wetterdienst.provider.dwd.radar.util import (
+    RADAR_DT_PATTERN,
+    get_date_string_from_filename,
+    read_scan_time,
+    verify_hdf5,
+)
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
@@ -214,12 +219,24 @@ class DwdRadarValues:  # noqa: PLW1641
                 msg = "RADOLAN_CDC data has no '-latest-' files"
                 raise ValueError(msg)
 
-            # The folders of a filter have no latest file, the composites and the other site products do; the unfiltered
-            # folders have one for each elevation, which is one file of the precipitation scan and ten of the volume.
-            if self.parameter in RADAR_PARAMETERS_SWEEPS and self.parameter not in RADAR_PARAMETERS_SWEEPS_LATEST:
+            # The folders of a filter have no latest file, the composites and the other site products do. The unfiltered
+            # folders have one for each sweep: the precipitation scan one (two for the reflectivity, TH and TV), the
+            # volume scan ten, which DWD replaces one by one as the scan is published, so that for minutes they are of
+            # two volumes (read 2026-10-22 15:53 UTC: the sweeps 0 to 4 listed 15:51 to 15:53 and 5 to 9 at 15:48 to
+            # 15:49; the scan time inside the files of 0, 3 and 4 is 15:50, inside that of 9 15:45).
+            if self.parameter in RADAR_PARAMETERS_SWEEPS and self.subset != DwdRadarDataSubset.UNFILTERED:
                 msg = "HDF5 sweep data has no '-latest-' files"
-                if self.subset == DwdRadarDataSubset.UNFILTERED and self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
-                    msg += " (the unfiltered folders have one for each elevation: ask for a time instead)"
+                if (
+                    DwdRadarDataSubset.UNFILTERED in RADAR_DATA_SUBSETS.get(self.parameter, ())
+                    and self.parameter not in RADAR_PARAMETERS_SWEEPS_VOLUME
+                ):
+                    msg += " (the unfiltered folder has them: subset=UNFILTERED)"
+                raise ValueError(msg)
+            if self.parameter in RADAR_PARAMETERS_SWEEPS_VOLUME:
+                msg = (
+                    "HDF5 sweep data has no '-latest-' files of a whole volume (the unfiltered folders have one for "
+                    "each elevation, replaced one by one, so they can be of two volumes): ask for a time instead"
+                )
                 raise ValueError(msg)
 
             # nor has KONRAD3D, as the mesocyclones have
@@ -232,8 +249,10 @@ class DwdRadarValues:  # noqa: PLW1641
 
         # Evaluate "RadarDate.MOST_RECENT" for "start".
         #
-        # HDF5 folders do not have "-latest-" files (nor has KONRAD3D's), so we will have to synthesize them
-        # appropriately by going back to the second last volume of 5 minute intervals.
+        # The most recent HDF5 and XML file is a time, not the "-latest-" file: the sweeps of the filtered folders and
+        # KONRAD3D have none, and those of the unfiltered folders are replaced one by one as the scan is published.
+        # So we will have to synthesize the latest appropriately by going back to the second last volume of 5 minute
+        # intervals. The other products have a latest file but are asked for in the same way.
         #
         # The reason for this is that when requesting sweep data in HDF5 format at
         # e.g. 15:03, not all files will be available on the DWD data repository for
@@ -243,7 +262,8 @@ class DwdRadarValues:  # noqa: PLW1641
         #
         # So, we will be better off making the machinery retrieve the latest "full"
         # volume by addressing the **previous** volume. So, when requesting data at
-        # 15:03, it will retrieve 14:55:00-14:59:59.
+        # 15:03, it will retrieve 14:55:00-14:59:59. The volume sweeps are listed up to 485 s late, so they, as the
+        # other products of RADAR_PARAMETERS_SLOW, go back one more slot: 14:50:00-14:54:59 (GH-3302).
         #
         if self.format in (DwdRadarDataFormat.HDF5, DwdRadarDataFormat.XML) and start == DwdRadarDate.MOST_RECENT:
             # the products that DWD publishes late are gone back another 5 minutes, to a file that is there
@@ -285,6 +305,7 @@ class DwdRadarValues:  # noqa: PLW1641
             self.adjust_datetimes()
 
         self.settings = settings or Settings()
+        self._warned_missing_h5py = False
 
     def __str__(self) -> str:
         """Return a string representation of the object."""
@@ -373,20 +394,34 @@ class DwdRadarValues:  # noqa: PLW1641
                 parameter=self.parameter,
                 site=self.site,
                 fmt=self.format,
+                subset=self.subset,
                 parse_datetime=False,
                 settings=self.settings,
             )
 
             # Find "-latest-" or "LATEST" or similar file.
-            latest_file = (
-                file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
-                .get_column("filename")
-                .item()
-            )
+            file_index = file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
 
-            # Yield single "RadarResult" item.
-            result = next(self._download_generic_data(url=latest_file))
-            yield result
+            # a listing with no such file is no error but no result, as a time with no file is
+            if file_index.is_empty():
+                log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
+                return
+
+            if self.parameter in RADAR_PARAMETERS_SWEEPS:
+                # the one sweep of the precipitation scan, the two files TH and TV of the reflectivity
+                for url in file_index.sort("filename").get_column("filename"):
+                    for result in self._download_generic_data(url=url):
+                        yield self._dated_by_content(result)
+                return
+
+            # Yield a single "RadarResult" item for the file: the first of a .tar, which is the analysis of the run.
+            for url in file_index.sort("filename").get_column("filename"):
+                result = next(self._download_generic_data(url=url), None)
+                if result is None:
+                    # a .tar with no member: a download that failed has been raised by now
+                    log.warning(f"No radar data found in {url}")
+                    continue
+                yield self._dated_by_content(result)
 
         elif self.parameter == DwdRadarParameter.RADOLAN_CDC:
             period_types = [self.period] if self.period else [Period.RECENT, Period.HISTORICAL]
@@ -455,13 +490,16 @@ class DwdRadarValues:  # noqa: PLW1641
             )
 
             # Filter the sweeps of the volume scan by elevation: the number of the sweep follows the moment in the
-            # name, `..._vradh_00-`, `..._dbzh_00-`, `..._uzdr_00-`, `..._urhohv_00-`, `..._uphidp_00-`.
+            # name, `..._vradh_00-`, `..._dbzh_00-`, `..._th_00-`, `..._tv_00-`, `..._uzdr_00-`, `..._urhohv_00-`,
+            # `..._uphidp_00-`.
             if self.elevation is not None:
                 file_index = file_index.filter(
                     pl.col("filename").str.contains(f"vradh_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"sweep_vol_v_{self.elevation}")
                     | pl.col("filename").str.contains(f"dbzh_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"sweep_vol_z_{self.elevation}")
+                    | pl.col("filename").str.contains(f"_th_{self.elevation:02d}")
+                    | pl.col("filename").str.contains(f"_tv_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"uzdr_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"urhohv_{self.elevation:02d}")
                     | pl.col("filename").str.contains(f"uphidp_{self.elevation:02d}"),
@@ -491,6 +529,24 @@ class DwdRadarValues:  # noqa: PLW1641
                         except Exception:  # pragma: no cover
                             log.exception("Unable to read HDF5 file.")
                     yield result
+
+    def _dated_by_content(self, result: RadarResult) -> RadarResult:
+        """Date a latest file by what it says, which its name does not (GH-3299).
+
+        The `-latest-` and `LATEST` files of the sites, the sweeps of the precipitation scan, the composites and RADOLAN
+        have no time in the name; the time of the scan is in the file, in the `/what` group of an ODIM HDF5 file, which
+        h5py reads, in the header of a DX file, or in the first event of `meso_latest.xml`. A file that says none (that
+        of a run with no event) stays undated, as one does without h5py, which is said once.
+        """
+        if result.timestamp is not None:
+            return result
+        try:
+            result.timestamp = read_scan_time(result.data)
+        except MissingDependencyError as exc:
+            if not self._warned_missing_h5py:
+                self._warned_missing_h5py = True
+                log.warning(f"{str(exc).rstrip('.')}. The latest HDF5 files are returned without a timestamp.")
+        return result
 
     @staticmethod
     def _should_cache_download(url: str) -> bool:

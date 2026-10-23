@@ -75,7 +75,8 @@ CHMI, LHMT, Environment Agency and Hub'Eau rows (GH-3136, the fifth group). CHMI
 name, unit, height and schedule (``metadata/meta2.csv``) and the Environment Agency by a table of parameter, period,
 statistic and unit on its reference page, so what those entries say about a window or a weighting is what the data
 show, with the evidence in a comment beside them; SMHI's windows are the ones its own CSV columns give; Hub'Eau
-states a unit and an update interval and nothing else, and the entries say so.
+states a unit, an update interval, the instant a value occurred and (for the height) the gauge zero it is relative
+to, and the entries say so.
 ``tests/metadata/test_parameter_statistics.py`` reads a statistic out of an entry only if it is not
 in ``DERIVED_DESCRIPTIONS``.
 
@@ -89,6 +90,14 @@ of its quantity, so an entry that repeats that sentence is redundant and
 # shelter convention, and "przy gruncie" is "at the ground", never the 5 cm of `temperature_air_min_0_05m` (GH-3136)
 _IMGW_NO_HEIGHT_2M = " The file states no height; the 2 m of the name is the shelter convention."
 _IMGW_NO_HEIGHT_GROUND = " The source states no height: the file says at the ground, never 5 cm."
+
+# The hourly soil temperature stamps of the periods whose source is the archive of the eMD (74 stations, up to 1991,
+# the terms 01, 04, ..., 22 MEZ) are MEZ, shifted to UTC by the reader (GH-3029)
+_SOIL_EMD_ZONE = (
+    "The stamps of the periods whose source DWD's Metadaten_Parameter gives as the archive of the eMD (74 East "
+    "German stations, up to 1991, the terms 01, 04, ..., 22 MEZ) are MEZ, UTC+1: they are shifted to UTC and their "
+    "`quality_flags` carry `zone:mez` (`3,zone:mez`). The other stamps are as written."
+)
 
 # Pegelonline serves the same parameters at whatever interval each station records at, so these are
 # declared once and expanded over the resolutions below rather than written out five times. The
@@ -191,7 +200,11 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   to (HH-1):50 (precipitation 625 of 625, gust 625 of 625, global and diffuse radiation as J/cm2 * 10000 / 3600 on
 #   250 of 250, within 0.89 W/m2, on 10 stations); the clock hour fits worse (precipitation 573, gust 468 of 625).
 #   `direct_solar_radiation_last_hour` is sent by 5 French stations and exceeds the global value in 5 of 15 daytime
-#   reports. The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
+#   reports; on 2026-10-22 07280 (Dijon) at 09 UTC has 603 against a global 297 W/m2 and 07761 (Ajaccio) 454 against
+#   373. With the sun's mean elevation over the hour (20 and 26 degrees at 09 UTC) the direct value times its sine
+#   is 209 and 198 there and below the global value in all 6 daytime reports of the two stations, so it is the
+#   irradiance perpendicular to the sun's rays (GH-3263, read 2026-10-23, key-less).
+#   The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
 #   stations, previous-day sunshine at 06 UTC at 123 of 158 stations (all 60 in Germany), at 00 or 03 UTC only at
 #   33 stations outside Germany and at every synoptic hour at 2.
 # - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations (run of 15 UTC) and MOSMIX_S of 30
@@ -202,12 +215,28 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   days, cooling hours and days reproduce from DWD's daily and hourly air temperature on stations 00044, 00073, 00078
 #   (September 2026); the DUETT hour fits (HH-2):50 to (HH-1):50 best (mean absolute error 4.05 J/cm2, against 15.7
 #   for the sheet's other hour and 5.0 for a window 10 minutes off; 4 pseudo-stations, 4799 hours from 2026-09-01).
+# - DMO: ICON's `Rad1h`, `RadS3`, `RR1` and `RR3` are not clipped at 0 (2026-10-22, 12 stations of icon and icon-eu
+#   and the two latest runs of each: `Rad1h` negative in 411 of 1872 icon-eu values, to -0.15, and 18 of 78 icon
+#   steps at 10382, to -0.17; `RadS3` in 273 of 1209, to -0.43; `RR1` in 3 of 1872 icon-eu values, to -0.01; all
+#   stations of the icon run of 22 12Z: `Rad1h` to -0.77, `RR1` negative in 2769 of 459,732 values, to -0.10, `RR3`
+#   to -0.04, `RadS3` to -0.46); the MOSMIX_L file of station 10382 has no negative `Rad1h` or `RR1c`. The reader
+#   returns `RR1` and `RR3` as 0.0 with `raw:` (GH-3263), `Rad1h` and `RadS3` as written.
+# - derived: the English sheets in the `cdh_13`, `cdh_16` and `cdh_18` directories of cooling_degreehours (named
+#   `..._hdh_..._en.pdf`) are the text of the heating degree days sheet (Monatsgradtage, Heiztage, 15 degree
+#   Celsius), so the docs link the English sheet one directory up (`..._cdh_..._en.pdf`), which gives the unit
+#   of Kuehlgradstunden as Kelvin * day (the German `hdh` sheet is the cooling one, with the same unit).
 SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
-    # The page of the hydrometry API (https://hubeau.eaufrance.fr/page/api-hydrometrie, read 2026-10-21 through
-    # data.gouv.fr's copy of it, because the site itself reset every connection from here that day): "Deux grandeurs
-    # hydrométriques sont disponibles via l'opération observations_tr", the water height H and the flow Q, "exprimées
-    # en mm pour les hauteurs d'eau et en l/s pour les débits", which the producer updates "toutes les 5 à 60
-    # minutes". It states neither a statistic (instant or mean) nor a reference level of the height, which these say
+    # The swagger of the hydrometry API (https://hubeau.eaufrance.fr/api/v2/hydrometrie/api-docs, read 2026-10-22):
+    # `date_obs` is the "Date d'observation hydro : date, exprimée en TU, d'occurence de la donnée" and `resultat_obs`
+    # the "valeur de la mesure hydrométrique", so a value is dated by the instant it occurred and no mean or interval
+    # is stated; the station referential's `altitude_ref_alti_station` is the "altitude du zéro de l'échelle dans le
+    # système altimétrique spécifié (en mètres)", of which the swagger says "Cette information permet de convertir
+    # des hauteurs relatives en hauteurs absolues sur une échelle", so the height H is relative to the zero of the
+    # gauge. 1,478 of the 4,195 stations in service give no such altitude and 215 more name no known system, so the
+    # conversion is not possible everywhere (read 2026-10-22). The page of the API
+    # (https://hubeau.eaufrance.fr/page/api-hydrometrie, read 2026-10-21 through data.gouv.fr's copy of it) gives the
+    # units, "exprimées en mm pour les hauteurs d'eau et en l/s pour les débits", and the update interval, "toutes les
+    # 5 à 60 minutes".
     "HubeauMetadata": {
         (resolution, "data", name_original): description
         for resolution in _HUBEAU_RESOLUTIONS
@@ -216,14 +245,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
                 "H",
                 (
                     "Water height (hauteur d'eau, grandeur H), published in mm and updated by the producer every 5 to "
-                    "60 minutes. The source states no statistic and no reference level."
+                    "60 minutes. Each value is dated by the instant it occurred; the source states no mean or "
+                    "interval. It is relative to the zero of the station's gauge, so stations share no reference "
+                    "level. The station's `gauge_zero` is the altitude of that zero in metres, in the system "
+                    "`gauge_zero_datum` names, where the source gives one."
                 ),
             ),
             (
                 "Q",
                 (
                     "Flow (débit, grandeur Q), published in l/s and updated by the producer every 5 to 60 minutes. "
-                    "The source states no statistic."
+                    "Each value is dated by the instant it occurred; the source states no mean or interval."
                 ),
             ),
         )
@@ -404,7 +436,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "direct_solar_radiation_last_hour"): (
             'Direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
             'Stunde)", no surface stated). It exceeds the global irradiance in some reports, so it is not the '
-            "component on a horizontal surface."
+            "component on a horizontal surface but the irradiance on a plane perpendicular to the sun's rays (direct "
+            "normal irradiance, WMO-No. 8 chapter 7.2): multiplied by the cosine of the solar zenith angle it stays "
+            "below the global irradiance."
         ),
         ("hourly", "data", "dry_bulb_temperature_at_2_meter_above_ground"): "Air temperature at 2 m above ground.",
         ("hourly", "data", "evaporation/evapotranspiration_last_24_hours"): (
@@ -839,12 +873,23 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour)."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
+            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
+            "few stations to about -0.8) and is returned as written."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
-        ("hourly", "icon", "rads3"): "Short wave radiation balance during the last 3 hours",
-        ("hourly", "icon", "rr1"): "Total precipitation during the last hour",
-        ("hourly", "icon", "rr3"): "Total precipitation during the last 3 hours",
+        ("hourly", "icon", "rads3"): (
+            "Short wave radiation balance during the last 3 hours. Direct model output, not clipped at 0: in the "
+            "night hours it is often a little below it (to about -0.4 J/cm2) and is returned as written."
+        ),
+        ("hourly", "icon", "rr1"): (
+            "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+        ),
+        ("hourly", "icon", "rr3"): (
+            "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
+            "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+        ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
         ("hourly", "icon", "t5cm"): "Temperature 5cm above surface",
@@ -876,9 +921,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "icon_eu", "pppp"): "Surface pressure, reduced",
         ("hourly", "icon_eu", "rad1h"): (
             "Global Irradiance, as the energy of the last hour: the DMO values are in J/cm2 (the file states no "
-            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour)."
+            "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). Direct model output, "
+            "not clipped at 0: in the night hours it is often a little below it (mostly above -0.2 J/cm2, at a "
+            "few stations to about -0.8) and is returned as written."
         ),
-        ("hourly", "icon_eu", "rr1"): "Total precipitation during the last hour",
+        ("hourly", "icon_eu", "rr1"): (
+            "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
+        ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
         ("hourly", "icon_eu", "td"): "Dewpoint 2m above surface",
@@ -1527,23 +1577,28 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "temperature_air", "rf_tu"): (
             "Relative humidity. The stamps of the periods that DWD's Metadaten_Parameter calls "
             '"Stundenwerte in MEZ (MD)" (the eMD archive of 76 East German stations, up to 1991) are MEZ, UTC+1: '
-            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), "
+            "and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ "
+            "that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_air", "tt_tu"): (
             "Air temperature 2 m above ground. The stamps of the periods that DWD's Metadaten_Parameter calls "
             '"Stundenwerte in MEZ (MD)" (the eMD archive of 80 East German stations, up to 1991) are MEZ, UTC+1: '
-            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`). "
+            "they are shifted to UTC and their `quality_flags` carry `zone:mez` (`3,zone:mez`), "
+            "and so are those of Diepholz from 1995-02-01 to 1996-05-31, a period the label calls plain MEZ "
+            "that is MEZ in the values from the stamp 1995-02-01 00 to the stamp 1996-05-31 23. "
             "The other stamps are UTC."
         ),
         ("hourly", "temperature_soil", "v_te002"): (
-            "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none."
+            "Soil temperature in 2 cm depth. Only the historical files carry a value, up to 2019: recent holds none. "
+            + _SOIL_EMD_ZONE
         ),
-        ("hourly", "temperature_soil", "v_te005"): "Soil temperature in 5 cm depth.",
-        ("hourly", "temperature_soil", "v_te010"): "Soil temperature in 10 cm depth.",
-        ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth.",
-        ("hourly", "temperature_soil", "v_te050"): "Soil temperature in 50 cm depth.",
-        ("hourly", "temperature_soil", "v_te100"): "Soil temperature in 100 cm depth.",
+        ("hourly", "temperature_soil", "v_te005"): "Soil temperature in 5 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te010"): "Soil temperature in 10 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te020"): "Soil temperature in 20 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te050"): "Soil temperature in 50 cm depth. " + _SOIL_EMD_ZONE,
+        ("hourly", "temperature_soil", "v_te100"): "Soil temperature in 100 cm depth. " + _SOIL_EMD_ZONE,
         ("hourly", "urban_precipitation", "niederschlagshoehe"): (
             "Precipitation height, the sum of the six 10-minute intervals of the previous hour (at UTC 11 the sum of "
             "the precipitation during UTC10-UTC11)."

@@ -23,7 +23,7 @@ from wetterdienst.model.quality_flags import (
     no_direction_code,
     raw_column,
 )
-from wetterdienst.provider.dwd.observation.download import ProductFile
+from wetterdienst.provider.dwd.observation.download import MEZ_DATASETS, ProductFile
 from wetterdienst.provider.dwd.observation.fileindex import DATE_RANGE_REGEX, MEZ_UNTIL_YEAR, is_mez_file
 from wetterdienst.provider.dwd.observation.metadata import (
     DwdObservationMetadata,
@@ -401,11 +401,13 @@ WOZ_COLUMN = "woz"
 # MEZ (MD)" (the eMD archive of the DDR's meteorological service, 80 of the 637 stations, up to 1991) are MEZ, the
 # fixed UTC+1, not UTC, and are shifted by -1 h (GH-2709): against NOAA ISD the value of the stamp HH is the report of
 # HH-1 UTC, 95 to 99.9 % identical at 38 of 39 stations with a twin (5 to 16 % before the shift), and none contradicts.
-# Only this label: the plain `Stundenwerte in MEZ` of 160 stations is UTC in the values at most of the stations checked
-# and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`, per parameter as `TT_TU`
-# and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot carry two clocks, so the shift
-# is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from one boolean column per parameter
-# named here. The rows are flagged `zone:mez`.
+# So are the hourly soil temperature stamps of the periods whose source is "Archiv des eMD" (74 stations, up to 1991:
+# the terms 01, 04, ..., 22 MEZ, GH-3029), and the air temperature stamps `MEZ_BY_COMPARISON` names (Diepholz, from
+# 1995-02-01 to 1996-05-31). Only these: the plain `Stundenwerte in MEZ` of 160 stations is UTC in the values at most
+# of the stations checked and no rule on the file tells the others. The periods come from `ProductFile.mez_md_spans`,
+# per parameter as `TT_TU` and `RF_TU` have their own table of periods at 42 stations and one stamp column cannot
+# carry two clocks, so the shift is made after the wide frame is unpivoted (`DwdObservationValues._tidy_up_df`), from
+# one boolean column per parameter named here. The rows are flagged `zone:mez`.
 MEZ_MD_PREFIX = "mez_md__"
 
 
@@ -574,13 +576,12 @@ def _parse_climate_observations_data(  # noqa: C901
             if spans
             else pl.lit(value=False).alias(WOZ_COLUMN)
         )
-    if dataset == DwdObservationMetadata.hourly.temperature_air and isinstance(file, ProductFile):
+    if dataset in MEZ_DATASETS and isinstance(file, ProductFile):
         # a column for each parameter the file has, False where it has no span, so that the frames of two files of one
         # period have the same columns
-        parameters = (
-            DwdObservationMetadata.hourly.temperature_air.temperature_air_2m.name_original,
-            DwdObservationMetadata.hourly.temperature_air.humidity_relative.name_original,
-        )
+        parameters = [
+            parameter.name_original for parameter in dataset.parameters if not parameter.name_original.startswith("qn")
+        ]
         df = df.with_columns(
             (
                 pl.any_horizontal(

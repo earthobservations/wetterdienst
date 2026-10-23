@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""Tests for the time zone of the hourly air temperature stamps of DWD observations (GH-2709)."""
+"""Tests for the time zone of the hourly air temperature stamps of DWD observations (GH-2709, GH-3029)."""
 
 import datetime as dt
 import zipfile
@@ -230,3 +230,166 @@ def test_the_values_of_an_archive_without_metadata_are_not_shifted(monkeypatch: 
         _at(1991, 11, 2, 0),
     ]
     assert set(tt.get_column("quality_flags").to_list()) == {"3"}
+
+
+_DIEPHOLZ_URL = "https://example.invalid/stundenwerte_TU_00963_hist.zip"
+
+
+def _diepholz_row(parameter: str, first: str, last: str, info: str) -> str:
+    return f"963;{first};{last};Diepholz;{parameter};x;x;Daten der Temperatur;Stundenwerte in {info};;;eor;\n"
+
+
+# What stundenwerte_TU_00963_*_hist.zip of Diepholz has (read 2026-10-23): a plain MEZ period from 1994-04-01 to
+# 1996-06-01 between UTC ones, for both parameters. The label does not tell that the stamps from 1995-02-01 are MEZ
+# (GH-3029): against NOAA ISD 11,374 of 11,397 hours of 1995-02-01 to 1996-05-31 equal the report of the hour before.
+_DIEPHOLZ_METADATA = (
+    _HEADER
+    + "".join(
+        _diepholz_row(parameter, first, last, info)
+        for parameter in ("RF_TU", "TT_TU")
+        for first, last, info in (
+            ("19940103", "19940401", "UTC"),
+            ("19940401", "19960601", "MEZ"),
+            ("19960601", "20010401", "UTC"),
+        )
+    )
+    + _FOOTER
+).encode("latin-1")
+
+# the rows around both changes, as the file has them: the stamps 1995-01-31 23 and 1995-02-01 00 are one report (5.3 C)
+_DIEPHOLZ_PRODUCT = (
+    "STATIONS_ID;MESS_DATUM;QN_9;TT_TU;RF_TU;eor\n"
+    "        963;1995013122;    3;   5.3;  65.0;eor\n"
+    "        963;1995013123;    3;   5.3;  68.0;eor\n"
+    "        963;1995020100;    3;   5.3;  72.0;eor\n"
+    "        963;1995020101;    3;   5.3;  72.0;eor\n"
+    "        963;1996053123;   10;  15.6;  75.0;eor\n"
+    "        963;1996060100;   10;  15.0;  73.0;eor\n"
+    "        963;1996060101;   10;  13.2;  83.0;eor\n"
+).encode("latin-1")
+
+
+def _diepholz_archive(metadata: bytes) -> bytes:
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("Metadaten_Parameter_tu_stunde_00963.txt", metadata)
+        archive.writestr("produkt_tu_stunde_19940103_20251231_00963.txt", _DIEPHOLZ_PRODUCT)
+    return buffer.getvalue()
+
+
+def _serve_diepholz(monkeypatch: pytest.MonkeyPatch, metadata: bytes) -> None:
+    monkeypatch.setattr(
+        dwd_observation_download,
+        "download_files",
+        lambda **_kwargs: [File(url=_DIEPHOLZ_URL, content=BytesIO(_diepholz_archive(metadata)), status=200)],
+    )
+
+
+def test_the_stamps_compared_with_isd_are_mez_inside_the_plain_mez_period_they_lie_in(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that Diepholz is MEZ from the stamp 1995-02-01 00 to the stamp 1996-05-31 23, for both parameters.
+
+    The plain MEZ label runs from 1994-04-01 to 1996-06-01; the stamps before and after are UTC (GH-3029).
+    """
+    _serve_diepholz(monkeypatch, _DIEPHOLZ_METADATA)
+    (file,) = download_climate_observations_data(
+        pl.Series(["unused"]), default_settings, DwdObservationMetadata.hourly.temperature_air
+    )
+    assert isinstance(file, ProductFile)
+    assert file.mez_md_spans == {
+        "tt_tu": ((_at(1995, 2, 1, 0), _at(1996, 5, 31, 23)),),
+        "rf_tu": ((_at(1995, 2, 1, 0), _at(1996, 5, 31, 23)),),
+    }
+
+
+@pytest.mark.parametrize(
+    ("info", "expected"),
+    [
+        ("UTC", {}),
+        ("MEZ (MD)", {p: ((_at(1994, 4, 1, 0), _at(1996, 6, 1, 23)),) for p in ("tt_tu", "rf_tu")}),
+    ],
+    ids=["label turned into UTC", "label turned into MEZ (MD)"],
+)
+def test_the_stamps_compared_with_isd_are_left_where_the_label_is_not_plain_mez_any_more(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, info: str, expected: dict
+) -> None:
+    """Test that a period DWD relabels is not shifted on the strength of a comparison made under the old label.
+
+    A period that is now MEZ (MD) is shifted for that, once, and not a second time for the comparison.
+    """
+    metadata = (
+        _HEADER
+        + "".join(_diepholz_row(parameter, "19940401", "19960601", info) for parameter in ("RF_TU", "TT_TU"))
+        + _FOOTER
+    ).encode("latin-1")
+    _serve_diepholz(monkeypatch, metadata)
+    (file,) = download_climate_observations_data(
+        pl.Series(["unused"]), default_settings, DwdObservationMetadata.hourly.temperature_air
+    )
+    assert isinstance(file, ProductFile)
+    assert file.mez_md_spans == expected
+
+
+def test_the_values_of_diepholz_are_shifted_inside_the_span_and_not_outside(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the stamps of 1995-02-01 to 1996-05-31 are returned one hour earlier, flagged `zone:mez` (GH-3029).
+
+    The stamp 1995-02-01 00 is the report of 1995-01-31 23 UTC, which the file has under that stamp already: the
+    row that was not moved is kept. The last MEZ stamp 1996-05-31 23 is 22 UTC, the first UTC stamp is 1996-06-01 00.
+    """
+    monkeypatch.setattr(
+        dwd_observation_api,
+        "create_file_list_for_climate_observations",
+        lambda *_, **__: pl.Series([_DIEPHOLZ_URL]),
+    )
+    _serve_diepholz(monkeypatch, _DIEPHOLZ_METADATA)
+    request = DwdObservationRequest(
+        parameters=[("hourly", "temperature_air")],
+        periods={Period.HISTORICAL},
+        start=_at(1995, 1, 31),
+        end=_at(1996, 6, 2),
+        settings=Settings(cache_disable=True),
+        options=Options(drop_nulls=False),
+    )
+    df = stations_result(request, "hourly", "temperature_air", "00963").values().all().df.sort("parameter", "timestamp")
+    tt = df.filter(pl.col("parameter") == "temperature_air_2m").select("timestamp", "value", "quality_flags").rows()
+    assert tt == [
+        (_at(1995, 1, 31, 22), 5.3, "3"),
+        (_at(1995, 1, 31, 23), 5.3, "3"),
+        (_at(1995, 2, 1, 0), 5.3, "3,zone:mez"),
+        (_at(1996, 5, 31, 22), 15.6, "10,zone:mez"),
+        (_at(1996, 6, 1, 0), 15.0, "10"),
+        (_at(1996, 6, 1, 1), 13.2, "10"),
+    ]
+    # the humidity has a value of its own at each stamp: the row that was moved onto 1995-01-31 23 (72) is the one
+    # dropped, the stamp 1995-02-01 01 (72) becomes 00
+    rf = df.filter(pl.col("parameter") == "humidity_relative").select("timestamp", "value", "quality_flags").rows()
+    assert rf == [
+        (_at(1995, 1, 31, 22), 0.65, "3"),
+        (_at(1995, 1, 31, 23), 0.68, "3"),
+        (_at(1995, 2, 1, 0), 0.72, "3,zone:mez"),
+        (_at(1996, 5, 31, 22), 0.75, "10,zone:mez"),
+        (_at(1996, 6, 1, 0), 0.73, "10"),
+        (_at(1996, 6, 1, 1), 0.83, "10"),
+    ]
+
+
+def test_the_stamps_compared_with_isd_are_cut_where_the_plain_mez_period_ends_earlier(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Test that the compared span stops with the plain MEZ period if DWD turns the rest into UTC."""
+    metadata = (
+        _HEADER
+        + "".join(
+            _diepholz_row(parameter, first, last, info)
+            for parameter in ("RF_TU", "TT_TU")
+            for first, last, info in (("19940401", "19951231", "MEZ"), ("19960101", "20010401", "UTC"))
+        )
+        + _FOOTER
+    ).encode("latin-1")
+    _serve_diepholz(monkeypatch, metadata)
+    (file,) = download_climate_observations_data(
+        pl.Series(["unused"]), default_settings, DwdObservationMetadata.hourly.temperature_air
+    )
+    assert isinstance(file, ProductFile)
+    assert file.mez_md_spans == {p: ((_at(1995, 2, 1, 0), _at(1995, 12, 31, 23)),) for p in ("tt_tu", "rf_tu")}

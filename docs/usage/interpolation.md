@@ -527,3 +527,12 @@ http localhost:7890/api/interpolate \
 `/api/summarize` takes the same three under `summary_…`. A parameter name that is not canonical,
 or a negative distance, is answered with a 400 rather than silently ignored, and the resolution
 factors are not query parameters -- an instance scales by its own configuration.
+
+The work of one request is bounded: a distance given is at most 200 km (five times the default of 40 km for a
+parameter that varies slowly; the heterogeneous one is scaled by the resolution on top, up to twice),
+`num_additional_stations` at most 20 (the default is 3) and `min_gain_of_value_pairs` more than 0, else a 422, and
+the stations with a record in the window within the widest radius of the request are held to the limit of stations
+of the server (100 by default, see [Limits](restapi.md#limits)), a 400 that names the distance to narrow. The Python
+API and the command line take any of these. Everywhere, the search for a group of stations that surrounds the point
+looks at the nearest 30 of the stations a parameter has at most (`wetterdienst.core.interpolate.MAX_STATION_GROUPS`), and where
+none of their groups surrounds it takes the one group of the triangle the point lies in.

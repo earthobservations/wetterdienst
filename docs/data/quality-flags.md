@@ -67,7 +67,8 @@ The rules behind them, one per situation and the same for every provider, are on
 | --- | --- |
 | DWD observation | `-999` in every dataset (null); `-1` in the hourly cloud cover, `cloud_type` layers included, where the sky was not visible (null); `-99.9` in the five hourly `moisture` columns (null); `-1` in the hourly `weather_phenomena` `weather`, "not reported" (null); `990` in the wind direction of hourly and 10 minute `wind`, a variable direction (null); `0` in a wind direction beside a speed of 0 (10 minute and hourly `wind`, 10 minute `wind_extreme` beside the gust, 10 minute `urban_wind`, subdaily `wind` beside a force of 0), a calm (null), and every `0` of hourly `wind_synoptic` (a calm or variable wind) and hourly `urban_wind` (null) |
 | DWD derived | `-999` and `-9999` (null) |
-| DWD mosmix, dmo | `-` for a value the run does not have (null) |
+| DWD mosmix | `-` for a value the run does not have (null) |
+| DWD dmo | `-` for a value the run does not have (null); the number ICON wrote below 0 in `rr1` and `rr3`, such as `-0.1` (0.0) |
 | DWD poi | `---`, and any text that is no number (null); `113` and `126` in `cloud_cover_total`, no amount (null); `0` in the wind direction beside a speed of 0, a calm (null) |
 | DWD swsmos | any text that is no number (null); none is in the run file read on 2026-10-12 |
 | DWD road | a value outside the range of its quantity, in DWD's unit, such as the 198.15 K (-75 °C) of KM's stopped sensors (null); the temperatures are null below -60 °C |

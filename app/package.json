@@ -1,7 +1,7 @@
 {
   "name": "wetterdienst_app",
   "type": "module",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "private": true,
   "engines": {
     "node": ">=24.15.0"
@@ -39,14 +39,14 @@
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "luxon": "^3.7.2",
-    "nuxt": "^4.5.2",
+    "nuxt": "^4.6.2",
     "nuxt-security": "^2.6.0",
     "plotly.js-basic-dist-min": "^3.7.0",
     "suncalc": "^2.1.0",
     "swagger-ui-dist": "^5.33.2",
     "tailwindcss": "^4.3.3",
     "tz-lookup": "^6.1.25",
-    "vue": "^3.5.43",
+    "vue": "^3.5.44",
     "zod": "^4.6.5"
   },
   "devDependencies": {

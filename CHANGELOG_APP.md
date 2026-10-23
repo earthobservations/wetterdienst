@@ -16,6 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-23
+
+### Changed
+
+- `[Glossary]` The label of `radiation_sky_short_wave_direct_perpendicular_intensity` replaces that
+  of `radiation_sky_short_wave_direct_intensity` (DWD POI), in all eleven languages (GH-3263).
+  Needs the backend that serves the new name: release the backend first. The Low German and
+  Luxembourgish labels are not reviewed by a native speaker
+
+### Security
+
+- `[Build]` `nuxt` and `@nuxt/nitro-server` are 4.6.2, which fixes the case-variant paths that
+  skipped the server's route rules (GHSA-vjh5-4x84-xrqp; the app's `routeRules` set a response
+  header), the unsanitised `useHeadSafe` input of server islands (GHSA-xfq5-w38q-pc2x) and the
+  `javascript:` link of `<NuxtLink>` (GHSA-jjm6-p2m9-9w4x). `vue` is 3.5.44, which Nuxt 4.6 needs
+  (GH-3280)
+
 ## [0.31.0] - 2026-10-22
 
 ### Security
@@ -1481,7 +1498,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...HEAD
+[0.32.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...app-v0.32.0
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...app-v0.31.0
 [0.30.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...app-v0.30.0
 [0.29.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...app-v0.29.0

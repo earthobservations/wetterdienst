@@ -68,7 +68,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   `Origin` of an MCP request. `wetterdienst restapi` on a loopback address lists the loopback names itself, against
   DNS rebinding; any other address, and the Docker image (`0.0.0.0`), answers to every host until it is set.
 - **Limits, refused before any download:** 100 stations, 500,000 rows (10,000,000 streamed), a chart side of 8192 px
-  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request.
+  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request. For `interpolate` and
+  `summarize` the stations are those with a record in the window within the radius, which is bounded (`ui/core.py`, `tests/ui/test_geo_bounds.py`).
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
@@ -77,7 +78,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   external access off and the configuration locked, on one thread with 1 GiB (`io/export.py`; `tests/test_io.py`:
   `test_filter_by_sql_cannot_read_files`, `test_filter_by_sql_cannot_reach_the_network`). It can still read DuckDB's
   settings, run long and allocate outside the limit, per request: enable it for clients you trust with that
-  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled).
+  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled). The `duckdb` floor is 1.1.0, the first release
+  where `sniff_csv` obeys that setting (GHSA-w2gf-jxc9-pf2q; `test_filter_by_sql_cannot_read_files[sniff_csv]`).
 - **Errors** are RFC 9457 problems. A 500 is a fixed body with no path, traceback or credential, and a 501 for a missing
   credential does not name the setting (`test_a_500_does_not_name_the_servers_paths_but_the_log_does`).
 
@@ -128,3 +130,21 @@ runs when the lock changes and weekly (`vulnerable.yml`), `dependency-review.yml
 code and workflows; Dependabot proposes uv, npm, Docker and Actions updates weekly. Actions are pinned to a commit SHA
 and base images to a digest (`.github/workflows/README.md`); workflows default to `permissions: {}` (read-only at most). A release builds
 in a job without `id-token` and publishes to PyPI by trusted publishing in a job that runs no project code (`release.yml`).
+
+### The emSign CA incident (October 2026)
+
+The intermediate certificates under the `emSign ECC Root CA - G3` (eMudhra) have compromised keys, and whoever holds one
+can impersonate any HTTPS host to a client that trusts the root
+([discussion](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576),
+certifi GHSA-6q48-6c7w-9gw2, uv GHSA-hq85-5cpj-mr62). wetterdienst verifies TLS against the trust store of the Python it
+runs on, or against the certifi bundle with `use_certifi` (`WD_USE_CERTIFI`, off by default). Affected is therefore a host
+whose trust store still holds the root, or that runs `use_certifi` with certifi older than 2026.10.19. From 0.171.0 on,
+wetterdienst requires certifi 2026.10.19 and the Docker image is built on a python base image with Debian's
+`ca-certificates` update and pip 26.2.2 (GH-3331). An installation from PyPI resolves its own certifi, and the earlier
+releases and images keep the old one. To update:
+
+- `pip install --upgrade certifi`; for the system store, the operating system's update (Debian: `ca-certificates`); with
+  the python.org installer on macOS, run its `Install Certificates.command` again;
+- pip 26.2.2 or later and uv 0.13.4 or later, which carry their own bundle (`uv self update`, or the package manager that
+  installed it);
+- the Docker image: `docker pull` the new tag, and rebuild an image of your own on top of it with `docker build --pull`.
