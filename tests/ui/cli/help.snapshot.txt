@@ -594,8 +594,6 @@ Options:
 Commands:
   image     Create the climate stripes image for a specific station.
   stations  List stations for climate stripes.
-  values    Create the climate stripes image for a specific station. (DEPRECATED: Use `stripes
-            image`, which writes the image. It is removed in 1.0.0.)
 
 
 $ wetterdienst stripes image --help
@@ -651,46 +649,6 @@ Options:
                                Default: false
   --debug BOOLEAN              Log at debug level. Default: false
   --help                       Show this message and exit.
-
-
-$ wetterdienst stripes values --help
-
-Usage: wetterdienst stripes values [OPTIONS]
-
-  Create the climate stripes image for a specific station.
-
-  Select the station with exactly one of --station or --name. (DEPRECATED: Use `stripes image`,
-  which writes the image. It is removed in 1.0.0.)
-
-Options:
-  --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
-  --station TEXT                  Station id, instead of --name.
-  --name TEXT                     Station name, matched fuzzily, instead of --station.
-  --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
-  --start-year INTEGER            First year. Default: the station's first
-  --end-year INTEGER              Last year. Default: the station's last
-  --show-title BOOLEAN            Show the station name. Default: true
-  --show-years BOOLEAN            Show the first and last year. Default: true
-  --show-data-availability BOOLEAN
-                                  Mark the years without data. Default: true
-  --format [png|jpg|svg|pdf]      Image format. Default: png
-  --dpi INTEGER RANGE             Resolution. Default: 300  [x>0]
-  --target FILE                   Write the image to this local file instead of stdout.
-  --debug BOOLEAN                 Log at debug level. Default: false
-  --help                          Show this message and exit.
-
-  Examples:
-
-  # warming stripes for a station, by id or by name
-  wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
-  wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
-
-  # for the years 2000 to 2020
-  wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
-      > warming_stripes.png
-
-  # precipitation stripes, to a file
-  wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
 
 
 $ wetterdienst summarize --help

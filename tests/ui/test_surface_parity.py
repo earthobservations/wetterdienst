@@ -648,7 +648,7 @@ _REST_ONLY_OF = {
 }
 _NO_COMMAND = {
     core.StripesValuesRequest: (
-        "the data of the stripes has no command yet: `stripes values` is the deprecated name of the image (GH-3035)"
+        "the data of the stripes has no command yet: `stripes values`, once the image's name, is not reused (GH-3128)"
     ),
     core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
 }
