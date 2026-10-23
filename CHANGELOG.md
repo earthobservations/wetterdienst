@@ -21,9 +21,9 @@ Types of changes:
 - The threat model (`.github/SECURITY.md`) and the REST API page were inexact, and the MCP page
   lacked a section. They now say that the cache directory holds the downloaded bodies it caches,
   not only the listings; that seven providers fetch URLs an upstream's answer names, so a
-  compromised upstream can make the server fetch from another http(s) host (GH-3339); that the
-  backend sends no `nosniff` or CSP header (GH-3349); and that the provider text the MCP tools
-  return, such as DWD alert text, is unfiltered and untrusted for an agent (GH-3347)
+  compromised upstream can make the server fetch from another http(s) host (GH-3339); and that the
+  provider text the MCP tools return, such as DWD alert text, is unfiltered and untrusted for an
+  agent (GH-3347)
 - Three pages stated what the code does not do. Scheduling said an unwritable cache directory fails
   the run: it warns once and caches in a temporary directory for that run, so every run downloads
   again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
@@ -49,6 +49,11 @@ Types of changes:
   for a group of four stations to interpolate from looks at the 30 nearest stations of a parameter
   at most, and falls back to one group around the point where none of them surrounds it. The
   explorer of the app holds its inputs to the bounds (GH-2606)
+- The REST API sends `X-Content-Type-Options: nosniff` on every answer, errors and streams
+  included, and a `Content-Security-Policy` that allows no script or request on the index page and
+  the `svg` answers, so that a browser does not take a body for another media type or run script in
+  an SVG opened as a document. `/docs`, `/redoc` and `format=html` carry no policy, as they run
+  scripts (GH-3349)
 
 ## [0.171.0] - 2026-10-23
 
