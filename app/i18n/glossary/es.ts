@@ -589,6 +589,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Profundidad de deshielo, bajo cubierta vegetal',
   thawing_thickness_plant_cover_max_month: 'Mayor profundidad de deshielo del mes, bajo cubierta vegetal',
   turbidity: 'Turbidez',
+  volume_reservoir: 'Volumen del embalse',
   water_equivalent_snow_depth_sampled: 'Equivalente en agua de la nieve (muestra)',
   water_equivalent_snow_depth_new: 'Equivalente en agua de la nieve reciente',
   water_equivalent_snow_depth_new_last_1h: 'Equivalente en agua de la nieve reciente (última 1 h)',

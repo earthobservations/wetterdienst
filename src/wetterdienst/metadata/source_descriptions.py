@@ -122,7 +122,7 @@ _DMI_MEAN_WIND_DIRECTION = (
 # descriptions state the raw data, the interval and the unit the series is published in and no statistic: they were
 # "average ... during time scale" and then "a reading" before GH-3136, which the source states of none. The longnames
 # and units are those of the stations list of 2026-10-21 (786 stations): a series is named ``X ROHDATEN`` or
-# ``X_ROHDATEN`` in most series (not for every shortname: 9 of the 18 served ones have none), and some are named
+# ``X_ROHDATEN`` in most series (not for every shortname: 11 of the 20 on the list have none), and some are named
 # ``X``, which the source does not label raw but whose values are the ``measurements.json`` the sentence above
 # covers (no station has both for one shortname). The shortnames CL, NIEDERSCHLAG and NIEDERSCHLAGSINTENSITÄT are on
 # no station of that list (``stations.json?timeseries=<shortname>`` answers 0 stations for each, as for ``N`` and
@@ -152,6 +152,13 @@ _WSV_PEGEL_PARAMETERS = {
         f"north: {_WSV_PEGEL_RAW}."
     ),
     "SIGH": (f"Significant wave height (SIGNIFIKANTEWELLENHÖHE), in cm (the reader also accepts m): {_WSV_PEGEL_RAW}."),
+    "SW": (
+        "Visibility (SICHTWEITE), in m; the source states nothing more of it, such as how it is determined. The one "
+        "station that publishes it (stations list of 2026-10-23), Herrendurchstich, records wind beside it, so it is "
+        "taken as the visibility in the air. 34,497 of its 44,624 values of 31 days (77 %) lie within 100 m of the "
+        "highest, 19,963 m, which may be a limit of the instrument that the source does not state, so a value near "
+        f"it is not necessarily a distance at which an object ended to be made out: {_WSV_PEGEL_RAW}."
+    ),
     "TP": (
         "Wave period (WELLENPERIODE), published in 1/100 s and returned in s (the reader also accepts s): "
         f"{_WSV_PEGEL_RAW}."
@@ -159,6 +166,12 @@ _WSV_PEGEL_PARAMETERS = {
     "TR": (
         "Turbidity (TRÜBUNG, or TRÜBUNG_ROHDATEN at one station), published in FNU, TE/F or NTU, the formazin "
         f"scale, and returned unscaled as NTU: {_WSV_PEGEL_RAW}."
+    ),
+    "V": (
+        "Volume (VOLUMEN), in m³; the source does not say of what. The one station that publishes it (stations list of "
+        "2026-10-23) is DIEMELTALSPERRE, a reservoir, where it never falls as the water level W of the station rises "
+        "(2,914 paired values of 31 days), so it is taken as the volume of water held in the reservoir: "
+        f"{_WSV_PEGEL_RAW}."
     ),
     "VA": (
         f"Flow speed (FLIESSGESCHWINDIGKEIT_ROHDATEN), published in m/s or cm/s and returned in m/s: {_WSV_PEGEL_RAW}."

@@ -589,6 +589,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Głębokość odmarznięcia, pod okrywą roślinną',
   thawing_thickness_plant_cover_max_month: 'Największa głębokość odmarznięcia w miesiącu, pod okrywą roślinną',
   turbidity: 'Mętność',
+  volume_reservoir: 'Objętość zbiornika',
   water_equivalent_snow_depth_sampled: 'Równoważnik wodny śniegu (próbka)',
   water_equivalent_snow_depth_new: 'Równoważnik wodny świeżego śniegu',
   water_equivalent_snow_depth_new_last_1h: 'Równoważnik wodny świeżego śniegu (ostatnia 1 h)',

@@ -8,6 +8,7 @@
   "4a832db3": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String", "station_group:String", "road_name:String", "road_sector:String", "road_type:Int64", "road_surface_type:Int64", "road_surroundings_type:Int64"],
   "61767a67": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String"],
   "7948298f": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String", "river:String", "river_kilometer:Float64", "gauge_zero:Float64", "gauge_zero_datum:String", "m_i:Float64", "m_ii:Float64", "m_iii:Float64", "mnw:Float64", "mw:Float64", "mhw:Float64", "hhw:Float64", "hsw:Float64"],
+  "916fb519": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String", "river:String", "river_kilometer:String", "gauge_zero:String", "gauge_zero_datum:String", "m_i:String", "m_ii:String", "m_iii:String", "mnw:String", "mw:String", "mhw:String", "hhw:String", "hsw:String"],
   "af379c4e": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String", "wmo_id:String"],
   "c03657e6": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String", "wigos_id:String"],
   "d2b50626": ["resolution:String", "dataset:String", "station_id:String", "start_timestamp:Datetime(time_unit='us', time_zone='UTC')", "end_timestamp:Datetime(time_unit='us', time_zone='UTC')", "latitude:Float64", "longitude:Float64", "elevation:Float64", "name:String", "region:String", "wigos_id:Null"],
@@ -447,7 +448,8 @@
   "tests/provider/test_value_stubs.py::test_a_stub_source_leaves_no_sentinel_in_the_values[smhi/observation hourly/data]": [["SmhiObservationValues hourly/data", "d9b22919", 9, "ab6fc6b37c62f9db"]],
   "tests/provider/wsv/pegel/test_api.py::test_wsv_a_scaled_reading_that_is_no_number_is_null_and_does_not_raise": [["WsvPegelValues 15_minutes/data", "d9b22919", 2, "a293cb3dba1d425a"]],
   "tests/provider/wsv/pegel/test_api.py::test_wsv_a_timeseries_between_measurements_returns_no_data": [["WsvPegelValues 15_minutes/data", "d9b22919", 0, "e3b0c44298fc1c14"]],
-  "tests/provider/wsv/pegel/test_api.py::test_wsv_a_values_download_that_is_missing_returns_no_data": [["WsvPegelValues 15_minutes/data", "d9b22919", 0, "e3b0c44298fc1c14"]]
+  "tests/provider/wsv/pegel/test_api.py::test_wsv_a_values_download_that_is_missing_returns_no_data": [["WsvPegelValues 15_minutes/data", "d9b22919", 0, "e3b0c44298fc1c14"]],
+  "tests/provider/wsv/pegel/test_api.py::test_wsv_visibility_and_reservoir_volume_come_back_as_published": [["WsvPegelValues 1_minute/data", "d9b22919", 2, "7fd29725e3165c60"], ["WsvPegelValues 15_minutes/data", "d9b22919", 2, "dc275a665b47d19c"]]
 },
 "stations": {
   "tests/provider/aemet/observation/test_api.py::test_aemet_hourly_wind_direction_of_a_calm_is_no_bearing": [["AemetObservationRequest", "61767a67", 2, "f5eee5daa2a81767"]],
@@ -1016,6 +1018,7 @@
   "tests/provider/wsv/pegel/test_api.py::test_wsv_a_values_download_that_is_offline_raises": [["WsvPegelRequest", "7948298f", 1, "e41358e7a04724c4"]],
   "tests/provider/wsv/pegel/test_api.py::test_wsv_station_list_names_the_river_and_the_kilometre_on_it": [["WsvPegelRequest", "7948298f", 3, "8572d537399b4c66"]],
   "tests/provider/wsv/pegel/test_api.py::test_wsv_station_list_names_the_vertical_datum_of_the_gauge_zero": [["WsvPegelRequest", "7948298f", 4, "906396405143e120"]],
-  "tests/provider/wsv/pegel/test_api.py::test_wsv_station_list_pairs_each_resolution_with_the_parameters_asked_for_there": [["WsvPegelRequest", "7948298f", 3, "0085747bd8618d54"]]
+  "tests/provider/wsv/pegel/test_api.py::test_wsv_station_list_pairs_each_resolution_with_the_parameters_asked_for_there": [["WsvPegelRequest", "7948298f", 3, "0085747bd8618d54"]],
+  "tests/provider/wsv/pegel/test_api.py::test_wsv_visibility_and_reservoir_volume_come_back_as_published": [["WsvPegelRequest", "7948298f", 1, "497dcddf9d9b3428"], ["WsvPegelRequest", "7948298f", 1, "be71b4196875ca17"], ["WsvPegelRequest", "916fb519", 0, "e3b0c44298fc1c14"], ["WsvPegelRequest", "916fb519", 0, "e3b0c44298fc1c14"]]
 }
 }

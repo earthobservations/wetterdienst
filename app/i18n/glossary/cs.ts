@@ -589,6 +589,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Hloubka rozmrznutí, pod porostem',
   thawing_thickness_plant_cover_max_month: 'Největší hloubka rozmrznutí v měsíci, pod porostem',
   turbidity: 'Zákal',
+  volume_reservoir: 'Objem nádrže',
   water_equivalent_snow_depth_sampled: 'Vodní hodnota sněhu (vzorek)',
   water_equivalent_snow_depth_new: 'Vodní hodnota nového sněhu',
   water_equivalent_snow_depth_new_last_1h: 'Vodní hodnota nového sněhu (poslední 1 h)',

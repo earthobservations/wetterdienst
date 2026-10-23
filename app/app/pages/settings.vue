@@ -23,7 +23,7 @@ const themeOptions = computed(() => [
 // empty, so what is chosen here is persisted and read by nothing. Curated rather than a mirror of the
 // backend UnitConverter besides -- precipitation_intensity leaves out millimeter_per_second, which it
 // refuses as a target, concentration the two per-cubic-metre spellings of what it offers per litre,
-// and mass_per_volume and degree_hour are convertible types with no row at all.
+// and mass_per_volume, degree_hour and volume are convertible types with no row at all.
 // Length types share the same unit list.
 const LENGTH = ['millimeter', 'centimeter', 'meter', 'kilometer', 'mile', 'nautical_mile']
 

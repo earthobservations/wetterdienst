@@ -3026,6 +3026,7 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "dimensionless",
         "Coded indicator of how the visibility range was determined, such as by a person or an instrument.",
     ),
+    CanonicalParameter("volume_reservoir", "volume", "Volume of water held in a reservoir."),
     CanonicalParameter(
         "water_equivalent_snow_depth",
         "precipitation",
