@@ -41,40 +41,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-#: why the bounds of `interpolate`, `summarize` and `settings` that GH-2606 tightened are approved: a value past them
-#: asked for an amount of work no server of the API takes on, so it was never an answer a client could rely on. They
-#: are held where a client sees them (`MAX_STATION_DISTANCE`, `MAX_ADDITIONAL_STATIONS` of `wetterdienst.ui.core`);
-#: the Python API takes any value
-_WORK_IS_BOUNDED = (
-    "a request that asked for more stations or a wider radius than the server can serve was refused or timed out; "
-    "the bounds make that a 422 at once, and the Python API takes the values"
-)
-_BOUNDED_PARAMETERS = (
-    ("interpolate", "interpolation_station_distance", "maximum became <= 200.0", "{}"),
-    ("interpolate", "interpolation_station_distance_heterogeneous", "maximum became <= 200.0", ""),
-    ("interpolate", "interpolation_station_distance_homogeneous", "maximum became <= 200.0", ""),
-    ("interpolate", "min_gain_of_value_pairs", "minimum became > 0 (was >= 0)", ""),
-    ("interpolate", "num_additional_stations", "maximum became <= 20 (was <= 1000000)", ""),
-    ("summarize", "summary_station_distance", "maximum became <= 200.0", "{}"),
-    ("summarize", "summary_station_distance_heterogeneous", "maximum became <= 200.0", ""),
-    ("summarize", "summary_station_distance_homogeneous", "maximum became <= 200.0", ""),
-    ("summarize", "min_gain_of_value_pairs", "minimum became > 0 (was >= 0)", ""),
-    ("summarize", "num_additional_stations", "maximum became <= 20 (was <= 1000000)", ""),
-    ("settings", "interpolation_station_distance", "maximum became <= 200.0", "{}"),
-    ("settings", "interpolation_station_distance_heterogeneous", "maximum became <= 200.0", ""),
-    ("settings", "interpolation_station_distance_homogeneous", "maximum became <= 200.0", ""),
-    ("settings", "summary_station_distance", "maximum became <= 200.0", "{}"),
-    ("settings", "summary_station_distance_heterogeneous", "maximum became <= 200.0", ""),
-    ("settings", "summary_station_distance_homogeneous", "maximum became <= 200.0", ""),
-    ("settings", "min_gain_of_value_pairs", "minimum became > 0 (was >= 0)", ""),
-    ("settings", "num_additional_stations", "maximum became <= 20 (was <= 1000000)", ""),
-)
-
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {
-    f"GET /api/v1/{route}: parameter {name} (query){suffix}: {finding}": _WORK_IS_BOUNDED
-    for route, name, finding, suffix in _BOUNDED_PARAMETERS
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

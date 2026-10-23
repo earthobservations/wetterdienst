@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.172.0] - 2026-10-23
+
 ### Fixed
 
 - The threat model (`.github/SECURITY.md`) and the REST API page were inexact, and the MCP page
@@ -6385,7 +6387,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...HEAD
+[0.172.0]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...v0.172.0
 [0.171.0]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...v0.171.0
 [0.170.0]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...v0.170.0
 [0.169.0]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...v0.169.0
