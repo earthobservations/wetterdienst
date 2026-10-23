@@ -18,6 +18,12 @@ Types of changes:
 
 ### Security
 
+- `wetterdienst restapi` (and the Docker image) now runs uvicorn on its h11 HTTP parser, which answers
+  400 and closes a connection whose request line and headers are still incomplete after 16 KiB,
+  instead of httptools, which has no such bound. A server started with
+  `uvicorn wetterdienst.ui.restapi:app` should be given `--http h11` and
+  `--h11-max-incomplete-event-size 16384`, and sit behind a proxy with its own request limits
+  (GH-2606)
 - The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
   (was `>=3.14.0`; every download), `duckdb>=1.1.0` (was `>=1`; the `sql` and `duckdb` extras:
   GHSA-w2gf-jxc9-pf2q, where `sniff_csv` read files with external access off, which the REST SQL

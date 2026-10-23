@@ -2443,6 +2443,12 @@ def _answer_to_loopback_names_only(listen_host: str) -> None:
     )
 
 
+# What the server reads of a request before it has the whole request line and header block: a connection that sends
+# more is closed. The HTTP parser of uvicorn that is bounded this way is `h11`; its default is 16 KiB, written down here
+# so that a change of uvicorn's default is not one of ours (GH-2606)
+MAX_REQUEST_HEAD_BYTES = 16 * 1024
+
+
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
     run = import_optional("uvicorn.main", "The REST API", extra="restapi").run
@@ -2456,4 +2462,13 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload or False)
+    # `http="h11"`: the parser of `uvicorn[standard]` by default, httptools, puts no bound on the request line. `reload`
+    # hands these arguments on to the process it starts, so the development server is bounded as well
+    run(
+        app="wetterdienst.ui.restapi:app",
+        host=host,
+        port=port,
+        reload=reload or False,
+        http="h11",
+        h11_max_incomplete_event_size=MAX_REQUEST_HEAD_BYTES,
+    )
