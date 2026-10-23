@@ -24,6 +24,14 @@ Types of changes:
   `uvicorn wetterdienst.ui.restapi:app` should be given `--http h11` and
   `--h11-max-incomplete-event-size 16384`, and sit behind a proxy with its own request limits
   (GH-2606)
+- The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
+  (was `>=3.14.0`; every download), `duckdb>=1.1.0` (was `>=1`; the `sql` and `duckdb` extras:
+  GHSA-w2gf-jxc9-pf2q, where `sniff_csv` read files with external access off, which the REST SQL
+  filter relies on), `pypdf>=6.21.1` (was `>=3.12.1`; the `pdf` extra) and `influxdb>=5.3.1` (was
+  `>=5.3`), with `msgpack>=1.2.1` in the `influxdb` extra (5.3.0 pinned `msgpack==0.6.1`,
+  GHSA-6v7p-g79w-8964). An installation that holds an older release keeps it when wetterdienst is
+  upgraded: upgrade these packages as well
+  (`pip install --upgrade aiohttp duckdb pypdf influxdb msgpack`) (GH-3343)
 
 ## [0.171.0] - 2026-10-23
 
