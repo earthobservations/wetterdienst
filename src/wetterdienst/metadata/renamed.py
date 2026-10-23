@@ -165,6 +165,9 @@ RENAMED_PARAMETERS: dict[str, str] = {
     "evaporation_amount_winter_wheat_sand": "evaporation_amount_winter_cereals_sand",
     "soil_moisture_mean_winter_wheat_loamy_silt_00cm_60cm": "soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm",
     "soil_moisture_mean_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
+    # GH-3263: DWD POI's direct radiation is the irradiance on a plane perpendicular to the sun's rays, no component on
+    # a horizontal surface (07280 at 09 UTC on 2026-10-22: 603 W/m2 direct against 297 global); no other provider has it
+    "radiation_sky_short_wave_direct_intensity": "radiation_sky_short_wave_direct_perpendicular_intensity",
 }
 
 _WIND_LAST_10MIN = {

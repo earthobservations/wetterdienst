@@ -192,7 +192,11 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   to (HH-1):50 (precipitation 625 of 625, gust 625 of 625, global and diffuse radiation as J/cm2 * 10000 / 3600 on
 #   250 of 250, within 0.89 W/m2, on 10 stations); the clock hour fits worse (precipitation 573, gust 468 of 625).
 #   `direct_solar_radiation_last_hour` is sent by 5 French stations and exceeds the global value in 5 of 15 daytime
-#   reports. The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
+#   reports; on 2026-10-22 07280 (Dijon) at 09 UTC has 603 against a global 297 W/m2 and 07761 (Ajaccio) 454 against
+#   373. With the sun's mean elevation over the hour (20 and 26 degrees at 09 UTC) the direct value times its sine
+#   is 209 and 198 there and below the global value in all 6 daytime reports of the two stations, so it is the
+#   irradiance perpendicular to the sun's rays (GH-3263, read 2026-10-23, key-less).
+#   The reporting hours are those of the files of that day: 12-hour minima at 06, 09 and 18 UTC at most
 #   stations, previous-day sunshine at 06 UTC at 123 of 158 stations (all 60 in Germany), at 00 or 03 UTC only at
 #   33 stations outside Germany and at every synoptic hour at 2.
 # - MOSMIX: the hours that carry an element are those of MOSMIX_L of 8 stations (run of 15 UTC) and MOSMIX_S of 30
@@ -423,7 +427,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "direct_solar_radiation_last_hour"): (
             'Direct short-wave irradiance of the preceding hour in W/m2 (DWD: "Direkte Strahlung (letzte '
             'Stunde)", no surface stated). It exceeds the global irradiance in some reports, so it is not the '
-            "component on a horizontal surface."
+            "component on a horizontal surface but the irradiance on a plane perpendicular to the sun's rays (direct "
+            "normal irradiance, WMO-No. 8 chapter 7.2): multiplied by the cosine of the solar zenith angle it stays "
+            "below the global irradiance."
         ),
         ("hourly", "data", "dry_bulb_temperature_at_2_meter_above_ground"): "Air temperature at 2 m above ground.",
         ("hourly", "data", "evaporation/evapotranspiration_last_24_hours"): (

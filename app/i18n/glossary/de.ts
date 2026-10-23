@@ -77,7 +77,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Mittlere Globalstrahlung (Bestrahlungsstärke)',
   radiation_sky_short_wave_diffuse_intensity: 'Diffuse Himmelsstrahlung (Bestrahlungsstärke)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Mittlere diffuse Himmelsstrahlung (Bestrahlungsstärke)',
-  radiation_sky_short_wave_direct_intensity: 'Direkte Sonnenstrahlung (Bestrahlungsstärke)',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Direkte Normalstrahlung (Bestrahlungsstärke)',
   radiation_sky_long_wave_intensity_mean: 'Mittlere langwellige Strahlung (Bestrahlungsstärke)',
 
   // Snow

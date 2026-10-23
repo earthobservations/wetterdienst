@@ -65,7 +65,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Radiazione globale media (intensità)',
   radiation_sky_short_wave_diffuse_intensity: 'Radiazione diffusa (intensità)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Radiazione diffusa media (intensità)',
-  radiation_sky_short_wave_direct_intensity: 'Radiazione diretta (intensità)',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Radiazione diretta normale (intensità)',
   radiation_sky_long_wave_intensity_mean: 'Radiazione a onda lunga media (intensità)',
   snow_depth: 'Altezza della neve',
   snow_depth_mean: 'Altezza della neve media',

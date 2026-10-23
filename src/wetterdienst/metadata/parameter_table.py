@@ -1523,9 +1523,12 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         interpolation="homogeneous",
     ),
     CanonicalParameter(
-        "radiation_sky_short_wave_direct_intensity",
+        "radiation_sky_short_wave_direct_perpendicular_intensity",
         "power_per_area",
-        "Direct short-wave irradiance from the sun, reported as power.",
+        "Direct short-wave irradiance from the sun on a plane perpendicular to the sun's rays (direct normal "
+        "irradiance, what a pyrheliometer measures), reported as power. It is no component on a horizontal surface and "
+        "can exceed the global irradiance, most often with a clear sky and a low sun: multiply it by the cosine of "
+        "the solar zenith angle for that.",
         interpolation="homogeneous",
     ),
     CanonicalParameter(

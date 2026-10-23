@@ -65,7 +65,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Średnie promieniowanie całkowite (natężenie)',
   radiation_sky_short_wave_diffuse_intensity: 'Promieniowanie rozproszone (natężenie)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Średnie promieniowanie rozproszone (natężenie)',
-  radiation_sky_short_wave_direct_intensity: 'Promieniowanie bezpośrednie (natężenie)',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Promieniowanie bezpośrednie normalne (natężenie)',
   radiation_sky_long_wave_intensity_mean: 'Średnie promieniowanie długofalowe (natężenie)',
   snow_depth: 'Grubość pokrywy śnieżnej',
   snow_depth_mean: 'Średnia grubość pokrywy śnieżnej',

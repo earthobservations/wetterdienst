@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` The label of `radiation_sky_short_wave_direct_perpendicular_intensity` replaces that
+  of `radiation_sky_short_wave_direct_intensity` (DWD POI), in all eleven languages (GH-3263).
+  Needs the backend that serves the new name: release the backend first. The Low German and
+  Luxembourgish labels are not reviewed by a native speaker
+
 ### Security
 
 - `[Build]` `nuxt` and `@nuxt/nitro-server` are 4.6.2, which fixes the case-variant paths that
