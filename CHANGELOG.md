@@ -27,6 +27,12 @@ Types of changes:
   1995-01-31 23 and is dropped. The hourly wind of Bückeburg and Celle is right as written (ISD is
   the one an hour off there), and Regensburg-Oberhub and Stötten stay as written (GH-3029)
 
+### Fixed
+
+- The migration guide named no release for the `dwd/observation` hourly air temperature of the MEZ
+  periods (0.155.0, GH-2709), and its "Verified" section counted 361 parameters of 0.139.0 that are
+  gone where there are 403, with two removals (WSV Pegel, NWS) missing from its list (GH-3321)
+
 ## [0.169.0] - 2026-10-23
 
 ### Added

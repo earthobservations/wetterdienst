@@ -5,6 +5,9 @@ of what 0.139.0 declared and the checkout does not is `gone_since_0_139_0.json`,
 `uv run poe renames:baseline` (see `baseline_0_139_0.py`), so that this test works offline.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 
 from tests.metadata.baseline_0_139_0 import GONE, read_gone
@@ -132,3 +135,22 @@ def test_the_river_level_of_the_environment_agency_is_refused_with_the_stage_nam
 
     assert parse_parameters(f"daily/data/{old}", EAHydrologyMetadata, on_unknown="warn") == []
     assert f"It was renamed to '{new}' in this dataset." in caplog.text
+
+
+def test_the_migration_page_states_the_counts_of_this_list() -> None:
+    """The 'Verified' section of `migrating.md` gives the numbers that this list and its answers make (GH-3321).
+
+    It said 361 and 347 of the refusals when the list held 403 entries: a number written into prose does not follow
+    the list it counts. The numbers are computed here, and the page is held to them. Every issue that a removal cites
+    is named in the section as well, so a removal added to `REMOVED` without a word there fails too.
+    """
+    text = (Path(__file__).parents[2] / "docs" / "usage" / "migrating.md").read_text(encoding="utf8")
+    verified = text.partition("\n## Verified\n")[2].partition("\n## ")[0]
+    assert verified, "migrating.md has no 'Verified' section"
+    words = " ".join(verified.split())
+    others = len(REMOVED) + len(SOURCE_NAMES)
+    assert f"{len(_GONE)} parameters that a dataset of 0.139.0 has are not in the current release" in words
+    assert f"{len(_GONE) - others} of the refusals name a replacement" in words
+    assert f"The other {others} are:" in words
+    cited = {issue for reason in REMOVED.values() for issue in re.findall(r"GH-\d+", reason)}
+    assert sorted(issue for issue in cited if issue not in verified) == []
