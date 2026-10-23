@@ -27,6 +27,14 @@ Types of changes:
   1995-01-31 23 and is dropped. The hourly wind of Bückeburg and Celle is right as written (ISD is
   the one an hour off there), and Regensburg-Oberhub and Stötten stay as written (GH-3029)
 
+### Fixed
+
+- `dwd/radar` `DwdRadarValues` with `start=DwdRadarDate.LATEST` of a product that is no sweep: a
+  folder with no file named latest (warns `No radar file found`, as the sweeps do) or a latest
+  `.tar` with no member (warns `No radar data found in <url>`) now answers no result instead of
+  raising a polars `ValueError` or a `RuntimeError`. Two files named latest are both answered, the
+  first result of each, in the order of their names. A connection failure is still raised (GH-3311)
+
 ## [0.169.0] - 2026-10-23
 
 ### Added

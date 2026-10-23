@@ -18,7 +18,7 @@ import polars as pl
 import pytest
 
 from wetterdienst import Settings
-from wetterdienst.exceptions import InvalidEnumerationError, RequestError
+from wetterdienst.exceptions import DownloadError, InvalidEnumerationError, NoInternetError, RequestError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataFormat,
@@ -395,6 +395,116 @@ def test_the_latest_composite_is_read_from_its_tar_and_asked_for_again(monkeypat
     # the first file of the tar is the analysis, which is what LATEST has always answered
     assert [result.filename for result in results] == ["composite_rv_20261022_1130_000-hd5"]
     assert results[0].timestamp == dt.datetime(2026, 10, 22, 11, 30, tzinfo=UTC)
+
+
+def _latest_composite() -> DwdRadarValues:
+    return DwdRadarValues(parameter=DwdRadarParameter.RV_REFLECTIVITY, start=DwdRadarDate.LATEST)
+
+
+def test_the_latest_of_a_product_whose_listing_has_no_latest_file_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a listing with no file named latest answers no result and says so, as the sweeps do (GH-3311)."""
+    monkeypatch.setitem(LISTINGS, f"{RADAR}/composite/rv", ["composite_rv_20261022_1130.tar"])
+    _serve(monkeypatch, b"")
+
+    with caplog.at_level(logging.WARNING):
+        results = list(_latest_composite().query())
+
+    assert results == []
+    assert "No radar file found" in caplog.text
+
+
+def test_the_latest_of_a_product_whose_listing_is_empty_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a folder with no file at all answers no result and says so (GH-3311)."""
+    monkeypatch.setitem(LISTINGS, f"{RADAR}/composite/rv", [])
+    _serve(monkeypatch, b"")
+
+    with caplog.at_level(logging.WARNING):
+        results = list(_latest_composite().query())
+
+    assert results == []
+    assert "No radar file found" in caplog.text
+
+
+def test_the_latest_whose_tar_holds_no_file_is_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a latest .tar with no member answers no result and says so, not a RuntimeError (GH-3311)."""
+    _serve(monkeypatch, _tar("20261022_1130", ()))
+
+    with caplog.at_level(logging.WARNING):
+        results = list(_latest_composite().query())
+
+    assert results == []
+    assert f"No radar data found in {RADAR}/composite/rv/composite_rv_LATEST.tar" in caplog.text
+
+
+def test_the_latest_of_a_product_with_two_latest_files_is_the_first_of_each(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that two files named latest are both answered, in the order of their names, not an error (GH-3311)."""
+    pytest.importorskip("h5py")
+    monkeypatch.setitem(
+        LISTINGS,
+        f"{RADAR}/composite/rv",
+        ["composite_rv_LATEST.tar", "composite_rv_20261022_1130.tar", "composite_rv__LATEST.tar"],
+    )
+    served = {
+        f"{RADAR}/composite/rv/composite_rv__LATEST.tar": _tar("20261022_1130", (0, 5)),
+        f"{RADAR}/composite/rv/composite_rv_LATEST.tar": _tar("20261022_1135", (0, 5)),
+    }
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=BytesIO(served[url]), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    results = list(_latest_composite().query())
+
+    assert [result.filename for result in results] == [
+        "composite_rv_20261022_1135_000-hd5",  # composite_rv_LATEST.tar
+        "composite_rv_20261022_1130_000-hd5",  # composite_rv__LATEST.tar
+    ]
+
+
+def test_the_latest_of_a_product_raises_when_the_file_cannot_be_reached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a connection failure while the latest file is downloaded is raised, not answered as no result."""
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=NoInternetError(f"No internet connection: could not reach {url}"), status=0)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    with pytest.raises(NoInternetError, match=r"composite_rv_LATEST\.tar"):
+        list(_latest_composite().query())
+
+
+def test_the_latest_of_a_product_raises_when_the_listing_cannot_be_reached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a connection failure while the folder is listed is raised, not answered as an empty folder."""
+
+    def list_remote_files(url: str, **_: object) -> list[str]:
+        message = f"No internet connection: could not reach {url}"
+        raise NoInternetError(message)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.index.list_remote_files_fsspec", list_remote_files)
+
+    with pytest.raises(NoInternetError):
+        list(_latest_composite().query())
+
+
+def test_the_latest_of_a_product_raises_when_the_file_download_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a download that failed is a DownloadError naming the file, not an empty answer."""
+
+    def download_file(url: str, **_: object) -> File:
+        return File(url=url, content=TimeoutError(), status=0)
+
+    monkeypatch.setattr("wetterdienst.provider.dwd.radar.api.download_file", download_file)
+
+    with pytest.raises(DownloadError, match=r"composite_rv_LATEST\.tar"):
+        list(_latest_composite().query())
 
 
 def _odim(date: str, time: str) -> bytes:

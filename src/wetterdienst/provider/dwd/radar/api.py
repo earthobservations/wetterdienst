@@ -249,8 +249,10 @@ class DwdRadarValues:  # noqa: PLW1641
 
         # Evaluate "RadarDate.MOST_RECENT" for "start".
         #
-        # HDF5 folders do not have "-latest-" files (nor has KONRAD3D's), so we will have to synthesize them
-        # appropriately by going back to the second last volume of 5 minute intervals.
+        # The most recent HDF5 and XML file is a time, not the "-latest-" file: the sweeps of the filtered folders and
+        # KONRAD3D have none, and those of the unfiltered folders are replaced one by one as the scan is published.
+        # So we will have to synthesize the latest appropriately by going back to the second last volume of 5 minute
+        # intervals. The other products have a latest file but are asked for in the same way.
         #
         # The reason for this is that when requesting sweep data in HDF5 format at
         # e.g. 15:03, not all files will be available on the DWD data repository for
@@ -400,20 +402,26 @@ class DwdRadarValues:  # noqa: PLW1641
             # Find "-latest-" or "LATEST" or similar file.
             file_index = file_index.filter(pl.col("filename").str.to_lowercase().str.contains("latest"))
 
+            # a listing with no such file is no error but no result, as a time with no file is
+            if file_index.is_empty():
+                log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
+                return
+
             if self.parameter in RADAR_PARAMETERS_SWEEPS:
                 # the one sweep of the precipitation scan, the two files TH and TV of the reflectivity
-                if file_index.is_empty():
-                    log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
-                    return
                 for url in file_index.sort("filename").get_column("filename"):
                     for result in self._download_generic_data(url=url):
                         yield self._dated_by_content(result)
                 return
 
-            # Yield single "RadarResult" item.
-            latest_file = file_index.get_column("filename").item()
-            result = next(self._download_generic_data(url=latest_file))
-            yield self._dated_by_content(result)
+            # Yield a single "RadarResult" item for the file: the first of a .tar, which is the analysis of the run.
+            for url in file_index.sort("filename").get_column("filename"):
+                result = next(self._download_generic_data(url=url), None)
+                if result is None:
+                    # a .tar with no member: a download that failed has been raised by now
+                    log.warning(f"No radar data found in {url}")
+                    continue
+                yield self._dated_by_content(result)
 
         elif self.parameter == DwdRadarParameter.RADOLAN_CDC:
             period_types = [self.period] if self.period else [Period.RECENT, Period.HISTORICAL]
