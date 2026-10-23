@@ -168,6 +168,9 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-3263: DWD POI's direct radiation is the irradiance on a plane perpendicular to the sun's rays, no component on
     # a horizontal surface (07280 at 09 UTC on 2026-10-22: 603 W/m2 direct against 297 global); no other provider has it
     "radiation_sky_short_wave_direct_intensity": "radiation_sky_short_wave_direct_perpendicular_intensity",
+    # GH-3316: the MIDAS table RO defines `direct_irad` as measured by a pyrheliometer "at normal incidence"; only Met
+    # Office had the name (a horizontal direct component has no provider), so the table's own entry is renamed
+    "radiation_sky_short_wave_direct": "radiation_sky_short_wave_direct_perpendicular",
 }
 
 _WIND_LAST_10MIN = {

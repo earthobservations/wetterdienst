@@ -532,7 +532,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Loftdrock op Mieresniveau reduzéiert (Standardatmosphär)',
   radiation_long_wave_net_last_3h: 'Laangwelleg Stralungsbilanz (lescht 3 h)',
   radiation_short_wave_net_last_3h: 'Kuerzwelleg Stralungsbilanz (lescht 3 h)',
-  radiation_sky_short_wave_direct: 'Direkt Sonnestralung',
+  radiation_sky_short_wave_direct_perpendicular: 'Direkt Normalstralung',
   road_surface_condition: 'Fahrbunnzoustand',
   road_surface_condition_forecast: 'Fahrbunnzoustand (Prognos)',
   snow_depth_sampled: 'Schnéihéicht (Prouf)',

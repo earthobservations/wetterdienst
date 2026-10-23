@@ -532,7 +532,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Lufttryk reduceret til havniveau (standardatmosfære)',
   radiation_long_wave_net_last_3h: 'Langbølget strålingsbalance (seneste 3 t)',
   radiation_short_wave_net_last_3h: 'Kortbølget strålingsbalance (seneste 3 t)',
-  radiation_sky_short_wave_direct: 'Direkte kortbølget stråling',
+  radiation_sky_short_wave_direct_perpendicular: 'Direkte normalstråling',
   road_surface_condition: 'Vejbanetilstand',
   road_surface_condition_forecast: 'Vejbanetilstand (prognose)',
   snow_depth_sampled: 'Snedybde (prøve)',

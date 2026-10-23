@@ -532,7 +532,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Pression ramenée au niveau de la mer (atmosphère standard)',
   radiation_long_wave_net_last_3h: 'Bilan du rayonnement de grandes longueurs d\'onde (dernières 3 h)',
   radiation_short_wave_net_last_3h: 'Bilan du rayonnement de courtes longueurs d\'onde (dernières 3 h)',
-  radiation_sky_short_wave_direct: 'Rayonnement solaire direct',
+  radiation_sky_short_wave_direct_perpendicular: 'Rayonnement direct normal',
   road_surface_condition: 'État de la chaussée',
   road_surface_condition_forecast: 'État de la chaussée (prévision)',
   snow_depth_sampled: 'Hauteur de neige (échantillon)',

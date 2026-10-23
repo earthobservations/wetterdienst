@@ -203,6 +203,7 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | `soil_moisture_winter_wheat_<soil>_00cm_60cm`, `soil_moisture_mean_winter_wheat_<soil>_00cm_60cm`, `evaporation_amount_winter_wheat_<soil>` | `soil_moisture_winter_cereals_<soil>_00cm_60cm`, `soil_moisture_mean_winter_cereals_<soil>_00cm_60cm`, `evaporation_amount_winter_cereals_<soil>` | `dwd/derived` daily and monthly (`bfws_ag`, `bfwl_ag`, `vrws_ag`, `vrwl_ag` and their monthly `mittel von` and `summe von`: DWD's sheets say "Wintergetreide", winter cereals; the monthly `soil_moisture_winter_wheat_<soil>_00cm_60cm` is answered with `soil_moisture_mean_winter_cereals_<soil>_00cm_60cm`); `<soil>` is `sand` or `loamy_silt`; the values and the unit are unchanged. The `winter_wheat` of `dwd/phenology` is a crop and stays | 0.166.0, GH-3263 |
 | `wind_gust_max` | `wind_speed_max` | `chmi/observation` daily (`Fmax`, "Max rychlost": the source says maximum speed and nothing of a gust); the values and the unit are unchanged | 0.166.0, GH-3264 |
 | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity` | `dwd/poi` (`direct_solar_radiation_last_hour`: above the global radiation at French stations, 603 against 297 W/m2 at 07280 on 2026-10-22, because it is the irradiance on a plane perpendicular to the sun's rays, not the component on a horizontal surface); the values and the unit are unchanged | 0.169.0, GH-3263 |
+| `radiation_sky_short_wave_direct` | `radiation_sky_short_wave_direct_perpendicular` | `metoffice/observation` hourly `radiation` (`direct_irad`: MIDAS table RO defines it as measured by a pyrheliometer "at normal incidence", so it is the energy of the hour on a plane perpendicular to the sun's rays, not on a horizontal surface); the values and units are unchanged | 0.173.0, GH-3316 |
 | `cloud_cover_below_1000ft` | `cloud_cover_below_2km` | `dwd/mosmix`, `dwd/dmo` (`nl`) | 0.140.0, GH-1977 |
 | `count_weather_type_sleet` | `count_weather_type_graupel` | `dwd/observation` daily, monthly, annual `weather_phenomena` and `weather_phenomena_more` | 0.145.0, GH-2696 |
 | `evapotranspiration_potential_grass_fao_last_24h`, `..._haude_last_24h` | `evapotranspiration_potential_grass_fao`, `evapotranspiration_potential_grass_haude` | the daily and monthly totals: `dwd/derived`, `meteoswiss/observation` daily | 0.140.0 (GH-2042), 0.155.0 (GH-2847) |
@@ -337,10 +338,10 @@ arguments are the query parameters. In addition:
 
 ## Verified
 
-The parameter tables above were checked against the code of both releases. 403 parameters that a dataset of 0.139.0
+The parameter tables above were checked against the code of both releases. 404 parameters that a dataset of 0.139.0
 has are not in the current release under the same name; each is requested from it, and a test
 (`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below; the numbers of this paragraph are
-computed from the same list. 372 of the refusals name a replacement, and that replacement exists in the same network, resolution
+computed from the same list. 373 of the refusals name a replacement, and that replacement exists in the same network, resolution
 and dataset. The other 31 are:
 
 - the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily (GH-2700), `wind_direction_gust_max` of

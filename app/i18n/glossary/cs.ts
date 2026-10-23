@@ -532,7 +532,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Tlak vzduchu přepočtený na hladinu moře (standardní atmosféra)',
   radiation_long_wave_net_last_3h: 'Bilance dlouhovlnného záření (posledních 3 h)',
   radiation_short_wave_net_last_3h: 'Bilance krátkovlnného záření (posledních 3 h)',
-  radiation_sky_short_wave_direct: 'Přímé krátkovlnné záření',
+  radiation_sky_short_wave_direct_perpendicular: 'Přímé normálové záření',
   road_surface_condition: 'Stav vozovky',
   road_surface_condition_forecast: 'Stav vozovky (předpověď)',
   snow_depth_sampled: 'Výška sněhu (vzorek)',
