@@ -9,6 +9,7 @@ import pytest
 
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
+    Floor,
     NoReading,
     OutOfRange,
     Sentinel,
@@ -250,6 +251,42 @@ def test_a_wide_column_outside_its_range_goes_through_the_unpivot_with_its_text(
     long = unpivot_with_raw(df, index=["at"]).sort("parameter", "at")
     assert long.get_column("value").to_list() == [1013.2, 5.0, None, 17.5]
     assert long.get_column("raw").to_list() == [None, None, "4021", None]
+
+
+def test_a_value_below_its_floor_is_the_floor_and_keeps_the_number() -> None:
+    """Test that `Floor` maps what is below it to the floor, written as short as it goes, and no more (GH-3263)."""
+    cleaned, raw = _clean([-0.02, -0.1, 0.0, 1.2, None, float("nan")], Floor(0.0), text=False)
+    assert cleaned[:4] == [0.0, 0.0, 0.0, 1.2]
+    assert cleaned[4] is None
+    assert cleaned[5] != cleaned[5]  # a NaN is no value below the floor, and stays one
+    assert raw == ["-0.02", "-0.1", None, None, None, None]
+
+
+def test_a_text_below_its_floor_is_read_as_a_number_and_keeps_the_cell() -> None:
+    """Test that a text column becomes numbers, the cell as written is the token, and a non-number is null."""
+    cleaned, raw = _clean(["-0.10", "2.5", "---", ""], Floor(0.0))
+    assert cleaned == [0.0, 2.5, None, None]
+    assert raw == ["-0.10", None, None, None]
+
+
+def test_a_floor_can_be_limited_to_the_values_an_expression_selects_and_follows_the_first_rule() -> None:
+    """Test that `where` keeps the floor to its parameter, and a sentinel before it decides first."""
+    cleaned, raw = null_sentinels(
+        pl.col("v"), Sentinel("-999"), Floor(0.0, where=pl.col("parameter") == "rr1"), text=False
+    )
+    out = pl.DataFrame(
+        {"parameter": ["rr1", "rr1", "ttt", "rr1"], "v": [-0.02, -999.0, -0.02, 0.4]},
+    ).select(cleaned.alias("cleaned"), raw.alias("raw"))
+    assert out.get_column("cleaned").to_list() == [0.0, None, -0.02, 0.4]
+    assert out.get_column("raw").to_list() == ["-0.02", "-999", None, None]
+
+
+def test_a_wide_column_below_its_floor_goes_through_the_unpivot_with_its_number() -> None:
+    """Test that `clear_sentinels` takes a floor, and keeps an earlier text beside the column."""
+    df = pl.DataFrame({"at": [1, 2, 3], "r": [-0.02, None, 0.5], "r__raw": [None, "-", None]})
+    long = unpivot_with_raw(clear_sentinels(df, ["r"], Floor(0.0)), index=["at"])
+    assert long.get_column("value").to_list() == [0.0, None, 0.5]
+    assert long.get_column("raw").to_list() == ["-0.02", "-", None]
 
 
 def test_a_period_that_is_no_reading_nulls_what_it_selects_and_keeps_the_value() -> None:
