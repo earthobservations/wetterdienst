@@ -18,6 +18,15 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/radar`: `start=DwdRadarDate.LATEST` answers `RadarResult.timestamp` for the latest files
+  whose name has no time, which was `None`: the `-latest-` files of the site products, the
+  `-LATEST-` sweeps of the precipitation scan, HX, DMAX, VII, HymecNG and the RADOLAN products.
+  It is `date` and `time` of the `/what` group of the ODIM HDF5 file (needs h5py, the `radar`
+  extra; without it `None` and one warning), the header of a `DX` file, or the event time of
+  `meso_latest.xml`, which stays `None` for a run with no event (GH-3299)
+- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of the volume sweeps (`SWEEP_VOL_*`) is the 5 minute slot
+  10 minutes before now, no longer 5: their last sweeps are listed up to 485 s after the slot
+  starts, so 0.6 % of the answers lacked sweeps (0.1 % had fewer than four) (GH-3302)
 - The example `dwd_radar_composite_rw.py` plots `ACRR`, the variable wradlib reads from a RADOLAN RW
   file (it asked for `RW` and failed). The radar docs say what an RW file holds and that it is ODIM
   HDF5, which `wrl.io.read_radolan_header` cannot read: use h5py or

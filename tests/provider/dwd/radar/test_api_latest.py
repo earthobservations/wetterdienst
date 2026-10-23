@@ -12,7 +12,12 @@ from dirty_equals import IsDatetime, IsDict, IsInt, IsList, IsNumeric
 from tests.provider.dwd.radar.odim import assert_rw_file
 from wetterdienst import Settings
 from wetterdienst.provider.dwd.radar import DwdRadarValues
-from wetterdienst.provider.dwd.radar.metadata import DwdRadarDate, DwdRadarParameter
+from wetterdienst.provider.dwd.radar.metadata import (
+    RADAR_PARAMETERS_SITES,
+    DwdRadarDataSubset,
+    DwdRadarDate,
+    DwdRadarParameter,
+)
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
 
 
@@ -106,3 +111,37 @@ def test_radar_request_site_latest_dx_reflectivity(default_settings: Settings) -
     )
 
     assert requested_attrs == attrs
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    ("parameter", "subset"),
+    [
+        (DwdRadarParameter.DX_REFLECTIVITY, None),
+        (DwdRadarParameter.PE_ECHO_TOP, None),
+        (DwdRadarParameter.SWEEP_PCP_ZDR, None),
+        (DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H, DwdRadarDataSubset.UNFILTERED),
+        (DwdRadarParameter.HX_REFLECTIVITY, None),
+        (DwdRadarParameter.VII_INTEGRATED_ICE, None),
+        (DwdRadarParameter.YW_REFLECTIVITY, None),
+    ],
+)
+def test_radar_request_latest_is_dated_by_the_scan_time_in_the_file(
+    parameter: DwdRadarParameter, subset: DwdRadarDataSubset | None, default_settings: Settings
+) -> None:
+    """Test that the latest file, whose name has no time, answers the time of its scan (GH-3299)."""
+    pytest.importorskip("h5py", reason="h5py not installed")
+
+    request = DwdRadarValues(
+        parameter=parameter,
+        start=DwdRadarDate.LATEST,
+        site=DwdRadarSite.BOO if parameter in RADAR_PARAMETERS_SITES else None,
+        subset=subset,
+        settings=default_settings,
+    )
+
+    results = list(request.query())
+
+    assert results, "DWD holds no file for this request"
+    for result in results:
+        assert result.timestamp == IsDatetime(approx=dt.datetime.now(ZoneInfo("UTC")), delta=dt.timedelta(minutes=90))

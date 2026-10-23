@@ -49,7 +49,12 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarParameter,
 )
 from wetterdienst.provider.dwd.radar.sites import DwdRadarSite
-from wetterdienst.provider.dwd.radar.util import RADAR_DT_PATTERN, get_date_string_from_filename, verify_hdf5
+from wetterdienst.provider.dwd.radar.util import (
+    RADAR_DT_PATTERN,
+    get_date_string_from_filename,
+    read_scan_time,
+    verify_hdf5,
+)
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
@@ -255,7 +260,8 @@ class DwdRadarValues:  # noqa: PLW1641
         #
         # So, we will be better off making the machinery retrieve the latest "full"
         # volume by addressing the **previous** volume. So, when requesting data at
-        # 15:03, it will retrieve 14:55:00-14:59:59.
+        # 15:03, it will retrieve 14:55:00-14:59:59. The volume sweeps are listed up to 485 s late, so they, as the
+        # other products of RADAR_PARAMETERS_SLOW, go back one more slot: 14:50:00-14:54:59 (GH-3302).
         #
         if self.format in (DwdRadarDataFormat.HDF5, DwdRadarDataFormat.XML) and start == DwdRadarDate.MOST_RECENT:
             # the products that DWD publishes late are gone back another 5 minutes, to a file that is there
@@ -297,6 +303,7 @@ class DwdRadarValues:  # noqa: PLW1641
             self.adjust_datetimes()
 
         self.settings = settings or Settings()
+        self._warned_missing_h5py = False
 
     def __str__(self) -> str:
         """Return a string representation of the object."""
@@ -399,13 +406,14 @@ class DwdRadarValues:  # noqa: PLW1641
                     log.warning(f"No radar file found for {self.parameter}, {self.site}, {self.format}")
                     return
                 for url in file_index.sort("filename").get_column("filename"):
-                    yield from self._download_generic_data(url=url)
+                    for result in self._download_generic_data(url=url):
+                        yield self._dated_by_content(result)
                 return
 
             # Yield single "RadarResult" item.
             latest_file = file_index.get_column("filename").item()
             result = next(self._download_generic_data(url=latest_file))
-            yield result
+            yield self._dated_by_content(result)
 
         elif self.parameter == DwdRadarParameter.RADOLAN_CDC:
             period_types = [self.period] if self.period else [Period.RECENT, Period.HISTORICAL]
@@ -513,6 +521,24 @@ class DwdRadarValues:  # noqa: PLW1641
                         except Exception:  # pragma: no cover
                             log.exception("Unable to read HDF5 file.")
                     yield result
+
+    def _dated_by_content(self, result: RadarResult) -> RadarResult:
+        """Date a latest file by what it says, which its name does not (GH-3299).
+
+        The `-latest-` and `LATEST` files of the sites, the sweeps of the precipitation scan, the composites and RADOLAN
+        have no time in the name; the time of the scan is in the file, in the `/what` group of an ODIM HDF5 file, which
+        h5py reads, in the header of a DX file, or in the first event of `meso_latest.xml`. A file that says none (that
+        of a run with no event) stays undated, as one does without h5py, which is said once.
+        """
+        if result.timestamp is not None:
+            return result
+        try:
+            result.timestamp = read_scan_time(result.data)
+        except MissingDependencyError as exc:
+            if not self._warned_missing_h5py:
+                self._warned_missing_h5py = True
+                log.warning(f"{str(exc).rstrip('.')}. The latest HDF5 files are returned without a timestamp.")
+        return result
 
     @staticmethod
     def _should_cache_download(url: str) -> bool:

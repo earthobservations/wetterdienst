@@ -581,6 +581,132 @@ def test_the_latest_of_rs_is_the_analysis_in_its_tar(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.parametrize(
+    ("parameter", "latest", "file", "expected"),
+    [
+        (
+            DwdRadarParameter.VII_INTEGRATED_ICE,
+            "composite/vii/composite_VII_latest-hd5",
+            "composite_VII_20261020_1325-hd5",
+            dt.datetime(2026, 10, 20, 13, 25, tzinfo=UTC),
+        ),
+        (
+            DwdRadarParameter.HYMECNG_PRECIPITATION_TYPE,
+            "composite/hymecng/composite_HymecNG_LATEST_000-hd5",
+            "composite_HymecNG_20261020_1325_000-hd5",
+            dt.datetime(2026, 10, 20, 13, 25, tzinfo=UTC),
+        ),
+        (
+            DwdRadarParameter.YW_REFLECTIVITY,
+            "radolan/yw/raa01-yw_10000-latest-dwd---bin.hdf5",
+            "raa01-yw_10000-2610201300-dwd---bin.hdf5",
+            dt.datetime(2026, 10, 20, 13, 0, tzinfo=UTC),
+        ),
+    ],
+)
+def test_the_latest_file_of_a_composite_is_dated_by_the_scan_time_in_the_real_file(
+    parameter: DwdRadarParameter, latest: str, file: str, expected: dt.datetime, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that `composite_VII_latest-hd5` and the other LATEST files with no time in the name are dated (GH-3299)."""
+    pytest.importorskip("h5py")
+    _served(monkeypatch, {f"{RADAR}/{latest}": (FILES / file).read_bytes()})
+
+    (result,) = DwdRadarValues(parameter=parameter, start=DwdRadarDate.LATEST).query()
+
+    assert result.timestamp == expected
+
+
+def test_the_latest_of_a_precipitation_sweep_is_dated_by_the_scan_time_in_the_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that TH and TV of `-LATEST-` are each dated, to the second the file says.
+
+    The file is a real sweep of BOO, of the volume scan, which stands in for the two of the precipitation scan: it has
+    the time of its volume in `/what`, 23:55:20 (the name says 23:58:35). The precipitation sweeps say
+    the slot, 21:25:00.
+    """
+    pytest.importorskip("h5py")
+    base = f"{RADAR}/sites/sweep_pcp_z/boo/unfiltered"
+    sweep = (FILES / "ras07-vol5minng01_sweeph5onem_uzdr_07-2026102123583500-boo-10132-hd5").read_bytes()
+    _served(
+        monkeypatch,
+        {f"{base}/{_PCP}_th_00-LATEST-boo-10132-hd5": sweep, f"{base}/{_PCP}_tv_00-LATEST-boo-10132-hd5": sweep},
+    )
+
+    results = list(
+        DwdRadarValues(
+            parameter=DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+            site=DwdRadarSite.BOO,
+            subset=DwdRadarDataSubset.UNFILTERED,
+            start=DwdRadarDate.LATEST,
+        ).query()
+    )
+
+    # `/what` of that file: date 20261021, time 235520
+    assert [result.timestamp for result in results] == [dt.datetime(2026, 10, 21, 23, 55, 20, tzinfo=UTC)] * 2
+
+
+def test_the_latest_of_the_mesocyclones_with_an_event_is_dated_by_the_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `meso_latest.xml` of a run with an event is dated by its time, `2026-10-21T16:30:00` (a real file)."""
+    content = (FILES / "meso_20261021_1630.xml").read_bytes()
+    assert b'<time time-coordinate="UTC">2026-10-21T16:30:00</time>' in content
+    _served(monkeypatch, {f"{RADAR}/mesocyclones/meso_latest.xml": content})
+
+    (result,) = DwdRadarValues(parameter=DwdRadarParameter.MESOCYCLONE_DETECTION, start=DwdRadarDate.LATEST).query()
+
+    assert result.timestamp == dt.datetime(2026, 10, 21, 16, 30, tzinfo=UTC)
+    assert result.data.getvalue() == content
+
+
+def test_the_latest_of_the_mesocyclones_with_no_event_has_no_time_in_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `meso_latest.xml`, which holds no event and no time (a real one), stays undated: none is made up."""
+    content = (FILES / "meso_20261020_1325.xml").read_bytes()
+    assert b"time-coordinate" not in content
+    _served(monkeypatch, {f"{RADAR}/mesocyclones/meso_latest.xml": content})
+
+    (result,) = DwdRadarValues(parameter=DwdRadarParameter.MESOCYCLONE_DETECTION, start=DwdRadarDate.LATEST).query()
+
+    assert result.timestamp is None
+    assert result.data.getvalue() == content
+
+
+@pytest.mark.parametrize(
+    ("parameter", "subset"),
+    [
+        (DwdRadarParameter.SWEEP_VOL_VELOCITY_H, DwdRadarDataSubset.SIMPLE),
+        (DwdRadarParameter.SWEEP_VOL_VELOCITY_H, DwdRadarDataSubset.POLARIMETRIC),
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, DwdRadarDataSubset.SIMPLE),
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, DwdRadarDataSubset.POLARIMETRIC),
+        (DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H, DwdRadarDataSubset.UNFILTERED),
+        (DwdRadarParameter.SWEEP_VOL_ZDR, None),
+        (DwdRadarParameter.SWEEP_VOL_RHOHV, None),
+        (DwdRadarParameter.SWEEP_VOL_PHIDP, None),
+    ],
+)
+def test_the_most_recent_volume_of_the_sweeps_is_the_slot_10_minutes_before(
+    parameter: DwdRadarParameter, subset: DwdRadarDataSubset | None
+) -> None:
+    """Test that the last sweeps of a volume, listed up to 485 s after its slot starts, are waited for (GH-3302)."""
+    request = DwdRadarValues(parameter=parameter, subset=subset, site=DwdRadarSite.BOO, start=DwdRadarDate.MOST_RECENT)
+    assert isinstance(request.start, dt.datetime)
+    now = dt.datetime.now(UTC)
+    # the slot started more than 600 s ago, longer than the 485 s of the longest listing of the last sweep
+    assert dt.timedelta(minutes=10) <= now - request.start <= dt.timedelta(minutes=15)
+    assert request.end - request.start == dt.timedelta(minutes=5) - dt.timedelta(seconds=1)
+
+
+def test_the_most_recent_sweep_of_the_precipitation_scan_keeps_the_slot_5_minutes_before() -> None:
+    """Test that the one sweep of the precipitation scan, first listed within 240 s, is not made to wait longer."""
+    request = DwdRadarValues(
+        parameter=DwdRadarParameter.SWEEP_PCP_VELOCITY_H,
+        subset=DwdRadarDataSubset.SIMPLE,
+        site=DwdRadarSite.BOO,
+        start=DwdRadarDate.MOST_RECENT,
+    )
+    assert isinstance(request.start, dt.datetime)
+    assert dt.timedelta(minutes=5) <= dt.datetime.now(UTC) - request.start <= dt.timedelta(minutes=10)
+
+
+@pytest.mark.parametrize(
     ("parameter", "lag"),
     [
         (DwdRadarParameter.KONRAD3D_CONVECTIVE_CELLS, 10),
