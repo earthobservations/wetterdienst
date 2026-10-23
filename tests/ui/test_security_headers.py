@@ -128,7 +128,22 @@ def test_stripes_image_answers_nosniff_in_every_image_format(
 
 
 def test_an_unhandled_error_answers_nosniff(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 500 is answered by Starlette's outermost middleware, outside the one that adds the other headers."""
+    """A 500 that no handler of the route wraps is answered by Starlette's outermost middleware, outside the app's."""
+
+    class _Broken:
+        def __iter__(self) -> None:
+            msg = "bug"
+            raise RuntimeError(msg)
+
+    monkeypatch.setattr(restapi.Wetterdienst, "registry", _Broken())
+    response = client.get("/")
+
+    assert response.status_code == 500
+    assert _once(response) == ["nosniff"]
+
+
+def test_a_failure_the_route_wraps_answers_nosniff(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 500 of a failure the endpoint turns into a problem is answered inside the middleware."""
 
     def broken(**_kwargs: object) -> None:
         msg = "bug"
@@ -182,7 +197,7 @@ def test_problem_headers_carry_nosniff_and_keep_one_given() -> None:
 
 
 def test_a_response_that_has_the_header_is_not_sent_it_twice() -> None:
-    """A handler that sets it itself, or a proxy-like layer inside the app, keeps its value; there is one header."""
+    """A handler that sets the header itself keeps its value, and there is one header."""
     app = FastAPI()
     app.add_middleware(RequestContextMiddleware)
 
@@ -190,7 +205,7 @@ def test_a_response_that_has_the_header_is_not_sent_it_twice() -> None:
     def own() -> Any:  # noqa: ANN401
         from starlette.responses import PlainTextResponse  # noqa: PLC0415
 
-        return PlainTextResponse("x", headers={"x-content-type-options": "nosniff"})
+        return PlainTextResponse("x", headers={"x-content-type-options": "own"})
 
     @app.get("/plain")
     def plain() -> dict[str, str]:
@@ -198,7 +213,7 @@ def test_a_response_that_has_the_header_is_not_sent_it_twice() -> None:
 
     test_client = TestClient(app)
 
-    assert _once(test_client.get("/own")) == ["nosniff"]
+    assert _once(test_client.get("/own")) == ["own"]
     assert _once(test_client.get("/plain")) == ["nosniff"]
 
 
@@ -255,8 +270,9 @@ def test_the_index_has_a_policy_and_needs_nothing_it_forbids(client: TestClient)
     page.feed(response.text)
     # what the policy blocks, and so what the page must not use: scripts, requests, images, fonts, frames, forms
     assert not page.tags & {"script", "img", "link", "iframe", "frame", "object", "embed", "form", "base", "svg"}
-    assert not page.tags & {"input", "button", "video", "audio", "source", "picture", "meta-refresh"}
+    assert not page.tags & {"input", "button", "video", "audio", "source", "picture"}
     assert page.loading == []
+    assert "http-equiv" not in response.text.lower()
     assert page.handlers == []
     assert "javascript:" not in response.text.lower()
     assert "@import" not in response.text
@@ -301,15 +317,24 @@ def test_a_chart_as_svg_has_the_policy(client: TestClient, monkeypatch: pytest.M
     assert _once(svg) == _once(png) == ["nosniff"]
 
 
-def test_a_real_chart_svg_needs_nothing_the_policy_forbids(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("chart", ["values", "stations"])
+def test_a_real_chart_svg_needs_nothing_the_policy_forbids(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, chart: str
+) -> None:
     """Render the SVG with Kaleido and read what it needs: no script, request or font, images only inlined.
 
-    The one thing the policy lets through that a chart uses is `style`, which Plotly writes as attributes.
-    Skipped where no Chrome is there to render it.
+    The line chart of values needs `style` (written as attributes) and nothing else; the map of the stations also
+    embeds its canvas as a `data:` image, which `img-src data:` is there for. Skipped where no Chrome renders it.
     """
-    _stub_result(monkeypatch, "/api/values")
-
-    response = client.get("/api/values", params={**_VALUES, "format": "svg", "width": 400, "height": 300})
+    if chart == "values":
+        _stub_result(monkeypatch, "/api/values")
+        response = client.get("/api/values", params={**_VALUES, "format": "svg", "width": 400, "height": 300})
+    else:
+        stations = _values_result_of_shape("long").stations
+        monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
+        response = client.get(
+            "/api/stations", params={**_OBSERVATION, "all": "true", "format": "svg", "width": 400, "height": 300}
+        )
     if response.status_code != 200:
         pytest.skip("Kaleido cannot render here (no Chrome)")
 
@@ -317,7 +342,7 @@ def test_a_real_chart_svg_needs_nothing_the_policy_forbids(client: TestClient, m
     root = ET.fromstring(text)  # noqa: S314
     for element in root.iter():
         tag = element.tag.rsplit("}", 1)[-1]
-        assert tag not in {"script", "foreignObject", "iframe", "link", "image", "use"}, tag
+        assert tag not in {"script", "foreignObject", "iframe", "link", "use"}, tag
         for name, value in element.attrib.items():
             local = name.rsplit("}", 1)[-1]
             assert not local.startswith("on"), name

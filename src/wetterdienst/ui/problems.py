@@ -267,7 +267,8 @@ def problem_body(
 def problem_headers(status_code: int, request_id: str, headers: Mapping[str, str] | None = None) -> dict[str, str]:
     """Give the headers of a problem: those it was raised with, the request id, `nosniff` and a `Retry-After`.
 
-    A 500 is answered outside the middleware that adds the headers of the other answers: a problem carries its own.
+    A problem is sent past the middleware that adds the headers of the other answers where the middleware answers it
+    itself (a refused host, the cap, the timeout) or Starlette's outermost one does (a 500): it carries its own.
     """
     given = dict(headers or {})
     lowered = {name.lower() for name in given}
