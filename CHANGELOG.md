@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.170.0] - 2026-10-23
+
 ### Changed
 
 - **Breaking**: `dwd/observation` `hourly/temperature_soil` `historical`: the stamps of the periods
@@ -29,6 +31,12 @@ Types of changes:
 - The `radarplus` extra needs `wradlib>=2.6.0` (was `>=2.0.1`): the first release whose `radolan`
   backend opens the ODIM HDF5 file DWD serves as the RADOLAN RW, where older ones raise a
   `UnicodeDecodeError`. A host that pins an older wradlib upgrades it (GH-3329)
+- `chmi/observation` stations of `daily`, `monthly` and `annual` are the ones with a file of a
+  requested parameter, not of any element of the resolution (0.169.0):
+  `daily/data/sunshine_duration` lists 312 of the 1,537 stations, the other 1,225 answered it with
+  no values (read 2026-10-23).
+  A dataset lists the stations with a file of any of its parameters, from the directories of the
+  requested elements only; `10_minutes` and `hourly` still list all stations (GH-3295)
 
 ### Fixed
 
@@ -6324,7 +6332,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...HEAD
+[0.170.0]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...v0.170.0
 [0.169.0]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...v0.169.0
 [0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
