@@ -1079,7 +1079,7 @@ def _blocking_values(monkeypatch: pytest.MonkeyPatch) -> tuple[threading.Event, 
     return release, begun, ended
 
 
-async def _until(condition: Callable[[], bool], what: str, seconds: float = 15) -> None:
+async def _until(condition: Callable[[], bool], what: str, seconds: float = 60) -> None:
     """Wait for a condition of the app, which takes as long as the runner needs: the deadline is for a hang only."""
     deadline = time.monotonic() + seconds
     while not condition():
@@ -1089,9 +1089,9 @@ async def _until(condition: Callable[[], bool], what: str, seconds: float = 15) 
 
 async def _first_served(client: Any) -> int:  # noqa: ANN401
     """Ask until the request is no longer refused for want of a place, and give the status of the one that was not."""
-    deadline = time.monotonic() + 15
+    deadline = time.monotonic() + 60
     while (status := (await client.get("/api/v1/values", params=_VALUES)).status_code) == 503:
-        assert time.monotonic() < deadline, "the place was not given back within 15 seconds"
+        assert time.monotonic() < deadline, "the place was not given back within 60 seconds"
         await asyncio.sleep(0.01)
     return status
 
