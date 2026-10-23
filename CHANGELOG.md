@@ -32,6 +32,11 @@ Types of changes:
 - The migration guide named no release for the `dwd/observation` hourly air temperature of the MEZ
   periods (0.155.0, GH-2709), and its "Verified" section counted 361 parameters of 0.139.0 that are
   gone where there are 403, with two removals (WSV Pegel, NWS) missing from its list (GH-3321)
+- `dwd/radar` `DwdRadarValues` with `start=DwdRadarDate.LATEST` of a product that is no sweep: a
+  folder with no file named latest (warns `No radar file found`, as the sweeps do) or a latest
+  `.tar` with no member (warns `No radar data found in <url>`) now answers no result instead of
+  raising a polars `ValueError` or a `RuntimeError`. Two files named latest are both answered, the
+  first result of each, in the order of their names. A connection failure is still raised (GH-3311)
 
 ## [0.169.0] - 2026-10-23
 
