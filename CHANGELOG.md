@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.170.0] - 2026-10-23
+
 ### Changed
 
 - **Breaking**: `dwd/observation` `hourly/temperature_soil` `historical`: the stamps of the periods
@@ -6321,7 +6323,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...HEAD
+[0.170.0]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...v0.170.0
 [0.169.0]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...v0.169.0
 [0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
