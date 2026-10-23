@@ -112,7 +112,7 @@ def values_chart_altair(result: ValuesResult, *, width: int = WIDTH - 140, row_h
     # The data goes in as the text of a CSV file, written by polars in one call and parsed by Vega-Lite:
     # - Altair's 5,000-row limit (`MaxRowsError`) is checked on a DataFrame or a list of records, not on text, and
     #   no global state is set, as `alt.data_transformers.disable_max_rows()` does;
-    # - 87,000 rows cost 0.1 s to build, where 87,000 records cost 5 s in Altair and 5 s more to validate;
+    # - 87,000 rows cost 0.1 s to build, where 87,000 records cost 3.7 s in Altair and 3.6 s more to validate;
     # - `parse` is given for every column, as Vega-Lite would read the station id `00433` as the number 433.
     data = alt.InlineData(
         values=_iso(df).write_csv(),
