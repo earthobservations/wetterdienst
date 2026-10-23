@@ -1,0 +1,94 @@
+Output of the checks of research/altair_vl_convert, macOS 27.0.1 arm64 (Apple M1 Pro, 16 GB), 2026-10-23.
+altair 6.3.0, vl-convert-python 1.9.0.post1, plotly 7.1.0, kaleido 1.5.0, matplotlib 3.11.2, polars 2.0.0, Python 3.13.3
+(and 3.11.16, 3.12.3, 3.14.7, 3.15.0rc1 for the wheel check). Chrome is the installed Google Chrome.app.
+
+== checks.py polars (environment: altair, vl-convert-python, polars; no pandas, pyarrow, numpy)
+{"altair": "6.3.0", "polars": "2.0.0", "spec_rows": 500, "png_bytes": 264790, "first_row": {"timestamp": "2016-01-01T00:00:00+0000", "value": 0.0, "station_id": "00433"}}
+{"pandas": false, "pyarrow": false, "numpy": false, "narwhals": true}
+== the same with altair 6.0.0 and vl-convert-python 1.8.0 on Python 3.11.16
+{"altair": "6.0.0", "polars": "2.0.0", "spec_rows": 500, "png_bytes": 264350, "first_row": {"timestamp": "2016-01-01T00:00:00", "value": 0.0, "station_id": "00433"}}
+{"pandas": false, "pyarrow": false, "numpy": false, "narwhals": true}
+   (6.0.0 writes a timezone-aware timestamp without its offset, which Vega-Lite then reads as local time; 6.3.0 keeps +0000)
+
+== checks.py rowlimit
+--- 5000 rows
+alt.Chart(polars_frame).to_dict()                          ok     0.37 s  17 KiB png
+with alt.data_transformers.disable_max_rows(): ...         ok     0.07 s  17 KiB png
+alt.Data(values=list of records)                           ok     0.32 s  17 KiB png
+alt.InlineData(values=csv text)                            ok     0.06 s  17 KiB png
+--- 5001 rows
+alt.Chart(polars_frame).to_dict()                          MaxRowsError: The number of rows in your dataset (5001) is greater than the maximum allowed (5000).
+with alt.data_transformers.disable_max_rows(): ...         ok     0.06 s  18 KiB png
+alt.Data(values=list of records)                           ok     0.30 s  18 KiB png
+alt.InlineData(values=csv text)                            ok     0.06 s  18 KiB png
+--- 87600 rows
+alt.Chart(polars_frame).to_dict()                          MaxRowsError: The number of rows in your dataset (87600) is greater than the maximum allowed (5000).
+with alt.data_transformers.disable_max_rows(): ...         ok     0.65 s  15 KiB png
+alt.Data(values=list of records)                           ok     6.22 s  15 KiB png
+alt.InlineData(values=csv text)                            ok     0.55 s  15 KiB png
+data_transformers after all of it: default
+
+== checks.py html (bytes)
+{"rows": 744, "plotly_default_bytes": 4853234, "plotly_cdn_bytes": 37619, "altair_default_bytes": 21418, "altair_inline_bytes": 918433}
+{"rows": 8760, "plotly_default_bytes": 5171976, "plotly_cdn_bytes": 356361, "altair_default_bytes": 233135, "altair_inline_bytes": 1130150}
+{"rows": 87600, "plotly_default_bytes": 8307021, "plotly_cdn_bytes": 3491406, "altair_default_bytes": 2315440, "altair_inline_bytes": 3212455}
+
+== checks.py fonts (digest of the PNG of one line of text)
+sans-serif        bbe44e273dfb
+Liberation Sans   000d3fb38545
+Arial             bbe44e273dfb = sans-serif
+Helvetica         23a2cf693a26
+DejaVu Sans       afdd47e871cf
+Open Sans         afdd47e871cf
+Menlo             6419dd8715b6
+SF Pro Text       afdd47e871cf
+NoSuchFontXYZ     afdd47e871cf
+   (afdd47e871cf is a picture without the text: a family that is not installed draws nothing)
+
+== urls_check.py (the server is another process)
+http://127.0.0.1 default                rendered; data read: True
+http://127.0.0.1 allowed_base_urls=[]   error: Vega-Lite to SVG conversion failed:
+file:// URI    default                rendered; data read: False
+file:// URI    allowed_base_urls=[]   rendered; data read: False
+absolute path  default                rendered; data read: False
+absolute path  allowed_base_urls=[]   error: Vega-Lite to SVG conversion failed:
+
+== checks.py determinism (altair engine, stripes png/svg/pdf and values png/svg)
+same process, twice:  identical
+this process                       identical to the first
+new process, TZ=UTC                identical to the first
+new process, TZ=America/Los_Angeles identical to the first
+new process, TZ=Asia/Kolkata       identical to the first
+
+== checks.py fork
+child: PanicException failed to wake I/O driver: Os { code: 9, kind: Uncategorized, message: "Bad file descriptor" }
+child after fork: exit status 1
+
+== checks.py gil
+render 1.64 s; the other thread woke 2 times, longest gap 1.64 s
+
+== checks.py huge (stripes, altair, png)
+scale   1.00 (   700 x    500 px):   0.44 s, 776 KiB, rss 207 -> 276 MiB
+scale   3.00 (  2100 x   1500 px):   0.29 s, 2580 KiB, rss 276 -> 293 MiB
+scale   8.00 (  5600 x   4000 px):   0.79 s, 7272 KiB, rss 293 -> 391 MiB
+scale  11.70 (  8190 x   5850 px):   1.22 s, 10210 KiB, rss 391 -> 598 MiB
+
+== soak.py --engine altair --n 1000 (stripes png, rss after n images)
+after     1 images: rss 275 MiB
+after   100 images: rss 314 MiB
+after   200 images: rss 320 MiB
+after   500 images: rss 322 MiB
+after  1000 images: rss 325 MiB
+
+== wheels: pip install altair vl-convert-python polars, one PNG rendered, on macOS arm64
+3.11.16 altair 6.3.0 vl_convert 1.9.0 png 5973 b'\x89PNG'
+3.12.3 altair 6.3.0 vl_convert 1.9.0 png 5973 b'\x89PNG'
+3.13.3 altair 6.3.0 vl_convert 1.9.0 png (the benchmark environment)
+3.14.7 altair 6.3.0 vl_convert 1.9.0 png 5973 b'\x89PNG'
+3.15.0rc1 altair 6.3.0 vl_convert 1.9.0 png 5973 b'\x89PNG'
+
+== install sizes (install_size.py, RECORD bytes, Python 3.13 on macOS arm64), on top of `pip install wetterdienst` (v-core: polars, pyarrow, pydantic, ...)
+plotly + kaleido          41.6 MiB (7 packages: plotly 38.5, narwhals 2.0, packaging, simplejson, kaleido, choreographer, logistro); Chrome not included
+altair + vl-convert       76.5 MiB (10 packages: vl-convert-python 66.3, altair 5.6, narwhals 2.0, jinja2, jsonschema, referencing, rpds-py, ...)
+matplotlib                69.1 MiB (9 packages: matplotlib 22.8, numpy 19.6, fonttools 13.1, pillow 11.4, ...)
+Chrome for Testing 156.0.8078.47 download: linux64 200.2 MB, mac-arm64 194.9 MB, win64 209.2 MB (zip, compressed; not unpacked here: disk)
