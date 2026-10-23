@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The threat model (`.github/SECURITY.md`) and the REST API and MCP pages were inexact. They now say
+  that the cache directory holds every downloaded body, not only the listings; that seven providers
+  fetch URLs an upstream's answer names, so a compromised upstream can make the server fetch from
+  another http(s) host (GH-3339); that the backend sends no `nosniff` or CSP header (GH-3349); and
+  that the provider text the MCP tools return, such as DWD alert text, is unfiltered and untrusted
+  for an agent (GH-3347)
+
 ## [0.171.0] - 2026-10-23
 
 ### Changed

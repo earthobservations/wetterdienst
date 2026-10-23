@@ -86,6 +86,15 @@ An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
 does not take is refused with the name of the one it takes (`station was renamed to stations`).
 
+## Text from the providers
+
+A tool answers what the REST route answers, and some of that is text written by the provider: station names, the
+free text of DWD warnings (`headline`, `description`, `instruction`), the names and instruments of a station's history.
+The server does not filter or mark it. To the assistant that reads it, it is untrusted input, as a web page would be: an
+assistant that is connected to this endpoint together with tools that act (send, write, run, fetch) should not follow
+an instruction that such a field contains. The [threat model](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md)
+has the rest.
+
 ## Stateless
 
 The endpoint keeps no session. The tools hold no state: each is a request to the REST API, so the server does not
