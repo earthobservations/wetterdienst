@@ -215,7 +215,9 @@ radar = [
     "h5py>=3.11,<4",
 ]
 radarplus = [
-    "wradlib>=2.0.1,<3",
+    # 2.6.0 is the first release whose `radolan` backend reads the ODIM HDF5 file DWD serves as the
+    # RADOLAN RW (and the like); before it, opening one raises a `UnicodeDecodeError` (GH-3329)
+    "wradlib>=2.6.0,<3",
     "xradar>=0.8,<1",
 ]
 restapi = [
