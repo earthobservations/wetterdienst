@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.169.0] - 2026-10-23
+
+### Added
+
+- `dwd/radar` reads the folder `unfiltered` of the reflectivity sweeps, which holds the total
+  reflectivity `TH` and `TV` (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H`
+  and `SWEEP_VOL_REFLECTIVITY_H`): both files of each sweep are answered, told apart by
+  `result.url`. `start=DwdRadarDate.LATEST` of the precipitation sweep is its `-LATEST-` files, TH
+  and TV. That of the volume sweeps stays refused, as DWD replaces the ten files one by one and
+  they come from two volumes for minutes; ask for a time (GH-3288)
+
 ### Changed
 
 - **Breaking**: `dwd/dmo` `precipitation_amount_last_1h` (`rr1`) and `precipitation_amount_last_3h`
@@ -26,18 +37,26 @@ Types of changes:
   `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h` (`rads3`) stay as written, a
   little negative at night (mostly above -0.2 J/cm2, at a few stations to about -0.8), and their
   descriptions say so (GH-3263)
-- `dwd/dmo` says in the descriptions of `radiation_global` (`rad1h`),
-  `radiation_short_wave_net_last_3h` (`rads3`), `precipitation_amount_last_1h` (`rr1`) and
-  `precipitation_amount_last_3h` (`rr3`) that ICON's output is not clipped at 0 and comes back as
-  written: `rad1h` is a little negative at night (mostly above -0.2 J/cm2, at a few stations to
-  about -0.8), `rads3` to about -0.4, and `rr1` and `rr3` by up to about a tenth of a mm in a few
-  steps (read 2026-10-22). No value changes (Part of GH-3263)
 - **Breaking**: the direct radiation of `dwd/poi` (`direct_solar_radiation_last_hour`) is
   `radiation_sky_short_wave_direct_perpendicular_intensity`, no longer
   `radiation_sky_short_wave_direct_intensity`: it is the irradiance on a plane perpendicular to the
   sun's rays, not the component on a horizontal surface, so it can exceed the global radiation. The
-  old name is refused with the new one named; values and units are unchanged. Request, filter and key by the new name; multiply by the cosine of the solar zenith
-  angle for the horizontal component. Release the app after this backend (GH-3263)
+  old name is refused with the new one named; values and units are unchanged. Request, filter and
+  key by the new name; multiply by the cosine of the solar zenith angle for the horizontal
+  component. Release the app after this backend (GH-3263)
+- `chmi/observation` lists, for `daily`, `monthly` and `annual`, only the stations that have a file
+  in the resolution: 25, 24 and 29 of the 1,562 stations of `meta1.csv` (closed ones such as
+  Sadská) answered every request with an empty frame (read 2026-10-22). `10_minutes` and `hourly`
+  still list all 1,562. A stations request for the three now lists the element directories (7, 2
+  and 2), and a failed listing raises `NoInternetError` or `DownloadError`. The monthly and annual
+  files of 29 and 22 ids that `meta1.csv` does not carry, with no position anywhere, stay unlisted
+  (Part of GH-3259)
+- `noaa/ghcn` `daily` no longer lists the 147 stations of `ghcnd-stations.txt` that have no line
+  in `ghcnd-inventory.txt` (133,039 listed, read 2026-10-22): 83 Canadian `CAN030...`, 58 US
+  `USC...`, 5 Swedish and 1 `GMM`. 146 have no data file (`access/<id>.csv` is a 404); `USC00144840`
+  has one, PRCP of 2013 flagged `Z`. They had null `start_timestamp` and `end_timestamp` and the
+  nearest-station search could pick them. Looking one up by id now warns that there is no such
+  station and answers an empty frame (GH-3260)
 
 ### Fixed
 
@@ -64,6 +83,25 @@ Types of changes:
   values were never clipped; only the constraints column of the five resolution pages said so.
   The `ipma/observation` page no longer calls `radiacao` global radiation: the source says only
   "radiação solar (kJ/m2)" (Part of GH-3242)
+- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY` and
+  `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
+  5 minutes after the run in 18 of 577 runs (up to 8 minutes), and the 5 minute slot was empty
+  then (GH-3288)
+- `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
+  have data files and no line in the station description of any period, when all periods of a
+  dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read
+  2026-10-22). They were dropped without a word and still are not listed, as DWD gives no name or
+  position for them; the docs pages say so (Part of GH-3258)
+- A parameter name renamed before 0.139.0 whose new name a dataset renamed again is refused with
+  "It was renamed to <current name>", not a "Did you mean" guess or no hint: `humidity` in 26
+  datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,
+  NOAA GHCNh, SWSMOS and DMI, and `soil_moisture_gras_*`, `soil_moisture_winterwheat_*` and
+  `soil_moisture_corn_loamysilt_*` in `dwd/derived` `monthly/soil` (GH-3276)
+- `metadata.provider.license.url` of Météo-France and Eaufrance answers
+  `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, the Etalab 2.0 text; the old
+  etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
+  SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
+  redirected (GH-3255)
 
 ### Security
 
@@ -84,28 +122,6 @@ Types of changes:
   `subset` need not name); and the XML of `KONRAD3D_CONVECTIVE_CELLS` and
   `MESOCYCLONE_DETECTION` (`DwdRadarDataFormat.XML`, handed over unparsed in `result.data`). The
   radar docs page says what each is (GH-3283)
-- `dwd/radar` reads the folder `unfiltered` of the reflectivity sweeps, which holds the total
-  reflectivity `TH` and `TV` (`subset=DwdRadarDataSubset.UNFILTERED` of `SWEEP_PCP_REFLECTIVITY_H`
-  and `SWEEP_VOL_REFLECTIVITY_H`): both files of each sweep are answered, told apart by
-  `result.url`. `start=DwdRadarDate.LATEST` of the precipitation sweep is its `-LATEST-` files, TH
-  and TV. That of the volume sweeps stays refused, as DWD replaces the ten files one by one and
-  they come from two volumes for minutes; ask for a time (GH-3288)
-
-### Changed
-
-- `chmi/observation` lists, for `daily`, `monthly` and `annual`, only the stations that have a file
-  in the resolution: 25, 24 and 29 of the 1,562 stations of `meta1.csv` (closed ones such as
-  Sadská) answered every request with an empty frame (read 2026-10-22). `10_minutes` and `hourly`
-  still list all 1,562. A stations request for the three now lists the element directories (7, 2
-  and 2), and a failed listing raises `NoInternetError` or `DownloadError`. The monthly and annual
-  files of 29 and 22 ids that `meta1.csv` does not carry, with no position anywhere, stay unlisted
-  (Part of GH-3259)
-- `noaa/ghcn` `daily` no longer lists the 147 stations of `ghcnd-stations.txt` that have no line
-  in `ghcnd-inventory.txt` (133,039 listed, read 2026-10-22): 83 Canadian `CAN030...`, 58 US
-  `USC...`, 5 Swedish and 1 `GMM`. 146 have no data file (`access/<id>.csv` is a 404); `USC00144840`
-  has one, PRCP of 2013 flagged `Z`. They had null `start_timestamp` and `end_timestamp` and the
-  nearest-station search could pick them. Looking one up by id now warns that there is no such
-  station and answers an empty frame (GH-3260)
 
 ### Removed
 
@@ -116,28 +132,6 @@ Types of changes:
   `Settings(read_bufr=...)` a `ValueError`, each with the reason; read the ODIM HDF5 `result.data`.
   The `bufr` and `eccodes` extras and the BUFR of `dwd/road` are unchanged. `radarplus` no longer
   installs `pybufrkit` and `bitstring`, which nothing imported (GH-3287)
-
-### Fixed
-
-- `dwd/radar`: `DwdRadarDate.MOST_RECENT` of `LMAX_VOLUME_SCAN`, `PE_ECHO_TOP`, `PR_VELOCITY` and
-  `PZ_CAPPI` is the 5 minute slot 10 minutes before now, no longer 5: DWD publishes them more than
-  5 minutes after the run in 18 of 577 runs (up to 8 minutes), and the 5 minute slot was empty
-  then (GH-3288)
-- `dwd/observation` and `dwd/derived` log a warning, once a process, that names the stations that
-  have data files and no line in the station description of any period, when all periods of a
-  dataset are read (01018, 02996 and 05047 in `daily/climate_summary`, nine in `derived` soil, read
-  2026-10-22). They were dropped without a word and still are not listed, as DWD gives no name or
-  position for them; the docs pages say so (Part of GH-3258)
-- A parameter name renamed before 0.139.0 whose new name a dataset renamed again is refused with
-  "It was renamed to <current name>", not a "Did you mean" guess or no hint: `humidity` in 26
-  datasets (now `humidity_relative_mean`), `visibility_range`, `precipitation_height*` in NWS,
-  NOAA GHCNh, SWSMOS and DMI, and `soil_moisture_gras_*`, `soil_moisture_winterwheat_*` and
-  `soil_moisture_corn_loamysilt_*` in `dwd/derived` `monthly/soil` (GH-3276)
-- `metadata.provider.license.url` of Météo-France and Eaufrance answers
-  `https://www.data.gouv.fr/pages/legal/licences/etalab-2.0`, the Etalab 2.0 text; the old
-  etalab.gouv.fr address redirected to the data.gouv.fr home page. `metadata.provider.url` of
-  SMHI is now `https://www.smhi.se/data/sok-oppna-data-i-utforskaren`, where the old one
-  redirected (GH-3255)
 
 ## [0.167.0] - 2026-10-22
 
@@ -6305,7 +6299,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...HEAD
+[0.169.0]: https://github.com/earthobservations/wetterdienst/compare/v0.168.0...v0.169.0
 [0.168.0]: https://github.com/earthobservations/wetterdienst/compare/v0.167.0...v0.168.0
 [0.167.0]: https://github.com/earthobservations/wetterdienst/compare/v0.166.0...v0.167.0
 [0.166.0]: https://github.com/earthobservations/wetterdienst/compare/v0.165.0...v0.166.0

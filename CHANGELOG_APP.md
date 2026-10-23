@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-23
+
 ### Changed
 
 - `[Glossary]` The label of `radiation_sky_short_wave_direct_perpendicular_intensity` replaces that
@@ -1496,7 +1498,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...HEAD
+[0.32.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...app-v0.32.0
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...app-v0.31.0
 [0.30.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...app-v0.30.0
 [0.29.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.28.0...app-v0.29.0
