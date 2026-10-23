@@ -1573,7 +1573,7 @@ def test_docs_name_only_extras_that_exist() -> None:
 
 
 def test_the_documentation_resolves_a_network_with_resolve() -> None:
-    """The constructor form `Wetterdienst(provider, network)` is deprecated, so no page shows it (GH-3045)."""
+    """The constructor form `Wetterdienst(provider, network)` is removed, so no page shows it (GH-3045, GH-3128)."""
     errors = [
         f"{path.relative_to(ROOT)}: {line.strip()}"
         for path in [*_prose_files(), *(ROOT / "examples").rglob("*.py")]
