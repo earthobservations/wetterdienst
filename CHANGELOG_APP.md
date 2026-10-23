@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-23
+
+### Changed
+
+- `[Explorer]` The inputs of the interpolation and summary settings hold the bounds the REST API
+  now enforces on `interpolate` and `summarize`: a station radius of at most 200 km, at most 20
+  additional stations and a minimum gain above 0 (the input offers 0.01 as its smallest). A value
+  the host's settings (`GET /api/settings`) name beyond them is clamped: a radius above 200 km is
+  left to the server, as an infinite one is, a count above 20 becomes 20, and a gain of 0 is not
+  taken, the explorer keeping its own. Release it with backend 0.172.0, which refuses a request
+  past the bounds (GH-2606)
+
 ## [0.32.0] - 2026-10-23
 
 ### Changed
@@ -1498,7 +1510,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...HEAD
+[0.33.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...app-v0.33.0
 [0.32.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...app-v0.32.0
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...app-v0.31.0
 [0.30.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.29.0...app-v0.30.0
