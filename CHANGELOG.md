@@ -18,6 +18,23 @@ Types of changes:
 
 ### Security
 
+- The floors of four dependencies now exclude releases with published advisories: `aiohttp>=3.14.4`
+  (was `>=3.14.0`; every download), `duckdb>=1.1.0` (was `>=1`; the `sql` and `duckdb` extras:
+  GHSA-w2gf-jxc9-pf2q, where `sniff_csv` read files with external access off, which the REST SQL
+  filter relies on), `pypdf>=6.21.1` (was `>=3.12.1`; the `pdf` extra) and `influxdb>=5.3.1` (was
+  `>=5.3`), with `msgpack>=1.2.1` in the `influxdb` extra (5.3.0 pinned `msgpack==0.6.1`,
+  GHSA-6v7p-g79w-8964). An installation that holds an older release keeps it when wetterdienst is
+  upgraded: upgrade these packages as well
+  (`pip install --upgrade aiohttp duckdb pypdf influxdb msgpack`) (GH-3343)
+- **Breaking**: the REST API and the MCP tools bound the inputs of `interpolate` and `summarize`, so
+  that one request cannot ask for an unbounded amount of work: a station distance given is at most
+  200 km, `num_additional_stations` at most 20 and `min_gain_of_value_pairs` above 0 (a 422 past
+  them), and a request whose radius reaches more stations with a record in the window than
+  `WD_RESTAPI_MAX_STATIONS` (100) is refused as `limit-exceeded` before any download. A caller who
+  needs more uses the Python API or the command line, which take any value. Everywhere, the search
+  for a group of four stations to interpolate from looks at the 30 nearest stations of a parameter
+  at most, and falls back to one group around the point where none of them surrounds it. The
+  explorer of the app holds its inputs to the bounds (GH-2606)
 - The REST API sends `X-Content-Type-Options: nosniff` on every answer, errors and streams
   included, and a `Content-Security-Policy` that allows no script or request on the index page and
   the `svg` answers, so that a browser does not take a body for another media type or run script in

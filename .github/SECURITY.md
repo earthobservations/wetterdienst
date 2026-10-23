@@ -68,7 +68,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   `Origin` of an MCP request. `wetterdienst restapi` on a loopback address lists the loopback names itself, against
   DNS rebinding; any other address, and the Docker image (`0.0.0.0`), answers to every host until it is set.
 - **Limits, refused before any download:** 100 stations, 500,000 rows (10,000,000 streamed), a chart side of 8192 px
-  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request.
+  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request. For `interpolate` and
+  `summarize` the stations are those with a record in the window within the radius, which is bounded (`ui/core.py`, `tests/ui/test_geo_bounds.py`).
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
@@ -77,7 +78,8 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   external access off and the configuration locked, on one thread with 1 GiB (`io/export.py`; `tests/test_io.py`:
   `test_filter_by_sql_cannot_read_files`, `test_filter_by_sql_cannot_reach_the_network`). It can still read DuckDB's
   settings, run long and allocate outside the limit, per request: enable it for clients you trust with that
-  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled).
+  (GHSA-rpwr-qmm5-m9wp; those documented limits are settled). The `duckdb` floor is 1.1.0, the first release
+  where `sniff_csv` obeys that setting (GHSA-w2gf-jxc9-pf2q; `test_filter_by_sql_cannot_read_files[sniff_csv]`).
 - **Errors** are RFC 9457 problems. A 500 is a fixed body with no path, traceback or credential, and a 501 for a missing
   credential does not name the setting (`test_a_500_does_not_name_the_servers_paths_but_the_log_does`).
 - **Response headers** (GH-3349; `ui/middleware.py`, `ui/problems.py`; `tests/ui/test_security_headers.py`). Every
