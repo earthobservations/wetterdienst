@@ -130,6 +130,13 @@ class UnitConverter:
             "turbidity": [
                 Unit("nephelometric_turbidity", "NTU"),
             ],
+            # an amount of water held, such as a reservoir's content; the flow through a gauge is
+            # `volume_per_time`. Cubic metres is what the one source publishes it in, cubic hectometres
+            # (a million cubic metres) a unit reservoir statistics are often given in
+            "volume": [
+                Unit("cubic_meter", "m³"),
+                Unit("cubic_hectometer", "hm³"),
+            ],
             "volume_per_time": [
                 Unit("liter_per_second", "l/s"),
                 Unit("cubic_meter_per_second", "m³/s"),
@@ -176,6 +183,7 @@ class UnitConverter:
             "temperature": self.units["temperature"][0],
             "time": self.units["time"][0],
             "turbidity": self.units["turbidity"][0],
+            "volume": self.units["volume"][0],
             "volume_per_time": self.units["volume_per_time"][1],
             "wind_scale": self.units["wind_scale"][0],
             "degree_day": self.units["degree_day"][0],
@@ -329,6 +337,9 @@ class UnitConverter:
             ("minute", "hour"): lambda x: x / 60,
             ("hour", "second"): lambda x: x * 3600,
             ("hour", "minute"): lambda x: x * 60,
+            # volume
+            ("cubic_meter", "cubic_hectometer"): lambda x: x / 1_000_000,
+            ("cubic_hectometer", "cubic_meter"): lambda x: x * 1_000_000,
             # volume_per_time
             ("liter_per_second", "cubic_meter_per_second"): lambda x: x / 1000,
             ("cubic_meter_per_second", "liter_per_second"): lambda x: x * 1000,

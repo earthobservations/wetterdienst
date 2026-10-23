@@ -690,3 +690,72 @@ def _stub_values_download(monkeypatch: pytest.MonkeyPatch, measurements: Excepti
         return File(url=url, content=BytesIO(listing), status=200)
 
     monkeypatch.setattr(api, "download_file", _download)
+
+
+def test_wsv_visibility_and_reservoir_volume_come_back_as_published(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`SW` (SICHTWEITE, m) is `visibility` and `V` (VOLUMEN, m³) is `volume_reservoir` (GH-3242).
+
+    Each is published by one station on the list of 2026-10-23 (786 stations), at its own interval: Herrendurchstich
+    TRAVE every minute (19,963 m that day) and DIEMELTALSPERRE every 15 minutes (10.8 million m³). Neither unit is
+    scaled, so the values come back as the source writes them, under the canonical names, and a station is listed
+    only at the resolution it records the series at.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from wetterdienst.provider.wsv.pegel import api  # noqa: PLC0415
+
+    def _station(number: str, shortname: str, longname: str, unit: str, equidistance: int) -> dict:
+        return {
+            "number": number,
+            "shortname": number,
+            "km": 1.0,
+            "latitude": 53.0,
+            "longitude": 10.0,
+            "water": {"shortname": "TEST"},
+            "timeseries": [
+                {
+                    "shortname": shortname,
+                    "longname": longname,
+                    "unit": unit,
+                    "equidistance": equidistance,
+                    "characteristicValues": [],
+                },
+            ],
+        }
+
+    listing = json.dumps(
+        [_station("sight", "SW", "SICHTWEITE", "m", 1), _station("dam", "V", "VOLUMEN", "m³", 15)],
+    ).encode()
+    measurements = {
+        "sight": [
+            {"timestamp": "2026-10-23T20:20:00+02:00", "value": 19963.0},
+            {"timestamp": "2026-10-23T20:21:00+02:00", "value": 921.9},
+        ],
+        "dam": [
+            {"timestamp": "2026-10-22T22:30:00+02:00", "value": 10831274.0},
+            {"timestamp": "2026-10-22T22:45:00+02:00", "value": 10831274.0},
+        ],
+    }
+
+    def _download(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        if url.endswith("measurements.json"):
+            station_id = url.split("/stations/")[1].split("/", maxsplit=1)[0]
+            return File(url=url, content=BytesIO(json.dumps(measurements[station_id]).encode()), status=200)
+        return File(url=url, content=BytesIO(listing), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download)
+
+    sight = WsvPegelRequest(parameters=[("1_minute", "data", "visibility")]).all().values().all().df
+    assert sight.get_column("station_id").unique().to_list() == ["sight"]
+    assert sight.get_column("parameter").unique().to_list() == ["visibility"]
+    assert sight.sort("timestamp").get_column("value").to_list() == [19963.0, 921.9]
+
+    volume = WsvPegelRequest(parameters=[("15_minutes", "data", "volume_reservoir")]).all().values().all().df
+    assert volume.get_column("station_id").unique().to_list() == ["dam"]
+    assert volume.get_column("parameter").unique().to_list() == ["volume_reservoir"]
+    assert volume.get_column("value").to_list() == [10831274.0, 10831274.0]
+
+    # a station is listed at the interval of the series and at no other
+    assert WsvPegelRequest(parameters=[("15_minutes", "data", "visibility")]).all().df.is_empty()
+    assert WsvPegelRequest(parameters=[("1_minute", "data", "volume_reservoir")]).all().df.is_empty()

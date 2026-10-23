@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Glossary]` The label of `radiation_sky_short_wave_direct_perpendicular` replaces that of
+  `radiation_sky_short_wave_direct` (Met Office), in all eleven languages (GH-3316). Needs the
+  backend that serves the new name: release the backend first. The Low German and Luxembourgish
+  labels are not reviewed by a native speaker
+
 ## [0.33.0] - 2026-10-23
 
 ### Changed

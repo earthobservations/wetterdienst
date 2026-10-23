@@ -75,3 +75,44 @@ def test_a_station_year_with_rows_comes_out_as_the_long_form(monkeypatch: pytest
     assert df["resolution"].unique().to_list() == ["daily"]
     assert df["dataset"].unique().to_list() == ["rain"]
     assert df.sort("timestamp")["value"].to_list() == [3.7, 0.2]
+
+
+def test_the_direct_irradiation_comes_out_under_the_name_of_the_energy_perpendicular_to_the_beam(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`direct_irad` is `radiation_sky_short_wave_direct_perpendicular`, an energy of the hour (GH-3316).
+
+    The MIDAS table RO has a pyrheliometer measure it "at normal incidence", in "Kjoules/ sq metre over the observation
+    period"; the global and the diffuse radiation are on a horizontal surface. The hourly file holds a 24 hour total
+    beside the hour (`ob_hour_count`), which is no value of the hour. The values are the file's kJ/m2 in the unit of the
+    energy type, J/cm2 (1 kJ/m2 = 0.1 J/cm2); the direct one is above the global one here, as it can be.
+    """
+    values = _badc(
+        "ob_end_time,ob_hour_count,glbl_irad_amt,glbl_irad_amt_q,difu_irad_amt,difu_irad_amt_q,direct_irad,direct_irad_q",
+        "1996-06-01 10:00:00,1,1500,1,400,1,2100,1\n1996-06-01 23:59:00,24,19000,1,5000,1,21000,1\n",
+    )
+
+    def download(_self: object, url: str, *_args: object, **_kwargs: object) -> bytes | None:
+        return _STATIONS if "station-metadata" in url else values
+
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_token", lambda _self, _settings: "token")
+    monkeypatch.setattr(metoffice_api.MetOfficeObservationValues, "_download", download)
+    monkeypatch.setattr(metoffice_api, "latest_release_version", lambda *_args, **_kwargs: "202507")
+    request = MetOfficeObservationRequest(
+        parameters=[
+            ("hourly", "radiation", "radiation_global"),
+            ("hourly", "radiation", "radiation_sky_short_wave_diffuse"),
+            ("hourly", "radiation", "radiation_sky_short_wave_direct_perpendicular"),
+        ],
+        start=dt.datetime(1996, 6, 1, tzinfo=_UTC),
+        end=dt.datetime(1996, 6, 2, tzinfo=_UTC),
+        settings=_settings(),
+        options=_options(drop_nulls=True),
+    )
+    df = stations_result(request, "hourly", "radiation", "00001").values().all().df
+    assert dict(df.select("parameter", "value").iter_rows()) == {
+        "radiation_global": 150.0,
+        "radiation_sky_short_wave_diffuse": 40.0,
+        "radiation_sky_short_wave_direct_perpendicular": 210.0,
+    }
+    assert df["timestamp"].unique().to_list() == [dt.datetime(1996, 6, 1, 10, tzinfo=_UTC)]

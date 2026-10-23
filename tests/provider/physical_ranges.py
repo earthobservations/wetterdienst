@@ -81,6 +81,8 @@ UNIT_TYPE_RANGES: dict[str, Bounds | None] = {
     "temperature": Bounds(-90.0, 100.0),  # °C; narrowed for the air below
     "time": Bounds(0.0, 366 * 86_400.0),  # s; a year of sunshine is the most there is
     "turbidity": Bounds(0.0, 5_000.0),  # NTU
+    # m³; the water held in a reservoir, from none to the 180 km³ of Lake Kariba, the largest reservoir by volume
+    "volume": Bounds(0.0, 200_000_000_000.0),
     "volume_per_time": Bounds(-20_000.0, 300_000.0),  # m³/s; a tidal river runs backwards, the Amazon is 200_000
     "wind_scale": Bounds(0.0, 12.0),  # Beaufort
 }

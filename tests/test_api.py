@@ -208,19 +208,20 @@ def test_the_standalone_networks_are_exactly_the_ones_that_are_no_timeseries_req
 
 
 @pytest.mark.parametrize(
-    ("provider", "network", "expected"),
-    [("dwd", "observation", DwdObservationRequest), ("dwd", "radar", None), ("dwd", "alerts", None)],
+    "args", [("dwd", "observation"), ("dwd", "radar"), ("dwd", "alerts"), ("foo", "bar"), ("dwd",), ()]
 )
-def test_the_constructor_form_is_deprecated_and_still_returns_the_class(
-    provider: str, network: str, expected: type | None
-) -> None:
-    """`Wetterdienst(provider, network)` warns of `resolve` at the caller and returns the class (GH-3045)."""
-    with pytest.warns(
-        DeprecationWarning, match=r"Wetterdienst\(provider, network\) is deprecated and will be removed in 1\.0\.0"
-    ) as warned:
-        api = Wetterdienst(provider, network)
-    assert api is (expected or resolve_network(provider, network))
-    assert warned[0].filename == __file__
+def test_the_constructor_form_is_refused_and_names_resolve(args: tuple[str, ...]) -> None:
+    """`Wetterdienst(provider, network)` was removed in 0.173.0: it is a `TypeError` naming what to write (GH-3128)."""
+    with pytest.raises(TypeError, match=r"Wetterdienst\(provider, network\) was removed") as excinfo:
+        Wetterdienst(*args)
+    assert "Wetterdienst.resolve(provider, network)" in str(excinfo.value)
+    assert "Wetterdienst.resolve_standalone(provider, network)" in str(excinfo.value)
+
+
+def test_the_constructor_form_is_refused_with_keywords() -> None:
+    """The keyword spelling of the removed constructor form is refused the same way (GH-3128)."""
+    with pytest.raises(TypeError, match=r"Wetterdienst\(provider, network\) was removed"):
+        Wetterdienst(provider="dwd", network="observation")
 
 
 def test_resolve_names_the_package_a_provider_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
