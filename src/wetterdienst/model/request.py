@@ -8,7 +8,7 @@ import copy
 import datetime as dt
 import logging
 from abc import abstractmethod
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 from zoneinfo import ZoneInfo
@@ -351,6 +351,10 @@ class TimeseriesRequest:
     # which is about how values come back and not about how the request is read, and keyword-only
     # like it.
     on_unknown: Literal["raise", "warn"] = field(default="raise", kw_only=True)
+    # Not an argument: what the REST API and MCP hold `interpolate` and `summarize` to. Given the number of stations
+    # within reach of the point once they are ranked, before the first value is downloaded, it refuses the request
+    # by raising. The library sets none (`core.util.hold_stations_in_reach`)
+    _check_reach: Callable[[int], None] | None = field(default=None, init=False, repr=False, compare=False)
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:  # noqa: ARG004
         """Refuse a renamed argument before the dataclass __init__ rejects it without naming the new one.

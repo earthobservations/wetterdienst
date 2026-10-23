@@ -34,8 +34,29 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 #: the packages whose version shapes the input schemas
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
+#: why the bounds of `interpolate` and `summarize` that GH-2606 tightened are approved, as for the REST routes they are
+#: generated from (`ACCEPTED_BREAKS` of `tests/ui/openapi_diff.py`)
+_WORK_IS_BOUNDED = (
+    "a request that asked for more stations or a wider radius than the server can serve was refused or timed out; "
+    "the bounds make that an error at once, and the Python API takes the values"
+)
+_BOUNDED_ARGUMENTS = (
+    ("interpolate", "interpolation_station_distance_heterogeneous", "maximum became <= 200.0"),
+    ("interpolate", "interpolation_station_distance_homogeneous", "maximum became <= 200.0"),
+    ("interpolate", "interpolation_station_distance{}", "maximum became <= 200.0"),
+    ("interpolate", "min_gain_of_value_pairs", "minimum became > 0.0 (was >= 0.0)"),
+    ("interpolate", "num_additional_stations", "maximum became <= 20.0 (was <= 1000000.0)"),
+    ("summarize", "summary_station_distance_heterogeneous", "maximum became <= 200.0"),
+    ("summarize", "summary_station_distance_homogeneous", "maximum became <= 200.0"),
+    ("summarize", "summary_station_distance{}", "maximum became <= 200.0"),
+    ("summarize", "min_gain_of_value_pairs", "minimum became > 0.0 (was >= 0.0)"),
+    ("summarize", "num_additional_stations", "maximum became <= 20.0 (was <= 1000000.0)"),
+)
+
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    f"tool {tool}: argument {argument}: {finding}": _WORK_IS_BOUNDED for tool, argument, finding in _BOUNDED_ARGUMENTS
+}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

@@ -13,7 +13,7 @@
       "identifier": "MIT",
       "url": "https://github.com/earthobservations/wetterdienst/blob/main/LICENSE.md"
     },
-    "version": "0.160.0",
+    "version": "0.171.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -288,6 +288,7 @@
                   "type": "object",
                   "additionalProperties": {
                     "type": "number",
+                    "maximum": 200.0,
                     "minimum": 0.0
                   }
                 },
@@ -295,10 +296,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set.",
+              "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Interpolation Station Distance"
             },
-            "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set."
+            "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "interpolation_station_distance_homogeneous",
@@ -308,16 +309,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40.",
+              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Interpolation Station Distance Homogeneous"
             },
-            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40."
+            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "interpolation_station_distance_heterogeneous",
@@ -327,16 +329,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20.",
+              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Interpolation Station Distance Heterogeneous"
             },
-            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20."
+            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "use_nearby_station_distance",
@@ -361,6 +364,7 @@
                   "type": "object",
                   "additionalProperties": {
                     "type": "number",
+                    "maximum": 200.0,
                     "minimum": 0.0
                   }
                 },
@@ -368,10 +372,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set.",
+              "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Summary Station Distance"
             },
-            "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set."
+            "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "summary_station_distance_homogeneous",
@@ -381,16 +385,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40.",
+              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Summary Station Distance Homogeneous"
             },
-            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40."
+            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "summary_station_distance_heterogeneous",
@@ -400,16 +405,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20.",
+              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Summary Station Distance Heterogeneous"
             },
-            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20."
+            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "min_gain_of_value_pairs",
@@ -417,12 +423,12 @@
             "required": false,
             "schema": {
               "type": "number",
-              "minimum": 0,
-              "description": "Minimum relative gain in value pairs required to add another interpolation station. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
+              "exclusiveMinimum": 0,
+              "description": "Minimum relative gain in value pairs required to add another interpolation station, more than 0 on the REST API and MCP. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
               "default": 0.1,
               "title": "Min Gain Of Value Pairs"
             },
-            "description": "Minimum relative gain in value pairs required to add another interpolation station. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1."
+            "description": "Minimum relative gain in value pairs required to add another interpolation station, more than 0 on the REST API and MCP. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1."
           },
           {
             "name": "num_additional_stations",
@@ -430,13 +436,13 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 1000000,
+              "maximum": 20,
               "minimum": 0,
-              "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
+              "description": "Number of additional nearby stations to consider for interpolation. At most 20 on the REST API and MCP, which the Python API and the CLI do not hold to. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
               "default": 3,
               "title": "Num Additional Stations"
             },
-            "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3."
+            "description": "Number of additional nearby stations to consider for interpolation. At most 20 on the REST API and MCP, which the Python API and the CLI do not hold to. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3."
           }
         ],
         "responses": {
@@ -2660,6 +2666,7 @@
                   "type": "object",
                   "additionalProperties": {
                     "type": "number",
+                    "maximum": 200.0,
                     "minimum": 0.0
                   }
                 },
@@ -2667,10 +2674,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set.",
+              "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Interpolation Station Distance"
             },
-            "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set."
+            "description": "Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "interpolation_station_distance_homogeneous",
@@ -2680,16 +2687,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40.",
+              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Interpolation Station Distance Homogeneous"
             },
-            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40."
+            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "interpolation_station_distance_heterogeneous",
@@ -2699,16 +2707,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20.",
+              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Interpolation Station Distance Heterogeneous"
             },
-            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20."
+            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "use_nearby_station_distance",
@@ -2729,12 +2738,12 @@
             "required": false,
             "schema": {
               "type": "number",
-              "minimum": 0,
-              "description": "Minimum relative gain in value pairs required to add another interpolation station. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
+              "exclusiveMinimum": 0,
+              "description": "Minimum relative gain in value pairs required to add another interpolation station, more than 0 on the REST API and MCP. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
               "default": 0.1,
               "title": "Min Gain Of Value Pairs"
             },
-            "description": "Minimum relative gain in value pairs required to add another interpolation station. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1."
+            "description": "Minimum relative gain in value pairs required to add another interpolation station, more than 0 on the REST API and MCP. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1."
           },
           {
             "name": "num_additional_stations",
@@ -2742,13 +2751,13 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 1000000,
+              "maximum": 20,
               "minimum": 0,
-              "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
+              "description": "Number of additional nearby stations to consider for interpolation. At most 20 on the REST API and MCP, which the Python API and the CLI do not hold to. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
               "default": 3,
               "title": "Num Additional Stations"
             },
-            "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3."
+            "description": "Number of additional nearby stations to consider for interpolation. At most 20 on the REST API and MCP, which the Python API and the CLI do not hold to. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3."
           },
           {
             "name": "format",
@@ -3208,6 +3217,7 @@
                   "type": "object",
                   "additionalProperties": {
                     "type": "number",
+                    "maximum": 200.0,
                     "minimum": 0.0
                   }
                 },
@@ -3215,10 +3225,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set.",
+              "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Summary Station Distance"
             },
-            "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set."
+            "description": "Per-parameter maximum summary-station distance in km, keyed by canonical parameter name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's WD_TS_GEO_STATION_DISTANCE entry, if set. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "summary_station_distance_homogeneous",
@@ -3228,16 +3238,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40.",
+              "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Summary Station Distance Homogeneous"
             },
-            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40."
+            "description": "Maximum distance (km) to a station for a parameter that varies slowly across a region, such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "summary_station_distance_heterogeneous",
@@ -3247,16 +3258,17 @@
               "anyOf": [
                 {
                   "type": "number",
+                  "maximum": 200.0,
                   "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20.",
+              "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to.",
               "title": "Summary Station Distance Heterogeneous"
             },
-            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20."
+            "description": "The same for a parameter that decorrelates faster, such as precipitation, at hourly resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute resolutions, times 2 from daily upwards. Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20. At most 200 km on the REST API and MCP, which the Python API and the CLI do not hold to."
           },
           {
             "name": "min_gain_of_value_pairs",
@@ -3264,12 +3276,12 @@
             "required": false,
             "schema": {
               "type": "number",
-              "minimum": 0,
-              "description": "Minimum relative gain in value pairs required to add another interpolation station. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
+              "exclusiveMinimum": 0,
+              "description": "Minimum relative gain in value pairs required to add another interpolation station, more than 0 on the REST API and MCP. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
               "default": 0.1,
               "title": "Min Gain Of Value Pairs"
             },
-            "description": "Minimum relative gain in value pairs required to add another interpolation station. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1."
+            "description": "Minimum relative gain in value pairs required to add another interpolation station, more than 0 on the REST API and MCP. Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1."
           },
           {
             "name": "num_additional_stations",
@@ -3277,13 +3289,13 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 1000000,
+              "maximum": 20,
               "minimum": 0,
-              "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
+              "description": "Number of additional nearby stations to consider for interpolation. At most 20 on the REST API and MCP, which the Python API and the CLI do not hold to. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
               "default": 3,
               "title": "Num Additional Stations"
             },
-            "description": "Number of additional nearby stations to consider for interpolation. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3."
+            "description": "Number of additional nearby stations to consider for interpolation. At most 20 on the REST API and MCP, which the Python API and the CLI do not hold to. Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3."
           },
           {
             "name": "format",
@@ -5062,7 +5074,7 @@
           "max_stations": {
             "type": "integer",
             "title": "Max Stations",
-            "description": "The most stations one `values` or `history` request may read; a `rank` counts as that many."
+            "description": "The most stations one `values` or `history` request may read; a `rank` counts as that many. For `interpolate` and `summarize`, the most stations with a record in the window within the radius of the request."
           },
           "max_rows": {
             "type": "integer",

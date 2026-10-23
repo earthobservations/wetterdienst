@@ -10,7 +10,7 @@ import InterpolationSummarySelection from '~/components/InterpolationSummarySele
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
-import { defaultUnitTargets, serverDataSettings } from '~/utils/server-settings'
+import { defaultUnitTargets, MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
 import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
 const { t, te } = useI18n()
@@ -911,6 +911,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         <UInputNumber
                           v-model="dataSettings.stationDistanceHomogeneous"
                           :min="0"
+                          :max="MAX_STATION_DISTANCE"
                           :step="1"
                           :placeholder="String(startingSettings.stationDistanceHomogeneous)"
                           size="xs"
@@ -923,6 +924,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         <UInputNumber
                           v-model="dataSettings.stationDistanceHeterogeneous"
                           :min="0"
+                          :max="MAX_STATION_DISTANCE"
                           :step="1"
                           :placeholder="String(startingSettings.stationDistanceHeterogeneous)"
                           size="xs"
@@ -956,6 +958,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         <UInputNumber
                           :model-value="entry.distance"
                           :min="0"
+                          :max="MAX_STATION_DISTANCE"
                           :step="1"
                           placeholder="20"
                           size="xs"
@@ -997,7 +1000,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         <label class="text-sm font-medium">{{ t('explorer.minGain') }}:</label>
                         <UInputNumber
                           v-model="dataSettings.minGainOfValuePairs"
-                          :min="0"
+                          :min="0.01"
                           :max="1"
                           :step="0.01"
                           size="sm"
@@ -1015,6 +1018,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                         <UInputNumber
                           v-model="dataSettings.numAdditionalStations"
                           :min="0"
+                          :max="MAX_ADDITIONAL_STATIONS"
                           :step="1"
                           size="sm"
                           class="w-32"

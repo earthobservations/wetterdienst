@@ -143,9 +143,17 @@ _LongitudeField = Annotated[
     float | None,
     Field(ge=-180, le=180, description="Longitude of the reference point for geospatial filtering or interpolation."),
 ]
-#: the largest count a request may name (`rank`, `num_additional_stations`): more than any network has stations, and
-#: far below what a fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
+#: the largest count a request may name (`rank`): more than any network has stations, and far below what a
+#: fixed-width integer holds, which a larger number overflows in the conversion (GH-3101)
 MAX_COUNT = 1_000_000
+#: the largest radius, in km, a request of the REST API or MCP may name for the stations of `interpolate` and
+#: `summarize`, as it is given (the heterogeneous radius is scaled by the resolution on top, up to twice): five
+#: times the default of a homogeneous parameter (40 km, `Options.geo_station_distance_homogeneous`), ten times that
+#: of a heterogeneous one (20 km). The Python API and the command line take any
+MAX_STATION_DISTANCE = 200.0
+#: the most additional stations a request of the REST API or MCP may ask `interpolate` and `summarize` for, beyond
+#: the four an interpolation needs: more than six times the default (3, `Options.geo_num_additional_stations`)
+MAX_ADDITIONAL_STATIONS = 20
 _RankField = Annotated[
     int | None,
     Field(
@@ -359,6 +367,69 @@ _NumAdditionalStationsField = Annotated[
         ge=0,
         le=MAX_COUNT,
         description="Number of additional nearby stations to consider for interpolation. "
+        "Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
+    ),
+]
+
+
+# what the REST API and MCP take of the above: the same fields, bounded. The Python API and the command line take
+# the unbounded ones
+_REST_BOUND = (
+    f" At most {MAX_STATION_DISTANCE:g} km on the REST API and MCP, which the Python API and the CLI do not hold to."
+)
+_RestInterpolationStationDistanceField = Annotated[
+    dict[str, Annotated[float, Field(ge=0.0, le=MAX_STATION_DISTANCE)]] | None,
+    Field(
+        description="Per-parameter maximum interpolation-station distance in km, keyed by canonical parameter "
+        "name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's "
+        f"WD_TS_GEO_STATION_DISTANCE entry, if set.{_REST_BOUND}",
+    ),
+]
+_RestSummaryStationDistanceField = Annotated[
+    dict[str, Annotated[float, Field(ge=0.0, le=MAX_STATION_DISTANCE)]] | None,
+    Field(
+        description="Per-parameter maximum summary-station distance in km, keyed by canonical parameter "
+        "name, overriding the default radius of that parameter. A parameter it leaves out keeps the server's "
+        f"WD_TS_GEO_STATION_DISTANCE entry, if set.{_REST_BOUND}",
+    ),
+]
+_RestStationDistanceHomogeneousField = Annotated[
+    float | None,
+    Field(
+        ge=0,
+        le=MAX_STATION_DISTANCE,
+        description="Maximum distance (km) to a station for a parameter that varies slowly across a region, "
+        "such as air temperature. Default: the server's WD_TS_GEO_STATION_DISTANCE_HOMOGENEOUS if set, else 40."
+        + _REST_BOUND,
+    ),
+]
+_RestStationDistanceHeterogeneousField = Annotated[
+    float | None,
+    Field(
+        ge=0,
+        le=MAX_STATION_DISTANCE,
+        description="The same for a parameter that decorrelates faster, such as precipitation, at hourly "
+        "resolution. Coarser resolutions scale it up and finer ones down -- times 0.75 at the minute "
+        "resolutions, times 2 from daily upwards. "
+        "Default: the server's WD_TS_GEO_STATION_DISTANCE_HETEROGENEOUS if set, else 20." + _REST_BOUND,
+    ),
+]
+_RestMinGainOfValuePairsField = Annotated[
+    float,
+    Field(
+        gt=0,
+        description="Minimum relative gain in value pairs required to add another interpolation station, more "
+        "than 0 on the REST API and MCP. "
+        "Default: the server's WD_TS_GEO_MIN_GAIN_OF_VALUE_PAIRS if set, else 0.1.",
+    ),
+]
+_RestNumAdditionalStationsField = Annotated[
+    int,
+    Field(
+        ge=0,
+        le=MAX_ADDITIONAL_STATIONS,
+        description="Number of additional nearby stations to consider for interpolation. At most "
+        f"{MAX_ADDITIONAL_STATIONS} on the REST API and MCP, which the Python API and the CLI do not hold to. "
         "Default: the server's WD_TS_GEO_NUM_ADDITIONAL_STATIONS if set, else 3.",
     ),
 ]
@@ -1017,6 +1088,31 @@ class SummaryRequest(_RefusesRenamedParameters):
         return self
 
 
+class RestInterpolationRequest(InterpolationRequest):
+    """The interpolation request of the REST API and MCP: the one of the library, with its work bounded.
+
+    The distances, `num_additional_stations` and `min_gain_of_value_pairs` of a caller who is not the host's own
+    user cannot ask for an unbounded amount of work (see `MAX_STATION_DISTANCE` and `MAX_ADDITIONAL_STATIONS`),
+    and the stations in reach are counted against the limit of the server (`ui.limits`).
+    """
+
+    interpolation_station_distance: _RestInterpolationStationDistanceField = None
+    interpolation_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
+    interpolation_station_distance_heterogeneous: _RestStationDistanceHeterogeneousField = None
+    min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
+    num_additional_stations: _RestNumAdditionalStationsField = 3
+
+
+class RestSummaryRequest(SummaryRequest):
+    """The summary request of the REST API and MCP: the one of the library, bounded as `RestInterpolationRequest`."""
+
+    summary_station_distance: _RestSummaryStationDistanceField = None
+    summary_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
+    summary_station_distance_heterogeneous: _RestStationDistanceHeterogeneousField = None
+    min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
+    num_additional_stations: _RestNumAdditionalStationsField = 3
+
+
 class SettingsRequest(BaseModel):
     """The settings query parameters of the values, interpolation and summary requests (GH-2383).
 
@@ -1037,17 +1133,17 @@ class SettingsRequest(BaseModel):
     drop_nulls: _DropNullsField = True
     station_window_end_buffer: _StationWindowEndBufferField = None
     # interpolate
-    interpolation_station_distance: _InterpolationStationDistanceField = None
-    interpolation_station_distance_homogeneous: _StationDistanceHomogeneousField = None
-    interpolation_station_distance_heterogeneous: _StationDistanceHeterogeneousField = None
+    interpolation_station_distance: _RestInterpolationStationDistanceField = None
+    interpolation_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
+    interpolation_station_distance_heterogeneous: _RestStationDistanceHeterogeneousField = None
     use_nearby_station_distance: _UseNearbyStationDistanceField = 1.0
     # summarize
-    summary_station_distance: _SummaryStationDistanceField = None
-    summary_station_distance_homogeneous: _StationDistanceHomogeneousField = None
-    summary_station_distance_heterogeneous: _StationDistanceHeterogeneousField = None
+    summary_station_distance: _RestSummaryStationDistanceField = None
+    summary_station_distance_homogeneous: _RestStationDistanceHomogeneousField = None
+    summary_station_distance_heterogeneous: _RestStationDistanceHeterogeneousField = None
     # interpolate and summarize
-    min_gain_of_value_pairs: _MinGainOfValuePairsField = 0.10
-    num_additional_stations: _NumAdditionalStationsField = 3
+    min_gain_of_value_pairs: _RestMinGainOfValuePairsField = 0.10
+    num_additional_stations: _RestNumAdditionalStationsField = 3
 
     @field_validator("unit_targets", "interpolation_station_distance", "summary_station_distance", mode="before")
     @classmethod
@@ -1743,9 +1839,15 @@ def get_interpolate(
     settings: Settings,
     options: Options | None = None,
     check: Callable[[TimeseriesRequest], None] | None = None,
+    check_reach: Callable[[int], None] | None = None,
 ) -> InterpolatedValuesResult:
-    """Get interpolated values based on request. `check` is given the request before any value is downloaded."""
+    """Get interpolated values based on request.
+
+    `check` is given the request before any value is downloaded, and `check_reach` the number of stations within
+    the radius of the request, once the stations are ranked against the point and before any value is downloaded.
+    """
     r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings, options=options)
+    r._check_reach = check_reach  # noqa: SLF001
     if check is not None:
         check(r)
 
@@ -1771,9 +1873,11 @@ def get_summarize(
     settings: Settings,
     options: Options | None = None,
     check: Callable[[TimeseriesRequest], None] | None = None,
+    check_reach: Callable[[int], None] | None = None,
 ) -> SummarizedValuesResult:
-    """Get summarized values based on request. `check` is given the request before any value is downloaded."""
+    """Get summarized values based on request, with the checks of `get_interpolate`."""
     r = _get_stations_request(api=api, request=request, timestamp=request.timestamp, settings=settings, options=options)
+    r._check_reach = check_reach  # noqa: SLF001
     if check is not None:
         check(r)
 

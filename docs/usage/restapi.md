@@ -565,7 +565,7 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 
 | `limit` | Setting | Default | What it bounds |
 | --- | --- | --- | --- |
-| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many |
+| `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
 | `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations` |
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values` |
 
@@ -695,11 +695,6 @@ and what follows is for an instance that others can reach (the
   [cap on requests served at once](#concurrency) and [limits](#limits), no limit per client.
 - **CORS.** A page of another origin cannot read the answers. Serve it from the origin of the API, or let the reverse
   proxy add the headers it needs.
-- **Request size.** `wetterdienst restapi` (and so the image) runs uvicorn on its h11 parser, which answers 400 and
-  closes a connection whose request line and headers are still incomplete after 16 KiB. A server started
-  otherwise (`uvicorn wetterdienst.ui.restapi:app`) runs on the parser uvicorn picks, so give it `--http h11
-  --h11-max-incomplete-event-size 16384`. A public instance still sits behind a reverse proxy with limits of its own
-  for the size of a request, its headers and how long it may take.
 - **Hosts.** [Allowed hosts](#allowed-hosts) are open until you set them, in the image too.
 - **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
 - **The cache directory.** `WD_CACHE_DIR` holds pickled directory listings: whoever can write there can run code as

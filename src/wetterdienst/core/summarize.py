@@ -17,6 +17,7 @@ from wetterdienst.core.util import (
     count_stations_in_reach,
     decimals_for,
     extract_station_values,
+    hold_stations_in_reach,
     lapse_rate_for,
     no_elevation_in_reach_error,
     one_row_per_station,
@@ -25,6 +26,7 @@ from wetterdienst.core.util import (
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
+    widest_station_distance,
 )
 from wetterdienst.model.metadata import ParameterModel
 from wetterdienst.model.schema import SUMMARIZED_SCHEMA, select_schema
@@ -106,12 +108,9 @@ def request_stations(
     # `max(...values())` used to stand here, which is the widest radius of the *populated* keys --
     # only the heterogeneous 20 km ones -- and so capped the search at 20 km for every parameter,
     # including the ones the setting gives 40 km
-    distance = max(
-        options.geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
-        for parameter in request.parameters
-        if isinstance(parameter, ParameterModel)
-    )
+    distance = widest_station_distance(request)
     stations_ranked = request.filter_by_distance(latlon=(latitude, longitude), distance=distance, df_all=df_all)
+    stations_ranked = hold_stations_in_reach(request, stations_ranked)
     df_stations_ranked = stations_ranked.df
     # looked up by station id rather than zipped against the ranked frame positionally: `query()`
     # yields only the stations that returned data inside the requested window, so any station it

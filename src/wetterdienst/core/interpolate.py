@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, cast
 import polars as pl
 import utm
 from scipy.interpolate import LinearNDInterpolator
-from scipy.spatial import QhullError
+from scipy.spatial import Delaunay, QhullError
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 from utm.error import OutOfRangeError
@@ -26,6 +26,7 @@ from wetterdienst.core.util import (
     count_stations_in_reach,
     decimals_for,
     extract_station_values,
+    hold_stations_in_reach,
     lapse_rate_for,
     no_elevation_in_reach_error,
     one_row_per_station,
@@ -34,6 +35,7 @@ from wetterdienst.core.util import (
     reduce_to_elevation,
     report_elevation_exclusions,
     unanswerable_at_elevation,
+    widest_station_distance,
 )
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.metadata.parameter_table import PARAMETERS
@@ -54,6 +56,10 @@ log = logging.getLogger(__name__)
 
 # what `apply_interpolation` wants before it can answer: four stations that surround the point
 STATIONS_NEEDED = 4
+#: the most groups of four stations the search for ones that surround the point looks at. N stations make C(N,4)
+#: groups, which grows with the fourth power of N: 27,405 for 30 stations. Where the stations
+#: taken make more, the search is held to the nearest ones whose groups fit, which are 30
+MAX_STATION_GROUPS = 30_000
 # the latitudes UTM covers, as `utm.from_latlon` checks them
 UTM_LATITUDE_MIN = -80
 UTM_LATITUDE_MAX = 84
@@ -167,14 +173,11 @@ def request_stations(
     if zone is None:
         zone = cast("tuple[int, str]", utm.from_latlon(latitude, longitude)[2:])
     options = cast("Options", request.options)
-    max_interp_distance = max(
-        options.geo_station_distance_for(parameter.name, parameter.dataset.resolution.name)
-        for parameter in request.parameters
-        if isinstance(parameter, ParameterModel)
-    )
+    max_interp_distance = widest_station_distance(request)
     stations_ranked = request.filter_by_distance(
         latlon=(latitude, longitude), distance=max_interp_distance, df_all=df_all
     )
+    stations_ranked = hold_stations_in_reach(request, stations_ranked)
     df_stations_ranked = stations_ranked.df
     # looked up by station id rather than zipped against the ranked frame positionally: `query()`
     # yields only the stations that returned data inside the requested window, so any station it
@@ -385,7 +388,8 @@ def calculate_interpolation(
             ),
         ),
     ]
-    valid_station_groups = get_valid_station_groups(stations_dict, utm_x, utm_y)
+    # the groups by the stations they are searched among: parameters of one dataset often have the same
+    groups_of: dict[tuple[str, ...], Queue] = {}
     nearby_stations = [
         station_id
         for station_id, (_, _, distance) in stations_dict.items()
@@ -398,6 +402,15 @@ def calculate_interpolation(
             # parameter either -- which is not a result for the parameter, it is noise
             continue
         param_df = pl.DataFrame({"timestamp": param_data.values.get_column("timestamp")})
+        # the groups of the stations that have a column for this parameter: the others are never in a group a row
+        # can use, and a search over all of them would leave a parameter with few stations without a group
+        # where those of another fill the cap
+        param_stations = tuple(s for s in param_data.values.columns if s in stations_dict)
+        if param_stations not in groups_of:
+            groups_of[param_stations] = get_valid_station_groups(
+                {s: stations_dict[s] for s in param_stations}, utm_x, utm_y
+            )
+        valid_station_groups = groups_of[param_stations]
         results = []
         for row in param_data.values.select(pl.all().exclude("timestamp")).iter_rows(named=True):
             results.append(
@@ -469,13 +482,21 @@ def has_valid_station_group(stations_dict: dict, utm_x: float, utm_y: float) -> 
     return _covers(MultiPoint(coords).convex_hull, Point(utm_x, utm_y))
 
 
-def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) -> Queue:
+def get_valid_station_groups(
+    stations_dict: dict, utm_x: float, utm_y: float, max_groups: int = MAX_STATION_GROUPS
+) -> Queue:
     """Get all valid station groups that cover the given point.
+
+    The groups are the combinations of four of the stations, and there are C(N,4) of them. Where that is more
+    than `max_groups`, only the nearest stations (the smallest distance a station is held with) are grouped,
+    the most whose combinations fit. Where none of their groups surrounds the point but all the stations do,
+    the group of the triangle the point lies in, and the nearest other station, is the only one.
 
     Args:
         stations_dict: dict containing the station data including the location
         utm_x: longitude in UTM
         utm_y: latitude in UTM
+        max_groups: the most combinations of four stations to look at
 
     Returns:
         Queue containing the valid station groups
@@ -483,8 +504,17 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
     """
     point = Point(utm_x, utm_y)
     valid_groups = Queue()
+    station_ids = list(stations_dict)
+    truncated = math.comb(len(station_ids), STATIONS_NEEDED) > max_groups
+    if truncated:
+        grouped = len(station_ids)
+        while math.comb(grouped, STATIONS_NEEDED) > max_groups and grouped > STATIONS_NEEDED:
+            grouped -= 1
+        # a stable sort: stations of one distance keep the order they were taken in
+        station_ids = sorted(station_ids, key=lambda station_id: stations_dict[station_id][2])[:grouped]
+        log.info(f"{len(stations_dict)} stations were taken, so only the nearest {grouped} are grouped")
     # get all combinations of 4 stations
-    for station_group in combinations(stations_dict.keys(), 4):
+    for station_group in combinations(station_ids, STATIONS_NEEDED):
         coords = [(stations_dict[s][0], stations_dict[s][1]) for s in station_group]
         # the convex hull of the four, not a polygon through them in the order they are held. That
         # order is by distance from the point, which says nothing about the order around it, so
@@ -496,7 +526,37 @@ def get_valid_station_groups(stations_dict: dict, utm_x: float, utm_y: float) ->
         # the interpolator cannot triangulate at all
         if _covers(MultiPoint(coords).convex_hull, point):
             valid_groups.put(station_group)
+    if truncated and valid_groups.empty() and (group := _group_around(stations_dict, point)) is not None:
+        # the nearest stations do not surround the point, the stations taken do (that is what ended the
+        # collection): the one group of them that does
+        valid_groups.put(group)
     return valid_groups
+
+
+def _group_around(stations_dict: dict, point: Point) -> tuple[str, ...] | None:
+    """Give four of the stations that surround the point, from the triangle of their triangulation it lies in.
+
+    The triangle is three stations, and a fourth keeps the hull around the point. None where no triangle holds
+    it, or the stations are on a line.
+    """
+    station_ids = list(stations_dict)
+    try:
+        triangulation = Delaunay([(stations_dict[s][0], stations_dict[s][1]) for s in station_ids])
+    except QhullError:
+        return None
+    simplex = int(triangulation.find_simplex((point.x, point.y)))
+    if simplex < 0:
+        return None
+    corners = [station_ids[i] for i in triangulation.simplices[simplex]]
+    fourth = min((s for s in station_ids if s not in corners), key=lambda s: stations_dict[s][2], default=None)
+    if fourth is None:
+        return None
+    group = (*corners, fourth)
+    coords = [(stations_dict[s][0], stations_dict[s][1]) for s in group]
+    if not _covers(MultiPoint(coords).convex_hull, point):
+        return None
+    # in the order the stations are held, as every other group is
+    return tuple(s for s in station_ids if s in group)
 
 
 @lru_cache
@@ -553,7 +613,7 @@ def apply_interpolation(
             )
     vals = {s: v for s, v in row.items() if v is not None}
     station_group_ids = get_station_group_ids(valid_station_groups, frozenset(vals))
-    vals = {s: v for s, v in vals.items() if s in station_group_ids} if station_group_ids else None
+    vals = {s: vals[s] for s in station_group_ids} if station_group_ids else None
     if not vals or len(vals) < 4:
         return resolution, dataset, parameter, None, None, []
     xs, ys, distances = map(list, zip(*[stations_dict[station_id] for station_id in station_group_ids], strict=False))

@@ -67,12 +67,9 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
 - **Host and Origin.** `WD_RESTAPI_ALLOWED_HOSTS` lists the `Host` names it answers to (any other is a 400) and the
   `Origin` of an MCP request. `wetterdienst restapi` on a loopback address lists the loopback names itself, against
   DNS rebinding; any other address, and the Docker image (`0.0.0.0`), answers to every host until it is set.
-- **Request line and headers.** `wetterdienst restapi` runs uvicorn on its h11 parser, which answers 400 and closes a
-  connection whose request line and headers are still incomplete after 16 KiB (`MAX_REQUEST_HEAD_BYTES` in `ui/restapi.py`;
-  `tests/ui/test_operations.py`). Run a server started otherwise on a parser with bounded request-line and header sizes, and a public deployment behind
-  a proxy with limits of its own for requests, headers and slow connections (GH-2606).
 - **Limits, refused before any download:** 100 stations, 500,000 rows (10,000,000 streamed), a chart side of 8192 px
-  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request.
+  (`WD_RESTAPI_MAX_*`; `0` switches one off), as a 400 that says how to narrow the request. For `interpolate` and
+  `summarize` the stations are those with a record in the window within the radius, which is bounded (`ui/core.py`, `tests/ui/test_geo_bounds.py`).
 - **Timeout and concurrency:** 60 s (`WD_RESTAPI_TIMEOUT`, a 504), 32 requests at once (`WD_RESTAPI_MAX_CONCURRENT`, a
   503). A timed-out request's thread runs on but keeps its slot, so the cap bounds the threads. There is **no
   per-client rate limit**; that is the proxy's job (the app has one, `docs/usage/app.md`).
