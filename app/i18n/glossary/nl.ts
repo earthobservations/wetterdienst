@@ -532,7 +532,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Luchtdruk herleid tot zeeniveau (standaardatmosfeer)',
   radiation_long_wave_net_last_3h: 'Langgolvige stralingsbalans (laatste 3 u)',
   radiation_short_wave_net_last_3h: 'Kortgolvige stralingsbalans (laatste 3 u)',
-  radiation_sky_short_wave_direct: 'Directe kortgolvige straling',
+  radiation_sky_short_wave_direct_perpendicular: 'Directe normaalstraling',
   road_surface_condition: 'Wegdektoestand',
   road_surface_condition_forecast: 'Wegdektoestand (verwachting)',
   snow_depth_sampled: 'Sneeuwhoogte (monster)',

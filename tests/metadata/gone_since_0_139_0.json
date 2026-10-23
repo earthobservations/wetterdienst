@@ -423,6 +423,9 @@
    ]
   },
   "MetOfficeObservationMetadata": {
+   "hourly/radiation": [
+    "radiation_sky_short_wave_direct"
+   ],
    "hourly/soil_temperature": [
     "temperature_soil_mean_0_05m",
     "temperature_soil_mean_0_1m",

@@ -85,7 +85,7 @@
 |------------------------------------------|---------------|---------------------------------------------------------------------------------------------|-------|
 | {term}`radiation_global` | glbl_irad_amt | Global solar irradiation amount, kJ per square metre over the observation period. | kJ/m² |
 | {term}`radiation_sky_short_wave_diffuse` | difu_irad_amt | Diffuse solar irradiation amount, kJ per square metre over the observation period. | kJ/m² |
-| {term}`radiation_sky_short_wave_direct` | direct_irad | Direct irradiation amount, kJ per square metre over the observation period. | kJ/m² |
+| {term}`radiation_sky_short_wave_direct_perpendicular` | direct_irad | Direct irradiation amount, kJ per square metre over the observation period: "the solar radiation coming directly from the sun but not from the rest of the sky", measured with a pyrheliometer on a sun tracker "at normal incidence" (MIDAS table RO), so the energy on a plane perpendicular to the sun's rays and no component on a horizontal surface. The documentation says MIDAS holds no direct radiation past December 1997. | kJ/m² |
 
 ### soil_temperature
 

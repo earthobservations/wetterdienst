@@ -532,7 +532,7 @@ export const parameters: Record<string, string> = {
   pressure_air_site_reduced: 'Luftdruck op Seehööchd minnert (Standardatmosphäär)',
   radiation_long_wave_net_last_3h: 'Langwellige Strahlenbilanz (lest 3 h)',
   radiation_short_wave_net_last_3h: 'Kortwellige Strahlenbilanz (lest 3 h)',
-  radiation_sky_short_wave_direct: 'Direkte Sünnenstrahlen',
+  radiation_sky_short_wave_direct_perpendicular: 'Direkte Normalstrahlen',
   road_surface_condition: 'Fahrbahntostand',
   road_surface_condition_forecast: 'Fahrbahntostand (Vörhersaag)',
   snow_depth_sampled: 'Snééhööchd (Proov)',

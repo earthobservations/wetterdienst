@@ -24,6 +24,28 @@ Types of changes:
   default, and `cubic_hectometer`), which the `unit_targets` option and the glossary's `unit_type`
   filter accept (GH-3242)
 
+### Changed
+
+- **Breaking**: the direct radiation of `metoffice/observation` (`direct_irad`, hourly `radiation`)
+  is `radiation_sky_short_wave_direct_perpendicular`, no longer `radiation_sky_short_wave_direct`:
+  it is the energy of the hour on a plane perpendicular to the sun's rays, not on a horizontal
+  surface, so it can exceed the global radiation. The old name is refused with the new one named;
+  values and units are unchanged. Request, filter and key by the new name; for the horizontal
+  component multiply by the cosine of the solar zenith angle (roughly, at the middle of the hour).
+  MIDAS holds no direct radiation past December 1997. Release the app after this backend (GH-3316)
+
+### Removed
+
+- **Breaking**: `Wetterdienst(provider, network)`, the constructor form that returned a class
+  (deprecated in 0.156.0), is removed in 0.173.0, earlier than announced for 1.0.0, and raises a
+  `TypeError` that names the replacement. Write `Wetterdienst.resolve(provider, network)`, or
+  `Wetterdienst.resolve_standalone(provider, network)` for `dwd/radar` and `dwd/alerts` (GH-3128)
+- **Breaking**: `wetterdienst stripes values`, the old name of `stripes image` (deprecated in
+  0.159.0), is removed in 0.173.0, earlier than announced for 1.0.0: it fails as "No such command
+  'values'" with exit 2. Write `wetterdienst stripes image`, which takes the same options and
+  writes the same image. The name is not reused. `/api/stripes/values` and the MCP tool
+  `stripes_values` are unchanged (GH-3128)
+
 ## [0.172.0] - 2026-10-23
 
 ### Fixed
