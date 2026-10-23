@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.168.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.168.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.169.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.169.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,10 +13,10 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.31.0` goes with 0.167.0 and 0.168.0. Upgrade both
+The web app is released as a pair with the backend: `app-v0.32.0` goes with 0.169.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
-Two things still work in 0.168.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
+Two things still work in 0.169.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
 `wetterdienst stripes values`. Move to `Wetterdienst.resolve(provider, network)` and `wetterdienst stripes image` now
 (both are in [The request](#the-request) and [Command line](#command-line) below). The import path of a request class
 (`from wetterdienst.provider.dwd.observation import DwdObservationRequest`) does not move: it is frozen from 1.0.
@@ -132,9 +132,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.168.0 renames by network, resolution and dataset.
+0.169.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.168.0 are shown from the name of 0.139.0 to the name of 0.168.0.
+Moves of the same parameter between 0.145.0 and 0.169.0 are shown from the name of 0.139.0 to the name of 0.169.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -235,6 +235,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | `dwd/dmo` `radiation_global` (`Rad1h`) and `radiation_global_last_3h` (`RadS3`) | read as kJ/m2 | DWD writes J/cm2: ten times larger | multiply by 10 | 0.150.0, GH-2821 |
 | `noaa/ghcn` hourly `snow_depth` | declared in centimeters | millimeters, as GHCNh publishes it; with the default unit targets it is still centimeters, a tenth of what it was | divide by 10 | 0.150.0, GH-2848 |
 | `dwd/observation` `hourly/precipitation` `precipitation_form` 9 | the code 9 | null, with `raw:9` as the last token of `quality_flags`; read the null as an unknown form | | 0.156.0, GH-2703 |
+| `dwd/dmo` `precipitation_amount_last_1h` (`rr1`) and `precipitation_amount_last_3h` (`rr3`) below 0 | the little negative number ICON writes (to -0.10 and -0.04 mm), and `-0.0` for a `-0.00` | 0.0, with the number (`raw:-0.1`, for example) as the last token of `quality_flags` | nothing for a reading; filter on `raw:` for the old numbers | 0.169.0, GH-3263 |
 | `ea/hydrology` river level | `groundwater_level` in metres | `stage` in centimetres | see above | 0.153.0, GH-2632 |
 
 ### Timestamps
@@ -249,7 +250,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | `dmi/observation` daily `precipitation_amount_max` | the day before the one it ends on | the day it ends on, as DMI defines it: its series moves one day later | 0.146.0, GH-2676 |
 | `meteofrance/observation` 6-minute and hourly, overseas departments (971-975, 984-988) | the file's fixed offset labelled UTC (Réunion 4 h late) | UTC: drop a shift you applied yourself | 0.145.0, GH-2677 |
 | `dwd/observation` `hourly/temperature_air` `historical`, the periods DWD calls "Stundenwerte in MEZ (MD)" (up to 1991, 80 East German stations) | read as UTC | MEZ, so one hour earlier, with `zone:mez` in `quality_flags` | add an hour to flagged stamps to get the old ones | 0.155.0, GH-2709 |
-| `dwd/observation` `hourly/temperature_soil` `historical`, the periods whose source is the archive of the eMD (up to 1991, 74 East German stations); `hourly/temperature_air` of Diepholz (00963) from 1995-02-01 00 to 1996-05-31 23 | read as UTC | MEZ, so one hour earlier, with `zone:mez` in `quality_flags` (the soil stamps 01, 04, ..., 22 are 00, 03, ..., 21 UTC) | add an hour to flagged stamps to get the old ones; the stamp 1995-02-01 00 of Diepholz is the report of 1995-01-31 23 and its row is dropped | 0.169.0, GH-3029 |
+| `dwd/observation` `hourly/temperature_soil` `historical`, the periods whose source is the archive of the eMD (up to 1991, 74 East German stations); `hourly/temperature_air` of Diepholz (00963) from 1995-02-01 00 to 1996-05-31 23 | read as UTC | MEZ, so one hour earlier, with `zone:mez` in `quality_flags` (the soil stamps 01, 04, ..., 22 are 00, 03, ..., 21 UTC): add an hour to flagged stamps to get the old ones; the stamp 1995-02-01 00 of Diepholz is the report of 1995-01-31 23 and its row is dropped | 0.170.0, GH-3029 |
 | `knmi/observation` `hourly` | the start of the hour | the end of the hour, KNMI's own stamp: every hourly `timestamp` moves 1 hour later, and `start` = `end` = 12:00 returns the hour 11-12. `10_minutes` and `daily` are unchanged | 0.160.0, GH-2824 |
 
 ### Which rows are returned
@@ -276,7 +277,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
-| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.168.0, as under [Failures](#failures) |
+| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.169.0, as under [Failures](#failures) |
 
 ## REST API
 
