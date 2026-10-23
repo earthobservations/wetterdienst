@@ -17,6 +17,8 @@ pandas, pyarrow and numpy to see what Altair needs); the others use the prototyp
 - `fork`: a render in a child process forked after one in the parent;
 - `gil`: whether another Python thread runs while vl-convert renders (the longest gap of a thread that wakes every
   10 ms, against the duration of the render);
+- `gil_matplotlib`: the same while matplotlib draws the values chart of 10 years;
+- `profile`: where the time of an Altair image of 10 years of values goes, as records and as CSV text;
 - `huge`: the time and memory of an image of many pixels, which the REST API caps (`_MAX_IMAGE_SIDE`).
 """
 
@@ -168,9 +170,11 @@ def check_fonts() -> None:
         "Menlo",
         "SF Pro Text",
         "NoSuchFontXYZ",
+        "NoSuchFontXYZ, sans-serif",
+        "NoSuchFontXYZ, Liberation Sans",
     ):
         same = "= sans-serif" if digest(png(font)) == digest(base) else ""
-        print(f"{font:17s}", digest(png(font)), same)  # noqa: T201
+        print(f"{font:31s}", digest(png(font)), same)  # noqa: T201
 
 
 def _render_subject() -> dict[str, str]:
@@ -242,6 +246,39 @@ def check_fork() -> None:
     print("child after fork: no answer in 60 s (killed)")  # noqa: T201
 
 
+def check_profile() -> None:
+    """Where the time of an Altair image of 10 years of hourly values goes: building the spec, or drawing it."""
+    import altair as alt  # noqa: PLC0415
+    import vl_convert as vlc  # noqa: PLC0415
+
+    sys.path.insert(0, str(ROOT))
+    from research.altair_vl_convert import data  # noqa: PLC0415
+    from research.altair_vl_convert.prototype import _iso, values_chart_altair, values_frame  # noqa: PLC0415
+
+    values = data.values(start="2016-01-01", end="2025-12-31")
+
+    def timed(label: str, fn):  # noqa: ANN001, ANN202
+        t = time.perf_counter()
+        result = fn()
+        print(f"{label:52s}{time.perf_counter() - t:7.2f} s")  # noqa: T201
+        return result
+
+    # the records: a list of 87,000 dicts in `alt.Data`
+    def records():  # noqa: ANN202
+        frame, _ = values_frame(values)
+        data_ = alt.Data(values=_iso(frame).to_dicts())
+        base = alt.Chart(data_).mark_line(point=True).encode(x="timestamp:T", y="value:Q", color="station_id:N")
+        return base.properties(width=560, height=260).facet(row="facet:N").resolve_scale(y="independent")
+
+    chart = timed("records: build (to_dicts + Altair objects)", records)
+    spec = timed("records: chart.to_dict() validated", chart.to_dict)
+    timed("records: chart.to_dict(validate=False)", lambda: chart.to_dict(validate=False))
+    timed("records: vegalite_to_png of the spec", lambda: vlc.vegalite_to_png(spec))
+    chart = timed("CSV text (the prototype): build", lambda: values_chart_altair(values))
+    spec = timed("CSV text: chart.to_dict() validated", chart.to_dict)
+    timed("CSV text: vegalite_to_png of the spec", lambda: vlc.vegalite_to_png(spec))
+
+
 def check_gil() -> None:
     import threading  # noqa: PLC0415
 
@@ -272,6 +309,38 @@ def check_gil() -> None:
     thread.start()
     t = time.perf_counter()
     vlc.vegalite_to_png(spec)
+    took = time.perf_counter() - t
+    stop.set()
+    thread.join()
+    print(f"render {took:.2f} s; the other thread woke {len(gaps)} times, longest gap {max(gaps):.2f} s")  # noqa: T201
+
+
+def check_gil_matplotlib() -> None:
+    """The same heartbeat as `gil`, while matplotlib draws the values chart of 10 years."""
+    import threading  # noqa: PLC0415
+
+    sys.path.insert(0, str(ROOT))
+    from research.altair_vl_convert import data  # noqa: PLC0415
+    from research.altair_vl_convert.prototype import render_matplotlib, values_figure_mpl  # noqa: PLC0415
+
+    values = data.values(start="2016-01-01", end="2025-12-31")
+    gaps: list[float] = []
+    stop = threading.Event()
+
+    def beat() -> None:
+        last = time.perf_counter()
+        while not stop.is_set():
+            time.sleep(0.01)
+            now = time.perf_counter()
+            gaps.append(now - last)
+            last = now
+
+    figure = values_figure_mpl(values)
+    render_matplotlib(figure, "png")
+    thread = threading.Thread(target=beat)
+    thread.start()
+    t = time.perf_counter()
+    render_matplotlib(figure, "png")
     took = time.perf_counter() - t
     stop.set()
     thread.join()

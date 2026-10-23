@@ -92,3 +92,43 @@ plotly + kaleido          41.6 MiB (7 packages: plotly 38.5, narwhals 2.0, packa
 altair + vl-convert       76.5 MiB (10 packages: vl-convert-python 66.3, altair 5.6, narwhals 2.0, jinja2, jsonschema, referencing, rpds-py, ...)
 matplotlib                69.1 MiB (9 packages: matplotlib 22.8, numpy 19.6, fonttools 13.1, pillow 11.4, ...)
 Chrome for Testing 156.0.8078.47 download: linux64 200.2 MB, mac-arm64 194.9 MB, win64 209.2 MB (zip, compressed; not unpacked here: disk)
+
+== checks.py fonts, the two lines added after review
+NoSuchFontXYZ, sans-serif       bbe44e273dfb = sans-serif
+NoSuchFontXYZ, Liberation Sans  000d3fb38545 (= the Liberation Sans line above)
+
+== checks.py profile (altair 6.3.0, vl-convert-python 1.9.0.post1, 10 years of hourly values, 87,366 rows)
+records: build (to_dicts + Altair objects)             3.70 s
+records: chart.to_dict() validated                     3.64 s
+records: chart.to_dict(validate=False)                 0.72 s
+records: vegalite_to_png of the spec                   3.19 s
+CSV text (the prototype): build                        0.09 s
+CSV text: chart.to_dict() validated                    0.01 s
+CSV text: vegalite_to_png of the spec                  2.66 s
+
+== checks.py gil_matplotlib (savefig of the values chart of 10 years, figure already built)
+render 0.07 s; the other thread woke 4 times, longest gap 0.04 s
+
+== size and format of the PNGs (Pillow): as written by the engine, and the same pixels re-encoded losslessly with optimize=True
+stripes  plotly       700 x 500       35 KiB as written,     24 KiB re-encoded losslessly
+stripes  altair       712 x 528      775 KiB as written,     13 KiB re-encoded losslessly
+stripes  matplotlib   700 x 500       13 KiB as written,     14 KiB re-encoded losslessly
+stations plotly       700 x 500      384 KiB as written,    320 KiB re-encoded losslessly   (an earlier render of the map)
+stations altair       710 x 541       60 KiB as written,     29 KiB re-encoded losslessly
+stations matplotlib   700 x 500       38 KiB as written,     41 KiB re-encoded losslessly
+values   plotly       700 x 600      103 KiB as written,     84 KiB re-encoded losslessly
+values   altair       601 x 677      262 KiB as written,     94 KiB re-encoded losslessly
+values   matplotlib   700 x 600       78 KiB as written,     82 KiB re-encoded losslessly
+matplotlib writes WebP (through Pillow): 7,354 bytes, RIFF....WEBP
+
+== vl-convert-python 2.0.0rc7 (pre-release, 2026-09-14), altair 6.3.0, Python 3.13.3, macOS arm64; prototype unchanged except that allowed_base_urls moved from the call to vlc.configure()
+checks.py gil:          render 1.05 s; the other thread woke 73 times, longest gap 0.02 s   (1.x: 2 times, 1.64 s)
+checks.py fork:         child: PanicException failed to wake I/O driver: Os { code: 9, ... "Bad file descriptor" } ; exit status 1   (as 1.x)
+checks.py determinism:  identical in one process, twice, and in new processes with TZ=UTC, America/Los_Angeles, Asia/Kolkata
+stress_threads.py --engine altair --threads 8 --per-thread 25: 0 mismatches, 0 errors, 13.58 images/s (one thread 8.21), rss 366 -> 813 MiB
+bench.py --engine altair --chart stripes --n 30:    median 0.174 s, p95 0.179, first 0.271, peak 396 MiB (+166), PNG 13,581 bytes (1.9: 794,794 bytes)
+bench.py --engine altair --chart values-10y --n 10: median 1.537 s, p95 1.853, first 1.517, peak 2031 MiB (+1432), PNG 46,395 bytes (1.9: 107,653 bytes)
+New in 2.0: vlc.configure(num_workers=, allowed_base_urls=, missing_fonts="fallback"|"warn"|"error", ...), per-call width/height overrides, vl_convert.asyncio.
+Linux/Windows wheels of rc7: manylinux_2_28 (x86_64, aarch64) and win_amd64, cp310-abi3, 39.3 to 44.2 MiB (PyPI file listing).
+
+== the load average of the timed runs (load1_before of benchmarks.jsonl): 3.4 to 15.8 (the 300 dpi stripes rows ran at 10.8 to 15.8; the PNG rows of the main table at 3.4 to 8.8)

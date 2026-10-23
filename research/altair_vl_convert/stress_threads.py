@@ -8,7 +8,8 @@ process that stays up. Three charts of different data are drawn over and over by
 the same chart before (byte for byte, for PNG and SVG), which catches an image handed to the wrong caller, and the
 run reports:
 
-- `mismatches`: images that are not the one a single thread draws of that chart (0 is the answer a server needs);
+- `mismatches`: images that are not the one a single thread draws of that chart (0 is the answer a server needs),
+  and `of_which_another_charts_image`: those that are the image of one of the *other* charts, i.e. a swap;
 - `errors`: exceptions, with the first;
 - `wall_s` and `images_per_s` against `single_images_per_s`, which says whether the engine draws in parallel;
 - `rss_start_mb`, `rss_end_mb` of this process (plus the Chrome of Kaleido), which a leak would raise.
@@ -96,18 +97,22 @@ def main() -> None:
     single_rate = n_single / (time.perf_counter() - t)
 
     rss_start = rss_mb()
-    plan = [
-        [random.Random(thread).randrange(len(subjects)) for _ in range(args.per_thread)]
-        for thread in range(args.threads)
-    ]
+    plan = []
+    for thread in range(args.threads):
+        rng = random.Random(thread)  # noqa: S311 -- one generator per thread: a mixed order, not one chart 25 times
+        plan.append([rng.randrange(len(subjects)) for _ in range(args.per_thread)])
     mismatches: list[tuple[int, int]] = []
+    swapped: list[tuple[int, int]] = []
     errors: list[str] = []
 
     def work(thread: int) -> None:
         for index in plan[thread]:
             try:
-                if digest(render(index)) != expected[index]:
+                got = digest(render(index))
+                if got != expected[index]:
                     mismatches.append((thread, index))
+                    if got in expected:
+                        swapped.append((thread, index))
             except Exception as error:  # noqa: BLE001
                 errors.append(f"{type(error).__name__}: {str(error)[:200]}")
 
@@ -125,6 +130,7 @@ def main() -> None:
                 "images": total,
                 "deterministic_single_thread": deterministic,
                 "mismatches": len(mismatches),
+                "of_which_another_charts_image": len(swapped),
                 "errors": len(errors),
                 "first_error": errors[0] if errors else None,
                 "wall_s": round(wall, 2),

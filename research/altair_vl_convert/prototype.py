@@ -254,8 +254,16 @@ def render_altair(chart: Any, fmt: Format, scale: float = 1.0) -> bytes | str:  
     import vl_convert as vlc  # noqa: PLC0415
 
     spec = chart.to_dict()
-    # the spec holds all its data, so no external request is ever needed: refuse them all
-    options: dict[str, Any] = {"allowed_base_urls": []}
+    # the spec holds all its data, so no external request is ever needed: refuse them all. vl-convert 1.x takes the
+    # allow-list per call; 2.0 (release candidates) takes it from `configure`, once for the process
+    options: dict[str, Any] = {}
+    if hasattr(vlc, "configure"):
+        with _PATCH_LOCK:
+            if not _VLC_CONFIGURED:
+                vlc.configure(allowed_base_urls=[])
+                _VLC_CONFIGURED.append(True)
+    else:
+        options["allowed_base_urls"] = []
     if fmt == "png":
         return vlc.vegalite_to_png(spec, scale=scale, **options)
     if fmt == "jpg":
@@ -456,6 +464,7 @@ def _fit_zoom(df: pl.DataFrame, width: int = WIDTH, height: int = HEIGHT) -> flo
     return min(math.log2(0.85 * width / (world * span_x)), math.log2(0.85 * height / (world * span_y)))
 
 
+_VLC_CONFIGURED: list[bool] = []
 _STRIPES_DATA: dict[tuple[str, str], StripesData] = {}
 _PATCH_LOCK = threading.Lock()
 
