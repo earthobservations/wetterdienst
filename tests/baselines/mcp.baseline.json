@@ -415,6 +415,7 @@
             {
               "additionalProperties": {
                 "type": "number",
+                "maximum": 200.0,
                 "minimum": 0.0
               },
               "type": "object"
@@ -428,6 +429,7 @@
           "anyOf": [
             {
               "type": "number",
+              "maximum": 200.0,
               "minimum": 0.0
             },
             {
@@ -439,6 +441,7 @@
           "anyOf": [
             {
               "type": "number",
+              "maximum": 200.0,
               "minimum": 0.0
             },
             {
@@ -453,12 +456,12 @@
         },
         "min_gain_of_value_pairs": {
           "type": "number",
-          "minimum": 0.0,
+          "exclusiveMinimum": 0.0,
           "default": 0.1
         },
         "num_additional_stations": {
           "type": "integer",
-          "maximum": 1000000.0,
+          "maximum": 20.0,
           "minimum": 0.0,
           "default": 3
         },
@@ -1212,6 +1215,7 @@
             {
               "additionalProperties": {
                 "type": "number",
+                "maximum": 200.0,
                 "minimum": 0.0
               },
               "type": "object"
@@ -1225,6 +1229,7 @@
           "anyOf": [
             {
               "type": "number",
+              "maximum": 200.0,
               "minimum": 0.0
             },
             {
@@ -1236,6 +1241,7 @@
           "anyOf": [
             {
               "type": "number",
+              "maximum": 200.0,
               "minimum": 0.0
             },
             {
@@ -1245,12 +1251,12 @@
         },
         "min_gain_of_value_pairs": {
           "type": "number",
-          "minimum": 0.0,
+          "exclusiveMinimum": 0.0,
           "default": 0.1
         },
         "num_additional_stations": {
           "type": "integer",
-          "maximum": 1000000.0,
+          "maximum": 20.0,
           "minimum": 0.0,
           "default": 3
         },
@@ -1680,5 +1686,5 @@
       ]
     }
   },
-  "x-release": "0.171.0"
+  "x-release": "0.172.0"
 }
