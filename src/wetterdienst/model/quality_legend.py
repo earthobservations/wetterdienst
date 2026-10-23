@@ -64,7 +64,9 @@ RAW = QualityKind(
     written="raw:<text>",
     meaning="The value is null, or the value the source documents the marker to mean (no snow as 0), because the "
     "source wrote a missing-value marker or a number no sensor can have produced; this is what the source wrote in "
-    "its place, as it wrote it ('-999', '99.9', '---', '4021'). Always the last token.",
+    "its place, as it wrote it ('-999', '99.9', '---', '4021'). Also the floor of the quantity (0.0) where a model "
+    "wrote a little below it (DWD DMO precipitation), the number as short as it goes ('-0.1' for '-0.10'). Always "
+    "the last token.",
 )
 
 

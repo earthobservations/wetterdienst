@@ -207,7 +207,8 @@ _EA_DAY = "the 24 hours from 09:00 of the day it is dated to 09:00 of the next (
 #   and the two latest runs of each: `Rad1h` negative in 411 of 1872 icon-eu values, to -0.15, and 18 of 78 icon
 #   steps at 10382, to -0.17; `RadS3` in 273 of 1209, to -0.43; `RR1` in 3 of 1872 icon-eu values, to -0.01; all
 #   stations of the icon run of 22 12Z: `Rad1h` to -0.77, `RR1` negative in 2769 of 459,732 values, to -0.10, `RR3`
-#   to -0.04); the MOSMIX_L file of station 10382 has no negative `Rad1h` or `RR1c`.
+#   to -0.04, `RadS3` to -0.46); the MOSMIX_L file of station 10382 has no negative `Rad1h` or `RR1c`. The reader
+#   returns `RR1` and `RR3` as 0.0 with `raw:` (GH-3263), `Rad1h` and `RadS3` as written.
 # - derived: the English sheets in the `cdh_13`, `cdh_16` and `cdh_18` directories of cooling_degreehours (named
 #   `..._hdh_..._en.pdf`) are the text of the heating degree days sheet (Monatsgradtage, Heiztage, 15 degree
 #   Celsius), so the docs link the English sheet one directory up (`..._cdh_..._en.pdf`), which gives the unit
@@ -868,12 +869,12 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "night hours it is often a little below it (to about -0.4 J/cm2) and is returned as written."
         ),
         ("hourly", "icon", "rr1"): (
-            "Total precipitation during the last hour. Direct model output, not clipped at 0: a step can be up to "
-            "about a tenth of a mm below it and is returned as written."
+            "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon", "rr3"): (
-            "Total precipitation during the last 3 hours. Direct model output, not clipped at 0: a step can be a "
-            "few hundredths of a mm below it and is returned as written."
+            "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
+            "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
@@ -911,8 +912,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "few stations to about -0.8) and is returned as written."
         ),
         ("hourly", "icon_eu", "rr1"): (
-            "Total precipitation during the last hour. Direct model output, not clipped at 0: a step can be up to "
-            "about a tenth of a mm below it and is returned as written."
+            "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
+            "that is returned as 0.0, with the number kept as `raw:` in `quality_flags`."
         ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",

@@ -30,7 +30,7 @@ from wetterdienst.exceptions import (
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
-from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
+from wetterdienst.model.quality_flags import Floor, clear_sentinels, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.catalogue import correct_station_positions
@@ -87,6 +87,9 @@ _CARRIED_ONLY_BY = {
     "rr3": DwdDmoLeadTime.LONG,
     "rrs3c": DwdDmoLeadTime.LONG,
 }
+
+# the elements of the precipitation of a step, which cannot be negative (GH-3263)
+_DMO_PRECIPITATION = ("rr1", "rr3")
 
 # the lead times each product publishes a run for: `icon_eu` publishes the 078 run alone, so none of
 # its parameters is carried by a long run. `discover` reports a parameter's lead times from this and
@@ -529,6 +532,14 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         df = self.read_dmo(station_id=station_id, dataset=parameter_or_dataset, date=issue)
         if df.is_empty():
             return df
+        # ICON writes a little below 0 for the precipitation of a step now and then (-0.02 mm; 2769 of 459,732 values
+        # of `RR1` in one run, to -0.10), which is no rain: 0.0, with the number kept as `raw:` (GH-3263). `Rad1h`
+        # and `RadS3` stay as written
+        df = clear_sentinels(df, _DMO_PRECIPITATION, Floor(0.0))
+        # the file also writes `-0.00` (308 of the 3077 negative-looking cells), a negative zero that is not below 0 and
+        # would still print a minus sign. Nothing is below 0 now, so the absolute value only drops that sign (a `+ 0.0`
+        # is folded away by polars)
+        df = df.with_columns(pl.col(column).abs() for column in _DMO_PRECIPITATION if column in df.columns)
         df = unpivot_with_raw(df, index=["timestamp"])
         # the station, resolution and dataset are the core's to write (`shape_provider_frame`); the stamp is a text,
         # which the core rejects, so it is read here, as the UTC its `Z` says

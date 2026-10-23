@@ -18,12 +18,14 @@ Types of changes:
 
 ### Changed
 
-- `dwd/dmo` says in the descriptions of `radiation_global` (`rad1h`),
-  `radiation_short_wave_net_last_3h` (`rads3`), `precipitation_amount_last_1h` (`rr1`) and
-  `precipitation_amount_last_3h` (`rr3`) that ICON's output is not clipped at 0 and comes back as
-  written: `rad1h` is a little negative at night (mostly above -0.2 J/cm2, at a few stations to
-  about -0.8), `rads3` to about -0.4, and `rr1` and `rr3` by up to about a tenth of a mm in a few
-  steps (read 2026-10-22). No value changes (Part of GH-3263)
+- **Breaking**: `dwd/dmo` `precipitation_amount_last_1h` (`rr1`) and `precipitation_amount_last_3h`
+  (`rr3`) are 0.0 where ICON writes a little below 0 (to -0.10 and -0.04 mm; 2769 of 459,732 `RR1`
+  values of the icon run of 2026-10-22 12Z), with the number kept as `raw:-0.1` in `quality_flags`;
+  they were negative, and a `-0.00` was `-0.0`. Nothing to change in a caller; filter on `raw:` for
+  the old numbers.
+  `radiation_global` (`rad1h`) and `radiation_short_wave_net_last_3h` (`rads3`) stay as written, a
+  little negative at night (mostly above -0.2 J/cm2, at a few stations to about -0.8), and their
+  descriptions say so (GH-3263)
 
 ### Fixed
 
