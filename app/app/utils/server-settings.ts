@@ -2,6 +2,10 @@ import type { InterpolationSettings, ServerSettings, ValuesSettings } from '#sha
 import type { DataSettings } from '~/types/data-settings.type'
 import { UNIT_TARGET_TYPES } from '~/utils/unit-targets'
 
+// what `GET /api/interpolate` and `GET /api/summarize` take at most (the bounds of their query parameters)
+export const MAX_STATION_DISTANCE = 200
+export const MAX_ADDITIONAL_STATIONS = 20
+
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -14,7 +18,10 @@ function finite(value: unknown): value is number {
 function radius(value: unknown): number | undefined {
   if (value === 'Infinity')
     return Number.POSITIVE_INFINITY
-  return finite(value) ? value : undefined
+  // one past what a request may name is the server's own to apply, as an infinite one is
+  if (finite(value))
+    return value > MAX_STATION_DISTANCE ? Number.POSITIVE_INFINITY : value
+  return undefined
 }
 
 /**
@@ -52,10 +59,11 @@ export function serverDataSettings(server: ServerSettings): Partial<DataSettings
   const heterogeneous = radius(geo.interpolation_station_distance_heterogeneous)
   if (heterogeneous !== undefined)
     settings.stationDistanceHeterogeneous = heterogeneous
-  if (finite(geo.min_gain_of_value_pairs))
+  // a gain of 0 is no value a request may send, so the explorer keeps its own
+  if (finite(geo.min_gain_of_value_pairs) && geo.min_gain_of_value_pairs > 0)
     settings.minGainOfValuePairs = geo.min_gain_of_value_pairs
   if (finite(geo.num_additional_stations))
-    settings.numAdditionalStations = geo.num_additional_stations
+    settings.numAdditionalStations = Math.min(geo.num_additional_stations, MAX_ADDITIONAL_STATIONS)
   return settings
 }
 
