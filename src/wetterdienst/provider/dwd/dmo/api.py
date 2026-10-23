@@ -19,7 +19,6 @@ from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from lxml.etree import iterparse
 
 from wetterdienst.exceptions import (
     InvalidEnumerationError,
@@ -40,6 +39,7 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec, list_remote_files_fsspec
 from wetterdienst.util.polars_util import read_fwf_from_df
+from wetterdienst.util.xml import iterparse_xml
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -286,7 +286,7 @@ def _placemark_metadata(handle: BinaryIO) -> pl.DataFrame:
     rows = []
     unreadable = 0
     drifted: list[str] = []
-    for _, element in iterparse(handle, events=("end",), resolve_entities=False):
+    for _, element in iterparse_xml(handle):
         # a comment or processing instruction carries a callable as its tag rather than a name, so
         # `endswith` on it raises -- and one anywhere in the document would otherwise discard every
         # station the run describes

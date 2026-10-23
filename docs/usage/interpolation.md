@@ -37,9 +37,11 @@ includes the interpolated value.
 
 ![interpolation example](../assets/interpolation.png)
 
-Values represented as a table. The figure and the table are in kelvin, as the library returned temperatures when
-they were made; the default is `degree_celsius` now (see [Units](units.md)), in which the same request answers
-`5.0`, `4.0`, `5.2` and `3.1` for the stations and `4.5` for the interpolated value:
+Values represented as a table. The figure and the table are an illustration of a request for the daily mean air
+temperature of 2022-01-02 at 50.0 N, 8.9 E. They are in kelvin, as the library returned temperatures when they were
+made, and their readings are not those the DWD files hold today: the default unit is `degree_celsius` now (see
+[Units](units.md)), and the same request answers `8.2`, `7.9`, `8.2` and `7.6` for the stations 02480, 04411, 07341 and
+00917 and `8.0` for the interpolated value. The illustration:
 
 | station_id | resolution | dataset         | parameter               | timestamp                 | value  |
 |------------|------------|-----------------|-------------------------|---------------------------|--------|
@@ -118,8 +120,8 @@ rain and a station without do not average into a drizzle that fell nowhere.
 Air temperature falls with height — about 0.65 K per 100 m, a dew point about 0.2 — so stations at
 different altitudes say different things about the same weather. Interpolating them as they come
 fits that vertical difference as though it were horizontal: around Garmisch the stations within
-40 km span 630 m to 2956 m, which is 15 K of it, and even the flat country around Frankfurt spans
-495 m, or 3.2 K.
+40 km span 630 m to 2956 m, which is 15 K of it, and around Frankfurt, with the Taunus beside the Main,
+they span 100 m to 822 m, or 4.7 K.
 
 Give the point an elevation in metres above sea level and each station's readings are brought to it
 before they are used:

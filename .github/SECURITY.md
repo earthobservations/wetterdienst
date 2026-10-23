@@ -115,8 +115,8 @@ another http(s) host**, its internal network included, with a `GET`; a followed 
 HTML directory listing is kept only below the listed directory, on its host, but may step from `https` down to `http`.
 `file://` and bare paths are refused by the HTTP client.
 
-XML is parsed with entities off (`resolve_entities=False`: FMI, DWD alerts, MOSMIX, DMO) and without network access: FMI
-and DWD alerts pass `no_network=True`, MOSMIX and DMO rely on lxml's default for `iterparse`, which is the same (#3350).
+XML is parsed with entities off, no network and no DTD, each option passed rather than left to a default
+(`util/xml.py`, the one parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own).
 Archives are read in memory. Apart from the cache directory (below) and what the host asks the library or the CLI to
 write (`--target`, `to_target`, an output path; no REST or MCP parameter reaches these), the files written are the BUFR
 message, in a private temporary directory that is removed afterwards (`util/eccodes.py`, `dwd/road`), and the temporary

@@ -24,6 +24,11 @@ Types of changes:
   compromised upstream can make the server fetch from another http(s) host (GH-3339); that the
   backend sends no `nosniff` or CSP header (GH-3349); and that the provider text the MCP tools
   return, such as DWD alert text, is unfiltered and untrusted for an agent (GH-3347)
+- Three pages stated what the code does not do. Scheduling said an unwritable cache directory fails
+  the run: it warns once and caches in a temporary directory for that run, so every run downloads
+  again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
+  since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
+  code nor DWD's files give (GH-2621)
 
 ### Security
 
