@@ -65,7 +65,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Průměrné globální záření (intenzita)',
   radiation_sky_short_wave_diffuse_intensity: 'Difuzní záření (intenzita)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Průměrné difuzní záření (intenzita)',
-  radiation_sky_short_wave_direct_intensity: 'Přímé záření (intenzita)',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Přímé normálové záření (intenzita)',
   radiation_sky_long_wave_intensity_mean: 'Průměrné dlouhovlnné záření (intenzita)',
   snow_depth: 'Výška sněhu',
   snow_depth_mean: 'Průměrná výška sněhu',

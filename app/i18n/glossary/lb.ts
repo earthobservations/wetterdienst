@@ -65,7 +65,7 @@ export const parameters: Record<string, string> = {
   radiation_global_intensity_mean: 'Mëttler Globalstralung (Intensitéit)',
   radiation_sky_short_wave_diffuse_intensity: 'Diffus Stralung (Intensitéit)',
   radiation_sky_short_wave_diffuse_intensity_mean: 'Mëttler diffus Stralung (Intensitéit)',
-  radiation_sky_short_wave_direct_intensity: 'Direkt Stralung (Intensitéit)',
+  radiation_sky_short_wave_direct_perpendicular_intensity: 'Direkt Normalstralung (Intensitéit)',
   radiation_sky_long_wave_intensity_mean: 'Mëttler laangwelleg Stralung (Intensitéit)',
   snow_depth: 'Schnéihéicht',
   snow_depth_mean: 'Mëttler Schnéihéicht',
