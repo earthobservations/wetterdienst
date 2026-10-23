@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- `wetterdienst restapi` (and the Docker image) now runs uvicorn on its h11 HTTP parser, which answers
+  400 and closes a connection whose request line and headers are still incomplete after 16 KiB,
+  instead of httptools, which has no such bound. A server started with
+  `uvicorn wetterdienst.ui.restapi:app` should be given `--http h11` and
+  `--h11-max-incomplete-event-size 16384`, and sit behind a proxy with its own request limits
+  (GH-2606)
+
 ## [0.171.0] - 2026-10-23
 
 ### Changed
