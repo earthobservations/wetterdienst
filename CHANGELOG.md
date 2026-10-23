@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- wetterdienst now requires certifi 2026.10.19 or later (was 2024.2.2): older certifi releases still
+  trust the `emSign ECC Root CA - G3`, whose intermediate CA keys are compromised
+  (GHSA-6q48-6c7w-9gw2), and `use_certifi` (`WD_USE_CERTIFI`) hands that bundle to every download.
+  The Docker image is built on a python base image (3.15.1) with pip 26.2.2 and Debian's
+  `ca-certificates` update. An installation from PyPI resolves its own certifi: upgrade it there,
+  and the system trust store through the operating system, see `.github/SECURITY.md` (GH-3331)
+
 ## [0.170.0] - 2026-10-23
 
 ### Changed

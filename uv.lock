@@ -6920,7 +6920,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.0,<4" },
-    { name = "certifi", specifier = ">=2024.2.2" },
+    { name = "certifi", specifier = ">=2026.10.19" },
     { name = "click", specifier = ">=8.2,<9" },
     { name = "diskcache", specifier = ">=5.6.3,<6" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1,<2" },
