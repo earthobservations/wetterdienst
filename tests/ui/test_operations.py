@@ -874,6 +874,7 @@ def test_a_request_over_the_timeout_is_a_504_problem(client: TestClient, monkeyp
     # the handler waits for the end of the test, so that an answer in hand proves the 504 did not wait for it
     release, _begun, ended = _blocking_values(monkeypatch)
 
+    started = time.monotonic()
     try:
         response = client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "slow-1"})
         still_running = list(ended)
@@ -881,6 +882,8 @@ def test_a_request_over_the_timeout_is_a_504_problem(client: TestClient, monkeyp
         release.set()
 
     assert still_running == []
+    # not before the timeout is over (a bound that holds on any runner, a slow one answers later, not earlier)
+    assert time.monotonic() - started >= 0.25
     assert response.status_code == 504
     body = response.json()
     assert body["type"] == "urn:wetterdienst:problem:request-timeout"
@@ -1051,6 +1054,10 @@ def test_a_deprecated_parameter_answers_the_headers_and_is_a_warning() -> None:
 # --- the cap on requests served at once ---------------------------------------------------------------------------
 
 
+#: seconds after which a test that waits for the app gives up: a hang guard that no runner reaches, not a margin
+_HANG = 60
+
+
 def _async_client() -> Any:  # noqa: ANN401
     """Give a client that runs the app in the loop of the test, so that requests are in flight together."""
     import httpx2  # noqa: PLC0415
@@ -1069,7 +1076,7 @@ def _blocking_values(monkeypatch: pytest.MonkeyPatch) -> tuple[threading.Event, 
 
     def blocked(**_kwargs: object) -> None:
         begun.append("begun")
-        release.wait(10)
+        release.wait(_HANG)
         ended.append("done")
         msg = "released"
         raise exceptions.RequestError(msg)
@@ -1078,7 +1085,7 @@ def _blocking_values(monkeypatch: pytest.MonkeyPatch) -> tuple[threading.Event, 
     return release, begun, ended
 
 
-async def _until(condition: Callable[[], bool], what: str, seconds: float = 60) -> None:
+async def _until(condition: Callable[[], bool], what: str, seconds: float = _HANG) -> None:
     """Wait for a condition of the app, which takes as long as the runner needs: the deadline is for a hang only."""
     deadline = time.monotonic() + seconds
     while not condition():
@@ -1088,9 +1095,9 @@ async def _until(condition: Callable[[], bool], what: str, seconds: float = 60) 
 
 async def _first_served(client: Any) -> int:  # noqa: ANN401
     """Ask until the request is no longer refused for want of a place, and give the status of the one that was not."""
-    deadline = time.monotonic() + 60
+    deadline = time.monotonic() + _HANG
     while (status := (await client.get("/api/v1/values", params=_VALUES)).status_code) == 503:
-        assert time.monotonic() < deadline, "the place was not given back within 60 seconds"
+        assert time.monotonic() < deadline, f"the place was not given back within {_HANG} seconds"
         await asyncio.sleep(0.01)
     return status
 
@@ -1114,7 +1121,11 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
     async def run() -> tuple[list[Any], Any, Any, Any]:
         async with _async_client() as client:
             first = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(2)]
-            await _until(lambda: len(begun) == 2, "handler of the two requests being served")
+            # a request that is answered before then was refused or failed: its status says so below
+            await _until(
+                lambda: len(begun) == 2 or any(request.done() for request in first),
+                "handler of the two requests being served",
+            )
             busy = await client.get("/api/v1/values", params=_VALUES, headers={"X-Request-ID": "busy-1"})
             # what is not counted is served: the health check, the index
             health = await client.get("/health")
@@ -1145,7 +1156,10 @@ def test_a_cap_of_zero_is_no_cap(monkeypatch: pytest.MonkeyPatch) -> None:
         async with _async_client() as client:
             requests = [asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES)) for _ in range(40)]
             # all of them are in their handlers together, none was refused or waits for a place
-            await _until(lambda: len(begun) == 40, "handler of the 40 requests being served")
+            await _until(
+                lambda: len(begun) == 40 or any(request.done() for request in requests),
+                "handler of the 40 requests being served",
+            )
             release.set()
             return [response.status_code for response in await asyncio.gather(*requests)]
 
@@ -1196,7 +1210,7 @@ def test_a_request_that_fails_after_its_timeout_gives_its_place_back(
 
     def late(**_kwargs: object) -> None:
         begun.set()
-        fail.wait(10)
+        fail.wait(_HANG)
         raise RuntimeError
 
     monkeypatch.setattr(restapi, "get_values", late)
