@@ -32,6 +32,36 @@ WOZ_INFO = "Stundenwerte in WOZ"
 #: the same note for the periods of the eMD archive (the Meteorologischer Dienst der DDR) whose hourly stamps are
 #: MEZ, the fixed UTC+1 without daylight saving time (GH-2709). The plain `Stundenwerte in MEZ` is another note
 MEZ_MD_INFO = "Stundenwerte in MEZ (MD)"
+#: the plain note, which does not tell whether the values are MEZ: most of its stations are UTC in the values
+MEZ_INFO = "Stundenwerte in MEZ"
+#: the start of the `Datenquelle` of the hourly soil temperature periods that come from the eMD archive, whose
+#: stamps are MEZ (GH-3029). Their `Zusatz-Info` is only `Stundenwerte`, the zone is in this text ("3,4 Terminwerte:
+#: 01,07,13,19 MEZ und synoptische Haupttermine:01,04,07,10,13,16,19,22 MEZ")
+MEZ_EMD_SOIL_SOURCE = "Daten der Erdbodentemperatur aus dem Archiv des eMD"
+
+
+#: The stamps of the hourly air temperature that are MEZ though no label says it, by station and parameter (GH-3029):
+#: the stamps (first and last, both included, as written) that equal the report of the hour before in NOAA ISD and
+#: correlate best at one hour before with the mean of the neighbouring stations that DWD labels UTC. The label of the
+#: stations with a plain `Stundenwerte in MEZ` period does not tell: 28 of 31 of them checked are UTC in the values
+#: (docs/data/time_reference.md). Only stations whose clock change was read day by day are here; the others, which
+#: change it inside the period as well (Regensburg-Oberhub 04104, Stötten 04887), are returned as written.
+#:
+#: Diepholz 00963, label MEZ from 1994-04-01 to 1996-06-01: UTC up to the stamp 1995-01-31 23 (24 of 24 hours equal to
+#: ISD at lag 0 on 1995-01-31), MEZ from the stamp 1995-02-01 00 (24 of 24 at lag -1) to the stamp 1996-05-31 23 (24 of
+#: 24), UTC again from 1996-06-01 00 (22 of 23 at lag 0); 11,374 of 11,397 hours of the MEZ span equal ISD at lag -1
+#: against 1,075 at lag 0, 729 of 735 hours before it at lag 0 against 68 at lag -1. Relative humidity has the same
+#: span: against the neighbours lag -1 beats lag 0 in 14 of the 16 months, and lag 0 beats it before and after.
+MEZ_BY_COMPARISON: dict[str, dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]] = {
+    "00963": {
+        parameter: ((dt.datetime(1995, 2, 1, 0, tzinfo=dt.UTC), dt.datetime(1996, 5, 31, 23, tzinfo=dt.UTC)),)
+        for parameter in ("tt_tu", "rf_tu")
+    },
+}
+
+#: the datasets whose stamps are MEZ in some periods: hourly air temperature (GH-2709), hourly soil temperature
+#: (GH-3029)
+MEZ_DATASETS = (DwdObservationMetadata.hourly.temperature_air, DwdObservationMetadata.hourly.temperature_soil)
 
 
 @dataclass
@@ -41,7 +71,11 @@ class ProductFile(File):
     woz_spans: tuple[tuple[dt.date, dt.date], ...] = ()
     """The periods (first and last day, both included) of the file whose stamps are in true solar time (GH-2816)."""
     mez_md_spans: dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]] = field(default_factory=dict)
-    """Per parameter (`tt_tu`, `rf_tu`), the stamps (first and last, both included, UTC) the archive calls MEZ (MD)."""
+    """Per parameter (`tt_tu`, `rf_tu`, `v_te005`), the stamps (first and last, both included, as written) that are MEZ.
+
+    The periods the archive calls MEZ (MD) (air temperature, GH-2709) or takes from the eMD archive (soil temperature,
+    GH-3029), and the stamps of `MEZ_BY_COMPARISON`.
+    """
 
 
 def download_climate_observations_data(
@@ -88,7 +122,7 @@ def _unpack_climate_observations_data(file: File, dataset: DatasetModel | None =
         # that finds the member corrupt is exactly who the flag is for
         from_cache=file.from_cache,
         woz_spans=_read_woz_spans(zfs) if dataset == DwdObservationMetadata.hourly.sun else (),
-        mez_md_spans=_read_mez_md_spans(zfs) if dataset == DwdObservationMetadata.hourly.temperature_air else {},
+        mez_md_spans=_read_mez_md_spans(zfs, dataset) if dataset in MEZ_DATASETS else {},
     )
 
 
@@ -120,14 +154,18 @@ def _read_woz_spans(zfs: ZipFileSystem) -> tuple[tuple[dt.date, dt.date], ...]:
     return tuple(spans)
 
 
-def _read_mez_md_spans(zfs: ZipFileSystem) -> dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]:
-    """Read, per parameter, the stamps of a station's hourly air temperature that are MEZ (MD) from the metadata.
+def _read_mez_md_spans(
+    zfs: ZipFileSystem, dataset: DatasetModel | None
+) -> dict[str, tuple[tuple[dt.datetime, dt.datetime], ...]]:
+    """Read, per parameter, the stamps of a station's hourly air or soil temperature that are MEZ from the metadata.
 
     `Metadaten_Parameter_*.txt` has a table of periods per parameter, and the tables of `TT_TU` and `RF_TU` differ in
     42 of the 637 stations (Aue 00222: `TT_TU` is MEZ (MD) from 1982-01-01, `RF_TU` from 1991-01-01), so the periods
-    are read per parameter. A period is `Stundenwerte in MEZ (MD)`, the plain `Stundenwerte in MEZ` or `Stundenwerte in
-    UTC`; only the first is returned (GH-2709). A file without the metadata, or a line that does not read, is no MEZ
-    (MD).
+    are read per parameter. For the air temperature a period is `Stundenwerte in MEZ (MD)`, the plain `Stundenwerte in
+    MEZ` or `Stundenwerte in UTC`; only the first is MEZ (GH-2709), and the stamps `MEZ_BY_COMPARISON` names inside a
+    plain MEZ period (GH-3029). For the soil temperature a period is MEZ where its source is the archive of the eMD
+    (74 stations, 1951 to 1991: stamps 01, 04, ..., 22 only, GH-3029). A file without the metadata, or a line that
+    does not read, is no MEZ.
 
     The periods are dates, and where an MD period meets another on one day (`Bis_Datum` of the one is `Von_Datum` of
     the other: 38 periods at 37 stations where it ends, 36 of them on 1991-11-01, and 3 where it begins) the clock
@@ -145,6 +183,8 @@ def _read_mez_md_spans(zfs: ZipFileSystem) -> dict[str, tuple[tuple[dt.datetime,
     if not files:
         return {}
     rows: dict[str, list[tuple[dt.date, dt.date, bool]]] = {}
+    plain_mez: dict[str, list[tuple[dt.date, dt.date]]] = {}
+    stations: set[str] = set()
     for line in zfs.open(files[0]).read().decode("latin-1").splitlines()[1:]:
         parts = [part.strip() for part in line.split(";")]
         if len(parts) < 9 or not parts[0].isdigit():
@@ -156,9 +196,42 @@ def _read_mez_md_spans(zfs: ZipFileSystem) -> dict[str, tuple[tuple[dt.datetime,
         except ValueError:
             log.warning(f"The period {line!r} of the metadata of {files[0]} does not read and is taken as UTC.")
             continue
-        rows.setdefault(parts[4].lower(), []).append((first, last, parts[8] == MEZ_MD_INFO))
+        parameter = parts[4].lower()
+        stations.add(f"{int(parts[0]):05d}")
+        if dataset == DwdObservationMetadata.hourly.temperature_soil:
+            is_mez = parts[7].startswith(MEZ_EMD_SOIL_SOURCE)
+        else:
+            is_mez = parts[8] == MEZ_MD_INFO
+            if parts[8] == MEZ_INFO:
+                plain_mez.setdefault(parameter, []).append((first, last))
+        rows.setdefault(parameter, []).append((first, last, is_mez))
     spans = {parameter: _mez_md_stamps(periods) for parameter, periods in rows.items()}
+    if dataset == DwdObservationMetadata.hourly.temperature_air:
+        for station in stations:
+            for parameter, compared in MEZ_BY_COMPARISON.get(station, {}).items():
+                spans[parameter] = (
+                    *spans.get(parameter, ()),
+                    *_inside_plain_mez(compared, plain_mez.get(parameter, [])),
+                )
     return {parameter: stamps for parameter, stamps in spans.items() if stamps}
+
+
+def _inside_plain_mez(
+    stamps: tuple[tuple[dt.datetime, dt.datetime], ...], periods: list[tuple[dt.date, dt.date]]
+) -> list[tuple[dt.datetime, dt.datetime]]:
+    """Cut the stamps that were compared to the periods the metadata still calls plain `Stundenwerte in MEZ`.
+
+    A comparison was made on the archive as it is. If DWD turns a period into UTC, with the stamps or with the label,
+    the label is no longer the one the comparison was made under and the stamps are returned as written.
+    """
+    inside = []
+    for first, last in stamps:
+        for period_first, period_last in periods:
+            start = max(first, dt.datetime.combine(period_first, dt.time(0), tzinfo=dt.UTC))
+            end = min(last, dt.datetime.combine(period_last, dt.time(23), tzinfo=dt.UTC))
+            if start <= end:
+                inside.append((start, end))
+    return inside
 
 
 def _mez_md_stamps(periods: list[tuple[dt.date, dt.date, bool]]) -> tuple[tuple[dt.datetime, dt.datetime], ...]:
