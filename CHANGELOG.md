@@ -56,6 +56,11 @@ Types of changes:
   measure) are fetched only at the provider's own domain, over `https` (EA's `http://` ids are read
   as `https://`); KNMI and Météo-France also at the object store their files are served from. An
   `https` directory listing drops `http` links (GH-3338, GH-3339)
+- **Breaking**: an `influxdbs://` or `influxdb1s://` export (library `to_target`, CLI `--target`)
+  now verifies the server's TLS certificate; the InfluxDB 1 client used to accept any, so the
+  credentials and the data could be read on the path. A server with a self-signed or private-CA
+  certificate now fails with an SSL error: set `REQUESTS_CA_BUNDLE` to a CA bundle that includes
+  that certificate (or its CA) instead (GH-3342)
 
 ## [0.173.0] - 2026-10-24
 
