@@ -25,9 +25,6 @@ def test_cli_stripes() -> None:
         Commands:
           image     Create the climate stripes image for a specific station.
           stations  List stations for climate stripes.
-          values    Create the climate stripes image for a specific station.
-                    (DEPRECATED: Use `stripes image`, which writes the image. It is
-                    removed in 1.0.0.)
         """,
     )
     assert commands in result.output
@@ -353,23 +350,16 @@ def test_stripes_image_without_kaleido_is_one_logged_line(
     assert all(record.exc_info is None for record in caplog.records)
 
 
-def test_stripes_values_is_the_deprecated_name_of_the_image(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`stripes values` still writes the image, and says on stderr that `stripes image` is its name (GH-3035).
+def test_stripes_values_is_no_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`stripes values` was removed in 0.173.0: click's "No such command", exit 2, and nothing is written (GH-3128).
 
-    Its stdout is the image alone, so that a script that redirects it keeps a valid file.
+    The name is never reused for other output (`docs/usage/compatibility.md`), so a script that still writes it
+    fails rather than gets a file of something else.
     """
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _StubFigure())
-    args = ["--kind=precipitation", "--station=1048", "--format=svg"]
-    old = CliRunner().invoke(cli, ["stripes", "values", *args])
-    new = CliRunner().invoke(cli, ["stripes", "image", *args])
+    result = CliRunner().invoke(cli, ["stripes", "values", "--kind=precipitation", "--station=1048", "--format=svg"])
 
-    assert old.exit_code == 0, old.output
-    assert old.stdout_bytes == new.stdout_bytes == b"svg"
-    assert "'values' is deprecated" in old.stderr
-    assert "stripes image" in old.stderr
-    assert "removed in 1.0.0" in old.stderr
-    assert "deprecated" not in new.stderr
-    # the old name takes the options of the new one, and refuses what it refuses
-    refused = CliRunner().invoke(cli, ["stripes", "values", "--kind=temperature"])
-    assert refused.exit_code == 2
-    assert "Missing option: one of '--station' or '--name'." in refused.output
+    assert result.exit_code == 2
+    assert "No such command 'values'" in result.output
+    assert result.stdout_bytes == b""
+    assert "values" not in cli.commands["stripes"].commands  # ty: ignore[unresolved-attribute]

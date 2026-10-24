@@ -143,7 +143,7 @@
     "dwd/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/phenology": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/poi": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
-    "dwd/radar": "(parameter, site=None, fmt=None, subset=None, elevation=None, start=None, end=None, resolution=None, period=None, settings=None)",
+    "dwd/radar": "(parameter, site=None, fmt=None, subset=None, elevation=None, start=None, end=None, resolution=None, period=None, settings=None, polarization=None)",
     "dwd/road": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/swsmos": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., *, options=None, on_unknown='raise')",
     "ea/hydrology": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",

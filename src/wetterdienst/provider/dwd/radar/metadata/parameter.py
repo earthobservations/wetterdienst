@@ -184,6 +184,18 @@ class DwdRadarDataSubset(Enum):
     UNFILTERED = "unfiltered"
 
 
+class DwdRadarPolarization(Enum):
+    """Polarization of the unfiltered reflectivity sweeps, which the folder holds as one file for each.
+
+    The value is what the file name says (`..._th_00-...`, `..._tv_00-...`), the ODIM quantity in lower case, so that
+    `polarization="th"` and `polarization="horizontal"` both name the same files. The vertical files are those of
+    `SWEEP_PCP_REFLECTIVITY_H` and `SWEEP_VOL_REFLECTIVITY_H` all the same: the `_H` of the names stays (GH-3288).
+    """
+
+    HORIZONTAL = "th"
+    VERTICAL = "tv"
+
+
 # What the source serves each product as, read from the directory listings on 2026-10-22, when the composites
 # were ODIM HDF5 (files back to 2026-10-20) and no radar product was published as BUFR: a request names the
 # format of the product it asks for, or none, and a format the product is not served in is refused
@@ -223,12 +235,20 @@ RADAR_DATA_FORMATS: dict[DwdRadarParameter, tuple[DwdRadarDataFormat, ...]] = {
     DwdRadarParameter.SWEEP_VOL_PHIDP: (DwdRadarDataFormat.HDF5,),
 }
 
+# The products whose unfiltered folder holds a file for each polarization, TH and TV: a request can choose between them
+# with `polarization`, and answers both without it. The other unfiltered products (ZDR, RHOHV and PHIDP) hold one file
+# for each sweep, and the folders of a filter hold the horizontal one only.
+RADAR_PARAMETERS_POLARIZED: tuple[DwdRadarParameter, ...] = (
+    DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H,
+    DwdRadarParameter.SWEEP_VOL_REFLECTIVITY_H,
+)
+
 # The folders of a sweep product a request can choose between: the velocity holds a folder for each filter, the
 # reflectivity those two and `unfiltered`, which holds the total (uncorrected) reflectivity factor TH and TV, the
 # horizontally and the vertically polarized one, as two files for each sweep; the polarimetric moments have only the
 # unfiltered folder (their quantities are the ODIM ones of the unfiltered moments, UZDR, URHOHV and UPHIDP). A product
-# with one folder need not be asked for it; one with several is asked, as it always was. The two quantities of the
-# unfiltered reflectivity cannot be told apart by the request: it answers both (GH-3288).
+# with one folder need not be asked for it; one with several is asked, as it always was. The two polarizations of the
+# unfiltered reflectivity are both answered, or one asked for with `polarization` (GH-3288).
 RADAR_DATA_SUBSETS: dict[DwdRadarParameter, tuple[DwdRadarDataSubset, ...]] = {
     DwdRadarParameter.SWEEP_PCP_VELOCITY_H: (DwdRadarDataSubset.SIMPLE, DwdRadarDataSubset.POLARIMETRIC),
     DwdRadarParameter.SWEEP_PCP_REFLECTIVITY_H: (
@@ -324,3 +344,34 @@ def radar_data_subset(parameter: DwdRadarParameter, subset: DwdRadarDataSubset |
         msg = f"{parameter.name} is offered as {names} only, not as {subset.name}"
         raise RequestError(msg)
     return subset
+
+
+def radar_polarization(
+    parameter: DwdRadarParameter,
+    subset: DwdRadarDataSubset | None,
+    polarization: DwdRadarPolarization | None,
+) -> DwdRadarPolarization | None:
+    """Give the polarization a request reads: the one asked for, or none where the files of both are answered.
+
+    Raises:
+        RequestError: a polarization is asked for of a product that has no files for each polarization, or of a folder
+            other than the unfiltered one.
+
+    """
+    if polarization is None:
+        return None
+    if parameter not in RADAR_PARAMETERS_POLARIZED:
+        names = ", ".join(p.name for p in RADAR_PARAMETERS_POLARIZED)
+        msg = (
+            f"{parameter.name} has no polarization to choose: only the unfiltered folder of {names} holds a file for "
+            f"each (TH and TV), so leave 'polarization' out"
+        )
+        raise RequestError(msg)
+    if subset != DwdRadarDataSubset.UNFILTERED:
+        folder = f"subset={subset.name}" if subset else "no subset"
+        msg = (
+            f"{parameter.name} has a polarization to choose in the unfiltered folder only, not with {folder}: "
+            f"use subset=UNFILTERED or leave 'polarization' out"
+        )
+        raise RequestError(msg)
+    return polarization

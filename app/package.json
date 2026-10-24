@@ -47,7 +47,7 @@
     "tailwindcss": "^4.3.3",
     "tz-lookup": "^6.1.25",
     "vue": "^3.5.44",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",

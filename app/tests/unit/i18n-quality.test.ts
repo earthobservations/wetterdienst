@@ -329,6 +329,7 @@ const UI_SAME: Record<string, Same> = {
   'settings.unitTemperature': { de: ['da'], why: COGNATE },
   'settings.unitAngle': { en: ['fr'], why: COGNATE },
   'settings.unitConcentration': { en: ['fr'], why: COGNATE },
+  'settings.unitVolume': { en: ['fr', 'it', 'nl'], de: ['da', 'es'], why: COGNATE },
   'units.degree_kelvin': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl'], why: UNIT },
   'units.beaufort': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'units.pascal': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl'], why: UNIT },

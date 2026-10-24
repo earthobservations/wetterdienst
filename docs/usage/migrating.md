@@ -16,8 +16,9 @@ before 0.139.0, read the **Breaking** entries up to it first.
 The web app is released as a pair with the backend: `app-v0.33.0` goes with 0.172.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
-Two things still work in 0.172.0 and are removed at 1.0.0, with the tag: `Wetterdienst(provider, network)` and
-`wetterdienst stripes values`. Move to `Wetterdienst.resolve(provider, network)` and `wetterdienst stripes image` now
+Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
+`Wetterdienst(provider, network)` and `wetterdienst stripes values`. Write
+`Wetterdienst.resolve(provider, network)` and `wetterdienst stripes image`
 (both are in [The request](#the-request) and [Command line](#command-line) below). The import path of a request class
 (`from wetterdienst.provider.dwd.observation import DwdObservationRequest`) does not move: it is frozen from 1.0.
 
@@ -41,7 +42,7 @@ Two things still work in 0.172.0 and are removed at 1.0.0, with the tag: `Wetter
 | `DwdWeatherAlertRequest(date=...)`, `.date` | `timestamp=...`, `.timestamp` | 0.142.0, GH-2438 |
 | `end="2026-01-31"` or a `datetime.date` ended at midnight and left the day out | a date without a time is the whole day, to 23:59:59.999999 UTC, as REST's `timestamp` always read it. A `datetime` or a string with a time is still that instant: end a window at midnight with `end="2026-01-31T00:00:00"`. `start="2020-05"` and `end="2020-05"` name the month and `"2020"` the year | 0.160.0, GH-3133, GH-3155 |
 | `start=2020` (an int) raised `AttributeError` | a `TypeError` | 0.155.0, GH-2636 |
-| `Wetterdienst(provider, network)`, the constructor form that returns a class | still works and warns with a `DeprecationWarning`, and is removed in 1.0.0: write `Wetterdienst.resolve(provider, network)`. `dwd/radar` and `dwd/alerts` are no `TimeseriesRequest`: `Wetterdienst.resolve` refuses them with an `ApiNotFoundError` that names `Wetterdienst.resolve_standalone(provider, network)`; `Wetterdienst.is_standalone(provider, network)` tells which is which | 0.156.0, GH-3045 |
+| `Wetterdienst(provider, network)`, the constructor form that returns a class | a `TypeError` that names the replacement, since 0.173.0: write `Wetterdienst.resolve(provider, network)`. `dwd/radar` and `dwd/alerts` are no `TimeseriesRequest`: `Wetterdienst.resolve` refuses them with an `ApiNotFoundError` that names `Wetterdienst.resolve_standalone(provider, network)`; `Wetterdienst.is_standalone(provider, network)` tells which is which | 0.173.0, GH-3128 (deprecated in 0.156.0, GH-3045; announced for removal in 1.0.0) |
 | `Wetterdienst.get_network_names("foo")` raised `KeyError`, `discover()` returned `{}` for a resolution or dataset the network lacks | `ApiNotFoundError` and `MetadataNotFoundError`, both a `NotFoundError` and a `LookupError`; catch those instead of `KeyError` | 0.155.0, GH-2636 |
 | a parameter the provider does not have was logged and skipped | `InvalidParameterError` (a `RequestError`) naming each with its close match. Fix the name, or pass `on_unknown="warn"` for the old behaviour. When none resolves it is the same error, no longer `NoParametersFoundError`: catch `RequestError` for both | 0.155.0, GH-2636 |
 | `DwdDmoRequest.available_issues` listed every lead time | lists `lead_time="short"`; pass `lead_time="long"`, or `lead_time=None` for all | 0.140.0, GH-2009 |
@@ -203,6 +204,7 @@ A mean that a source states keeps its `_mean_` name in sub-daily rows too (IPMA,
 | `soil_moisture_winter_wheat_<soil>_00cm_60cm`, `soil_moisture_mean_winter_wheat_<soil>_00cm_60cm`, `evaporation_amount_winter_wheat_<soil>` | `soil_moisture_winter_cereals_<soil>_00cm_60cm`, `soil_moisture_mean_winter_cereals_<soil>_00cm_60cm`, `evaporation_amount_winter_cereals_<soil>` | `dwd/derived` daily and monthly (`bfws_ag`, `bfwl_ag`, `vrws_ag`, `vrwl_ag` and their monthly `mittel von` and `summe von`: DWD's sheets say "Wintergetreide", winter cereals; the monthly `soil_moisture_winter_wheat_<soil>_00cm_60cm` is answered with `soil_moisture_mean_winter_cereals_<soil>_00cm_60cm`); `<soil>` is `sand` or `loamy_silt`; the values and the unit are unchanged. The `winter_wheat` of `dwd/phenology` is a crop and stays | 0.166.0, GH-3263 |
 | `wind_gust_max` | `wind_speed_max` | `chmi/observation` daily (`Fmax`, "Max rychlost": the source says maximum speed and nothing of a gust); the values and the unit are unchanged | 0.166.0, GH-3264 |
 | `radiation_sky_short_wave_direct_intensity` | `radiation_sky_short_wave_direct_perpendicular_intensity` | `dwd/poi` (`direct_solar_radiation_last_hour`: above the global radiation at French stations, 603 against 297 W/m2 at 07280 on 2026-10-22, because it is the irradiance on a plane perpendicular to the sun's rays, not the component on a horizontal surface); the values and the unit are unchanged | 0.169.0, GH-3263 |
+| `radiation_sky_short_wave_direct` | `radiation_sky_short_wave_direct_perpendicular` | `metoffice/observation` hourly `radiation` (`direct_irad`: MIDAS table RO defines it as measured by a pyrheliometer "at normal incidence", so it is the energy of the hour on a plane perpendicular to the sun's rays, not on a horizontal surface); the values and units are unchanged | 0.173.0, GH-3316 |
 | `cloud_cover_below_1000ft` | `cloud_cover_below_2km` | `dwd/mosmix`, `dwd/dmo` (`nl`) | 0.140.0, GH-1977 |
 | `count_weather_type_sleet` | `count_weather_type_graupel` | `dwd/observation` daily, monthly, annual `weather_phenomena` and `weather_phenomena_more` | 0.145.0, GH-2696 |
 | `evapotranspiration_potential_grass_fao_last_24h`, `..._haude_last_24h` | `evapotranspiration_potential_grass_fao`, `evapotranspiration_potential_grass_haude` | the daily and monthly totals: `dwd/derived`, `meteoswiss/observation` daily | 0.140.0 (GH-2042), 0.155.0 (GH-2847) |
@@ -273,7 +275,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | `--convert_units`, `--unit_targets`, `--sql_values`, `--skip_empty`, `--skip_criteria`, `--skip_threshold`, `--drop_nulls`, `--if_exists`, `--with_metadata`, `--with_stations`, `--lead_time`, `--start_year`, `--end_year`, `--name_threshold`, `--show_title`, `--show_years`, `--show_data_availability`, `--wmo_code`, `--country_name` and the `--interpolation_station_distance*`, `--summary_station_distance*` | the same with hyphens (`--convert-units`); the underscored name is refused with an error naming the hyphenated one | 0.156.0, GH-2561 |
 | `--station` (a list) | `--stations`; the singular `--parameter`, `--period`, `--resolution`, `--dataset` of a list are refused naming the plural. `interpolate`, `summarize`, `issues` and `stripes` keep their one reference `--station` | 0.156.0, GH-2561 |
 | `wetterdienst summarize --use_nearby_station_distance` | gone: leave it out (a summary takes the nearest station with data); `interpolate` keeps its own | 0.158.0, GH-3077 |
-| `wetterdienst stripes values` wrote the image | `wetterdienst stripes image` writes it; `stripes values` still does and warns on stderr (deprecated, removed in 1.0.0, and the name is not reused) | 0.159.0, GH-3035 |
+| `wetterdienst stripes values` wrote the image | `wetterdienst stripes image` writes it; `stripes values` is "No such command" since 0.173.0, and the name is not reused | 0.173.0, GH-3128 (deprecated in 0.159.0, GH-3035; announced for removal in 1.0.0) |
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
@@ -337,10 +339,10 @@ arguments are the query parameters. In addition:
 
 ## Verified
 
-The parameter tables above were checked against the code of both releases. 403 parameters that a dataset of 0.139.0
+The parameter tables above were checked against the code of both releases. 404 parameters that a dataset of 0.139.0
 has are not in the current release under the same name; each is requested from it, and a test
 (`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below; the numbers of this paragraph are
-computed from the same list. 372 of the refusals name a replacement, and that replacement exists in the same network, resolution
+computed from the same list. 373 of the refusals name a replacement, and that replacement exists in the same network, resolution
 and dataset. The other 31 are:
 
 - the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily (GH-2700), `wind_direction_gust_max` of

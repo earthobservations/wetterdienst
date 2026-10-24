@@ -8,6 +8,7 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     RADAR_PARAMETERS_COMPOSITES_TAR,
     RADAR_PARAMETERS_DETECTIONS,
     RADAR_PARAMETERS_NOT_PUBLISHED,
+    RADAR_PARAMETERS_POLARIZED,
     RADAR_PARAMETERS_RADOLAN,
     RADAR_PARAMETERS_SITES,
     RADAR_PARAMETERS_SLOW,
@@ -17,8 +18,10 @@ from wetterdienst.provider.dwd.radar.metadata.parameter import (
     DwdRadarDataSubset,
     DwdRadarDate,
     DwdRadarParameter,
+    DwdRadarPolarization,
     radar_data_format,
     radar_data_subset,
+    radar_polarization,
 )
 from wetterdienst.provider.dwd.radar.metadata.period import DwdRadarPeriod
 from wetterdienst.provider.dwd.radar.metadata.resolution import DwdRadarResolution
@@ -31,6 +34,7 @@ __all__ = [
     "RADAR_PARAMETERS_COMPOSITES_TAR",
     "RADAR_PARAMETERS_DETECTIONS",
     "RADAR_PARAMETERS_NOT_PUBLISHED",
+    "RADAR_PARAMETERS_POLARIZED",
     "RADAR_PARAMETERS_RADOLAN",
     "RADAR_PARAMETERS_SITES",
     "RADAR_PARAMETERS_SLOW",
@@ -41,7 +45,9 @@ __all__ = [
     "DwdRadarDate",
     "DwdRadarParameter",
     "DwdRadarPeriod",
+    "DwdRadarPolarization",
     "DwdRadarResolution",
     "radar_data_format",
     "radar_data_subset",
+    "radar_polarization",
 ]

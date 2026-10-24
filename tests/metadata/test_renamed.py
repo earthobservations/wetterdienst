@@ -779,6 +779,39 @@ def test_the_swsmos_road_condition_is_not_the_road_stations_and_the_names_say_wh
     }
 
 
+def test_the_metoffice_direct_irradiation_is_named_for_its_plane_and_the_old_name_is_refused(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Only Met Office had `radiation_sky_short_wave_direct`, so the table's entry is renamed in place (GH-3316).
+
+    The MIDAS table RO has `direct_irad` measured by a pyrheliometer "at normal incidence", in "Kjoules/ sq metre over
+    the observation period", so it is the energy of the hour on a plane perpendicular to the sun's rays: the energy
+    sibling of DWD POI's `radiation_sky_short_wave_direct_perpendicular_intensity`.
+    """
+    old = "radiation_sky_short_wave_direct"
+    new = "radiation_sky_short_wave_direct_perpendicular"
+    metoffice = {p.name_original: p.name for p in MetOfficeObservationMetadata["hourly"]["radiation"]}
+    assert metoffice["direct_irad"] == new
+    assert old not in PARAMETERS
+    assert RENAMED_PARAMETERS[old] == new
+    assert "perpendicular" in PARAMETERS[new].description
+    assert PARAMETERS[new].unit_type == PARAMETERS["radiation_global"].unit_type
+    # nobody else declares either name
+    declared = {
+        (metadata.name, parameter.name_original)
+        for metadata in ALL_METADATA
+        for resolution in metadata
+        for dataset in resolution
+        for parameter in dataset
+        if parameter.name in (old, new)
+    }
+    assert declared == {("MetOfficeObservationMetadata", "direct_irad")}
+    assert parse_parameters(f"hourly/radiation/{old}", MetOfficeObservationMetadata, on_unknown="warn") == []
+    assert f"It was renamed to '{new}'." in caplog.text
+    with pytest.raises(ValidationError, match=rf"'{old}' is now '{new}'"):
+        Options(geo_station_distance={old: 10.0})
+
+
 def test_the_poi_direct_radiation_is_named_for_its_plane_and_the_old_name_is_refused(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
