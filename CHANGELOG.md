@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: 6 more `noaa/ghcn` daily stations are placed west of Greenwich, no longer east of
+  it, where `ghcnd-stations.txt` has lost the sign of their longitude: Torrevieja (SP000007038),
+  Alice Holt Lodge (UKE00105927) and the RAF stations Molesworth, Chelveston, Bassingbourn and
+  Huntington (Alconbury) (UKW00015014, -15015, -15018, -15033). They were 7 to 125 km off, so a
+  nearest-station search, a distance filter or an interpolation near them picked the wrong
+  stations. Their `longitude` is now negative; a filter on the old position needs the new one
+  (GH-2886)
+
 ## [0.173.0] - 2026-10-24
 
 ### Added

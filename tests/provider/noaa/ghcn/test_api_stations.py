@@ -211,13 +211,19 @@ GHCND_LOST_SIGN_ROWS = (
     "UKE00105900  51.8067    0.3581  128.0    ROTHAMSTED                                  ",
     "UKE00156864  52.4008    0.2353   41.0    MONKS WOOD                                  ",
     "UKE00156884  51.3103    0.4744   38.0    WISLEY                                      ",
+    "SP000007038  37.9769    0.7106    1.0    TORREVIEJA                             08433",
+    "UKE00105927  51.1767    0.8481  115.0    ALICE HOLT LODGE                            ",
+    "UKW00015014  52.3833    0.4167   74.1    MOLESWORTH                                  ",
+    "UKW00015015  52.3000    0.5333   92.0    CHELVESTON                                  ",
+    "UKW00015018  52.1000    0.0500   30.2    BASSINGBOURN                                ",
+    "UKW00015033  52.3667    0.2167   49.1    HUNTINGTON                                  ",
 )
 
 
 def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings
 ) -> None:
-    """The 29 stations of GH-2886 are read west of Greenwich, as the other catalogues have them.
+    """The 35 stations of GH-2886 are read west of Greenwich, as the other catalogues have them.
 
     The rows are copied from `ghcnd-stations.txt` as NOAA publishes them, each with an east longitude where the
     station lies west of it. Lowestoft, which does lie east of Greenwich, is left as listed (GH-2886).
