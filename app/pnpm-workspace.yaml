@@ -1,8 +1,8 @@
 # Supply-chain cooldown: refuse versions published less than three days ago, so a
 # compromised release has time to be caught and pulled before it reaches us. 4320
-# minutes matches the cooldown Dependabot already applies by default to the uv,
-# docker and github-actions ecosystems in .github/dependabot.yml, so both halves of
-# the repo wait the same length of time. pnpm 11's own default is a shorter 1440.
+# minutes is three days. Dependabot (.github/dependabot.yml) waits seven days before it
+# proposes a version, so this is the floor for an update made by hand (`pnpm update`), and
+# a shorter wait than Dependabot's. pnpm 11's own default is a shorter 1440.
 minimumReleaseAge: 4320
 minimumReleaseAgeExcludePrune: true
 confirmModulesPurge: false
@@ -13,7 +13,6 @@ minimumReleaseAgeExclude:
   - esbuild@0.28.1
 
 trustPolicy: no-downgrade
-dangerouslyAllowAllBuilds: true
 shellEmulator: true
 
 overrides:
@@ -41,3 +40,20 @@ overrides:
   # @duckdb/duckdb-wasm -> apache-arrow -> @types/node@20.19.42 (an older,
   # separately-resolved @types/node than the workspace's own ^25.x).
   undici-types: ^6.21.0
+
+# Lifecycle scripts of dependencies: none runs. pnpm 11 blocks them unless a package is named
+# here, and fails the install (strictDepBuilds) for one that is named nowhere, so a new
+# dependency with an install script is a decision in this file, not a silent execution.
+# Each of these only has a fallback behind its script, which the app does not need:
+#   @parcel/watcher   builds from source only when npm_config_build_from_source is set; the
+#                     prebuilt @parcel/watcher-<platform> package is what the app uses
+#   esbuild           links the platform binary over its JS launcher (speed only), or fetches the
+#                     binary when the optional package is missing
+#   unrs-resolver     fetches the platform's native binding from npm when the optional package
+#                     was not installed
+#   vue-demi          picks the Vue 2 or Vue 3 build; the copy that ships is already the Vue 3 one
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false
+  unrs-resolver: false
+  vue-demi: false

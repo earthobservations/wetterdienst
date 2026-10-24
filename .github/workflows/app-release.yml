@@ -16,7 +16,8 @@ permissions: {}
 # of `docker-publish-app.yml` is case-sensitive.
 jobs:
   # Builds the tarball in a job without a token that can write: `pnpm install` and `pnpm run build`
-  # run the build code of the app and of every package in `app/pnpm-lock.yaml`, and must not hold
+  # run the build code of the app and the code of every package in `app/pnpm-lock.yaml` (the
+  # lifecycle scripts of those are off, see `allowBuilds`), and must not hold
   # `contents: write`, which lets it write to the releases, the tags and the code of the repository
   build:
     if: startsWith(github.event.release.tag_name, 'app-v')
@@ -43,7 +44,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
-          version: 11
+          package_json_file: app/package.json
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

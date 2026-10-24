@@ -40,9 +40,9 @@ with its new SHA and digest, so the pin does not freeze the version; every ecosy
 delayed). zizmor runs with no rule disabled, and its `unpinned-uses` rule
 fails a new action that is referenced by a tag or a branch. When you add an action,
 resolve the tag with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (an annotated tag has to be
-dereferenced to its commit) and write the SHA and the tag. The one thing left on a tag is the
-`mcr.microsoft.com/playwright` job container of `app-accessibility.yml`, which Dependabot does not
-read and which is kept in step with `@playwright/test` by hand.
+dereferenced to its commit) and write the SHA and the tag. The `mcr.microsoft.com/playwright` job
+container of `app-accessibility.yml` carries its digest too, but Dependabot does not read it: tag and
+digest are kept in step with `@playwright/test` by hand.
 
 `vulnerable.yml` is path-filtered for pull requests (only the manifest and the lock change what
 `uv audit` finds) and also runs weekly on `main`, because an advisory is published against a lock
@@ -148,7 +148,7 @@ the label is added and on every push after it. A pull request without the label 
 
 It has no path filter, and it is not, and must not be made, a required check. It needs no backend: the
 spec answers every `/api/*` request itself. It runs in the Playwright image the baseline was recorded in
-(`mcr.microsoft.com/playwright`, tag to be kept in step with `@playwright/test`), builds and serves the
+(`mcr.microsoft.com/playwright`, tag and digest to be kept in step with `@playwright/test`), builds and serves the
 production build, scans, holds the
 app to `app/tests/e2e/accessibility/baseline.json` (a violation outside it fails the run, and so does a
 baseline entry that is no longer found), and writes the baseline's size and this run's result to the
