@@ -108,5 +108,12 @@ WORKDIR /home/wetterdienst
 # Expose port 7890
 EXPOSE 7890
 
+# `/health` answers as long as the server does and reads nothing else, from any Host (GH-3346). A cold
+# start imports the dependencies, which took 9 s once on a laptop and 1.5 s after, so --start-period
+# leaves a slow disk or a small CPU six times that before a failure counts. The check asks port 7890:
+# a container started with another `--listen` is reported unhealthy unless it sets its own check.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD ["curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:7890/health"]
+
 # Default command: start restapi on port 7890
 CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890"]

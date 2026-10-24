@@ -18,6 +18,9 @@ Types of changes:
 
 ### Added
 
+- `[Docker]` The app image has a `HEALTHCHECK`: it asks the page at `/` on the server's own port
+  every 30 s, which does not ask the backend and is outside the rate limit, so `docker ps` shows
+  `healthy` or `unhealthy` for the app alone (GH-3346)
 - `[Legal]` A privacy policy (Datenschutzerklärung) at `/datenschutz`, also served at `/privacy`
   and linked in the footer next to the legal notice. It is in German, the binding text, for the
   German locales and in English for every other language, and names the logs, the cookie and

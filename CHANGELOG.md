@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Docker]` The backend image has a `HEALTHCHECK`: it asks `/health` on port 7890 every 30 s,
+  gives the server 60 s to start before a failure counts, and `docker ps` shows the container as
+  `healthy` or `unhealthy`. A container started with another `--listen` port is reported
+  unhealthy unless it sets its own check (GH-3346)
+
 ## [0.174.0] - 2026-10-24
 
 ### Changed
