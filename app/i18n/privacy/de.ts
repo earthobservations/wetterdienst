@@ -63,7 +63,7 @@ export const privacy: PrivacyPolicy = {
         'Das Backend schreibt für jede Anfrage eine Zeile in sein Container-Protokoll. Sie enthält die Anfragezeile mit der vollständigen URL einschließlich Query-String und einen Zeitstempel. Im Query-String stehen die Angaben der Abfrage, etwa Anbieter, Parameter, Stationskennungen und Koordinaten. Die dort angezeigte Client-Adresse ist die interne Adresse des vorgeschalteten Reverse-Proxys, nicht die des Besuchers.',
         'Der Reverse-Proxy (Traefik) führt kein Zugriffsprotokoll. Der Server der Web-App schreibt praktisch keine Protokolle. Es gibt keinen Log-Export an Dritte, keine Analyse-Software und keine Auswertung des Datenverkehrs.',
         'Zum Schutz vor Überlastung zählt der Server der Web-App die Anfragen an die Daten-Schnittstellen je Client-Adresse ausschließlich im Arbeitsspeicher, für ein kurzes Zeitfenster (standardmäßig fünf Minuten). Die Zähler werden nicht gespeichert und nicht protokolliert.',
-        'Eine feste Speicherdauer ist nicht eingestellt. Das Container-Protokoll bleibt bestehen, bis der Container bei der nächsten Bereitstellung ersetzt wird (bei jedem Release und bei der nächtlichen Bereitstellung). Zusätzlich kann eine von Docker festgelegte Größenbegrenzung des Protokolls greifen.',
+        'Eine feste Speicherdauer ist nicht eingestellt. Das Container-Protokoll bleibt bestehen, bis der Container bei der nächsten Bereitstellung ersetzt wird (etwa bei jedem Release). Zusätzlich kann eine von Docker festgelegte Größenbegrenzung des Protokolls greifen.',
         'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Das berechtigte Interesse liegt im Betrieb und in der Sicherheit des Dienstes.',
       ],
     },
