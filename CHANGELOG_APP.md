@@ -23,6 +23,13 @@ Types of changes:
   backend that serves the new name: release the backend first. The Low German and Luxembourgish
   labels are not reviewed by a native speaker
 
+### Security
+
+- `zod` is 4.6.7 (range `^4.6.6`), which fixes the memory exhaustion on a large array that
+  fails an array schema (GHSA-mrhx-c7xc-m3w5). `zod` is in the app's browser bundle, where it
+  validates the settings kept in `localStorage`; those schemas use no array, so the app did not
+  reach the flaw (GH-3368)
+
 ## [0.33.0] - 2026-10-23
 
 ### Changed
