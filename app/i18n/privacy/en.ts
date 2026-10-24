@@ -46,6 +46,7 @@ export const privacy: PrivacyPolicy = {
       title: 'Cookie and local storage in the browser',
       paragraphs: [
         'The web app sets one functional cookie and keeps settings in your browser\'s local storage (localStorage). There are no tracking or advertising cookies. The web app does not pass cookies on to the backend.',
+        'The cookie and local storage are necessary for the web app to work (the language, colour scheme and display you choose) and are set without your consent (Section 25(2) no. 2 TDDDG). Where personal data is processed in the process, the legal basis is Art. 6(1)(f) GDPR.',
       ],
       items: [
         'Cookie wd_lang: stores the language of the interface. Lifetime 365 days, path /, SameSite=Lax.',

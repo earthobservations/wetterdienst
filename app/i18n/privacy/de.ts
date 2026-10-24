@@ -73,6 +73,7 @@ export const privacy: PrivacyPolicy = {
       title: 'Cookie und lokaler Speicher im Browser',
       paragraphs: [
         'Die Web-App setzt ein funktionales Cookie und legt Einstellungen im lokalen Speicher (localStorage) Ihres Browsers ab. Es gibt keine Tracking- und keine Werbe-Cookies. Die Web-App leitet Cookies nicht an das Backend weiter.',
+        'Cookie und lokaler Speicher sind für die Funktion der Web-App erforderlich (Sprache, Farbschema und Darstellung, die Sie wählen) und werden ohne Ihre Einwilligung gesetzt (§ 25 Abs. 2 Nr. 2 TDDDG). Soweit dabei personenbezogene Daten verarbeitet werden, ist die Rechtsgrundlage Art. 6 Abs. 1 lit. f DSGVO.',
       ],
       items: [
         'Cookie wd_lang: speichert die Sprache der Oberfläche. Laufzeit 365 Tage, Pfad /, SameSite=Lax.',
