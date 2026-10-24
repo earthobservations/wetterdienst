@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the `noaa/ghcn` hourly stations Chelveston (UKW00015015) and Huntington
+  (Alconbury, UKW00015033) are placed west of Greenwich, no longer east of it, 73 and 29 km off,
+  where `ghcnh-station-list.csv` has lost the sign of their longitude; their `longitude` is now
+  negative. One table now serves the daily and the hourly list and turns a row only while it lists
+  the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
+
 ## [0.174.0] - 2026-10-24
 
 ### Changed

@@ -15,7 +15,7 @@ from wetterdienst import Settings
 from wetterdienst.core.util import one_row_per_station
 from wetterdienst.exceptions import LocationOutOfRangeError
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
-from wetterdienst.provider.noaa.ghcn.api import GHCND_WEST_LONGITUDE_STATIONS
+from wetterdienst.provider.noaa.ghcn.api import LOST_LONGITUDE_SIGN_STATIONS
 from wetterdienst.util.network import File
 
 
@@ -239,11 +239,70 @@ def test_noaa_ghcn_daily_stations_west_longitude_more_stations(
     expected["UKE00105899"] = 1.75
     assert dict(df.select("station_id", "longitude").rows()) == expected
     assert df.filter(pl.col("station_id") == "UKE00156848").select("latitude").item() == 53.0306
-    # every id of the table is pinned by a raw row, here or in the Bordeaux, Caen and Valencia test above
-    assert set(GHCND_WEST_LONGITUDE_STATIONS) == {row[:11] for row in GHCND_LOST_SIGN_ROWS} | {
-        "FR000007510",
-        "FRE00104044",
-        "SP000008416",
+    # every id of the table is pinned by a raw row, here or in the Bordeaux, Caen and Valencia test above, and the
+    # position the table guards on is the one of that row
+    pinned = {row[:11]: (float(row[12:20]), float(row[21:30])) for row in GHCND_LOST_SIGN_ROWS} | {
+        "FR000007510": (44.8306, 0.6914),
+        "FRE00104044": (49.18, 0.4558),
+        "SP000008416": (39.4806, 0.3664),
+    }
+    assert pinned == LOST_LONGITUDE_SIGN_STATIONS
+
+
+def test_noaa_ghcn_daily_stations_lost_sign_guard(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """A row is turned only while it lists the position that was checked; a moved row is read as it is (GH-3384).
+
+    Chelveston is listed with its checked position, Huntington with a latitude NOAA has moved by 0.01, Wyton with
+    a longitude NOAA has moved by 0.01 and still east: those two are no longer the rows the correction was
+    verified on, and Molesworth is listed with the sign put right.
+    """
+    rows = (
+        "UKW00015015  52.3000    0.5333   92.0    CHELVESTON                                  ",
+        "UKW00015033  52.3767    0.2167   49.1    HUNTINGTON                                  ",
+        "UKW00015034  52.3500    0.1267   40.2    WYTON                                       ",
+        "UKW00015014  52.3833   -0.4167   74.1    MOLESWORTH                                  ",
+    )
+    stations = "\n".join(rows) + "\n"
+    inventory = "".join(f"{row[:11]} {row[12:20]} {row[21:30]} TMAX 1950 2026\n" for row in rows)
+    _serve_ghcnd(monkeypatch, stations, inventory)
+    df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=default_settings).all().df
+    assert dict(df.select("station_id", "longitude").rows()) == {
+        "UKW00015015": -0.5333,
+        "UKW00015033": 0.2167,
+        "UKW00015034": 0.1267,
+        "UKW00015014": -0.4167,
+    }
+
+
+GHCNH_LOST_SIGN_LIST = (
+    "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,GSN,(US)HCN_(US)CRN,WMO_ID,ICAO,ISO_CODE\n"
+    "UKI0000EGXW,53.1667,-0.5238,70.0,,WADDINGTON,,,03377,EGXW,GB\n"
+    "UKW00015015,52.3,0.5333,92.0,WI,CHELVESTON,,,,,GB\n"
+    "UKW00015033,52.3667,0.2167,47.9,EN,HUNTINGTON,,,,EGWZ,GB\n"
+    "UKW00015034,52.35,-0.1167,40.2,EN,WYTON,,,,,GB\n"
+    "UKW00015041,53.3667,0.7,21.0,EN,STURGATE,,,,,GB\n"
+)
+
+
+def test_noaa_ghcn_hourly_stations_lost_sign(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:
+    """Chelveston and Huntington (Alconbury) are west of Greenwich in the hourly list too (GH-3384).
+
+    The rows are copied from `ghcnh-station-list.csv` as NOAA publishes it, read 2026-10-24: the longitude is
+    listed east (0.5333, 0.2167) where ISD, OpenStreetMap and Wikipedia put it at -0.5333 and -0.217. Waddington
+    is listed right; Wyton is in the table but listed with the sign put right, and Sturgate with a longitude
+    that is not the one checked: both are read as listed.
+    """
+    monkeypatch.setattr(
+        "wetterdienst.provider.noaa.ghcn.api.download_file",
+        lambda url, **_kwargs: File(url=url, content=BytesIO(GHCNH_LOST_SIGN_LIST.encode("utf8")), status=200),
+    )
+    df = NoaaGhcnRequest(parameters=[("hourly", "data")], settings=default_settings).all().df
+    assert dict(df.select("station_id", "longitude").rows()) == {
+        "UKI0000EGXW": -0.5238,
+        "UKW00015015": -0.5333,
+        "UKW00015033": -0.2167,
+        "UKW00015034": -0.1167,
+        "UKW00015041": 0.7,
     }
 
 
