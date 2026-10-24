@@ -1,5 +1,5 @@
 # ─── base: node + pnpm ────────────────────────────────────────────────────────
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS base
+FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS base
 WORKDIR /app
 
 # The corepack that ships with this Node image, not the latest one fetched on every build. It
@@ -45,7 +45,7 @@ COPY app/nuxt.config.ts ./
 RUN pnpm run build
 
 # ─── prod: production runtime ─────────────────────────────────────────────────
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS prod
+FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS prod
 WORKDIR /app
 
 RUN apk add --no-cache curl
