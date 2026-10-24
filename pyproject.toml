@@ -109,7 +109,7 @@ dependencies = [
     "aiohttp>=3.14.4,<4",
     "certifi>=2026.10.19",  # drops the emSign ECC Root CA - G3 (GHSA-6q48-6c7w-9gw2, GH-3331)
     "click>=8.2,<9",
-    "fsspec[http]>=2024.6",
+    "fsspec[http]>=2026.6.0",
     "lxml>=4.9.1,<7",
     "measurement>=3.2,<4",
     "platformdirs>=4,<5",
@@ -122,7 +122,6 @@ dependencies = [
     "pydantic-settings>=2.14.0,<3",
     "python-dateutil>=2.8.2,<3",
     "rapidfuzz>=3.1,<4",
-    "diskcache>=5.6.3,<6",
     "stamina>=25.1.0,<27",
     "tabulate>=0.9,<1",
     "tqdm>=4.64,<5",
@@ -525,9 +524,3 @@ exclude-newer = "3 days"
 # 2026-10-25, when the release is three days old: left in, it holds pypdf back at the cutoff below
 # and no newer release enters the lock.
 exclude-newer-package = { pypdf = "2026-10-21T17:00:00Z" }
-
-[tool.uv.audit]
-# diskcache uses pickle for serialization (CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v).
-# The threat requires write access to the local user cache directory, which is not
-# a realistic attack vector for this project.
-ignore-until-fixed = ["GHSA-w8v5-vhqr-4h9v"]

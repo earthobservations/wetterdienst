@@ -51,6 +51,12 @@ from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.util.listing_cache import (
+    STORE_FILENAME,
+    ListingStore,
+    make_private_dir,
+    remove_diskcache_leftovers,
+)
 
 if TYPE_CHECKING:
     from types import SimpleNamespace
@@ -510,8 +516,8 @@ _cache_dir_fallbacks: dict[Path, Path] = {}
 _cache_dir_fallback_lock = threading.Lock()
 
 #: What failing to open or create a cache directory raises: `PermissionError` and the other
-#: `OSError`s from the file system, and the `sqlite3.OperationalError` diskcache raises on opening
-#: a database it cannot write ("attempt to write a readonly database").
+#: `OSError`s from the file system, and the `sqlite3.OperationalError` the listings store raises on
+#: opening a database it cannot write ("attempt to write a readonly database").
 _CACHE_DIR_ERRORS = (OSError, sqlite3.OperationalError)
 
 
@@ -562,15 +568,24 @@ def _fallback_cache_dir(cache_dir: Path, error: BaseException) -> Path:
 # more. ``False`` came from ``CacheExpiry.INFINITE`` and from a disabled cache, ``0.0`` from the
 # download-side filesystem registration, ``0.01`` from ``CacheExpiry.NO_CACHE``. In every one of
 # those cases ``use_listings_cache`` was False, so the directory was created and then never written
-# to. They are swept on the next run, guarded by an emptiness check so that a directory which does
-# somehow hold entries is left alone.
+# to. They are removed on the next run once nothing is left in them.
 _LEGACY_LISTINGS_CACHE_DIR_NAMES = frozenset({"False", "0.0", "0.01"})
+#: The name of a TTL's directory under the cache root, as ``FileDirCache`` has made it since the TTL
+#: became a float: ``infinite``, ``False``, or ``str(float)`` (``300.0``, ``1e-05``). Not a bare integer,
+#: which another application's directory can be called.
+_LISTINGS_CACHE_DIR = re.compile(r"^(?:infinite|False|\d+\.\d+(?:e[+-]?\d+)?|\d+e[+-]?\d+)$")
 _legacy_cleanup_lock = threading.Lock()
 _legacy_cleanup_done: set[Path] = set()
 
 
 def _remove_legacy_listings_cache_dirs(cache_root: Path, keep: str) -> None:
-    """Remove empty listings-cache directories left behind by earlier versions.
+    """Remove what earlier versions left in the listings cache root, which this version never reads.
+
+    * The files of ``diskcache`` (``cache.db`` and the ``.val`` files beside it, GH-3326), in every
+      TTL's directory: the listings are now kept in a file of another name and format, and the
+      old ones were pickles that are never opened again. Removed only once nothing has written to
+      them for an hour, since an older wetterdienst may run beside this one on the same directory.
+    * The empty directories ``False``, ``0.0`` and ``0.01`` that earlier versions made and never wrote to.
 
     Runs once per cache root per process, and is best-effort throughout: a cache directory that
     cannot be tidied is not a reason to fail the request that happened to trigger the sweep.
@@ -585,26 +600,17 @@ def _remove_legacy_listings_cache_dirs(cache_root: Path, keep: str) -> None:
             return
         _legacy_cleanup_done.add(cache_root)
 
-    from diskcache import Cache  # noqa: PLC0415
-
-    for name in _LEGACY_LISTINGS_CACHE_DIR_NAMES - {keep}:
-        stale = cache_root / name
-        if not stale.is_dir():
-            continue
-        try:
-            with Cache(directory=str(stale)) as cache:
-                # cull expired rows first: the ``False`` folder is full of them, because
-                # ``CacheExpiry.INFINITE`` used to store every listing already expired. What
-                # matters is whether anything still *valid* is in there.
-                cache.expire()
-                entries = len(cache)
-            if entries:
-                log.debug(f"Keeping listings cache folder {stale}, it still holds {entries} entries")
-                continue
-            shutil.rmtree(stale)
-            log.info(f"Removed orphaned listings cache folder {stale}")
-        except Exception:
-            log.debug(f"Failed removing orphaned listings cache folder {stale}", exc_info=True)
+    try:
+        directories = [d for d in cache_root.iterdir() if _LISTINGS_CACHE_DIR.match(d.name) and d.is_dir()]
+    except OSError:
+        return
+    for directory in directories:
+        if remove_diskcache_leftovers(directory, idle_for=_SUPERSEDED_GRACE_SECONDS):
+            log.info(f"Removed the files of diskcache from the listings cache folder {directory}")
+        if directory.name in _LEGACY_LISTINGS_CACHE_DIR_NAMES - {keep}:
+            # not recursive: a folder that holds anything else is left alone
+            with contextlib.suppress(OSError):
+                directory.rmdir()
 
 
 def _rebuild_file_dir_cache(
@@ -625,7 +631,11 @@ def _rebuild_file_dir_cache(
 
 
 class FileDirCache(MutableMapping):
-    """File-based cache for FSSPEC."""
+    """File-based cache of directory listings for FSSPEC.
+
+    The listings are kept as JSON in an SQLite file (`util/listing_cache.py`), one directory per
+    TTL below the cache root. Safe for several threads and processes on one directory.
+    """
 
     def __init__(
         self,
@@ -644,11 +654,11 @@ class FileDirCache(MutableMapping):
             listings_cache_location: Directory path at which the listings cache file is stored.
 
         """
-        # ``CacheExpiry.INFINITE`` reaches us as ``False``. Map it to ``None``, diskcache's "no
-        # expiry" sentinel -- passing ``False`` straight through made diskcache compute an expiry
-        # of ``now + False == now``, so entries were born expired and the listings cache silently
-        # never hit. Only False/None mean "never expire": a numeric 0 has to keep meaning "expire
-        # immediately", since silently upgrading it to "cache forever on disk" fails open.
+        # ``CacheExpiry.INFINITE`` reaches us as ``False``. Map it to ``None``, the "no expiry"
+        # sentinel of the store -- ``now + False == now`` made every entry born expired once, so
+        # the listings cache silently never hit. Only False/None mean "never expire": a numeric 0
+        # has to keep meaning "expire immediately", since silently upgrading it to "cache forever
+        # on disk" fails open.
         if listings_expiry_time is None or listings_expiry_time is False:
             self.listings_expiry_time = None
         else:
@@ -659,10 +669,8 @@ class FileDirCache(MutableMapping):
         if not use_listings_cache:
             # Nothing will ever be stored, so don't create a cache directory for it.
             self.cache_location = None
-            self._cache = None
+            self._store = None
             return
-
-        from diskcache import Cache  # noqa: PLC0415
 
         from wetterdienst.settings import default_cache_dir  # noqa: PLC0415
 
@@ -672,72 +680,79 @@ class FileDirCache(MutableMapping):
         else:
             cache_root = default_cache_dir(appname="wetterdienst-fsspec")
 
-        def open_cache(root: Path) -> tuple[Path, Cache]:
+        def open_store(root: Path) -> tuple[Path, ListingStore]:
             location = root / subdir
             _remove_legacy_listings_cache_dirs(location.parent, keep=location.name)
             log.info(f"Creating dircache folder at {location}")
-            location.mkdir(exist_ok=True, parents=True)
-            return location, Cache(directory=str(location))
+            make_private_dir(location)
+            return location, ListingStore(location / STORE_FILENAME)
 
         try:
-            self.cache_location, self._cache = open_cache(_effective_cache_dir(cache_root))
+            self.cache_location, self._store = open_store(_effective_cache_dir(cache_root))
         except _CACHE_DIR_ERRORS as error:
-            self.cache_location, self._cache = open_cache(_fallback_cache_dir(cache_root, error))
+            self.cache_location, self._store = open_store(_fallback_cache_dir(cache_root, error))
 
     def __getitem__(self, item: str) -> list[dict]:
-        """Draw item from cache, retry if timeout occurs."""
-        # ``self._cache is None`` is exactly the "caching disabled" case; binding it to a local
-        # keeps the None-check visible to the type checker in every method below.
-        cache = self._cache
-        if cache is None:
-            raise KeyError(item)
-        _missing = object()
-        value = cache.get(key=item, default=_missing, read=True, retry=True)
-        if value is _missing:
+        """Draw item from cache."""
+        value = self.get(item)
+        if value is None:
             raise KeyError(item)
         return value
 
+    def get(self, key: object, default: list[dict] | None = None) -> list[dict] | None:
+        """Return the listing stored under key, or default if there is none or it has expired."""
+        # ``self._store is None`` is exactly the "caching disabled" case
+        store = self._store
+        if store is None:
+            return default
+        value = store.get(key)
+        return default if value is None else value
+
     def clear(self) -> None:
         """Clear cache."""
-        cache = self._cache
-        if cache is None:
-            return
-        cache.clear()
+        store = self._store
+        if store is not None:
+            store.clear()
 
     def __len__(self) -> int:
         """Return number of items in cache."""
-        cache = self._cache
-        if cache is None:
-            return 0
-        return len(cache)
+        store = self._store
+        return 0 if store is None else store.count()
 
     def __contains__(self, item: object) -> bool:
         """Check if item is in cache and not expired."""
-        cache = self._cache
-        if cache is None:
-            return False
-        return item in cache
+        store = self._store
+        return store is not None and store.contains(item)
 
     def __setitem__(self, key: str, value: list[dict]) -> None:
-        """Store listing in cache."""
-        cache = self._cache
-        if cache is None:
+        """Store listing in cache.
+
+        Raises:
+            ListingNotStorableError: If the key is no str or the listing would not come back from
+                JSON as it went in, which is all that is stored.
+
+        """
+        store = self._store
+        if store is None:
             return
-        cache.set(key=key, value=value, expire=self.listings_expiry_time, retry=True)
+        store.set(key, value, self.listings_expiry_time)
 
     def __delitem__(self, key: str) -> None:
         """Remove item from cache."""
-        cache = self._cache
-        if cache is None:
+        store = self._store
+        if store is None or not store.delete(key):
             raise KeyError(key)
-        del cache[key]
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over keys in cache."""
-        cache = self._cache
-        if cache is None:
-            return iter([])
-        return iter(cache)
+        store = self._store
+        return iter([] if store is None else store.keys())
+
+    def close(self) -> None:
+        """Close the database connections of every thread. The cache opens a new one when it is used again."""
+        store = self._store
+        if store is not None:
+            store.close()
 
     def __reduce__(self) -> tuple:
         """Return state information for pickling."""
@@ -1268,7 +1283,7 @@ def _check_cache_dir_writable(cache_path: Path) -> None:
         OSError: If `cache_path` cannot be created or written to.
 
     """
-    cache_path.mkdir(parents=True, exist_ok=True)
+    make_private_dir(cache_path)
     with tempfile.TemporaryFile(dir=cache_path):
         pass
 

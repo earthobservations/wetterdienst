@@ -3,6 +3,7 @@
 """Tests for network utilities."""
 
 import atexit
+import contextlib
 import json
 import logging
 import os
@@ -38,7 +39,6 @@ from aiohttp import (
     ServerDisconnectedError,
 )
 from aiohttp.client_reqrep import ConnectionKey
-from diskcache import Cache
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.implementations.cached import WholeFileCacheFileSystem
@@ -50,7 +50,8 @@ from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoIn
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings, _temporary_cache_dir
 from wetterdienst.ui.core import failure_status, timed_out
-from wetterdienst.util import network
+from wetterdienst.util import listing_cache, network
+from wetterdienst.util.listing_cache import STORE_FILENAME, ListingStore
 from wetterdienst.util.network import (
     _BLOB_CACHE_DIR,
     _IDENTITY_CACHE_DIR,
@@ -340,6 +341,17 @@ class _RacyDirCache(MutableMapping):
         return 0
 
 
+@contextlib.contextmanager
+def _database(path: Path) -> Iterator[sqlite3.Connection]:
+    """Open an SQLite file, commit what the test did and close it (`with sqlite3.connect()` does not close)."""
+    connection = sqlite3.connect(path)
+    try:
+        yield connection
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def _fake_listing(url: str) -> list[dict]:
     return [
         {"name": f"{url}b.zip", "size": 1, "type": "file"},
@@ -383,17 +395,51 @@ def test_file_dir_cache_infinite_expiry_is_stored(tmp_path: Path) -> None:
     assert cache.cache_location.name == "infinite"
 
 
-def test_file_dir_cache_honours_expiry(tmp_path: Path) -> None:
-    """Entries disappear once the expiry time has passed.
+def test_file_dir_cache_honours_expiry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An entry is returned until its expiry time and not from then on, read off a clock the test moves."""
+    now = [1_000_000.0]
+    monkeypatch.setattr(listing_cache, "_now", lambda: now[0])
+    key = "listing-a"  # not URL-shaped: see test_file_dir_cache_reports_containment
+    cache = FileDirCache(60.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    cache[key] = _fake_listing("http://example.com/")
 
-    Deliberately asserts only on the post-expiry state: a "still cached" assert taken right
-    after the write would race a slow scheduler under ``pytest -n auto``. That the entry was
-    stored at all is covered by test_file_dir_cache_stores_and_returns_listing.
-    """
-    cache = FileDirCache(0.2, use_listings_cache=True, listings_cache_location=tmp_path)
+    now[0] += 59.0
+    assert cache.get(key) == _fake_listing("http://example.com/")
+    assert key in cache
+    assert len(cache) == 1
+
+    now[0] += 1.0
+    assert cache.get(key) is None
+    assert key not in cache
+    assert len(cache) == 0
+    assert list(cache) == []
+    with pytest.raises(KeyError):
+        _ = cache[key]
+
+
+def test_file_dir_cache_infinite_expiry_never_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`CacheExpiry.INFINITE` (False) is stored with no expiry time, however far the clock goes."""
+    now = [1_000_000.0]
+    monkeypatch.setattr(listing_cache, "_now", lambda: now[0])
+    cache = FileDirCache(CacheExpiry.INFINITE.value, use_listings_cache=True, listings_cache_location=tmp_path)
     cache["http://example.com/"] = _fake_listing("http://example.com/")
-    time.sleep(0.4)
-    assert cache.get("http://example.com/") is None
+
+    now[0] += 100 * 365 * 24 * 3600.0
+
+    assert cache.get("http://example.com/") == _fake_listing("http://example.com/")
+
+
+def test_file_dir_cache_cull_expired_entries_when_writing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A write removes the entries that have expired, so a cache of short TTLs does not only grow."""
+    now = [1_000_000.0]
+    monkeypatch.setattr(listing_cache, "_now", lambda: now[0])
+    cache = FileDirCache(10.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    cache["first"] = _fake_listing("http://example.com/")
+    now[0] += 11.0
+    cache["second"] = _fake_listing("http://example.com/")
+
+    with _database(tmp_path / "10.0" / STORE_FILENAME) as database:
+        assert [row[0] for row in database.execute("SELECT key FROM listing")] == ["second"]
 
 
 def test_file_dir_cache_disabled_stores_nothing_and_creates_no_directory(tmp_path: Path) -> None:
@@ -544,35 +590,191 @@ def test_file_dir_cache_sweeps_orphaned_legacy_dirs(tmp_path: Path) -> None:
     assert remaining == ["300.0", "43200.0", "fsspec"]
 
 
-def test_file_dir_cache_keeps_legacy_dir_that_holds_entries(tmp_path: Path) -> None:
-    """A legacy-named folder that somehow still holds entries is left alone."""
+class _Unpickled:
+    """What a planted pickle would run if it were ever loaded: it drops a file next to the cache."""
+
+    def __init__(self, marker: Path) -> None:
+        self.marker = marker
+
+    def __reduce__(self) -> tuple:
+        return (Path.write_text, (self.marker, "code ran"))
+
+
+def _make_diskcache_files(directory: Path, *, age: float, payload: bytes = b"") -> list[Path]:
+    """Lay out what `diskcache` 5 leaves in a directory: `cache.db` (with -wal and -shm) and a `.val` file.
+
+    Made with the standard library, which is the point: nothing here needs `diskcache`, and nothing
+    in wetterdienst opens these files any more. `age` is how long ago they were last written.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    with _database(directory / "cache.db") as database:
+        database.execute("CREATE TABLE Cache (key BLOB, raw INTEGER, store_time REAL, mode INTEGER, value BLOB)")
+        database.execute("CREATE TABLE Settings (key TEXT, value)")
+        database.execute("INSERT INTO Cache VALUES (?, 1, 0, 4, ?)", ("http://example.com/", payload))
+    value = directory / "ab" / "cd" / "0123456789abcdef0123456789ab.val"
+    value.parent.mkdir(parents=True)
+    value.write_bytes(payload)
+    files = [directory / "cache.db", directory / "cache.db-wal", directory / "cache.db-shm", value]
+    for name in files[1:3]:
+        name.write_bytes(b"")
+    long_ago = time.time() - age
+    for file in files:
+        os.utime(file, (long_ago, long_ago))
+    return files
+
+
+def test_file_dir_cache_removes_the_files_diskcache_left(tmp_path: Path) -> None:
+    """The pickled cache of an earlier version is never read again, so once it is idle it is removed (GH-3326)."""
     _legacy_cleanup_done.clear()
-    stale = tmp_path / "0.01"
-    stale.mkdir()
-    with Cache(directory=str(stale)) as cache:
-        cache.set(key="http://example.com/", value=_fake_listing("http://example.com/"))
+    files = _make_diskcache_files(tmp_path / "300.0", age=2 * _SUPERSEDED_GRACE_SECONDS)
+    other = tmp_path / "300.0" / "notes.txt"
+    other.write_text("not ours")
 
-    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
 
-    assert stale.is_dir()
+    assert not any(file.exists() for file in files)
+    assert not (tmp_path / "300.0" / "ab").exists()
+    assert other.read_text() == "not ours"
+    assert cache.cache_location == tmp_path / "300.0"
+    assert (tmp_path / "300.0" / STORE_FILENAME).is_file()
 
 
-def test_file_dir_cache_sweeps_legacy_dir_holding_only_expired_entries(tmp_path: Path) -> None:
-    """The real-world ``False`` folder is full of rows that were stored already expired.
+def test_file_dir_cache_removes_a_wal_database_that_was_closed_cleanly_in_one_run(tmp_path: Path) -> None:
+    """Diskcache's database is in WAL mode and leaves `cache.db` alone: looking into it must not make it look new.
 
-    ``CacheExpiry.INFINITE`` used to hand diskcache an expiry of ``now + False == now``, so the
-    folder is not empty by row count even though nothing in it is readable. It still goes.
+    Opening a WAL database makes its -wal and -shm files, dated now, which an idle check made after the
+    look would take for a write: the leftovers went only on the next run, an hour later.
     """
     _legacy_cleanup_done.clear()
-    stale = tmp_path / "False"
-    stale.mkdir()
-    with Cache(directory=str(stale)) as cache:
-        cache.set(key="http://example.com/", value=_fake_listing("http://example.com/"), expire=False)
-        assert len(cache) == 1
+    directory = tmp_path / "300.0"
+    directory.mkdir()
+    with _database(directory / "cache.db") as database:
+        database.execute("PRAGMA journal_mode = WAL")
+        database.execute("CREATE TABLE Cache (key BLOB)")
+        database.execute("CREATE TABLE Settings (key TEXT, value)")
+    assert [p.name for p in directory.iterdir()] == ["cache.db"], "closed cleanly: only the database is left"
+    long_ago = time.time() - 2 * _SUPERSEDED_GRACE_SECONDS
+    os.utime(directory / "cache.db", (long_ago, long_ago))
 
     FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
 
-    assert not stale.exists()
+    assert not (directory / "cache.db").exists()
+    assert not (directory / "cache.db-wal").exists()
+    assert not (directory / "cache.db-shm").exists()
+
+
+def test_the_sweep_does_not_raise_when_another_process_swept_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Several processes starting at once on an old cache: files that vanish between the checks are no error."""
+    files = _make_diskcache_files(tmp_path / "300.0", age=2 * _SUPERSEDED_GRACE_SECONDS)
+    monkeypatch.setattr(listing_cache, "_DISKCACHE_FILES", ())  # nothing left to look at
+
+    assert listing_cache.remove_diskcache_leftovers(tmp_path / "300.0", idle_for=_SUPERSEDED_GRACE_SECONDS) is False
+    assert all(file.exists() for file in files)
+
+
+def test_file_dir_cache_leaves_the_files_of_an_older_version_that_is_still_writing(tmp_path: Path) -> None:
+    """An older wetterdienst beside this one, writing `cache.db` now, keeps its cache."""
+    _legacy_cleanup_done.clear()
+    files = _make_diskcache_files(tmp_path / "300.0", age=60.0)
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    assert all(file.exists() for file in files)
+
+
+def test_file_dir_cache_leaves_a_cache_db_that_is_no_database_and_a_value_dir_that_holds_other_files(
+    tmp_path: Path,
+) -> None:
+    """Only what `diskcache` makes is removed: a `cache.db` that is no SQLite file is somebody else's."""
+    _legacy_cleanup_done.clear()
+    not_ours = tmp_path / "300.0" / "cache.db"
+    not_ours.parent.mkdir()
+    not_ours.write_text("not a database")
+    os.utime(not_ours, (0, 0))
+    mixed = _make_diskcache_files(tmp_path / "600.0", age=2 * _SUPERSEDED_GRACE_SECONDS)
+    (tmp_path / "600.0" / "ab" / "cd" / "readme.txt").write_text("keep me")
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    assert not_ours.read_text() == "not a database"
+    assert not mixed[0].exists()
+    assert (tmp_path / "600.0" / "ab" / "cd" / "readme.txt").read_text() == "keep me"
+
+
+def test_file_dir_cache_leaves_the_database_of_another_application(tmp_path: Path) -> None:
+    """A `cache.db` is `diskcache`'s only if it has its tables, in a directory named like a TTL's."""
+    _legacy_cleanup_done.clear()
+    photos = tmp_path / "2024" / "cache.db"
+    photos.parent.mkdir()
+    with _database(photos) as database:
+        database.execute("CREATE TABLE photos (id INTEGER)")
+    other = tmp_path / "300.0" / "cache.db"
+    other.parent.mkdir()
+    with _database(other) as database:
+        database.execute("CREATE TABLE photos (id INTEGER)")
+    for database_file in (photos, other):
+        os.utime(database_file, (0, 0))
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    assert photos.is_file()
+    assert other.is_file()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a link needs a privilege on Windows")
+def test_file_dir_cache_does_not_follow_a_link_called_cache_db(tmp_path: Path) -> None:
+    """A link is not a file `diskcache` made."""
+    _legacy_cleanup_done.clear()
+    target = tmp_path / "elsewhere.db"
+    with _database(target) as database:
+        database.execute("CREATE TABLE Cache (key BLOB)")
+        database.execute("CREATE TABLE Settings (key TEXT, value)")
+    directory = tmp_path / "300.0"
+    directory.mkdir()
+    (directory / "cache.db").symlink_to(target)
+    os.utime(target, (0, 0))
+
+    FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+
+    assert target.is_file()
+    assert (directory / "cache.db").is_symlink()
+
+
+def test_file_dir_cache_never_unpickles_what_diskcache_left(tmp_path: Path) -> None:
+    """Whoever can write the cache directory used to run code through a pickle there; now nothing is loaded (GH-3326).
+
+    A pickle that would write a file if it were loaded is placed where `diskcache` kept values:
+    in the rows of `cache.db`, in a `.val` file, and (the worst case) in the file the new cache
+    reads, as a row of its own table.
+    """
+    _legacy_cleanup_done.clear()
+    marker = tmp_path / "code-ran"
+    bomb = pickle.dumps(_Unpickled(marker))
+    directory = tmp_path / "300.0"
+    # fresh files: they are not removed, so they stay where the cache could be tempted to read them
+    _make_diskcache_files(directory, age=1.0, payload=bomb)
+    cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    with _database(directory / STORE_FILENAME) as database:
+        database.execute("INSERT INTO listing (key, expires, value) VALUES (?, NULL, ?)", ("planted", bomb))
+        database.execute("INSERT INTO listing (key, expires, value) VALUES (?, NULL, ?)", ("planted-text", bomb.hex()))
+
+    assert cache.get("planted") is None
+    assert cache.get("planted-text") is None
+    assert cache.get("http://example.com/") is None
+    assert list(cache) == []
+    assert not marker.exists()
+
+
+def test_a_different_ttl_is_a_different_cache(tmp_path: Path) -> None:
+    """Each TTL has a directory and a database of its own."""
+    short = FileDirCache(60.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    long = FileDirCache(3600.0, use_listings_cache=True, listings_cache_location=tmp_path)
+    short["a"] = _fake_listing("http://example.com/")
+
+    assert long.get("a") is None
+    assert short.cache_location != long.cache_location
 
 
 def test_file_dir_cache_never_sweeps_the_dir_it_is_about_to_use(tmp_path: Path) -> None:
@@ -598,7 +800,7 @@ def test_legacy_cache_sweep_survives_unremovable_dir(tmp_path: Path) -> None:
     """A folder that cannot be removed is logged, not raised."""
     _legacy_cleanup_done.clear()
     (tmp_path / "False").mkdir()
-    with patch("wetterdienst.util.network.shutil.rmtree", side_effect=OSError("permission denied")):
+    with patch.object(Path, "rmdir", side_effect=OSError("permission denied")):
         FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
     assert (tmp_path / "300.0").is_dir()
 
@@ -3805,18 +4007,18 @@ def test_a_listing_cache_in_an_unwritable_dir_is_kept_in_a_temporary_one(
 
 
 @_needs_enforced_modes
-def test_a_cache_database_that_cannot_be_written_is_the_sqlite_error_of_the_issue(
+def test_a_cache_database_that_cannot_be_written_falls_back_to_a_temporary_dir(
     tmp_path: Path,
     unusable_cache_dirs: dict[Path, Path],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A directory that can be written, holding a database that cannot, is `attempt to write a readonly database`."""
+    """A directory that can be written, holding a database that cannot, is as unusable as one that cannot be written."""
     caplog.set_level(logging.WARNING, logger=network.log.name)
     FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
-    database = tmp_path / "300.0" / "cache.db"
+    database = tmp_path / "300.0" / STORE_FILENAME
     database.chmod(0o444)
-    with pytest.raises(sqlite3.OperationalError, match="readonly"):
-        Cache(directory=str(database.parent))
+    with pytest.raises(PermissionError, match="not writable"):
+        ListingStore(database)
 
     cache = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
     cache["http://example.com/"] = _fake_listing("http://example.com/")
@@ -3825,7 +4027,7 @@ def test_a_cache_database_that_cannot_be_written_is_the_sqlite_error_of_the_issu
     assert cache.cache_location is not None
     assert cache.cache_location.is_relative_to(unusable_cache_dirs[tmp_path])
     (warning,) = _cache_warnings(caplog)
-    assert "readonly" in warning
+    assert "not writable" in warning
     assert str(tmp_path) in warning
 
 
@@ -3866,22 +4068,22 @@ def test_a_dir_that_failed_is_not_tried_again(
 ) -> None:
     """After the first failure the directory is not touched: no per-request retry of a fault that stays."""
     FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
-    (tmp_path / "300.0" / "cache.db").chmod(0o444)
+    (tmp_path / "300.0" / STORE_FILENAME).chmod(0o444)
     first = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
-    attempts: list[str] = []
-    real_cache = Cache
+    attempts: list[Path] = []
+    real_store = ListingStore
 
-    def spy(directory: str, **kwargs: object) -> Cache:
-        attempts.append(directory)
-        return real_cache(directory, **kwargs)
+    def spy(path: Path) -> ListingStore:
+        attempts.append(path.parent)
+        return real_store(path)
 
-    monkeypatch.setattr("diskcache.Cache", spy)
+    monkeypatch.setattr(network, "ListingStore", spy)
 
     second = FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
 
     assert first.cache_location is not None
     assert second.cache_location == first.cache_location
-    assert attempts == [str(first.cache_location)], "the unusable directory is not opened a second time"
+    assert attempts == [first.cache_location], "the unusable directory is not opened a second time"
 
 
 @_needs_enforced_modes
@@ -3993,7 +4195,7 @@ def test_an_error_that_is_not_about_the_cache_dir_is_not_a_fallback(
         msg = "not a location problem"
         raise ValueError(msg)
 
-    monkeypatch.setattr("diskcache.Cache", broken)
+    monkeypatch.setattr(network, "ListingStore", broken)
     with pytest.raises(ValueError, match="not a location problem"):
         FileDirCache(300.0, use_listings_cache=True, listings_cache_location=tmp_path)
 

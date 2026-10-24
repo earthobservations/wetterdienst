@@ -26,8 +26,7 @@ This project is a data-fetching library, a CLI, a REST API with an MCP endpoint,
   upstream provider sends
 - A caller reaching a provider credential, or making the server fetch from a host or read a path of the caller's choice
 - The app running a script that is not its own, or passing a client's cookies or credentials to the backend
-- Dependency vulnerabilities (please check [Dependabot alerts](https://github.com/earthobservations/wetterdienst/security/dependabot)
-  and the accepted `diskcache` advisory below first)
+- Dependency vulnerabilities (please check [Dependabot alerts](https://github.com/earthobservations/wetterdienst/security/dependabot) first)
 
 Out of scope: vulnerabilities in upstream data provider services (DWD, NOAA, etc.); the REST API having no
 authentication, TLS or CORS headers, which is [by design](#the-rest-api-and-mcp); a caller of the library or the CLI
@@ -140,16 +139,29 @@ sentinels it can).
 ### The cache directory
 
 `WD_CACHE_DIR` (default: the user's cache directory, or a per-process temporary one where none resolves) holds the
-downloaded bodies it caches, as files named by the hash of their URLs, and the directory listings, which `diskcache`
-stores with `pickle`: whoever can write there can run code as the process. Where the directory cannot be written, a
-temporary directory of the process takes its place until it exits (with a warning); the directory in use also gets a
-write probe, removed at once, and a usage marker. Keep it private to the user the server runs as. The image's cache
-belongs to its unprivileged user (uid 10001, `docker/Dockerfile`); the app image runs as `node`.
+downloaded bodies it caches, as files named by the hash of their URLs, and the directory listings, which are JSON in
+a SQLite file (`listings-v1.sqlite3`, one per TTL; `util/listing_cache.py`). Nothing in the cache is unpickled,
+evaluated or imported (the metadata file of fsspec's download cache is JSON only from fsspec 2026.6.0, the floor
+since GH-3326; earlier versions fell back to `pickle` for it): a listing that is read is parsed as JSON and must be
+a list of objects, and a row that is anything else is dropped
+(`tests/util/test_listing_cache.py::test_a_row_that_is_no_listing_is_dropped_not_returned`,
+`tests/util/test_network.py::test_file_dir_cache_never_unpickles_what_diskcache_left`).
+Whoever can write there can still fill the cache with listings that are not the provider's, or delete it, but can no
+longer run code through a deserializer (the SQLite file is also read from there, with `trusted_schema` off,
+`cell_size_check` on and, from Python 3.12, defensive mode); the downloaded bodies are data that is parsed like any
+other download. Where the directory cannot be written, a temporary directory of the process takes its place until it
+exits (with a warning); the directory in use also gets a write probe, removed at once, and a usage marker.
 
-**Dependabot alert 83 (`diskcache`, GHSA-w8v5-vhqr-4h9v / CVE-2025-69872, `<= 5.6.3`, no patched version).** It applies:
-the listings cache is that pickle. Exploiting it takes write access to the cache directory, which the operator controls,
-so `pyproject.toml` ignores it in `uv audit` (`ignore-until-fixed`: only until a patched version exists). The
-alert stays open until then.
+A directory that wetterdienst makes (the cache directory and the directories above it that are missing) gets mode
+`0o700`, the database file `0o600`, on systems that enforce modes; a directory that exists is never changed, so make a
+shared one private yourself. Keep it private to the user the server runs as. The image's cache belongs to its
+unprivileged user (uid 10001, `docker/Dockerfile`); the app image runs as `node`.
+
+**`diskcache` is no longer a dependency** (GH-3326). It stored the listings with `pickle` and had an advisory with no
+fixed version and no maintainer commit since 2024 (Dependabot alert 83, GHSA-w8v5-vhqr-4h9v / CVE-2025-69872, `<=
+5.6.3`), which `pyproject.toml` ignored in `uv audit` until now. Its files in an old cache directory are never read as
+a cache. The clean-up that removes them, once nothing has written them for an hour, opens `cache.db` read-only and
+immutable to look at the names of its tables, and reads nothing else from it.
 
 ### The app
 
