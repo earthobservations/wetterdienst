@@ -144,6 +144,17 @@ function stationDistanceRadii(prefix: 'interpolation' | 'summary'): Record<strin
   return radii
 }
 
+/**
+ * The per-parameter radii that hold a number. A cleared input is NaN, which JSON writes as null and
+ * the backend refuses with a 422, so the parameter is left out and the general radius applies.
+ */
+function stationDistancePerParameterGiven(): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(props.settings.useStationDistancePerParameter)
+      .filter(([_, value]) => typeof value === 'number' && Number.isFinite(value)),
+  )
+}
+
 // each mode's endpoint, the name its values are saved under, and the mode itself
 const ENDPOINTS = {
   values: { endpoint: '/api/values', filename: 'values', mode: 'station' },
@@ -194,9 +205,7 @@ const apiQuery = computed(() => {
       use_nearby_station_distance: props.settings.useNearbyStationDistance,
     }
     // Add interpolation station distance if provided (filter out empty values)
-    const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && true && String(value).trim() !== '')
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+    const stationDistancePerParameter = stationDistancePerParameterGiven()
 
     if (Object.keys(stationDistancePerParameter).length > 0) {
       query.interpolation_station_distance = JSON.stringify(stationDistancePerParameter)
@@ -218,9 +227,7 @@ const apiQuery = computed(() => {
       elevation: interp?.elevation,
     }
     // Add summary station distance if provided (filter out empty values)
-    const stationDistancePerParameter = Object.entries(props.settings.useStationDistancePerParameter)
-      .filter(([_, value]) => value != null && true && String(value).trim() !== '')
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+    const stationDistancePerParameter = stationDistancePerParameterGiven()
 
     if (Object.keys(stationDistancePerParameter).length > 0) {
       query.summary_station_distance = JSON.stringify(stationDistancePerParameter)

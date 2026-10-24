@@ -2467,6 +2467,44 @@ describe('dataViewer settings the explorer starts from the server\'s', () => {
     expect(queries[0]!.interpolation_station_distance_heterogeneous).toBe('20')
   })
 
+  // a cleared per-parameter input is NaN, which JSON writes as null and the backend answers with a
+  // 422 (GH-3356): the parameter is left out, the others are sent
+  describe.each([
+    ['/api/interpolate', atPoint('interpolation'), 'interpolation'],
+    ['/api/summarize', atPoint('summary'), 'summary'],
+  ] as const)('a cleared per-parameter radius for %s', (endpoint, selection, prefix) => {
+    async function askedWith(perParameter: Record<string, number>) {
+      const queries: Record<string, unknown>[] = []
+      registerEndpoint(endpoint, (event) => {
+        queries.push(getQuery(event))
+        return { values: [] }
+      })
+      const wrapper = await mountSuspended(defineComponent({
+        setup: () => () => h(UApp, null, {
+          default: () => h(DataViewer, {
+            parameterSelection,
+            stationSelection: selection,
+            settings: { ...settings, useStationDistancePerParameter: perParameter },
+          }),
+        }),
+      }), { attachTo: document.body })
+      mounted.push(wrapper)
+      await fetchData(wrapper.findComponent(DataViewer))
+      await vi.waitFor(() => expect(queries).toHaveLength(1))
+      return queries[0]!
+    }
+
+    it('is left out, and the others are sent', async () => {
+      const query = await askedWith({ temperature_air_mean_2m: Number.NaN, precipitation_height: 15 })
+      expect(JSON.parse(String(query[`${prefix}_station_distance`]))).toEqual({ precipitation_height: 15 })
+    })
+
+    it('leaves the whole field out when it is the only one', async () => {
+      const query = await askedWith({ temperature_air_mean_2m: Number.NaN })
+      expect(query).not.toHaveProperty(`${prefix}_station_distance`)
+    })
+  })
+
   it('pins a type left at "Default" to the unit given for it, and a chosen one to the choice', async () => {
     const query = await asked('/api/values', byStation('01048'), { speed: 'beaufort' }, {
       temperature: 'degree_fahrenheit',
