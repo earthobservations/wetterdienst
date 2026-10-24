@@ -710,8 +710,10 @@ and what follows is for an instance that others can reach (the
   design), `pdf`, or `/docs` and `/redoc`, which load their own from a CDN. Other headers (HSTS, a
   `Referrer-Policy`, a policy for those answers) are for the reverse proxy to add.
 - **SQL.** [`sql` and `sql_values`](#sql-filters) stay off until you set `WD_RESTAPI_SQL=true`.
-- **The cache directory.** `WD_CACHE_DIR` holds the downloaded bodies it caches and the pickled directory listings:
-  whoever can write there can run code as the server. Keep it private to the user the server runs as.
+- **The cache directory.** `WD_CACHE_DIR` holds the downloaded bodies it caches and the directory listings, as JSON in
+  a SQLite file; nothing in it is unpickled or run. Whoever can write there can still replace what the server caches,
+  so keep it private to the user the server runs as (a directory wetterdienst makes gets mode 0o700; one that exists
+  keeps its mode).
 
 ## Errors
 

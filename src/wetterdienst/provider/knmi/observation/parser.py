@@ -10,17 +10,19 @@ machinery would be dead weight here.
 
 from __future__ import annotations
 
+import contextlib
 import io
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
+from wetterdienst.exceptions import UpstreamError
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
     import datetime as dt
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
 _ROW_SCHEMA = {
     "timestamp": pl.Datetime(time_unit="us", time_zone="UTC"),
@@ -57,6 +59,30 @@ _CALM = "0"
 _VARIABLE = "990"
 
 
+@contextlib.contextmanager
+def open_netcdf(payload: bytes) -> Iterator[Any]:
+    """Open a KNMI NetCDF file held in memory, refusing a file whose variables are not stored in it.
+
+    HDF5 lets a dataset keep its data in another file, named by a path (external storage), or take it from
+    other files (a virtual dataset), and h5py follows both although the container itself is in memory. KNMI's files
+    keep every variable in the file, so a variable that does not is no file KNMI wrote: it is refused before any
+    value is read from it (GH-3337).
+
+    Raises:
+        UpstreamError: a variable keeps its data outside the file.
+
+    """
+    h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
+
+    with h5netcdf.File(io.BytesIO(payload), "r") as file:
+        for variable in file.variables.values():
+            dataset = variable._h5ds  # noqa: SLF001
+            if dataset.external is not None or dataset.is_virtual:
+                msg = "The KNMI file keeps the data of a variable outside the file, which is not read."
+                raise UpstreamError(msg)
+        yield file
+
+
 def decode_str(value: object) -> str:
     """Decode an HDF5 string cell to str (h5netcdf returns vlen strings as bytes)."""
     return value.decode() if isinstance(value, (bytes, bytearray)) else str(value)
@@ -85,9 +111,7 @@ def parse_knmi_netcdf(payload: bytes, station_id: str, parameters: Sequence[str]
     coordinate is the end of the interval in all three datasets (10 minutes: the file's name; hourly:
     the name plus one hour; daily: the next 00:00, which is why the date is attached).
     """
-    h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
-
-    with h5netcdf.File(io.BytesIO(payload), "r") as file:
+    with open_netcdf(payload) as file:
         variables = file.variables
         # the file is keyed by full WSI; map the public station_id (trailing WMO number)
         # back to that station's row index.

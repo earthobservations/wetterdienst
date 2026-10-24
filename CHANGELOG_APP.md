@@ -23,6 +23,14 @@ Types of changes:
   out of the request and the general (homogeneous or heterogeneous) radius applies to it until a
   distance is typed again (GH-3356)
 
+### Security
+
+- `[Build]` No install script of a dependency runs any more (`allowBuilds` in
+  `pnpm-workspace.yaml`, replacing `dangerouslyAllowAllBuilds`): a new dependency that has one fails
+  `pnpm install` until it is listed there. pnpm is pinned to 11.22.0 with its hash
+  (`packageManager`), the image gets it from the Node image's corepack and installs with
+  `--frozen-lockfile`, and the accessibility job's Playwright image is pinned by digest (GH-3345)
+
 ## [0.34.0] - 2026-10-24
 
 ### Changed

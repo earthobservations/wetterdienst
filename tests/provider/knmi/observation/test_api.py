@@ -26,7 +26,13 @@ from aiohttp import ClientPayloadError, ClientResponseError, ServerDisconnectedE
 from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
-from wetterdienst.exceptions import CredentialRejectedError, DownloadError, MissingDependencyError, NoInternetError
+from wetterdienst.exceptions import (
+    CredentialRejectedError,
+    DownloadError,
+    MissingDependencyError,
+    NoInternetError,
+    UpstreamError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation.api import (
@@ -365,6 +371,61 @@ def test_knmi_parse_netcdf_unknown_parameter_skipped(netcdf_payload: bytes) -> N
     moment = dt.datetime(2020, 1, 1, tzinfo=UTC)
     df = parse_knmi_netcdf(netcdf_payload, "06260", ["TG", "DOES_NOT_EXIST"], moment)
     assert df["parameter"].to_list() == ["TG"]
+
+
+def _write_indirect_netcdf(path: Path, *, kind: str, variable: str) -> bytes:
+    """Write a KNMI-shaped file in which one `variable` is not stored in the file (GH-3337).
+
+    `external` declares the data as a range of another file, `virtual` as a virtual dataset of another file.
+    The other file is a neighbour of the NetCDF file that holds nothing but zeros (or does not exist).
+    """
+    side = path.parent / "side.bin"
+    side.write_bytes(b"\x00" * 128)
+    with h5py.File(path, "w") as file:
+        station = file.create_dataset("station", data=["0-20000-0-06260", "0-20000-0-06280"], dtype=h5py.string_dtype())
+        station.make_scale("station")
+        for name in ("stationname", "lat", "lon", "height", "TG"):
+            # the names stored outside are a fixed-size string, the others are floats
+            dtype, size = ("S64", 64 * 2) if name == "stationname" else ("f8", 8 * 2)
+            if name != variable:
+                dataset = (
+                    file.create_dataset(name, data=["De Bilt", "Eelde"], dtype=h5py.string_dtype())
+                    if name == "stationname"
+                    else file.create_dataset(name, data=[1.0, 2.0])
+                )
+            elif kind == "external":
+                dataset = file.create_dataset(name, shape=(2,), dtype=dtype, external=[(str(side), 0, size)])
+            else:
+                layout = h5py.VirtualLayout(shape=(2,), dtype=dtype)
+                layout[:] = h5py.VirtualSource(str(side.with_suffix(".h5")), "values", shape=(2,))
+                dataset = file.create_virtual_dataset(name, layout)
+            dataset.dims[0].attach_scale(station)
+    return path.read_bytes()
+
+
+@pytest.mark.parametrize("kind", ["external", "virtual"])
+def test_knmi_parse_netcdf_refuses_a_variable_stored_outside_the_file(tmp_path: Path, kind: str) -> None:
+    """A variable that keeps its data in another file is refused, not read through (GH-3337)."""
+    payload = _write_indirect_netcdf(tmp_path / "knmi.nc", kind=kind, variable="TG")
+
+    with pytest.raises(UpstreamError, match="outside the file"):
+        parse_knmi_netcdf(payload, "06260", ["TG"], dt.datetime(2020, 1, 1, tzinfo=UTC))
+
+
+@pytest.mark.parametrize("kind", ["external", "virtual"])
+@pytest.mark.parametrize("variable", ["stationname", "lat", "TG"])
+def test_knmi_station_list_refuses_a_variable_stored_outside_the_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kind: str, variable: str
+) -> None:
+    """The station list refuses a file with such a variable, whichever variable it is (GH-3337)."""
+    payload = _write_indirect_netcdf(tmp_path / "stations.nc", kind=kind, variable=variable)
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._latest_filename", lambda *_args: "latest.nc")
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._fetch_netcdf", lambda *_args: payload)
+
+    request = _request([("daily", "data", "temperature_air_mean_2m")], dt.datetime(2020, 1, 1, tzinfo=UTC), None)
+
+    with pytest.raises(UpstreamError, match="outside the file"):
+        request.all()
 
 
 def test_knmi_public_station_id_strips_wsi_prefix() -> None:

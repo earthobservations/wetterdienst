@@ -1663,6 +1663,7 @@ def test_export_influxdb1_wide(options_convert_units_false_wide_shape: Options) 
             password=None,
             database="dwd",
             ssl=False,
+            verify_ssl=True,
         )
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
@@ -1735,6 +1736,7 @@ def test_export_influxdb1_tidy(options_convert_units_false: Options) -> None:
             password=None,
             database="dwd",
             ssl=False,
+            verify_ssl=True,
         )
         mock_client.create_database.assert_called_once_with("dwd")
         mock_client.write_points.assert_called_once()
@@ -2933,7 +2935,32 @@ def test_to_target_writes_influxdb1_with_a_password_holding_delimiters() -> None
         _one_row().to_target(f"influxdb://root:{_DELIMITED}@localhost:8087/?database=obs")
 
     client.assert_called_once_with(
-        host="localhost", port=8087, username="root", password=_DELIMITED, database="obs", ssl=False
+        host="localhost", port=8087, username="root", password=_DELIMITED, database="obs", ssl=False, verify_ssl=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("scheme", "ssl"),
+    [("influxdb", False), ("influxdb1", False), ("influxdbs", True), ("influxdb1s", True)],
+)
+def test_to_target_influxdb1_checks_the_servers_certificate(scheme: str, ssl: bool) -> None:  # noqa: FBT001
+    """The InfluxDB 1 client does not check a certificate unless told to (GH-3342).
+
+    Its own default is `verify_ssl=False`, which left `influxdbs://` sending the credentials and the
+    data to whoever answered. The client is built with the check on, for every scheme.
+    """
+    pytest.importorskip("influxdb")
+    with mock.patch("influxdb.InfluxDBClient") as client:
+        _one_row().to_target(f"{scheme}://root:secret@localhost:8087/?database=obs")
+
+    client.assert_called_once_with(
+        host="localhost",
+        port=8087,
+        username="root",
+        password="secret",  # noqa: S106
+        database="obs",
+        ssl=ssl,
+        verify_ssl=True,
     )
 
 
