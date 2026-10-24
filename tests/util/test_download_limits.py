@@ -192,7 +192,7 @@ def test_a_download_that_takes_too_long_is_a_download_error(server: str, tmp_pat
 def test_the_client_timeout_does_not_count_as_the_time_ceiling(
     server: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A timeout of the client is the timeout it was, and is asked for again as before."""
+    """A timeout of the client is the timeout it was, and no refusal of the ceilings."""
     monkeypatch.setattr(network, "MAX_DOWNLOAD_SECONDS", 60)
     file = download_file(
         f"{server}/trickle.csv", tmp_path, CacheExpiry.NO_CACHE, client_kwargs={"timeout": 0.01}, attempts=1

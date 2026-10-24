@@ -23,6 +23,7 @@ from wetterdienst.util.network import _megabytes, _without_url_secrets
 
 if TYPE_CHECKING:
     import tarfile
+    from collections.abc import Iterator
     from io import BytesIO
 
     from wetterdienst.util.network import File
@@ -91,7 +92,10 @@ def gunzip(file: File, *, limit: int | None = None) -> bytes:
 
 
 def bunzip2(content: bytes, *, url: str, limit: int | None = None) -> bytes:
-    """Unpack bz2 bytes, with the errors of `bz2.decompress` as they are: `ValueError` for a stream cut short."""
+    """Unpack bz2 bytes, with the errors of `bz2.decompress`: `ValueError` for a cut stream, `OSError` for bad data.
+
+    A later stream that is corrupt raises here, where `bz2.decompress` drops it and returns the earlier ones.
+    """
     limit = ceiling(limit)
     chunks: list[bytes] = []
     size = 0
@@ -101,7 +105,7 @@ def bunzip2(content: bytes, *, url: str, limit: int | None = None) -> bytes:
         try:
             piece = decompressor.decompress(data, max_length=_CHUNK)
         except OSError:
-            if chunks:  # what follows the last stream is not read, as `bz2.decompress` does not
+            if chunks:  # a second stream that does not begin is left unread, as `bz2.decompress` leaves it
                 break
             raise
         while True:
@@ -149,6 +153,13 @@ class _ChunkedMember:
         if size is not None and 0 <= size <= _CHUNK:
             return self._member.read(size)
         return _read_chunked(self._member, 1 << 62, size=None if size is None or size < 0 else size)[0]
+
+    def read1(self, size: int | None = -1) -> bytes:
+        # `read1` is of the `ZipExtFile` this wraps, which the type of a binary file does not have
+        return self._member.read1(_CHUNK if size is None or size < 0 or size > _CHUNK else size)  # ty: ignore[unresolved-attribute]
+
+    def __iter__(self) -> Iterator[bytes]:
+        return iter(self._member)
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._member, name)

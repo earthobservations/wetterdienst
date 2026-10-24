@@ -169,13 +169,18 @@ def test_a_zip_member_that_holds_more_than_it_claims_is_read_in_chunks() -> None
     packed = _lying_zip(50_000_000, 10)
     assert len(packed) < 100_000
     zfs = open_zip(_file(packed), limit=100)
+    started = not tracemalloc.is_tracing()
     tracemalloc.start()
+    tracemalloc.reset_peak()
     try:
         assert zfs.open("a.txt").read() == bytes(10)
+        assert zfs.open("a.txt", "rb").read(2**31) == bytes(10)
         assert zfs.cat_file("a.txt") == bytes(10)
+        assert zfs.open("a.txt", "r", encoding="ascii").read() == "\0" * 10
         peak = tracemalloc.get_traced_memory()[1]
     finally:
-        tracemalloc.stop()
+        if started:
+            tracemalloc.stop()
     assert peak < 20_000_000
 
 
@@ -186,16 +191,24 @@ def test_a_zip_member_is_read_in_the_sizes_it_is_asked_for() -> None:
         assert member.read(4) == b"0123"
         assert member.read() == b"456789"
         assert member.read() == b""
+    big = _zip(**{"b.bin": bytes(3 * 1024 * 1024)})
+    zfs_big = open_zip(_file(big), limit=4 * 1024 * 1024)  # held: it closes the archive when it is collected
+    with zfs_big.open("b.bin") as member:
+        assert len(member.read(1024 * 1024 + 1)) == 1024 * 1024 + 1
+        assert len(member.read()) == 2 * 1024 * 1024 - 1
 
 
 def test_a_stream_is_read_without_reserving_the_ceiling() -> None:
     """Asking a gzip stream for 2 GiB in one call reserves it; asking in chunks holds a chunk."""
+    started = not tracemalloc.is_tracing()
     tracemalloc.start()
+    tracemalloc.reset_peak()
     try:
         assert gunzip(_file(gzip.compress(b"abc")), limit=2 * 1024**3) == b"abc"
         peak = tracemalloc.get_traced_memory()[1]
     finally:
-        tracemalloc.stop()
+        if started:
+            tracemalloc.stop()
     assert peak < 20_000_000
 
 

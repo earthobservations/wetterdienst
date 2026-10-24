@@ -135,8 +135,9 @@ A number given as `timeout` in `fsspec_client_kwargs` (30 by default) is how man
 may wait before it fails: for a connection (including a free one from the pool), for the first byte
 of the answer, or between two bytes of it. It does not limit the request as a whole, so a download
 that keeps arriving is not cut off for being slow. A download as a whole is held to 2 GiB and
-one hour, whatever the timeout, and fails with a `DownloadError` past either. Eaufrance Hub'Eau ignores whatever
-`timeout` is given and uses 120 seconds, as its service can take longer than 30 seconds to answer.
+one hour, whatever the timeout, and fails with a `DownloadError` past either. Eaufrance Hub'Eau
+ignores whatever `timeout` is given and uses 120 seconds, as its service can take longer than 30
+seconds to answer.
 
 If you're experiencing SSL certificate verification issues, especially in corporate environments or
 when system certificates are outdated, you can enable the certifi certificate bundle:
