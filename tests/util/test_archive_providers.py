@@ -115,7 +115,11 @@ def test_imgw_zip(values: type) -> None:
 
 @pytest.mark.parametrize(
     ("name", "content"),
-    [("composite.bz2", bz2.compress(BOMB)), ("composite.gz", gzip.compress(BOMB)), ("members.tar", _tar())],
+    [
+        pytest.param("composite.bz2", bz2.compress(BOMB), id="bz2"),
+        pytest.param("composite.gz", gzip.compress(BOMB), id="gzip"),
+        pytest.param("members.tar", _tar(), id="tar"),
+    ],
 )
 def test_dwd_radar_files(monkeypatch: pytest.MonkeyPatch, name: str, content: bytes) -> None:
     """The three layouts of a radar file: a bz2, a gzip and a tar of members."""
