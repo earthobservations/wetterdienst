@@ -17,7 +17,7 @@ from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, DatasetModel, Lice
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, fetchable_link
 from wetterdienst.util.polars_util import read_csv_without_header
 
 if TYPE_CHECKING:
@@ -251,6 +251,8 @@ class NwsObservationValues(TimeseriesValues[DatasetModel]):
         """
         if not next_url:
             return None
+        # the cursor is the answer's to name, and is followed only at the endpoint's own host (GH-3339)
+        next_url = fetchable_link(next_url, self._endpoint)
         if not self.sr.start or not self.sr.end:
             return next_url
         if oldest is not None and oldest <= self._window_start():

@@ -8,6 +8,7 @@ import atexit
 import base64
 import contextlib
 import hashlib
+import ipaddress
 import json
 import logging
 import os
@@ -19,14 +20,14 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterator, MutableMapping
+from collections.abc import Callable, Iterable, Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import stamina
 from aiohttp import (
@@ -34,9 +35,13 @@ from aiohttp import (
     ClientConnectorError,
     ClientError,
     ClientPayloadError,
+    ClientResponse,
     ClientResponseError,
     ClientSSLError,
     ClientTimeout,
+    TraceConfig,
+    TraceRequestRedirectParams,
+    TraceRequestStartParams,
 )
 from aiohttp.client_reqrep import ConnectionKey
 from fsspec.asyn import sync, sync_wrapper
@@ -48,6 +53,8 @@ from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoIn
 from wetterdienst.metadata.cache import CacheExpiry
 
 if TYPE_CHECKING:
+    from types import SimpleNamespace
+
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -254,14 +261,14 @@ def as_outage(error: Exception, url: str) -> Exception:
     A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though it
     is not asked again (`_worth_retrying`): the host presented what it could not be trusted with, which is
     no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises for
-    it (GH-3022).
+    it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339).
 
     Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
     a refused key or a 429 -- the source answering -- and what is no download error at all.
     """
     if isinstance(error, NoInternetError):
         return error
-    if _worth_retrying(error) or isinstance(error, (ClientSSLError, ssl.SSLError)):
+    if _worth_retrying(error) or isinstance(error, (ClientSSLError, ssl.SSLError, RedirectRefusedError)):
         failure = _download_error(error, url)
         failure.__cause__ = error
         return failure
@@ -314,6 +321,186 @@ def _no_internet_error(url: str, error: ClientConnectorError) -> NoInternetError
     failure = NoInternetError(f"No internet connection: could not reach {_without_url_secrets(url)} ({error})")
     failure.__cause__ = cause
     return failure
+
+
+#: Second-level labels under which a country's registry hands out names directly (`gov.uk`, `data.gouv.fr`,
+#: `weather.gc.ca`). Stands in for the public suffix list, which is no dependency: a host under one of them
+#: belongs to the label before it, so `a.data.gouv.fr` and `b.data.gouv.fr` are one family and `x.gouv.fr` is not.
+_REGISTRY_LABELS = frozenset(
+    {"ac", "co", "com", "edu", "gc", "go", "gob", "gouv", "gov", "gv", "ne", "net", "or", "org"}
+)
+
+
+def _clean_host(host: str | None) -> str:
+    """Give a host name in the form it is compared in: lower case, without the root dot."""
+    return (host or "").lower().rstrip(".")
+
+
+def _is_ip_address(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
+#: Domains whose names belong to many unrelated tenants, among them names that resolve to a private address (a load
+#: balancer or an endpoint of a virtual network): a host under one is its own family.
+_SHARED_DOMAINS = ("amazonaws.com", "ovh.net")
+
+
+def _host_family(host: str) -> str:
+    """Give the part of a host name that its owner registered: `data.gouv.fr` for `static.data.gouv.fr`.
+
+    An address, a name with a single label (`localhost`, a name on the internal network) and a name under a shared
+    domain (`_SHARED_DOMAINS`) is its own family: nothing else is related to it.
+    """
+    host = _clean_host(host)
+    labels = host.split(".")
+    if _is_ip_address(host) or len(labels) < 2 or host.endswith(tuple(f".{domain}" for domain in _SHARED_DOMAINS)):
+        return host
+    keep = 3 if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _REGISTRY_LABELS else 2
+    return ".".join(labels[-keep:])
+
+
+def _same_family(host: str, other: str) -> bool:
+    """Tell whether two hosts are one and the same, or two names under one registered domain."""
+    return _clean_host(host) == _clean_host(other) or _host_family(host) == _host_family(other)
+
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _host_listed(host: str, entry: str) -> bool:
+    """Tell whether a host is one an allow-list entry names.
+
+    `*` in a label stands for characters of that label, and a leading `*.` for one or more labels.
+    """
+    entry = _clean_host(entry)
+    leading = entry.startswith("*.")
+    pattern = re.escape(entry.removeprefix("*.")).replace(r"\*", "[^.]+")
+    return re.fullmatch((r"(?:[^.]+\.)+" if leading else "") + pattern, host) is not None
+
+
+def _link_refused(link: str, why: str) -> DownloadError:
+    return DownloadError(_without_url_secrets(link), f"the link was not fetched, as it {why}")
+
+
+def fetchable_link(link: str, base: str, *, allow: Iterable[str] = ()) -> str:
+    """Give the address to fetch for a link that an answer of the provider names, or refuse it.
+
+    A provider that follows a link out of its upstream's answer (the next page of a result, the address of the
+    data, an asset) fetches whatever the answer says, unless it asks here first. A link is fetched when it names
+
+    - a host of the family of `base`, the address the provider asked: the same name or one under the same
+      registered domain, on the port of `base` or the default one; or
+    - a host of `allow`, over https and on the default port, for a provider whose links lead to a host of
+      another family. An entry is a host name, in which `*` stands for the characters of one label and
+      a leading `*.` for one or more labels (`*.s3.*.amazonaws.com`).
+
+    Anything else is refused: another scheme than http(s), user information, an address or a name on an
+    internal network where `base` is not one. A link to `http` under an `https` base is returned as `https`, which
+    is how the upstream's own links are written where it terminates TLS elsewhere.
+
+    Args:
+        link: The address the answer names.
+        base: The address of the request that the answer came for.
+        allow: The hosts besides the family of `base` that the provider's links lead to, narrowly.
+
+    Returns:
+        The address to fetch.
+
+    Raises:
+        DownloadError: If the link is refused, naming it without its query. It is the failure of the file the
+            link stands for, as the provider raises any other, and is never retried.
+
+    """
+    try:
+        parts = urlsplit(link)
+        base_parts = urlsplit(base)
+        host = _clean_host(parts.hostname)
+        port = parts.port
+    except ValueError:
+        raise _link_refused(link, "does not read as an address") from None
+    if parts.scheme not in {"http", "https"} or not host:
+        raise _link_refused(link, "is no http(s) address")
+    if "@" in parts.netloc:
+        raise _link_refused(link, "carries user information")
+    if _same_family(host, _clean_host(base_parts.hostname)):
+        scheme = "https" if base_parts.scheme == "https" else parts.scheme
+        on_default = port in {None, _DEFAULT_PORTS[scheme]} and base_parts.port in {
+            None,
+            _DEFAULT_PORTS[base_parts.scheme],
+        }
+        if not (on_default or port == base_parts.port):
+            raise _link_refused(link, "names another port")
+        return link if scheme == parts.scheme else urlunsplit(parts._replace(scheme=scheme))
+    for entry in allow:
+        if _host_listed(host, entry):
+            if parts.scheme != "https" or port not in {None, 443}:
+                raise _link_refused(link, "is not an https address on the default port")
+            return link
+    raise _link_refused(link, "leads to another host than the provider's")
+
+
+class RedirectRefusedError(ClientError):
+    """A redirect that was not followed, as it left the host family of the request or stepped down to http."""
+
+
+#: What is forwarded to the host a redirect leads to, besides what `_CREDENTIAL_HEADERS` names: aiohttp itself drops
+#: only `Authorization`, `Cookie` and `Proxy-Authorization`, and so sends a key in a header of any other name (AEMET's
+#: `api_key`) to the next host.
+_REDIRECT_DROPPED_HEADERS = frozenset({"cookie"})
+
+
+def _check_redirect(response: ClientResponse, headers: MutableMapping[str, str], first_url: str) -> None:
+    """Refuse a redirect that leaves the family of the first request or steps down to http, and drop credentials.
+
+    Called for each redirect, with the headers aiohttp is about to send next. Where the origin changes (host, port
+    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`); a step from https to
+    http is refused, as it would send the request in clear. The first request's host family is the bound: a
+    redirect that ends elsewhere is refused, so an upstream cannot lead the client to a host of its choosing
+    (an internal one among them).
+    """
+    location = response.headers.get("Location") or response.headers.get("URI")
+    if not location:
+        return
+    current = str(response.url)
+    try:
+        target = urlsplit(urljoin(current, location))
+        here = urlsplit(current)
+        target_host = target.hostname
+        target_port = target.port
+    except ValueError:
+        return  # aiohttp refuses what is no address
+    if target.scheme not in {"http", "https"} or not target_host:
+        return  # aiohttp refuses what is no http(s) address
+    if here.scheme == "https" and target.scheme == "http":
+        msg = "a redirect from https to http was not followed"
+        raise RedirectRefusedError(msg)
+    if not _same_family(urlsplit(first_url).hostname or "", target_host):
+        msg = "a redirect to another host was not followed"
+        raise RedirectRefusedError(msg)
+    origin = (target.scheme, _clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
+    if origin != (here.scheme, _clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
+        for name in [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]:
+            if name in headers:  # a header that is there twice goes with its first removal
+                del headers[name]
+
+
+def _redirect_guard() -> TraceConfig:
+    """Build the trace of a session that applies `_check_redirect` to every redirect it follows."""
+    trace = TraceConfig()
+
+    async def remember_first_url(_session: object, context: SimpleNamespace, params: TraceRequestStartParams) -> None:
+        context.first_url = str(params.url)
+
+    async def check_redirect(_session: object, context: SimpleNamespace, params: TraceRequestRedirectParams) -> None:
+        _check_redirect(params.response, params.headers, context.first_url)
+
+    trace.on_request_start.append(remember_first_url)
+    trace.on_request_redirect.append(check_redirect)
+    return trace
 
 
 #: The directories that could not be used as a cache, each with the temporary one standing in for it.
@@ -587,21 +774,22 @@ class HTTPFileSystem(_HTTPFileSystem):
         # Store use_certifi for later use
         self._use_certifi = use_certifi
 
-        # Create a custom get_client function that will create a session with our SSL context
-        if use_certifi:
+        # Every session is built here, so that every request of it passes the guard on redirects
+        # (`_check_redirect`), and with our SSL context where certifi is asked for
+        async def get_client_with_guard(**client_kwargs):  # noqa: ANN202, ANN003
+            """Create an aiohttp ClientSession that checks the redirects it follows."""
+            import aiohttp  # noqa: PLC0415
 
-            async def get_client_with_certifi(**client_kwargs):  # noqa: ANN202, ANN003
-                """Create an aiohttp ClientSession with certifi SSL context."""
-                import aiohttp  # noqa: PLC0415
-
+            client_kwargs["trace_configs"] = [*(client_kwargs.get("trace_configs") or ()), _redirect_guard()]
+            if use_certifi:
                 ssl_context = _create_ssl_context(use_certifi=True)
                 if ssl_context is None:
                     msg = "Failed to create SSL context with certifi"
                     raise RuntimeError(msg)
-                connector = aiohttp.TCPConnector(ssl=ssl_context)
-                return aiohttp.ClientSession(connector=connector, **client_kwargs)
+                client_kwargs["connector"] = aiohttp.TCPConnector(ssl=ssl_context)
+            return aiohttp.ClientSession(**client_kwargs)
 
-            kwargs["get_client"] = get_client_with_certifi
+        kwargs["get_client"] = get_client_with_guard
 
         # aiohttp >= 3.9 rejects any bare numeric timeout -- int and float alike -- so wrap one in
         # ClientTimeout. ``client_kwargs`` is optional and may legitimately be passed as None (that
@@ -657,6 +845,10 @@ class HTTPFileSystem(_HTTPFileSystem):
         out: list[dict] | None = self.dircache.get(url) if self.use_listings_cache else None
         if out is None:
             out = await self._ls_real(url, detail=True, **kwargs)
+            # fsspec keeps a link of an https listing that leads to the same address over http, which a
+            # caller then fetches in clear
+            if urlsplit(url).scheme == "https":
+                out = [entry for entry in out if urlsplit(entry["name"]).scheme != "http"]
             self.dircache[url] = out
         return out if detail else sorted(entry["name"] for entry in out)
 
@@ -1441,7 +1633,7 @@ def _list_with_retries(list_once: Callable[[], _T], url: str) -> _T:
         # fsspec lets out as it is takes the same way
         failed = e
     except Exception as e:
-        if not (_worth_retrying_listing(e) or isinstance(e, ClientResponseError)):
+        if not (_worth_retrying_listing(e) or isinstance(e, (ClientResponseError, RedirectRefusedError))):
             raise
         failed = e
     if offline is not None:

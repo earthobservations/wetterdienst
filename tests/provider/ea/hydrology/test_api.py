@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from tests.provider.station_catalogue_stubs import EA_HYDROLOGY_LISTING
-from wetterdienst.exceptions import InvalidParameterError
+from wetterdienst.exceptions import DownloadError, InvalidParameterError
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.ea.hydrology.api import (
@@ -515,3 +515,41 @@ def test_ea_stations_are_reachable(parameter: tuple[str, str, str], at_least: in
     """
     request = EAHydrologyRequest(parameters=[parameter], settings=default_settings).all()
     assert request.df.height >= at_least
+
+
+def test_ea_readings_are_read_over_https_where_the_measure_is_named_over_http(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `@id` of a measure is written `http://environment.data.gov.uk/...` (read 2026-10-24), and read as https."""
+    station_id = "0004"
+    measure = _measure(station_id, "flow-i-900")
+    measure["@id"] = measure["@id"].replace("https://", "http://")
+    station = json.dumps({"items": [{"measures": [measure]}]}).encode()
+    listing = json.dumps({"items": [_station(station_id, ["flow-i-900"])]}).encode()
+    readings = json.dumps({"items": [{"dateTime": "2020-01-01T00:00:00", "value": 1.0, "quality": "Good"}]}).encode()
+    responses = {
+        STATIONS_URL: listing,
+        STATION_URL.format(station_id=station_id): station,
+        f"{MEASURE_URL.format(notation=f'{station_id}-flow-i-900-m3s-qualified')}/readings.json": readings,
+    }
+    monkeypatch.setattr(ea_api, "download_file", _serve(responses))
+    request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings)
+    assert request.all().values().all().df.get_column("value").to_list() == [1.0]
+
+
+def test_ea_readings_are_not_read_at_a_measure_of_another_host(
+    default_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `@id` of a measure is the answer's to name, and a host that is not the API's is never asked (GH-3339)."""
+    station_id = "0004"
+    measure = _measure(station_id, "flow-i-900")
+    measure["@id"] = "http://169.254.169.254/hydrology/id/measures/0004-flow-i-900-m3s-qualified"
+    station = json.dumps({"items": [{"measures": [measure]}]}).encode()
+    listing = json.dumps({"items": [_station(station_id, ["flow-i-900"])]}).encode()
+    responses = {STATIONS_URL: listing, STATION_URL.format(station_id=station_id): station}
+    monkeypatch.setattr(ea_api, "download_file", _serve(responses))
+    request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings)
+    with pytest.raises(DownloadError, match="the link was not fetched"):
+        request.all().values().all()

@@ -37,11 +37,14 @@ from wetterdienst.settings import reveal
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.network import (
     CREDENTIAL_REJECTED_STATUSES,
+    RedirectRefusedError,
     _without_url_secrets,
     _without_url_secrets_in,
     as_outage,
     credential_rejected,
     download_file,
+    drop_cached_file,
+    fetchable_link,
 )
 
 if TYPE_CHECKING:
@@ -69,6 +72,11 @@ _STEP_BY_RESOLUTION = {
 #: What a download of KNMI returns when it is not an answer to the request, and must be raised: no connection,
 #: no answer, a refused key.
 _UNANSWERED = (NoInternetError, DownloadError, CredentialRejectedError)
+
+#: The hosts besides KNMI's own that the pre-signed link of a file leads to: the S3 bucket of its datasets, which signs
+#: the link (`X-Amz-Signature`); `knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com` when read (2026-10-24, host
+#: only). `*` stands for one label (GH-3339).
+_DOWNLOAD_HOSTS = ("knmi-kdp-datasets-*.s3.*.amazonaws.com",)
 
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 2
@@ -180,6 +188,7 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
                 if (
                     isinstance(last_file.content, Exception)
                     and not last_file.is_no_internet_error
+                    and not isinstance(last_file.content, RedirectRefusedError)
                     and last_file.status not in _NON_RETRYABLE_STATUSES
                 ):
                     log.warning(
@@ -262,6 +271,20 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     download_url = json.load(resolve_file.content).get("temporaryDownloadUrl")
     if not download_url:
         return Exception(f"KNMI resolve response for {filename} did not contain a temporaryDownloadUrl")
+    try:
+        # the link is the resolve answer's to name: fetched at KNMI's own host or the store it signs for (GH-3339)
+        download_url = fetchable_link(download_url, _BASE_URL, allow=_DOWNLOAD_HOSTS)
+    except DownloadError as refused:
+        # the resolve answer is cached for minutes, and would hand out the same link again
+        drop_cached_file(
+            resolve_file.url,
+            settings.cache_dir,
+            CacheExpiry.FIVE_MINUTES,
+            client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        return refused
     content_file = _download_with_retry(download_url, settings, CacheExpiry.FIVE_MINUTES)
     if isinstance(content_file.content, Exception):
         return as_outage(content_file.content, content_file.url)

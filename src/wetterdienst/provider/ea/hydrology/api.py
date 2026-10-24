@@ -24,7 +24,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.quality_flags import join_quality_flags
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, fetchable_link
 
 if TYPE_CHECKING:
     from wetterdienst.settings import Settings
@@ -254,6 +254,9 @@ class EAHydrologyValues(TimeseriesValues[ParameterModel]):
             readings_id_url = df_measures.get_column("@id")[0]
         except IndexError:
             return pl.DataFrame()
+        # the `@id` is the answer's to name: read at the API's own host, and over https where it is written as
+        # `http`, which it is (GH-3339)
+        readings_id_url = fetchable_link(readings_id_url, url)
         readings_url = self._readings_url(readings_id_url, parameter_or_dataset)
         file = download_file(
             url=readings_url,

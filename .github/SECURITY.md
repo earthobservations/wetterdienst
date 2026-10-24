@@ -49,7 +49,8 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
    `NUXT_PUBLIC_API_BASE`; the browser calls its own origin only. It holds no secret.
 4. *Upstream providers.* Their addresses are fixed in the provider's code, but for the links a few of them follow and
-   the redirects any of them answers with (see [Upstream data](#upstream-data)); what they send is data, never trusted.
+   the redirects any of them answers with, both held to the provider's own domain (see [Upstream data](#upstream-data));
+   what they send is data, never trusted.
 
 ### The REST API and MCP
 
@@ -113,12 +114,17 @@ logs leave them out (`tests/test_settings.py`: `test_credentials_do_not_appear_i
 Providers are trusted for their address, not their content. Provider and network come from a fixed registry, parameters
 are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). Their address is
 not the whole story: seven providers (AEMET, KNMI, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA) fetch a URL that the
-upstream's answer names (a `next` page, a `datos` or asset link), and a redirect from any address is followed to any
-host, with no check of host or scheme first (#3339). **A compromised upstream can therefore make the server fetch from
-another http(s) host**, its internal network included, with a `GET`; a followed link carries no credential (AEMET's
-`api_key` header can follow a redirect: #3338), and where the body parses as data it can reach the caller. A link in an
-HTML directory listing is kept only below the listed directory, on its host, but may step from `https` down to `http`.
-`file://` and bare paths are refused by the HTTP client.
+upstream's answer names (a `next` page, a `datos`, measure or asset link). Such a link is fetched only on the registered
+domain of the address the provider asked, over `https` (an `http` link of the same domain is read as `https`), or on a
+host the provider lists for it: the S3 bucket of KNMI's pre-signed links and the object store of Météo-France's files
+(`fetchable_link`, `util/network.py`; GH-3339). A redirect is followed only within the registered domain of the request,
+never from `https` down to `http`, and a credential header, whatever its name, is dropped where it changes the origin
+(`_check_redirect`; GH-3338, GH-3339); a refused link or redirect is a `DownloadError`. The registered domain is told
+without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as suffixes, and a name under
+`amazonaws.com` or `ovh.net` is its own domain), and a host name is not resolved, so **an upstream that is compromised
+can still make the server fetch from the hosts of its own domain**, and a name of that domain pointing at an internal
+address would be fetched. A link in an HTML directory listing is kept only below the listed directory, on its host, and
+not where it steps from `https` down to `http`. `file://` and bare paths are refused by the HTTP client.
 
 XML is parsed with entities off, no network and no DTD, each option passed rather than left to a default
 (`util/xml.py`, the one parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own).

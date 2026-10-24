@@ -49,6 +49,13 @@ Types of changes:
   its query, as do the warnings of KNMI and AEMET for a file they skip. Other log lines of a
   provider are unchanged, and so is the debug line of `fsspec` that names the URL in full when an
   application enables DEBUG for it (GH-3341)
+- A redirect to another registered domain, or from `https` down to `http`, is no longer followed:
+  the download fails with a `DownloadError`. A key sent in a header other than `Authorization`
+  (AEMET's `api_key`) is dropped where a redirect changes the origin. The links that AEMET, KNMI,
+  NWS, Hub'Eau, MeteoSwiss, Météo-France and EA take from an answer (next page, `datos`, asset,
+  measure) are fetched only at the provider's own domain, over `https` (EA's `http://` ids are read
+  as `https://`); KNMI and Météo-France also at the object store their files are served from. An
+  `https` directory listing drops `http` links (GH-3338, GH-3339)
 
 ## [0.173.0] - 2026-10-24
 

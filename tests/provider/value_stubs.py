@@ -645,7 +645,7 @@ def _serve_meteofrance(
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
         url = url or args[0]
-        listing = {"resources": [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"}]}
+        listing = {"resources": [{"title": title, "url": f"https://static.data.gouv.fr/{title}.csv.gz"}]}
         return File(url=url, content=BytesIO(json.dumps(listing).encode("utf8")), status=200)
 
     def download_files(urls: list[str], **_: object) -> list[File]:
@@ -1387,7 +1387,13 @@ def _meteoswiss_10_minutes(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = T
     # direction dkl010z0 is 0 beside a mean speed fkl010z0 of 0 at 2024-01-05 01:50, a calm; 0 beside 0.1 m/s at
     # 2024-01-04 17:00, which stays (GH-3222); 360 beside 2.1 m/s at 2024-01-06 11:50, north. A missing value is an
     # empty field, which no reader maps
-    item = {"assets": {"ogd-smn_ber_t_historical_2020-2029.csv": {"href": "https://example.invalid/ogd-smn_ber_t.csv"}}}
+    item = {
+        "assets": {
+            "ogd-smn_ber_t_historical_2020-2029.csv": {
+                "href": "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ber/ogd-smn_ber_t.csv"
+            }
+        }
+    }
     csv = (
         "station_abbr;reference_timestamp;fkl010z0;dkl010z0\n"
         "BER;04.01.2024 17:00;0.1;0\n"

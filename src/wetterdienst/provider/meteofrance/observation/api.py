@@ -28,7 +28,7 @@ from wetterdienst.model.quality_flags import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
-from wetterdienst.util.network import download_file, download_files
+from wetterdienst.util.network import download_file, download_files, fetchable_link
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -47,6 +47,10 @@ _CLIMATE_DATASET_IDS = {
     "hourly": "6569b4473bedf2e7abad3b72",
     "6_minutes": "6569ad61106d1679c93cdf77",
 }
+_CLIMATE_BASE_URL = "https://www.data.gouv.fr/api/1/datasets/"
+# the host besides data.gouv.fr that the resources of these datasets are served from (the same store that the
+# synop provider reads)
+_CLIMATE_RESOURCE_HOSTS = ("meteofrance.s3.sbg.io.cloud.ovh.net",)
 _CLIMATE_RESOURCE_PREFIXES = {
     "daily": "QUOT_departement_{department}_periode_",
     "monthly": "MENS_departement_{department}_periode_",
@@ -725,7 +729,7 @@ def _get_climate_resources(resolution_name: str, settings: Settings) -> list[dic
     "2025-2026" becomes "2025-2027") as new data becomes available.
     """
     dataset_id = _CLIMATE_DATASET_IDS[resolution_name]
-    url = f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
+    url = f"{_CLIMATE_BASE_URL}{dataset_id}/"
     file = download_file(
         url=url,
         cache_dir=settings.cache_dir,
@@ -741,9 +745,18 @@ def _get_climate_resources(resolution_name: str, settings: Settings) -> list[dic
 
 
 def _match_department_resources(resources: list[dict], prefix: str, suffix: str) -> list[dict]:
-    """Filter resources by department (prefix) and file group (suffix)."""
+    """Filter resources by department (prefix) and file group (suffix).
+
+    The address of a resource is the answer's to name, so it is read here: fetched at data.gouv.fr, or at the
+    object store of Météo-France that the files are served from (GH-3339). Only those of the department are,
+    as the other resources of a dataset, its documentation, can be hosted anywhere.
+    """
     pattern = re.compile(rf"^{re.escape(prefix)}.*{re.escape(suffix)}$")
-    return [resource for resource in resources if pattern.match(resource["title"])]
+    return [
+        {**resource, "url": fetchable_link(resource["url"], _CLIMATE_BASE_URL, allow=_CLIMATE_RESOURCE_HOSTS)}
+        for resource in resources
+        if pattern.match(resource["title"])
+    ]
 
 
 def _resource_year_range(resource: dict) -> tuple[int, int]:

@@ -26,7 +26,7 @@ from wetterdienst.model.metadata import (
 )
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, fetchable_link
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -237,6 +237,8 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
         url = payload.get("next")
         if not url:
             break
+        # the cursor is the answer's to name, and is followed only at the host that was asked (GH-3339)
+        url = fetchable_link(url, query)
     else:
         log.warning(f"Hubeau paging stopped at {_MAX_PAGES} pages for {query}; the result is incomplete.")
     return rows

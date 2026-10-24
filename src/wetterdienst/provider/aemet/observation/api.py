@@ -32,12 +32,14 @@ from wetterdienst.provider.aemet.observation.parser import (
 from wetterdienst.settings import Settings, reveal
 from wetterdienst.util.network import (
     PROBE_TIMEOUT,
+    RedirectRefusedError,
     _without_url_secrets,
     _without_url_secrets_in,
     as_outage,
     credential_rejected,
     download_file,
     drop_cached_file,
+    fetchable_link,
 )
 
 if TYPE_CHECKING:
@@ -185,11 +187,12 @@ def _download_with_rate_limit_retry(
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
-                # no network is not a blip two more retries clear: report it at once (the 503
-                # `download_file` gives it would otherwise match)
+                # no network, and a redirect that was refused, are not blips two more retries clear: report
+                # them at once (the 503 and the 500 `download_file` gives them would otherwise match)
                 if (
                     isinstance(last_file.content, Exception)
                     and not last_file.is_no_internet_error
+                    and not isinstance(last_file.content, RedirectRefusedError)
                     and last_file.status not in _NON_RETRYABLE_STATUSES
                 ):
                     log.warning(
@@ -346,7 +349,13 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     if not isinstance(envelope.get("datos"), str):
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return Exception("AEMET answered with an envelope without a link to the data")
-    datos_file = _download_with_rate_limit_retry(envelope["datos"], settings, ttl)
+    try:
+        # the link is the envelope's to name, and is fetched only on AEMET's own host (GH-3339)
+        datos_url = fetchable_link(envelope["datos"], _BASE_URL)
+    except DownloadError as refused:
+        _drop_cached_body(file, settings, ttl, client_kwargs)
+        return refused
+    datos_file = _download_with_rate_limit_retry(datos_url, settings, ttl)
     if isinstance(datos_file.content, Exception):
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return _as_outage(datos_file.content, datos_file.url, datos_file.status)

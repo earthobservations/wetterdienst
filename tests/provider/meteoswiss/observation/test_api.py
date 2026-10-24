@@ -14,6 +14,7 @@ import pytest
 
 from tests.provider.value_stubs import serve
 from wetterdienst import Settings
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationRequest
 from wetterdienst.provider.meteoswiss.observation import api as meteoswiss_api
@@ -207,3 +208,20 @@ def test_meteoswiss_observation_a_station_without_a_file_of_the_resolution_comes
     df = _ber_values()
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
+
+
+def test_meteoswiss_observation_does_not_fetch_an_asset_of_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The address of an asset is the catalogue's to name, and a host that is not its own is never asked (GH-3339)."""
+    asked: list[str] = []
+    item = {"assets": {"ogd-smn_ber_d_recent.csv": {"href": "http://169.254.169.254/latest/meta-data/iam"}}}
+
+    def download_file(url: str, **_: object) -> File:
+        asked.append(url)
+        if "/items/ber" in url:
+            return File(url=url, content=BytesIO(json.dumps(item).encode()), status=200)
+        return File(url=url, content=BytesIO(_STATIONS.encode("windows-1252")), status=200)
+
+    monkeypatch.setattr(meteoswiss_api, "download_file", download_file)
+    with pytest.raises(DownloadError, match="the link was not fetched"):
+        _ber_values()
+    assert not [url for url in asked if "169.254" in url]
