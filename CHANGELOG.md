@@ -51,6 +51,12 @@ Types of changes:
   such a hop. The body of that hop is not protected on the way. With a credential, a redirect to
   another registered domain, and the dropping of credentials at a change of origin, nothing
   changes; the error names the host of a refused hop (GH-3398)
+- `wetterdienst restapi --reload` now writes the `INFO` lines of the package and, with `--debug`,
+  its debug lines: the worker that uvicorn spawns configured no logging, so the log held uvicorn's
+  access lines only (GH-3390)
+- The debug line of a file that `chmi/observation` or `metoffice/observation` does not find names
+  its URL without the query, as the other providers do, where it named the URL as requested
+  (GH-3394)
 
 ### Security
 

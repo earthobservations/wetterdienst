@@ -32,7 +32,7 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_daily,
     parse_chmi_values_subdaily,
 )
-from wetterdienst.util.network import download_file, list_remote_files_fsspec
+from wetterdienst.util.network import _without_url_secrets, download_file, list_remote_files_fsspec
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -177,7 +177,7 @@ class ChmiObservationValues(TimeseriesValues):
         if file.status != 404:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.debug(f"No CHMI file {url} for station {station_id}: {file.content}")
+            log.debug(f"No CHMI file {_without_url_secrets(url)} for station {station_id}: {file.content}")
             return None
         return file.content.read()
 

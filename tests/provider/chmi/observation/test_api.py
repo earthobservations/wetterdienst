@@ -23,6 +23,7 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_daily,
     parse_chmi_values_subdaily,
 )
+from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
 CHEB = "0-20000-0-11406"
@@ -620,3 +621,22 @@ def test_chmi_observation_month_files_follow_the_utc_month_of_the_bounds(
     assert df.schema == pl.Schema(LONG_SCHEMA)
     assert df.is_empty()
     assert asked == months
+
+
+def test_chmi_observation_debug_line_of_a_missing_file_names_the_url_without_its_query(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The DEBUG line of a file the portal lacks shows the URL as every provider does, with no query (GH-3394)."""
+    url = "https://opendata.chmi.cz/meteorology/climate/historical_csv/data/daily/temperature/dly-X-T.csv"
+    monkeypatch.setattr(
+        chmi_api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError("404"), status=404),
+    )
+    values = object.__new__(ChmiObservationValues)
+    with caplog.at_level("DEBUG", logger="wetterdienst"):
+        assert values._download(f"{url}?sig=SECRET#frag", Settings(cache_disable=True), "X") is None  # noqa: SLF001
+
+    (message,) = [record.getMessage() for record in caplog.records if "No CHMI file" in record.getMessage()]
+    assert message.startswith(f"No CHMI file {url} for station X")
+    assert "SECRET" not in message
