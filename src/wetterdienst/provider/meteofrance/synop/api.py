@@ -4,12 +4,11 @@
 
 from __future__ import annotations
 
-import gzip
 import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -27,6 +26,7 @@ from wetterdienst.model.quality_flags import (
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
+from wetterdienst.util.archive import gunzip
 from wetterdienst.util.network import download_file
 
 if TYPE_CHECKING:
@@ -179,8 +179,7 @@ class MeteoFranceSynopValues(TimeseriesValues):
             if isinstance(file.content, Exception):
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
-            with gzip.GzipFile(fileobj=file.content) as gz:
-                df = pl.read_csv(cast("IO[bytes]", gz), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)
+            df = pl.read_csv(gunzip(file), separator=";", schema=_SYNOP_CSV_SCHEMA, columns=read_columns)
             df = df.filter(pl.col("geo_id_wmo").eq(station_id))
             if not df.is_empty():
                 dfs.append(df)

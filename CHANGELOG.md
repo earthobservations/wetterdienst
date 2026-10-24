@@ -73,6 +73,13 @@ Types of changes:
   keeps its mode. The floor of `fsspec` is now 2026.6.0, the first release whose download-cache
   metadata file is JSON only (earlier ones fell back to `pickle`): upgrade it as well.
   `FileDirCache` has a new method, `close()`, which closes the database connections (GH-3326)
+- A single download is now limited to 2 GiB and to one hour in all (`download_file(max_bytes=...)`
+  sets the size per call), and an archive that unpacks to more than a ceiling is refused: 1 GiB
+  for most providers, 256 MiB for DWD SWSMOS and alerts, 2 GiB for DWD radar, 4 GiB for the KML of
+  MOSMIX and DMO. They fail with a `DownloadError` (REST 502), which is not retried, where the
+  body used to be read into memory whatever its size. A file whose name does not say it is
+  compressed but that arrives as gzip, zlib or zstd is refused too, as `polars.read_csv` unpacks
+  those on its own. The largest files served today are far below these figures (GH-3340)
 
 ## [0.173.0] - 2026-10-24
 

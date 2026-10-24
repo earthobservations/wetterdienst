@@ -9,7 +9,6 @@ from io import StringIO
 from typing import TYPE_CHECKING
 
 import polars as pl
-from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.exceptions import MetaFileFormatError, MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -19,6 +18,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     _create_file_index_for_dwd_server,
 )
 from wetterdienst.provider.dwd.observation.metadata import DWD_URBAN_DATASETS, DwdObservationMetadata
+from wetterdienst.util.archive import open_zip
 from wetterdienst.util.network import File, download_file, download_files
 from wetterdienst.util.polars_util import read_csv_without_header
 
@@ -305,7 +305,7 @@ def _create_meta_index_for_1minute_historical_precipitation(settings: Settings) 
 
 def _parse_geo_metadata(file: File, station_id: str) -> pl.LazyFrame:
     """Parse metadata file into DataFrame."""
-    zfs = ZipFileSystem(file.content, mode="r")
+    zfs = open_zip(file)
     file = zfs.open(f"Metadaten_Geographie_{station_id}.txt").read()
     df = _parse_zipped_data_into_df(file)
     df = df.rename(

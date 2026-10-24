@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import atexit
 import base64
 import contextlib
@@ -20,13 +21,13 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterable, Iterator, MutableMapping
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
+from typing import IO, TYPE_CHECKING, ClassVar, Literal, TypeVar
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import stamina
@@ -45,9 +46,11 @@ from aiohttp import (
 )
 from aiohttp.client_reqrep import ConnectionKey
 from fsspec.asyn import sync, sync_wrapper
+from fsspec.callbacks import DEFAULT_CALLBACK, Callback
 from fsspec.exceptions import FSTimeoutError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem as _HTTPFileSystem
+from fsspec.utils import isfilelike
 
 from wetterdienst.exceptions import CredentialRejectedError, DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -267,14 +270,16 @@ def as_outage(error: Exception, url: str) -> Exception:
     A TLS failure -- a certificate that does not verify, a handshake that fails -- is one too, though it
     is not asked again (`_worth_retrying`): the host presented what it could not be trusted with, which is
     no answer to the question, and it is the `DownloadError` that `File.raise_if_exception` raises for
-    it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339).
+    it (GH-3022). So is a redirect that was not followed (`RedirectRefusedError`, GH-3339) and a body
+    refused for its size, its time or an unannounced compression (`DownloadRefusedError`, GH-3340).
 
     Any other failure is returned as it was, for the caller to answer as before: a 404, a 4xx such as
     a refused key or a 429 -- the source answering -- and what is no download error at all.
     """
     if isinstance(error, NoInternetError):
         return error
-    if _worth_retrying(error) or isinstance(error, (ClientSSLError, ssl.SSLError, RedirectRefusedError)):
+    refused = (ClientSSLError, ssl.SSLError, RedirectRefusedError, DownloadRefusedError)
+    if _worth_retrying(error) or isinstance(error, refused):
         failure = _download_error(error, url)
         failure.__cause__ = error
         return failure
@@ -451,6 +456,117 @@ def fetchable_link(link: str, base: str, *, allow: Iterable[str] = ()) -> str:
 
 class RedirectRefusedError(ClientError):
     """A redirect that was not followed, as it left the host family of the request or stepped down to http."""
+
+
+class DownloadRefusedError(ClientError):
+    """A body that was not taken: too large, too slow to arrive, or compressed while its name says it is not.
+
+    Stored by a download as the failure it met, and raised as a `DownloadError` naming the file when the
+    caller asks (`File.raise_if_exception`), with this as its `__cause__`. It is no connection fault, so
+    it is not asked for again.
+    """
+
+
+#: The most a single download may be: the body as the client sees it, after a `Content-Encoding` is
+#: undone. About three times the largest file the providers serve, which is a month of five-minute
+#: RADOLAN grids at 0.7 GB; a KMZ of MOSMIX-L is 84 MB. A module constant rather than a setting, as
+#: nothing has asked to move it.
+MAX_DOWNLOAD_BYTES = 2 * 1024**3
+
+#: The longest a single download may take in all, from the request to the last byte. A number given
+#: as a client timeout bounds each silence and not the whole (GH-2258), so a server that sends a byte
+#: every few seconds would otherwise keep a download, and the slot of a REST request that waits for
+#: it, for as long as it likes. An hour moves the largest file above at about 0.2 MB/s.
+MAX_DOWNLOAD_SECONDS = 3600
+
+_READ_CHUNK = 1024 * 1024
+
+
+def _megabytes(size: float) -> str:
+    return f"{size / 1024**2:,.4g} MB"
+
+
+def _too_large(limit: int) -> DownloadRefusedError:
+    return DownloadRefusedError(f"the file is larger than the {_megabytes(limit)} a download is held to")
+
+
+@contextlib.asynccontextmanager
+async def _within_time(seconds: float) -> AsyncIterator[None]:
+    """Hold what runs inside to ``seconds`` in all, and say that it was this and not a timeout of the client."""
+    try:
+        async with asyncio.timeout(seconds) as scope:
+            yield
+    except TimeoutError:
+        # the timeouts of the client (a silence on the socket) are `TimeoutError`s too, and are not this
+        if not scope.expired():
+            raise
+        msg = f"the file took longer than the {seconds:,.0f} seconds a download is held to"
+        raise DownloadRefusedError(msg) from None
+
+
+async def _read_capped(response: ClientResponse, max_bytes: int) -> bytes:
+    """Read the body of a response, refusing it past ``max_bytes``: at once if it says so, as it arrives if not."""
+    if response.content_length is not None and response.content_length > max_bytes:
+        raise _too_large(max_bytes)
+    chunks = []
+    received = 0
+    while chunk := await response.content.read(_READ_CHUNK):
+        received += len(chunk)
+        if received > max_bytes:
+            raise _too_large(max_bytes)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+class _CappedWriter:
+    """A file that refuses what is written past ``max_bytes``, for fsspec to stream a body into."""
+
+    def __init__(self, target: IO[bytes], max_bytes: int) -> None:
+        self._target = target
+        self._max_bytes = max_bytes
+        self._written = 0
+
+    def write(self, data: bytes) -> int:
+        self._written += len(data)
+        if self._written > self._max_bytes:
+            raise _too_large(self._max_bytes)
+        return self._target.write(data)
+
+    def __getattr__(self, name: str) -> object:
+        # `read`, `close` and `tell` are what makes fsspec take this for a file
+        return getattr(self._target, name)
+
+
+class _SizeGuard(Callback):
+    """A progress callback that refuses a body that says in its headers that it is larger than ``max_bytes``."""
+
+    def __init__(self, max_bytes: int) -> None:
+        super().__init__()
+        self._max_bytes = max_bytes
+
+    def set_size(self, size: int | None) -> None:
+        if size is not None and size > self._max_bytes:
+            raise _too_large(self._max_bytes)
+        super().set_size(size)
+
+
+#: What a body starts with when polars decompresses it on its own, whatever the file is called: gzip, zstd and
+#: the four zlib headers.
+_SELF_UNPACKING_MAGIC = (b"\x1f\x8b", b"\x28\xb5\x2f\xfd", b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda")
+_ANNOUNCED_COMPRESSION = (".gz", ".tgz", ".z", ".zz", ".zst")
+
+
+def _refuse_unannounced_compression(url: str, payload: bytes) -> None:
+    """Refuse a body that is compressed while the name of the file does not say so.
+
+    ``polars.read_csv`` unpacks a gzip, zlib or zstd body by itself, without a ceiling, so a file
+    that is read as a table and arrives compressed would be inflated by whatever reads it. The
+    providers that serve compressed files say so in their names and unpack them through
+    `wetterdienst.util.archive`, which bounds what comes out.
+    """
+    if payload.startswith(_SELF_UNPACKING_MAGIC) and not urlparse(url).path.lower().endswith(_ANNOUNCED_COMPRESSION):
+        msg = "the file is compressed, which a file of its name is not"
+        raise DownloadRefusedError(msg)
 
 
 #: What is forwarded to the host a redirect leads to, besides what `_CREDENTIAL_HEADERS` names: aiohttp itself drops
@@ -845,6 +961,53 @@ class HTTPFileSystem(_HTTPFileSystem):
             listings_cache_location=listings_cache_location,
         )
 
+    async def _cat_file(self, url: str, start: int | None = None, end: int | None = None, **kwargs) -> bytes:  # noqa: ANN003
+        """Read a whole file, up to ``max_bytes`` of it (`MAX_DOWNLOAD_BYTES` unless given) and `MAX_DOWNLOAD_SECONDS`.
+
+        Upstream reads the body in one go, however large it turns out to be and however slowly it comes.
+        A range is the caller's own bound and is read as upstream reads it.
+        """
+        max_bytes = kwargs.pop("max_bytes", None)
+        if start is not None or end is not None:
+            return await super()._cat_file(url, start=start, end=end, **kwargs)
+        max_bytes = MAX_DOWNLOAD_BYTES if max_bytes is None else max_bytes
+        kw = {**self.kwargs, **kwargs}
+        session = await self.set_session()
+        async with _within_time(MAX_DOWNLOAD_SECONDS), session.get(self.encode_url(url), **kw) as response:
+            self._raise_not_found_for_status(response, url)
+            return await _read_capped(response, max_bytes)
+
+    async def _get_file(
+        self,
+        rpath: str,
+        lpath: str | IO[bytes],
+        chunk_size: int = 5 * 2**20,
+        callback: Callback = DEFAULT_CALLBACK,
+        **kwargs,  # noqa: ANN003
+    ) -> None:
+        """Stream a file to disk, held to ``max_bytes`` (default `MAX_DOWNLOAD_BYTES`) and `MAX_DOWNLOAD_SECONDS`."""
+        max_bytes = kwargs.pop("max_bytes", None)
+        max_bytes = MAX_DOWNLOAD_BYTES if max_bytes is None else max_bytes
+        if callback is DEFAULT_CALLBACK:
+            callback = _SizeGuard(max_bytes)
+        opened: IO[bytes] | None = None
+        if isfilelike(lpath):
+            target = lpath
+        else:
+            target = opened = open(str(lpath), "wb")  # noqa: ASYNC230, PTH123, SIM115
+        try:
+            async with _within_time(MAX_DOWNLOAD_SECONDS):
+                await super()._get_file(
+                    rpath,
+                    _CappedWriter(target, max_bytes),
+                    chunk_size=chunk_size,
+                    callback=callback,
+                    **kwargs,
+                )
+        finally:
+            if opened is not None:
+                opened.close()
+
     async def _ls(self, url: str, detail: bool = True, **kwargs) -> list:  # noqa: ANN003, FBT001, FBT002
         """List a directory, going through the dircache with a single lookup.
 
@@ -1233,6 +1396,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         if "r" not in mode or "+" in mode:
             # writing goes through fsspec's own temporary file; wetterdienst only ever reads
             return super()._open(path, mode=mode, **kwargs)
+        # the ceiling `download_file` was given, for the fetch below; the filesystem holds the default
+        fetch_kwargs = {"max_bytes": kwargs.pop("max_bytes")} if "max_bytes" in kwargs else {}
         path = self._strip_protocol(path)
         cached = self._check_file(path)
         if cached:
@@ -1249,7 +1414,7 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
             # and a body that fails part-way leaves nothing behind (GH-2493)
             temp = f"{blob}.{uuid.uuid4().hex}.tmp"
             try:
-                self.fs.get_file(path, temp)
+                self.fs.get_file(path, temp, **fetch_kwargs)
                 try:
                     os.replace(temp, blob)  # noqa: PTH105
                 except PermissionError:
@@ -1825,8 +1990,15 @@ def download_file(
     cache_disable: bool = False,
     use_certifi: bool = False,
     attempts: int = 2,
+    max_bytes: int | None = None,
 ) -> File:
     """Download a specified file from the server.
+
+    A body is taken up to `MAX_DOWNLOAD_BYTES` and a download up to `MAX_DOWNLOAD_SECONDS` in all. One that
+    runs past either is refused, and is stored as the failure of the download: a `DownloadError` for the
+    caller of `File.raise_if_exception`, which is not asked for again. A body that is compressed while the
+    name of the file does not say so is refused too, as whatever reads it as a table would inflate it
+    without a ceiling.
 
     Args:
         url: The URL of the file to download.
@@ -1838,6 +2010,7 @@ def download_file(
         attempts: How often a failure worth retrying is tried. One is a download that is not asked
             again, which a check of a credential wants: it is a question about now, and an answer
             late is worth no more than none.
+        max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -1890,7 +2063,8 @@ def download_file(
                     log.info(
                         f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
-                    payload = filesystem.cat_file(url)
+                    payload = filesystem.cat_file(url, **({} if max_bytes is None else {"max_bytes": max_bytes}))
+                    _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
                     # scrubbed here as well as on the way out, because stamina's retry hook logs
                     # ``repr(caused_by)`` on the first failure -- and that repr renders the request

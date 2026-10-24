@@ -11,10 +11,11 @@ import pytest
 
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import InvalidParameterError
+from wetterdienst.exceptions import DownloadError, InvalidParameterError
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteofrance.synop import MeteoFranceSynopRequest
 from wetterdienst.provider.meteofrance.synop import api as synop_api
+from wetterdienst.util import archive
 
 _PRECIPITATION = [
     "precipitation_amount_last_1h",
@@ -45,6 +46,16 @@ def _values(
         options=Options(drop_nulls=drop_nulls),
     )
     return stations_result(request, "subdaily", "data", "07005").values().all().df.sort("timestamp")
+
+
+def test_meteofrance_synop_api_a_file_that_unpacks_past_the_ceiling_is_a_download_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a gzip that unpacks to more than the ceiling is refused, not inflated by the table reader (GH-3340)."""
+    monkeypatch.setattr(archive, "MAX_UNPACKED_BYTES", 100)
+    rows = [{"geo_id_wmo": "07005", "validity_time": "2024-01-01T18:00:00Z", "rr1": "0.2"}] * 20
+    with pytest.raises(DownloadError, match="unpacks to more than"):
+        _values(monkeypatch, rows, ["precipitation_amount_last_1h"])
 
 
 def test_meteofrance_synop_api_trace_of_precipitation_is_zero(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -930,7 +930,7 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
         b"A006;54.889156;8.908735;202610120600;6.2;4.4\n"
         b"A006;54.889156;8.908735;202610120700;---;5.1\n"
     )
-    run = dwd_swsmos_api._read_run_csv(bz2.compress(raw))  # noqa: SLF001
+    run = dwd_swsmos_api._read_run_csv(bz2.compress(raw), "https://opendata.dwd.de/swsmos/run.csv.bz2")  # noqa: SLF001
     monkeypatch.setattr(dwd_swsmos_api.DwdSwsmosValues, "_run_frame", lambda _self, _settings: run)
     request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     return stations_result(request, "hourly", "data", "A006").values().all().df

@@ -9,12 +9,11 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import portion
-from fsspec.implementations.zip import ZipFileSystem
 from portion import Interval
 
 from wetterdienst.exceptions import MetaFileNotFoundError
@@ -61,12 +60,15 @@ from wetterdienst.provider.dwd.observation.parser import (
     parse_climate_observations_data,
 )
 from wetterdienst.settings import Settings
+from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.python import to_list
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from fsspec.implementations.zip import ZipFileSystem
 
     from wetterdienst.model.result import StationsResult
 log = logging.getLogger(__name__)
@@ -351,7 +353,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     # ZipFileSystem.__del__ closes the underlying BytesIO via
                     # self.of.__exit__(), so we must not create a new ZipFileSystem
                     # per read_*_history call on the same file.content BytesIO.
-                    zfs = ZipFileSystem(cast("Any", downloaded_file.content))
+                    zfs = open_zip(downloaded_file)
                     name_history = self.read_name_history(zfs)
                     name_histories.append(name_history)
                     parameter_history_list = self.read_parameter_history(zfs)
@@ -402,7 +404,7 @@ class DwdObservationHistory(TimeseriesHistory):
                 # ZipFileSystem.__del__ closes the underlying BytesIO via
                 # self.of.__exit__(), so we must not create a new ZipFileSystem
                 # per read_*_history call on the same file.content BytesIO.
-                zfs = ZipFileSystem(cast("Any", downloaded_file.content))
+                zfs = open_zip(downloaded_file)
                 name_history = self.read_name_history(zfs)
                 parameter_history_list = self.read_parameter_history(zfs)
                 device_history_list = self.read_device_history(zfs)

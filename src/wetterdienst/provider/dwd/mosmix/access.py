@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import os
+import time
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,14 +18,15 @@ from zipfile import BadZipFile
 import polars as pl
 from aiohttp import ClientConnectorError
 from fsspec.implementations.cached import WholeFileCacheFileSystem
-from fsspec.implementations.zip import ZipFileSystem
 from tqdm import tqdm
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import raw_column
+from wetterdienst.util import network
+from wetterdienst.util.archive import open_zip
 from wetterdienst.util.io import read_in_chunks
 from wetterdienst.util.logging import TqdmToLogger
-from wetterdienst.util.network import NetworkFilesystemManager, _failed_file
+from wetterdienst.util.network import DownloadRefusedError, File, NetworkFilesystemManager, _failed_file
 from wetterdienst.util.xml import iterparse_xml
 
 if TYPE_CHECKING:
@@ -33,12 +35,16 @@ if TYPE_CHECKING:
     from xml.etree.ElementTree import Element
 
     from wetterdienst.settings import Settings
-    from wetterdienst.util.network import File, HTTPFileSystem
+    from wetterdienst.util.network import HTTPFileSystem
 
 log = logging.getLogger(__name__)
 
 # how the file writes a value it does not have, in the list of values of an element
 MISSING_VALUE = "-"
+
+#: The most a run may unpack to. The KML of MOSMIX-L is 1.8 GB (an hour's run of MOSMIX-S 0.6 GB) and is
+#: parsed from a stream, so this is about twice the largest and only bounds what a file may claim.
+MAX_KML_BYTES = 4 * 1024**3
 
 
 def _local_size(response: BinaryIO) -> int | None:
@@ -167,6 +173,8 @@ class KMLReader:
                 total = None
 
         buffer = BytesIO()
+        # the cache fetches under the ceilings of the network module, a stream that is not held on disk does not
+        deadline = time.monotonic() + network.MAX_DOWNLOAD_SECONDS
 
         tqdm_out = TqdmToLogger(log, level=logging.INFO)
 
@@ -181,6 +189,12 @@ class KMLReader:
             for data in read_in_chunks(response, chunk_size=1024):
                 size = buffer.write(data)
                 bar.update(size)
+                if buffer.tell() > network.MAX_DOWNLOAD_BYTES:
+                    msg = "the file is larger than a download is held to"
+                    raise DownloadRefusedError(msg)
+                if time.monotonic() > deadline:
+                    msg = "the file took longer than a download is held to"
+                    raise DownloadRefusedError(msg)
 
         return buffer
 
@@ -213,7 +227,7 @@ class KMLReader:
     def _fetch(self, url: str) -> BinaryIO:
         """Download and open one run, whatever the cache currently holds for it."""
         buffer = self.download(url)
-        zfs = ZipFileSystem(buffer, "r")
+        zfs = open_zip(File(url=url, content=buffer, status=200), limit=MAX_KML_BYTES)
         handle = zfs.open(zfs.glob("*")[0])
         # keep the compressed buffer and zip filesystem alive so the handle stays readable while
         # lxml pulls from it incrementally

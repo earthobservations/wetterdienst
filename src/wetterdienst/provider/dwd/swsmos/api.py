@@ -14,7 +14,6 @@ per forecast hour). Values use ``.`` decimals; the catalogue uses ``,`` decimals
 
 from __future__ import annotations
 
-import bz2
 import contextlib
 import datetime as dt
 import logging
@@ -34,6 +33,7 @@ from wetterdienst.model.quality_flags import join_quality_flags, null_sentinels,
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.dwd.swsmos.metadata import DwdSwsmosMetadata
+from wetterdienst.util.archive import bunzip2
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file, list_remote_files_fsspec
 
@@ -49,6 +49,8 @@ _UTC = ZoneInfo("UTC")
 _BASE_URL = "https://opendata.dwd.de/weather/local_forecasts/swsmos"
 _CATALOG_URL = f"{_BASE_URL}/swsKatalog.csv.bz2"
 _LATEST_FILE = "swsmos_LATEST_opendata.csv.bz2"
+# a run file unpacks to 26 MB and the catalogue to 0.1 MB: ten times the larger is the most either may claim
+_MAX_UNPACKED_BYTES = 256 * 1024**2
 
 
 class DwdForecastDate(Enum):
@@ -78,9 +80,9 @@ def _run_url(issue: dt.datetime) -> str:
     return f"{_BASE_URL}/swsmos_{issue:%Y%m%d%H}0000_opendata.csv.bz2"
 
 
-def _read_run_csv(content: bytes) -> pl.DataFrame:
+def _read_run_csv(content: bytes, url: str) -> pl.DataFrame:
     """Decompress and parse a run file, dropping the run-timestamp line between header and data."""
-    lines = bz2.decompress(content).decode("latin-1").splitlines()
+    lines = bunzip2(content, url=url, limit=_MAX_UNPACKED_BYTES).decode("latin-1").splitlines()
     if len(lines) < 3:
         return pl.DataFrame()
     csv = ("\n".join([lines[0], *lines[2:]])).encode()
@@ -90,13 +92,13 @@ def _read_run_csv(content: bytes) -> pl.DataFrame:
 def _read_run(content: bytes, url: str, *, asked_again: bool = False) -> pl.DataFrame | None:
     """Parse a run file, or say it could not be read.
 
-    A body that is not the bz2 a run file should be raises out of `bz2.decompress` -- `ValueError`
+    A body that is not the bz2 a run file should be raises out of `bunzip2` -- `ValueError`
     where it stops early, `OSError` where it was never bz2 -- and nothing between here and the
     caller catches, so a truncated download used to end the request in a traceback where a failed
     download ends it in an empty frame. It also lands in the cache, so the traceback would have
     repeated for twelve hours. Reported and answered the way a failed fetch is instead.
 
-    A body holding no readings is the same answer. `bz2.decompress(b"")` returns `b""` rather than
+    A body holding no readings is the same answer. `bunzip2(b"")`, as `bz2.decompress`, returns `b""` rather than
     raising, so a zero-byte 200 -- the first instant of the file the uncached listing has just
     named, or a mirror answering with nothing -- parses to a frame of no rows and no columns. Read
     as a run that simply holds nothing, that frame was the request's answer and the run before it
@@ -109,7 +111,7 @@ def _read_run(content: bytes, url: str, *, asked_again: bool = False) -> pl.Data
     # this provider exists to have stopped doing
     attempt = " (asked again past the cache)" if asked_again else ""
     try:
-        df = _read_run_csv(content)
+        df = _read_run_csv(content, url)
     except (OSError, ValueError, EOFError, pl.exceptions.PolarsError) as ex:
         log.warning(f"Failed to read SWSMOS run {url}{attempt}: {ex!r}")
         return None
@@ -454,7 +456,8 @@ class DwdSwsmosRequest(TimeseriesRequest):
         if isinstance(file.content, Exception):
             return pl.LazyFrame()
         # the catalogue is latin-1 encoded (German station names carry umlauts)
-        catalogue = bz2.decompress(file.content.read()).decode("latin-1").encode("utf-8")
+        catalogue = bunzip2(file.content.read(), url=_CATALOG_URL, limit=_MAX_UNPACKED_BYTES).decode("latin-1")
+        catalogue = catalogue.encode("utf-8")
         df = pl.read_csv(catalogue, separator=";", infer_schema_length=0)
         if df.is_empty():
             return pl.LazyFrame()

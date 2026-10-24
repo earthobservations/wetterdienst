@@ -4,16 +4,14 @@
 
 from __future__ import annotations
 
-import gzip
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING
 from zipfile import BadZipFile
 
-from fsspec.implementations.zip import ZipFileSystem
-
 from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.util.archive import gunzip, open_zip
 from wetterdienst.util.network import File, download_files
 
 if TYPE_CHECKING:
@@ -55,8 +53,7 @@ def _unpack_climate_derived_data(file: File) -> File:
             if isinstance(file.content, Exception):
                 raise file.content
             file.content.seek(0)
-            with gzip.GzipFile(fileobj=file.content) as gf:
-                product_bytes = gf.read()
+            product_bytes = gunzip(file)
         except OSError as e:
             msg = f"The gzip archive of {file.filename} seems to be corrupted."
             raise BadZipFile(msg) from e
@@ -70,7 +67,7 @@ def _unpack_climate_derived_data(file: File) -> File:
         )
 
     try:
-        zfs = ZipFileSystem(file.content)
+        zfs = open_zip(file)
     except BadZipFile as e:
         msg = f"The archive of {file.filename} seems to be corrupted."
         raise BadZipFile(msg) from e
