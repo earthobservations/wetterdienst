@@ -43,7 +43,7 @@ from wetterdienst.provider.metoffice.observation.fileindex import download_url, 
 from wetterdienst.provider.metoffice.observation.metadata import MetOfficeObservationMetadata
 from wetterdienst.provider.metoffice.observation.parser import parse_station_metadata, parse_values
 from wetterdienst.settings import Settings
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import _without_url_secrets, download_file
 
 log = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class MetOfficeObservationValues(TimeseriesValues):
         if file.status != 404 or not missing_ok:
             file.raise_if_exception()
         if isinstance(file.content, Exception):
-            log.debug(f"No MetOffice file {url}: {file.content}")
+            log.debug(f"No MetOffice file {_without_url_secrets(url)}: {file.content}")
             return None
         return file.content.read()
 

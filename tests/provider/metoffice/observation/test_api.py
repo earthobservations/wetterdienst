@@ -780,3 +780,27 @@ def test_metoffice_observation_values_daily_temperature_one_row_per_day() -> Non
     if not maxes.is_empty() and not mins.is_empty():
         joined = maxes.join(mins, on="timestamp", suffix="_min")
         assert (joined["value"] >= joined["value_min"]).all()
+
+
+def test_metoffice_debug_line_of_a_missing_file_names_the_url_without_its_query(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The DEBUG line of a station-year the archive lacks shows the URL with no query (GH-3394)."""
+    from wetterdienst.provider.metoffice.observation import api  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    url = "https://dap.ceda.ac.uk/badc/ukmo-midas-open/data/x.csv"
+    monkeypatch.setattr(
+        api,
+        "download_file",
+        lambda **kwargs: File(url=kwargs["url"], content=OSError("404"), status=404),
+    )
+    values = object.__new__(api.MetOfficeObservationValues)
+    with caplog.at_level("DEBUG", logger="wetterdienst"):
+        assert values._download(f"{url}?download=1&sig=SECRET", Settings(cache_disable=True), None) is None  # noqa: SLF001
+
+    (message,) = [record.getMessage() for record in caplog.records if "No MetOffice file" in record.getMessage()]
+    assert message.startswith(f"No MetOffice file {url}: ")
+    assert "SECRET" not in message
+    assert "download=1" not in message

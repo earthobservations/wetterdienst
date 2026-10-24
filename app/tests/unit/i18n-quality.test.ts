@@ -343,6 +343,7 @@ const UI_SAME: Record<string, Same> = {
   'units.minute': { en: ['fr'], de: ['nl'], why: UNIT },
   'support.title': { en: ['da'], why: COGNATE },
   'support.discussionsTitle': { en: ['fr'], why: COGNATE },
+  'footer.privacy': { en: ['it', 'nl'], why: COGNATE },
   'impressum.contactTitle': { en: ['fr', 'nl'], de: ['cs', 'da', 'pl'], why: COGNATE },
   'impressum.phoneLabel': { de: ['cs', 'da', 'pl'], why: COGNATE },
   'impressum.githubLabel': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },

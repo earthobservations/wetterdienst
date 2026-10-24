@@ -270,6 +270,38 @@ test.describe('Impressum Page', () => {
   })
 })
 
+test.describe('Privacy Policy Page', () => {
+  test('should be linked in the footer next to the legal notice', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    const footer = page.getByRole('contentinfo')
+    await expect(footer.locator('a[href="/impressum"]')).toBeVisible()
+    await footer.locator('a[href="/datenschutz"]').click()
+    await expect(page).toHaveURL(/\/datenschutz/)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  })
+
+  test('should serve the same page at /privacy', async ({ page }) => {
+    await page.goto('/privacy')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.getByText('Hetzner').first()).toBeVisible()
+  })
+
+  test('should be German with a German browser and English with an English one', async ({ browser }) => {
+    for (const [locale, heading] of [['de-DE', 'Datenschutzerklärung'], ['en-GB', 'Privacy policy']] as const) {
+      const context = await browser.newContext({ locale })
+      const page = await context.newPage()
+      await page.goto('/datenschutz')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
+      await context.close()
+    }
+  })
+})
+
 test.describe('Forecast (Meteogram) Page', () => {
   test('should navigate to the forecast page', async ({ page }) => {
     await page.goto('/')

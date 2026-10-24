@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Legal]` A privacy policy (Datenschutzerklärung) at `/datenschutz`, also served at `/privacy`
+  and linked in the footer next to the legal notice. It is in German, the binding text, for the
+  German locales and in English for every other language, and names the logs, the cookie and
+  local storage, and the third parties the map and the About page load images from (GH-3402)
+
 ## [0.35.0] - 2026-10-24
 
 ### Fixed

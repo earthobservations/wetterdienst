@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextvars
 import itertools
 import json
+import logging
 import math
 import os
 import re
@@ -98,6 +99,7 @@ from wetterdienst.ui.core import (
     limit_stations_to_window,
     overlay_options,
     resolve_network,
+    set_logging_level,
 )
 from wetterdienst.ui.limits import (
     Limits,
@@ -2469,11 +2471,35 @@ def _answer_to_loopback_names_only(listen_host: str) -> None:
     )
 
 
+#: Set by `start_service` for the process of the server when the logger `wetterdienst` was at DEBUG, as the command
+#: line's `--debug` leaves it. Internal: a reloaded worker is spawned, so it has the environment of the server and
+#: nothing of its logging (GH-3390).
+_DEBUG_VARIABLE = "_WETTERDIENST_RESTAPI_DEBUG"
+
+
+def _worker_app() -> ASGIApp:
+    """Configure the logging as the server did and give back the app: the factory that uvicorn's worker calls (GH-3390).
+
+    `--reload` runs the app in a process that uvicorn spawns, which imports the app by its name and so has none of the
+    logging that `start_service` set up in the process that started it: the root logger would stay at WARNING, and the
+    INFO lines of the package and the DEBUG ones of `--debug` would not be written. Done here and not as the module is
+    imported, so that an app that another server hosts keeps its own logging.
+    """
+    setup_logging()
+    if os.environ.get(_DEBUG_VARIABLE) == "1":
+        set_logging_level(debug=True)
+    return app
+
+
 def start_service(listen_address: str | None = None, *, reload: bool | None = False) -> None:
     """Start the REST API service."""
     run = import_optional("uvicorn.main", "The REST API", extra="restapi").run
 
     setup_logging()
+    if logging.getLogger("wetterdienst").isEnabledFor(logging.DEBUG):
+        os.environ[_DEBUG_VARIABLE] = "1"
+    else:
+        os.environ.pop(_DEBUG_VARIABLE, None)
 
     if listen_address is None:
         listen_address = "127.0.0.1:7890"
@@ -2482,4 +2508,4 @@ def start_service(listen_address: str | None = None, *, reload: bool | None = Fa
     if is_loopback(host):
         _answer_to_loopback_names_only(host)
 
-    run(app="wetterdienst.ui.restapi:app", host=host, port=port, reload=reload or False)
+    run(app="wetterdienst.ui.restapi:_worker_app", factory=True, host=host, port=port, reload=reload or False)

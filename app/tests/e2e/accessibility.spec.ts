@@ -84,6 +84,7 @@ const PAGES: Target[] = [
   { page: 'about', path: '/about' },
   { page: 'support', path: '/support' },
   { page: 'impressum', path: '/impressum' },
+  { page: 'datenschutz', path: '/datenschutz' },
 ]
 
 interface State {

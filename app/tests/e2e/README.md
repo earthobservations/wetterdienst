@@ -140,7 +140,7 @@ tests/e2e/
 ### Page Tests (`pages.spec.ts`)
 - Tests page rendering and navigation
 - Verifies UI elements are present
-- Tests all main pages: home, api, explorer, stripes, support, impressum
+- Tests all main pages: home, api, explorer, stripes, support, impressum, datenschutz
 
 ### Integration Tests (`integration.spec.ts`)
 - Tests complete user workflows
