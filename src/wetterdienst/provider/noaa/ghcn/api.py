@@ -54,7 +54,7 @@ GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
 GHCNH_NO_CODE = "Null"
 
 # stations whose longitude `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) and `ghcnh-station-list.csv` list with the
-# wrong sign, almost all east of Greenwich where they lie west of it, 6 to 756 km off: the list has lost the sign
+# wrong sign, all 38 listed east of Greenwich where they lie west of it, 6 to 756 km off: the list has lost the sign
 # (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly list, ISD
 # history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
 # within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
