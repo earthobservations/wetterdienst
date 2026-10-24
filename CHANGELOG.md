@@ -26,6 +26,16 @@ Types of changes:
   stations. Their `longitude` is now negative; a filter on the old position needs the new one
   (GH-2886)
 
+### Removed
+
+- **Breaking**: the `debug` parameter is removed from every REST endpoint and MCP tool that had
+  it (all but `version`, `settings` and `health`). It set the log level of the whole server
+  process for every caller, so one anonymous request switched the server's log to debug. A request
+  that still sends it is refused (REST 422 of type `removed`, an MCP tool error) with `debug was
+  removed` and what to do instead: drop it. The level is the operator's, set as for any Python
+  logger (`logging.getLogger("wetterdienst")`); the `--debug` option of the command line is
+  unchanged (GH-3336)
+
 ### Security
 
 - The REST API and MCP server now write the text a request sent into their log on one line:

@@ -200,7 +200,7 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     only the ones the tool's schema names, dropping the rest: an argument the tool does not take
     never reached the endpoint's refusal, and the call was answered as if it had not been given
     (GH-2479). An argument by a name since renamed is refused naming the new one, where the tool
-    takes it, as its endpoint does (GH-2438).
+    takes it, as its endpoint does (GH-2438), and one that was removed with what to do instead (GH-3336).
 
     The input schemas are left without `additionalProperties: false`: a client checking a call
     against that would refuse a renamed argument itself, without the name it was renamed to.
@@ -208,7 +208,12 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
     from fastmcp.exceptions import ToolError  # noqa: PLC0415
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
 
-    from wetterdienst.ui.core import RENAMED_REQUEST_PARAMETERS, join_names  # noqa: PLC0415
+    from wetterdienst.ui.core import (  # noqa: PLC0415
+        REMOVED_REQUEST_PARAMETERS,
+        RENAMED_REQUEST_PARAMETERS,
+        join_names,
+        removed_parameter_message,
+    )
 
     class RefuseUnknownArguments(Middleware):
         async def on_call_tool(
@@ -224,7 +229,9 @@ def _refuse_unknown_arguments(provider: OpenAPIProvider) -> Middleware:
                 unknown = [name for name in arguments if name not in taken]
                 renamed = [name for name in unknown if RENAMED_REQUEST_PARAMETERS.get(name) in taken]
                 refused = [f"{name} was renamed to {RENAMED_REQUEST_PARAMETERS[name]}" for name in renamed]
-                if others := [name for name in unknown if name not in renamed]:
+                removed = [name for name in unknown if name in REMOVED_REQUEST_PARAMETERS]
+                refused += [removed_parameter_message(name) for name in removed]
+                if others := [name for name in unknown if name not in renamed and name not in removed]:
                     verb = "is not an argument" if len(others) == 1 else "are not arguments"
                     refused.append(
                         f"{join_names(others)} {verb} of {tool.name}, which takes {join_names(sorted(taken))}"

@@ -636,6 +636,7 @@ _SURFACES = {
 _CLI_ONLY = {
     "target": "writes the result to a file or a database instead of stdout, where REST answers the caller",
     "if_exists": "what --target does with data already there",
+    "debug": "the log level of the command's own process; a request no longer sets that of a server (GH-3336)",
     "start": "with --end, the window as two options, read as the one `timestamp`",
     "end": "with --start, the window as two options, read as the one `timestamp`",
 }

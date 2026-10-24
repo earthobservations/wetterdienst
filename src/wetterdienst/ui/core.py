@@ -217,7 +217,6 @@ _StreamFormatField = Annotated[
     ),
 ]
 _PrettyField = Annotated[bool, Field(description="Pretty-print JSON/GeoJSON output.")]
-_DebugField = Annotated[bool, Field(description="Enable debug logging.")]
 _WidthField = Annotated[int | None, Field(gt=0, description="Width of the rendered chart image in pixels.")]
 _HeightField = Annotated[int | None, Field(gt=0, description="Height of the rendered chart image in pixels.")]
 _ScaleField = Annotated[float | None, Field(gt=0, description="Scale factor of the rendered chart image.")]
@@ -515,18 +514,40 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
 }
 
 
+#: query parameters removed on the way to 1.0, name to what to do instead. A request that still gives one is
+#: refused with that sentence, on REST and in each MCP tool, rather than as a parameter it does not know
+#: (GH-3336). `debug` set the logger level of the whole process from an anonymous request, so one caller could
+#: switch the server's log to debug for every other; the command line, a process of its own, keeps its `--debug`
+REMOVED_REQUEST_PARAMETERS: dict[str, str] = {
+    "debug": (
+        "a request no longer sets the log level of the server, which is the operator's to set: configure the "
+        "Python logger `wetterdienst` in the process that hosts the server"
+    ),
+}
+
+
+def removed_parameter_message(name: str) -> str:
+    """Tell a caller that a parameter of `REMOVED_REQUEST_PARAMETERS` is gone, and what to do instead."""
+    return f"{name} was removed: {REMOVED_REQUEST_PARAMETERS[name]}"
+
+
 class _RefusesRenamedParameters(BaseModel):
-    """A request model that refuses a parameter given by its old name, naming the new one."""
+    """A request model that refuses a parameter given by its old name, naming the new one, or one that is gone."""
 
     @model_validator(mode="before")
     @classmethod
     def refuse_renamed_parameters(cls, data: Any) -> Any:  # noqa: ANN401
-        """Refuse a parameter of `RENAMED_REQUEST_PARAMETERS` given by its old name."""
+        """Refuse a parameter of `RENAMED_REQUEST_PARAMETERS` by its old name, or of `REMOVED_REQUEST_PARAMETERS`."""
         if isinstance(data, Mapping):
             errors = [
                 _rule_error("renamed", f"{old} was renamed to {new}", (old,), data[old], renamed_to=new)
                 for old, new in RENAMED_REQUEST_PARAMETERS.items()
                 if old in data and old not in cls.model_fields and new in cls.model_fields
+            ]
+            errors += [
+                _rule_error("removed", removed_parameter_message(name), (name,), data[name])
+                for name in REMOVED_REQUEST_PARAMETERS
+                if name in data and name not in cls.model_fields
             ]
             if errors:
                 raise ValidationError.from_exception_data(cls.__name__, errors)
@@ -681,7 +702,6 @@ class StationsRequest(_RefusesRenamedParameters):
 
     format: _StreamFormatField = "json"
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
     # plot settings
     width: _WidthField = None
@@ -756,7 +776,6 @@ class HistoryRequest(_RefusesRenamedParameters):
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
     @model_validator(mode="after")
     def check_station_selection(self) -> HistoryRequest:
@@ -843,7 +862,6 @@ class ValuesRequest(_RefusesRenamedParameters):
 
     format: _StreamFormatField = "json"
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
     # plot settings
     width: _WidthField = None
@@ -972,7 +990,6 @@ class InterpolationRequest(_RefusesRenamedParameters):
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
     # plot settings
     width: _WidthField = None
@@ -1075,7 +1092,6 @@ class SummaryRequest(_RefusesRenamedParameters):
     with_stations: _WithStationsField = False
 
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
     # plot settings
     width: _WidthField = None
@@ -1185,7 +1201,6 @@ class IssuesRequest(_RefusesRenamedParameters):
             "DMO only, refused for MOSMIX and SWSMOS.",
         ),
     ] = None
-    debug: _DebugField = False
 
     @field_validator("station")
     @classmethod
@@ -1214,7 +1229,6 @@ class AuthRequest(_RefusesRenamedParameters):
 
     provider: _ProviderField
     network: _NetworkField
-    debug: _DebugField = False
 
 
 class CoverageRequest(_RefusesRenamedParameters):
@@ -1242,7 +1256,6 @@ class CoverageRequest(_RefusesRenamedParameters):
         Field(description="Only these datasets, comma-separated, e.g. 'climate_summary'. Needs provider and network."),
     ] = None
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
     @field_validator("resolutions", "datasets", mode="before")
     @classmethod
@@ -1261,7 +1274,6 @@ class ProvidersRequest(_RefusesRenamedParameters):
         Field(description="Only this provider, e.g. 'dwd'. Without it, every provider."),
     ] = None
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
 
 class GlossaryRequest(_RefusesRenamedParameters):
@@ -1278,7 +1290,6 @@ class GlossaryRequest(_RefusesRenamedParameters):
         Field(description="Only the parameters of this quantity, e.g. 'temperature'. Combines with parameter."),
     ] = None
     limit: Annotated[int | None, Field(ge=1, description="Return at most this many entries.")] = None
-    debug: _DebugField = False
 
 
 class AlertsRequest(_RefusesRenamedParameters):
@@ -1311,7 +1322,6 @@ class AlertsRequest(_RefusesRenamedParameters):
         Field(description="Output format: json, geojson (a feature collection) or csv."),
     ] = "json"
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
 
 def failure_status(e: BaseException) -> int:
@@ -1942,7 +1952,6 @@ class StripesStationsRequest(_RefusesRenamedParameters):
         Field(description="Output format: json, geojson (a feature collection) or csv."),
     ] = "json"
     pretty: _PrettyField = False
-    debug: _DebugField = False
 
 
 class StripesRequest(_RefusesRenamedParameters):
@@ -1970,7 +1979,6 @@ class StripesRequest(_RefusesRenamedParameters):
         int | None,
         Field(description="Last year, after start_year. Default: the station's last."),
     ] = None
-    debug: _DebugField = False
 
     @model_validator(mode="after")
     def check_station_and_years(self) -> StripesRequest:

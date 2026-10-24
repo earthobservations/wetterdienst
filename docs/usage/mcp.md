@@ -84,7 +84,8 @@ The instructions and the descriptions of the tools are written for agents and ar
 
 An error comes back as the text of the REST problem, for instance
 `HTTP error 422: Unprocessable Content - limit: Input should be greater than or equal to 1`, and an argument a tool
-does not take is refused with the name of the one it takes (`station was renamed to stations`).
+does not take is refused with the name of the one it takes (`station was renamed to stations`). No tool takes
+`debug`: the log level of the server is its operator's, and a call that gives it is refused saying so.
 
 ## Text from the providers
 

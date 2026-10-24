@@ -7643,6 +7643,66 @@ def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest
         asyncio.run(_call())
 
 
+def _debug_path(tool: str) -> str:
+    """Give the route of a tool: its name, with the stripes' sub-routes as paths."""
+    return tool.replace("_", "/", 1) if tool.startswith("stripes_") else tool
+
+
+@pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
+def test_debug_is_refused_and_leaves_the_log_level_alone(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tool: str
+) -> None:
+    """`debug` no longer sets the logger level of the server's process: it is refused with a hint (GH-3336).
+
+    The level was shared by every caller, so one anonymous request switched the whole server's log to debug.
+    """
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    log = logging.getLogger("wetterdienst.ui.core")  # the logger `set_logging_level` set
+    monkeypatch.setattr(log, "level", logging.WARNING)
+
+    response = client.get(f"/api/{_debug_path(tool)}", params={"debug": "true"})
+
+    assert response.status_code == 422, response.text
+    (error,) = response.json()["errors"]
+    assert (error["type"], error["loc"], error["input"]) == ("removed", ["query", "debug"], "true")
+    assert error["msg"].startswith("debug was removed: ")
+    assert "Python logger `wetterdienst`" in error["msg"]
+    assert log.level == logging.WARNING
+
+
+@pytest.mark.parametrize("extra", [{}, {"bogus": "x"}], ids=["alone", "beside-unknown"])
+@pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
+def test_mcp_debug_is_refused_and_leaves_the_log_level_alone(
+    monkeypatch: pytest.MonkeyPatch, tool: str, extra: dict[str, str]
+) -> None:
+    """Every tool refuses `debug` with what to do instead, alone or beside an argument it does not know (GH-3336)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+    from fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
+    monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    log = logging.getLogger("wetterdienst.ui.core")  # the logger `set_logging_level` set
+    monkeypatch.setattr(log, "level", logging.WARNING)
+    mcp = build_mcp_server(restapi.app)
+
+    async def _call() -> None:
+        async with Client(mcp) as client:
+            await client.call_tool(tool, {"debug": True, **extra})
+
+    removed = r"debug was removed: a request no longer sets the log level of the server, .*Python logger `wetterdienst`"
+    removed += r" in the process that hosts the server"
+    unknown = rf"; bogus is not an argument of {tool}, which takes " if extra else "$"
+    with pytest.raises(ToolError, match=rf"^{removed}{unknown}"):
+        asyncio.run(_call())
+    assert log.level == logging.WARNING
+
+
 def test_mcp_known_arguments_reach_the_endpoint() -> None:
     """A call giving only arguments its tool takes is answered by the endpoint (GH-2479)."""
     pytest.importorskip("fastmcp")
