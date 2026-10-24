@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.174.0] - 2026-10-24
+
 ### Changed
 
 - **Breaking**: 6 more `noaa/ghcn` daily stations are placed west of Greenwich, no longer east of
@@ -44,13 +46,6 @@ Types of changes:
   logger `wetterdienst`; the loggers of other libraries, `fsspec` and `aiohttp` among them, stay
   at `INFO`. The hint of a removed `debug` parameter now names `wetterdienst restapi --debug`
   (GH-3388)
-- A download follows a redirect from `https` down to `http` again, within the registered domain of
-  the request, when the session is given no credential (no credential header, `auth`, cookies,
-  `trust_env`, proxy or middleware among the `fsspec_client_kwargs`): the stations of `meteofrance/observation`
-  failed with "a redirect from https to http was not followed" where data.gouv.fr answered with
-  such a hop. The body of that hop is not protected on the way. With a credential, a redirect to
-  another registered domain, and the dropping of credentials at a change of origin, nothing
-  changes; the error names the host of a refused hop (GH-3398)
 
 ### Security
 
@@ -65,13 +60,16 @@ Types of changes:
   its query, as do the warnings of KNMI and AEMET for a file they skip. Other log lines of a
   provider are unchanged, and so is the debug line of `fsspec` that names the URL in full when an
   application enables DEBUG for it (GH-3341)
-- A redirect to another registered domain, or from `https` down to `http`, is no longer followed:
-  the download fails with a `DownloadError`. A key sent in a header other than `Authorization`
-  (AEMET's `api_key`) is dropped where a redirect changes the origin. The links that AEMET, KNMI,
-  NWS, Hub'Eau, MeteoSwiss, Météo-France and EA take from an answer (next page, `datos`, asset,
-  measure) are fetched only at the provider's own domain, over `https` (EA's `http://` ids are read
-  as `https://`); KNMI and Météo-France also at the object store their files are served from. An
-  `https` directory listing drops `http` links (GH-3338, GH-3339)
+- **Breaking**: a redirect to another registered domain is no longer followed, and neither is one
+  from `https` down to `http` for a session that holds a credential (a credential header, `auth`,
+  cookies, `trust_env`, a proxy or middleware among its `fsspec_client_kwargs`): the download
+  fails with a `DownloadError`. A session without any still follows an `http` hop inside the
+  provider's domain, as data.gouv.fr answers for the stations of `meteofrance/observation`.
+  Nothing to change for the providers; read that one without those keys. A key in a header other
+  than `Authorization` (AEMET's `api_key`) is dropped where a redirect changes the origin. The
+  links that AEMET, KNMI, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA take from an answer (next
+  page, `datos`, asset, measure) are fetched only at the provider's own domain, over `https` (KNMI
+  and Météo-France also at their object store) (GH-3338, GH-3339, GH-3398)
 - A KNMI NetCDF file with a variable whose data is kept outside the file (HDF5 external storage or
   a virtual dataset) is refused with an `UpstreamError` (HTTP 502 in the REST API), for the
   values and for the station list; KNMI's own files keep every variable in the file (GH-3337)
@@ -6529,7 +6527,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.174.0...HEAD
+[0.174.0]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...v0.174.0
 [0.173.0]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...v0.173.0
 [0.172.0]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...v0.172.0
 [0.171.0]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...v0.171.0
