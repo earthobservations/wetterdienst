@@ -139,6 +139,8 @@ values = request.values().all().df
 values.head()
 # ┌────────────┬────────────┬─────────────────┬──────────────────────┬─────────────────────────┬───────┬───────────────┐
 # │ station_id ┆ resolution ┆ dataset         ┆ parameter            ┆ timestamp               ┆ value ┆ quality_flags │
+# │ ---        ┆ ---        ┆ ---             ┆ ---                  ┆ ---                     ┆ ---   ┆ ---           │
+# │ str        ┆ str        ┆ str             ┆ str                  ┆ datetime[μs, UTC]       ┆ f64   ┆ str           │
 # ╞════════════╪════════════╪═════════════════╪══════════════════════╪═════════════════════════╪═══════╪═══════════════╡
 # │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-11 00:00:00 UTC ┆ 67.9  ┆ 10            │
 # │ 05779      ┆ daily      ┆ climate_summary ┆ precipitation_amount ┆ 2002-08-12 00:00:00 UTC ┆ 312.0 ┆ 10            │
