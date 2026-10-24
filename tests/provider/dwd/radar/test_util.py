@@ -9,7 +9,6 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
-from fsspec.implementations.http import HTTPFileSystem
 
 from wetterdienst.exceptions import MissingDependencyError
 from wetterdienst.provider.dwd.radar.util import (
@@ -19,11 +18,7 @@ from wetterdienst.provider.dwd.radar.util import (
     verify_hdf5,
 )
 
-HDF5_EXAMPLE = (
-    "https://github.com/earthobservations/testdata/raw/main/opendata.dwd.de"
-    "/weather/radar/sites/sweep_vol_v/ess/hdf5/filter_polarimetric"
-    "/ras07-vol5minng01_sweeph5onem_vradh_00-2021040423555700-ess-10410-hd5"
-)
+HDF5_EXAMPLE = Path(__file__).parent / "files" / "ras07-vol5minng01_sweeph5onem_uzdr_07-2026102123583500-boo-10132-hd5"
 
 
 def test_radar_get_date_from_filename() -> None:
@@ -59,15 +54,11 @@ def test_radar_get_date_from_filename() -> None:
     assert date == "2301010000"
 
 
-@pytest.mark.remote
 def test_radar_verify_hdf5_valid() -> None:
-    """Test valid HDF5 file."""
+    """Test valid HDF5 file, a committed sweep of the site 10132, read from disk (GH-3370)."""
     pytest.importorskip("h5py", reason="h5py not installed")
-    httpfs = HTTPFileSystem()
 
-    buffer = BytesIO(httpfs.cat(HDF5_EXAMPLE))
-
-    verify_hdf5(buffer)
+    verify_hdf5(BytesIO(HDF5_EXAMPLE.read_bytes()))
 
 
 def test_radar_verify_hdf5_invalid() -> None:
