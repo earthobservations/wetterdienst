@@ -148,17 +148,18 @@ described in `tests/ui/openapi_diff.py` and in the module of each surface under 
 
 The checklist for the release that makes 0.x into 1.0.0, in the order to do it. It is what #2625 (the library),
 #2561 (REST, CLI, MCP) and the issues under them promise for the tag; every file named is in the repository. The
-release steps above (and `chore: release 0.162.0 and app 0.27.0`, the commit that did them last) are the
+release steps above (and the release commit of the last 0.x release, which did them last) are the
 mechanics; this list adds what only 1.0.0 needs. The app stays 0.x (`docs/usage/compatibility.md`, "The web app and
-the image"), so its release after this one is `app-v0.28.0`, not `app-v1.0.0`.
+the image"), so its release after this one is the next 0.x app version (after 0.35.0 today), not `app-v1.0.0`.
 
 ### 0. What must be true first
 
 - [x] #3128 is down to the two shims, removed in 0.173.0 (#3348): `Settings(ts_*)` was removed in 0.160.0, and
   `StationsResult._df_all`, `_stations_filter` and `_rank` are private (`src/wetterdienst/model/result.py`).
-- [ ] The compatibility page (`docs/usage/compatibility.md`), the migration note (`docs/usage/migrating.md`) and the
+- [x] The compatibility page (`docs/usage/compatibility.md`), the migration note (`docs/usage/migrating.md`) and the
   links from `README.md` and `docs/usage/index.md` exist (#3130); the three contract checks exist (#3131):
   `tests/ui/test_openapi_baseline.py`, `tests/ui/cli/help.snapshot.txt`, `tests/baselines/test_baselines.py`.
+  Both issues stay open until step 5 closes them with the tag.
 - [ ] The decisions the page leaves open are made and written down (see "Decisions" below). The alias for renames and
   the floor of Python are made and are on the page.
 - [ ] No pull request that changes a frozen surface is open or planned for the tag: the `ACCEPTED_BREAKS` of
@@ -207,11 +208,11 @@ Both are dated "removed 1.0.0" in `docs/usage/compatibility.md` (table "Deprecat
 - [x] `docs/usage/compatibility.md`: "Deprecated today" has no rows; replace the paragraph "Both are removed at 1.0.0,
   with the tag. ..." by one that says they were removed in 1.0.0, that `wetterdienst stripes values` is "No such
   command", and keep "the name is **never reused**".
-- [x] `docs/usage/migrating.md`: the intro paragraph "Two things still work in 0.162.0 and are removed at 1.0.0" (line
-  19), the `Wetterdienst(provider, network)` row of "The request" (line 44) and the `stripes values` row of
-  "Command line" (line 246) say "removed in 1.0.0" and what to write instead, with `1.0.0, GH-3128` as the release.
-- [x] `docs/usage/python-api.md` (line 72, "`Wetterdienst(provider, network)` is deprecated and removed in 1.0.0")
-  becomes a statement that it was removed, or goes.
+- [x] `docs/usage/migrating.md`: the intro paragraph ("Two things still work in 0.162.0 and are removed at 1.0.0"),
+  the `Wetterdienst(provider, network)` row of "The request" and the `stripes values` row of "Command line" say
+  "removed in 1.0.0" and what to write instead, with `1.0.0, GH-3128` as the release.
+- [x] `docs/usage/python-api.md` (the paragraph after the `resolve_standalone` example, "`Wetterdienst(provider,
+  network)` is deprecated and removed in 1.0.0") becomes a statement that it was removed, or goes.
 - [ ] `src/wetterdienst/ui/deprecation.py` (module docstring: "Before the tag a deprecation names the version that
   removes it") and `tests/public_surface.py` ("From 1.0 ...") are written in the present tense of 1.0.
 - [x] `CHANGELOG.md`, `[Unreleased]`, **Removed** or **Breaking** entries (a few lines each, `(GH-3128)`, what to
@@ -223,7 +224,7 @@ Both are dated "removed 1.0.0" in `docs/usage/compatibility.md` (table "Deprecat
 
 ### 2. The release pull request, `chore: release 1.0.0`
 
-The files `chore: release 0.162.0 and app 0.27.0` touched, plus the 1.0 ones. Backend only; the app is step 6.
+The files the release commit of the last 0.x release touched, plus the 1.0 ones. Backend only; the app is step 6.
 
 - [ ] `pyproject.toml`: `version = "1.0.0"`, and `uv.lock`: the `wetterdienst` entry (`uv lock`; commit nothing else
   it changes).
@@ -231,7 +232,7 @@ The files `chore: release 0.162.0 and app 0.27.0` touched, plus the 1.0 ones. Ba
 - [ ] `CITATION.cff`: `version: 1.0.0` and `date-released` (`tests/test_citation.py` holds both to
   `pyproject.toml` and `CHANGELOG.md`).
 - [ ] `CHANGELOG.md`: cut `## [1.0.0] - YYYY-MM-DD` out of `[Unreleased]`, add the `[1.0.0]` compare link
-  (`v0.162.0...v1.0.0`, or the last 0.x) and point `[Unreleased]` at `v1.0.0...HEAD` (`tests/test_changelog.py`).
+  (from the tag of the last 0.x release, `v<last 0.x>...v1.0.0`) and point `[Unreleased]` at `v1.0.0...HEAD` (`tests/test_changelog.py`).
   The section opens with an entry that says 1.0.0 is the first release that carries the promise of
   `docs/usage/compatibility.md`.
 - [ ] `README.md`: delete the `> [!WARNING]` block ("This library is a work in progress! Breaking changes should be
@@ -239,36 +240,36 @@ The files `chore: release 0.162.0 and app 0.27.0` touched, plus the 1.0 ones. Ba
   already links Compatibility and Migrating, so nothing else is needed. If a notice is wanted, one line: "From 1.0.0
   the surfaces listed in [Compatibility](...) are stable; see [Migrating from 0.139.0](...) to upgrade."
 - [ ] `.github/RELEASE_STRATEGY.md`: the two "currently" lines under "Version Management" (backend `1.0.0`, app still
-  `0.27.0` until step 6).
+  the 0.x version it has until step 6).
 - [ ] `uv run poe "contracts:baseline"` (OpenAPI, CLI, Python surface, MCP, parameters): `x-release` becomes `1.0.0`.
   **Empty every `ACCEPTED_BREAKS`** (`tests/ui/openapi_diff.py`, `tests/baselines/{cli,surface,mcp,parameters}.py`),
   including the entry step 1 added; `test_no_accepted_break_is_stale` fails the release otherwise.
-- [ ] `docs/usage/compatibility.md`: "The baselines are those of 0.162.0 until the next release" becomes 1.0.0 (nothing
-  tests this sentence; the last release commit did it by hand), and the statements that are dated by the tag change
-  as follows:
+- [ ] `docs/usage/compatibility.md`: "The baselines are those of <the last 0.x> until the next release" becomes 1.0.0
+  (nothing tests this sentence; the last release commit did it by hand), and the statements that are dated by the tag
+  change as follows (found by the sentence, which the table quotes; line numbers drift):
 
-  | Line (today) | Says | Becomes |
-  | --- | --- | --- |
-  | 7 to 9 | "Wetterdienst is 0.x until the 1.0.0 tag, and until then any release may break any surface below ... This page is the promise that 1.0.0 makes." | "Wetterdienst is 1.x: a break of a frozen surface takes a major release. Releases before 1.0.0 broke surfaces freely; [Migrating](migrating.md) lists what." This page is the promise 1.0.0 made. |
-  | 19 | "every release; from 1.0.0 as semantic versioning says" | "every release, as semantic versioning says" |
-  | 27 | column "Frozen from 1.0" | "Frozen" |
-  | 73 | "and from 1.0 it is the rule" (a correction of data is marked Breaking) | "and it is the rule" |
-  | 80 | "From 1.0.0 a break of a frozen surface takes a **major** release" | "A break of a frozen surface takes a **major** release" |
-  | 215 | "From 1.0.0 a break of `/api/v1` is not made" | "A break of `/api/v1` is not made" |
-  | 266 | "**Until 1.0 a rename is a hard break, with a hint.**" | "**A rename made in a 0.x release is a hard break, with a hint.**" |
-  | 274 | "**From 1.0 a rename keeps the old name as an alias.** ..." (the alias is built, `wetterdienst.metadata.aliases`; no alias is declared yet) | "**A rename keeps the old name as an alias.**" |
-  | 304 | "The alias is held by `tests/metadata/test_aliases.py`, with an alias declared in the test, since none is declared yet: ..." | unchanged: it stays true until the first real alias is declared |
-  | 346 | "from 1.0 it is made only in a major release" | "it is made only in a major release" |
-  | 375 | "and that a removal after 1.0 is in a major release" | "and that a removal is in a major release" |
-  | 386 | "(until 1.0; after it the old name is an alias with a warning ...)" | "(for the names renamed in 0.x; since then the old name is an alias ...)" |
-  | 398 | "From 1.0 it is made in a **minor** release, ..." (raising the floor of Python: the decision is written) | unchanged: it is not dated by the tag |
+  | Says | Becomes |
+  | --- | --- |
+  | "Wetterdienst is 0.x until the 1.0.0 tag, and until then any release may break any surface below ... This page is the promise that 1.0.0 makes." | "Wetterdienst is 1.x: a break of a frozen surface takes a major release. Releases before 1.0.0 broke surfaces freely; [Migrating](migrating.md) lists what." This page is the promise 1.0.0 made. |
+  | "every release; from 1.0.0 as semantic versioning says" | "every release, as semantic versioning says" |
+  | column "Frozen from 1.0" | "Frozen" |
+  | "and from 1.0 it is the rule" (a correction of data is marked Breaking) | "and it is the rule" |
+  | "From 1.0.0 a break of a frozen surface takes a **major** release" | "A break of a frozen surface takes a **major** release" |
+  | "From 1.0.0 a break of `/api/v1` is not made" | "A break of `/api/v1` is not made" |
+  | "**Until 1.0 a rename is a hard break, with a hint.**" | "**A rename made in a 0.x release is a hard break, with a hint.**" |
+  | "**From 1.0 a rename keeps the old name as an alias.** ..." (the alias is built, `wetterdienst.metadata.aliases`; no alias is declared yet) | "**A rename keeps the old name as an alias.**" |
+  | "The alias is held by `tests/metadata/test_aliases.py`, with an alias declared in the test, since none is declared yet: ..." | unchanged: it stays true until the first real alias is declared |
+  | "from 1.0 it is made only in a major release" | "it is made only in a major release" |
+  | "and that a removal after 1.0 is in a major release" | "and that a removal is in a major release" |
+  | "(until 1.0; after it the old name is an alias with a warning ...)" | "(for the names renamed in 0.x; since then the old name is an alias ...)" |
+  | "From 1.0 it is made in a **minor** release, ..." (raising the floor of Python: the decision is written) | unchanged: it is not dated by the tag |
 
-  The same wording is in `docs/usage/restapi.md` (line 110, "From 1.0.0 an endpoint or a parameter of `/api/v1` is
-  removed only ..."), and `docs/usage/migrating.md` (lines 6 and 22 "frozen from 1.0", line 136 "after 1.0");
-  `grep -rn "1\.0" docs/usage` finds them.
-- [ ] `docs/usage/migrating.md`: the title and intro move from "0.139.0 to 0.162.0" to "0.139.0 to 1.0.0" (lines 3, 4,
-  132, 134, 250 name 0.162.0), "`app-v0.27.0` goes with 0.162.0" (line 16) names the app of step 6, and the "Two
-  things still work" paragraph is gone with step 1. `docs/usage/index.md` ("Migrating from 0.139.0") keeps its text.
+  The same wording is in `docs/usage/restapi.md` (the sentence "From 1.0.0 an endpoint or a parameter of `/api/v1` is
+  removed only ..."), and `docs/usage/migrating.md` ("frozen from 1.0" in the intro and in the import-path sentence,
+  "after 1.0" in the renames section); `grep -rn "1\.0" docs/usage` finds them.
+- [ ] `docs/usage/migrating.md`: the title and intro move from "0.139.0 to <the last 0.x>" to "0.139.0 to 1.0.0" (the
+  intro, the renames section and the failures table name the last 0.x), "`app-vX.Y.Z` goes with <the last 0.x>" (the
+  pair sentence in the intro) names the app of step 6, and the "Two things still work" paragraph is gone with step 1. `docs/usage/index.md` ("Migrating from 0.139.0") keeps its text.
 - [ ] `uv run poe format`, `lint`, `typecheck`, `"test:offline"`, `docs`; `uv run poe "contracts:baseline"` a second time
   changes nothing.
 - [ ] The Offline jobs of the PR are green; land it (squash).
@@ -315,11 +316,10 @@ run on `main` proves the commit, not the published wheel.
 - [ ] Close #3128 (the shims, step 1; the result fields were done before), #3130 (compatibility page and migration
   note), #3131 (contract checks) and #2625 (the library tracker), each with a comment that names the release and the
   test or file that holds it. #2561 (REST, CLI, MCP tracker) closes with them once its list says nothing
-  is left: its remaining items were #3129 (closed), #3130, #3131, the CORS stance of #2778 and the exit codes,
+  is left: its remaining items were #3129 (closed), #3130, #3131, the CORS stance (the threat model, #3211) and the exit codes,
   which `docs/usage/compatibility.md` and `docs/usage/cli.md` freeze as 0, 1 and 2.
-- [ ] Stays open, none of it blocks the tag: #2606 (the backend security review) until the threat model PR #2778 is
-  rechecked against the code and merged (its status comment says it blocks closing, not the tag), and #2607 (the app
-  review); #2621 (docs samples, numbers and links: this list and the link check are a part of it, not all); #2628
+- [ ] Stays open, none of it blocks the tag: #2607 (the app review; #2606, the backend security review, closed on
+  2026-10-23 and its threat model merged as #3211, corrected by #3353); #2621 (docs samples, numbers and links: this list and the link check are a part of it, not all); #2628
   (its deferred findings are additive); #3134 (additions after v1), #3136 and #3137 (provider data checks).
 - [ ] Move the milestone `v1.0.0` to closed once the above are closed, and open a milestone for 1.1.
 
@@ -328,13 +328,13 @@ run on `main` proves the commit, not the published wheel.
 An app that ships against a backend it was not run with is how app 0.21.0 got a 422 from 0.155.0; the app is
 released after step 3, never in the same PR as the backend.
 
-- [ ] `app/package.json` `version` `0.28.0`; `CHANGELOG_APP.md` gets its `## [0.28.0] - YYYY-MM-DD` section cut from
-  `[Unreleased]`; `.github/RELEASE_STRATEGY.md` "currently" line for the app; `docs/usage/migrating.md` line 16 names
-  `app-v0.28.0` with 1.0.0. Land it.
-- [ ] `git tag app-v0.28.0 && git push origin app-v0.28.0` (starts `docker-publish-app.yml`), then
-  `gh release create app-v0.28.0 --title "App v0.28.0" --notes-file <scratch file>` (starts `app-release.yml`, which
-  attaches `app-v0.28.0.tar.gz`). The notes say it is paired with backend 1.0.0.
-- [ ] `ghcr.io/earthobservations/wetterdienst-app:0.28.0` and `:0.28` exist, and `compose.yml --profile full` (or the
+- [ ] `app/package.json` `version` the next 0.x app version after 0.35.0 (`X.Y.Z` below); `CHANGELOG_APP.md` gets its
+  `## [X.Y.Z] - YYYY-MM-DD` section cut from `[Unreleased]`; `.github/RELEASE_STRATEGY.md` "currently" line for the
+  app; `docs/usage/migrating.md` (the pair sentence in the intro) names `app-vX.Y.Z` with 1.0.0. Land it.
+- [ ] `git tag app-vX.Y.Z && git push origin app-vX.Y.Z` (starts `docker-publish-app.yml`), then
+  `gh release create app-vX.Y.Z --title "App vX.Y.Z" --notes-file <scratch file>` (starts `app-release.yml`, which
+  attaches `app-vX.Y.Z.tar.gz`). The notes say it is paired with backend 1.0.0.
+- [ ] `ghcr.io/earthobservations/wetterdienst-app:X.Y.Z` and `:X.Y` exist, and `compose.yml --profile full` (or the
   `docker run` pair in `docs/usage/app.md`) starts the two images against each other.
 - [ ] Railway deploys from `main` by itself (see "Railway Deployment"); check that `https://wetterdienst.eobs.org`
   shows the backend 1.0.0 in its footer.
