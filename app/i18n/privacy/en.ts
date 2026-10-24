@@ -36,7 +36,7 @@ export const privacy: PrivacyPolicy = {
         'The backend writes one line per request to its container log. It contains the request line with the full URL including the query string, and a timestamp. The query string holds what the request asks for, such as provider, parameters, station IDs and coordinates. The client address shown there is the internal address of the reverse proxy in front of it, not the visitor\'s.',
         'The reverse proxy (Traefik) keeps no access log. The web app\'s server writes next to no logs. Logs are not exported to third parties, and there is no analytics software and no analysis of traffic.',
         'To protect against overload, the web app\'s server counts requests to the data endpoints per client address in memory only, for a short window (five minutes by default). The counters are neither stored nor logged.',
-        'No fixed retention period is configured. The container log lasts until the container is replaced at the next deployment (for example with every release). A size cap on the log set by Docker may apply in addition.',
+        'No fixed retention period is configured. The size of the container log is capped (at most three files of 10 MB per container); when the cap is reached, the oldest lines are overwritten. How long a line is kept therefore depends on traffic. At the latest, the log is deleted when the container is replaced at the next deployment (for example with every release).',
         'The legal basis is Art. 6(1)(f) GDPR. The legitimate interest is the operation and security of the service.',
       ],
     },
