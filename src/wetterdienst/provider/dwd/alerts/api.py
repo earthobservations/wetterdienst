@@ -41,6 +41,7 @@ from wetterdienst.provider.dwd.alerts.metadata import (
 from wetterdienst.provider.dwd.alerts.parser import parse_cap_alert
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
+from wetterdienst.util.archive import check_zip, read_unpacked
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
 from wetterdienst.util.network import download_file, list_remote_directory_fsspec
 
@@ -48,6 +49,10 @@ if TYPE_CHECKING:
     from io import BytesIO
 
 log = logging.getLogger(__name__)
+
+# The most a snapshot may unpack to. The largest unpacks to 35 MB (the multilingual district file, on a quiet day);
+# 256 MiB is seven times that.
+_MAX_UNPACKED_BYTES = 256 * 1024**2
 
 # The alert row columns whose values are nested structures; stored as JSON strings in the DataFrame
 # but returned as native objects by ``to_dict``/``to_ogc_feature_collection``.
@@ -389,7 +394,7 @@ class DwdWeatherAlertRequest:
         if isinstance(content, Exception):  # raised above
             raise content
         try:
-            alerts = self._parse_archive(content)
+            alerts = self._parse_archive(content, url)
             df = self._build_dataframe(alerts)
         except zipfile.BadZipFile as e:
             raise DownloadError(url, "the snapshot is not a valid zip archive") from e
@@ -403,17 +408,20 @@ class DwdWeatherAlertRequest:
         return DwdWeatherAlertResult(df=df, granularity=self.granularity, language=self.language, snapshot=snapshot)
 
     @staticmethod
-    def _parse_archive(content: BytesIO) -> list[dict[str, Any]]:
+    def _parse_archive(content: BytesIO, url: str) -> list[dict[str, Any]]:
         """Parse every CAP XML file inside the snapshot zip into an alert row.
 
-        An empty archive (~22 bytes) means there are currently no active warnings.
+        An empty archive (~22 bytes) means there are currently no active warnings. An archive that unpacks
+        to more than `_MAX_UNPACKED_BYTES` is refused as a `DownloadError` naming ``url``.
         """
         alerts = []
         with zipfile.ZipFile(content) as archive:
+            check_zip(archive, url=url, limit=_MAX_UNPACKED_BYTES)
             for name in archive.namelist():
                 if not name.lower().endswith(".xml"):
                     continue
-                alert = parse_cap_alert(archive.read(name))
+                with archive.open(name) as member:
+                    alert = parse_cap_alert(read_unpacked(member, url=url, limit=_MAX_UNPACKED_BYTES))
                 if alert is not None:
                     alerts.append(alert)
         return alerts

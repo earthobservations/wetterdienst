@@ -11,15 +11,15 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 from zipfile import BadZipFile
 
-from fsspec.implementations.zip import ZipFileSystem
-
 from wetterdienst.exceptions import ProductFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.observation.metadata import DwdObservationMetadata
+from wetterdienst.util.archive import open_zip
 from wetterdienst.util.network import File, download_files
 
 if TYPE_CHECKING:
     import polars as pl
+    from fsspec.implementations.zip import ZipFileSystem
 
     from wetterdienst.model.metadata import DatasetModel
     from wetterdienst.settings import Settings
@@ -104,7 +104,7 @@ def download_climate_observations_data(
 
 def _unpack_climate_observations_data(file: File, dataset: DatasetModel | None = None) -> File:
     try:
-        zfs = ZipFileSystem(file.content)
+        zfs = open_zip(file)
     except BadZipFile as e:
         msg = f"The archive of {file.filename} seems to be corrupted."
         raise BadZipFile(msg) from e

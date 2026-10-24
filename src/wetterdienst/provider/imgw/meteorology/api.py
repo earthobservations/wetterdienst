@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 import polars as pl
 import portion
-from fsspec.implementations.zip import ZipFileSystem
 
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
@@ -22,6 +21,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
 from wetterdienst.provider.imgw.metadata import _METADATA
+from wetterdienst.util.archive import open_zip
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file, download_files
 from wetterdienst.util.polars_util import read_csv_without_header
@@ -636,7 +636,7 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
         file_schema: dict,
     ) -> pl.DataFrame:
         """Parse the meteorological zip file."""
-        zfs = ZipFileSystem(file.content)
+        zfs = open_zip(file)
         data = []
         files = zfs.glob("*")
         for file_pattern, schema in file_schema.items():

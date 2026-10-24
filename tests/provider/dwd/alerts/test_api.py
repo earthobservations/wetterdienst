@@ -32,6 +32,7 @@ from wetterdienst.provider.dwd.alerts.api import _SCHEMA
 from .test_parser import CAP_XML
 
 UTC = ZoneInfo("UTC")
+_URL = "https://opendata.dwd.de/weather/alerts/cap/COMMUNEUNION_DWD_STAT/snapshot.zip"
 
 
 def test_registry_resolves_dwd_alerts() -> None:
@@ -190,7 +191,7 @@ def _make_zip(*files: bytes) -> io.BytesIO:
 
 def test_parse_archive_builds_dataframe() -> None:
     """Verify an archive of CAP files is flattened into the schema-conformant DataFrame."""
-    alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML, CAP_XML))  # noqa: SLF001
+    alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML, CAP_XML), _URL)  # noqa: SLF001
     df = DwdWeatherAlertRequest._build_dataframe(alerts)  # noqa: SLF001
     assert df.height == 2
     assert df.schema == pl.Schema(_SCHEMA)
@@ -206,7 +207,7 @@ def test_parse_archive_builds_dataframe() -> None:
 
 def test_empty_archive_yields_empty_frame() -> None:
     """Verify an empty snapshot (no active warnings) produces an empty, schema-conformant frame."""
-    df = DwdWeatherAlertRequest._build_dataframe(DwdWeatherAlertRequest._parse_archive(_make_zip()))  # noqa: SLF001
+    df = DwdWeatherAlertRequest._build_dataframe(DwdWeatherAlertRequest._parse_archive(_make_zip(), _URL))  # noqa: SLF001
     assert df.is_empty()
     assert df.schema == pl.Schema(_SCHEMA)
 
@@ -254,7 +255,7 @@ def test_query_wraps_bad_zip(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_result_formats_round_trip() -> None:
     """Verify to_dict/to_geojson/to_csv render the parsed alerts consistently."""
-    alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML))  # noqa: SLF001
+    alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML), _URL)  # noqa: SLF001
     df = DwdWeatherAlertRequest._build_dataframe(alerts)  # noqa: SLF001
     snapshot = dt.datetime(2026, 7, 26, 8, 0, tzinfo=UTC)
     result = DwdWeatherAlertResult(df, DwdWeatherAlertGranularity.COMMUNITY, DwdWeatherAlertLanguage.ENGLISH, snapshot)

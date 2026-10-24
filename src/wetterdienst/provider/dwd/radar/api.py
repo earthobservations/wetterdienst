@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, ClassVar, Self, cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from fsspec.implementations.tar import TarFileSystem
 
 from wetterdienst.exceptions import InvalidEnumerationError, MissingDependencyError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -59,6 +58,7 @@ from wetterdienst.provider.dwd.radar.util import (
 )
 from wetterdienst.provider.eumetnet.opera.sites import OperaRadarSites
 from wetterdienst.settings import Settings
+from wetterdienst.util.archive import open_tar, read_unpacked
 from wetterdienst.util.datetime import _parse_datetime_from_formats, raster_minutes, round_minutes
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import download_file
@@ -70,6 +70,10 @@ log = logging.getLogger(__name__)
 
 
 DATETIME_FORMATS = ["%y%m%d%H%M", "%Y%m%d%H%M"]
+
+# The most a radar file may unpack to, or an archive of them hold. The largest is a month of five-minute
+# RADOLAN grids at 0.7 GB, a tar of members that are stored as they are; 2 GiB is three times that.
+_MAX_UNPACKED_BYTES = 2 * 1024**3
 
 
 @dataclass
@@ -602,7 +606,7 @@ class DwdRadarValues:  # noqa: PLW1641
             return
         # RV_REFLECTIVITY, WN_REFLECTIVITY: a tar of one ODIM HDF5 file for every lead time
         if url.endswith(f".{Extension.TAR.value}"):
-            tfs = TarFileSystem(file.content)
+            tfs = open_tar(file.content, url=url, limit=_MAX_UNPACKED_BYTES)
             for file in tfs.glob("*"):
                 try:
                     file_name = file.name
@@ -622,7 +626,7 @@ class DwdRadarValues:  # noqa: PLW1641
 
         elif url.endswith(Extension.BZ2.value):
             with bz2.BZ2File(file.content, mode="rb") as archive:
-                data = BytesIO(archive.read())
+                data = BytesIO(read_unpacked(archive, url=url, limit=_MAX_UNPACKED_BYTES))
                 date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
                 timestamp = None
                 if date_string:
@@ -637,7 +641,7 @@ class DwdRadarValues:  # noqa: PLW1641
         # a gzipped file: the RADVOR products of the earlier layout, which no product is served as now
         elif url.endswith(Extension.GZ.value):
             with gzip.GzipFile(fileobj=file.content, mode="rb") as archive:
-                data = BytesIO(archive.read())
+                data = BytesIO(read_unpacked(archive, url=url, limit=_MAX_UNPACKED_BYTES))
                 date_string = get_date_string_from_filename(url, pattern=RADAR_DT_PATTERN)
                 timestamp = None
                 if date_string:
@@ -674,7 +678,7 @@ class DwdRadarValues:  # noqa: PLW1641
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return
-        for result in self._extract_radolan_data(file.content):
+        for result in self._extract_radolan_data(file.content, url):
             if not result.timestamp:
                 # if result has no timestamp, take it from main url instead of files in archive
                 datetime_string = re.findall(r"\d{10}", url)[0]
@@ -687,11 +691,11 @@ class DwdRadarValues:  # noqa: PLW1641
             yield result
 
     @staticmethod
-    def _extract_radolan_data(archive_in_bytes: BytesIO) -> Iterator[RadarResult]:
+    def _extract_radolan_data(archive_in_bytes: BytesIO, url: str) -> Iterator[RadarResult]:
         """Extract the RADOLAN_CDC data from the archive."""
         # First try to unpack archive from archive (case for historical data)
         try:
-            tfs = TarFileSystem(archive_in_bytes, compression="gzip")
+            tfs = open_tar(archive_in_bytes, url=url, limit=_MAX_UNPACKED_BYTES, compression="gzip")
 
             for file in tfs.glob("*"):
                 datetime_string = re.findall(r"\d{10}", file)[0]
@@ -699,7 +703,7 @@ class DwdRadarValues:  # noqa: PLW1641
                 file_handle = tfs.tar.extractfile(file)
                 if file_handle is None:
                     continue
-                file_in_bytes = file_handle.read()
+                file_in_bytes = read_unpacked(file_handle, url=url, limit=_MAX_UNPACKED_BYTES)
 
                 yield RadarResult(
                     data=BytesIO(file_in_bytes),
@@ -713,7 +717,8 @@ class DwdRadarValues:  # noqa: PLW1641
             # Seek again for reused purpose
             archive_in_bytes.seek(0)
             with gzip.GzipFile(fileobj=archive_in_bytes, mode="rb") as gz_file:
-                yield RadarResult(data=BytesIO(gz_file.read()), timestamp=None, filename=gz_file.name or "")
+                data = read_unpacked(gz_file, url=url, limit=_MAX_UNPACKED_BYTES)
+                yield RadarResult(data=BytesIO(data), timestamp=None, filename=gz_file.name or "")
 
 
 # help() and IPython read the arguments off __init__ rather than the variadic refusal, as on TimeseriesRequest

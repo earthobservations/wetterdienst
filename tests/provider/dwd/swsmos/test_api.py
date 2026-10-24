@@ -22,6 +22,7 @@ from wetterdienst.provider.dwd.swsmos.api import _LATEST_FILE, DwdForecastDate, 
 from wetterdienst.util.network import File
 
 UTC = ZoneInfo("UTC")
+_RUN_URL = _run_url(dt.datetime(2026, 7, 31, 7, tzinfo=UTC))
 
 
 def test_read_run_csv_drops_run_timestamp_line() -> None:
@@ -32,7 +33,7 @@ def test_read_run_csv_drops_run_timestamp_line() -> None:
         b"A006;54.889156;8.908735;202607310800;17.9;1;24.2\n"
         b"A006;54.889156;8.908735;202607310900;17.6;2;25.1\n"
     )
-    df = _read_run_csv(bz2.compress(raw))
+    df = _read_run_csv(bz2.compress(raw), _RUN_URL)
     assert df.columns == ["ID", "Lat", "Lon", "YYYYMMDDHHmm", "TL", "RC", "TS"]
     assert df.height == 2  # only the two data rows, not the run-timestamp line
     assert df["TL"].to_list() == ["17.9", "17.6"]
@@ -40,7 +41,7 @@ def test_read_run_csv_drops_run_timestamp_line() -> None:
 
 def test_read_run_csv_too_short() -> None:
     """A file without any data rows yields an empty frame rather than raising."""
-    assert _read_run_csv(bz2.compress(b"ID;TL\n202607310700\n")).is_empty()
+    assert _read_run_csv(bz2.compress(b"ID;TL\n202607310700\n"), _RUN_URL).is_empty()
 
 
 def test_run_url() -> None:
@@ -192,7 +193,7 @@ def test_swsmos_parses_the_run_once_for_all_its_stations(monkeypatch: pytest.Mon
         lambda **kwargs: File(url=kwargs["url"], content=BytesIO(content), status=200),
     )
     _read_run_csv_original = api._read_run_csv  # noqa: SLF001
-    monkeypatch.setattr(api, "_read_run_csv", lambda c: parses.append(1) or _read_run_csv_original(c))
+    monkeypatch.setattr(api, "_read_run_csv", lambda c, u: parses.append(1) or _read_run_csv_original(c, u))
 
     values = _stub_stations(("A006", "B999", "C111")).values()
     dataset = DwdSwsmosRequest.metadata["hourly"]["data"]
