@@ -310,6 +310,10 @@ const items = computed<NavigationMenuItem[]>(() =>
           <NuxtLink to="/impressum" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
             {{ t('footer.legal') }}
           </NuxtLink>
+          <span class="hidden sm:inline text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
+          <NuxtLink to="/datenschutz" class="text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors">
+            {{ t('footer.privacy') }}
+          </NuxtLink>
         </div>
         <!-- The stance closes the footer, as it closes the home page, and on a line of its own so
              it reads as a statement rather than as more entries in a link list. -->

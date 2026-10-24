@@ -9,12 +9,12 @@ import { expect, test } from '@playwright/test'
 // page is when it scrolls sideways.
 //
 // The pages need no data to lay out their chrome, so this reads the home, explorer, stripes,
-// meteogram, history, glossary, providers, settings, API, about, support and impressum pages as they come.
+// meteogram, history, glossary, providers, settings, API, about, support, impressum and datenschutz pages as they come.
 //
 // Each page is loaded once and measured at both widths.
 
 const LONG_LANGUAGES = ['de', 'nl', 'lb', 'cs'] as const
-const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum']
+const PAGES = ['/', '/explorer', '/stripes', '/meteogram', '/history', '/glossary', '/providers', '/providers/dwd', '/settings', '/api', '/about', '/support', '/impressum', '/datenschutz']
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 800 },
   { name: 'phone', width: 320, height: 844 },

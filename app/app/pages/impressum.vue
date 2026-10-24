@@ -4,23 +4,10 @@ const { t } = useI18n()
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('impressum.title') })
 
-// Operator / provider details required by § 5 DDG (formerly § 5 TMG) and the
-// person responsible for editorial content per § 18 (2) MStV.
-//
-// A German Impressum legally requires a full name, a postal address that can
-// receive mail (no P.O. box), and a way to contact you quickly. A phone number
-// is optional — § 5 DDG only requires a means of "quick electronic contact",
-// which the email below satisfies, so no phone is published here.
-const operator = {
-  name: 'Benjamin Gutzmann',
-  street: 'Falkenbergsweg 26',
-  city: '21149 Hamburg',
-  country: 'Deutschland',
-  email: 'benjamin@eobs.org',
-  github: 'gutzbenj',
-}
+// The operator is written once, in ~/utils/operator.ts: the privacy policy names the same person.
+const operator = OPERATOR
 
-// Flip to false once the placeholders above have been replaced, to hide the
+// False once the placeholders of the operator have been replaced, which hides the
 // operator reminder banner.
 const hasPlaceholders = computed(() =>
   Object.values(operator).some(v => typeof v === 'string' && v.includes('«')),
