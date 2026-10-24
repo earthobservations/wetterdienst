@@ -7671,9 +7671,12 @@ def test_debug_is_refused_and_leaves_the_log_level_alone(
     assert log.level == logging.WARNING
 
 
+@pytest.mark.parametrize("extra", [{}, {"bogus": "x"}], ids=["alone", "beside-unknown"])
 @pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
-def test_mcp_debug_is_refused_and_leaves_the_log_level_alone(monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
-    """Every tool refuses `debug` with what to do instead, even beside an argument it does not know (GH-3336)."""
+def test_mcp_debug_is_refused_and_leaves_the_log_level_alone(
+    monkeypatch: pytest.MonkeyPatch, tool: str, extra: dict[str, str]
+) -> None:
+    """Every tool refuses `debug` with what to do instead, alone or beside an argument it does not know (GH-3336)."""
     pytest.importorskip("fastmcp")
     import asyncio  # noqa: PLC0415
 
@@ -7690,10 +7693,12 @@ def test_mcp_debug_is_refused_and_leaves_the_log_level_alone(monkeypatch: pytest
 
     async def _call() -> None:
         async with Client(mcp) as client:
-            await client.call_tool(tool, {"debug": True, "bogus": "x"})
+            await client.call_tool(tool, {"debug": True, **extra})
 
     removed = r"debug was removed: a request no longer sets the log level of the server, .*Python logger `wetterdienst`"
-    with pytest.raises(ToolError, match=rf"^{removed}.*; bogus is not an argument of {tool}, which takes "):
+    removed += r" in the process that hosts the server"
+    unknown = rf"; bogus is not an argument of {tool}, which takes " if extra else "$"
+    with pytest.raises(ToolError, match=rf"^{removed}{unknown}"):
         asyncio.run(_call())
     assert log.level == logging.WARNING
 

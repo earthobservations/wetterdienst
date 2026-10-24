@@ -315,11 +315,11 @@ learnt on one holds on the others:
   (`station was renamed to stations`). A parameter of one value is singular: the one reference
   `station` of `interpolate` and `summarize`, the `station` of `issues` and `stripes`, the
   `parameter` text `glossary` looks for.
-- **A request does not set the log level.** `debug` was a parameter of every endpoint that set the level of the
-  logger of the whole server process, for every caller; it is refused with a 422 that says it was removed. The
-  operator sets the level, in the process that hosts the app, as for any Python logger:
-  `logging.getLogger("wetterdienst").setLevel(logging.DEBUG)`. The MCP tools, which are these endpoints, refuse
-  it the same way; the command line keeps its own `--debug`.
+- **A request does not set the log level.** `debug` was a parameter of every data endpoint (not `version`,
+  `settings` and `health`) that set the level of the logger of the whole server process, for every caller;
+  it is refused with a 422 that says it was removed. The operator sets the level, in the process that
+  hosts the app, as for any Python logger: `logging.getLogger("wetterdienst").setLevel(logging.DEBUG)`.
+  The MCP tools, which are these endpoints, refuse it the same way; the command line keeps its own `--debug`.
 - **A list is comma-separated**, `stations=01048,04411` and `--stations=01048,04411`, which is how
   the OpenAPI document describes it (`explode: false`). The key given more than once,
   `stations=01048&stations=04411`, is read as the same list, and is not documented. The command line
