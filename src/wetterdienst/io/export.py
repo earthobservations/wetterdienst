@@ -790,6 +790,11 @@ class ExportMixin:
                     password=connspec.password,
                     database=database,
                     ssl=protocol.endswith("s"),
+                    # the client's own default is not to check the server's certificate, which left the
+                    # `s` of the scheme promising a TLS that anyone on the path could stand in for. True
+                    # is what `requests` reads `REQUESTS_CA_BUNDLE` for, so a certificate of one's own
+                    # is trusted by naming its CA there, not by switching the check off (GH-3342)
+                    verify_ssl=True,
                 )
                 client_v1.create_database(database)
             elif version == 2:
