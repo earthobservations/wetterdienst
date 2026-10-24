@@ -7658,7 +7658,7 @@ def test_debug_is_refused_and_leaves_the_log_level_alone(
     """
     monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
-    log = logging.getLogger("wetterdienst.ui.core")  # the logger `set_logging_level` set
+    log = logging.getLogger("wetterdienst")  # the logger `set_logging_level` sets (GH-3388)
     monkeypatch.setattr(log, "level", logging.WARNING)
 
     response = client.get(f"/api/{_debug_path(tool)}", params={"debug": "true"})
@@ -7667,6 +7667,7 @@ def test_debug_is_refused_and_leaves_the_log_level_alone(
     (error,) = response.json()["errors"]
     assert (error["type"], error["loc"], error["input"]) == ("removed", ["query", "debug"], "true")
     assert error["msg"].startswith("debug was removed: ")
+    assert "`wetterdienst restapi --debug`" in error["msg"]
     assert "Python logger `wetterdienst`" in error["msg"]
     assert log.level == logging.WARNING
 
@@ -7687,7 +7688,7 @@ def test_mcp_debug_is_refused_and_leaves_the_log_level_alone(
 
     monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
-    log = logging.getLogger("wetterdienst.ui.core")  # the logger `set_logging_level` set
+    log = logging.getLogger("wetterdienst")  # the logger `set_logging_level` sets (GH-3388)
     monkeypatch.setattr(log, "level", logging.WARNING)
     mcp = build_mcp_server(restapi.app)
 
@@ -7695,8 +7696,11 @@ def test_mcp_debug_is_refused_and_leaves_the_log_level_alone(
         async with Client(mcp) as client:
             await client.call_tool(tool, {"debug": True, **extra})
 
-    removed = r"debug was removed: a request no longer sets the log level of the server, .*Python logger `wetterdienst`"
-    removed += r" in the process that hosts the server"
+    removed = (
+        r"debug was removed: a request no longer sets the log level of the server, .*`wetterdienst restapi --debug`"
+    )
+    removed += r".*Python logger `wetterdienst`"
+    removed += r" in the process that hosts it"
     unknown = rf"; bogus is not an argument of {tool}, which takes " if extra else "$"
     with pytest.raises(ToolError, match=rf"^{removed}{unknown}"):
         asyncio.run(_call())

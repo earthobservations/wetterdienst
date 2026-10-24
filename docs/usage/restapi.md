@@ -317,9 +317,12 @@ learnt on one holds on the others:
   `parameter` text `glossary` looks for.
 - **A request does not set the log level.** `debug` was a parameter of every data endpoint (not `version`,
   `settings` and `health`) that set the level of the logger of the whole server process, for every caller;
-  it is refused with a 422 that says it was removed. The operator sets the level, in the process that
-  hosts the app, as for any Python logger: `logging.getLogger("wetterdienst").setLevel(logging.DEBUG)`.
-  The MCP tools, which are these endpoints, refuse it the same way; the command line keeps its own `--debug`.
+  it is refused with a 422 that says it was removed. The operator sets the level: `wetterdienst restapi --debug`
+  starts the server with the debug lines of the package (the downloads, the parsing and the dropped columns of
+  every provider) in its log, and an app hosted by another server sets it as for any Python logger,
+  `logging.getLogger("wetterdienst").setLevel(logging.DEBUG)`. The loggers of other packages stay as they
+  are. `--debug` does not reach the worker that `--reload` starts. The MCP tools, which are these endpoints,
+  refuse `debug` the same way; the command line keeps its own `--debug`.
 - **A list is comma-separated**, `stations=01048,04411` and `--stations=01048,04411`, which is how
   the OpenAPI document describes it (`explode: false`). The key given more than once,
   `stations=01048&stations=04411`, is read as the same list, and is not documented. The command line
