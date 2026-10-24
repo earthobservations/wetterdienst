@@ -32,7 +32,6 @@ The request id, the host check, the cap on requests served at once, the request 
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING
 
 from starlette.datastructures import Headers, MutableHeaders
@@ -49,6 +48,7 @@ from wetterdienst.ui.problems import (
     set_request_id,
 )
 from wetterdienst.util.hosts import host_of_header, host_of_origin, is_allowed
+from wetterdienst.util.logging import get_one_line_logger
 
 if TYPE_CHECKING:
     from starlette.responses import JSONResponse
@@ -56,7 +56,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.ui.deprecation import Deprecation
 
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 #: the routes the timeout and the cap hold for: the API, not the index, the health check or the MCP transport
 #: (`/mcp/v1` and its alias `/mcp`); the tools call the API in process, so their requests are held to them

@@ -17,7 +17,6 @@ handlers which already raise one keep working; one that names no kind has the ki
 
 from __future__ import annotations
 
-import logging
 import re
 import uuid
 from contextvars import ContextVar
@@ -29,13 +28,15 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException
 from starlette.responses import JSONResponse
 
+from wetterdienst.util.logging import get_one_line_logger
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from starlette.exceptions import HTTPException as StarletteHTTPException
     from starlette.types import Scope
 
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 #: the header a request id is sent in, and read from
 REQUEST_ID_HEADER = "X-Request-ID"

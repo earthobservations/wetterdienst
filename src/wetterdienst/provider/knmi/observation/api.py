@@ -37,6 +37,8 @@ from wetterdienst.settings import reveal
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.network import (
     CREDENTIAL_REJECTED_STATUSES,
+    _without_url_secrets,
+    _without_url_secrets_in,
     as_outage,
     credential_rejected,
     download_file,
@@ -76,11 +78,6 @@ _RETRY_MAX_RETRIES = 2
 
 class _KnmiRetryableError(Exception):
     """Internal signal used to trigger a stamina retry on a retryable KNMI failure."""
-
-
-def _redact(url: str) -> str:
-    """Drop the query string so a pre-signed S3 download URL's signature never lands in logs."""
-    return url.split("?", 1)[0]
 
 
 def _filename_for(resolution: Resolution, moment: dt.datetime) -> str:
@@ -186,10 +183,10 @@ def _download_with_retry(url: str, settings: Settings, ttl: CacheExpiry, *, clie
                     and last_file.status not in _NON_RETRYABLE_STATUSES
                 ):
                     log.warning(
-                        f"Retryable KNMI failure (status={last_file.status}) for {_redact(url)}: "
-                        f"{last_file.content}; retrying",
+                        f"Retryable KNMI failure (status={last_file.status}) for {_without_url_secrets(url)}: "
+                        f"{_without_url_secrets_in(str(last_file.content))}; retrying",
                     )
-                    raise _KnmiRetryableError(_redact(url))
+                    raise _KnmiRetryableError(_without_url_secrets(url))
     if last_file is None:
         msg = "unreachable: stamina.retry_context always runs at least once"
         raise AssertionError(msg)
@@ -243,6 +240,10 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     station, so the content download is a cache hit -- one download per file per query run
     instead of one per station. The TTL is short because the pre-signed URL expires after an
     hour; files are immutable, so a cache hit is always valid.
+
+    The pre-signed URL is a secret for the hour it lasts: it is in the local cache (the resolve response
+    holds it, and the metadata file names the download by it), and in no log line and no error, which show
+    it without its query (GH-3341). fsspec's own debug line of a request is not ours to change.
     """
     resolve_url = f"{_BASE_URL}/datasets/{dataset_name}/versions/{version}/files/{filename}/url"
     client_kwargs = {
@@ -309,7 +310,10 @@ class KnmiObservationValues(TimeseriesValues):
             if isinstance(payload, Exception):
                 # a single missing timestamp (a 404) or one that KNMI refused (a 429, an answer)
                 # shouldn't sink the whole range
-                log.warning(f"Failed to acquire KNMI data for station {station_id}, file {filename}: {payload}")
+                log.warning(
+                    f"Failed to acquire KNMI data for station {station_id}, file {filename}: "
+                    f"{_without_url_secrets_in(str(payload))}"
+                )
                 continue
             df = parse_knmi_netcdf(payload, station_id, parameter_names, _stamp(moment, resolution))
             if not df.is_empty():
@@ -412,7 +416,7 @@ class KnmiObservationRequest(TimeseriesRequest):
         if isinstance(payload, _UNANSWERED):
             raise payload
         if isinstance(payload, Exception):
-            log.warning(f"Failed to fetch KNMI {resolution.value} stations: {payload}")
+            log.warning(f"Failed to fetch KNMI {resolution.value} stations: {_without_url_secrets_in(str(payload))}")
             return None
 
         h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")

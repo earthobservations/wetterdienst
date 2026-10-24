@@ -49,6 +49,7 @@ from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer,
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
     )
     from wetterdienst.settings import Settings
 
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 # Field type aliases with descriptions, shared across the request models below. The descriptions
 # surface in the REST API's OpenAPI schema and, via it, in the MCP tool parameters, so a single

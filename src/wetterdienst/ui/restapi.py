@@ -7,7 +7,6 @@ from __future__ import annotations
 import contextvars
 import itertools
 import json
-import logging
 import math
 import os
 import re
@@ -167,6 +166,7 @@ from wetterdienst.util.cli import setup_logging
 from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
+from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 if TYPE_CHECKING:
@@ -327,7 +327,7 @@ app.add_middleware(RequestContextMiddleware)
 # and an MCP endpoint has been mounted onto ``app`` at ``MCP_PREFIX`` and ``MCP_ALIAS_PREFIX``. Read by the index page.
 mcp_enabled = False
 
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 
 REQUEST_EXAMPLES = {

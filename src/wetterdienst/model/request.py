@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
-import logging
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
@@ -65,6 +64,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.datetime import parse_date_window
 from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.extras import import_optional
+from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
@@ -73,7 +73,7 @@ if TYPE_CHECKING:
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.values import TimeseriesValues
     from wetterdienst.options import Options
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 EARTH_RADIUS_KM = 6371
 

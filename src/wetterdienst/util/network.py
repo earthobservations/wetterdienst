@@ -156,6 +156,72 @@ def _without_url_secrets(url: str) -> str:
     return f"{scheme}://{authority}{slash}{path}"
 
 
+#: A URL inside a text: up to the next space, quote or closing bracket, without the punctuation that ends a sentence.
+_URL_IN_TEXT = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>)\]]*[^\s'\"<>)\].,:;]")
+
+
+def _without_url_secrets_in(text: str) -> str:
+    """Give back a text with every URL in it as `_without_url_secrets` shows it, for a message that is logged."""
+    return _URL_IN_TEXT.sub(lambda match: _without_url_secrets(match.group()), text)
+
+
+def _without_query_of_response_error(error: ClientResponseError) -> None:
+    """Take the query out of the URLs a `ClientResponseError` renders: those of its request and of its redirects."""
+    request_info = error.request_info
+    if request_info is not None:
+        scrubbed = request_info._replace(
+            url=request_info.url.with_query(None).with_fragment(None),
+            real_url=request_info.real_url.with_query(None).with_fragment(None),
+        )
+        if scrubbed != request_info:
+            error.request_info = scrubbed
+            if error.args and error.args[0] is request_info:
+                error.args = (scrubbed, *error.args[1:])
+    # the responses of a redirect chain render their url and headers (`Location` among them), query included; dropped
+    # as `_without_credentials` does, since the status already says that the request was redirected
+    if error.history:
+        error.history = ()
+        if len(error.args) > 1 and error.args[1]:
+            error.args = (error.args[0], (), *error.args[2:])
+
+
+def _without_url_in_arg(arg: object) -> object:
+    """Give back an argument of an error without the query of the URL it is or holds, if it is text or a `yarl.URL`."""
+    if isinstance(arg, str):
+        return _without_url_secrets_in(arg)
+    with_query = getattr(arg, "with_query", None)
+    if callable(with_query):
+        return with_query(None).with_fragment(None)
+    return arg
+
+
+def _without_url_queries(error: _E) -> _E:
+    """Take the query of the URL out of an error, where `str()` and `repr()` render it.
+
+    A pre-signed URL carries its signature in the query, and the error of a download renders the URL it was
+    made for: `FileNotFoundError` is the URL itself, and a `ClientResponseError` ends with `url=...`, in its
+    request info as well as in the `repr` that stamina logs for a retry (GH-3341). The error is changed in
+    place and handed back, as `_without_credentials` does.
+    """
+    if isinstance(error, ClientResponseError):
+        _without_query_of_response_error(error)
+        return error
+    args = tuple(_without_url_in_arg(arg) for arg in error.args)
+    if args != error.args:
+        error.args = args
+    # the errors that render an attribute instead of their args: an `OSError` its `filename`, aiohttp's invalid-URL
+    # errors their `_url`, which is a string or a `yarl.URL`
+    filename = getattr(error, "filename", None)
+    if isinstance(filename, str):
+        setattr(error, "filename", _without_url_secrets_in(filename))  # noqa: B010
+    url = getattr(error, "_url", None)
+    if isinstance(url, str):
+        setattr(error, "_url", _without_url_secrets_in(url))  # noqa: B010
+    elif hasattr(url, "with_query"):
+        setattr(error, "_url", url.with_query(None).with_fragment(None))  # noqa: B010
+    return error
+
+
 def _download_error(error: Exception, url: str) -> DownloadError:
     """Say which file a download failed for, and why.
 
@@ -1420,6 +1486,7 @@ def list_remote_files_fsspec(
 
 def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[str]:
     """Attempt ``list_remote_files_fsspec`` once; the caller asks again where the policy says so."""
+    shown = _without_url_secrets(url)
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
         use_listings_cache=use_cache,
@@ -1450,7 +1517,7 @@ def _list_files_once(url: str, settings: Settings, cache_expiry: CacheExpiry) ->
         # `HTTPS_PROXY`, and its traceback frames hold the request as locals. Raised below, outside
         # this block, because raising in it would set the aiohttp error as `__context__`, which
         # `from None` hides from a printed traceback but not from anything that walks the chain
-        log.info(f"Failed to list {url}.")
+        log.info(f"Failed to list {shown}.")
         tls_failure = _bare_tls_failure(e)
     except ClientConnectorError as e:
         # being offline: a refusing proxy or host, a DNS failure, a reset during the connect. Not an
@@ -1501,6 +1568,7 @@ def list_remote_directory_fsspec(
 
 def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[dict]:
     """Attempt ``list_remote_directory_fsspec`` once; the caller asks again where the policy says so."""
+    shown = _without_url_secrets(url)
     use_cache = not (settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE)
     fs = HTTPFileSystem(
         use_listings_cache=use_cache,
@@ -1517,7 +1585,7 @@ def _list_directory_once(url: str, settings: Settings, cache_expiry: CacheExpiry
         # is raised as the bare `ssl.SSLError` underneath rather than let out as the aiohttp error,
         # whose repr renders the password of a proxy named in `HTTPS_PROXY`. Raised below, outside this
         # block, so `e` is not its `__context__`
-        log.info(f"Failed to list {url}.")
+        log.info(f"Failed to list {shown}.")
         failure = _bare_tls_failure(e)
     except ClientConnectorError as e:
         # any other connector failure -- a refusing proxy, a DNS failure, a reset during the connect --
@@ -1580,7 +1648,9 @@ def download_file(
     # `_mkcache` can raise on a read-only cache dir, no handler below catches that, and for a
     # credentialed request `_without_credentials` drops the traceback -- so without this the caller
     # gets a `PermissionError` naming neither the file nor the request
-    log.debug(f"Fetching file {url}")
+    # a url is logged without its query: a pre-signed one carries its signature there (GH-3341)
+    shown = _without_url_secrets(url)
+    log.debug(f"Fetching file {shown}")
     # knmi sends its API key, metno frost its basic auth and metoffice its bearer token this way,
     # and aiohttp merges those headers into the request info it hangs on an error
     sent_credentials = _sends_credentials(client_kwargs)
@@ -1611,7 +1681,7 @@ def download_file(
                     # attempt, so a retry that goes to the network after a cached read failed reads
                     # as the two different things it is
                     log.info(
-                        f"Reading file {url} from cache" if served_from_cache else f"Downloading file {url}",
+                        f"Reading file {shown} from cache" if served_from_cache else f"Downloading file {shown}",
                     )
                     payload = filesystem.cat_file(url)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
@@ -1619,7 +1689,7 @@ def download_file(
                     # ``repr(caused_by)`` on the first failure -- and that repr renders the request
                     # info, header and all, before any of the handlers below are reached
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
-                log.info(f"Read file {url} from cache" if served_from_cache else f"Downloaded file {url}")
+                log.info(f"Read file {shown} from cache" if served_from_cache else f"Downloaded file {shown}")
                 return File(url=url, content=BytesIO(payload), status=200, from_cache=served_from_cache)
     except Exception as e:
         failed = _failed_file(url, e, sent_credentials=sent_credentials)
@@ -1638,11 +1708,12 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
     asks it too, so that the same failure is the same error whichever of them met it. None for what is no failed
     download: a programming error, which is raised as it is.
     """
+    shown = _without_url_secrets(url)
     if isinstance(error, FileNotFoundError):
-        log.info(f"Failed to download file {url}.")
+        log.info(f"Failed to download file {shown}.")
         return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=404)
     if isinstance(error, FSTimeoutError):
-        log.info(f"Failed to download file {url}.")
+        log.info(f"Failed to download file {shown}.")
         return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=408)
     if isinstance(error, ClientSSLError):
         # a certificate that does not verify, or a TLS protocol failure such as an alert: the host
@@ -1652,17 +1723,17 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
         # not `e`: that holds the connection key, which renders the password of a proxy named in
         # `HTTPS_PROXY` in its repr. And it is stored without its traceback, whose frames hold the
         # request -- its headers and the proxy's credentials -- as locals
-        log.info(f"Failed to download file {url}.")
+        log.info(f"Failed to download file {shown}.")
         return File(
             url=url,
             content=error.os_error.with_traceback(None),
             status=500,
         )
     if isinstance(error, ClientConnectorError):
-        log.info(f"No internet connection while downloading file {url}.")
+        log.info(f"No internet connection while downloading file {shown}.")
         return File(url=url, content=_no_internet_error(url, error), status=503)
     if isinstance(error, ClientResponseError):
-        log.info(f"Failed to download file {url}.")
+        log.info(f"Failed to download file {shown}.")
         return File(
             url=url,
             content=_without_credentials(error, sent_credentials=sent_credentials),
@@ -1673,12 +1744,12 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
         # keep-alive connection (ServerDisconnectedError), a reset, too many redirects. Caught as
         # the base class so that none of them leaves by way of a traceback through this frame, where
         # the caller's client kwargs, credentials included, are a local
-        log.info(f"Failed to download file {url}.")
+        log.info(f"Failed to download file {shown}.")
         return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=500)
     if isinstance(error, TimeoutError):
         # the builtin one, which a whole-request timeout of the client raises as it is (`ServerTimeoutError`, a
         # `ClientError`, is the one above)
-        log.info(f"Failed to download file {url}.")
+        log.info(f"Failed to download file {shown}.")
         return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=408)
     return None
 
@@ -1717,7 +1788,7 @@ def drop_cached_file(
             return
         filesystem.pop_from_cache(url)
     except Exception:  # noqa: BLE001 -- best effort, the entry expires on its own
-        log.debug("Could not drop %s from the cache", url, exc_info=False)
+        log.debug("Could not drop %s from the cache", _without_url_secrets(url), exc_info=False)
 
 
 def _header_value(value: object) -> str:
@@ -1767,7 +1838,8 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
       reporter capturing frame locals sends.
 
     The error is handed back to a caller to log, raise or store, so both are dealt with before it
-    travels. The traceback is dropped only for a request that carried credentials: for every other
+    travels. The query of the URL it names goes too, wherever the error renders it
+    (`_without_url_queries`). The traceback is dropped only for a request that carried credentials: for every other
     one it is worth more than it costs.
 
     A third place is the connection key of a ``ClientConnectorError``, which holds the password of
@@ -1779,6 +1851,7 @@ def _without_credentials(error: _E, *, sent_credentials: bool) -> _E:
     response error whose request info holds one is scrubbed, and its traceback dropped, whatever
     ``sent_credentials`` says (GH-2592).
     """
+    error = _without_url_queries(error)
     if isinstance(error, ClientConnectorError):
         error = _without_proxy_credentials(error)
     if sent_credentials:
@@ -1917,7 +1990,8 @@ def post_file(
             response.raise_for_status()
             return response.status, await response.read()
 
-    log.info(f"Posting to {url}")
+    shown = _without_url_secrets(url)
+    log.info(f"Posting to {shown}")
     try:
         # fsspec keeps one filesystem instance -- and so one aiohttp session and its keep-alive
         # pool -- for the life of the process, where a token is minted days apart. The first attempt
@@ -1936,32 +2010,32 @@ def post_file(
                     # header this function just built. This is the only thing keeping it out of the
                     # retry log
                     raise _without_credentials(e, sent_credentials=sent_credentials) from None
-                log.info(f"Posted to {url}")
+                log.info(f"Posted to {shown}")
                 return File(url=url, content=BytesIO(payload), status=status)
         msg = "unreachable"
         raise AssertionError(msg)
     except ClientResponseError as e:
-        log.info(f"Failed to post to {url}.")
+        log.info(f"Failed to post to {shown}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=e.status or 500)
     except ClientSSLError as e:
         # not being offline, and stored as the error underneath: see `download_file`
-        log.info(f"Failed to post to {url}.")
+        log.info(f"Failed to post to {shown}.")
         return File(
             url=url,
             content=e.os_error.with_traceback(None),
             status=500,
         )
     except ClientConnectorError as e:
-        log.info(f"No internet connection while posting to {url}.")
+        log.info(f"No internet connection while posting to {shown}.")
         return File(url=url, content=_no_internet_error(url, e), status=503)
     except (FSTimeoutError, TimeoutError) as e:
-        log.info(f"Failed to post to {url}.")
+        log.info(f"Failed to post to {shown}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=408)
     except ClientError as e:
         # every other aiohttp client failure -- a dropped keep-alive connection
         # (ServerDisconnectedError), a reset, a broken payload. Caught as the base class rather than
         # named one by one, because the promise made above is that a failure comes back as a File.
-        log.info(f"Failed to post to {url}.")
+        log.info(f"Failed to post to {shown}.")
         return File(url=url, content=_without_credentials(e, sent_credentials=sent_credentials), status=500)
 
 

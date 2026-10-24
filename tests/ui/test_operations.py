@@ -1147,6 +1147,35 @@ def test_a_request_past_the_cap_is_a_503_that_says_to_retry(monkeypatch: pytest.
     assert [response.status_code for response in served] == [400, 400]
 
 
+def test_the_path_of_a_refused_request_stays_on_one_line_of_the_log(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`%0A` in a path is decoded to a newline before the server sees it, and the log writes it out (GH-3336)."""
+    monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "1")
+    release, begun, _ended = _blocking_values(monkeypatch)
+
+    async def run() -> Any:  # noqa: ANN401
+        async with _async_client() as client:
+            first = asyncio.ensure_future(client.get("/api/v1/values", params=_VALUES))
+            await _until(lambda: len(begun) == 1 or first.done(), "handler of the request being served")
+            busy = await client.get("/api/v1/values%0A2026-10-23%2012:00:00,000%20ERROR%20:%20FORGED")
+            release.set()
+            await first
+            return busy
+
+    try:
+        with caplog.at_level("WARNING", logger="wetterdienst.ui.middleware"):
+            busy = asyncio.run(run())
+    finally:
+        release.set()
+
+    assert busy.status_code == 503
+    refused = [record.getMessage() for record in caplog.records if "refused" in record.getMessage()]
+    assert len(refused) == 1
+    assert "\n" not in refused[0]
+    assert "/api/v1/values\\n2026-10-23 12:00:00,000 ERROR : FORGED" in refused[0]
+
+
 def test_a_cap_of_zero_is_no_cap(monkeypatch: pytest.MonkeyPatch) -> None:
     """0 switches the cap off: more requests than the default cap are all served."""
     monkeypatch.setenv("WD_RESTAPI_MAX_CONCURRENT", "0")
