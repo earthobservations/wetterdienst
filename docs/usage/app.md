@@ -60,6 +60,9 @@ docker compose --profile backend up    # the backend alone
 docker compose --profile app up        # the app alone
 ```
 
+The ports are published on `127.0.0.1`; `WETTERDIENST_BIND_HOST=0.0.0.0` in front of the command
+opens them to the network, see [Docker](docker.md#docker-compose).
+
 Without Docker, the backend is `wetterdienst restapi` (it listens on port 7890) and the app is run with Node 24 and
 pnpm from the `app` directory (`pnpm install`, then `pnpm dev` for a development server or `pnpm build` and
 `pnpm preview`):

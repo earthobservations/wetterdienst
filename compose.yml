@@ -15,7 +15,8 @@ services:
       # Common development env overrides; can be overridden in .env
       - PYTHONUNBUFFERED=1
     ports:
-      - "7890:7890"
+      # on this machine only; WETTERDIENST_BIND_HOST=0.0.0.0 (shell or .env) opens it to the network
+      - "${WETTERDIENST_BIND_HOST:-127.0.0.1}:7890:7890"
     develop:
       watch:
         - path: src/wetterdienst
@@ -41,7 +42,8 @@ services:
       - CI=true
       - NUXT_PUBLIC_API_BASE=http://backend:7890/api
     ports:
-      - "4000:4000"
+      # a dev server with Nuxt DevTools: on this machine only, see the backend
+      - "${WETTERDIENST_BIND_HOST:-127.0.0.1}:4000:4000"
     develop:
       watch:
         - path: app/package.json

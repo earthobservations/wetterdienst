@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `compose.yml` publishes the ports of the backend (7890) and the app (4000) on `127.0.0.1`, no
+  longer on every interface of the host, so `docker compose up` is not reachable from the network.
+  To reach it from another machine, set `WETTERDIENST_BIND_HOST=0.0.0.0` (or a host address) in
+  the shell or in `.env`; a `compose.override.yml` that maps ports gives the address itself
+  (GH-3096)
+
 ## [0.174.0] - 2026-10-24
 
 ### Changed

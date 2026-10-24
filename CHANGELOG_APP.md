@@ -23,6 +23,11 @@ Types of changes:
   German locales and in English for every other language, and names the logs, the cookie and
   local storage, and the third parties the map and the About page load images from (GH-3402)
 
+### Changed
+
+- `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
+  `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
+
 ## [0.35.0] - 2026-10-24
 
 ### Fixed
