@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,6 +12,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
+from multidict import CIMultiDict
 
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -19,6 +21,7 @@ from wetterdienst.util.network import (
     HTTPFileSystem,
     RedirectRefusedError,
     _check_redirect,
+    _session_is_keyless,
     download_file,
     fetchable_link,
     list_remote_files_fsspec,
@@ -130,7 +133,7 @@ def test_a_redirect_to_another_host_is_not_followed(two_servers: tuple[_Server, 
     assert status == 500
     assert isinstance(content, RedirectRefusedError)
     assert second.seen == []
-    assert "localhost" not in str(content)
+    assert "(localhost)" in str(content)
 
 
 def test_a_redirect_that_the_download_met_is_a_download_error(
@@ -148,14 +151,76 @@ def _redirect(url: str, location: str) -> SimpleNamespace:
     return SimpleNamespace(url=url, headers={"Location": location})
 
 
-def test_a_step_down_from_https_to_http_is_refused() -> None:
-    """A redirect from https to http would send the request, and any key, in clear."""
+@pytest.mark.parametrize("name", ["api_key", "Authorization", "X-Api-Key", "Cookie"])
+def test_a_step_down_from_https_to_http_is_refused_for_a_request_that_carries_a_credential(name: str) -> None:
+    """A request that carries a credential is not led from https to http; the hop is named by host, not by query."""
+    with pytest.raises(RedirectRefusedError, match=r"https to http \(opendata.example.es\)") as refused:
+        _check_redirect(
+            _redirect("https://opendata.example.es/a", "http://opendata.example.es/b?sig=secret"),  # ty: ignore[invalid-argument-type]
+            {name: KEY},
+            "https://opendata.example.es/a",
+            allow_downgrade=True,
+        )
+    assert "secret" not in str(refused.value)
+
+
+def test_a_step_down_from_https_to_http_is_refused_unless_the_session_allows_it() -> None:
+    """The session says whether it holds no credential at all, and the step is refused where it does not say so."""
     with pytest.raises(RedirectRefusedError, match="https to http"):
         _check_redirect(
-            _redirect("https://opendata.example.es/a", "http://opendata.example.es/b"),
+            _redirect("https://opendata.example.es/a", "http://opendata.example.es/b"),  # ty: ignore[invalid-argument-type]
             {},
             "https://opendata.example.es/a",
-        )  # ty: ignore[invalid-argument-type]
+        )
+
+
+def test_a_chain_through_http_that_ends_on_https_is_followed_by_a_keyless_session() -> None:
+    """A public file is reached over an http hop by some chains (GH-3398): the hops of one family are followed."""
+    first = "https://www.example.fr/api/1/datasets/r/abc"
+    headers = {"Accept": "*/*"}
+    for here, location in [
+        (first, "http://static.example.fr/resources/x.csv"),
+        ("http://static.example.fr/resources/x.csv", "https://static.example.fr/resources/x.csv"),
+    ]:
+        _check_redirect(_redirect(here, location), headers, first, allow_downgrade=True)  # ty: ignore[invalid-argument-type]
+    assert headers == {"Accept": "*/*"}
+
+
+@pytest.mark.parametrize(
+    ("client_kwargs", "keyless"),
+    [
+        ({}, True),
+        ({"headers": {"User-Agent": "wetterdienst/1.0"}, "timeout": 30}, True),
+        ({"headers": [("Accept", "*/*")]}, True),
+        ({"headers": {"Authorization": KEY}}, False),
+        ({"headers": {"API_KEY": KEY}}, False),
+        ({"headers": {"cookie": "k=v"}}, False),
+        ({"headers": iter([("Accept", "*/*")])}, False),
+        ({"auth": ("user", "password")}, False),
+        ({"cookies": {"k": "v"}}, False),
+        ({"cookie_jar": object()}, False),
+        ({"middlewares": (object(),)}, False),
+        ({"trust_env": True}, False),
+        ({"proxy": "http://proxy.example:3128"}, False),
+        ({"proxy_auth": ("user", "password")}, False),
+    ],
+)
+def test_a_session_is_keyless_only_if_it_holds_no_credential_of_any_kind(client_kwargs: dict, keyless: bool) -> None:  # noqa: FBT001
+    """Headers, an `auth`, cookies, the environment (netrc, proxy) and a proxy each make a session not keyless."""
+    assert _session_is_keyless(client_kwargs) is keyless
+
+
+def test_a_chain_through_http_stays_in_the_family_of_the_first_request() -> None:
+    """The http hop is no way out of the family: the next hop to another domain is refused, as over https."""
+    first = "https://www.example.fr/api/1/datasets/r/abc"
+    with pytest.raises(RedirectRefusedError, match=r"another host \(evil.example.net\)"):
+        _check_redirect(
+            _redirect("http://static.example.fr/x", "http://evil.example.net/x"),  # ty: ignore[invalid-argument-type]
+            {},
+            first,
+        )
+    with pytest.raises(RedirectRefusedError, match="another host"):
+        _check_redirect(_redirect(first, "http://evil.example.net/x"), {}, first)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
@@ -326,3 +391,37 @@ def test_a_listing_that_met_a_refused_redirect_is_a_download_error(
     with pytest.raises(DownloadError):
         list_remote_files_fsspec(url, Settings(cache_dir=tmp_path, cache_disable=True))
     assert second.seen == []
+
+
+async def _guard_refuses_the_step_down(client_kwargs: dict) -> bool:
+    """Drive the trace of a real session of `HTTPFileSystem` with a redirect from https to http."""
+    filesystem = HTTPFileSystem(
+        use_listings_cache=False, listings_expiry_time=0, client_kwargs=client_kwargs, asynchronous=True
+    )
+    session = await filesystem.set_session()
+    try:
+        trace = session.trace_configs[-1]
+        headers = CIMultiDict(session.headers)
+        response = _redirect("https://www.example.fr/a", "http://static.example.fr/b")
+        params = SimpleNamespace(response=response, headers=headers)
+        context = SimpleNamespace(first_url="https://www.example.fr/a")
+        try:
+            await trace.on_request_redirect[0](session, context, params)
+        except RedirectRefusedError:
+            return True
+        return False
+    finally:
+        await session.close()
+
+
+@pytest.mark.parametrize(
+    ("client_kwargs", "refused"),
+    [
+        ({"headers": {"User-Agent": "wetterdienst"}}, False),
+        ({"headers": {"api_key": KEY}}, True),
+        ({"headers": {"User-Agent": "wetterdienst"}, "cookies": {"k": "v"}}, True),
+    ],
+)
+def test_a_real_session_follows_the_step_down_only_without_a_credential(client_kwargs: dict, refused: bool) -> None:  # noqa: FBT001
+    """The session built by the filesystem carries the guard, with the verdict of its own client kwargs."""
+    assert asyncio.run(_guard_refuses_the_step_down(client_kwargs)) is refused

@@ -44,6 +44,13 @@ Types of changes:
   logger `wetterdienst`; the loggers of other libraries, `fsspec` and `aiohttp` among them, stay
   at `INFO`. The hint of a removed `debug` parameter now names `wetterdienst restapi --debug`
   (GH-3388)
+- A download follows a redirect from `https` down to `http` again, within the registered domain of
+  the request, when the session is given no credential (no credential header, `auth`, cookies,
+  `trust_env`, proxy or middleware among the `fsspec_client_kwargs`): the stations of `meteofrance/observation`
+  failed with "a redirect from https to http was not followed" where data.gouv.fr answered with
+  such a hop. The body of that hop is not protected on the way. With a credential, a redirect to
+  another registered domain, and the dropping of credentials at a change of origin, nothing
+  changes; the error names the host of a refused hop (GH-3398)
 
 ### Security
 

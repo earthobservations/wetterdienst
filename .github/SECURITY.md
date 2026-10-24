@@ -117,13 +117,14 @@ upstream's answer names (a `next` page, a `datos`, measure or asset link). Such 
 domain of the address the provider asked, over `https` (an `http` link of the same domain is read as `https`), or on a
 host the provider lists for it: the S3 bucket of KNMI's pre-signed links and the object store of Météo-France's files
 (`fetchable_link`, `util/network.py`; GH-3339). A redirect is followed only within the registered domain of the request,
-never from `https` down to `http`, and a credential header, whatever its name, is dropped where it changes the origin
-(`_check_redirect`; GH-3338, GH-3339); a refused link or redirect is a `DownloadError`. The registered domain is told
-without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as suffixes, and a name under
-`amazonaws.com` or `ovh.net` is its own domain), and a host name is not resolved, so **an upstream that is compromised
-can still make the server fetch from the hosts of its own domain**, and a name of that domain pointing at an internal
-address would be fetched. A link in an HTML directory listing is kept only below the listed directory, on its host, and
-not where it steps from `https` down to `http`. `file://` and bare paths are refused by the HTTP client.
+never from `https` down to `http` by a session that holds a credential; a keyless one follows that hop, whose answer is
+then not protected on the way (GH-3398). A credential header, whatever its name, is dropped where it changes the
+origin (`_check_redirect`; GH-3338, GH-3339); a refused link or redirect is a `DownloadError`. The registered domain is
+told without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as suffixes, and a name
+under `amazonaws.com` or `ovh.net` is its own domain), and a host name is not resolved, so **an upstream that is
+compromised can still make the server fetch from the hosts of its own domain**, and a name of that domain pointing at
+an internal address would be fetched. A link in an HTML directory listing is kept only below the listed directory, on
+its host, and not where it steps from `https` down to `http`. `file://` and bare paths are refused by the HTTP client.
 
 XML is parsed with entities off, no network and no DTD, each option passed rather than left to a default
 (`util/xml.py`, the one parser of FMI, DWD alerts, MOSMIX and DMO; a test fails for a module that builds its own).
