@@ -28,9 +28,9 @@ jobs:
             echo "is-backend=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # Builds the distributions in a job without `id-token`: `uv sync` and `uv build` run the build code
-  # of the project and of every package in the lock, and must not be able to mint the PyPI
-  # trusted-publishing token that publishes what they produce
+  # Builds the distributions in a job without `id-token`: `uv build` runs the build code of the project
+  # and of its build requirements, and must not be able to mint the PyPI trusted-publishing token that
+  # publishes what it produces. It builds in an isolated environment, so no `uv sync` precedes it.
   build:
     needs: check-release-type
     if: needs.check-release-type.outputs.is-backend == 'true'
@@ -44,11 +44,10 @@ jobs:
 
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
+          # the uv of docker/Dockerfile and .readthedocs.yml: move the three together
+          version: "0.13.5"
           enable-cache: false
           python-version: ${{ env.PYTHON }}
-
-      - name: Install project
-        run: uv sync
 
       - name: Build
         run: uv build
@@ -60,7 +59,7 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  # Holds the token and runs no project or dependency code: no checkout, no `uv sync`, only the
+  # Holds the token and runs no project or dependency code: no checkout, no build, only the
   # distributions the build job produced
   publish:
     needs: build
@@ -71,6 +70,8 @@ jobs:
     steps:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
+          # the uv of docker/Dockerfile and .readthedocs.yml: move the three together
+          version: "0.13.5"
           enable-cache: false
 
       - name: Download distributions

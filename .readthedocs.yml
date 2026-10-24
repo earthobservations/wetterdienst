@@ -19,7 +19,8 @@ build:
     # uv sync --active installs into RTD's virtualenv so the default Sphinx build
     # (including PDF) still finds the dependencies.
     install:
-      - pip install uv
+      # the uv of docker/Dockerfile and .github/workflows/release.yml: move the three together
+      - pip install uv==0.13.5
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH .github/workflows/install.sh docs
 
 sphinx:
