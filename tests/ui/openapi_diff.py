@@ -42,29 +42,7 @@ import json
 from typing import Any
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-_DEBUG_REMOVED = (
-    "a request set the log level of the whole server process, for every other caller; it is refused with a hint "
-    "to the operator's own setting (GH-3336)"
-)
-ACCEPTED_BREAKS: dict[str, str] = {
-    f"GET /api/v1/{path}: parameter debug (query) was removed": _DEBUG_REMOVED
-    for path in (
-        "alerts",
-        "auth",
-        "coverage",
-        "glossary",
-        "history",
-        "interpolate",
-        "issues",
-        "providers",
-        "stations",
-        "stripes/image",
-        "stripes/stations",
-        "stripes/values",
-        "summarize",
-        "values",
-    )
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

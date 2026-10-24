@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-24
+
 ### Fixed
 
 - `[Explorer]` Clearing the distance input of a parameter under "Station distance by parameter"
@@ -1545,7 +1547,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...HEAD
+[0.35.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...app-v0.35.0
 [0.34.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...app-v0.34.0
 [0.33.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...app-v0.33.0
 [0.32.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...app-v0.32.0
