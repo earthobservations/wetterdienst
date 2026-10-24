@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.173.0] - 2026-10-24
+
 ### Added
 
 - `dwd/radar` `DwdRadarValues` takes `polarization=` (`DwdRadarPolarization.HORIZONTAL` or
@@ -51,6 +53,15 @@ Types of changes:
   writes the same image. The name is not reused. `/api/stripes/values` and the MCP tool
   `stripes_values` are unchanged (GH-3128)
 
+### Fixed
+
+- The station map (`StationsResult.to_plot`, and `to_image` and `format=png` of the station
+  endpoints) zoomed in beyond the stations of any region under about 6 degrees: the picture of 5
+  stations around Berlin or 16 around Munich showed none of them. The zoom now fits the stations'
+  longitudes to the width and their latitudes to the height, at most 10 for one station, and a
+  `width` or `height` given to `to_image` is fitted too. Stations across the antimeridian are not
+  handled (GH-3373)
+
 ### Security
 
 - The Docker image, and an environment synced from `uv.lock`, now hold fastmcp 4.1.3, and pypdf
@@ -79,12 +90,6 @@ Types of changes:
   again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
   since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
   code nor DWD's files give (GH-2621)
-- The station map (`StationsResult.to_plot`, and `to_image` and `format=png` of the station
-  endpoints) zoomed in beyond the stations of any region under about 6 degrees: the picture of 5
-  stations around Berlin or 16 around Munich showed none of them. The zoom now fits the stations'
-  longitudes to the width and their latitudes to the height, at most 10 for one station, and a
-  `width` or `height` given to `to_image` is fitted too. Stations across the antimeridian are not
-  handled (GH-3373)
 
 ### Security
 
@@ -6441,7 +6446,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.173.0...HEAD
+[0.173.0]: https://github.com/earthobservations/wetterdienst/compare/v0.172.0...v0.173.0
 [0.172.0]: https://github.com/earthobservations/wetterdienst/compare/v0.171.0...v0.172.0
 [0.171.0]: https://github.com/earthobservations/wetterdienst/compare/v0.170.0...v0.171.0
 [0.170.0]: https://github.com/earthobservations/wetterdienst/compare/v0.169.0...v0.170.0

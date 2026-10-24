@@ -170,6 +170,7 @@
                 "temperature",
                 "time",
                 "turbidity",
+                "volume",
                 "volume_per_time",
                 "wind_scale"
               ]
@@ -1686,5 +1687,5 @@
       ]
     }
   },
-  "x-release": "0.172.0"
+  "x-release": "0.173.0"
 }

@@ -16,12 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-24
+
 ### Changed
 
 - `[Glossary]` The label of `radiation_sky_short_wave_direct_perpendicular` replaces that of
   `radiation_sky_short_wave_direct` (Met Office), in all eleven languages (GH-3316). Needs the
   backend that serves the new name: release the backend first. The Low German and Luxembourgish
   labels are not reviewed by a native speaker
+- `[Glossary]` `volume_reservoir` (the volume of a reservoir, `wsv/pegel`) has a label in all
+  eleven languages, and the new unit type `volume` has its label in the unit filter ("Volume").
+  Needs the backend that serves them (0.173.0): release the backend first. The Low German and
+  Luxembourgish labels are not reviewed by a native speaker (GH-3242)
 
 ### Security
 
@@ -1524,7 +1530,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...HEAD
+[0.34.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...app-v0.34.0
 [0.33.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...app-v0.33.0
 [0.32.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.31.0...app-v0.32.0
 [0.31.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.30.0...app-v0.31.0

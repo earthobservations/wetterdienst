@@ -2375,7 +2375,7 @@
         "radiation": [
           "radiation_global",
           "radiation_sky_short_wave_diffuse",
-          "radiation_sky_short_wave_direct"
+          "radiation_sky_short_wave_direct_perpendicular"
         ],
         "soil_temperature": [
           "temperature_soil_0_05m",
@@ -2754,6 +2754,8 @@
           "temperature_air",
           "temperature_water",
           "turbidity",
+          "visibility",
+          "volume_reservoir",
           "wave_height_max",
           "wave_height_significant",
           "wave_period",
@@ -2776,6 +2778,8 @@
           "temperature_air",
           "temperature_water",
           "turbidity",
+          "visibility",
+          "volume_reservoir",
           "wave_height_max",
           "wave_height_significant",
           "wave_period",
@@ -2798,6 +2802,8 @@
           "temperature_air",
           "temperature_water",
           "turbidity",
+          "visibility",
+          "volume_reservoir",
           "wave_height_max",
           "wave_height_significant",
           "wave_period",
@@ -2820,6 +2826,8 @@
           "temperature_air",
           "temperature_water",
           "turbidity",
+          "visibility",
+          "volume_reservoir",
           "wave_height_max",
           "wave_height_significant",
           "wave_period",
@@ -2842,6 +2850,8 @@
           "temperature_air",
           "temperature_water",
           "turbidity",
+          "visibility",
+          "volume_reservoir",
           "wave_height_max",
           "wave_height_significant",
           "wave_period",
@@ -2941,6 +2951,7 @@
       "radiation_global_last_3h": "radiation_short_wave_net_last_3h",
       "radiation_sky_long_wave_intensity": "radiation_sky_long_wave_intensity_mean",
       "radiation_sky_long_wave_last_3h": "radiation_long_wave_net_last_3h",
+      "radiation_sky_short_wave_direct": "radiation_sky_short_wave_direct_perpendicular",
       "radiation_sky_short_wave_direct_intensity": "radiation_sky_short_wave_direct_perpendicular_intensity",
       "snow_depth_excelled": "snow_depth_sampled",
       "soil_moisture_corn_loamysilt_00cm_60cm": "soil_moisture_corn_loamy_silt_00cm_60cm",
@@ -3442,5 +3453,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.172.0"
+  "x-release": "0.173.0"
 }
