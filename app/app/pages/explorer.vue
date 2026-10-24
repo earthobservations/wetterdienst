@@ -578,6 +578,12 @@ function updateParameterName(id: string, oldKey: string, newKey: string) {
   entry.paramName = newKey
 }
 
+// A cleared number input answers null or undefined, which `Number()` makes 0 or NaN. Both are kept
+// as NaN, the empty field, which the request leaves out (a NaN would be sent as null and refused)
+function distanceOf(value: unknown): number {
+  return typeof value === 'number' ? value : Number.NaN
+}
+
 function updateParameterDistance(id: string, paramName: string, distance: number) {
   if (paramName)
     dataSettings.value.useStationDistancePerParameter[paramName] = distance
@@ -963,7 +969,7 @@ function handleUnitTargetChange(unitType: string, value: string) {
                           placeholder="20"
                           size="xs"
                           class="w-28"
-                          @update:model-value="updateParameterDistance(entry.id, entry.paramName, Number($event))"
+                          @update:model-value="updateParameterDistance(entry.id, entry.paramName, distanceOf($event))"
                         />
                         <span class="text-xs text-gray-500 dark:text-gray-400">km</span>
                         <UButton

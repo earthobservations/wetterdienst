@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Explorer]` Clearing the distance input of a parameter under "Station distance by parameter"
+  (interpolation and summary) no longer makes the request fail with a 422. The parameter is left
+  out of the request and the general (homogeneous or heterogeneous) radius applies to it until a
+  distance is typed again (GH-3356)
+
 ## [0.34.0] - 2026-10-24
 
 ### Changed

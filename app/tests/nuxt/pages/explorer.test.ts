@@ -4,7 +4,7 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { createError, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
-import { UApp } from '#components'
+import { UApp, UInputNumber } from '#components'
 import { clearNuxtState, useNuxtApp, useRouter, useServerSettings, useToast } from '#imports'
 import InterpolationSummarySelection from '~/components/InterpolationSummarySelection.vue'
 import ParameterSelection from '~/components/ParameterSelection.vue'
@@ -545,6 +545,40 @@ describe('explorer nearby station distance', () => {
     await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Interpolation Options'))
     expect(wrapper.text().includes('Nearby station distance')).toBe(offered)
+  })
+})
+
+describe('explorer per-parameter station distance (GH-3356)', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount())
+    endpoints.splice(0).forEach(remove => remove())
+  })
+
+  // a cleared input must reach the request as no radius for that parameter, not as 0 and not as a
+  // NaN that JSON writes as null, which the backend answers with a 422
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+  ])('keeps a cleared input (%s) an empty field, not 0', async (_name, cleared) => {
+    const { wrapper, vm } = await mountWithSelection(() => ({ values: [] }))
+    vm.stationSelectionState.mode = 'interpolation'
+    await wrapper.vm.$nextTick()
+    await wrapper.findAll('button').find(b => b.text() === 'Settings')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Interpolation Options'))
+    await wrapper.findAll('button').find(b => b.text() === 'Advanced Settings')!.trigger('click')
+    await wrapper.findAll('button').find(b => b.text() === 'Add parameter')!.trigger('click')
+    await wrapper.find('input[placeholder="parameter_name"]').setValue('temperature_air_mean_2m')
+    expect(vm.dataSettings.useStationDistancePerParameter).toEqual({ temperature_air_mean_2m: 20 })
+
+    // after the two default radii, which share its bounds
+    const number = wrapper.findAllComponents(UInputNumber).filter(c => (c.props() as Record<string, unknown>).max === 200).at(-1)!
+    number.vm.$emit('update:modelValue', cleared)
+    await wrapper.vm.$nextTick()
+
+    expect(Number.isNaN(vm.dataSettings.useStationDistancePerParameter.temperature_air_mean_2m)).toBe(true)
+    // the row is still there, empty
+    expect(vm.parameterDistanceEntries).toHaveLength(1)
+    expect(Number.isNaN(vm.parameterDistanceEntries[0].distance)).toBe(true)
   })
 })
 
