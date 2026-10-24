@@ -79,6 +79,12 @@ Types of changes:
   again. Climate Stripes put the `unit` of `/api/stripes/values` in `metadata`; it is in `series`
   since 0.158.0. Interpolation gave celsius values and a Frankfurt elevation span that neither the
   code nor DWD's files give (GH-2621)
+- The station map (`StationsResult.to_plot`, and `to_image` and `format=png` of the station
+  endpoints) zoomed in beyond the stations of any region under about 6 degrees: the picture of 5
+  stations around Berlin or 16 around Munich showed none of them. The zoom now fits the stations'
+  longitudes to the width and their latitudes to the height, at most 10 for one station, and a
+  `width` or `height` given to `to_image` is fitted too. Stations across the antimeridian are not
+  handled (GH-3373)
 
 ### Security
 
