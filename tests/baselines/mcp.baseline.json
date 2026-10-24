@@ -44,10 +44,6 @@
         "pretty": {
           "type": "boolean",
           "default": false
-        },
-        "debug": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": []
@@ -60,10 +56,6 @@
         },
         "network": {
           "type": "string"
-        },
-        "debug": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": [
@@ -121,10 +113,6 @@
           ]
         },
         "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "debug": {
           "type": "boolean",
           "default": false
         }
@@ -190,10 +178,6 @@
               "type": "null"
             }
           ]
-        },
-        "debug": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": []
@@ -267,10 +251,6 @@
           "default": false
         },
         "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "debug": {
           "type": "boolean",
           "default": false
         }
@@ -493,10 +473,6 @@
           "type": "boolean",
           "default": false
         },
-        "debug": {
-          "type": "boolean",
-          "default": false
-        },
         "width": {
           "anyOf": [
             {
@@ -577,10 +553,6 @@
               "type": "null"
             }
           ]
-        },
-        "debug": {
-          "type": "boolean",
-          "default": false
         }
       },
       "required": [
@@ -603,10 +575,6 @@
           ]
         },
         "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "debug": {
           "type": "boolean",
           "default": false
         }
@@ -832,10 +800,6 @@
           "type": "boolean",
           "default": false
         },
-        "debug": {
-          "type": "boolean",
-          "default": false
-        },
         "width": {
           "anyOf": [
             {
@@ -932,10 +896,6 @@
             }
           ]
         },
-        "debug": {
-          "type": "boolean",
-          "default": false
-        },
         "show_title": {
           "type": "boolean",
           "default": true
@@ -992,10 +952,6 @@
           "default": "json"
         },
         "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "debug": {
           "type": "boolean",
           "default": false
         }
@@ -1059,10 +1015,6 @@
               "type": "null"
             }
           ]
-        },
-        "debug": {
-          "type": "boolean",
-          "default": false
         },
         "format": {
           "type": "string",
@@ -1285,10 +1237,6 @@
           "default": false
         },
         "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "debug": {
           "type": "boolean",
           "default": false
         },
@@ -1558,10 +1506,6 @@
           "type": "boolean",
           "default": false
         },
-        "debug": {
-          "type": "boolean",
-          "default": false
-        },
         "width": {
           "anyOf": [
             {
@@ -1687,5 +1631,5 @@
       ]
     }
   },
-  "x-release": "0.173.0"
+  "x-release": "0.174.0"
 }

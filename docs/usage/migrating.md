@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.173.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.173.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.174.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.174.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,7 +13,7 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.34.0` goes with 0.173.0. Upgrade both
+The web app is released as a pair with the backend: `app-v0.35.0` goes with 0.174.0. Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
@@ -84,6 +84,7 @@ Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than ann
 
 | Before | Now | Release, issue |
 | --- | --- | --- |
+| an `influxdbs://` or `influxdb1s://` target accepted any TLS certificate of the server | the certificate is verified: a self-signed or private-CA server fails with an SSL error; set `REQUESTS_CA_BUNDLE` to a CA bundle that includes it (or its CA) | 0.174.0, GH-3342 |
 | `duckdb:////home/me/my%20data/obs.duckdb` opened `obs.duckdb` in a directory named `my%20data` | the path is a URI path, as in `file://`: it opens `/home/me/my data/obs.duckdb`; write a literal `%20` as `%2520` | 0.143.0, GH-2515 |
 | an `@` in an InfluxDB org, password or token, a `%` in an InfluxDB database or a CrateDB schema | the target is read as SQLAlchemy reads it: write `@` as `%40` and a literal `%` followed by two hex digits as `%25` | 0.140.0, GH-2248 |
 | `influxdb3://` went to https on port 443 | `influxdb3://` is http and `influxdb3s://` https, on the target's port or 8181 (http) and 443 (https); write InfluxDB Cloud as `influxdb3s://` | 0.140.0, GH-2279 |
@@ -113,6 +114,8 @@ needs a new `except`. The classes are those of [Errors](python-api.md#errors).
 
 | Before | Now | Release, issue |
 | --- | --- | --- |
+| a download followed a redirect to another registered domain, and one from `https` down to `http`; the links an answer names (next page, `datos`, asset, measure) were fetched wherever they pointed | a redirect to another registered domain is not followed, nor, for a session that holds a credential, one from `https` down to `http`: the download fails with a `DownloadError`. A session holds a credential with a credential header, `auth`, cookies, `trust_env`, a proxy or middleware among its `fsspec_client_kwargs`; one without any still follows an `http` hop inside the provider's domain. A session with a proxy (`trust_env`) is therefore refused the `http` hop that data.gouv.fr answers for the stations of `meteofrance/observation`: read that provider without those keys until the follow-up is solved (#3400). Nothing else to change for the providers. The links are fetched only at the provider's own domain, over `https` (KNMI and Météo-France also at the object store of their files) | 0.174.0, GH-3338, GH-3339, GH-3398 |
+| a download or an archive of any size was read into memory | a download over 2 GiB or one hour, and an archive that unpacks to more than its ceiling (1 GiB; 256 MiB for DWD SWSMOS and alerts, 2 GiB for DWD radar, 4 GiB for the KML of MOSMIX and DMO, 8 GiB for Météo-France climate files), fail with a `DownloadError` (REST 502); `download_file(max_bytes=...)` sets the size per call | 0.174.0, GH-3340 (not marked Breaking; the files served today are below the figures) |
 | a failed download raised the stored error (`FSTimeoutError`, `ClientResponseError`, `FileNotFoundError`, aiohttp's connection errors) | `wetterdienst.exceptions.DownloadError`, `Failed to download <url>: <reason>`, the original on `__cause__`; catch `DownloadError` or `UpstreamError` | 0.142.0, GH-2460 |
 | a timeout (`dwd/observation`, `dwd/derived`, `imgw`) or a timeout or 5xx (`dwd/phenology`, `poi`, `swsmos`, `chmi`, `fmi`, `ipma`, `dmi`, `rmi`, `metoffice`, `lhmt`, `meteofrance`) in the values was logged and read as no data. Not marked Breaking | `DownloadError`. A 404 still gives no data at most of them | 0.141.0 (GH-2430), 0.142.0 (GH-2461) |
 | a timeout, a dropped connection, a cut-short body or a 5xx in the values of `aemet`, `knmi`, `smhi` (0.155.0) and `metno/frost` and the station lists of AEMET and KNMI (0.157.0) was logged and read as no data; a TLS failure too | `DownloadError`; REST 502 (504 after a timeout), the command line exits 1. A 404, a 412 and other 4xx but a refused credential stay the empty result | 0.155.0 (GH-2965), 0.157.0 (GH-3022) |
@@ -133,9 +136,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.173.0 renames by network, resolution and dataset.
+0.174.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.173.0 are shown from the name of 0.139.0 to the name of 0.173.0.
+Moves of the same parameter between 0.145.0 and 0.174.0 are shown from the name of 0.139.0 to the name of 0.174.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -259,6 +262,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 
 | Provider | Before | Now | Release, issue |
 | --- | --- | --- | --- |
+| `noaa/ghcn` `daily` stations Torrevieja (SP000007038), Alice Holt Lodge (UKE00105927) and the RAF stations Molesworth, Chelveston, Bassingbourn and Huntington (UKW00015014, -15015, -15018, -15033) | placed east of Greenwich, 7 to 125 km off: `ghcnd-stations.txt` has lost the sign of their longitude | placed west of it, with a negative `longitude`; a filter on the old position needs the new one | 0.174.0, GH-2886 |
 | `nws/observation` `hourly` | the 12 observations an hour the endpoint serves | one for each station-hour, stamped with the full hour: the METAR or SPECI nearest to it, else the nearest 5-minute row. The minute of a report is gone | 0.155.0, GH-2857 |
 | `noaa/ghcn` `hourly` | every report of the file under its own minute (up to seven an hour) | one reading for each parameter and full hour, the nearest to the hour, stamped with it: the METAR of 14:53 is 15:00 | 0.158.0, GH-3000, GH-3016 |
 | `noaa/ghcn` `hourly` precipitation | every report | the one report of each UTC hour at the station's routine minute, else the last that is no SPECI | 0.156.0, GH-2841 |
@@ -279,7 +283,7 @@ series you stored before does not join the new one. From 1.0 a correction of thi
 | an empty result exited 1 (a window without readings, a selection that finds no station, a glossary filter that matches nothing) | exit 0, as REST answers 200: the sentence goes to stderr and stdout holds what REST answers (`{"values": []}`, the CSV header). A script that told "no data" by exit 1 tests the output; exit 1 now only means failure | 0.155.0, GH-2635 |
 | `wetterdienst stripes values` refusals exited 1 | exit 2, as click's usage errors do | 0.140.0, GH-2060 |
 | `wetterdienst issues` for DMO listed every lead time | `--lead-time long` for the long runs, short by default | 0.140.0, GH-2009 |
-| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.173.0, as under [Failures](#failures) |
+| a download that failed printed a Python error | one line, exit 1 (`DownloadError`, `NoInternetError`) | 0.155.0 to 0.174.0, as under [Failures](#failures) |
 
 ## REST API
 
@@ -290,6 +294,7 @@ to change.
 
 | Before | Now | Release, issue |
 | --- | --- | --- |
+| `debug` on a REST endpoint (all but `version`, `settings` and `health`), which set the log level of the whole server process | a 422 of type `removed`, `debug was removed`: drop it; the level is the operator's (`logging.getLogger("wetterdienst")`, or `wetterdienst restapi --debug`) | 0.174.0, GH-3336 |
 | `date=` on `values`, `interpolate`, `summarize`, `alerts` | `timestamp=`: a 422 naming the new name | 0.142.0, GH-2438 |
 | `station=` as a list on `stations`, `values`, `history` | `stations=` (comma-separated); the singular `parameter`, `period`, `resolution`, `dataset` of a list are refused naming the plural. The one reference `station` of `interpolate` and `summarize`, and the `station` of `issues` and `stripes`, stay | 0.156.0, GH-2561 |
 | an unknown query parameter on `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/stripes/stations`, `/api/alerts` was ignored | a 422, as `/api/stations` and `/api/values` always did; drop what an endpoint does not take, such as a cache buster | 0.142.0, GH-2479 |
@@ -324,6 +329,7 @@ arguments are the query parameters. In addition:
 
 | Before | Now | Release, issue |
 | --- | --- | --- |
+| the `debug` argument of the tools | a tool error, `debug was removed`: drop it (see the REST row above) | 0.174.0, GH-3336 |
 | an argument a tool does not take was dropped, and the call answered as if it had not been given | refused with the names of the ones it takes | 0.142.0, GH-2479 |
 | `stations` with `lead_time`, `issue` | a tool error | 0.157.0, GH-3056 |
 | `summarize` with `use_nearby_station_distance` | refused | 0.158.0, GH-3077 |
