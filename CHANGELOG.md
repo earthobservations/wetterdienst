@@ -25,6 +25,12 @@ Types of changes:
   nearest-station search, a distance filter or an interpolation near them picked the wrong
   stations. Their `longitude` is now negative; a filter on the old position needs the new one
   (GH-2886)
+- **Breaking**: the `debug` parameter is removed from every REST endpoint and MCP tool. It set the
+  log level of the whole server process for every caller, so one anonymous request switched the
+  server's log to debug. A request that still sends it is refused (REST 422 of type `removed`,
+  an MCP tool error) with `debug was removed` and what to do instead: drop it. The level is the
+  operator's, set as for any Python logger (`logging.getLogger("wetterdienst")`); the `--debug`
+  option of the command line is unchanged (GH-3336)
 
 ### Security
 

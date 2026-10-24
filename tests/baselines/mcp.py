@@ -35,7 +35,29 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+_DEBUG_REMOVED = (
+    "a request set the log level of the whole server process, for every other caller; it is refused with a hint "
+    "to the operator's own setting (GH-3336)"
+)
+ACCEPTED_BREAKS: dict[str, str] = {
+    f"tool {tool}: argument debug was removed": _DEBUG_REMOVED
+    for tool in (
+        "alerts",
+        "auth",
+        "coverage",
+        "glossary",
+        "history",
+        "interpolate",
+        "issues",
+        "providers",
+        "stations",
+        "stripes_image",
+        "stripes_stations",
+        "stripes_values",
+        "summarize",
+        "values",
+    )
+}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

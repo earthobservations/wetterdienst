@@ -1240,7 +1240,7 @@ def providers(
     set_logging_level(debug=debug)
     begin_response()
 
-    request = ProvidersRequest.model_validate({"provider": provider, "debug": debug})
+    request = ProvidersRequest.model_validate({"provider": provider})
     try:
         answer = get_providers(request.provider)
     except ApiNotFoundError as e:
@@ -1489,7 +1489,6 @@ def stations(
             "scale": scale,
             "pretty": pretty,
             "with_metadata": with_metadata,
-            "debug": debug,
         },
     )
     set_logging_level(debug=debug)
@@ -1665,7 +1664,6 @@ def history(
             "with_metadata": with_metadata,
             "with_stations": with_stations,
             "pretty": pretty,
-            "debug": debug,
         },
     )
 
@@ -1875,7 +1873,6 @@ def values(
             "pretty": pretty,
             "with_metadata": with_metadata,
             "with_stations": with_stations,
-            "debug": debug,
         },
     )
     set_logging_level(debug=debug)
@@ -2018,7 +2015,6 @@ def interpolate(
             "with_metadata": with_metadata,
             "with_stations": with_stations,
             "pretty": pretty,
-            "debug": debug,
         },
     )
 
@@ -2164,7 +2160,6 @@ def summarize(
             "with_metadata": with_metadata,
             "with_stations": with_stations,
             "pretty": pretty,
-            "debug": debug,
         },
     )
     set_logging_level(debug=debug)
@@ -2475,7 +2470,6 @@ def stripes_image(
             "show_data_availability": show_data_availability,
             "format": fmt,
             "dpi": dpi,
-            "debug": debug,
         },
     )
     # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`

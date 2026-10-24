@@ -98,7 +98,6 @@ from wetterdienst.ui.core import (
     limit_stations_to_window,
     overlay_options,
     resolve_network,
-    set_logging_level,
 )
 from wetterdienst.ui.limits import (
     Limits,
@@ -1367,7 +1366,6 @@ def auth(
     of a network it lists as `configured` are accepted. The MCP tool and the CLI command
     (`wetterdienst about auth`) are this call.
     """
-    set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
 
     api = _resolve_listed_network(str(provider), str(network), "check the credentials of")
@@ -1406,7 +1404,6 @@ def coverage(
     that needs credentials, `configured` says whether they are present; whether the provider accepts
     them is not checked here, `/api/auth` (the MCP `auth` tool) does, for one network.
     """
-    set_logging_level(debug=request.debug)
     provider, network = request.provider, request.network
 
     if (provider and not network) or (not provider and network):
@@ -1459,7 +1456,6 @@ def providers(
     each has. Nothing is downloaded and no credential is read, so it answers at once; `coverage` lists the
     parameters of a network, and `auth` checks whether its credentials are accepted.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
 
     try:
@@ -1492,7 +1488,6 @@ def glossary(
     what any of them means. The unit reported is the one a values request would actually return,
     including any `unit_targets` option override.
     """
-    set_logging_level(debug=request.debug)
     # a malformed server setting is the app's unhandled 500, as for the data endpoints
     Settings()
 
@@ -1731,7 +1726,6 @@ def stations(
     the network has no station for is left out of the list, which is then empty or shorter, and
     named in a warning of the `metadata` block and in the server's log; an empty list is a 200, not an error.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
@@ -1782,7 +1776,6 @@ def issues(
 
     Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
 
     try:
@@ -1838,7 +1831,6 @@ def values(
     dataset of one station (one resolution in the wide shape), so a station can have several. Do not
     re-request in other formats.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
@@ -2153,7 +2145,6 @@ def interpolate(
     station of its own, so the result is a modelled estimate, not a measurement. Requires provider,
     network, parameters and a `timestamp`.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
@@ -2196,7 +2187,6 @@ def summarize(
     result may stitch together different stations. Requires provider, network, parameters and a
     `timestamp`.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
     _refuse_sql_unless_enabled(request)
     _refuse_oversized_chart(request)
@@ -2224,7 +2214,6 @@ def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
 ) -> Response:
     """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
-    set_logging_level(debug=request.debug)
     begin_response()
 
     # the provider request below builds its settings from the environment inside the handler: checked
@@ -2252,8 +2241,6 @@ def stripes_values(
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it, which a stripes request has no parameter
     for: the target of the quantity where the values are converted, the source's unit where not.
     """
-    set_logging_level(debug=request.debug)
-
     # checked outside the handler below, as for `/api/stripes/stations`
     Settings()
     try:
@@ -2291,7 +2278,6 @@ def stripes_image(
     request: Annotated[StripesImageRequest, Query()],
 ) -> Response:
     """Generate climate stripes image for a station."""
-    set_logging_level(debug=request.debug)
     # the image is rendered at `dpi / 100` times plotly's default size
     _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
 
@@ -2323,7 +2309,6 @@ def history(
     measurements use the stations -> values workflow with a `timestamp` or interval. Requires provider,
     network, parameters and either `stations` ids or all=true.
     """
-    set_logging_level(debug=request.debug)
     begin_response()
 
     api = _get_timeseries_api(request.provider, request.network, history=True)
@@ -2376,7 +2361,6 @@ def alerts(
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    set_logging_level(debug=request.debug)
     begin_response()
 
     # outside the handlers below, as for `/api/stations`

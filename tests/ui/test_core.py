@@ -641,6 +641,18 @@ def test_date_is_refused_naming_timestamp(model: type[ValuesRequest | Interpolat
     ]
 
 
+@pytest.mark.parametrize("model", [StationsRequest, ValuesRequest, InterpolationRequest, SummaryRequest])
+def test_debug_is_refused_as_removed(model: type[StationsRequest | ValuesRequest | InterpolationRequest]) -> None:
+    """Test `debug`, which a request set the process's log level by, is refused saying what to do instead (GH-3336)."""
+    with pytest.raises(ValidationError) as error:
+        model.model_validate({**_BASE, "all": True, "debug": True})
+    (refusal,) = error.value.errors(include_url=False)
+    assert (refusal["type"], refusal["loc"], refusal["input"]) == ("removed", ("debug",), True)
+    assert refusal["msg"].startswith("debug was removed: ")
+    assert "Python logger `wetterdienst`" in refusal["msg"]
+    assert "debug" not in model.model_fields
+
+
 @pytest.mark.parametrize(
     ("model", "old", "new"),
     [
