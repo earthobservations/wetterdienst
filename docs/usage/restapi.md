@@ -321,7 +321,7 @@ learnt on one holds on the others:
   starts the server with the debug lines of the package (the downloads, the parsing and the dropped columns of
   every provider) in its log, and an app hosted by another server sets it as for any Python logger,
   `logging.getLogger("wetterdienst").setLevel(logging.DEBUG)`. The loggers of other packages stay as they
-  are. `--debug` does not reach the worker that `--reload` starts. The MCP tools, which are these endpoints,
+  are. `--debug` reaches the worker that `--reload` starts as well. The MCP tools, which are these endpoints,
   refuse `debug` the same way; the command line keeps its own `--debug`.
 - **A list is comma-separated**, `stations=01048,04411` and `--stations=01048,04411`, which is how
   the OpenAPI document describes it (`explode: false`). The key given more than once,

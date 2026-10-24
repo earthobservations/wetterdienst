@@ -11,8 +11,11 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import json
+import logging
 import os
 import re
+import subprocess
+import sys
 import threading
 import time
 from dataclasses import replace
@@ -1407,6 +1410,89 @@ def test_a_malformed_listen_address_is_told(monkeypatch: pytest.MonkeyPatch) -> 
 
     with pytest.raises(ValueError, match="listen address"):
         restapi.start_service("7890")
+
+
+def _logging_of_a_worker(*, debug: str | None) -> dict[str, bool]:
+    """Load the app as uvicorn's worker does in a fresh process, and say what that process logs afterwards."""
+    code = (
+        "import json, logging\n"
+        "from uvicorn.config import Config\n"
+        "before = logging.getLogger().isEnabledFor(logging.INFO)\n"
+        "Config('wetterdienst.ui.restapi:_worker_app', factory=True).load()\n"
+        "log = logging.getLogger('wetterdienst.model.values')\n"
+        "print(json.dumps({'info_before': before, 'info': log.isEnabledFor(logging.INFO),"
+        " 'debug': log.isEnabledFor(logging.DEBUG)}))\n"
+    )
+    env = {key: value for key, value in os.environ.items() if key != restapi._DEBUG_VARIABLE}  # noqa: SLF001
+    if debug is not None:
+        env[restapi._DEBUG_VARIABLE] = debug  # noqa: SLF001
+    done = subprocess.run([sys.executable, "-I", "-c", code], env=env, capture_output=True, text=True, check=True)  # noqa: S603
+    return json.loads(done.stdout.splitlines()[-1])
+
+
+@pytest.mark.parametrize(("debug", "expected"), [(None, False), ("1", True)])
+def test_a_reloaded_worker_logs_as_the_server_does(debug: str | None, expected: bool) -> None:  # noqa: FBT001
+    """The worker that `--reload` spawns writes the INFO lines of the package, and the DEBUG ones under `--debug`.
+
+    A spawned process has none of the logging that `start_service` configured: its root logger stays at WARNING
+    (GH-3390).
+    """
+    logged = _logging_of_a_worker(debug=debug)
+
+    assert logged == {"info_before": False, "info": True, "debug": expected}
+
+
+@pytest.fixture
+def package_logger() -> Iterator[logging.Logger]:
+    """Give the logger `wetterdienst`, whose level a test sets, back as it was after the test."""
+    logger = logging.getLogger("wetterdienst")
+    level = logger.level
+    yield logger
+    logger.setLevel(level)
+
+
+@pytest.mark.parametrize("level", [logging.DEBUG, logging.INFO])
+def test_start_service_hands_the_debug_level_to_the_worker(
+    level: int, package_logger: logging.Logger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--debug` leaves the logger `wetterdienst` at DEBUG, and the worker is told through the environment (GH-3390)."""
+    monkeypatch.setenv("WD_RESTAPI_ALLOWED_HOSTS", "")
+    monkeypatch.setenv(restapi._DEBUG_VARIABLE, "stale")  # noqa: SLF001
+    package_logger.setLevel(level)
+    seen = _serve_on("0.0.0.0:7890", monkeypatch)
+
+    assert os.environ.get(restapi._DEBUG_VARIABLE) == ("1" if level == logging.DEBUG else None)  # noqa: SLF001
+    assert (seen["app"], seen["factory"]) == ("wetterdienst.ui.restapi:_worker_app", True)
+
+
+def test_the_worker_factory_hands_back_the_app_and_sets_the_level(
+    package_logger: logging.Logger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The factory that uvicorn calls in the worker sets up the logging, DEBUG included, and gives back the app."""
+    configured = []
+    log = package_logger
+    log.setLevel(logging.INFO)
+    monkeypatch.setattr(restapi, "setup_logging", lambda: configured.append(1))
+    monkeypatch.setenv(restapi._DEBUG_VARIABLE, "1")  # noqa: SLF001
+
+    assert restapi._worker_app() is restapi.app  # noqa: SLF001
+
+    assert configured == [1]
+    assert log.level == logging.DEBUG
+
+
+def test_the_worker_factory_leaves_the_level_alone_without_debug(
+    package_logger: logging.Logger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without `--debug` the level of the package is as `setup_logging` leaves it."""
+    log = package_logger
+    log.setLevel(logging.NOTSET)
+    monkeypatch.setattr(restapi, "setup_logging", lambda: None)
+    monkeypatch.delenv(restapi._DEBUG_VARIABLE, raising=False)  # noqa: SLF001
+
+    restapi._worker_app()  # noqa: SLF001
+
+    assert log.level == logging.NOTSET
 
 
 # --- a count that no integer holds --------------------------------------------------------------------------------
