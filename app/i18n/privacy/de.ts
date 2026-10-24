@@ -52,7 +52,7 @@ export const privacy: PrivacyPolicy = {
       title: 'Hosting und Auftragsverarbeitung',
       paragraphs: [
         'Der Dienst besteht aus zwei Anwendungen: dem Backend (REST-API und MCP-Server, https://wetterdienst-backend.eobs.org) und dieser Web-App (https://wetterdienst.eobs.org). Der Server der Web-App leitet Anfragen an /api und /mcp an das Backend weiter.',
-        'Beide laufen auf Servern von Hetzner in Deutschland. Hetzner verarbeitet Daten als Auftragsverarbeiter im Auftrag des Verantwortlichen auf Grundlage eines Vertrags zur Auftragsverarbeitung (Art. 28 DSGVO). Bereitgestellt werden die Anwendungen mit der selbst betriebenen Software Coolify; sie ist kein Dritter.',
+        'Beide laufen auf Servern der Hetzner Online GmbH (Industriestr. 25, 91710 Gunzenhausen) in Deutschland. Hetzner verarbeitet Daten als Auftragsverarbeiter im Auftrag des Verantwortlichen auf Grundlage eines Vertrags zur Auftragsverarbeitung (Art. 28 DSGVO). Bereitgestellt werden die Anwendungen mit der selbst betriebenen Software Coolify; sie ist kein Dritter.',
       ],
     },
     {

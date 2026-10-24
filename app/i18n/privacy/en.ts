@@ -25,7 +25,7 @@ export const privacy: PrivacyPolicy = {
       title: 'Hosting and processing on behalf of the controller',
       paragraphs: [
         'The service consists of two applications: the backend (REST API and MCP server, https://wetterdienst-backend.eobs.org) and this web app (https://wetterdienst.eobs.org). The web app\'s server forwards requests to /api and /mcp to the backend.',
-        'Both run on servers of Hetzner in Germany. Hetzner processes data as a processor on behalf of the controller under a data processing agreement (Art. 28 GDPR). The applications are deployed with the self-hosted software Coolify; it is not a third party.',
+        'Both run on servers of Hetzner Online GmbH (Industriestr. 25, 91710 Gunzenhausen) in Germany. Hetzner processes data as a processor on behalf of the controller under a data processing agreement (Art. 28 GDPR). The applications are deployed with the self-hosted software Coolify; it is not a third party.',
       ],
     },
     {
