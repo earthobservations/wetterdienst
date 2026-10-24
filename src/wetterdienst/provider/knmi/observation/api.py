@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
-import io
 import json
 import logging
 from dataclasses import dataclass
@@ -32,9 +31,8 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.knmi.observation.metadata import KnmiObservationMetadata
-from wetterdienst.provider.knmi.observation.parser import decode_str, parse_knmi_netcdf, public_station_id
+from wetterdienst.provider.knmi.observation.parser import decode_str, open_netcdf, parse_knmi_netcdf, public_station_id
 from wetterdienst.settings import reveal
-from wetterdienst.util.extras import import_optional
 from wetterdienst.util.network import (
     CREDENTIAL_REJECTED_STATUSES,
     RedirectRefusedError,
@@ -442,9 +440,7 @@ class KnmiObservationRequest(TimeseriesRequest):
             log.warning(f"Failed to fetch KNMI {resolution.value} stations: {_without_url_secrets_in(str(payload))}")
             return None
 
-        h5netcdf = import_optional("h5netcdf", "Reading KNMI NetCDF", extra="knmi")
-
-        with h5netcdf.File(io.BytesIO(payload), "r") as file:
+        with open_netcdf(payload) as file:
             variables = file.variables
             return pl.DataFrame(
                 {
