@@ -2,10 +2,11 @@
 FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS base
 WORKDIR /app
 
+# The corepack that ships with this Node image, not the latest one fetched on every build. It
+# provides `pnpm` at the version and hash of `packageManager` in app/package.json, which is
+# where that pin lives.
 RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
-    npm install -g corepack && \
-    corepack enable && \
-    corepack prepare pnpm@11.22.0 --activate
+    corepack enable pnpm
 
 # ─── deps: install node_modules ───────────────────────────────────────────────
 FROM base AS deps
@@ -13,7 +14,7 @@ FROM base AS deps
 # .pnpmfile.cjs changes what the lockfile resolves (GH-3094), so the install needs it too
 COPY app/package.json app/pnpm-lock.yaml app/pnpm-workspace.yaml app/.pnpmfile.cjs ./
 
-RUN pnpm i
+RUN pnpm install --frozen-lockfile
 
 # ─── dev: development server ──────────────────────────────────────────────────
 FROM deps AS dev

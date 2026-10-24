@@ -11,7 +11,7 @@ overrides:
   semver: ^7.8.2
   undici-types: ^6.21.0
 
-pnpmfileChecksum: sha256-eOBVNmvcMoiVp9g1TzpR9Nm5dKAaFfeQ/N2WhsdDwJw=
+pnpmfileChecksum: sha256-Up0RuEXzrp7BwjLl/ozfslJ3fwd/LPZvhto4VlQs5vM=
 
 importers:
 

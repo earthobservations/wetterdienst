@@ -27,9 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     # the image the baseline was recorded in (Firefox on Linux, with its fonts): the layout-dependent
-    # rules differ on another system. Keep the tag in step with @playwright/test in app/package.json
+    # rules differ on another system. Keep the tag, and the digest after it (`docker buildx imagetools
+    # inspect <image>:<tag>`, the index digest), in step with @playwright/test in app/package.json
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --ipc=host
     # Firefox refuses to start as root when $HOME (/github/home in a container job) belongs to
     # another user; the image's own advice for GitHub Actions
@@ -59,7 +60,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
-          version: 11
+          package_json_file: app/package.json
 
       - name: Get pnpm store directory
         id: pnpm-cache
