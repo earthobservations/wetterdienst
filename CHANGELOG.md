@@ -56,6 +56,9 @@ Types of changes:
   measure) are fetched only at the provider's own domain, over `https` (EA's `http://` ids are read
   as `https://`); KNMI and Météo-France also at the object store their files are served from. An
   `https` directory listing drops `http` links (GH-3338, GH-3339)
+- A KNMI NetCDF file with a variable whose data is kept outside the file (HDF5 external storage or
+  a virtual dataset) is refused with an `UpstreamError` (HTTP 502 in the REST API), for the
+  values and for the station list; KNMI's own files keep every variable in the file (GH-3337)
 - **Breaking**: an `influxdbs://` or `influxdb1s://` export (library `to_target`, CLI `--target`)
   now verifies the server's TLS certificate; the InfluxDB 1 client used to accept any, so the
   credentials and the data could be read on the path. A server with a self-signed or private-CA
