@@ -55,9 +55,9 @@ GHCNH_NO_CODE = "Null"
 
 # stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of it, 6 to
 # 756 km off: the list has lost the sign of the longitude (GH-2645, GH-2886). Each was checked against two or more
-# other sources (ECA&D, GHCN hourly list, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place west
-# of the meridian and within 4 km of the mirrored position; the values per station are in the pull requests of those
-# issues.
+# other sources (ECA&D, GHCN hourly list, ISD history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same
+# place west of the meridian and within 4 km of the mirrored position; the values per station are in the pull requests
+# of those issues.
 # The longitude of these is taken as west whatever sign the list gives, so a list corrected by NOAA is read as it is.
 GHCND_WEST_LONGITUDE_STATIONS = (
     "AGE00135039",  # ORAN-HOPITAL MILITAIRE
@@ -67,6 +67,7 @@ GHCND_WEST_LONGITUDE_STATIONS = (
     "FRE00104044",  # CAEN-CARPIQUET
     "FRE00104957",  # ESPOEY
     "FRE00106203",  # MONT-DE-MARSAN
+    "SP000007038",  # TORREVIEJA
     "SP000008416",  # VALENCIA
     "SPE00101035",  # ALICANTE EL ALTET
     "SPE00101043",  # ALICANTE
@@ -82,11 +83,16 @@ GHCND_WEST_LONGITUDE_STATIONS = (
     "UKE00105915",  # HAMPSTEAD
     "UKE00105919",  # BOGNOR REGIS
     "UKE00105926",  # HAYLING ISLAND
+    "UKE00105927",  # ALICE HOLT LODGE
     "UKE00107650",  # HEATHROW
     "UKE00156848",  # CRANWELL
     "UKE00156864",  # MONKS WOOD
     "UKE00156884",  # WISLEY
     "UKE00156888",  # WOBURN
+    "UKW00015014",  # MOLESWORTH
+    "UKW00015015",  # CHELVESTON
+    "UKW00015018",  # BASSINGBOURN
+    "UKW00015033",  # HUNTINGTON (RAF Alconbury)
     "UKW00015034",  # WYTON
     "UKW00015035",  # WADDINGTON
     "UKW00015041",  # STURGATE
