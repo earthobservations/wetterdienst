@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import math
 import typing
 from dataclasses import dataclass, fields, replace
 from datetime import datetime
@@ -18,7 +19,13 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
-from wetterdienst.io.export import ExportMixin, check_image_size, require_kaleido
+from wetterdienst.io.export import (
+    _DEFAULT_IMAGE_HEIGHT,
+    _DEFAULT_IMAGE_WIDTH,
+    ExportMixin,
+    check_image_size,
+    require_kaleido,
+)
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
@@ -328,6 +335,49 @@ class _EqualByFields:
         return all(_same(getattr(self, f.name), getattr(other, f.name)) for f in fields(cast("Any", self)))
 
 
+#: margin around the station map, in pixels; at the top room for the legend, which plotly would make by itself and
+#: take from the height of the map
+_MAP_MARGIN = {"l": 10, "r": 10, "t": 50, "b": 10}
+#: the share of the map the extent of the stations fills at most, which leaves room for their labels
+_MAP_FILL = 0.85
+#: the zoom of a single station or of stations next to each other: a town, not a street
+_MAP_MAX_ZOOM = 10.0
+#: width in pixels of the whole world at zoom 0 (MapLibre draws 512 px tiles)
+_MAP_WORLD_PIXELS = 512
+#: the latitude at which the Mercator projection ends
+_MERCATOR_MAX_LATITUDE = 85.05
+
+
+def _mercator_y(latitude: float) -> float:
+    """Northing of a latitude in degrees on the Mercator map of the width 2 pi, the poles cut off where it ends."""
+    return math.asinh(math.tan(math.radians(max(-_MERCATOR_MAX_LATITUDE, min(_MERCATOR_MAX_LATITUDE, latitude)))))
+
+
+def _fit_map_view(
+    min_lon: float, max_lon: float, min_lat: float, max_lat: float, width: int, height: int
+) -> tuple[dict[str, float], float]:
+    """Centre and zoom that show a box of longitudes and latitudes in a map of `width` x `height` pixels.
+
+    The extent fills `_MAP_FILL` of the map in the direction that needs more room, the longitudes
+    measured against the width and the latitudes, which are not evenly spaced in the Mercator
+    projection of the map, against the height. The zoom is at most `_MAP_MAX_ZOOM` and at least 0,
+    the whole world. A box that crosses the antimeridian is not told from one across the whole
+    world.
+    """
+    south, north = _mercator_y(min_lat), _mercator_y(max_lat)
+    center = {
+        "lat": math.degrees(math.atan(math.sinh((south + north) / 2))),
+        "lon": (min_lon + max_lon) / 2,
+    }
+    # a map of zoom z is 512 * 2 ** z pixels wide, which are 360 degrees and 2 pi in northing
+    zooms = [_MAP_MAX_ZOOM]
+    if max_lon > min_lon:
+        zooms.append(math.log2(_MAP_FILL * width * 360 / (_MAP_WORLD_PIXELS * (max_lon - min_lon))))
+    if north > south:
+        zooms.append(math.log2(_MAP_FILL * height * 2 * math.pi / (_MAP_WORLD_PIXELS * (north - south))))
+    return center, max(0.0, min(zooms))
+
+
 @dataclass(frozen=True, kw_only=True, eq=False)
 class StationsResult(_EqualByFields, ExportMixin):
     """Result class for stations.
@@ -517,17 +567,7 @@ class StationsResult(_EqualByFields, ExportMixin):
         df = self.df
         if df.is_empty():
             return go.Figure()
-        # Calculate bounding box
-        min_lon = cast("float", self.df["longitude"].min())
-        max_lon = cast("float", self.df["longitude"].max())
-        min_lat = cast("float", self.df["latitude"].min())
-        max_lat = cast("float", self.df["latitude"].max())
-        # Calculate center of the bounding box
-        center_lon = (min_lon + max_lon) / 2
-        center_lat = (min_lat + max_lat) / 2
-        # Calculate zoom level
-        lat_diff = max_lat - min_lat
-        zoom = 12 - lat_diff
+        center, zoom = self._map_view(_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT)
         # for coloring of resolutions/datasets
         n_resolutions = df["resolution"].n_unique()
         n_datasets = df["dataset"].n_unique()
@@ -565,10 +605,7 @@ class StationsResult(_EqualByFields, ExportMixin):
             text="name",
             color="dataset",
             zoom=zoom,
-            center={
-                "lat": center_lat,
-                "lon": center_lon,
-            },
+            center=center,
         )
         return fig.update_layout(
             legend={
@@ -576,7 +613,18 @@ class StationsResult(_EqualByFields, ExportMixin):
                 "yanchor": "bottom",
                 "y": 1.01,
             },
-            margin={"r": 10, "t": 10, "l": 10, "b": 10},
+            margin=_MAP_MARGIN,
+        )
+
+    def _map_view(self, width: int, height: int) -> tuple[dict[str, float], float]:
+        """Centre and zoom of the station map that show every station in a picture of `width` x `height` pixels."""
+        return _fit_map_view(
+            cast("float", self.df["longitude"].min()),
+            cast("float", self.df["longitude"].max()),
+            cast("float", self.df["latitude"].min()),
+            cast("float", self.df["latitude"].max()),
+            max(1, width - _MAP_MARGIN["l"] - _MAP_MARGIN["r"]),
+            max(1, height - _MAP_MARGIN["t"] - _MAP_MARGIN["b"]),
         )
 
     def _to_image(
@@ -597,6 +645,10 @@ class StationsResult(_EqualByFields, ExportMixin):
         elif fmt in ("png", "jpg", "webp", "svg", "pdf"):
             check_image_size(fig, width, height, scale, max_side)
             require_kaleido()
+            if (width or height) and not self.df.is_empty():
+                # the zoom of `to_plot` fits the default size: a picture of another size is fitted again
+                center, zoom = self._map_view(width or _DEFAULT_IMAGE_WIDTH, height or _DEFAULT_IMAGE_HEIGHT)
+                fig.update_layout(map={"center": center, "zoom": zoom})
             img = fig.to_image(format=fmt, width=width, height=height, scale=scale)
         else:
             msg = f"Invalid format: {fmt}"
