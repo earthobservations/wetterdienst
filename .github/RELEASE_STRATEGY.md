@@ -154,7 +154,7 @@ the image"), so its release after this one is `app-v0.28.0`, not `app-v1.0.0`.
 
 ### 0. What must be true first
 
-- [ ] #3128 is down to the two shims below: `Settings(ts_*)` was removed in 0.160.0, and
+- [x] #3128 is down to the two shims, removed in 0.173.0 (#3348): `Settings(ts_*)` was removed in 0.160.0, and
   `StationsResult._df_all`, `_stations_filter` and `_rank` are private (`src/wetterdienst/model/result.py`).
 - [ ] The compatibility page (`docs/usage/compatibility.md`), the migration note (`docs/usage/migrating.md`) and the
   links from `README.md` and `docs/usage/index.md` exist (#3130); the three contract checks exist (#3131):
@@ -177,41 +177,44 @@ the image"), so its release after this one is `app-v0.28.0`, not `app-v1.0.0`.
 
 ### 1. The pre-tag pull request: remove the two announced shims
 
+Done in 0.173.0 by #3348, earlier than 1.0.0: the boxes it did are ticked; the rest stays to do.
+
 Both are dated "removed 1.0.0" in `docs/usage/compatibility.md` (table "Deprecated today") and
 `docs/usage/migrating.md`, so this is the last change to a surface before the baselines are taken. It is a
 **Breaking** change, so it goes in as an ordinary PR with an issue (#3128 is it) and merges before the release PR.
 
-- [ ] `src/wetterdienst/api.py`: delete `Wetterdienst.__new__` (the `DeprecationWarning`), and the imports it leaves
+- [x] `src/wetterdienst/api.py`: delete `Wetterdienst.__new__` (the `DeprecationWarning`), and the imports it leaves
   unused (`warnings`, `StandaloneRequest` if nothing else uses them; `uv run poe lint` says). `Wetterdienst(...)`
-  is then a plain call of an empty class. The Python-surface baseline skips underscore names, so
+  is then a plain call of an empty class. (#3348 instead replaced it with a `__new__` that raises a `TypeError`
+  naming `resolve` and `resolve_standalone`.) The Python-surface baseline skips underscore names, so
   `tests/baselines/surface.baseline.json` does not see this removal.
-- [ ] `src/wetterdienst/ui/cli.py`: delete the `stripes.add_command(_Command("values", ...))` block and the comment
+- [x] `src/wetterdienst/ui/cli.py`: delete the `stripes.add_command(_Command("values", ...))` block and the comment
   above it at the end of the file. `_Command` stays: it is the `command_class` of `_Group`.
-- [ ] `tests/test_api.py`: replace `test_the_constructor_form_is_deprecated_and_still_returns_the_class` with a test
+- [x] `tests/test_api.py`: replace `test_the_constructor_form_is_deprecated_and_still_returns_the_class` with a test
   that `Wetterdienst("dwd", "observation")` raises `TypeError`. `tests/test_docs.py`
   (`test_the_documentation_resolves_a_network_with_resolve`) stays: it keeps the form out of the docs and examples.
-- [ ] `tests/ui/cli/test_cli_stripes.py`: replace `test_stripes_values_is_the_deprecated_name_of_the_image` with a
+- [x] `tests/ui/cli/test_cli_stripes.py`: replace `test_stripes_values_is_the_deprecated_name_of_the_image` with a
   test that `stripes values` exits 2 with "No such command". `tests/ui/cli/test_cli.py`
   (`writes_directly` has `"stripes values"`) and `tests/ui/test_surface_parity.py` (`_NO_COMMAND` says
   `stripes values` is the deprecated name of the image) lose that name.
-- [ ] `tests/baselines/cli.py`: `ACCEPTED_BREAKS` gets
+- [x] `tests/baselines/cli.py`: `ACCEPTED_BREAKS` gets
   `"wetterdienst stripes values was removed"` with the reason (announced since 0.159.0, GH-3035, removed at 1.0.0 as
   `docs/usage/compatibility.md` says). The finding text is the one `breaking_changes` writes for a removed command;
   run `uv run pytest tests/baselines` to see it if it differs.
-- [ ] `uv run poe "contracts:snapshot"`: rewrites `tests/ui/cli/help.snapshot.txt` (the `values` line under
+- [x] `uv run poe "contracts:snapshot"`: rewrites `tests/ui/cli/help.snapshot.txt` (the `values` line under
   `stripes` goes). The OpenAPI snapshot and the MCP baseline do not change: `stripes_values` is the REST tool, not
   the command.
-- [ ] `docs/usage/compatibility.md`: "Deprecated today" has no rows; replace the paragraph "Both are removed at 1.0.0,
+- [x] `docs/usage/compatibility.md`: "Deprecated today" has no rows; replace the paragraph "Both are removed at 1.0.0,
   with the tag. ..." by one that says they were removed in 1.0.0, that `wetterdienst stripes values` is "No such
   command", and keep "the name is **never reused**".
-- [ ] `docs/usage/migrating.md`: the intro paragraph "Two things still work in 0.162.0 and are removed at 1.0.0" (line
+- [x] `docs/usage/migrating.md`: the intro paragraph "Two things still work in 0.162.0 and are removed at 1.0.0" (line
   19), the `Wetterdienst(provider, network)` row of "The request" (line 44) and the `stripes values` row of
   "Command line" (line 246) say "removed in 1.0.0" and what to write instead, with `1.0.0, GH-3128` as the release.
-- [ ] `docs/usage/python-api.md` (line 72, "`Wetterdienst(provider, network)` is deprecated and removed in 1.0.0")
+- [x] `docs/usage/python-api.md` (line 72, "`Wetterdienst(provider, network)` is deprecated and removed in 1.0.0")
   becomes a statement that it was removed, or goes.
 - [ ] `src/wetterdienst/ui/deprecation.py` (module docstring: "Before the tag a deprecation names the version that
   removes it") and `tests/public_surface.py` ("From 1.0 ...") are written in the present tense of 1.0.
-- [ ] `CHANGELOG.md`, `[Unreleased]`, **Removed** or **Breaking** entries (a few lines each, `(GH-3128)`, what to
+- [x] `CHANGELOG.md`, `[Unreleased]`, **Removed** or **Breaking** entries (a few lines each, `(GH-3128)`, what to
   use instead): `Wetterdienst(provider, network)` is a `TypeError`, write `Wetterdienst.resolve(provider, network)`
   (`resolve_standalone` for `dwd/radar` and `dwd/alerts`); `wetterdienst stripes values` is "No such command", write
   `wetterdienst stripes image`.
@@ -277,7 +280,7 @@ The files `chore: release 0.162.0 and app 0.27.0` touched, plus the 1.0 ones. Ba
   (trigger: a `v*.*.*` tag push).
 - [ ] Write the narrative of the release to a scratch file (not the changelog, see "Release notes are not the
   changelog"): what 1.0.0 promises and links Compatibility, which breaking changes since 0.139.0 need action and the
-  link to Migrating, the two shims removed in it, that the app is 0.x and paired (step 6).
+  link to Migrating, the two shims (removed in 0.173.0, so among them), that the app is 0.x and paired (step 6).
 - [ ] `gh release create v1.0.0 --title "v1.0.0" --notes-file <scratch file>`. The published release starts
   `.github/workflows/release.yml` (build, then `uv publish` by trusted publishing).
 - [ ] `release.yml` finished: `pip index versions wetterdienst` (or the PyPI page) lists 1.0.0; in a fresh
@@ -354,8 +357,8 @@ Not decided anywhere this checklist could read, and each changes a line above.
 
 ## Version Management
 
-- **Backend**: Version in `pyproject.toml` (currently `0.172.0`)
-- **App**: Version in `app/package.json` (currently `0.33.0`; the package is also marked `private`)
+- **Backend**: Version in `pyproject.toml` (currently `0.173.0`)
+- **App**: Version in `app/package.json` (currently `0.34.0`; the package is also marked `private`)
 - Both can be versioned independently
 - Consider semantic versioning for both
 

@@ -38,13 +38,7 @@ from tests.baselines.common import DIRECTORY, read, write
 BASELINE = DIRECTORY / "cli.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-ACCEPTED_BREAKS: dict[str, str] = {
-    "wetterdienst stripes values was removed": (
-        "announced since 0.159.0 (GH-3035) as the old name of `stripes image`, which writes the same image, and "
-        "removed in 0.173.0, earlier than the 1.0.0 that docs/usage/compatibility.md announced (GH-3128); "
-        "the name is not reused"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")
