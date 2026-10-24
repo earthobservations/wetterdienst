@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import json
 import threading
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 
 import pytest
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.aemet.observation import api as aemet_api
 from wetterdienst.provider.aemet.observation.api import AemetKeyRejectedError, AemetObservationRequest, _fetch_datos
@@ -41,6 +43,8 @@ class _Aemet(BaseHTTPRequestHandler):
         body = bodies.pop(0) if len(bodies) > 1 else bodies[0]
         status, body = body if isinstance(body, tuple) else (200, body)
         self.send_response(status)
+        if status == HTTPStatus.FOUND:  # the body of a redirect is the address it leads to
+            self.send_header("Location", body.decode())
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -199,3 +203,35 @@ def test_an_accepted_probe_is_answered_from_the_cache_for_a_while(aemet: Threadi
     assert AemetObservationRequest.is_valid() is True
     assert AemetObservationRequest.is_valid() is True
     assert aemet.requests == [_INVENTORY]
+
+
+def test_a_link_to_another_host_than_aemets_is_not_fetched_and_the_envelope_is_asked_for_again(
+    aemet: ThreadingHTTPServer,
+) -> None:
+    """The "datos" link is the envelope's to name, and a host that is not AEMET's is never asked (GH-3339)."""
+    elsewhere = f"http://localhost:{aemet.server_port}/internal-only"
+    aemet.script = {
+        _ENVELOPE: [_envelope(200, datos=elsewhere), _envelope(200, datos=_url(aemet, "/datos"))],
+        "/internal-only": [b'[{"secret": "internal-only"}]'],
+        "/datos": [_PAYLOAD],
+    }
+    settings = Settings()
+    refused = _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX)
+    assert isinstance(refused, DownloadError)
+    assert "the link was not fetched" in str(refused)
+    assert aemet.requests == [_ENVELOPE]
+    assert _fetch_datos(_url(aemet, _ENVELOPE), settings, CacheExpiry.METAINDEX) == _PAYLOAD
+    assert aemet.requests == [_ENVELOPE, _ENVELOPE, "/datos"]
+
+
+def test_a_redirect_of_the_request_that_carries_the_key_to_another_host_is_not_followed(
+    aemet: ThreadingHTTPServer,
+) -> None:
+    """The key is sent in a header aiohttp does not drop on a redirect, so the redirect is not followed (GH-3338)."""
+    aemet.script = {
+        _ENVELOPE: [(302, f"http://localhost:{aemet.server_port}/internal-only".encode())],
+        "/internal-only": [_envelope(200, datos=_url(aemet, "/datos"))],
+    }
+    refused = _fetch_datos(_url(aemet, _ENVELOPE), Settings(), CacheExpiry.METAINDEX)
+    assert isinstance(refused, DownloadError)
+    assert aemet.requests == [_ENVELOPE]

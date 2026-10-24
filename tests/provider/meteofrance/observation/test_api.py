@@ -16,7 +16,7 @@ import pytest
 
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import InvalidParameterError
+from wetterdienst.exceptions import DownloadError, InvalidParameterError
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
 from wetterdienst.util.network import File
@@ -166,7 +166,7 @@ def _serve_climate(monkeypatch: pytest.MonkeyPatch, files: dict[str, bytes]) -> 
     A file the test does not serve fails with a KeyError, and the titles asked for show whether the
     request read the files it needs and no others.
     """
-    resources = [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"} for title in files]
+    resources = [{"title": title, "url": f"https://static.data.gouv.fr/{title}.csv.gz"} for title in files]
     asked: list[str] = []
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
@@ -629,7 +629,7 @@ def test_meteofrance_observation_api_a_period_file_that_is_a_404_is_the_empty_lo
 ) -> None:
     """Test that a listed period file the portal does not have is left out, and a station with no other is no rows."""
     title = "HOR_departement_031_periode_2020-2024"
-    resources = [{"title": title, "url": f"https://example.invalid/{title}.csv.gz"}]
+    resources = [{"title": title, "url": f"https://static.data.gouv.fr/{title}.csv.gz"}]
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
         url = url or args[0]
@@ -700,3 +700,37 @@ def test_meteofrance_observation_api_every_parameter_has_a_validation_code_colum
     schema = api._CLIMATE_SCHEMAS[resolution, dataset]  # noqa: SLF001
     declared = MeteoFranceObservationRequest.metadata[resolution][dataset]
     assert [parameter.name_original for parameter in declared if f"Q{parameter.name_original}" not in schema] == []
+
+
+@pytest.mark.parametrize(
+    ("url", "kept"),
+    [
+        pytest.param(
+            "https://static.data.gouv.fr/resources/x/HOR_departement_31_periode_2020-2024.csv.gz",
+            True,
+            id="data.gouv.fr",
+        ),
+        pytest.param(
+            "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/x/HOR_departement_31_periode_2020-2024.csv.gz",
+            True,
+            id="the store of Météo-France",
+        ),
+        pytest.param("https://example.net/HOR_departement_31_periode_2020-2024.csv.gz", False, id="another host"),
+        pytest.param("http://169.254.169.254/latest/meta-data/iam", False, id="an internal address"),
+    ],
+)
+def test_meteofrance_observation_api_a_resource_is_fetched_only_at_data_gouv_or_the_store_of_meteofrance(
+    url: str,
+    kept: bool,  # noqa: FBT001
+) -> None:
+    """The address of a resource is the dataset's to name (GH-3339); a resource of no department is not read."""
+    resources = [
+        {"title": "HOR_departement_31_periode_2020-2024", "url": url},
+        {"title": "documentation", "url": "https://example.net/documentation.pdf"},
+    ]
+    match = api._match_department_resources  # noqa: SLF001
+    if kept:
+        assert [resource["url"] for resource in match(resources, "HOR_departement_31_periode_", "")] == [url]
+    else:
+        with pytest.raises(DownloadError, match="the link was not fetched"):
+            match(resources, "HOR_departement_31_periode_", "")

@@ -32,6 +32,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.knmi.observation.api import (
     KnmiObservationRequest,
     _download_with_retry,
+    _fetch_netcdf,
     _filename_for,
     _moments,
     _stamp,
@@ -503,7 +504,7 @@ def test_knmi_station_list_without_h5netcdf_names_the_extra(monkeypatch: pytest.
         request.all()
 
 
-_STATION_FILE = "https://s3.example.invalid/stations.nc?X-Amz-Signature=secret"
+_STATION_FILE = "https://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/stations.nc?X-Amz-Signature=secret"
 
 
 def _response_error(status: int) -> ClientResponseError:
@@ -632,7 +633,7 @@ def _serve_knmi(
             if name == "latest.nc":
                 link = _STATION_FILE
             elif name in ok or failure is None or at == "download":
-                link = f"https://s3.example.invalid/{name}?X-Amz-Signature=secret"
+                link = f"https://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/{name}?X-Amz-Signature=secret"
             else:
                 asked.append(name)
                 return File(url=url, content=failure, status=status)
@@ -1134,3 +1135,57 @@ def test_parse_knmi_netcdf_without_h5netcdf_names_the_extra(monkeypatch: pytest.
 
     with pytest.raises(MissingDependencyError, match=r"pip install wetterdienst\[knmi\]"):
         parse_knmi_netcdf(b"not read", DE_BILT, ["TG"], dt.datetime(2020, 1, 1, tzinfo=UTC))
+
+
+@pytest.mark.parametrize(
+    ("link", "fetched"),
+    [
+        pytest.param(
+            "https://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/f.nc?X-Amz-Signature=s",
+            True,
+            id="the store",
+        ),
+        pytest.param("https://api.dataplatform.knmi.nl/open-data/v1/signed/f.nc", True, id="knmi"),
+        pytest.param(
+            "http://knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com/f.nc", False, id="the store over http"
+        ),
+        pytest.param("https://example.net/f.nc", False, id="another host"),
+        pytest.param("https://other-bucket.s3.eu-west-1.amazonaws.com/f.nc", False, id="another bucket"),
+        pytest.param(
+            "https://internal.elb.eu-west-1.amazonaws.com/f.nc", False, id="another name of the store's domain"
+        ),
+        pytest.param("http://169.254.169.254/latest/meta-data/iam", False, id="an internal address"),
+        pytest.param("file:///etc/hosts", False, id="a file"),
+    ],
+)
+def test_knmi_fetches_the_link_of_a_file_only_at_its_own_host_or_the_store(
+    monkeypatch: pytest.MonkeyPatch,
+    link: str,
+    fetched: bool,  # noqa: FBT001
+) -> None:
+    """The pre-signed link is the resolve answer's to name, and is asked only where it leads to KNMI or its store."""
+    asked: list[str] = []
+
+    def download(url: str, *_args: object, **_kwargs: object) -> File:
+        asked.append(url)
+        if url.endswith("/url"):
+            return File(url=url, content=BytesIO(json.dumps({"temporaryDownloadUrl": link}).encode()), status=200)
+        return File(url=url, content=BytesIO(b"netcdf"), status=200)
+
+    dropped: list[str] = []
+    monkeypatch.setattr("wetterdienst.provider.knmi.observation.api._download_with_retry", download)
+    monkeypatch.setattr(
+        "wetterdienst.provider.knmi.observation.api.drop_cached_file", lambda url, *_a, **_k: dropped.append(url)
+    )
+    settings = Settings(auth={"knmi": "dummy-key-for-test"})
+    payload = _fetch_netcdf("daily-observations-validated", "1", "f.nc", settings)
+    if fetched:
+        assert payload == b"netcdf"
+        assert asked[-1] == link
+        assert dropped == []
+    else:
+        assert isinstance(payload, DownloadError)
+        assert "the link was not fetched" in str(payload)
+        assert asked == [asked[0]]
+        # the resolve answer is cached for minutes and would hand out the same link again
+        assert dropped == asked

@@ -15,6 +15,7 @@ from aiohttp import ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
 
 from wetterdienst import Options, Settings
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.provider.eaufrance.hubeau.api import (
@@ -621,3 +622,25 @@ def test_descriptions_say_what_the_swagger_says_of_the_stamp_and_the_height(reso
     assert "`gauge_zero`" in descriptions["H"]
     assert "states no mean or interval" in descriptions["H"]
     assert "gauge" not in descriptions["Q"]
+
+
+def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the `next` of a page is followed at the host that was asked, and no other (GH-3339)."""
+    asked: list[str] = []
+
+    def _download_file(url: str, **_kwargs: object) -> File:
+        asked.append(url)
+        page = {"data": [{"n": 1}], "next": "http://169.254.169.254/latest/meta-data/iam"}
+        return File(url=url, content=BytesIO(json.dumps(page).encode()), status=200)
+
+    monkeypatch.setattr(api, "download_file", _download_file)
+
+    with pytest.raises(DownloadError, match="the link was not fetched"):
+        api._paged_rows(  # noqa: SLF001
+            "https://hubeau.eaufrance.fr/api/v2/first",
+            Settings(),
+            ttl=CacheExpiry.METAINDEX,
+            timeout=30,
+        )
+
+    assert asked == ["https://hubeau.eaufrance.fr/api/v2/first"]

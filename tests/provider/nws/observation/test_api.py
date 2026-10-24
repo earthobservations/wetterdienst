@@ -14,6 +14,7 @@ import pytest
 
 from tests.provider.value_stubs import serve, stations_result
 from wetterdienst import Options, Settings, __version__
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.nws.observation import NwsObservationRequest
@@ -898,3 +899,21 @@ def test_nws_hourly_does_not_follow_a_cursor_that_repeats(monkeypatch: pytest.Mo
     _hourly(["temperature_air_2m"], _stamp("10-12 00:00"), _stamp("10-14 23:00"))
 
     assert len(urls) == 2
+
+
+def test_nws_hourly_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that `pagination.next` is followed at the endpoint's own host and no other (GH-3339)."""
+    urls: list[str] = []
+
+    def download_file(*args: str, url: str | None = None, **_: object) -> File:
+        urls.append(url or args[0])
+        rows = sorted(_three_days(), key=lambda o: o["properties"]["timestamp"], reverse=True)[:500]
+        body = {"features": rows, "pagination": {"next": "http://169.254.169.254/latest/meta-data/iam"}}
+        return File(url=urls[-1], content=BytesIO(json.dumps(body).encode()), status=200)
+
+    monkeypatch.setattr(nws_api, "download_file", download_file)
+
+    with pytest.raises(DownloadError, match="the link was not fetched"):
+        _hourly(["temperature_air_2m"], _stamp("10-12 00:00"), _stamp("10-14 23:00"))
+
+    assert len(urls) == 1

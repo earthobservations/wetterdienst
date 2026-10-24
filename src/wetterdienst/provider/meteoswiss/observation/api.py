@@ -17,7 +17,7 @@ from wetterdienst.model.quality_flags import calm, clear_sentinels, join_quality
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, fetchable_link
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -85,7 +85,8 @@ class MeteoswissObservationValues(TimeseriesValues):
         assets = item.get("assets", {})
         pattern = re.compile(rf"^ogd-smn_{re.escape(station_id_lower)}_{granularity}(_.*)?\.csv$")
         urls = sorted(
-            asset["href"]
+            # the asset's address is the answer's to name: fetched at the host of the catalogue (GH-3339)
+            fetchable_link(asset["href"], item_url)
             for name, asset in assets.items()
             if pattern.match(name) and self._asset_overlaps_request(name)
         )
