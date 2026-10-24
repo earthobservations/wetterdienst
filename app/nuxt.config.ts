@@ -150,6 +150,11 @@ export default defineNuxtConfig({
     // (`server/middleware/rate-limit.ts` and `cors.ts`, GH-3093 and GH-3095).
     rateLimiter: false,
     corsHandler: false,
+    // nuxt-security's default (`true`) sets `vite.esbuild.drop = ['console', 'debugger']`, which Vite 8 (Oxc) ignores
+    // with a warning on every build, so it never removed anything (GH-3366). It stays off rather than ported to
+    // `rolldownOptions.output.minify.compress.dropConsole`: the app reports a failed chart, map or DuckDB query
+    // with `console.error` on purpose (the specs assert it), and that is what a bug report needs from a browser.
+    removeLoggers: false,
     headers: {
       // nuxt-security defaults this to 'no-referrer', which strips the Referer
       // header. OpenStreetMap's tile servers reject refererless requests

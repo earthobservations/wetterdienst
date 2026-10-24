@@ -117,3 +117,25 @@ describe('the rate limit in the runtime config', () => {
     expect((await loadConfig()).runtimeConfig.rateLimit.enabled).toBe(false)
   })
 })
+
+describe('the loggers of the production bundle', () => {
+  beforeEach(() => {
+    vi.stubGlobal('defineNuxtConfig', (config: any) => config)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  // nuxt-security's `removeLoggers: true` sets `vite.esbuild.drop`, which Vite 8 ignores with a warning on every
+  // build (GH-3366): the option did nothing. The app keeps its `console.error` reports of a failed chart, map or
+  // query, so the option is off. This fails when it is switched on again (whatever its form) and when someone
+  // adds `vite.esbuild` by hand; the module's own write to `nuxt.options` at setup is not seen here.
+  it('are not removed through an esbuild option that Vite 8 ignores', async () => {
+    const config = await loadConfig()
+
+    expect(config.security.removeLoggers).toBe(false)
+    expect(config.vite.esbuild).toBeUndefined()
+  })
+})
