@@ -64,6 +64,15 @@ Types of changes:
   credentials and the data could be read on the path. A server with a self-signed or private-CA
   certificate now fails with an SSL error: set `REQUESTS_CA_BUNDLE` to a CA bundle that includes
   that certificate (or its CA) instead (GH-3342)
+- `diskcache` is no longer a dependency. The directory listings of the file indexes are kept as
+  JSON in a SQLite file (`listings-v1.sqlite3`, in a folder of the cache directory) of the standard
+  library, where `diskcache` unpickled them: write access to the cache directory no longer runs
+  code in the process (GHSA-w8v5-vhqr-4h9v, which had no fixed version). The old cache is ignored
+  and the listings are fetched once more; its files are removed once idle for an hour. A cache
+  directory that wetterdienst makes now has mode 0o700 and the database 0o600; an existing one
+  keeps its mode. The floor of `fsspec` is now 2026.6.0, the first release whose download-cache
+  metadata file is JSON only (earlier ones fell back to `pickle`): upgrade it as well.
+  `FileDirCache` has a new method, `close()`, which closes the database connections (GH-3326)
 
 ## [0.173.0] - 2026-10-24
 
