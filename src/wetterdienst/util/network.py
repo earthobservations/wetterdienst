@@ -2010,7 +2010,8 @@ def download_file(
         attempts: How often a failure worth retrying is tried. One is a download that is not asked
             again, which a check of a credential wants: it is a question about now, and an answer
             late is worth no more than none.
-        max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given.
+        max_bytes: The most the body may be, `MAX_DOWNLOAD_BYTES` if not given. A body held in the cache is
+            returned as it is, whatever its size: the ceiling is for what is fetched.
 
     Returns:
         A BytesIO object containing the downloaded file.

@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import gzip
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -138,11 +140,17 @@ def test_a_body_past_the_ceiling_is_a_download_error(
         assert not any(path.is_file() and path.suffix == ".tmp" for path in tmp_path.rglob("*"))
 
 
-def test_a_body_past_the_ceiling_is_refused_before_it_is_read(server: str, tmp_path: Path) -> None:
-    """A body that says it is too large is refused on its headers: the same answer, without having read any of it."""
-    file = _fetch(f"{server}/large.csv", tmp_path, cached=False)
-    assert isinstance(file.content, DownloadRefusedError)
-    assert "larger" in str(file.content)
+def test_a_body_that_says_it_is_too_large_is_refused_before_it_is_read() -> None:
+    """The headers are enough: not a byte of the body is asked for from the stream."""
+
+    class _Stream:
+        async def read(self, _size: int) -> bytes:
+            msg = "the body was read"
+            raise AssertionError(msg)
+
+    response = SimpleNamespace(content_length=LIMIT + 1, content=_Stream())
+    with pytest.raises(DownloadRefusedError, match="larger than"):
+        asyncio.run(network._read_capped(response, LIMIT))  # noqa: SLF001  # ty: ignore[invalid-argument-type]
 
 
 def test_a_failed_download_is_not_asked_for_again(server: str, tmp_path: Path) -> None:
@@ -179,8 +187,6 @@ def test_a_download_that_takes_too_long_is_a_download_error(server: str, tmp_pat
     assert isinstance(file.content, DownloadRefusedError)
     with pytest.raises(DownloadError, match="took longer than the 1 seconds a download is held to"):
         file.raise_if_exception()
-    # the silence timeouts of the client stay what they were, and are no part of this
-    assert not isinstance(file.content, TimeoutError)
 
 
 def test_the_client_timeout_does_not_count_as_the_time_ceiling(
@@ -188,7 +194,10 @@ def test_the_client_timeout_does_not_count_as_the_time_ceiling(
 ) -> None:
     """A timeout of the client is the timeout it was, and is asked for again as before."""
     monkeypatch.setattr(network, "MAX_DOWNLOAD_SECONDS", 60)
-    file = _fetch(f"{server}/trickle.csv", tmp_path, cached=False, client_kwargs={"timeout": 0.01})
+    file = download_file(
+        f"{server}/trickle.csv", tmp_path, CacheExpiry.NO_CACHE, client_kwargs={"timeout": 0.01}, attempts=1
+    )
+    assert isinstance(file.content, TimeoutError)
     assert not isinstance(file.content, DownloadRefusedError)
 
 

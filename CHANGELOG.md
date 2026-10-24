@@ -76,10 +76,12 @@ Types of changes:
 - A single download is now limited to 2 GiB and to one hour in all (`download_file(max_bytes=...)`
   sets the size per call), and an archive that unpacks to more than a ceiling is refused: 1 GiB
   for most providers, 256 MiB for DWD SWSMOS and alerts, 2 GiB for DWD radar, 4 GiB for the KML of
-  MOSMIX and DMO. They fail with a `DownloadError` (REST 502), which is not retried, where the
-  body used to be read into memory whatever its size. A file whose name does not say it is
-  compressed but that arrives as gzip, zlib or zstd is refused too, as `polars.read_csv` unpacks
-  those on its own. The largest files served today are far below these figures (GH-3340)
+  MOSMIX and DMO, 8 GiB for Météo-France climate files. They fail with a `DownloadError` (REST
+  502), which is not retried, where the body used to be read into memory whatever its size. A zip
+  archive that is not stored or deflated, and a tar archive with links, are refused. A file whose
+  name does not say it is compressed but that arrives as gzip, zlib or zstd is refused too, as
+  `polars.read_csv` unpacks those on its own. The files served today are below these figures
+  (GH-3340)
 
 ## [0.173.0] - 2026-10-24
 

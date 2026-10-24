@@ -7,7 +7,9 @@ from __future__ import annotations
 import bz2
 import gzip
 import tarfile
+import tracemalloc
 import zipfile
+import zlib
 from io import BytesIO
 
 import pytest
@@ -136,18 +138,65 @@ def test_a_zip_archive_of_many_members_is_held_to_the_sum() -> None:
     assert len(zfs.glob("*.txt")) == 8
 
 
-def test_a_zip_member_that_holds_more_than_it_claims_is_not_read_past_its_claim() -> None:
-    """The size in the directory is the ceiling of what `zipfile` reads of a member, so a lie in it cannot inflate."""
-    packed = bytearray(_zip(**{"a.txt": ZEROS}))
-    claimed = (LIMIT // 2).to_bytes(4, "little")
-    true_size = SIZE.to_bytes(4, "little")
-    # the uncompressed size, in the local header of the member and in its entry of the directory
-    for offset in (packed.find(b"PK\x03\x04") + 22, packed.find(b"PK\x01\x02") + 24):
-        assert bytes(packed[offset : offset + 4]) == true_size
-        packed[offset : offset + 4] = claimed
-    zfs = open_zip(_file(bytes(packed)), limit=LIMIT)
-    with pytest.raises(zipfile.BadZipFile):
-        zfs.open("a.txt").read()
+def _lying_zip(real: int, claimed: int, compression: int = zipfile.ZIP_DEFLATED) -> bytes:
+    """Build a zip archive of one member of ``real`` zeros that claims ``claimed`` bytes, with the CRC of those."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression) as archive_:
+        archive_.writestr("a.txt", bytes(real))
+    packed = bytearray(buffer.getvalue())
+    crc = zlib.crc32(bytes(claimed)).to_bytes(4, "little")
+    local = packed.find(b"PK\x03\x04")
+    directory = packed.find(b"PK\x01\x02")
+    # the CRC and the sizes (compressed, then uncompressed) of the member: in its local header and in the directory
+    for offset in (local + 14, directory + 16):
+        packed[offset : offset + 4] = crc
+    for offset in (local + 22, directory + 24):
+        assert int.from_bytes(packed[offset : offset + 4], "little") == real
+        packed[offset : offset + 4] = claimed.to_bytes(4, "little")
+    return bytes(packed)
+
+
+@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA])
+def test_a_zip_member_that_is_not_deflated_is_refused(compression: int) -> None:
+    """`zipfile` unpacks a bzip2 or LZMA member whole before it cuts it to its claim, so they are not read."""
+    packed = _lying_zip(SIZE, 10, compression)
+    with pytest.raises(DownloadError, match="compressed in a way that is not read"):
+        open_zip(_file(packed), limit=LIMIT)
+
+
+def test_a_zip_member_that_holds_more_than_it_claims_is_read_in_chunks() -> None:
+    """A deflated member that claims 10 bytes and holds 50 MB is cut at its claim, with a chunk in memory."""
+    packed = _lying_zip(50_000_000, 10)
+    assert len(packed) < 100_000
+    zfs = open_zip(_file(packed), limit=100)
+    tracemalloc.start()
+    try:
+        assert zfs.open("a.txt").read() == bytes(10)
+        assert zfs.cat_file("a.txt") == bytes(10)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert peak < 20_000_000
+
+
+def test_a_zip_member_is_read_in_the_sizes_it_is_asked_for() -> None:
+    """The wrapper of a member is read as a file is: by size, to the end, and as a context."""
+    zfs = open_zip(_file(_zip(**{"a.txt": b"0123456789"})), limit=100)
+    with zfs.open("a.txt") as member:
+        assert member.read(4) == b"0123"
+        assert member.read() == b"456789"
+        assert member.read() == b""
+
+
+def test_a_stream_is_read_without_reserving_the_ceiling() -> None:
+    """Asking a gzip stream for 2 GiB in one call reserves it; asking in chunks holds a chunk."""
+    tracemalloc.start()
+    try:
+        assert gunzip(_file(gzip.compress(b"abc")), limit=2 * 1024**3) == b"abc"
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert peak < 20_000_000
 
 
 def test_a_zip_archive_that_is_none_is_a_bad_zip_file_as_it_was() -> None:
@@ -170,3 +219,18 @@ def test_a_tar_archive_that_is_none_is_a_read_error_as_it_was() -> None:
     """The radar callers fall back to a plain gzip on `tarfile.ReadError`."""
     with pytest.raises(tarfile.ReadError):
         open_tar(BytesIO(b"x" * 2000), url=URL, limit=LIMIT)
+
+
+def test_a_tar_archive_with_links_is_refused() -> None:
+    """A link is read as the file it points to, so many links to one member would unpack to many times its size."""
+    buffer = BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive_:
+        info = tarfile.TarInfo("a.bin")
+        info.size = 10
+        archive_.addfile(info, BytesIO(bytes(10)))
+        link = tarfile.TarInfo("b.bin")
+        link.type = tarfile.LNKTYPE
+        link.linkname = "a.bin"
+        archive_.addfile(link)
+    with pytest.raises(DownloadError, match="holds links"):
+        open_tar(BytesIO(buffer.getvalue()), url=URL, limit=LIMIT)

@@ -68,6 +68,9 @@ _CLIMATE_RESOURCE_SUFFIXES = {
     "6_minutes": {"data": ""},
 }
 _CLIMATE_DATE_COLUMNS = {"daily": "AAAAMMJJ", "monthly": "AAAAMM", "hourly": "AAAAMMJJHH", "6_minutes": "AAAAMMJJHHMN"}
+# The most a climate file may unpack to. The largest measured is the 6-minute file of the overseas department 974
+# (2010-2019): 148 MB compressed, about 3.5 GB unpacked; 8 GiB is more than twice that.
+_MAX_UNPACKED_BYTES = 8 * 1024**3
 _CLIMATE_DATE_FORMATS = {"daily": "%Y%m%d", "monthly": "%Y%m", "hourly": "%Y%m%d%H", "6_minutes": "%Y%m%d%H%M"}
 
 _QUOT_RR_T_VENT_SCHEMA = {
@@ -934,7 +937,9 @@ class MeteoFranceObservationValues(TimeseriesValues):
             if isinstance(file.content, Exception):
                 log.warning(f"Failed to download {file.url}: {file.content}")
                 continue
-            df = pl.read_csv(gunzip(file), separator=";", schema=schema, columns=read_columns)
+            df = pl.read_csv(
+                gunzip(file, limit=_MAX_UNPACKED_BYTES), separator=";", schema=schema, columns=read_columns
+            )
             df = df.filter(pl.col("NUM_POSTE").eq(station_id))
             if not df.is_empty():
                 dfs.append(df)
