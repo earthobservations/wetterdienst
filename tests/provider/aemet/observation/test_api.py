@@ -672,6 +672,23 @@ def test_aemet_observation_values_failed_chunk_is_skipped_and_logged(
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == chunks
 
 
+def test_aemet_observation_values_do_not_log_the_signature_of_the_datos_link(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The warning for a chunk that was skipped does not repeat the pre-signed "datos" link of the 404 (GH-3341)."""
+    _fake_fetch_datos(
+        monkeypatch, FileNotFoundError("https://opendata.aemet.es/opendata/sh/0123abc?X-Amz-Signature=SIG123")
+    )
+    with caplog.at_level(logging.INFO, logger="wetterdienst.provider.aemet"):
+        df = _values("annual", years=10)
+    assert df.is_empty()
+    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 4
+    assert all("https://opendata.aemet.es/opendata/sh/0123abc" in message for message in warnings)
+    assert "X-Amz" not in caplog.text
+    assert "SIG123" not in caplog.text
+
+
 def _response_error(status: int) -> ClientResponseError:
     return ClientResponseError(request_info=MagicMock(), history=(), status=status)
 

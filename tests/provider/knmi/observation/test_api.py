@@ -727,6 +727,35 @@ def test_knmi_values_skip_a_file_that_is_an_answer(
     assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 2
 
 
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(FileNotFoundError("https://s3.example.invalid/f.nc?X-Amz-Signature=secret"), id="404"),
+        pytest.param(
+            ClientResponseError(
+                request_info=MagicMock(),
+                history=(),
+                status=429,
+                message="url='https://s3.example.invalid/f.nc?sig=secret'",
+            ),
+            id="429",
+        ),
+    ],
+)
+def test_knmi_values_do_not_log_the_signature_of_the_download_link(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture, answer: Exception
+) -> None:
+    """The warning for a skipped file names the file, never the pre-signed link with its signature (GH-3341)."""
+    _serve_knmi(monkeypatch, tmp_path, answer, at="download")
+    with caplog.at_level(logging.INFO):
+        _daily_values(days=2)
+    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 2
+    assert all("daily-observations-validated-2020010" in message for message in warnings)
+    assert "secret" not in caplog.text
+    assert "X-Amz" not in caplog.text
+
+
 @pytest.mark.parametrize("status", [401, 403])
 def test_knmi_values_skip_a_file_whose_download_link_is_refused(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture, status: int

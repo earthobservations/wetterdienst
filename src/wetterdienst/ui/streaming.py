@@ -28,7 +28,6 @@ failure and not a 200. The timeout of the server holds between two chunks (`ui.m
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import polars as pl
@@ -36,12 +35,13 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
 
 from wetterdienst.ui.render import ndjson_line
+from wetterdienst.util.logging import get_one_line_logger
 
 if TYPE_CHECKING:
     import contextvars
     from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 #: the formats of `stations` and `values` that are streamed
 STREAM_FORMATS = frozenset({"ndjson", "csv"})

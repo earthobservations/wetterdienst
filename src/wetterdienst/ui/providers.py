@@ -12,7 +12,6 @@ without the `restapi` extra.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,12 +19,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from wetterdienst.api import Wetterdienst
 from wetterdienst.model.metadata import LicenseModel, NetworkKind  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import CatalogueMetadata, catalogue_metadata
+from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import MetadataModel
 
-log = logging.getLogger(__name__)
+log = get_one_line_logger(__name__)
 
 
 class ProviderDataset(BaseModel):

@@ -33,6 +33,7 @@ from wetterdienst.settings import Settings, reveal
 from wetterdienst.util.network import (
     PROBE_TIMEOUT,
     _without_url_secrets,
+    _without_url_secrets_in,
     as_outage,
     credential_rejected,
     download_file,
@@ -192,9 +193,10 @@ def _download_with_rate_limit_retry(
                     and last_file.status not in _NON_RETRYABLE_STATUSES
                 ):
                     log.warning(
-                        f"Retryable AEMET failure (status={last_file.status}) for {url}: {last_file.content}; retrying",
+                        f"Retryable AEMET failure (status={last_file.status}) for {_without_url_secrets(url)}: "
+                        f"{_without_url_secrets_in(str(last_file.content))}; retrying",
                     )
-                    raise _AemetRetryableError(url)
+                    raise _AemetRetryableError(_without_url_secrets(url))
     if last_file is None:
         msg = "unreachable: stamina.retry_context always runs at least once"
         raise AssertionError(msg)
@@ -332,7 +334,10 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
         # only when it refuses it twice (GH-3022). The first answer is dropped from the cache, so
         # that the second is a request and not the cached refusal
         _drop_cached_body(file, settings, ttl, client_kwargs)
-        log.warning(f"AEMET refused the API key for {file.url}: {envelope}; asking once more")
+        log.warning(
+            f"AEMET refused the API key for {_without_url_secrets(file.url)}: "
+            f"{_without_url_secrets_in(str(envelope))}; asking once more"
+        )
         file = _download_with_rate_limit_retry(url, settings, ttl, client_kwargs=client_kwargs)
         envelope = _read_envelope(file)
     if isinstance(envelope, Exception):
@@ -473,7 +478,10 @@ class AemetObservationValues(TimeseriesValues):
         payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
         _raise_if_unanswered(payload)
         if isinstance(payload, Exception):
-            log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+            log.warning(
+                f"Failed to acquire AEMET data for station {station_id}, chunk {url}: "
+                f"{_without_url_secrets_in(str(payload))}"
+            )
             return pl.DataFrame()
         records = json.loads(payload.decode("latin-1"))
         if not records:
@@ -531,7 +539,10 @@ class AemetObservationValues(TimeseriesValues):
                 # AEMET answered, and the answer is no data for this chunk (a 404): this chunk is
                 # missing from the result. A rate limit that outlasted the retries is no answer
                 # and was raised above (GH-2989).
-                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+                log.warning(
+                    f"Failed to acquire AEMET data for station {station_id}, chunk {url}: "
+                    f"{_without_url_secrets_in(str(payload))}"
+                )
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -594,7 +605,10 @@ class AemetObservationValues(TimeseriesValues):
             payload = _fetch_datos(url, settings, CacheExpiry.FIVE_MINUTES)
             _raise_if_unanswered(payload)
             if isinstance(payload, Exception):
-                log.warning(f"Failed to acquire AEMET data for station {station_id}, chunk {url}: {payload}")
+                log.warning(
+                    f"Failed to acquire AEMET data for station {station_id}, chunk {url}: "
+                    f"{_without_url_secrets_in(str(payload))}"
+                )
                 continue
             records.extend(json.loads(payload.decode("latin-1")))
         if not records:
@@ -673,7 +687,7 @@ class AemetObservationRequest(TimeseriesRequest):
         # (GH-3022) or refuses the key (GH-3018)
         _raise_if_unanswered(payload)
         if isinstance(payload, Exception):
-            log.warning(f"Failed to fetch AEMET stations: {payload}")
+            log.warning(f"Failed to fetch AEMET stations: {_without_url_secrets_in(str(payload))}")
             return pl.LazyFrame()
 
         df = pl.DataFrame(json.loads(payload.decode("latin-1"))).select(

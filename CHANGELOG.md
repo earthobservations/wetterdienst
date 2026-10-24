@@ -26,6 +26,20 @@ Types of changes:
   stations. Their `longitude` is now negative; a filter on the old position needs the new one
   (GH-2886)
 
+### Security
+
+- The REST API and MCP server now write the text a request sent into their log on one line:
+  control characters (a newline, an escape) in a refused value, a parameter, a station name or a
+  path are logged as escape sequences such as `\n`. This holds for the messages of the loggers of
+  `wetterdienst.ui` and `wetterdienst.model.request`; the logger of the CLI is unchanged
+  (GH-3336)
+- The query of a download URL (a pre-signed link of KNMI or AEMET carries its signature there) is
+  no longer shown by the errors a failed download returns (`repr()` and the retry records of
+  `stamina` included), and the download, listing and post lines of the log name the file without
+  its query, as do the warnings of KNMI and AEMET for a file they skip. Other log lines of a
+  provider are unchanged, and so is the debug line of `fsspec` that names the URL in full when an
+  application enables DEBUG for it (GH-3341)
+
 ## [0.173.0] - 2026-10-24
 
 ### Added
