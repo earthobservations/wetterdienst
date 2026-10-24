@@ -200,7 +200,7 @@ mysql = [
     "sqlalchemy>=2,<3",
 ]
 pdf = [
-    "pypdf>=6.21.1,<7",
+    "pypdf>=6.21.2,<7",
 ]
 plotting = [
     "kaleido>=1.0.0",
@@ -235,8 +235,9 @@ sql = [
 ]
 mcp = [
     "wetterdienst[restapi]",
-    # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one
-    "fastmcp>=4,<5",
+    # >=4: the OpenAPIProvider takes an httpx2 client there, where 3.x took an httpx one;
+    # >=4.1.2 for GHSA-vqqp-x5qm-5qp4 and GHSA-7xgj-8392-5q4r
+    "fastmcp>=4.1.2,<5",
     # ui/mcp.py builds the OpenAPIProvider's ASGI client with it; >=2.12 for CVE-2026-84379/80/82
     "httpx2>=2.12,<3",
 ]
@@ -519,6 +520,11 @@ omit = [
 # Cooldown: ignore releases younger than this, so freshly published (and possibly
 # yanked or broken) versions never enter the lockfile.
 exclude-newer = "3 days"
+# pypdf 6.21.2 fixes GHSA-6c7f-9265-g8fw, GHSA-gmh7-3g9r-mjh5 and GHSA-jr96-gvgh-j3r4 and was
+# published 2026-10-21T16:44Z, inside the cooldown. This line lets the lock take it. Delete it from
+# 2026-10-25, when the release is three days old: left in, it holds pypdf back at the cutoff below
+# and no newer release enters the lock.
+exclude-newer-package = { pypdf = "2026-10-21T17:00:00Z" }
 
 [tool.uv.audit]
 # diskcache uses pickle for serialization (CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v).
