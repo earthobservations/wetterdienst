@@ -517,11 +517,13 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
 #: query parameters removed on the way to 1.0, name to what to do instead. A request that still gives one is
 #: refused with that sentence, on REST and in each MCP tool, rather than as a parameter it does not know
 #: (GH-3336). `debug` set the logger level of the whole process from an anonymous request, so one caller could
-#: switch the server's log to debug for every other; the command line, a process of its own, keeps its `--debug`
+#: switch the server's log to debug for every other; the command line, a process of its own, keeps its `--debug`,
+#: which `wetterdienst restapi --debug` gives the operator who starts the server
 REMOVED_REQUEST_PARAMETERS: dict[str, str] = {
     "debug": (
-        "a request no longer sets the log level of the server, which is the operator's to set: configure the "
-        "Python logger `wetterdienst` in the process that hosts the server"
+        "a request no longer sets the log level of the server, which is the operator's to set: start the server "
+        "with `wetterdienst restapi --debug`, or configure the Python logger `wetterdienst` in the process that "
+        "hosts it"
     ),
 }
 
@@ -2268,10 +2270,12 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
 
 
 def set_logging_level(*, debug: bool) -> None:
-    """Set logging level for the wetterdienst package."""
-    log_level = logging.INFO
+    """Set logging level for the wetterdienst package.
 
+    ``debug`` sets the level of the logger ``wetterdienst``, the parent of every logger of the package, to DEBUG, so
+    the debug lines of the models and the providers are shown with it and not those of this module alone (GH-3388).
+    Without it the level is left as it is: ``setup_logging`` has put the root at INFO, and a level that the host
+    configured is not overwritten. The handlers and the loggers of other packages are left alone either way.
+    """
     if debug:
-        log_level = logging.DEBUG
-
-    log.setLevel(log_level)
+        logging.getLogger("wetterdienst").setLevel(logging.DEBUG)
