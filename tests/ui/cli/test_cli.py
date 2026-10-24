@@ -212,6 +212,73 @@ def test_cli_about_fields_applies_debug(monkeypatch: pytest.MonkeyPatch) -> None
     assert levels == [True]
 
 
+@pytest.fixture
+def package_logger() -> Iterator[logging.Logger]:
+    """Give the logger `wetterdienst`, whose level a command sets, back as it was after the test."""
+    logger = logging.getLogger("wetterdienst")
+    level = logger.level
+    yield logger
+    logger.setLevel(level)
+
+
+def _debug_lines_of_the_models(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """Make the models log the debug line of a value that is no number, and give the debug lines that arrived."""
+    import polars as pl  # noqa: PLC0415
+
+    from wetterdienst.model.values import _value_as_number  # noqa: PLC0415
+
+    caplog.clear()
+    df = pl.DataFrame({"value": ["12.5", "nope"]})
+    df.select(_value_as_number(df, "X"))
+    return [r.getMessage() for r in caplog.records if r.name == "wetterdienst.model.values" and r.levelno == 10]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["about", "providers", "--provider=wsv", "--debug"],
+        ["restapi", "--debug"],
+    ],
+    ids=["about", "restapi"],
+)
+def test_debug_shows_the_debug_lines_of_the_whole_package(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    package_logger: logging.Logger,
+    argv: list[str],
+) -> None:
+    """`--debug` sets the logger `wetterdienst` and not the one module it was written in (GH-3388).
+
+    A debug line of the models, which this command never logs itself, is shown; those of other libraries are not.
+    """
+    started = []
+    monkeypatch.setattr("wetterdienst.ui.restapi.start_service", lambda *args, **_kwargs: started.append(args))
+    package_logger.setLevel(logging.INFO)
+    others = {name: logging.getLogger(name).level for name in ("", "fsspec", "aiohttp", "urllib3", "asyncio")}
+
+    result = CliRunner().invoke(cli, argv)
+
+    assert result.exit_code == 0, result.output
+    assert package_logger.level == logging.DEBUG
+    assert logging.getLogger("wetterdienst.provider.dwd.road.api").isEnabledFor(logging.DEBUG)
+    assert _debug_lines_of_the_models(caplog) == ["X: 1 of 2 value cells are no number and are null"]
+    assert {name: logging.getLogger(name).level for name in others} == others, "the loggers of other packages stay"
+    assert bool(started) == (argv[0] == "restapi")
+
+
+def test_without_debug_the_level_of_the_package_is_left_alone(
+    caplog: pytest.LogCaptureFixture, package_logger: logging.Logger
+) -> None:
+    """A command without `--debug` leaves the level the host configured as it is (GH-3388)."""
+    package_logger.setLevel(logging.WARNING)
+
+    result = CliRunner().invoke(cli, ["about", "providers", "--provider=wsv"])
+
+    assert result.exit_code == 0, result.output
+    assert package_logger.level == logging.WARNING
+    assert _debug_lines_of_the_models(caplog) == []
+
+
 def test_no_combination_of_provider_and_network() -> None:
     """Test an unknown provider/network is a usage error naming where the available ones are listed (GH-2426)."""
     runner = CliRunner()

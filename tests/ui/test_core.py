@@ -651,6 +651,7 @@ def test_debug_is_refused_as_removed(
     (refusal,) = error.value.errors(include_url=False)
     assert (refusal["type"], refusal["loc"], refusal["input"]) == ("removed", ("debug",), True)
     assert refusal["msg"].startswith("debug was removed: ")
+    assert "`wetterdienst restapi --debug`" in refusal["msg"]
     assert "Python logger `wetterdienst`" in refusal["msg"]
     assert "debug" not in model.model_fields
 

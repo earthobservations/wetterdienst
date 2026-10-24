@@ -36,6 +36,15 @@ Types of changes:
   logger (`logging.getLogger("wetterdienst")`); the `--debug` option of the command line is
   unchanged (GH-3336)
 
+### Fixed
+
+- `--debug` of the command line, and of `wetterdienst restapi`, now shows the debug lines of the
+  whole package: those of the models and the providers (downloads, dropped columns, skipped
+  files), where it showed those of one internal module only and so none. The level is set on the
+  logger `wetterdienst`; the loggers of other libraries, `fsspec` and `aiohttp` among them, stay
+  at `INFO`. The hint of a removed `debug` parameter now names `wetterdienst restapi --debug`
+  (GH-3388)
+
 ### Security
 
 - The REST API and MCP server now write the text a request sent into their log on one line:
