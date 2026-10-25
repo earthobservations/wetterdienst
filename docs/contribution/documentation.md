@@ -25,8 +25,8 @@ observation, the daily `climate_summary`, `temperature_air_mean_2m`, station `01
 default address of the API, `localhost:7890`.
 
 - A `{code-cell}` is run when the pages are built and its output is shown; use it where the output is the point. It
-  needs the network. A cell that fails does not stop the build (`nb_execution_raise_on_error` is off): its traceback
-  is shown in the page, so read the built page, not only the log.
+  needs the network. A cell that fails fails the build, unless the provider did not answer
+  ([below](#cells-that-fail)); its traceback is shown in the page, so read the built page, not only the log.
 - Every Python block of a page is run by `tests/test_docs_samples.py` (marker `remote`), in order and in one
   namespace, as the notebook pages are, so a block may use what an earlier one defined. A statement that is meant to
   fail says so in the comment before it, `# raises InvalidParameterError`; a block that cannot run (an InfluxDB that is
@@ -58,6 +58,24 @@ something the code knows; prefer that to a sentence that has to be remembered.
 Link pages by their path (`[Settings](settings.md#python)`), and to a heading no deeper than the third level, which
 are the ones with an anchor. External links are checked weekly by `docs.yml` (`poe "docs:linkcheck"`); a pull request
 builds the pages with warnings as errors, so a broken link or an unreadable directive is a red check.
+
+## Cells that fail
+
+Read the Docs does not fail a build for a warning, and myst-nb shows a failed cell and goes on, so a cell that raised
+`MissingDependencyError` was published until somebody read the page. `docs/_ext/notebook_errors.py` closes that. The
+notebooks run with `nb_execution_allow_errors`, so that every cell runs, and the extension records the exception of each
+error output and judges them when the build is done:
+
+- `NoInternetError` and `DownloadError` (and subclasses of them) mean that the provider did not answer. That is a
+  warning (`wetterdienst.outage`, which `suppress_warnings` can silence), the page shows the traceback, and the build
+  goes on. The errors after it on the same page are not judged, since the cell that failed left its names undefined.
+- Any other exception fails the build (`Sphinx error!`) after all pages are written, naming each page and line.
+- A cell that is meant to fail carries the tag `raises-exception` (`:tags: [raises-exception]` under the directive) and
+  is not recorded. A sample that shows a failure is better caught in a `try` block.
+
+A build with `-D nb_execution_mode=off`, as `docs.yml` runs it, executes no cell, so it neither needs the network nor
+is it checked by this: `tests/test_docs_notebook_errors.py` holds the check, offline. A cell that runs into the
+timeout (`nb_execution_timeout`) is still only myst-nb's warning, not a failure.
 
 ## Building
 
