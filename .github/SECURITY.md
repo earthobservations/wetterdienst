@@ -39,7 +39,7 @@ workflows of this repository (`release.yml`, `docker-publish.yml`, `docker-publi
 releases made before it was added.
 
 - **PyPI.** Each wheel and sdist carries a [PEP 740](https://peps.python.org/pep-0740/) publish attestation, signed
-  with the identity of the trusted-publisher job of `release.yml`. PyPI shows it on the file's page and serves it at
+  with the identity of the trusted-publisher job of `release.yml` through Sigstore. PyPI shows it on the file's page and serves it at
   `https://pypi.org/integrity/wetterdienst/<version>/<file>/provenance`. To check a file against this repository:
 
   ```bash
@@ -50,8 +50,9 @@ releases made before it was added.
   `pip download wetterdienst==<version> --no-deps` followed by the same command with the downloaded path verifies the
   file you hold.
 - **Images** (`ghcr.io/earthobservations/wetterdienst` and `ghcr.io/earthobservations/wetterdienst-app`). The manifest
-  list of each release has a SLSA build provenance signed by GitHub for the workflow that built it. This checks that
-  the image you pulled is the one that workflow pushed:
+  list of each release has a SLSA build provenance, signed with the GitHub Actions identity of the workflow that
+  built it through Sigstore (a certificate of the public-good Sigstore instance, recorded in its transparency log).
+  This checks that the image you pulled is the one that workflow pushed:
 
   ```bash
   gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst

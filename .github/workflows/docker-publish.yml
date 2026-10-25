@@ -171,9 +171,11 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ steps.prep.outputs.pair }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # BuildKit attaches a SLSA provenance and an SBOM to the digest as extra manifests of an image
-          # index (platform unknown/unknown), which the merge job below carries into the manifest list
+          # index (platform unknown/unknown), which the merge job below carries into the manifest list.
+          # The SBOM generator is pinned by tag and digest like the base images; Dependabot does not read
+          # this line, so move it by hand (docker/buildkit-syft-scanner releases)
           provenance: mode=max
-          sbom: true
+          attests: type=sbom,generator=docker/buildkit-syft-scanner:1.12.0@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
 
       - name: Export digest
         env:
@@ -190,7 +192,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Assemble the multi-arch manifest list from the per-platform digests, then deploy.
+  # Assemble the multi-arch manifest list from the per-platform digests. The attest and deploy jobs follow it.
   merge:
     needs: build
     if: ${{ github.event_name != 'pull_request' }}
@@ -251,22 +253,13 @@ jobs:
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest for ${REGISTRY_IMAGE}:${VERSION}"; exit 1; }
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
-      # the secrets are read from the environment, not written into the script: a template in `run:`
-      # is expanded into the shell source before it runs
-      - name: Deploy to Coolify
-        env:
-          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-          COOLIFY_UUID: ${{ secrets.COOLIFY_BACKEND_UUID }}
-        run: |
-          curl --fail --request POST \
-            --header "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
-            "https://coolify.eobs.org/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"
-
-  # Signs a SLSA build provenance of the manifest list with the identity of this workflow and stores it in
-  # the GitHub attestations API and next to the image in the registry (`gh attestation verify`). It has the
-  # tokens that sign and push and runs no code of the project; the merge job, which holds the deploy
-  # secrets, has neither `id-token` nor `attestations`. The per-platform provenance and SBOM that BuildKit
-  # made in the build jobs are unsigned records in the registry.
+  # Signs a SLSA build provenance of the manifest list with the GitHub Actions identity of this workflow,
+  # through Sigstore, and stores it in the GitHub attestations API and next to the image in the registry
+  # (`gh attestation verify`). It has the tokens that sign and push and runs no code of the project. The
+  # merge job has neither `id-token` nor `attestations`, and the secrets of the deploy hook are in the
+  # `deploy` job, which has no token at all. The two do not wait for each other, so a failed
+  # deploy does not skip the attestation and the reverse. The per-platform provenance and SBOM that
+  # BuildKit made in the build jobs are unsigned records in the registry.
   attest:
     needs: merge
     runs-on: ubuntu-latest
@@ -291,3 +284,21 @@ jobs:
           push-to-registry: true
           # the storage record needs `artifact-metadata: write`, and verification does not read it
           create-storage-record: false
+
+  # Holds the Coolify secrets and nothing else: no checkout, no registry login, no token. It waits for the
+  # manifest list only, so the deploy hook and the attestation are independent of each other.
+  deploy:
+    needs: merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # the secrets are read from the environment, not written into the script: a template in `run:`
+      # is expanded into the shell source before it runs
+      - name: Deploy to Coolify
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          COOLIFY_UUID: ${{ secrets.COOLIFY_BACKEND_UUID }}
+        run: |
+          curl --fail --request POST \
+            --header "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
+            "https://coolify.eobs.org/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"

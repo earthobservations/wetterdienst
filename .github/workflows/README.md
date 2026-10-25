@@ -69,23 +69,32 @@ result and the ones in between do not; a release tag has a group of its own and 
 
 ## Docker images
 
-`docker-publish.yml` and `docker-publish-app.yml` build and push on a `v*.*.*` / `app-v*.*.*` tag and
-on request; a pull request only builds and smoke-tests the image without pushing it. There is no
-scheduled build: the image of a release carries the base image pinned on that day, a newer base image
-reaches the live site with the next release (Dependabot proposes the digest bumps of `docker/`
-weekly), and the Coolify deploy hook, the last step of each publish workflow, runs only then. A run
-started by hand from a branch builds and pushes untagged digests but cannot deploy, since no tag is
-computed for it.
+`docker-publish.yml` and `docker-publish-app.yml` build and push on a `v*.*.*` / `app-v*.*.*` tag
+and on request; a pull request only builds and smoke-tests the image without pushing it. There is no
+scheduled build: the image of a release carries the base image pinned on that day, a newer base
+image reaches the live site with the next release (Dependabot proposes the digest bumps of `docker/`
+weekly), and the Coolify deploy hook, the `deploy` job of each publish workflow, runs only then. A
+run started by hand from a branch builds and pushes untagged digests but cannot deploy, since no tag
+is computed for it.
 
-Both builds push each platform with a BuildKit provenance (`mode=max`) and an SBOM, which the registry holds
-as extra untagged manifests (`unknown/unknown`) of that platform's index; the merge job's `imagetools create`
-carries them into the manifest list. A separate `attest` job signs a build provenance of the manifest list
-(`actions/attest`, pushed next to the image): it alone has `id-token` and `attestations`, runs no project code, and
-the merge job that holds the Coolify secrets has neither. The daily Docker cleanup keeps these manifests:
-`snok/container-retention-policy` protects every child digest of a tagged index, attestation manifests included
-(`docker-cleanup.yml` only lists `wetterdienst`, not the app image). After the first release with them, start
-`docker-cleanup.yml` by hand (a dry run unless asked otherwise) before the next midnight run and check that no
-`unknown/unknown` manifest of the new tags is listed.
+Both builds push each platform with a BuildKit provenance (`mode=max`) and an SBOM, made by
+`docker/buildkit-syft-scanner` pinned by tag and digest in the `attests` input (Dependabot does not
+read it: move it by hand). The registry holds them as extra untagged manifests (`unknown/unknown`)
+of that platform's index; the merge job's `imagetools create` carries them into the manifest list.
+
+A separate `attest` job signs a build provenance of the manifest list (`actions/attest`, with the
+GitHub Actions identity of the workflow through Sigstore, pushed next to the image). It alone has
+`id-token` and `attestations` and runs no project code. The Coolify secrets are in a `deploy` job of
+their own with no token at all; it and the attest job both wait for the merge job only, so a failed
+deploy hook does not skip the attestation, nor the reverse.
+
+The daily Docker cleanup keeps these manifests: `snok/container-retention-policy` protects every
+child digest of a tagged index, attestation manifests included (it lists `wetterdienst` only, not
+the app image). A manual run of `docker-cleanup.yml` is a dry run, but its listing counts package
+versions, not platforms, so it cannot show an attestation manifest. After the first release with
+them, list the children of the index with `docker buildx imagetools inspect --raw <image>:<tag>`
+(two images and two `unknown/unknown` attestation manifests) and check that the run, started before
+the next midnight run, protects at least that many digests.
 
 ## Timeouts
 
@@ -107,8 +116,8 @@ A secret goes in the `env:` of the step that reads it, never of the job or the w
 the package managers and third-party actions run code that is not ours and would be handed it. The
 provider keys (`WD_AUTH__*`) are therefore on the test steps of `tests.yml` and `coverage.yml`
 only. In `release.yml` the `build` job runs the project's build code and has no `id-token`; the
-`publish` job has it and runs only the PyPA publish action (which signs a PEP 740 attestation of each file
-and uploads it with the file) on the artifact `build` uploaded. `app-release.yml`
+`publish` job has it and runs only the PyPA publish action (which signs a PEP 740 attestation of
+each file and uploads it with the file) on the artifact `build` uploaded. `app-release.yml`
 is split the same way: `build` installs and builds the app without a token that can write, `upload`
 has `contents: write` and runs only `gh release upload` on the tarball `build` uploaded. The two
 release workflows tell their tags apart differently: `app-release.yml` by an `if:` on its `build`

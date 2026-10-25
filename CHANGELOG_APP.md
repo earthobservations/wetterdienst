@@ -44,10 +44,10 @@ Types of changes:
 
 ### Security
 
-- `[Build]` The app image carries a build provenance signed by GitHub, a BuildKit provenance and an
-  SBOM, for releases after this one: `gh attestation verify
-  oci://ghcr.io/earthobservations/wetterdienst-app:<version> --repo earthobservations/wetterdienst`
-  checks it (GH-3346)
+- `[Docker]` The app image carries a build provenance signed with the GitHub Actions identity of the
+  workflow through Sigstore, a BuildKit provenance and an SBOM, from this release on: `gh attestation
+  verify oci://ghcr.io/earthobservations/wetterdienst-app:<version> --repo
+  earthobservations/wetterdienst` checks the first (GH-3346)
 - `[Build]` No install script of a dependency runs any more (`allowBuilds` in
   `pnpm-workspace.yaml`, replacing `dangerouslyAllowAllBuilds`): a new dependency that has one fails
   `pnpm install` until it is listed there. pnpm is pinned to 11.22.0 with its hash
