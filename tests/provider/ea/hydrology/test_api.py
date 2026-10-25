@@ -541,9 +541,9 @@ def test_ea_readings_are_read_over_https_where_the_measure_is_named_over_http(
 @pytest.mark.parametrize(
     "foreign",
     [
-        "http://169.254.169.254/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
+        "http://192.0.2.1/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
         "https://www.data.gov.uk/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
-        "https://environment.data.gov.uk.evil.example/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
+        "https://environment.data.gov.uk.example.org/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
     ],
 )
 def test_ea_readings_are_not_read_at_a_measure_of_another_host(

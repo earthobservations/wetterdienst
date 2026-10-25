@@ -213,9 +213,9 @@ def test_meteoswiss_observation_a_station_without_a_file_of_the_resolution_comes
 @pytest.mark.parametrize(
     "foreign",
     [
-        "http://169.254.169.254/latest/meta-data/iam",
+        "http://192.0.2.1/latest/meta-data/iam",
         "https://map.geo.admin.ch/x",
-        "https://data.geo.admin.ch.evil.example/x",
+        "https://data.geo.admin.ch.example.org/x",
     ],
 )
 def test_meteoswiss_observation_does_not_fetch_an_asset_of_another_host(

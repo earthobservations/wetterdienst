@@ -266,16 +266,16 @@ def example_provider(monkeypatch: pytest.MonkeyPatch) -> None:
         ("http://store.example.org/f", "https://api.example.nl/v1", "https://store.example.org/f"),
         # no other host: not a sibling name of a host, nor one of its registered domain, nor of a shared one
         ("https://www.example.nl/x", "https://api.example.nl/v1", DownloadError),
-        ("https://evil.api.example.nl/x", "https://api.example.nl/v1", DownloadError),
+        ("https://sibling.api.example.nl/x", "https://api.example.nl/v1", DownloadError),
         ("https://example.nl/x", "https://api.example.nl/v1", DownloadError),
         ("https://other.example.org/f", "https://api.example.nl/v1", DownloadError),
         ("https://other-bucket.s3.eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", DownloadError),
         ("https://bucket.s3.eu-central-1.amazonaws.com/f", "https://api.example.nl/v1", DownloadError),
         ("https://x.elb.eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", DownloadError),
-        ("https://api.example.nl.evil.example/x", "https://api.example.nl/v1", DownloadError),
+        ("https://api.example.nl.example.org/x", "https://api.example.nl/v1", DownloadError),
         # what is refused outright, at a host of the provider as at any other
         ("https://example.net/x", "https://api.example.nl/v1", DownloadError),
-        ("http://169.254.169.254/latest/meta-data/iam", "https://api.example.nl/v1", DownloadError),
+        ("http://192.0.2.1/latest/meta-data/iam", "https://api.example.nl/v1", DownloadError),
         ("http://localhost:1/x", "https://api.example.nl/v1", DownloadError),
         ("file:///etc/hosts", "https://api.example.nl/v1", DownloadError),
         ("/etc/hosts", "https://api.example.nl/v1", DownloadError),
@@ -332,8 +332,21 @@ def test_a_link_at_a_host_of_no_provider_is_fetched_only_within_its_registered_d
 
 def test_a_refused_link_names_the_host_and_the_provider(example_provider: None) -> None:  # noqa: ARG001
     """The error says which host was refused and whose hosts it is none of."""
-    with pytest.raises(DownloadError, match=r"leads to evil\.example\.net, which is none of the hosts of example"):
-        fetchable_link("https://evil.example.net/f", "https://api.example.nl/v1")
+    with pytest.raises(DownloadError, match=r"leads to other\.example\.net, which is outside the hosts of example"):
+        fetchable_link("https://other.example.net/f", "https://api.example.nl/v1")
+
+
+def test_a_refusal_at_a_host_of_no_provider_names_the_domain_it_is_held_to() -> None:
+    """For a host that no provider lists, a refused link and a refused redirect name the domain of the request."""
+    with pytest.raises(
+        DownloadError, match=r"leads to other\.example\.org, which is outside the domain of example\.es"
+    ):
+        fetchable_link("https://other.example.org/f", "https://opendata.example.es/api")
+    first = "https://opendata.example.es/a"
+    with pytest.raises(
+        RedirectRefusedError, match=r"another host \(other\.example\.org\) outside the domain of example\.es"
+    ):
+        _check_redirect(_redirect(first, "https://other.example.org/b"), {}, first)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
@@ -346,7 +359,7 @@ def test_a_refused_link_names_the_host_and_the_provider(example_provider: None) 
         ("https://api.example.nl/a", "https://www.example.nl/b", False),
         ("https://api.example.nl/a", "https://other.example.org/b", False),
         ("https://store.example.org/a", "https://x.elb.eu-west-1.amazonaws.com/b", False),
-        ("https://api.example.nl/a", "https://169.254.169.254/latest/meta-data", False),
+        ("https://api.example.nl/a", "https://192.0.2.1/latest/meta-data", False),
         ("https://api.example.nl/a", "https://localhost/b", False),
     ],
 )
@@ -361,7 +374,7 @@ def test_a_redirect_is_followed_only_to_the_hosts_of_the_provider(
     if followed:
         _check_redirect(here, {}, first)  # ty: ignore[invalid-argument-type]
     else:
-        with pytest.raises(RedirectRefusedError, match=r"another host \(.+\) than the hosts of example"):
+        with pytest.raises(RedirectRefusedError, match=r"another host \(.+\) outside the hosts of example"):
             _check_redirect(here, {}, first)  # ty: ignore[invalid-argument-type]
 
 

@@ -904,9 +904,9 @@ def test_nws_hourly_does_not_follow_a_cursor_that_repeats(monkeypatch: pytest.Mo
 @pytest.mark.parametrize(
     "foreign",
     [
-        "http://169.254.169.254/latest/meta-data/iam",
+        "http://192.0.2.1/latest/meta-data/iam",
         "https://forecast.weather.gov/x",
-        "https://api.weather.gov.evil.example/x",
+        "https://api.weather.gov.example.org/x",
     ],
 )
 def test_nws_hourly_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch, foreign: str) -> None:

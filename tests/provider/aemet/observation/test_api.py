@@ -1327,8 +1327,8 @@ def test_aemet_fetch_datos_does_not_ask_again_for_anything_but_a_refused_key(mon
             "http://opendata.aemet.es/opendata/sh/0123abc", "https://opendata.aemet.es/opendata/sh/0123abc", id="http"
         ),
         pytest.param("https://www.aemet.es/x", None, id="another host of the domain of aemet"),
-        pytest.param("https://opendata.aemet.es.evil.example/x", None, id="a host that starts like its own"),
-        pytest.param("http://169.254.169.254/latest/meta-data/iam", None, id="an internal address"),
+        pytest.param("https://opendata.aemet.es.example.org/x", None, id="a host that starts like its own"),
+        pytest.param("http://192.0.2.1/latest/meta-data/iam", None, id="an internal address"),
     ],
 )
 def test_aemet_fetch_datos_asks_the_datos_link_only_at_the_host_of_aemet(

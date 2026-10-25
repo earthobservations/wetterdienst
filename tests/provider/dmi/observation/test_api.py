@@ -155,7 +155,7 @@ def test_iter_station_value_pages_never_asks_for_the_next_link_of_a_page(monkeyp
         asked.append(url)
         offset = int(url.split("offset=")[1])
         page = json.loads(_station_value_file(2 if offset < 2 else 1, start=offset).content.read())
-        page["links"] = [{"rel": "next", "href": "http://169.254.169.254/latest/meta-data/iam"}]
+        page["links"] = [{"rel": "next", "href": "http://192.0.2.1/latest/meta-data/iam"}]
         return File(url=url, content=BytesIO(json.dumps(page).encode()), status=200)
 
     monkeypatch.setattr(dmi_api, "download_file", fake_download_file)

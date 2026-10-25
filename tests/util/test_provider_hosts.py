@@ -67,9 +67,9 @@ def _hosts_named_by_the_providers() -> dict[str, set[str]]:
 
 
 def test_the_hosts_are_names_of_known_providers_each_listed_once() -> None:
-    """A provider is a directory of `provider/`; a host is a lower case name, with no scheme, port or wildcard."""
+    """Each provider directory has hosts, listed once; a host is a lower case name with no scheme or port."""
     directories = {path.name for path in PROVIDER_ROOT.iterdir() if path.is_dir() and path.name != "__pycache__"}
-    assert set(PROVIDER_HOSTS) <= directories
+    assert set(PROVIDER_HOSTS) == directories
     listed = [host for hosts in PROVIDER_HOSTS.values() for host in hosts]
     assert len(listed) == len(set(listed)), "a host is one provider's"
     for host in listed:
@@ -110,11 +110,11 @@ def test_a_provider_follows_a_link_and_a_redirect_to_each_of_its_hosts_and_to_no
     others = [name for other, hosts in PROVIDER_HOSTS.items() if other != provider for name in hosts]
     foreign = [
         "example.net",
-        "169.254.169.254",
+        "192.0.2.1",
         "localhost",
         f"www.{host}",
-        f"evil.{host}",
-        f"{host}.evil.example",
+        f"sibling.{host}",
+        f"{host}.example.org",
         host.split(".", 1)[1],
         "www." + host.split(".", 1)[1],
         *others,
@@ -123,11 +123,11 @@ def test_a_provider_follows_a_link_and_a_redirect_to_each_of_its_hosts_and_to_no
         if name in PROVIDER_HOSTS[provider]:
             continue
         with pytest.raises(
-            DownloadError, match=rf"leads to {re.escape(name)}, which is none of the hosts of {provider}"
+            DownloadError, match=rf"leads to {re.escape(name)}, which is outside the hosts of {provider}"
         ):
             fetchable_link(f"https://{name}/x", base)
         with pytest.raises(
-            RedirectRefusedError, match=rf"another host \({re.escape(name)}\) than the hosts of {provider}"
+            RedirectRefusedError, match=rf"another host \({re.escape(name)}\) outside the hosts of {provider}"
         ):
             _check_redirect(_redirect(base, f"https://{name}/x"), {}, base)  # ty: ignore[invalid-argument-type]
 
@@ -139,3 +139,17 @@ def test_a_host_is_read_in_the_form_it_is_compared_in() -> None:
     assert provider_of("example.net") is None
     assert provider_of(None) is None
     assert hosts_of_provider("example.net") is None
+
+
+@pytest.mark.parametrize("spelling", ["API.Weather.GOV", "api.weather.gov.", "Api.Weather.Gov."])
+def test_a_redirect_to_a_host_of_the_provider_is_followed_in_whatever_case_and_root_dot_it_is_written(
+    spelling: str,
+) -> None:
+    """A name is compared lower case and without its root dot: the same host spelled so is still the provider's."""
+    first = "https://api.weather.gov/stations"
+    _check_redirect(_redirect(first, f"https://{spelling}/stations?cursor=2"), {}, first)  # ty: ignore[invalid-argument-type]
+    link = f"https://{spelling}/stations?cursor=2"
+    assert fetchable_link(link, first) == link
+    # and a host of another provider written so is refused as before
+    with pytest.raises(RedirectRefusedError, match=r"another host \(www\.ncei\.noaa\.gov\) outside the hosts of nws"):
+        _check_redirect(_redirect(first, "https://WWW.NCEI.NOAA.GOV./x"), {}, first)  # ty: ignore[invalid-argument-type]

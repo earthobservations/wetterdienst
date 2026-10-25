@@ -343,9 +343,6 @@ _REGISTRY_LABELS = frozenset(
 )
 
 
-_clean_host = clean_host
-
-
 def _is_ip_address(host: str) -> bool:
     try:
         ipaddress.ip_address(host)
@@ -365,7 +362,7 @@ def _host_family(host: str) -> str:
     An address, a name with a single label (`localhost`, a name on the internal network) and a name under a shared
     domain (`_SHARED_DOMAINS`) is its own family: nothing else is related to it.
     """
-    host = _clean_host(host)
+    host = clean_host(host)
     labels = host.split(".")
     if _is_ip_address(host) or len(labels) < 2 or host.endswith(tuple(f".{domain}" for domain in _SHARED_DOMAINS)):
         return host
@@ -375,7 +372,7 @@ def _host_family(host: str) -> str:
 
 def _same_family(host: str, other: str) -> bool:
     """Tell whether two hosts are one and the same, or two names under one registered domain."""
-    return _clean_host(host) == _clean_host(other) or _host_family(host) == _host_family(other)
+    return clean_host(host) == clean_host(other) or _host_family(host) == _host_family(other)
 
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
@@ -391,13 +388,13 @@ def _in_scope(host: str, start: str | None) -> bool:
     hosts = hosts_of_provider(start)
     if hosts is None:
         return _same_family(host, start or "")
-    return _clean_host(host) in hosts
+    return clean_host(host) in hosts
 
 
 def _bound_of(start: str | None) -> str:
-    """Name what a host is bound to in the text of a refusal: `the hosts of nws`, or `its domain`."""
+    """Name what a request that starts at a host is held to, for a refusal: `the hosts of nws`, `the domain of x.fr`."""
     provider = provider_of(start)
-    return "its domain" if provider is None else f"the hosts of {provider}"
+    return f"the domain of {_host_family(start or '')}" if provider is None else f"the hosts of {provider}"
 
 
 def _link_refused(link: str, why: str) -> DownloadError:
@@ -433,7 +430,7 @@ def fetchable_link(link: str, base: str) -> str:
     try:
         parts = urlsplit(link)
         base_parts = urlsplit(base)
-        host = _clean_host(parts.hostname)
+        host = clean_host(parts.hostname)
         port = parts.port
     except ValueError:
         raise _link_refused(link, "does not read as an address") from None
@@ -442,7 +439,7 @@ def fetchable_link(link: str, base: str) -> str:
     if "@" in parts.netloc:
         raise _link_refused(link, "carries user information")
     if not _in_scope(host, base_parts.hostname):
-        raise _link_refused(link, f"leads to {host}, which is none of {_bound_of(base_parts.hostname)}")
+        raise _link_refused(link, f"leads to {host}, which is outside {_bound_of(base_parts.hostname)}")
     scheme = "https" if base_parts.scheme == "https" else parts.scheme
     on_default = port in {None, _DEFAULT_PORTS[scheme]} and base_parts.port in {
         None,
@@ -454,7 +451,7 @@ def fetchable_link(link: str, base: str) -> str:
 
 
 class RedirectRefusedError(ClientError):
-    """A redirect that was not followed, as it left the host family of the request or stepped down to http."""
+    """A redirect that was not followed, as it left the hosts of the request's provider or stepped down to http."""
 
 
 class DownloadRefusedError(ClientError):
@@ -605,14 +602,14 @@ def _check_redirect(
         return  # aiohttp refuses what is no http(s) address
     start = urlsplit(first_url).hostname
     if not _in_scope(target_host, start):
-        msg = f"a redirect to another host ({_clean_host(target_host)}) than {_bound_of(start)} was not followed"
+        msg = f"a redirect to another host ({clean_host(target_host)}) outside {_bound_of(start)} was not followed"
         raise RedirectRefusedError(msg)
     credentials = [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]
     if here.scheme == "https" and target.scheme == "http" and (credentials or not allow_downgrade):
-        msg = f"a redirect from https to http ({_clean_host(target_host)}) was not followed"
+        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
         raise RedirectRefusedError(msg)
-    origin = (target.scheme, _clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
-    if origin != (here.scheme, _clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
+    origin = (target.scheme, clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
+    if origin != (here.scheme, clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
         for name in credentials:
             if name in headers:  # a header that is there twice goes with its first removal
                 del headers[name]

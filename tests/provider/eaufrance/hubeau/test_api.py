@@ -627,9 +627,9 @@ def test_descriptions_say_what_the_swagger_says_of_the_stamp_and_the_height(reso
 @pytest.mark.parametrize(
     "foreign",
     [
-        "http://169.254.169.254/latest/meta-data/iam",
+        "http://192.0.2.1/latest/meta-data/iam",
         "https://api.sandre.eaufrance.fr/x",
-        "https://hubeau.eaufrance.fr.evil.example/x",
+        "https://hubeau.eaufrance.fr.example.org/x",
     ],
 )
 def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch, foreign: str) -> None:
