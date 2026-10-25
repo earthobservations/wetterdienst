@@ -68,7 +68,7 @@ beforeAll(async () => {
   vi.stubGlobal('sendProxy', h3.sendProxy)
   vi.stubGlobal('setResponseStatus', h3.setResponseStatus)
   vi.stubGlobal('setResponseHeader', h3.setResponseHeader)
-  vi.stubGlobal('useRuntimeConfig', () => ({ public: config }))
+  vi.stubGlobal('useRuntimeConfig', () => config)
   const { default: handler } = await import('../../server/api/[...].get')
   const router = h3.createApp()
   router.use(handler)

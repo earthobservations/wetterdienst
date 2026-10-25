@@ -1,3 +1,5 @@
+import { useApiBase } from '../utils/apiBase'
+
 type QueryValue = string | number | boolean | undefined | null
 type QueryObject = Record<string, QueryValue | QueryValue[]>
 
@@ -31,7 +33,7 @@ function requestIdOf(sent: string | undefined): string {
 }
 
 export default defineEventHandler(async (event): Promise<unknown> => {
-  const { public: { apiBase } } = useRuntimeConfig()
+  const apiBase = useApiBase()
   const fullPath = event.path.replace(/^\/api/, '') || '/'
   const path = fullPath.split('?')[0]
   const query = getQuery(event) as QueryObject

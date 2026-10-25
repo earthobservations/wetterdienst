@@ -1,3 +1,5 @@
+import { useApiBase } from './apiBase'
+
 // Proxies the backend's own OpenAPI pages -- `/docs` and `/openapi.json` -- onto this origin, so
 // the hosted app can point at an interactive API reference of its own rather than at a page that
 // only exists on the backend, which is not published. `/api/**` is proxied for data and `/mcp` for
@@ -7,7 +9,7 @@
 // path, and the client's cookies are none of the backend's business.
 export function backendDocsProxyHandler() {
   return defineEventHandler(async (event) => {
-    const { public: { apiBase } } = useRuntimeConfig()
+    const apiBase = useApiBase()
     // `apiBase` ends in /api; the docs live at the backend root next to it.
     const target = `${new URL(apiBase).origin}${event.path}`
     return sendProxy(event, target, {

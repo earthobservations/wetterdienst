@@ -85,7 +85,7 @@ memory, CPU and outbound connections; the cache directory; the browser of an app
 2. *REST API and MCP* (`wetterdienst restapi`; `/mcp` is the same app, stateless, present with the `[mcp]` extra). The
    caller is anonymous and untrusted. Every route of `/api` is a `GET`.
 3. *The app* (`app/`). Its Nuxt server proxies `/api`, `/mcp`, `/docs` and `/openapi.json` to the backend at
-   `NUXT_PUBLIC_API_BASE`; the browser calls its own origin only. It holds no secret.
+   `NUXT_API_BASE`; the browser calls its own origin only. It holds no secret.
 4. *Upstream providers.* Their addresses are fixed in the provider's code, but for the links a few of them follow and
    the redirects any of them answers with, both held to the provider's own hosts (see [Upstream data](#upstream-data));
    what they send is data, never trusted.
@@ -210,8 +210,8 @@ immutable to look at the names of its tables, and reads nothing else from it.
 
 ### The app
 
-No secret: the backend URL is a public key of Nuxt's runtime config (`NUXT_PUBLIC_API_BASE`), so every page carries
-it, and the server forwards neither cookies nor `Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
+No secret: the backend URL is a private key of Nuxt's runtime config (`NUXT_API_BASE`, GH-3096), so no page carries
+it (the old public `NUXT_PUBLIC_API_BASE` is read as a deprecated fallback), and the server forwards neither cookies nor `Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
 a nonce per response, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, and scripts, workers and requests on its own
 origin (`app/tests/e2e/csp.spec.ts`, `app/tests/unit/security-headers.test.ts`). Nothing the browser runs comes from a
 CDN, so there is no third-party script for subresource integrity to cover; only map tiles, avatars and marker images

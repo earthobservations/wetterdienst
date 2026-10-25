@@ -40,7 +40,7 @@ beforeAll(async () => {
     getRequestHeader: h3.getRequestHeader,
     readRawBody: h3.readRawBody,
     sendProxy: h3.sendProxy,
-    useRuntimeConfig: () => ({ public: config }),
+    useRuntimeConfig: () => config,
   }))
     vi.stubGlobal(name, value)
   const { mcpProxyHandler } = await import('../../server/utils/mcpProxy')
