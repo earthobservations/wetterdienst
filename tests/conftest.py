@@ -24,7 +24,7 @@ import pytest
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.util.eccodes import bufr_is_available
-from wetterdienst.util.network import _worth_retrying
+from wetterdienst.util.network import UpstreamMaintenanceError, _worth_retrying
 
 IS_CI = bool(os.environ.get("CI"))
 IS_LINUX = platform.system() == "Linux"
@@ -142,7 +142,9 @@ def _is_upstream_outage(error: Exception, unresolved_hosts: Collection[str] = ()
             isinstance(cause, socket.gaierror) and _host_of(failure) in unresolved_hosts
         )
         return unanswered and _runner_has_network()
-    return isinstance(failure, Exception) and (_worth_retrying(failure) or _is_server_fault(failure))
+    return isinstance(failure, Exception) and (
+        _worth_retrying(failure) or _is_server_fault(failure) or isinstance(failure, UpstreamMaintenanceError)
+    )
 
 
 @contextmanager
@@ -158,6 +160,8 @@ def skip_if_upstream_unavailable(*, unresolved_hosts: Collection[str] = ()) -> G
       5xx -- which `download_file` asks twice, so a request made through it is skipped on only after
       its second attempt failed as well;
     - a 5xx that arrives as the status of an envelope rather than of the response (AEMET);
+    - a redirect to the maintenance page of a platform (`UpstreamMaintenanceError`: data.gouv.fr answers every
+      request of its maintenance windows with a redirect to `sorry.data.gouv.fr`, GH-3400), which is not asked again;
     - a `NoInternetError` whose connection timed out, was refused, reset or aborted, or had no route (a
       Windows runner's "semaphore timeout" and "network name is no longer available" included), *and*
       only while this machine can still connect to other hosts (`_runner_has_network`), so a runner

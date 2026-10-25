@@ -283,15 +283,24 @@ The files the release commit of the last 0.x release touched, plus the 1.0 ones.
   changelog"): what 1.0.0 promises and links Compatibility, which breaking changes since 0.139.0 need action and the
   link to Migrating, the two shims (removed in 0.173.0, so among them), that the app is 0.x and paired (step 6).
 - [ ] `gh release create v1.0.0 --title "v1.0.0" --notes-file <scratch file>`. The published release starts
-  `.github/workflows/release.yml` (build, then `uv publish` by trusted publishing).
+  `.github/workflows/release.yml` (build, then the PyPA publish action by trusted publishing, which uploads a
+  PEP 740 attestation with each file).
 - [ ] `release.yml` finished: `pip index versions wetterdienst` (or the PyPI page) lists 1.0.0; in a fresh
   environment `uvx --from wetterdienst==1.0.0 wetterdienst --version` prints 1.0.0 and `wetterdienst info` runs.
+- [ ] The PyPI files are attested: `uvx pypi-attestations verify pypi --repository
+  https://github.com/earthobservations/wetterdienst pypi:wetterdienst-1.0.0-py3-none-any.whl` succeeds (also for
+  the sdist, `pypi:wetterdienst-1.0.0.tar.gz`).
 - [ ] Docker: the `Release Docker Backend` run for the tag finished; `ghcr.io/earthobservations/wetterdienst:1.0.0`
   and `:1.0` exist (the workflow's tags are `{{version}}` and `{{major}}.{{minor}}`; there is no `:1`) and
   `docker run --rm ghcr.io/earthobservations/wetterdienst:1.0.0 wetterdienst --version` prints 1.0.0.
   `docs/usage/docker.md` and `README.md` pull the image without a tag: check that `:latest` points to the same digest
   as `:1.0.0` (`docker buildx imagetools inspect`); `latest` is not in the workflow's tag list and comes from the
   default of `docker/metadata-action`, which this checklist could not verify.
+- [ ] The image is attested: the `attest` job of the run is green, `gh attestation verify
+  oci://ghcr.io/earthobservations/wetterdienst:1.0.0 --repo earthobservations/wetterdienst` succeeds, and
+  `docker buildx imagetools inspect ghcr.io/earthobservations/wetterdienst:1.0.0 --format '{{json .SBOM}}'` prints
+  an SBOM. Then start `docker-cleanup.yml` by hand (a dry run) before the next midnight run and read
+  `.github/workflows/README.md` ("Docker images") for what to compare.
 - [ ] Read the Docs built `v1.0.0` and `stable` points to it (`.readthedocs.yml`; the links in `README.md` use
   `latest` and need no change).
 - [ ] The GitHub release is archived on Zenodo with a new version DOI (`CITATION.cff` and the README badge use the
@@ -336,6 +345,8 @@ released after step 3, never in the same PR as the backend.
   attaches `app-vX.Y.Z.tar.gz`). The notes say it is paired with backend 1.0.0.
 - [ ] `ghcr.io/earthobservations/wetterdienst-app:X.Y.Z` and `:X.Y` exist, and `compose.yml --profile full` (or the
   `docker run` pair in `docs/usage/app.md`) starts the two images against each other.
+- [ ] The app image is attested: `gh attestation verify oci://ghcr.io/earthobservations/wetterdienst-app:X.Y.Z
+  --repo earthobservations/wetterdienst` succeeds.
 - [ ] Railway deploys from `main` by itself (see "Railway Deployment"); check that `https://wetterdienst.eobs.org`
   shows the backend 1.0.0 in its footer.
 

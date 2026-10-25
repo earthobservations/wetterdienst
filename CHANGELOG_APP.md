@@ -32,6 +32,9 @@ Types of changes:
 
 - `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
   `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
+- `[Build]` `pnpm dev` listens on `localhost`, no longer on every interface, so Nuxt DevTools is
+  reachable from this machine only; `HOST=0.0.0.0 pnpm dev` opens it to the network. The dev
+  container sets `HOST=0.0.0.0` itself (GH-3096)
 
 ## [0.35.0] - 2026-10-24
 
@@ -44,6 +47,10 @@ Types of changes:
 
 ### Security
 
+- `[Docker]` The app image carries a build provenance signed with the GitHub Actions identity of
+  the workflow through Sigstore, from this release on: `gh attestation verify
+  oci://ghcr.io/earthobservations/wetterdienst-app:<version> --repo earthobservations/wetterdienst`
+  checks it. An unsigned BuildKit provenance and an SBOM per platform come with it (GH-3346)
 - `[Build]` No install script of a dependency runs any more (`allowBuilds` in
   `pnpm-workspace.yaml`, replacing `dangerouslyAllowAllBuilds`): a new dependency that has one fails
   `pnpm install` until it is listed there. pnpm is pinned to 11.22.0 with its hash
