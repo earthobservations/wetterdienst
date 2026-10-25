@@ -175,7 +175,7 @@ export default defineNuxtConfig({
         // is a question of its own (inline styles cannot run code).
         'default-src': ['\'self\''],
         'connect-src': ['\'self\''],
-        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://raw.githubusercontent.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com', 'https://avatars.githubusercontent.com'],
+        'img-src': ['\'self\'', 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://avatars.githubusercontent.com'],
         'script-src': ['\'self\'', '\'nonce-{{nonce}}\'', '\'wasm-unsafe-eval\''],
         'worker-src': ['\'self\''],
         'child-src': ['\'self\''],

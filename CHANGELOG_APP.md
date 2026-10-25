@@ -30,6 +30,11 @@ Types of changes:
 
 ### Changed
 
+- `[Map]` The station map loads no image from Cloudflare or GitHub any more: its markers are
+  leaflet's own images, served by the app, and the selected marker is the same image tinted green
+  and drawn larger. The Content Security Policy's `img-src` drops `cdnjs.cloudflare.com`,
+  `raw.githubusercontent.com` and `unpkg.com`, and the privacy policy no longer names the first
+  two (GH-3420)
 - `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
   `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
 

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import * as L from 'leaflet'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -16,6 +19,29 @@ const emit = defineEmits(['update:selectedStations'])
 // page's initial load.
 if (import.meta.client && !window.L)
   window.L = L
+
+// The marker images are the ones leaflet ships, imported through the bundler so the app serves them
+// itself: no marker is requested from a third party. The selected marker is the same image tinted
+// green by CSS (`.wd-marker-selected`, below) and drawn larger, so it is told apart without colour too.
+const defaultIcon = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+})
+const selectedIcon = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [33, 54],
+  iconAnchor: [16, 54],
+  popupAnchor: [1, -45],
+  shadowSize: [54, 54],
+  className: 'wd-marker-selected',
+})
 
 const { t } = useI18n()
 
@@ -97,6 +123,8 @@ async function createMarkers() {
           title: stationLabel(station),
           // the name of the marker for a screen reader: Leaflet's default, "Marker", is the same for all
           alt: stationLabel(station),
+          // leaflet's own default icon looks its images up by the path of its CSS, which a bundler breaks
+          icon: defaultIcon,
         },
       })),
     })
@@ -143,22 +171,6 @@ async function createMarkers() {
 function updateMarkerIcons() {
   if (!markerClusterGroup)
     return
-  const defaultIcon = L.icon({
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  })
-  const selectedIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  })
   markersMap.forEach((marker, stationId) => {
     const icon = isSelected(stationId) ? selectedIcon : defaultIcon
     marker.setIcon(icon)
@@ -277,4 +289,9 @@ watch([
 <style>
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+/* The selected marker: leaflet's blue marker (hue 208) turned to green (hue about 130), and outlined in dark */
+.wd-marker-selected {
+  filter: hue-rotate(282deg) saturate(1.3) drop-shadow(0 0 1px #000);
+}
 </style>

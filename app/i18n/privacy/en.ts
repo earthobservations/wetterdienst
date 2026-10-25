@@ -9,7 +9,7 @@ import type { PrivacyPolicy } from './de'
 
 export const privacy: PrivacyPolicy = {
   title: 'Privacy policy',
-  updated: 'Last updated: 24 October 2026',
+  updated: 'Last updated: 25 October 2026',
   binding: 'This is a translation. The German version (Datenschutzerklärung) is the legally binding one.',
   intro: 'This policy describes which personal data is processed when you visit wetterdienst.eobs.org and when you use the REST API and the MCP server of Wetterdienst. There are no user accounts, no registration, no analytics or tracking services and no advertising.',
   controller: {
@@ -61,11 +61,10 @@ export const privacy: PrivacyPolicy = {
       title: 'Resources from third parties (map and images)',
       paragraphs: [
         'The web app loads fonts, icons and scripts from its own server. Only in the following cases does your browser request images directly from third parties. They receive your IP address, the time and your browser\'s details as a matter of how the web works, as well as the address of this web app (https://wetterdienst.eobs.org) as the origin of the request (Referer) and, for map tiles, the map section shown. The operator does not learn of this and has no influence on it.',
-        'The legal basis is Art. 6(1)(f) GDPR (showing the map and its markers).',
+        'The legal basis is Art. 6(1)(f) GDPR (showing the map and the profile pictures).',
       ],
       items: [
         'Map tiles from tile.openstreetmap.org (OpenStreetMap Foundation), as soon as the map for choosing stations is shown.',
-        'The marker icons of the map from cdnjs.cloudflare.com (Cloudflare) and, for selected stations, from raw.githubusercontent.com (GitHub).',
         'The profile pictures on the "About" page from avatars.githubusercontent.com (GitHub).',
       ],
     },

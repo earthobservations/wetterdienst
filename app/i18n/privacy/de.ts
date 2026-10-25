@@ -37,7 +37,7 @@ export interface PrivacyPolicy {
 
 export const privacy: PrivacyPolicy = {
   title: 'Datenschutzerklärung',
-  updated: 'Stand: 24. Oktober 2026',
+  updated: 'Stand: 25. Oktober 2026',
   intro: 'Diese Erklärung beschreibt, welche personenbezogenen Daten beim Besuch von wetterdienst.eobs.org und bei der Nutzung der REST-API und des MCP-Servers von Wetterdienst verarbeitet werden. Es gibt keine Benutzerkonten, keine Registrierung, keine Analyse- oder Tracking-Dienste und keine Werbung.',
   controller: {
     title: 'Verantwortlicher',
@@ -88,11 +88,10 @@ export const privacy: PrivacyPolicy = {
       title: 'Ressourcen von Dritten (Karte und Bilder)',
       paragraphs: [
         'Die Web-App lädt Schriften, Symbole und Skripte von ihrem eigenen Server. Nur in den folgenden Fällen fordert Ihr Browser Bilder direkt bei Dritten an. Diese erhalten dabei technisch bedingt Ihre IP-Adresse, den Zeitpunkt und die Angaben Ihres Browsers; außerdem die Adresse dieser Web-App (https://wetterdienst.eobs.org) als Herkunft der Anfrage (Referer) und, bei Kartenkacheln, den angezeigten Kartenausschnitt. Der Betreiber erfährt davon nichts und hat keinen Einfluss darauf.',
-        'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Darstellung der Karte und der Markierungen).',
+        'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Darstellung der Karte und der Profilbilder).',
       ],
       items: [
         'Kartenkacheln von tile.openstreetmap.org (OpenStreetMap Foundation), sobald die Karte zur Auswahl von Stationen angezeigt wird.',
-        'Die Markierungssymbole der Karte von cdnjs.cloudflare.com (Cloudflare) und, für ausgewählte Stationen, von raw.githubusercontent.com (GitHub).',
         'Die Profilbilder auf der Seite „Über uns“ von avatars.githubusercontent.com (GitHub).',
       ],
     },

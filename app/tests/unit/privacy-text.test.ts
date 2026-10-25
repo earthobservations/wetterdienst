@@ -49,7 +49,7 @@ describe('privacy policy texts', () => {
 
   it.each(Object.keys(texts))('name every third party that the map and the About page load images from in %s', (code) => {
     const text = allText(texts[code as keyof typeof texts])
-    for (const host of ['tile.openstreetmap.org', 'cdnjs.cloudflare.com', 'raw.githubusercontent.com', 'avatars.githubusercontent.com'])
+    for (const host of ['tile.openstreetmap.org', 'avatars.githubusercontent.com'])
       expect(text, host).toContain(host)
   })
 
