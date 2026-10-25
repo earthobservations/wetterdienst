@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+<linearGradient id="wsA0" x1="64" y1="0" x2="448" y2="0" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="#1D4E9E"></stop><stop offset="0.125" stop-color="#1D4E9E"></stop>
+<stop offset="0.125" stop-color="#3A7BD5"></stop><stop offset="0.25" stop-color="#3A7BD5"></stop>
+<stop offset="0.25" stop-color="#7FB3E6"></stop><stop offset="0.375" stop-color="#7FB3E6"></stop>
+<stop offset="0.375" stop-color="#CFE2F5"></stop><stop offset="0.5" stop-color="#CFE2F5"></stop>
+<stop offset="0.5" stop-color="#FCC5AE"></stop><stop offset="0.625" stop-color="#FCC5AE"></stop>
+<stop offset="0.625" stop-color="#F4744F"></stop><stop offset="0.75" stop-color="#F4744F"></stop>
+<stop offset="0.75" stop-color="#D2282B"></stop><stop offset="0.875" stop-color="#D2282B"></stop>
+<stop offset="0.875" stop-color="#8E0F1A"></stop><stop offset="1" stop-color="#8E0F1A"></stop>
+</linearGradient>
+</defs>
+<rect width="512" height="512" rx="112" fill="#0B1A33"></rect>
+<polyline points="104,152 180,368 256,204 332,368 408,152" fill="none" stroke="url(#wsA0)" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"></polyline>
+</svg>
