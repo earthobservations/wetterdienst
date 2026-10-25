@@ -14,14 +14,16 @@ from typing import TYPE_CHECKING
 import pytest
 from multidict import CIMultiDict
 
+from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
+from wetterdienst.ui.core import failure_status
 from wetterdienst.util.network import (
     HTTPFileSystem,
     RedirectRefusedError,
+    UpstreamMaintenanceError,
     _check_redirect,
-    _session_is_keyless,
     download_file,
     fetchable_link,
     list_remote_files_fsspec,
@@ -142,67 +144,30 @@ def _redirect(url: str, location: str) -> SimpleNamespace:
     return SimpleNamespace(url=url, headers={"Location": location})
 
 
-@pytest.mark.parametrize("name", ["api_key", "Authorization", "X-Api-Key", "Cookie"])
-def test_a_step_down_from_https_to_http_is_refused_for_a_request_that_carries_a_credential(name: str) -> None:
-    """A request that carries a credential is not led from https to http; the hop is named by host, not by query."""
+@pytest.mark.parametrize(
+    "headers", [{}, {"Accept": "*/*"}, {"api_key": KEY}, {"Authorization": KEY}, {"Cookie": "k=v"}]
+)
+def test_a_step_down_from_https_to_http_is_refused_for_every_request(headers: dict[str, str]) -> None:
+    """Https never steps down to http, with a credential or without one; the hop is named by host, not by query."""
     with pytest.raises(RedirectRefusedError, match=r"https to http \(opendata.example.es\)") as refused:
         _check_redirect(
             _redirect("https://opendata.example.es/a", "http://opendata.example.es/b?sig=secret"),  # ty: ignore[invalid-argument-type]
-            {name: KEY},
+            headers,
             "https://opendata.example.es/a",
-            allow_downgrade=True,
         )
+    assert not isinstance(refused.value, UpstreamMaintenanceError)
     assert "secret" not in str(refused.value)
 
 
-def test_a_step_down_from_https_to_http_is_refused_unless_the_session_allows_it() -> None:
-    """The session says whether it holds no credential at all, and the step is refused where it does not say so."""
-    with pytest.raises(RedirectRefusedError, match="https to http"):
-        _check_redirect(
-            _redirect("https://opendata.example.es/a", "http://opendata.example.es/b"),  # ty: ignore[invalid-argument-type]
-            {},
-            "https://opendata.example.es/a",
-        )
-
-
-def test_a_chain_through_http_that_ends_on_https_is_followed_by_a_keyless_session() -> None:
-    """A public file is reached over an http hop by some chains (GH-3398): the hops of one family are followed."""
+def test_a_step_down_from_https_to_http_inside_the_family_is_refused() -> None:
+    """The family of the first request is no licence for the step: a chain through http is refused at its hop."""
     first = "https://www.example.fr/api/1/datasets/r/abc"
-    headers = {"Accept": "*/*"}
-    for here, location in [
-        (first, "http://static.example.fr/resources/x.csv"),
-        ("http://static.example.fr/resources/x.csv", "https://static.example.fr/resources/x.csv"),
-    ]:
-        _check_redirect(_redirect(here, location), headers, first, allow_downgrade=True)  # ty: ignore[invalid-argument-type]
-    assert headers == {"Accept": "*/*"}
+    with pytest.raises(RedirectRefusedError, match=r"https to http \(static.example.fr\)"):
+        _check_redirect(_redirect(first, "http://static.example.fr/resources/x.csv"), {}, first)  # ty: ignore[invalid-argument-type]
 
 
-@pytest.mark.parametrize(
-    ("client_kwargs", "keyless"),
-    [
-        ({}, True),
-        ({"headers": {"User-Agent": "wetterdienst/1.0"}, "timeout": 30}, True),
-        ({"headers": [("Accept", "*/*")]}, True),
-        ({"headers": {"Authorization": KEY}}, False),
-        ({"headers": {"API_KEY": KEY}}, False),
-        ({"headers": {"cookie": "k=v"}}, False),
-        ({"headers": iter([("Accept", "*/*")])}, False),
-        ({"auth": ("user", "password")}, False),
-        ({"cookies": {"k": "v"}}, False),
-        ({"cookie_jar": object()}, False),
-        ({"middlewares": (object(),)}, False),
-        ({"trust_env": True}, False),
-        ({"proxy": "http://proxy.example:3128"}, False),
-        ({"proxy_auth": ("user", "password")}, False),
-    ],
-)
-def test_a_session_is_keyless_only_if_it_holds_no_credential_of_any_kind(client_kwargs: dict, keyless: bool) -> None:  # noqa: FBT001
-    """Headers, an `auth`, cookies, the environment (netrc, proxy) and a proxy each make a session not keyless."""
-    assert _session_is_keyless(client_kwargs) is keyless
-
-
-def test_a_chain_through_http_stays_in_the_family_of_the_first_request() -> None:
-    """The http hop is no way out of the family: the next hop to another domain is refused, as over https."""
+def test_a_chain_stays_in_the_family_of_the_first_request() -> None:
+    """The next hop to another domain is refused, whatever the scheme the chain is on."""
     first = "https://www.example.fr/api/1/datasets/r/abc"
     with pytest.raises(RedirectRefusedError, match=r"another host \(evil.example.net\)"):
         _check_redirect(
@@ -211,7 +176,7 @@ def test_a_chain_through_http_stays_in_the_family_of_the_first_request() -> None
             first,
         )
     with pytest.raises(RedirectRefusedError, match="another host"):
-        _check_redirect(_redirect(first, "http://evil.example.net/x"), {}, first)  # ty: ignore[invalid-argument-type]
+        _check_redirect(_redirect(first, "https://evil.example.net/x"), {}, first)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
@@ -440,35 +405,123 @@ def test_a_listing_that_met_a_refused_redirect_is_a_download_error(
     assert second.seen == []
 
 
-async def _guard_refuses_the_step_down(client_kwargs: dict) -> bool:
-    """Drive the trace of a real session of `HTTPFileSystem` with a redirect from https to http."""
+async def _guard_answers(client_kwargs: dict, first_url: str, here: str, location: str) -> Exception | None:
+    """Drive the trace of a real session of `HTTPFileSystem` with one redirect, and return what it refused with."""
     filesystem = HTTPFileSystem(
         use_listings_cache=False, listings_expiry_time=0, client_kwargs=client_kwargs, asynchronous=True
     )
     session = await filesystem.set_session()
     try:
         trace = session.trace_configs[-1]
-        headers = CIMultiDict(session.headers)
-        response = _redirect("https://www.example.fr/a", "http://static.example.fr/b")
-        params = SimpleNamespace(response=response, headers=headers)
-        context = SimpleNamespace(first_url="https://www.example.fr/a")
+        params = SimpleNamespace(response=_redirect(here, location), headers=CIMultiDict(session.headers))
         try:
-            await trace.on_request_redirect[0](session, context, params)
-        except RedirectRefusedError:
-            return True
-        return False
+            await trace.on_request_redirect[0](session, SimpleNamespace(first_url=first_url), params)
+        except RedirectRefusedError as error:
+            return error
+        return None
     finally:
         await session.close()
 
 
+#: the sessions a caller can build: without a credential, with the environment (netrc, proxy), with a key or cookies
+_SESSIONS = [
+    {"headers": {"User-Agent": "wetterdienst-research"}},
+    {"headers": {"User-Agent": "wetterdienst-research"}, "trust_env": True},
+    {"headers": {"api_key": KEY}},
+    {"headers": {"User-Agent": "wetterdienst-research"}, "cookies": {"k": "v"}},
+]
+
+
+@pytest.mark.parametrize("client_kwargs", _SESSIONS)
+def test_a_real_session_refuses_the_step_down_from_https_to_http(client_kwargs: dict) -> None:
+    """The session built by the filesystem carries the guard, and none of its kinds follows the step down."""
+    refused = asyncio.run(
+        _guard_answers(
+            client_kwargs, "https://www.example.fr/a", "https://www.example.fr/a", "http://static.example.fr/b"
+        )
+    )
+    assert isinstance(refused, RedirectRefusedError)
+    assert not isinstance(refused, UpstreamMaintenanceError)
+    assert "https to http (static.example.fr)" in str(refused)
+
+
+@pytest.mark.parametrize("client_kwargs", _SESSIONS)
 @pytest.mark.parametrize(
-    ("client_kwargs", "refused"),
+    ("first_url", "here"),
     [
-        ({"headers": {"User-Agent": "wetterdienst"}}, False),
-        ({"headers": {"api_key": KEY}}, True),
-        ({"headers": {"User-Agent": "wetterdienst"}, "cookies": {"k": "v"}}, True),
+        ("https://www.data.gouv.fr/api/1/datasets/r/abc", "https://www.data.gouv.fr/api/1/datasets/r/abc"),
+        ("https://static.data.gouv.fr/resources/x.csv", "https://static.data.gouv.fr/resources/x.csv"),
+        ("https://www.data.gouv.fr/api/1/datasets/r/abc", "http://sorry.data.gouv.fr/"),
     ],
 )
-def test_a_real_session_follows_the_step_down_only_without_a_credential(client_kwargs: dict, refused: bool) -> None:  # noqa: FBT001
-    """The session built by the filesystem carries the guard, with the verdict of its own client kwargs."""
-    assert asyncio.run(_guard_refuses_the_step_down(client_kwargs)) is refused
+def test_a_redirect_to_the_maintenance_page_of_data_gouv_is_an_outage_for_every_session(
+    client_kwargs: dict, first_url: str, here: str
+) -> None:
+    """data.gouv.fr in maintenance answers every request with a 302 to http://sorry.data.gouv.fr (GH-3400)."""
+    refused = asyncio.run(_guard_answers(client_kwargs, first_url, here, "http://sorry.data.gouv.fr"))
+    assert isinstance(refused, UpstreamMaintenanceError)
+    assert str(refused) == "data.gouv.fr is in maintenance (the request was redirected to sorry.data.gouv.fr)"
+
+
+def test_the_maintenance_page_is_told_whatever_its_scheme_and_whoever_asked() -> None:
+    """An https location, a name in capitals and a request of another provider's host are the same outage."""
+    for first, location in [
+        ("https://www.data.gouv.fr/a", "https://sorry.data.gouv.fr/"),
+        ("https://www.data.gouv.fr/a", "http://SORRY.data.gouv.fr./"),
+        ("https://example.org/a", "http://sorry.data.gouv.fr/"),
+    ]:
+        with pytest.raises(UpstreamMaintenanceError, match=r"data\.gouv\.fr is in maintenance"):
+            _check_redirect(_redirect(first, location), {}, first)  # ty: ignore[invalid-argument-type]
+
+
+def test_another_sorry_host_is_no_maintenance_page() -> None:
+    """Only the page of data.gouv.fr is told; a host of another name is judged as any other redirect."""
+    with pytest.raises(RedirectRefusedError, match="another host") as refused:
+        _check_redirect(
+            _redirect("https://www.data.gouv.fr/a", "https://sorry.example.net/"),  # ty: ignore[invalid-argument-type]
+            {},
+            "https://www.data.gouv.fr/a",
+        )
+    assert not isinstance(refused.value, UpstreamMaintenanceError)
+
+
+@pytest.fixture
+def maintenance_chain() -> Iterator[tuple[_Server, str]]:
+    """Run a server that answers every request with a 302 to http://sorry.data.gouv.fr, as data.gouv.fr does."""
+
+    class Maintenance(BaseHTTPRequestHandler):
+        def log_message(self, *args: object) -> None:
+            pass
+
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", "http://sorry.data.gouv.fr")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    server = _Server(("127.0.0.1", 0), Maintenance)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server, f"http://127.0.0.1:{server.server_port}/api/1/datasets/r/abc"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize("client_kwargs", [{}, {"trust_env": True}])
+def test_a_download_met_by_the_maintenance_redirect_is_a_download_error_of_an_outage(
+    maintenance_chain: tuple[_Server, str], tmp_path: Path, client_kwargs: dict
+) -> None:
+    """The redirect comes out of `raise_if_exception` as a `DownloadError` that names data.gouv.fr, and skips tests."""
+    _, url = maintenance_chain
+    file = download_file(url, tmp_path, CacheExpiry.NO_CACHE, client_kwargs=client_kwargs, attempts=1)
+    assert isinstance(file.content, UpstreamMaintenanceError)
+    with pytest.raises(DownloadError, match=r"data\.gouv\.fr is in maintenance") as raised:
+        file.raise_if_exception()
+    assert isinstance(raised.value.__cause__, UpstreamMaintenanceError)
+    assert "sorry.data.gouv.fr" in str(raised.value)
+    assert failure_status(raised.value) == 502
+    with pytest.raises(pytest.skip.Exception, match="upstream did not answer"), skip_if_upstream_unavailable():
+        raise raised.value

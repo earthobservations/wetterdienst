@@ -571,21 +571,34 @@ def _refuse_unannounced_compression(url: str, payload: bytes) -> None:
 _REDIRECT_DROPPED_HEADERS = frozenset({"cookie"})
 
 
-def _check_redirect(
-    response: ClientResponse, headers: MutableMapping[str, str], first_url: str, *, allow_downgrade: bool = False
-) -> None:
-    """Refuse a redirect that leaves the hosts of the first request's provider, or steps down to http with a credential.
+#: The hosts at which a provider's platform says that it is down for maintenance, each with the service it
+#: stands for. data.gouv.fr answers every request of a maintenance window, the API and the static host
+#: included, with a redirect to `http://sorry.data.gouv.fr`, which answers one to https and then a 503 (GH-3400).
+#: Not a host of any provider, so the check is made before the bound of the request.
+_MAINTENANCE_HOSTS = {"sorry.data.gouv.fr": "data.gouv.fr"}
+
+
+class UpstreamMaintenanceError(RedirectRefusedError):
+    """A redirect to the page that a provider's platform shows while it is down for maintenance.
+
+    A `DownloadError` raised from it is an outage of the provider and no fault of the request: a REST
+    answer maps it as any failed download, and the test suite skips on it (`skip_if_upstream_unavailable`).
+    """
+
+
+def _check_redirect(response: ClientResponse, headers: MutableMapping[str, str], first_url: str) -> None:
+    """Refuse a redirect that leaves the hosts of the first request's provider or steps down to http.
 
     Called for each redirect, with the headers aiohttp is about to send next. Where the origin changes (host, port
-    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`). The hosts of the provider
-    that the first request's host is one of (`PROVIDER_HOSTS`) are the bound, those of its registered domain where no
+    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`); a step from https to
+    http is refused for every session, as it would send the request in clear. The hosts of the provider that the
+    first request's host is one of (`PROVIDER_HOSTS`) are the bound, those of its registered domain where no
     provider lists the host (`_in_scope`): a redirect that ends elsewhere is refused, so an upstream cannot lead the
-    client to a host of its choosing (an internal one among them). A step from https to http is refused unless
-    `allow_downgrade`, which a session sets only when it holds no credential of any kind (`_session_is_keyless`), and
-    in any case for a request whose headers carry one: a public file is reached over an `http` hop by some chains
-    (data.gouv.fr answers one on GitHub's runners, GH-3398), and the hop is followed within the bound as the lesser
-    harm. Its answer is not protected on the way, as the rest of the chain is. The refused hop is named by its host,
-    never by its query.
+    client to a host of its choosing (an internal one among them). The refused hop is named by its host, never by
+    its query.
+
+    A redirect to the maintenance page of a platform (`_MAINTENANCE_HOSTS`) is no hop to refuse but an outage, and is
+    told before the bound and the scheme are, so that it is reported as one whichever way it is asked.
     """
     location = response.headers.get("Location") or response.headers.get("URI")
     if not location:
@@ -600,37 +613,25 @@ def _check_redirect(
         return  # aiohttp refuses what is no address
     if target.scheme not in {"http", "https"} or not target_host:
         return  # aiohttp refuses what is no http(s) address
+    maintained = _MAINTENANCE_HOSTS.get(clean_host(target_host))
+    if maintained:
+        msg = f"{maintained} is in maintenance (the request was redirected to {clean_host(target_host)})"
+        raise UpstreamMaintenanceError(msg)
+    if here.scheme == "https" and target.scheme == "http":
+        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
+        raise RedirectRefusedError(msg)
     start = urlsplit(first_url).hostname
     if not _in_scope(target_host, start):
         msg = f"a redirect to another host ({clean_host(target_host)}) outside {_bound_of(start)} was not followed"
         raise RedirectRefusedError(msg)
-    credentials = [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]
-    if here.scheme == "https" and target.scheme == "http" and (credentials or not allow_downgrade):
-        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
-        raise RedirectRefusedError(msg)
     origin = (target.scheme, clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
     if origin != (here.scheme, clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
-        for name in credentials:
+        for name in [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]:
             if name in headers:  # a header that is there twice goes with its first removal
                 del headers[name]
 
 
-#: What a session can hold besides headers that sends a credential with a request, and that aiohttp puts back
-#: after it has dropped it at a change of origin (`auth`), reads from the environment (`trust_env`: a netrc file,
-#: a proxy), keeps in a jar that does not follow the origin (`cookies`, `cookie_jar`), or adds to a request after the
-#: redirect has been checked (`middlewares`).
-_SESSION_CREDENTIAL_KWARGS = ("auth", "cookies", "cookie_jar", "middlewares", "trust_env", "proxy", "proxy_auth")
-
-
-def _session_is_keyless(client_kwargs: dict) -> bool:
-    """Tell whether a session holds no credential of any kind, which only then may follow a step down to http."""
-    headers = _credential_headers(client_kwargs)
-    if headers is None or headers.keys() & (_CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS):
-        return False
-    return not any(client_kwargs.get(name) for name in _SESSION_CREDENTIAL_KWARGS)
-
-
-def _redirect_guard(*, allow_downgrade: bool) -> TraceConfig:
+def _redirect_guard() -> TraceConfig:
     """Build the trace of a session that applies `_check_redirect` to every redirect it follows."""
     trace = TraceConfig()
 
@@ -638,7 +639,7 @@ def _redirect_guard(*, allow_downgrade: bool) -> TraceConfig:
         context.first_url = str(params.url)
 
     async def check_redirect(_session: object, context: SimpleNamespace, params: TraceRequestRedirectParams) -> None:
-        _check_redirect(params.response, params.headers, context.first_url, allow_downgrade=allow_downgrade)
+        _check_redirect(params.response, params.headers, context.first_url)
 
     trace.on_request_start.append(remember_first_url)
     trace.on_request_redirect.append(check_redirect)
@@ -931,7 +932,7 @@ class HTTPFileSystem(_HTTPFileSystem):
             """Create an aiohttp ClientSession that checks the redirects it follows."""
             import aiohttp  # noqa: PLC0415
 
-            guard = _redirect_guard(allow_downgrade=_session_is_keyless(client_kwargs))
+            guard = _redirect_guard()
             client_kwargs["trace_configs"] = [*(client_kwargs.get("trace_configs") or ()), guard]
             if use_certifi:
                 ssl_context = _create_ssl_context(use_certifi=True)
