@@ -1,5 +1,6 @@
 FROM python:3.15-slim-trixie@sha256:044d5bd747976e21f8bc4d746c3479b19a84bb8ae6261b802acdd26b29036c93 AS build
 
+# the uv of .tool-versions, kept by hand: bump both with the digest of that release (Dependabot bumps only this)
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /bin/
 
 ENV UV_NO_DEV=1
@@ -41,6 +42,7 @@ RUN --mount=type=cache,id=uv,target=/root/.cache/uv \
 # Installs the same extras and OS packages as the final stage for feature parity.
 FROM python:3.15-slim-trixie@sha256:044d5bd747976e21f8bc4d746c3479b19a84bb8ae6261b802acdd26b29036c93 AS dev
 
+# the uv of .tool-versions, kept by hand: bump both with the digest of that release (Dependabot bumps only this)
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /bin/
 
 ENV UV_NO_DEV=1

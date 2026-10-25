@@ -1,0 +1,4 @@
+# The uv of release.yml and .readthedocs.yml. docker/Dockerfile cannot read this file: bump its two
+# `COPY --from=ghcr.io/astral-sh/uv:` pins together with this line, tag and sha256 digest of that release
+# (Dependabot bumps only the Dockerfile).
+uv 0.13.5
