@@ -1808,3 +1808,54 @@ def test_docs_table_rows_have_as_many_cells_as_their_header(tmp_path: Path) -> N
     ]
     errors = [f"{path.relative_to(ROOT)}: {problem}" for path in _prose_files() for problem in _ragged_table_rows(path)]
     assert not errors, "\n".join(_capped(errors, 40, "the report"))
+
+
+#: a link to the published documentation, as the README, the code and the app write it
+_PUBLISHED = re.compile(
+    r"https://wetterdienst\.readthedocs\.io/en/latest/(?P<path>[\w./-]*?)(?:#(?P<anchor>[\w-]+))?(?=[\s)\"'>`,]|$)"
+)
+
+
+def _anchor(heading: str) -> str:
+    """Give the anchor MyST makes of a heading: lower case, the punctuation gone, the spaces hyphens."""
+    heading = re.sub(r"[`*_]|\{[^}]*\}", "", heading.lower().strip())
+    return re.sub(r"\s", "-", re.sub(r"[^\w\s-]", "", heading))
+
+
+def test_links_to_the_published_documentation_name_a_page_and_a_heading_that_exist() -> None:
+    """Test that a link to wetterdienst.readthedocs.io in the README, the code or the app is a page of `docs/`.
+
+    These links are external to the build, so neither Sphinx nor the link check of a pull request finds one that a
+    renamed page or heading broke: it is a 404, or a page that opens at its top, until someone follows it. A link is
+    checked against the file of its page, and a fragment against the headings of that file.
+    """
+    sources = [
+        README,
+        *(ROOT / "src" / "wetterdienst").rglob("*.py"),
+        *(ROOT / "app" / "app").rglob("*.vue"),
+        *(ROOT / "app" / "app").rglob("*.ts"),
+    ]
+    found = [(path, match) for path in sources for match in _PUBLISHED.finditer(path.read_text(encoding="utf8"))]
+    assert len(found) >= 20, "the pattern finds the links of the README and the code"
+    wrong = []
+    for path, match in found:
+        where, target, anchor = path.relative_to(ROOT), match["path"], match["anchor"]
+        if target in {"", "index.html"}:
+            page = DOCS / "index.md"
+        elif target.endswith("/"):
+            page = DOCS / target / "index.md"
+        elif target.endswith(".html"):
+            page = (DOCS / target).with_suffix(".md")
+        else:
+            wrong.append(f"{where}: {match[0]} is no page")
+            continue
+        if not page.is_file():
+            wrong.append(f"{where}: {match[0]} has no source {page.relative_to(ROOT)}")
+        elif anchor:
+            headings = {
+                _anchor(heading["title"])
+                for heading in re.finditer(r"^#{1,3} (?P<title>.+)$", page.read_text(encoding="utf8"), re.MULTILINE)
+            }
+            if anchor not in headings:
+                wrong.append(f"{where}: {match[0]} names no heading of {page.relative_to(ROOT)}")
+    assert not wrong, "\n".join(wrong)
