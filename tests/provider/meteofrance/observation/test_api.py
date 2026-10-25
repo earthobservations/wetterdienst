@@ -17,9 +17,10 @@ import pytest
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import DownloadError, InvalidParameterError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.provider.meteofrance.observation import MeteoFranceObservationRequest, api
-from wetterdienst.util.network import File
+from wetterdienst.util.network import File, RedirectRefusedError, UpstreamMaintenanceError
 
 
 @pytest.mark.remote
@@ -734,3 +735,36 @@ def test_meteofrance_observation_api_a_resource_is_fetched_only_at_data_gouv_or_
     else:
         with pytest.raises(DownloadError, match="the link was not fetched"):
             match(resources, "HOR_departement_31_periode_", "")
+
+
+@pytest.mark.parametrize(
+    ("content", "status", "asked_again"),
+    [
+        pytest.param(TimeoutError(), 500, True, id="timeout"),
+        pytest.param(RedirectRefusedError("a redirect was not followed"), 500, False, id="refused redirect"),
+        pytest.param(UpstreamMaintenanceError("data.gouv.fr is in maintenance"), 500, False, id="maintenance"),
+        pytest.param(FileNotFoundError("gone"), 404, False, id="404"),
+    ],
+)
+def test_the_climate_downloads_ask_again_only_for_a_failure_that_may_pass(
+    monkeypatch: pytest.MonkeyPatch,
+    content: Exception,
+    status: int,
+    asked_again: bool,  # noqa: FBT001
+) -> None:
+    """A refused redirect, like a 404, fails again at once, so the second, less concurrent attempt is not made."""
+    url = "https://static.data.gouv.fr/resources/x.csv"
+    second_attempts: list[str] = []
+
+    def second_attempt(url: str, **_kwargs: object) -> File:
+        second_attempts.append(url)
+        return File(url=url, content=content, status=status)
+
+    monkeypatch.setattr(api, "_resource_cache_ttl", lambda _resource: CacheExpiry.FIVE_MINUTES)
+    monkeypatch.setattr(
+        api, "download_files", lambda urls, **_kwargs: [File(url=u, content=content, status=status) for u in urls]
+    )
+    monkeypatch.setattr(api, "download_file", second_attempt)
+    files = api._download_climate_resources([{"url": url}], Settings())  # noqa: SLF001
+    assert isinstance(files[url].content, Exception)
+    assert second_attempts == ([url] if asked_again else [])
