@@ -121,8 +121,9 @@ default port (`fetchable_link`, `util/network.py`; GH-3339). A redirect is follo
 never from `https` down to `http`, whatever the session holds (`_check_redirect`; 0.174.0 let a session without a
 credential follow that hop, withdrawn in GH-3400). A credential header, whatever its name, is dropped where it changes
 the origin (GH-3338, GH-3339); a refused link or redirect is a `DownloadError` that names the host and the provider. A
-redirect to `sorry.data.gouv.fr`, the maintenance page of data.gouv.fr, is told before that and is a `DownloadError`
-that says the site is in maintenance. A host that no provider lists (a test server, an address a caller fetches by hand) is held to its
+request that started at data.gouv.fr and is redirected to `sorry.data.gouv.fr`, its maintenance page, is told before
+the host bound and is a `DownloadError` that says the site is in maintenance. A host that no provider lists (a test
+server, an address a caller fetches by hand) is held to its
 registered domain, told without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as
 suffixes, and a name under `amazonaws.com` or `ovh.net` is its own domain). A host name is not resolved, so **an
 upstream that is compromised can still make the server fetch from the hosts of its own provider**, and a name of one of

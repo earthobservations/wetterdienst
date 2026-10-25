@@ -28,7 +28,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.meteofrance.observation.metadata import MeteoFranceObservationMetadata
 from wetterdienst.util.archive import gunzip
-from wetterdienst.util.network import download_file, download_files, fetchable_link
+from wetterdienst.util.network import RedirectRefusedError, download_file, download_files, fetchable_link
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -832,13 +832,15 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
         )
         files_by_url.update(zip(urls, files, strict=True))
         # retrying is only worthwhile for likely-transient failures; a missing connection or a
-        # genuinely nonexistent resource (404) will just fail again immediately
+        # genuinely nonexistent resource (404) will just fail again immediately, and so will a redirect that was
+        # refused (data.gouv.fr in maintenance, a hop out of the provider's hosts)
         failed_urls = [
             url
             for url, file in files_by_url.items()
             if url in urls
             and isinstance(file.content, Exception)
             and not file.is_no_internet_error
+            and not isinstance(file.content, RedirectRefusedError)
             and file.status != 404
         ]
         if failed_urls:

@@ -44,17 +44,13 @@ Types of changes:
   when both resolutions are requested. One table serves both lists and turns a row only while it
   lists the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
 
-### Fixed
-
-- A redirect from `https` down to `http` is refused again for every session, which 0.174.0 let a
-  session without a credential follow: the hop it was meant for was the maintenance page of
-  data.gouv.fr, which answers every request of a maintenance window with a redirect to
-  `http://sorry.data.gouv.fr`. That redirect is now a `DownloadError` saying that data.gouv.fr is
-  in maintenance (HTTP 502 in the REST API); that is what `meteofrance/observation` fails with
-  while the site is down (GH-3400)
-
 ### Security
 
+- A redirect from `https` down to `http` is refused for every session again; 0.174.0 let a session
+  without a credential follow it. Nothing needs to change: no provider needs the hop, which was
+  data.gouv.fr's maintenance page. A request that data.gouv.fr redirects to
+  `http://sorry.data.gouv.fr` is now a `DownloadError` saying that data.gouv.fr is in maintenance
+  (HTTP 502 in the REST API), and `meteofrance/observation` does not ask it twice (GH-3400)
 - Follow-up and redirect URLs are limited to the provider's own hosts: a redirect, and a link an
   answer names (next page, `datos`, asset, measure), is followed only to a host that the provider
   lists (its API and the store of its files). A link is fetched over `https` only. Any other

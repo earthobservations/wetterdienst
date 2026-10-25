@@ -14,12 +14,13 @@ from typing import TYPE_CHECKING
 import pytest
 from multidict import CIMultiDict
 
-from tests.conftest import skip_if_upstream_unavailable
+from tests.conftest import _is_upstream_outage, skip_if_upstream_unavailable
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.settings import Settings
 from wetterdienst.ui.core import failure_status
 from wetterdienst.util.network import (
+    _MAINTENANCE_HOSTS,
     HTTPFileSystem,
     RedirectRefusedError,
     UpstreamMaintenanceError,
@@ -176,7 +177,7 @@ def test_a_chain_stays_in_the_family_of_the_first_request() -> None:
             first,
         )
     with pytest.raises(RedirectRefusedError, match="another host"):
-        _check_redirect(_redirect(first, "https://evil.example.net/x"), {}, first)  # ty: ignore[invalid-argument-type]
+        _check_redirect(_redirect(first, "http://evil.example.net/x"), {}, first)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
@@ -463,15 +464,33 @@ def test_a_redirect_to_the_maintenance_page_of_data_gouv_is_an_outage_for_every_
     assert str(refused) == "data.gouv.fr is in maintenance (the request was redirected to sorry.data.gouv.fr)"
 
 
-def test_the_maintenance_page_is_told_whatever_its_scheme_and_whoever_asked() -> None:
-    """An https location, a name in capitals and a request of another provider's host are the same outage."""
+def test_the_maintenance_page_is_told_whatever_its_scheme_and_the_host_of_the_platform_asked() -> None:
+    """An https location, a name in capitals and the static host are the same outage as the API host's."""
     for first, location in [
         ("https://www.data.gouv.fr/a", "https://sorry.data.gouv.fr/"),
         ("https://www.data.gouv.fr/a", "http://SORRY.data.gouv.fr./"),
-        ("https://example.org/a", "http://sorry.data.gouv.fr/"),
+        ("https://static.data.gouv.fr/a", "http://sorry.data.gouv.fr/"),
     ]:
         with pytest.raises(UpstreamMaintenanceError, match=r"data\.gouv\.fr is in maintenance"):
             _check_redirect(_redirect(first, location), {}, first)  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize("first", ["https://example.org/a", "https://opendata.dwd.de/a", "http://127.0.0.1:8000/a"])
+def test_a_redirect_to_the_maintenance_page_from_another_platform_is_the_ordinary_refusal(first: str) -> None:
+    """An upstream that sends the client to sorry.data.gouv.fr is not data.gouv.fr being down: no skip, no outage."""
+    with pytest.raises(RedirectRefusedError, match=r"another host \(sorry\.data\.gouv\.fr\) outside") as refused:
+        _check_redirect(_redirect(first, "http://sorry.data.gouv.fr/"), {}, first)  # ty: ignore[invalid-argument-type]
+    assert not isinstance(refused.value, UpstreamMaintenanceError)
+    assert not _is_upstream_outage(refused.value)
+
+
+def test_a_step_down_out_of_the_bound_is_refused_for_the_bound_and_names_the_provider() -> None:
+    """The host bound is told before the step down, so a refused hop names the provider (GH-3339)."""
+    first = "https://www.data.gouv.fr/api/1/datasets/r/abc"
+    with pytest.raises(
+        RedirectRefusedError, match=r"another host \(evil\.example\.net\) outside the hosts of meteofrance"
+    ):
+        _check_redirect(_redirect(first, "http://evil.example.net/x"), {}, first)  # ty: ignore[invalid-argument-type]
 
 
 def test_another_sorry_host_is_no_maintenance_page() -> None:
@@ -486,20 +505,27 @@ def test_another_sorry_host_is_no_maintenance_page() -> None:
 
 
 @pytest.fixture
-def maintenance_chain() -> Iterator[tuple[_Server, str]]:
-    """Run a server that answers every request with a 302 to http://sorry.data.gouv.fr, as data.gouv.fr does."""
+def maintenance_chain(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[_Server, str]]:
+    """Run a server that answers every request with a 302 to http://sorry.data.gouv.fr, as data.gouv.fr does.
+
+    The server stands in for the platform: the maintenance page is told for a request that started at a host
+    of it, which here is 127.0.0.1.
+    """
+    monkeypatch.setitem(_MAINTENANCE_HOSTS, "sorry.data.gouv.fr", "127.0.0.1")
 
     class Maintenance(BaseHTTPRequestHandler):
         def log_message(self, *args: object) -> None:
             pass
 
         def do_GET(self) -> None:
+            self.server.seen.append({})  # ty: ignore[unresolved-attribute]
             self.send_response(302)
             self.send_header("Location", "http://sorry.data.gouv.fr")
             self.send_header("Content-Length", "0")
             self.end_headers()
 
     server = _Server(("127.0.0.1", 0), Maintenance)
+    server.seen = []
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -515,10 +541,11 @@ def test_a_download_met_by_the_maintenance_redirect_is_a_download_error_of_an_ou
     maintenance_chain: tuple[_Server, str], tmp_path: Path, client_kwargs: dict
 ) -> None:
     """The redirect comes out of `raise_if_exception` as a `DownloadError` that names data.gouv.fr, and skips tests."""
-    _, url = maintenance_chain
-    file = download_file(url, tmp_path, CacheExpiry.NO_CACHE, client_kwargs=client_kwargs, attempts=1)
+    server, url = maintenance_chain
+    file = download_file(url, tmp_path, CacheExpiry.NO_CACHE, client_kwargs=client_kwargs)
+    assert len(server.seen) == 1  # with the default attempts: a maintenance redirect is not asked again
     assert isinstance(file.content, UpstreamMaintenanceError)
-    with pytest.raises(DownloadError, match=r"data\.gouv\.fr is in maintenance") as raised:
+    with pytest.raises(DownloadError, match=r"is in maintenance") as raised:
         file.raise_if_exception()
     assert isinstance(raised.value.__cause__, UpstreamMaintenanceError)
     assert "sorry.data.gouv.fr" in str(raised.value)

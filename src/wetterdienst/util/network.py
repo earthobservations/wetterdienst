@@ -590,15 +590,16 @@ def _check_redirect(response: ClientResponse, headers: MutableMapping[str, str],
     """Refuse a redirect that leaves the hosts of the first request's provider or steps down to http.
 
     Called for each redirect, with the headers aiohttp is about to send next. Where the origin changes (host, port
-    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`); a step from https to
-    http is refused for every session, as it would send the request in clear. The hosts of the provider that the
-    first request's host is one of (`PROVIDER_HOSTS`) are the bound, those of its registered domain where no
+    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`). The hosts of the provider
+    that the first request's host is one of (`PROVIDER_HOSTS`) are the bound, those of its registered domain where no
     provider lists the host (`_in_scope`): a redirect that ends elsewhere is refused, so an upstream cannot lead the
-    client to a host of its choosing (an internal one among them). The refused hop is named by its host, never by
-    its query.
+    client to a host of its choosing (an internal one among them). A step from https to http is refused for every
+    session, as it would send the request in clear. A refused hop is named by its host, never by its query.
 
-    A redirect to the maintenance page of a platform (`_MAINTENANCE_HOSTS`) is no hop to refuse but an outage, and is
-    told before the bound and the scheme are, so that it is reported as one whichever way it is asked.
+    A redirect to the maintenance page of a platform (`_MAINTENANCE_HOSTS`) from a request that started at a host of
+    that platform is no hop to refuse but an outage, and is told before the bound and the scheme are, so that it is
+    reported as one whichever way it is asked. From a request that started anywhere else it is a redirect like any
+    other: an upstream that sends a client there is not the platform being down.
     """
     location = response.headers.get("Location") or response.headers.get("URI")
     if not location:
@@ -613,16 +614,16 @@ def _check_redirect(response: ClientResponse, headers: MutableMapping[str, str],
         return  # aiohttp refuses what is no address
     if target.scheme not in {"http", "https"} or not target_host:
         return  # aiohttp refuses what is no http(s) address
+    start = urlsplit(first_url).hostname
     maintained = _MAINTENANCE_HOSTS.get(clean_host(target_host))
-    if maintained:
+    if maintained and _host_family(start or "") == _host_family(maintained):
         msg = f"{maintained} is in maintenance (the request was redirected to {clean_host(target_host)})"
         raise UpstreamMaintenanceError(msg)
-    if here.scheme == "https" and target.scheme == "http":
-        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
-        raise RedirectRefusedError(msg)
-    start = urlsplit(first_url).hostname
     if not _in_scope(target_host, start):
         msg = f"a redirect to another host ({clean_host(target_host)}) outside {_bound_of(start)} was not followed"
+        raise RedirectRefusedError(msg)
+    if here.scheme == "https" and target.scheme == "http":
+        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
         raise RedirectRefusedError(msg)
     origin = (target.scheme, clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
     if origin != (here.scheme, clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
