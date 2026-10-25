@@ -53,52 +53,81 @@ GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
 # UKI0000EGLL (20,623 hours of sea level pressure)
 GHCNH_NO_CODE = "Null"
 
-# stations that `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) put east of Greenwich where they lie west of it, 6 to
-# 756 km off: the list has lost the sign of the longitude (GH-2645, GH-2886). Each was checked against two or more
-# other sources (ECA&D, GHCN hourly list, ISD history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same
-# place west of the meridian and within 4 km of the mirrored position; the values per station are in the pull requests
-# of those issues.
-# The longitude of these is taken as west whatever sign the list gives, so a list corrected by NOAA is read as it is.
-GHCND_WEST_LONGITUDE_STATIONS = (
-    "AGE00135039",  # ORAN-HOPITAL MILITAIRE
-    "AGE00147714",  # ORAN-CAP FALCON
-    "AGE00147717",  # SIDI-BEL-ABBES
-    "FR000007510",  # BORDEAUX-MERIGNAC
-    "FRE00104044",  # CAEN-CARPIQUET
-    "FRE00104957",  # ESPOEY
-    "FRE00106203",  # MONT-DE-MARSAN
-    "SP000007038",  # TORREVIEJA
-    "SP000008416",  # VALENCIA
-    "SPE00101035",  # ALICANTE EL ALTET
-    "SPE00101043",  # ALICANTE
-    "SPE00119999",  # CASTELLON
-    "SPE00120008",  # CASTELLON DE LA PLANA
-    "SPE00120161",  # HUESCA
-    "SPE00120341",  # MURCIA/SAN JAVIER
-    "SPE00120584",  # VALENCIA/AEROPUERTO
-    "UK000003377",  # WADDINGTON
-    "UKE00100808",  # HULL
-    "UKE00105894",  # HIGH MOWTHORPE
-    "UKE00105900",  # ROTHAMSTED
-    "UKE00105915",  # HAMPSTEAD
-    "UKE00105919",  # BOGNOR REGIS
-    "UKE00105926",  # HAYLING ISLAND
-    "UKE00105927",  # ALICE HOLT LODGE
-    "UKE00107650",  # HEATHROW
-    "UKE00156848",  # CRANWELL
-    "UKE00156864",  # MONKS WOOD
-    "UKE00156884",  # WISLEY
-    "UKE00156888",  # WOBURN
-    "UKW00015014",  # MOLESWORTH
-    "UKW00015015",  # CHELVESTON
-    "UKW00015018",  # BASSINGBOURN
-    "UKW00015033",  # HUNTINGTON (RAF Alconbury)
-    "UKW00015034",  # WYTON
-    "UKW00015035",  # WADDINGTON
-    "UKW00015041",  # STURGATE
-    "UV000005503",  # OUAGADOUGOU
-    "UVM00065505",  # DEDOUGOU
-)
+# stations whose longitude `ghcnd-stations.txt` (and `ghcnd-inventory.txt`) and `ghcnh-station-list.csv` list with the
+# wrong sign, all 38 listed east of Greenwich where they lie west of it, 6 to 756 km off: the list has lost the sign
+# (GH-2645, GH-2886, GH-3384). Each was checked against two or more other sources (ECA&D, GHCN hourly list, ISD
+# history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET) that put the same place on the other side of the meridian and
+# within 4 km of the mirrored position; the values per station are in the pull requests of those issues.
+# The value is the (latitude, longitude) the lists gave when the station was checked: the longitude of a row is turned
+# only while the row still lists exactly this position (`_restore_lost_longitude_sign`), so a list that NOAA has
+# corrected, or moved, is read as it is, and an id that the lists use for another station is not touched. One table
+# serves both lists; UKW00015015 and UKW00015033 are in both with the same position.
+LOST_LONGITUDE_SIGN_STATIONS: dict[str, tuple[float, float]] = {
+    "AGE00135039": (35.7297, 0.65),  # ORAN-HOPITAL MILITAIRE
+    "AGE00147714": (35.77, 0.8),  # ORAN-CAP FALCON
+    "AGE00147717": (35.2, 0.63),  # SIDI-BEL-ABBES
+    "FR000007510": (44.8306, 0.6914),  # BORDEAUX-MERIGNAC
+    "FRE00104044": (49.18, 0.4558),  # CAEN-CARPIQUET
+    "FRE00104957": (43.2481, 0.155),  # ESPOEY
+    "FRE00106203": (43.9094, 0.5003),  # MONT-DE-MARSAN
+    "SP000007038": (37.9769, 0.7106),  # TORREVIEJA
+    "SP000008416": (39.4806, 0.3664),  # VALENCIA
+    "SPE00101035": (38.2828, 0.5706),  # ALICANTE EL ALTET
+    "SPE00101043": (38.3725, 0.4942),  # ALICANTE
+    "SPE00119999": (39.95, 0.0714),  # CASTELLON
+    "SPE00120008": (39.9892, 0.0406),  # CASTELLON DE LA PLANA
+    "SPE00120161": (42.0831, 0.3264),  # HUESCA
+    "SPE00120341": (37.7889, 0.8031),  # MURCIA/SAN JAVIER
+    "SPE00120584": (39.4867, 0.4731),  # VALENCIA/AEROPUERTO
+    "UK000003377": (53.1658, 0.5239),  # WADDINGTON
+    "UKE00100808": (53.7667, 0.3667),  # HULL
+    "UKE00105894": (54.105, 0.6417),  # HIGH MOWTHORPE
+    "UKE00105900": (51.8067, 0.3581),  # ROTHAMSTED
+    "UKE00105915": (51.5608, 0.1789),  # HAMPSTEAD
+    "UKE00105919": (50.7808, 0.6758),  # BOGNOR REGIS
+    "UKE00105926": (50.7839, 0.9839),  # HAYLING ISLAND
+    "UKE00105927": (51.1767, 0.8481),  # ALICE HOLT LODGE
+    "UKE00107650": (51.4789, 0.4489),  # HEATHROW
+    "UKE00156848": (53.0306, 0.5017),  # CRANWELL
+    "UKE00156864": (52.4008, 0.2353),  # MONKS WOOD
+    "UKE00156884": (51.3103, 0.4744),  # WISLEY
+    "UKE00156888": (52.0142, 0.5942),  # WOBURN
+    "UKW00015014": (52.3833, 0.4167),  # MOLESWORTH
+    "UKW00015015": (52.3, 0.5333),  # CHELVESTON
+    "UKW00015018": (52.1, 0.05),  # BASSINGBOURN
+    "UKW00015033": (52.3667, 0.2167),  # HUNTINGTON (RAF Alconbury)
+    "UKW00015034": (52.35, 0.1167),  # WYTON
+    "UKW00015035": (53.1667, 0.5167),  # WADDINGTON
+    "UKW00015041": (53.3667, 0.6833),  # STURGATE
+    "UV000005503": (12.35, 1.52),  # OUAGADOUGOU
+    "UVM00065505": (12.467, 3.483),  # DEDOUGOU
+}
+
+
+def _restore_lost_longitude_sign(df: pl.DataFrame) -> pl.DataFrame:
+    """Turn the sign of the longitude of the stations of `LOST_LONGITUDE_SIGN_STATIONS`, for either list (GH-3384).
+
+    A row is changed only if its id is in the table and its latitude and longitude are what the table recorded, so
+    a list in which NOAA has put the sign right, or has moved the station, is read as it is.
+    """
+    latitude = pl.col("latitude").str.strip_chars().cast(pl.Float64, strict=False)
+    longitude = pl.col("longitude").str.strip_chars().cast(pl.Float64, strict=False)
+    listed_latitude = pl.col("station_id").replace_strict(
+        {station_id: position[0] for station_id, position in LOST_LONGITUDE_SIGN_STATIONS.items()},
+        default=None,
+        return_dtype=pl.Float64,
+    )
+    listed_longitude = pl.col("station_id").replace_strict(
+        {station_id: position[1] for station_id, position in LOST_LONGITUDE_SIGN_STATIONS.items()},
+        default=None,
+        return_dtype=pl.Float64,
+    )
+    return df.with_columns(
+        pl.when(latitude.eq(listed_latitude) & longitude.eq(listed_longitude))
+        .then((-longitude).cast(pl.String))
+        .otherwise(pl.col("longitude"))
+        .alias("longitude"),
+    )
 
 
 def _closes_its_hour(df: pl.DataFrame) -> pl.Series:
@@ -540,6 +569,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
         df = df.with_columns(
             pl.col("elevation").replace(["-999.9", "-999.0", "-99.0", "9999.0", "8191.0"], None),
         )
+        df = _restore_lost_longitude_sign(df)
         # 0.0, 0.0 is no position either: BOGUS ARGENTINEAN and NAME AND LOC UNKN are listed there,
         # and their data rows repeat it. A station named BOGUS, such as BOGUS AUSTRIAN or the ten
         # BOGUS CHINESE, is a placeholder whose identity, so whose position, was not established. Both
@@ -630,12 +660,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
             .alias("elevation"),
         )
 
-        df = df.with_columns(
-            pl.when(pl.col("station_id").is_in(GHCND_WEST_LONGITUDE_STATIONS))
-            .then(pl.lit("-") + pl.col("longitude").str.strip_chars_start("-"))
-            .otherwise(pl.col("longitude"))
-            .alias("longitude"),
-        )
+        df = _restore_lost_longitude_sign(df)
 
         inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
         inventory_file = download_file(
