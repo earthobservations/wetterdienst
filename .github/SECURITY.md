@@ -210,8 +210,8 @@ immutable to look at the names of its tables, and reads nothing else from it.
 
 ### The app
 
-No secret: the backend URL is public by name (`NUXT_PUBLIC_API_BASE`), and the server forwards neither cookies nor
-`Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
+No secret: the backend URL is a public key of Nuxt's runtime config (`NUXT_PUBLIC_API_BASE`), so every page carries
+it, and the server forwards neither cookies nor `Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
 a nonce per response, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, and scripts, workers and requests on its own
 origin (`app/tests/e2e/csp.spec.ts`, `app/tests/unit/security-headers.test.ts`). Nothing the browser runs comes from a
 CDN, so there is no third-party script for subresource integrity to cover; only map tiles, avatars and marker images

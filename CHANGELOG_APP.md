@@ -32,6 +32,9 @@ Types of changes:
 
 - `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
   `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
+- `[Build]` `pnpm dev` listens on `localhost`, no longer on every interface, so Nuxt DevTools is
+  reachable from this machine only; `HOST=0.0.0.0 pnpm dev` opens it to the network. The dev
+  container sets `HOST=0.0.0.0` itself (GH-3096)
 
 ## [0.35.0] - 2026-10-24
 

@@ -80,6 +80,21 @@ describe('security headers', () => {
   })
 })
 
+describe('the development server', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  it('names no host, so `nuxt dev` (with Nuxt DevTools) listens on localhost unless HOST says otherwise (GH-3096)', async () => {
+    vi.stubGlobal('defineNuxtConfig', (config: any) => config)
+    const config = await loadConfig()
+
+    expect(config.devServer.host).toBeUndefined()
+    expect(config.devServer.port).toBe(4000)
+  })
+})
+
 describe('the assets under a page with a COEP', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
