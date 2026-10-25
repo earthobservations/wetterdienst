@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/icon.svg" alt="wetterdienst" width="112" height="112"/>
+</p>
+
 # Wetterdienst - Open weather data for humans
 
 <p align="center">
