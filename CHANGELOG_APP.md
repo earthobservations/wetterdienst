@@ -30,11 +30,19 @@ Types of changes:
 
 ### Changed
 
+- The backend URL is private runtime config now, so no page carries it any more. Set it with
+  `NUXT_API_BASE` (the compose file and the docs do); the old `NUXT_PUBLIC_API_BASE` is read
+  while `NUXT_API_BASE` is not set, so a deployment keeps working until it is renamed (GH-3096)
 - `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
   `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
 - `[Build]` `pnpm dev` listens on `localhost`, no longer on every interface, so Nuxt DevTools is
   reachable from this machine only; `HOST=0.0.0.0 pnpm dev` opens it to the network. The dev
   container sets `HOST=0.0.0.0` itself (GH-3096)
+
+### Deprecated
+
+- `NUXT_PUBLIC_API_BASE`: the server logs one warning when it starts with it set, and a future
+  release stops reading it. Rename it to `NUXT_API_BASE`, the value stays the same (GH-3096)
 
 ## [0.35.0] - 2026-10-24
 
