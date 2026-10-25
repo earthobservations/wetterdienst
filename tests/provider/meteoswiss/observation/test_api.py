@@ -210,10 +210,20 @@ def test_meteoswiss_observation_a_station_without_a_file_of_the_resolution_comes
     assert df.is_empty()
 
 
-def test_meteoswiss_observation_does_not_fetch_an_asset_of_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "foreign",
+    [
+        "http://192.0.2.1/latest/meta-data/iam",
+        "https://map.geo.admin.ch/x",
+        "https://data.geo.admin.ch.example.org/x",
+    ],
+)
+def test_meteoswiss_observation_does_not_fetch_an_asset_of_another_host(
+    monkeypatch: pytest.MonkeyPatch, foreign: str
+) -> None:
     """The address of an asset is the catalogue's to name, and a host that is not its own is never asked (GH-3339)."""
     asked: list[str] = []
-    item = {"assets": {"ogd-smn_ber_d_recent.csv": {"href": "http://169.254.169.254/latest/meta-data/iam"}}}
+    item = {"assets": {"ogd-smn_ber_d_recent.csv": {"href": foreign}}}
 
     def download_file(url: str, **_: object) -> File:
         asked.append(url)
@@ -224,4 +234,5 @@ def test_meteoswiss_observation_does_not_fetch_an_asset_of_another_host(monkeypa
     monkeypatch.setattr(meteoswiss_api, "download_file", download_file)
     with pytest.raises(DownloadError, match="the link was not fetched"):
         _ber_values()
-    assert not [url for url in asked if "169.254" in url]
+    assert foreign not in asked
+    assert foreign.replace("http://", "https://") not in asked

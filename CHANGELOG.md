@@ -55,6 +55,15 @@ Types of changes:
   and the `10_minutes` resolution, which still publishes it), and the files that do not exist are
   no longer asked for (GH-3413)
 
+### Security
+
+- Follow-up and redirect URLs are limited to the provider's own hosts: a redirect, and a link an
+  answer names (next page, `datos`, asset, measure), is followed only to a host that the provider
+  lists (its API and the store of its files). A link is fetched over `https` only; a session
+  without a credential may still follow an `http` hop of a redirect among those hosts. Any other
+  host, one under the provider's own domain included, is refused with a `DownloadError` that
+  names the host and the provider; 0.174.0 held them to the provider's registered domain (GH-3339)
+
 ## [0.174.0] - 2026-10-24
 
 ### Changed
@@ -101,6 +110,14 @@ Types of changes:
 
 ### Security
 
+- The wheel and sdist of a release carry a PEP 740 attestation on PyPI, which
+  `pypi-attestations verify pypi` checks (GH-3346)
+- `[Docker]` The backend image carries a build provenance signed with the GitHub Actions identity
+  of the workflow through Sigstore, which `gh attestation verify
+  oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst`
+  checks, and an unsigned BuildKit provenance and SBOM per platform (the registry lists them as
+  `unknown/unknown` manifests). Releases before this one have none; see "Release provenance" in
+  `.github/SECURITY.md` (GH-3346)
 - The REST API and MCP server now write the text a request sent into their log on one line:
   control characters (a newline, an escape) in a refused value, a parameter, a station name or a
   path are logged as escape sequences such as `\n`. This holds for the messages of the loggers of

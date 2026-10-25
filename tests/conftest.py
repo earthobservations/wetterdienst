@@ -12,11 +12,12 @@ import sys
 import threading
 import time
 import warnings
-from collections.abc import Generator
+from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -125,17 +126,27 @@ def _host_did_not_answer(failure: BaseException | None) -> bool:
     )
 
 
-def _is_upstream_outage(error: Exception) -> bool:
+def _host_of(failure: NoInternetError) -> str | None:
+    """Name the host a `NoInternetError` could not reach, from the URL its message gives."""
+    found = re.search(r"could not reach (\S+)", str(failure))
+    return urlsplit(found.group(1)).hostname if found else None
+
+
+def _is_upstream_outage(error: Exception, unresolved_hosts: Collection[str] = ()) -> bool:
     """Say whether a failure is the upstream not answering, by the rule `skip_if_upstream_unavailable` states."""
     # a download raised through `File.raise_if_exception` carries the failure as its cause
     failure = error.__cause__ if isinstance(error, DownloadError) and error.__cause__ else error
     if isinstance(failure, NoInternetError):
-        return _host_did_not_answer(failure.__cause__) and _runner_has_network()
+        cause = failure.__cause__
+        unanswered = _host_did_not_answer(cause) or (
+            isinstance(cause, socket.gaierror) and _host_of(failure) in unresolved_hosts
+        )
+        return unanswered and _runner_has_network()
     return isinstance(failure, Exception) and (_worth_retrying(failure) or _is_server_fault(failure))
 
 
 @contextmanager
-def skip_if_upstream_unavailable() -> Generator[None]:
+def skip_if_upstream_unavailable(*, unresolved_hosts: Collection[str] = ()) -> Generator[None]:
     """Skip a remote test whose upstream did not answer, rather than fail it.
 
     For a test that asserts what upstream publishes, a request that timed out or met a 5xx says
@@ -159,7 +170,11 @@ def skip_if_upstream_unavailable() -> Generator[None]:
       refused, and a `CredentialRejectedError` is a CI configuration failure that has to stay red
       (a rejected AEMET key).
     - a name that does not resolve (`socket.gaierror`): a decommissioned or misspelt host looks just
-      like it, and a test that never reaches its host proves nothing, so it fails.
+      like it, and a test that never reaches its host proves nothing, so it fails. Except for a host
+      named in ``unresolved_hosts``, whose name a runner's resolver is known to fail on while it
+      resolves every other (`frost.met.no` on the macOS runners, GH-3252): that skips, again only while
+      `_runner_has_network`. A test names such a host through the `resolver_fails` marker, for the
+      platform it was seen on, so the same failure on the others still fails.
     - a TLS failure, an assertion, or any other exception: a wrong answer is not an outage.
 
     Usable as a decorator or around the calls that reach upstream.
@@ -171,7 +186,7 @@ def skip_if_upstream_unavailable() -> Generator[None]:
     try:
         yield
     except Exception as error:
-        if _is_upstream_outage(error):
+        if _is_upstream_outage(error, unresolved_hosts):
             pytest.skip(f"upstream did not answer: {error!r}")
         raise
 
@@ -201,6 +216,26 @@ def skip_if_upstream_problem(response: Any) -> None:  # noqa: ANN401
         return
     if kind.rsplit(":", 1)[-1] == "upstream-timeout":
         pytest.skip(f"upstream did not answer: HTTP {response.status_code} {kind}")
+
+
+#: Frost's name on the macOS runners (GH-3252): their resolver answers SERVFAIL for `frost.met.no`, a CNAME into
+#: another DNSSEC-signed zone, while it resolves `api.met.no` and every other host of the run. Linux and Windows
+#: resolve it in the same runs, so a host that is really gone still fails there.
+FROST_RESOLVER_ON_MACOS = pytest.mark.resolver_fails("frost.met.no", platform="darwin")
+
+
+def _unresolved_hosts_of(item: pytest.Item) -> tuple[str, ...]:
+    """Read the hosts a test's `resolver_fails` marker names, on the platform the marker is meant for.
+
+    ``@pytest.mark.resolver_fails("frost.met.no", platform="darwin")``: a `sys.platform` that is not the
+    one given leaves the list empty. Without ``platform`` the hosts apply everywhere.
+    """
+    hosts: list[str] = []
+    for marker in item.iter_markers("resolver_fails"):
+        platform_name = marker.kwargs.get("platform")
+        if platform_name is None or sys.platform == platform_name:
+            hosts.extend(marker.args)
+    return tuple(hosts)
 
 
 def _rerun_will_retry(item: pytest.Item, error: BaseException) -> bool:
@@ -259,7 +294,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None]:
         if _rerun_will_retry(item, error):
             raise
         try:
-            with skip_if_upstream_unavailable():
+            with skip_if_upstream_unavailable(unresolved_hosts=_unresolved_hosts_of(item)):
                 raise
         except pytest.skip.Exception as skipped:
             # reported at the test, as a skip from a fixture is, rather than at the line above, which

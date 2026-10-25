@@ -48,9 +48,6 @@ _CLIMATE_DATASET_IDS = {
     "6_minutes": "6569ad61106d1679c93cdf77",
 }
 _CLIMATE_BASE_URL = "https://www.data.gouv.fr/api/1/datasets/"
-# the host besides data.gouv.fr that the resources of these datasets are served from (the same store that the
-# synop provider reads)
-_CLIMATE_RESOURCE_HOSTS = ("meteofrance.s3.sbg.io.cloud.ovh.net",)
 _CLIMATE_RESOURCE_PREFIXES = {
     "daily": "QUOT_departement_{department}_periode_",
     "monthly": "MENS_departement_{department}_periode_",
@@ -750,13 +747,13 @@ def _get_climate_resources(resolution_name: str, settings: Settings) -> list[dic
 def _match_department_resources(resources: list[dict], prefix: str, suffix: str) -> list[dict]:
     """Filter resources by department (prefix) and file group (suffix).
 
-    The address of a resource is the answer's to name, so it is read here: fetched at data.gouv.fr, or at the
-    object store of Météo-France that the files are served from (GH-3339). Only those of the department are,
-    as the other resources of a dataset, its documentation, can be hosted anywhere.
+    The address of a resource is the answer's to name, so it is read here: fetched at the hosts of Météo-France's
+    datasets, data.gouv.fr and the object store the files are served from (`PROVIDER_HOSTS`, GH-3339). Only those of
+    the department are, as the other resources of a dataset, its documentation, can be hosted anywhere.
     """
     pattern = re.compile(rf"^{re.escape(prefix)}.*{re.escape(suffix)}$")
     return [
-        {**resource, "url": fetchable_link(resource["url"], _CLIMATE_BASE_URL, allow=_CLIMATE_RESOURCE_HOSTS)}
+        {**resource, "url": fetchable_link(resource["url"], _CLIMATE_BASE_URL)}
         for resource in resources
         if pattern.match(resource["title"])
     ]

@@ -26,6 +26,7 @@ from wetterdienst.util.network import (
     fetchable_link,
     list_remote_files_fsspec,
 )
+from wetterdienst.util.provider_hosts import PROVIDER_HOSTS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -33,16 +34,6 @@ if TYPE_CHECKING:
 
 #: a made-up key, sent the way AEMET sends its own
 KEY = "FAKEKEY123"
-
-#: an allow-list of the spellings of the host names of S3
-S3 = (
-    "*.s3.amazonaws.com",
-    "*.s3.*.amazonaws.com",
-    "*.s3.dualstack.*.amazonaws.com",
-    "*.s3-*.amazonaws.com",
-    "s3.*.amazonaws.com",
-    "s3.amazonaws.com",
-)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -254,81 +245,137 @@ def test_a_redirect_out_of_the_family_is_refused(location: str) -> None:
         _check_redirect(_redirect("https://opendata.example.es/a", location), {}, "https://opendata.example.es/a")  # ty: ignore[invalid-argument-type]
 
 
+@pytest.fixture
+def example_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Register a provider of three hosts: its API, a store of files and a bucket of a shared domain."""
+    monkeypatch.setitem(
+        PROVIDER_HOSTS, "example", ("api.example.nl", "store.example.org", "bucket.s3.eu-west-1.amazonaws.com")
+    )
+
+
 @pytest.mark.parametrize(
-    ("link", "base", "allow", "fetched"),
+    ("link", "base", "fetched"),
     [
-        # the same host, and the registered domain
-        ("https://opendata.aemet.es/opendata/sh/abc", "https://opendata.aemet.es/opendata/api", (), None),
-        ("https://static.aemet.es/x", "https://opendata.aemet.es/opendata/api", (), None),
+        # the hosts of the provider, whichever of them the request started at
+        ("https://api.example.nl/v1/next?page=2", "https://api.example.nl/v1", None),
+        ("https://store.example.org/f?sig=1", "https://api.example.nl/v1", None),
+        ("https://api.example.nl/v1/x", "https://store.example.org/f", None),
+        ("https://bucket.s3.eu-west-1.amazonaws.com/f?X-Amz-Signature=s", "https://api.example.nl/v1", None),
+        ("https://API.example.nl./v1/x", "https://api.example.nl/v1", None),
         # http under an https base is fetched as https
-        (
-            "http://environment.data.gov.uk/hydrology/id/measures/x",
-            "https://environment.data.gov.uk/hydrology/id/stations/y.json",
-            (),
-            "https://environment.data.gov.uk/hydrology/id/measures/x",
-        ),
-        # two names under a registry label are two families
-        ("https://other.gov.uk/x", "https://environment.data.gov.uk/y", (), DownloadError),
-        ("https://static.data.gouv.fr/x", "https://www.data.gouv.fr/api/1/datasets/", (), None),
-        ("https://www.gouv.fr/x", "https://www.data.gouv.fr/api/1/datasets/", (), DownloadError),
-        # the allow-list: https, the default port, a host or the names under a domain
-        ("https://s3.example.org/f?sig=1", "https://api.example.nl/v1", ("s3.example.org",), None),
-        ("https://b.s3.example.org/f", "https://api.example.nl/v1", ("*.s3.example.org",), None),
-        ("https://s3.example.org/f", "https://api.example.nl/v1", ("*.s3.example.org",), DownloadError),
-        ("http://s3.example.org/f", "https://api.example.nl/v1", ("s3.example.org",), DownloadError),
-        ("https://s3.example.org:8443/f", "https://api.example.nl/v1", ("s3.example.org",), DownloadError),
-        ("https://evil.example.org/f", "https://api.example.nl/v1", ("s3.example.org",), DownloadError),
-        # what is refused outright
-        ("https://example.net/x", "https://api.example.nl/v1", (), DownloadError),
-        ("http://169.254.169.254/latest/meta-data/iam", "https://api.example.nl/v1", (), DownloadError),
-        ("http://localhost:1/x", "https://api.example.nl/v1", (), DownloadError),
-        ("file:///etc/hosts", "https://api.example.nl/v1", (), DownloadError),
-        ("/etc/hosts", "https://api.example.nl/v1", (), DownloadError),
-        ("https://user:pw@api.example.nl/x", "https://api.example.nl/v1", (), DownloadError),
-        ("https://api.example.nl:8443/x", "https://api.example.nl/v1", (), DownloadError),
-        ("https://api.example.nl:99999/x", "https://api.example.nl/v1", (), DownloadError),
-        # an address is related to nothing but itself
-        ("http://127.0.0.1:8000/x", "http://127.0.0.1:8000/y", (), None),
-        ("http://127.0.0.2:8000/x", "http://127.0.0.1:8000/y", (), DownloadError),
-        # a name under a domain that many tenants share is related to nothing but itself
-        ("https://b.s3.amazonaws.com/f", "https://a.s3.amazonaws.com/y", (), DownloadError),
-        ("https://x.elb.eu-west-1.amazonaws.com/f", "https://a.s3.eu-west-1.amazonaws.com/y", (), DownloadError),
-        ("https://a.s3.eu-west-1.amazonaws.com/f", "https://a.s3.eu-west-1.amazonaws.com/y", (), None),
-        (
-            "https://b.s3.eu-west-1.amazonaws.com/f",
-            "https://api.example.nl/v1",
-            ("*.s3.eu-west-1.amazonaws.com",),
-            None,
-        ),
-        (
-            "https://x.elb.eu-west-1.amazonaws.com/f",
-            "https://api.example.nl/v1",
-            ("*.s3.eu-west-1.amazonaws.com",),
-            DownloadError,
-        ),
-        # the spellings of the host names of S3, and no other name of amazonaws.com
-        ("https://b.s3-eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", S3, None),
-        ("https://b.s3.dualstack.eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", S3, None),
-        ("https://s3.eu-west-1.amazonaws.com/b/f", "https://api.example.nl/v1", S3, None),
-        ("https://s3.amazonaws.com/b/f", "https://api.example.nl/v1", S3, None),
-        ("https://b.s3.amazonaws.com/f", "https://api.example.nl/v1", S3, None),
-        ("https://x.elb.eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", S3, DownloadError),
-        ("https://vpce-1.vpce-svc-2.eu-west-1.vpce.amazonaws.com/f", "https://api.example.nl/v1", S3, DownloadError),
-        ("https://s3.evil.example/f", "https://api.example.nl/v1", S3, DownloadError),
-        ("https://amazonaws.com/f", "https://api.example.nl/v1", S3, DownloadError),
+        ("http://store.example.org/f", "https://api.example.nl/v1", "https://store.example.org/f"),
+        # no other host: not a sibling name of a host, nor one of its registered domain, nor of a shared one
+        ("https://www.example.nl/x", "https://api.example.nl/v1", DownloadError),
+        ("https://sibling.api.example.nl/x", "https://api.example.nl/v1", DownloadError),
+        ("https://example.nl/x", "https://api.example.nl/v1", DownloadError),
+        ("https://other.example.org/f", "https://api.example.nl/v1", DownloadError),
+        ("https://other-bucket.s3.eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", DownloadError),
+        ("https://bucket.s3.eu-central-1.amazonaws.com/f", "https://api.example.nl/v1", DownloadError),
+        ("https://x.elb.eu-west-1.amazonaws.com/f", "https://api.example.nl/v1", DownloadError),
+        ("https://api.example.nl.example.org/x", "https://api.example.nl/v1", DownloadError),
+        # what is refused outright, at a host of the provider as at any other
+        ("https://example.net/x", "https://api.example.nl/v1", DownloadError),
+        ("http://192.0.2.1/latest/meta-data/iam", "https://api.example.nl/v1", DownloadError),
+        ("http://localhost:1/x", "https://api.example.nl/v1", DownloadError),
+        ("file:///etc/hosts", "https://api.example.nl/v1", DownloadError),
+        ("/etc/hosts", "https://api.example.nl/v1", DownloadError),
+        ("https://user:pw@api.example.nl/x", "https://api.example.nl/v1", DownloadError),
+        ("https://api.example.nl:8443/x", "https://api.example.nl/v1", DownloadError),
+        ("https://api.example.nl:99999/x", "https://api.example.nl/v1", DownloadError),
+        ("https://store.example.org:8443/f", "https://api.example.nl/v1", DownloadError),
         # an https link under an http base is on the default port of its own scheme
-        ("https://api.example.nl/x", "http://api.example.nl/v1", (), None),
+        ("https://api.example.nl/x", "http://api.example.nl/v1", None),
     ],
 )
-def test_a_link_of_an_answer_is_fetched_only_where_the_provider_is_at_home(
-    link: str, base: str, allow: tuple[str, ...], fetched: object
+def test_a_link_of_an_answer_is_fetched_only_at_the_hosts_of_its_provider(
+    example_provider: None,  # noqa: ARG001
+    link: str,
+    base: str,
+    fetched: object,
 ) -> None:
-    """A link is fetched for the provider's own family of hosts and for its narrow allow-list."""
+    """A link is fetched at the hosts that the provider of the request lists, over https, and nowhere else."""
     if fetched is DownloadError:
         with pytest.raises(DownloadError, match="the link was not fetched"):
-            fetchable_link(link, base, allow=allow)
+            fetchable_link(link, base)
     else:
-        assert fetchable_link(link, base, allow=allow) == (fetched or link)
+        assert fetchable_link(link, base) == (fetched or link)
+
+
+@pytest.mark.parametrize(
+    ("link", "base", "fetched"),
+    [
+        # a host that no provider lists is held to its registered domain, as a registry label is read
+        ("https://opendata.example-b.es/opendata/sh/abc", "https://opendata.example-a.es/opendata/api", DownloadError),
+        ("https://static.example.es/x", "https://opendata.example.es/opendata/api", None),
+        ("https://other.gov.uk/x", "https://environment.example.gov.uk/y", DownloadError),
+        ("https://static.example.gouv.fr/x", "https://www.example.gouv.fr/api/1/datasets/", None),
+        ("https://www.gouv.fr/x", "https://www.example.gouv.fr/api/1/datasets/", DownloadError),
+        # an address is related to nothing but itself
+        ("http://127.0.0.1:8000/x", "http://127.0.0.1:8000/y", None),
+        ("http://127.0.0.2:8000/x", "http://127.0.0.1:8000/y", DownloadError),
+        # a name under a domain that many tenants share is related to nothing but itself
+        ("https://b.s3.amazonaws.com/f", "https://a.s3.amazonaws.com/y", DownloadError),
+        ("https://x.elb.eu-west-1.amazonaws.com/f", "https://a.s3.eu-west-1.amazonaws.com/y", DownloadError),
+        ("https://a.s3.eu-west-1.amazonaws.com/f", "https://a.s3.eu-west-1.amazonaws.com/y", None),
+    ],
+)
+def test_a_link_at_a_host_of_no_provider_is_fetched_only_within_its_registered_domain(
+    link: str, base: str, fetched: object
+) -> None:
+    """The fallback for an address the library does not list (a test server, an address fetched by hand)."""
+    if fetched is DownloadError:
+        with pytest.raises(DownloadError, match="the link was not fetched"):
+            fetchable_link(link, base)
+    else:
+        assert fetchable_link(link, base) == (fetched or link)
+
+
+def test_a_refused_link_names_the_host_and_the_provider(example_provider: None) -> None:  # noqa: ARG001
+    """The error says which host was refused and whose hosts it is none of."""
+    with pytest.raises(DownloadError, match=r"leads to other\.example\.net, which is outside the hosts of example"):
+        fetchable_link("https://other.example.net/f", "https://api.example.nl/v1")
+
+
+def test_a_refusal_at_a_host_of_no_provider_names_the_domain_it_is_held_to() -> None:
+    """For a host that no provider lists, a refused link and a refused redirect name the domain of the request."""
+    with pytest.raises(
+        DownloadError, match=r"leads to other\.example\.org, which is outside the domain of example\.es"
+    ):
+        fetchable_link("https://other.example.org/f", "https://opendata.example.es/api")
+    first = "https://opendata.example.es/a"
+    with pytest.raises(
+        RedirectRefusedError, match=r"another host \(other\.example\.org\) outside the domain of example\.es"
+    ):
+        _check_redirect(_redirect(first, "https://other.example.org/b"), {}, first)  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize(
+    ("first", "location", "followed"),
+    [
+        ("https://api.example.nl/a", "https://store.example.org/b", True),
+        ("https://store.example.org/a", "https://api.example.nl/b", True),
+        ("https://api.example.nl/a", "https://bucket.s3.eu-west-1.amazonaws.com/b?X-Amz-Signature=s", True),
+        ("https://api.example.nl/a", "/b", True),
+        ("https://api.example.nl/a", "https://www.example.nl/b", False),
+        ("https://api.example.nl/a", "https://other.example.org/b", False),
+        ("https://store.example.org/a", "https://x.elb.eu-west-1.amazonaws.com/b", False),
+        ("https://api.example.nl/a", "https://192.0.2.1/latest/meta-data", False),
+        ("https://api.example.nl/a", "https://localhost/b", False),
+    ],
+)
+def test_a_redirect_is_followed_only_to_the_hosts_of_the_provider(
+    example_provider: None,  # noqa: ARG001
+    first: str,
+    location: str,
+    followed: bool,  # noqa: FBT001
+) -> None:
+    """A redirect from a host of a provider leads to another of its hosts, as a link does, and to no other."""
+    here = _redirect(first, location)
+    if followed:
+        _check_redirect(here, {}, first)  # ty: ignore[invalid-argument-type]
+    else:
+        with pytest.raises(RedirectRefusedError, match=r"another host \(.+\) outside the hosts of example"):
+            _check_redirect(here, {}, first)  # ty: ignore[invalid-argument-type]
 
 
 def test_a_refused_link_is_named_without_its_query() -> None:

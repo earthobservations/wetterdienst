@@ -624,13 +624,21 @@ def test_descriptions_say_what_the_swagger_says_of_the_stamp_and_the_height(reso
     assert "gauge" not in descriptions["Q"]
 
 
-def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "foreign",
+    [
+        "http://192.0.2.1/latest/meta-data/iam",
+        "https://api.sandre.eaufrance.fr/x",
+        "https://hubeau.eaufrance.fr.example.org/x",
+    ],
+)
+def test_paged_rows_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch, foreign: str) -> None:
     """Test that the `next` of a page is followed at the host that was asked, and no other (GH-3339)."""
     asked: list[str] = []
 
     def _download_file(url: str, **_kwargs: object) -> File:
         asked.append(url)
-        page = {"data": [{"n": 1}], "next": "http://169.254.169.254/latest/meta-data/iam"}
+        page = {"data": [{"n": 1}], "next": foreign}
         return File(url=url, content=BytesIO(json.dumps(page).encode()), status=200)
 
     monkeypatch.setattr(api, "download_file", _download_file)
