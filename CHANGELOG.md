@@ -68,6 +68,10 @@ Types of changes:
 
 ### Fixed
 
+- The stations of `meteofrance/observation` can be read again with `trust_env` among the
+  `fsspec_client_kwargs` (a proxy): the registry is fetched from the `https` address that
+  data.gouv.fr names for it, and not through the redirect of the site, which a session with a
+  credential refuses where it steps down to `http`. The redirect check is unchanged (GH-3400)
 - `--debug` of the command line, and of `wetterdienst restapi`, now shows the debug lines of the
   whole package: those of the models and the providers (downloads, dropped columns, skipped
   files), where it showed those of one internal module only and so none. The level is set on the

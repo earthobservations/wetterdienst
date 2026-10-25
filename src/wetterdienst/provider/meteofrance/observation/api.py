@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
@@ -867,10 +868,14 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
 # below (e.g. very recently opened stations, or station types outside that archive's curation);
 # querying one of those returns an empty result, same as any other station without data for a
 # requested parameter.
-# data.gouv.fr's stable "latest resource" redirect for this dataset's single CSV resource,
-# rather than the dated static.data.gouv.fr path it currently points to (which changes whenever
-# Météo-France republishes the file, like the period-bucket labels in the climate archives above)
-_STATIONS_REGISTRY_URL = "https://www.data.gouv.fr/api/1/datasets/r/5ec141e4-3650-4365-82b1-db459efe690c"
+# The address of the registry's single CSV resource is the dated static.data.gouv.fr path, which changes whenever
+# Météo-France republishes the file (like the period-bucket labels in the climate archives above), so it is asked
+# of data.gouv.fr by the id of the resource. Not through the "latest resource" redirect of the site
+# (`/api/1/datasets/r/<id>`): a chain that hops from https down to http on some networks is refused for a session
+# that holds a credential, a proxy among them (GH-3400), while the file is served over https as well.
+_STATIONS_REGISTRY_RESOURCE_URL = (
+    "https://www.data.gouv.fr/api/2/datasets/resources/5ec141e4-3650-4365-82b1-db459efe690c/"
+)
 _STATIONS_REGISTRY_SCHEMA = {
     "id": pl.String,
     "name": pl.String,
@@ -1000,6 +1005,27 @@ def _sentinels(resolution_name: str) -> list[Sentinel]:
     return []
 
 
+def _stations_registry_url(settings: Settings) -> str:
+    """Give the https address of the registry's CSV file, as data.gouv.fr names it for the resource."""
+    file = download_file(
+        url=_STATIONS_REGISTRY_RESOURCE_URL,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.METAINDEX,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    file.raise_if_exception()
+    if isinstance(file.content, Exception):  # raised above; narrows the type
+        raise DownloadError(_STATIONS_REGISTRY_RESOURCE_URL, "the download failed") from file.content
+    try:
+        url = json.loads(file.content.read())["resource"]["url"]
+    except (ValueError, KeyError, TypeError):
+        raise DownloadError(_STATIONS_REGISTRY_RESOURCE_URL, "the answer names no file for the resource") from None
+    # an address on data.gouv.fr (the static host of the files), read as https
+    return fetchable_link(url, _CLIMATE_BASE_URL)
+
+
 @dataclass
 class MeteoFranceObservationRequest(TimeseriesRequest):
     """Request class for Météo-France observation data."""
@@ -1015,7 +1041,7 @@ class MeteoFranceObservationRequest(TimeseriesRequest):
     def _climate_stations(settings: Settings) -> pl.DataFrame:
         """Build the station list from Météo-France's canonical station metadata registry."""
         file = download_file(
-            url=_STATIONS_REGISTRY_URL,
+            url=_stations_registry_url(settings),
             cache_dir=settings.cache_dir,
             ttl=CacheExpiry.METAINDEX,
             client_kwargs=settings.fsspec_client_kwargs,

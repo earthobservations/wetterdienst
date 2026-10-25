@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from tests.provider.station_catalogue_stubs import _serve, _stations
+from tests.provider.station_catalogue_stubs import _serve, _stations, meteofrance_registry_bodies
 from wetterdienst import Settings
 from wetterdienst.model.schema import STATIONS_SCHEMA
 from wetterdienst.provider.dmi.observation import DmiObservationRequest
@@ -135,7 +135,7 @@ def _meteofrance_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "id,name,long_name,named_place,station_type,basin,lon,lat,alt,start_date,end_date,is_open,is_public,"
         "department_id,is_daily,is_hourly,is_minutely\n"
     )
-    _serve(monkeypatch, meteofrance_api, {"5ec141e4-3650-4365-82b1-db459efe690c": header.encode("utf8")})
+    _serve(monkeypatch, meteofrance_api, meteofrance_registry_bodies(header))
     return _stations(MeteoFranceObservationRequest, ("daily", "core"))
 
 

@@ -734,3 +734,77 @@ def test_meteofrance_observation_api_a_resource_is_fetched_only_at_data_gouv_or_
     else:
         with pytest.raises(DownloadError, match="the link was not fetched"):
             match(resources, "HOR_departement_31_periode_", "")
+
+
+_REGISTRY_RESOURCE = "https://www.data.gouv.fr/api/2/datasets/resources/5ec141e4-3650-4365-82b1-db459efe690c/"
+_REGISTRY_HEADER = (
+    "id,name,long_name,named_place,station_type,basin,lon,lat,alt,start_date,end_date,is_open,is_public,"
+    "department_id,is_daily,is_hourly,is_minutely\n"
+)
+
+
+def _serve_registry(monkeypatch: pytest.MonkeyPatch, resource: dict) -> list[str]:
+    """Serve the resource of the stations registry as data.gouv.fr describes it, and the file it names."""
+    asked: list[str] = []
+
+    def download_file(*, url: str, **_: object) -> File:
+        asked.append(url)
+        if url == _REGISTRY_RESOURCE:
+            return File(url=url, content=BytesIO(json.dumps({"resource": resource}).encode("utf8")), status=200)
+        body = (
+            _REGISTRY_HEADER + "31069001,TOULOUSE-BLAGNAC,,,0,,1.37,43.62,151,1947-01-01,,true,true,31,true,true,true\n"
+        )
+        return File(url=url, content=BytesIO(body.encode("utf8")), status=200)
+
+    monkeypatch.setattr(api, "download_file", download_file)
+    return asked
+
+
+@pytest.mark.parametrize(
+    "named",
+    [
+        pytest.param("https://static.data.gouv.fr/resources/stations-meteo-france/2025/stations.csv", id="https"),
+        pytest.param("http://static.data.gouv.fr/resources/stations-meteo-france/2025/stations.csv", id="http"),
+    ],
+)
+def test_meteofrance_observation_api_the_stations_registry_is_fetched_over_https_without_the_redirect(
+    monkeypatch: pytest.MonkeyPatch,
+    named: str,
+) -> None:
+    """The registry is asked at the address its resource names, and not through the redirect of the site (GH-3400).
+
+    That redirect is a chain that a session with `trust_env` (a proxy) does not follow where it steps down to http.
+    """
+    asked = _serve_registry(monkeypatch, {"url": named})
+    df = MeteoFranceObservationRequest._climate_stations(Settings(cache_disable=True))  # noqa: SLF001
+    assert df.get_column("station_id").to_list() == ["31069001"]
+    assert asked == [_REGISTRY_RESOURCE, named.replace("http://", "https://")]
+    assert not any("/datasets/r/" in url for url in asked)
+
+
+@pytest.mark.parametrize(
+    "named",
+    [
+        pytest.param("https://example.net/stations.csv", id="another host"),
+        pytest.param("http://169.254.169.254/latest/meta-data/iam", id="an internal address"),
+        pytest.param("file:///etc/hosts", id="a file"),
+    ],
+)
+def test_meteofrance_observation_api_the_stations_registry_is_not_fetched_from_another_host(
+    monkeypatch: pytest.MonkeyPatch,
+    named: str,
+) -> None:
+    """The address in the answer of data.gouv.fr is read as a link of an answer (GH-3339)."""
+    asked = _serve_registry(monkeypatch, {"url": named})
+    with pytest.raises(DownloadError, match="the link was not fetched"):
+        MeteoFranceObservationRequest._climate_stations(Settings(cache_disable=True))  # noqa: SLF001
+    assert asked == [_REGISTRY_RESOURCE]
+
+
+def test_meteofrance_observation_api_a_resource_without_a_file_is_a_download_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An answer that names no file for the resource fails as a download, not as a KeyError."""
+    _serve_registry(monkeypatch, {})
+    with pytest.raises(DownloadError, match="names no file"):
+        MeteoFranceObservationRequest._climate_stations(Settings(cache_disable=True))  # noqa: SLF001

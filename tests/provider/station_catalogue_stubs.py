@@ -1510,6 +1510,17 @@ METEOFRANCE_EXPECTED: dict[str, dict[str, Any]] = {
 }
 
 
+def meteofrance_registry_bodies(catalogue: str) -> dict[str, bytes]:
+    """Serve the registry of `meteofrance/observation` as data.gouv.fr does: a resource naming the file (GH-3400)."""
+    resource = {
+        "resource": {"url": "https://static.data.gouv.fr/resources/stations-meteo-france/20250104/stations.csv"}
+    }
+    return {
+        "datasets/resources/5ec141e4-3650-4365-82b1-db459efe690c": json.dumps(resource).encode("utf8"),
+        "stations-meteo-france/20250104/stations.csv": catalogue.encode("utf8"),
+    }
+
+
 def _meteofrance_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # the station registry of data.gouv.fr (2026-10-15), 14,729 stations of which these: many have no start date,
     # a closed one has an end, and the overseas departments have codes of three digits. Its `department_id` has no
@@ -1528,7 +1539,7 @@ def _meteofrance_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "98719002,MANGAREVA TAKU,GAMBIER (MANGAREVA TAKU),TAKU,4,NR,-134.96,-23.098333,134,1966-07-01,1968-05-31,"
         "false,true,987,true,true,false\n"
     )
-    _serve(monkeypatch, meteofrance_api, {"5ec141e4-3650-4365-82b1-db459efe690c": catalogue.encode("utf8")})
+    _serve(monkeypatch, meteofrance_api, meteofrance_registry_bodies(catalogue))
     return _stations(MeteoFranceObservationRequest, ("daily", "core"))
 
 

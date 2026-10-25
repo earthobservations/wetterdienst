@@ -420,6 +420,8 @@ async def _guard_refuses_the_step_down(client_kwargs: dict) -> bool:
         ({"headers": {"User-Agent": "wetterdienst"}}, False),
         ({"headers": {"api_key": KEY}}, True),
         ({"headers": {"User-Agent": "wetterdienst"}, "cookies": {"k": "v"}}, True),
+        # the documented way to use a proxy: the environment may hold a netrc entry or proxy credentials (GH-3400)
+        ({"headers": {"User-Agent": "wetterdienst"}, "trust_env": True}, True),
     ],
 )
 def test_a_real_session_follows_the_step_down_only_without_a_credential(client_kwargs: dict, refused: bool) -> None:  # noqa: FBT001
