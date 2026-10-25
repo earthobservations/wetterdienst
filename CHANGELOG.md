@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Docker]` The backend image has a `HEALTHCHECK`: it asks `/health` on the port the server
+  listens on (a server on all interfaces or on loopback), every 30 s, and `docker ps` shows the
+  container as `healthy` or `unhealthy`. A platform without a health check of its own (Coolify's
+  default) now routes through a proxy such as Traefik on this one, which sends traffic only to
+  containers that are healthy or have no health state. `docker run --no-healthcheck` switches it
+  off (GH-3346)
+
 ### Changed
 
 - `compose.yml` publishes the ports of the backend (7890) and the app (4000) on `127.0.0.1`, no

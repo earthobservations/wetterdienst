@@ -62,4 +62,13 @@ USER node
 
 EXPOSE 4000
 
+# The page at `/`: the app's own answer, served from its files, which asks no backend (the app is not
+# reported unhealthy while the backend restarts) and is outside the rate limit (`isLimited` counts only
+# `/api` and `/mcp`), so a probe every 30 s never counts against a client (GH-3346). The server starts
+# in about a second. It asks the port the server listens on (`PORT`). A platform that defines a health check
+# of its own replaces this one; where it defines none (Coolify's default), a proxy such as Traefik routes by
+# this one, as it sends traffic to containers that are healthy or have no health state.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --start-interval=1s --retries=3 \
+    CMD ["sh", "-c", "curl --fail --silent --output /dev/null http://127.0.0.1:$PORT/"]
+
 CMD ["node", "/app/server/index.mjs"]

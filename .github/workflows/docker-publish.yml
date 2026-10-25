@@ -87,6 +87,33 @@ jobs:
           assert len(df) == 1 and abs(df["airTemperature"].iloc[0] - 288.15) < 1e-6, df
           EOF
 
+      # The HEALTHCHECK finds the port the server listens on (GH-3346); production starts it on 3000, not on
+      # the image's 7890, and a platform that defines no check of its own routes by this one. Only a Linux
+      # container has the /proc/net tables it reads, so it is run here, with a start command on the other port.
+      - name: Check the health check on the port of a start command
+        run: |
+          docker run -d --name wd-health wd:test wetterdienst restapi --listen 0.0.0.0:3000
+
+          status=none
+          deadline=$((SECONDS + 90))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            status=$(docker inspect -f '{{.State.Health.Status}}' wd-health)
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+
+          if [ "$status" != healthy ]; then
+            echo "::error::the container was '${status}', not healthy, within 90s"
+            docker inspect -f '{{json .State.Health}}' wd-health
+            docker logs wd-health
+            exit 1
+          fi
+
+      - name: Stop the container
+        if: always()
+        # cleanup must not turn a passing run red, nor mask why a failing one failed
+        run: docker rm -f wd-health || true
+
   # Build each platform natively and push it by digest (release/manual only).
   build:
     needs: build_and_test

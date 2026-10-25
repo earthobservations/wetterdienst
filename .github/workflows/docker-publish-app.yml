@@ -88,6 +88,24 @@ jobs:
             exit 1
           fi
 
+      # The HEALTHCHECK of the image (GH-3346): a platform that defines no check of its own routes by it.
+      - name: Check the health check of the image
+        run: |
+          status=none
+          deadline=$((SECONDS + 90))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            status=$(docker inspect -f '{{.State.Health.Status}}' wd-app)
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+
+          if [ "$status" != healthy ]; then
+            echo "::error::the container was '${status}', not healthy, within 90s"
+            docker inspect -f '{{json .State.Health}}' wd-app
+            docker logs wd-app
+            exit 1
+          fi
+
       - name: Stop the image
         if: always()
         # cleanup must not turn a passing run red, nor mask why a failing one failed
