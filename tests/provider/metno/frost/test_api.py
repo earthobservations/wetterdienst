@@ -9,15 +9,19 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from tests.conftest import FROST_RESOLVER_ON_MACOS
 from wetterdienst.provider.metno.frost.api import MetnoFrostRequest
 
 OSLO_BLINDERN = "SN18700"
 UTC = ZoneInfo("UTC")
 
-pytestmark = pytest.mark.skipif(
-    not MetnoFrostRequest.is_configured(),
-    reason="MET Norway Frost credentials not set — provide WD_AUTH__METNO_FROST=<client_id>",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        not MetnoFrostRequest.is_configured(),
+        reason="MET Norway Frost credentials not set — provide WD_AUTH__METNO_FROST=<client_id>",
+    ),
+    FROST_RESOLVER_ON_MACOS,
+]
 
 
 @pytest.mark.remote

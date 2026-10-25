@@ -60,7 +60,10 @@ jobs:
           if-no-files-found: error
 
   # Holds the token and runs no project or dependency code: no checkout, no build, only the
-  # distributions the build job produced
+  # distributions the build job produced. `uv publish` uploads attestations it finds next to the
+  # distributions but does not make them, so the PyPA action publishes: it signs a PEP 740 publish
+  # attestation of each file with the OIDC identity of this job (the trusted publisher) and uploads it
+  # along with the file (GH-3346)
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -68,12 +71,6 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          # the uv of docker/Dockerfile and .readthedocs.yml: move the three together
-          version: "0.13.5"
-          enable-cache: false
-
       - name: Download distributions
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -81,4 +78,7 @@ jobs:
           path: dist/
 
       - name: Publish
-        run: uv publish
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/
+          attestations: true

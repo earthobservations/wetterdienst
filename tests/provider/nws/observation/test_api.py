@@ -901,14 +901,22 @@ def test_nws_hourly_does_not_follow_a_cursor_that_repeats(monkeypatch: pytest.Mo
     assert len(urls) == 2
 
 
-def test_nws_hourly_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that `pagination.next` is followed at the endpoint's own host and no other (GH-3339)."""
+@pytest.mark.parametrize(
+    "foreign",
+    [
+        "http://192.0.2.1/latest/meta-data/iam",
+        "https://forecast.weather.gov/x",
+        "https://api.weather.gov.example.org/x",
+    ],
+)
+def test_nws_hourly_does_not_follow_a_cursor_to_another_host(monkeypatch: pytest.MonkeyPatch, foreign: str) -> None:
+    """Test that `pagination.next` is followed at the hosts of NWS and no other, a sibling name included (GH-3339)."""
     urls: list[str] = []
 
     def download_file(*args: str, url: str | None = None, **_: object) -> File:
         urls.append(url or args[0])
         rows = sorted(_three_days(), key=lambda o: o["properties"]["timestamp"], reverse=True)[:500]
-        body = {"features": rows, "pagination": {"next": "http://169.254.169.254/latest/meta-data/iam"}}
+        body = {"features": rows, "pagination": {"next": foreign}}
         return File(url=urls[-1], content=BytesIO(json.dumps(body).encode()), status=200)
 
     monkeypatch.setattr(nws_api, "download_file", download_file)
