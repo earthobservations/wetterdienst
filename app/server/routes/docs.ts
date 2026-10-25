@@ -8,7 +8,8 @@ const PAGE = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wetterdienst REST API</title>
-<link rel="icon" href="/favicon.ico">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="stylesheet" href="/_swagger-ui/swagger-ui.css">
 </head>
 <body>

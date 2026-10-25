@@ -93,6 +93,8 @@ html_theme_options = {
     "max_navbar_depth": 5
 }
 html_title = "Wetterdienst Documentation"
+html_logo = "assets/icon.svg"
+html_favicon = "assets/icon.svg"
 
 # -- Link check ---------------------------------------------------------------
 # `uv run poe "docs:linkcheck"`. The changelog holds thousands of GitHub compare and issue links, which

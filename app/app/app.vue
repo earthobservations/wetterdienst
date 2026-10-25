@@ -119,7 +119,7 @@ const items = computed<NavigationMenuItem[]>(() =>
     <UHeader v-if="!isWidget" :toggle="false">
       <template #left>
         <div class="flex items-center gap-3">
-          <img src="/favicon.ico" alt="Wetterdienst" class="w-7 h-7">
+          <img src="/icon.svg" alt="Wetterdienst" class="w-7 h-7">
         </div>
       </template>
 
