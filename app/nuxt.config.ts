@@ -76,8 +76,10 @@ export default defineNuxtConfig({
     fallbackToApi: false,
   },
 
+  // No `host`: `nuxt dev` listens on localhost, where Nuxt DevTools is reachable by this machine only (GH-3096).
+  // The dev container sets `HOST=0.0.0.0` (compose.yml, docker/app.Dockerfile), because a published port
+  // reaches nothing that listens on the loopback of the container.
   devServer: {
-    host: '0.0.0.0',
     port: 4000,
   },
 

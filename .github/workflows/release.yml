@@ -44,8 +44,8 @@ jobs:
 
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          # the uv of docker/Dockerfile and .readthedocs.yml: move the three together
-          version: "0.13.5"
+          # the uv of .tool-versions, which .readthedocs.yml reads too; docker/Dockerfile keeps its own, bumped by hand
+          version-file: .tool-versions
           enable-cache: false
           python-version: ${{ env.PYTHON }}
 

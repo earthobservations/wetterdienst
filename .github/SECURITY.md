@@ -157,10 +157,12 @@ upstream's answer names (a `next` page, a `datos`, measure or asset link). Each 
 as the S3 bucket of KNMI's pre-signed links and the object store of Météo-France's files). Such a link is fetched only
 at a host of the provider that the request started at, over `https` (an `http` link is read as `https`) and on the
 default port (`fetchable_link`, `util/network.py`; GH-3339). A redirect is followed only to a host of that provider,
-never from `https` down to `http` by a session that holds a credential; a keyless one follows that hop, whose answer is
-then not protected on the way (GH-3398). A credential header, whatever its name, is dropped where it changes the
-origin (`_check_redirect`; GH-3338, GH-3339); a refused link or redirect is a `DownloadError` that names the host and
-the provider. A host that no provider lists (a test server, an address a caller fetches by hand) is held to its
+never from `https` down to `http`, whatever the session holds (`_check_redirect`; 0.174.0 let a session without a
+credential follow that hop, withdrawn in GH-3400). A credential header, whatever its name, is dropped where it changes
+the origin (GH-3338, GH-3339); a refused link or redirect is a `DownloadError` that names the host and the provider. A
+request that started at data.gouv.fr and is redirected to `sorry.data.gouv.fr`, its maintenance page, is told before
+the host bound and is a `DownloadError` that says the site is in maintenance. A host that no provider lists (a test
+server, an address a caller fetches by hand) is held to its
 registered domain, told without the public suffix list (`gov.uk`, `data.gouv.fr` and a few more labels are treated as
 suffixes, and a name under `amazonaws.com` or `ovh.net` is its own domain). A host name is not resolved, so **an
 upstream that is compromised can still make the server fetch from the hosts of its own provider**, and a name of one of
@@ -208,8 +210,8 @@ immutable to look at the names of its tables, and reads nothing else from it.
 
 ### The app
 
-No secret: the backend URL is public by name (`NUXT_PUBLIC_API_BASE`), and the server forwards neither cookies nor
-`Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
+No secret: the backend URL is a public key of Nuxt's runtime config (`NUXT_PUBLIC_API_BASE`), so every page carries
+it, and the server forwards neither cookies nor `Authorization` to the backend (`app/tests/unit/mcp-proxy.test.ts`). The page runs under a Content Security Policy with
 a nonce per response, no `'unsafe-inline'` or `'unsafe-eval'` for scripts, and scripts, workers and requests on its own
 origin (`app/tests/e2e/csp.spec.ts`, `app/tests/unit/security-headers.test.ts`). Nothing the browser runs comes from a
 CDN, so there is no third-party script for subresource integrity to cover; only map tiles, avatars and marker images
