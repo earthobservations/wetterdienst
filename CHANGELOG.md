@@ -111,6 +111,11 @@ Types of changes:
   links that AEMET, KNMI, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA take from an answer (next
   page, `datos`, asset, measure) are fetched only at the provider's own domain, over `https` (KNMI
   and Météo-France also at their object store) (GH-3338, GH-3339, GH-3398)
+- Follow-up and redirect URLs are limited to the provider's own hosts: a redirect, and a link an
+  answer names (next page, `datos`, asset, measure), is followed only to a host that the provider
+  lists (its API and the store of its files), over `https`. Any other host, one under the
+  provider's own domain included, is refused with a `DownloadError` that names the host and the
+  provider; before, any host of the provider's registered domain was followed (GH-3339)
 - A KNMI NetCDF file with a variable whose data is kept outside the file (HDF5 external storage or
   a virtual dataset) is refused with an `UpstreamError` (HTTP 502 in the REST API), for the
   values and for the station list; KNMI's own files keep every variable in the file (GH-3337)

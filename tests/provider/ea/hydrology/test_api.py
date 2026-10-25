@@ -538,14 +538,23 @@ def test_ea_readings_are_read_over_https_where_the_measure_is_named_over_http(
     assert request.all().values().all().df.get_column("value").to_list() == [1.0]
 
 
+@pytest.mark.parametrize(
+    "foreign",
+    [
+        "http://169.254.169.254/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
+        "https://www.data.gov.uk/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
+        "https://environment.data.gov.uk.evil.example/hydrology/id/measures/0004-flow-i-900-m3s-qualified",
+    ],
+)
 def test_ea_readings_are_not_read_at_a_measure_of_another_host(
     default_settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
+    foreign: str,
 ) -> None:
     """The `@id` of a measure is the answer's to name, and a host that is not the API's is never asked (GH-3339)."""
     station_id = "0004"
     measure = _measure(station_id, "flow-i-900")
-    measure["@id"] = "http://169.254.169.254/hydrology/id/measures/0004-flow-i-900-m3s-qualified"
+    measure["@id"] = foreign
     station = json.dumps({"items": [{"measures": [measure]}]}).encode()
     listing = json.dumps({"items": [_station(station_id, ["flow-i-900"])]}).encode()
     responses = {STATIONS_URL: listing, STATION_URL.format(station_id=station_id): station}

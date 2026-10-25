@@ -146,6 +146,25 @@ def test_iter_station_value_pages_walks_all_pages(monkeypatch: pytest.MonkeyPatc
     assert sum(df.height for df in dfs) == 5
 
 
+def test_iter_station_value_pages_never_asks_for_the_next_link_of_a_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The pages are walked by offset, at DMI's own address: the `next` link of an answer is not a request (GH-3339)."""
+    monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 2)
+    asked: list[str] = []
+
+    def fake_download_file(*, url: str, **_: object) -> File:
+        asked.append(url)
+        offset = int(url.split("offset=")[1])
+        page = json.loads(_station_value_file(2 if offset < 2 else 1, start=offset).content.read())
+        page["links"] = [{"rel": "next", "href": "http://169.254.169.254/latest/meta-data/iam"}]
+        return File(url=url, content=BytesIO(json.dumps(page).encode()), status=200)
+
+    monkeypatch.setattr(dmi_api, "download_file", fake_download_file)
+    dfs = _iter_pages(object.__new__(dmi_api.DmiObservationValues))
+    assert sum(df.height for df in dfs) == 3
+    assert len(asked) == 2
+    assert all(url.startswith("https://opendataapi.dmi.dk/v2/climateData/collections/") for url in asked)
+
+
 def test_iter_station_value_pages_single_short_page_stops_immediately(monkeypatch: pytest.MonkeyPatch) -> None:
     """A first page shorter than the limit ends pagination after one request."""
     monkeypatch.setattr(dmi_api, "_PAGE_LIMIT", 100)
