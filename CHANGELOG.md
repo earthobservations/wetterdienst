@@ -27,6 +27,11 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the `ipma/observation` wind direction returns north as 360 degrees, no longer 0.0,
+  as every other provider does (DWD subdaily included). IPMA's codes 1 and 9 (north) were read as
+  0.0, 586 of 4,283 direction values in the feed, all beside a wind that blows; 0 now stands for
+  a calm only, and the code 0 stays null. A filter or a compass rose that expects 0 for north now
+  gets 360 (GH-3135)
 - `compose.yml` publishes the ports of the backend (7890) and the app (4000) on `127.0.0.1`, no
   longer on every interface of the host, so `docker compose up` is not reachable from the network.
   To reach it from another machine, set `WETTERDIENST_BIND_HOST=0.0.0.0` (or a host address) in

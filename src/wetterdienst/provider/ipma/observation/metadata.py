@@ -11,7 +11,7 @@ historical archive here.
 Field semantics and units follow the IPMA open-data documentation (https://api.ipma.pt/): pressure
 is reduced to mean sea level, radiation is "radiação solar (kJ/m2)" (the source says neither global
 nor a period, see the description of ``radiacao``), and wind direction is published as an 8-point
-*code* (``idDireccVento``) that ``parser.py`` converts to degrees. The
+*code* (``idDireccVento``) that ``parser.py`` converts to degrees (north, the codes 1 and 9, is 360). The
 ``intensidadeVentoKM`` field (the same wind speed in km/h) is intentionally not mapped -- it
 duplicates ``intensidadeVento`` (m/s). ``-99.0`` is the missing-value sentinel and becomes null.
 """

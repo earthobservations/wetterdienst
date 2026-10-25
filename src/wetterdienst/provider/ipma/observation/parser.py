@@ -15,7 +15,8 @@ from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, no_di
 _MISSING = Sentinel("-99.0")
 
 # ``idDireccVento`` is an 8-point wind-direction code, not degrees. Per the IPMA docs: 0 = "sem rumo" (no
-# direction) -> null; 1 and 9 both mean N; 2..8 step clockwise through NE, E, SE, S, SW, W, NW.
+# direction) -> null; 1 and 9 both mean N, which is 360 (a 0 is reserved for the calm, as for every provider);
+# 2..8 step clockwise through NE, E, SE, S, SW, W, NW.
 # The docs do not say calm: the code 0 is also served with a wind that blows (26 of the 558 rows with code 0 in the
 # feed of 2026-10-21 21:00 to 2026-10-22 20:00 have a speed above 0, 101 a speed of 0.0 and 431 none).
 # It is a code on a scale whose north is 1 or 9, so it can never be a bearing: it is null whatever the speed, the
@@ -23,7 +24,7 @@ _MISSING = Sentinel("-99.0")
 _DIRECTION = "idDireccVento"
 _NO_DIRECTION = no_direction_code("0", where=pl.col("parameter") == _DIRECTION)
 _WIND_DIRECTION_DEGREES = {
-    1.0: 0.0,
+    1.0: 360.0,
     2.0: 45.0,
     3.0: 90.0,
     4.0: 135.0,
@@ -31,7 +32,7 @@ _WIND_DIRECTION_DEGREES = {
     6.0: 225.0,
     7.0: 270.0,
     8.0: 315.0,
-    9.0: 0.0,
+    9.0: 360.0,
 }
 
 # the raw observation fields mapped to parameters (i.e. every ``name_original`` in metadata.py).

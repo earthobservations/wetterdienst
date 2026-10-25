@@ -147,7 +147,7 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
     ("code", "expected_degrees"),
     [
         (0, None),  # "sem rumo" (no direction) -> null (not 0°)
-        (1, 0.0),  # N
+        (1, 360.0),  # N, written 360 as 0 is the calm
         (2, 45.0),  # NE
         (3, 90.0),  # E
         (4, 135.0),  # SE
@@ -155,11 +155,11 @@ def test_parse_ipma_observations_sentinel_and_wind_code() -> None:
         (6, 225.0),  # SW
         (7, 270.0),  # W
         (8, 315.0),  # NW
-        (9, 0.0),  # N (alias of 1)
+        (9, 360.0),  # N (alias of 1)
     ],
 )
 def test_parse_ipma_observations_wind_direction_codes(code: int, expected_degrees: float | None) -> None:
-    """Every IPMA wind-direction code 0-9 maps to the expected degrees (0/sem rumo -> null, 9 aliases N)."""
+    """Every IPMA wind-direction code 0-9 maps to the expected degrees (0/sem rumo -> null, 1 and 9 are north, 360)."""
     content = f'{{"2026-07-29T14:00": {{"1200579": {{"idDireccVento": {code}}}}}}}'.encode()
     df = _read(parse_ipma_observations(content, station_id="1200579"))
     wind = df.filter(pl.col("parameter") == "idDireccVento")
@@ -282,9 +282,9 @@ def test_ipma_observation_values() -> None:
         "precipitation_amount",
         "radiation_global",
     }
-    # wind direction is emitted in degrees, quantised to the 8-point compass (multiples of 45)
+    # wind direction is emitted in degrees, quantised to the 8-point compass (multiples of 45), north being 360
     wind = df.filter(pl.col("parameter") == "wind_direction").drop_nulls("value")
-    assert all(v % 45 == 0 for v in wind["value"].to_list())
+    assert all(v % 45 == 0 and 0 < v <= 360 for v in wind["value"].to_list())
 
 
 def test_ipma_descriptions_state_what_the_field_list_states() -> None:

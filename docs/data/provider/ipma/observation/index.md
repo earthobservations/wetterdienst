@@ -14,7 +14,7 @@ within roughly the last 24 hours must be given.
 
 The catalogue exposes no elevation, so `elevation` is always null, and — being a live feed — there is
 no operational start/end date per station. Wind direction is published as an 8-point code and is
-converted to degrees; pressure is reduced to mean sea level; radiation is "radiação solar (kJ/m2)" (the source
+converted to degrees (north, the codes 1 and 9, is 360); pressure is reduced to mean sea level; radiation is "radiação solar (kJ/m2)" (the source
 says neither global nor a period). The value `-99.0` marks missing data and becomes null. The `intensidadeVentoKM` field (the
 same wind speed in km/h) is not exposed, as it duplicates `intensidadeVento` (m/s).
 
