@@ -70,10 +70,11 @@ pnpm from the `app` directory (`pnpm install`, then `pnpm dev` for a development
 ```bash
 cd app
 pnpm install
-pnpm dev    # port 4000, looking for the backend at http://localhost:7890/api
+pnpm dev    # port 4000 on localhost, looking for the backend at http://localhost:7890/api
 ```
 
 The app looks for the backend at `http://localhost:7890/api` unless `NUXT_PUBLIC_API_BASE` says otherwise.
+The development server (with Nuxt DevTools) listens on `localhost`; `HOST=0.0.0.0 pnpm dev` opens it to the network.
 
 The app is released on its own, with its own [changelog](https://github.com/earthobservations/wetterdienst/blob/main/CHANGELOG_APP.md),
 as a pair with the backend: run versions of the two that were released together, as an app that is older than its
