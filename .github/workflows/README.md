@@ -77,6 +77,16 @@ weekly), and the Coolify deploy hook, the last step of each publish workflow, ru
 started by hand from a branch builds and pushes untagged digests but cannot deploy, since no tag is
 computed for it.
 
+Both builds push each platform with a BuildKit provenance (`mode=max`) and an SBOM, which the registry holds
+as extra untagged manifests (`unknown/unknown`) of that platform's index; the merge job's `imagetools create`
+carries them into the manifest list. A separate `attest` job signs a build provenance of the manifest list
+(`actions/attest`, pushed next to the image): it alone has `id-token` and `attestations`, runs no project code, and
+the merge job that holds the Coolify secrets has neither. The daily Docker cleanup keeps these manifests:
+`snok/container-retention-policy` protects every child digest of a tagged index, attestation manifests included
+(`docker-cleanup.yml` only lists `wetterdienst`, not the app image). After the first release with them, start
+`docker-cleanup.yml` by hand (a dry run unless asked otherwise) before the next midnight run and check that no
+`unknown/unknown` manifest of the new tags is listed.
+
 ## Timeouts
 
 Every job carries a `timeout-minutes`, in place of GitHub's six hours: a hung run leaves its check
@@ -97,7 +107,8 @@ A secret goes in the `env:` of the step that reads it, never of the job or the w
 the package managers and third-party actions run code that is not ours and would be handed it. The
 provider keys (`WD_AUTH__*`) are therefore on the test steps of `tests.yml` and `coverage.yml`
 only. In `release.yml` the `build` job runs the project's build code and has no `id-token`; the
-`publish` job has it and runs only `uv publish` on the artifact `build` uploaded. `app-release.yml`
+`publish` job has it and runs only the PyPA publish action (which signs a PEP 740 attestation of each file
+and uploads it with the file) on the artifact `build` uploaded. `app-release.yml`
 is split the same way: `build` installs and builds the app without a token that can write, `upload`
 has `contents: write` and runs only `gh release upload` on the tarball `build` uploaded. The two
 release workflows tell their tags apart differently: `app-release.yml` by an `if:` on its `build`

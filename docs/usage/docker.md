@@ -23,6 +23,19 @@ Get ``wetterdienst``:
 docker pull ghcr.io/earthobservations/wetterdienst
 ```
 
+### Verify the image
+
+The manifest list of a release has a build provenance signed by GitHub for the workflow that pushed it, and each
+platform has a BuildKit provenance and an SBOM (releases built after they were introduced):
+
+```bash
+gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst
+docker buildx imagetools inspect ghcr.io/earthobservations/wetterdienst:<version> --format '{{json .SBOM}}'
+```
+
+The same holds for `ghcr.io/earthobservations/wetterdienst-app`. What each attestation covers, and the check of the
+PyPI wheel, is in the [security policy](https://github.com/earthobservations/wetterdienst/blob/main/.github/SECURITY.md#release-provenance).
+
 ## Invoke
 
 Run Wetterdienst command line interface:
