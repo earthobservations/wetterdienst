@@ -9,6 +9,23 @@ node_modules/
 **/node_modules/
 .pnpm-store/
 
+# local secrets and local data: .env files (the root one and any below it, such as app/.env) and the
+# dumps a run leaves behind (the .gitignore lists the same files); nothing the images copy is among them
+.env
+**/.env*
+**/*.duckdb
+**/*.zip
+**/*.zarr/
+.coverage.*
+coverage.xml
+.nox/
+/dwd_data/
+/tmp/
+/troubleshooting/
+/benchmarks/.cache/
+/geckodriver.log
+*.code-workspace
+
 # version control and CI metadata
 .git/
 .github/
