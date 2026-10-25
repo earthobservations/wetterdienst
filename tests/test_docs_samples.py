@@ -166,6 +166,40 @@ def test_python_samples_import_names_that_exist(sample: Sample) -> None:
     assert not wrong, f"{sample.where}: " + "; ".join(wrong)
 
 
+#: what a ``{code-cell}`` calls, by the extra that must be installed for the call to work
+_CELL_NEEDS = {
+    "sql": re.compile(r"\bfiltered_by_sql\b|\bfilter_by_sql\b|\bsql=|\bsql_values="),
+    "interpolation": re.compile(r"\.(?:interpolate|summarize)\("),
+    "radarplus": re.compile(r"\b(?:wradlib|xradar)\b"),
+}
+
+
+def _docs_build_extras() -> set[str]:
+    """Give the extras the documentation build installs (``install.sh docs``, which Read the Docs runs)."""
+    script = (ROOT / ".github" / "workflows" / "install.sh").read_text(encoding="utf8")
+    _, _, docs = script.partition('"${flavor}" = "docs"')
+    return set(re.findall(r"--extra (\w+)", docs.split("\nfi", 1)[0]))
+
+
+def test_the_docs_build_installs_what_its_code_cells_call() -> None:
+    """The extras Read the Docs installs hold what the executed cells call.
+
+    Read the Docs runs the ``{code-cell}`` blocks as it renders, the workflow of this repository does not (they fetch
+    from the providers), and a cell whose extra is missing does not fail the build: the page is published with the
+    traceback in it (``MissingDependencyError: Filtering with SQL requires duckdb``).
+    """
+    installed = _docs_build_extras()
+    cells = [sample for sample in PYTHON if sample.cell]
+    needed = {
+        extra: [sample.where for sample in cells if pattern.search(sample.code)]
+        for extra, pattern in _CELL_NEEDS.items()
+    }
+    # a pattern that matches no cell checks nothing: the table above is kept to what the pages call
+    assert all(needed.values()), f"no cell calls {[extra for extra, where in needed.items() if not where]}"
+    missing = {extra: where for extra, where in needed.items() if extra not in installed and where}
+    assert not missing, f".github/workflows/install.sh installs {sorted(installed)} for the docs, not these: {missing}"
+
+
 # --- the command line -----------------------------------------------------------------------------------------------
 
 

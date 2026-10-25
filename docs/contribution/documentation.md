@@ -26,7 +26,10 @@ default address of the API, `localhost:7890`.
 
 - A `{code-cell}` is run when the pages are built and its output is shown; use it where the output is the point. It
   needs the network. A cell that fails fails the build, unless the provider did not answer
-  ([below](#cells-that-fail)); its traceback is shown in the page, so read the built page, not only the log.
+  ([below](#cells-that-fail)); its traceback is shown in the page, so read the built page, not only the log. A cell
+  that calls something an extra brings (`filtered_by_sql`, `interpolate`, wradlib) needs that extra in the build:
+  `.github/workflows/install.sh docs`, which Read the Docs runs, installs them, and a test fails until it lists the
+  extra a cell calls.
 - Every Python block of a page is run by `tests/test_docs_samples.py` (marker `remote`), in order and in one
   namespace, as the notebook pages are, so a block may use what an earlier one defined. A statement that is meant to
   fail says so in the comment before it, `# raises InvalidParameterError`; a block that cannot run (an InfluxDB that is
