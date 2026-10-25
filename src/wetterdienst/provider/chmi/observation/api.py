@@ -25,7 +25,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.provider.chmi.observation.metadata import ChmiObservationMetadata
+from wetterdienst.provider.chmi.observation.metadata import LAST_YEAR, ChmiObservationMetadata
 from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_stations,
     parse_chmi_values_aggregate,
@@ -33,6 +33,7 @@ from wetterdienst.provider.chmi.observation.parser import (
     parse_chmi_values_subdaily,
 )
 from wetterdienst.util.network import _without_url_secrets, download_file, list_remote_files_fsspec
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -77,7 +78,12 @@ _RESOLUTION_CONFIG: dict[Resolution, dict] = {
         "path": "1hour",
         "prefix": "1h",
         "layout": "subdaily",
-        "elements": {"Td": ("synop", None), "SRA1H": ("precipitation", None), "P": ("synop", None)},
+        "elements": {
+            "Td": ("synop", None),
+            "SRA1H": ("precipitation", None),
+            "P": ("synop", None),
+            "P_hm": ("synop", None),
+        },
     },
     Resolution.DAILY: {
         "path": "daily",
@@ -162,6 +168,11 @@ def _stations_with_file(config: dict, requested: set[str], settings: Settings) -
 class ChmiObservationValues(TimeseriesValues):
     """Values class for CHMI observation data."""
 
+    def __post_init__(self) -> None:
+        """Start the elements of the request that a warning was given for."""
+        super().__post_init__()
+        self._ended_reported: set[tuple[str, int]] = set()
+
     def _download(self, url: str, settings: Settings, station_id: str) -> bytes | None:
         file = download_file(
             url=url,
@@ -188,6 +199,7 @@ class ChmiObservationValues(TimeseriesValues):
         element_config: tuple,
         config: dict,
         settings: Settings,
+        last_year: int | None = None,
     ) -> list[pl.DataFrame]:
         layout = config["layout"]
         category = element_config[0]
@@ -195,6 +207,9 @@ class ChmiObservationValues(TimeseriesValues):
             frames = []
             # the month files are named by UTC calendar month, which is the zone of the request's bounds
             for year, month in _months(cast("dt.datetime", self.sr.start), cast("dt.datetime", self.sr.end)):
+                # the source publishes none of the years after the last one of an element that it stopped publishing
+                if last_year is not None and year > last_year:
+                    break
                 url = (
                     f"{_BASE_URL}/data/{config['path']}/{category}/{year}/"
                     f"{config['prefix']}-{station_id}-{element}-{year}{month:02d}.csv"
@@ -221,6 +236,27 @@ class ChmiObservationValues(TimeseriesValues):
             )
         return [df] if not df.is_empty() else []
 
+    def _warn_if_ended(self, parameter: ParameterModel, last_year: int) -> None:
+        """Tell, once for the request, that the window reaches years in which the source publishes no such element.
+
+        The files of those years are not there, so the answer is empty for them, which without a word reads as a
+        station without readings. The hourly ``P`` ended with 2024 and ``P_hm`` took its place as another quantity
+        (GH-3413).
+        """
+        end = cast("dt.datetime", self.sr.end)
+        if end.year <= last_year or (parameter.name_original, last_year) in self._ended_reported:
+            return
+        self._ended_reported.add((parameter.name_original, last_year))
+        resolution = parameter.dataset.resolution.name
+        warn_response(
+            log,
+            "parameter-ended",
+            f"CHMI publishes no {resolution} {parameter.name} (element {parameter.name_original}) after {last_year}, "
+            f"so the window up to {end:%Y-%m-%d} has no values of it from {last_year + 1} on. The hourly files of "
+            f"{last_year + 1} and later hold the sea-level pressure (pressure_air_sea_level, element P_hm) and the "
+            f"pressure tendency (element ppp, not read); the 10_minutes resolution still publishes {parameter.name}.",
+        )
+
     def _collect_station_parameter_or_dataset(
         self,
         station_id: str,
@@ -241,12 +277,23 @@ class ChmiObservationValues(TimeseriesValues):
         if config["layout"] == "subdaily" and (not self.sr.start or not self.sr.end):
             return pl.DataFrame()
 
+        # a dataset is collected as a whole, so the parameters asked for are what a warning is for
+        requested = {
+            parameter.name_original
+            for parameter in cast("list[ParameterModel]", self.sr.request.parameters)
+            if parameter.dataset == dataset
+        }
         frames: list[pl.DataFrame] = []
         for parameter in parameters:
             element_config = config["elements"].get(parameter.name_original)
             if element_config is None:
                 continue
-            frames.extend(self._collect_element(station_id, parameter.name_original, element_config, config, settings))
+            last_year = LAST_YEAR.get(dataset.resolution.name, {}).get(parameter.name_original)
+            if last_year is not None and parameter.name_original in requested:
+                self._warn_if_ended(parameter, last_year)
+            frames.extend(
+                self._collect_element(station_id, parameter.name_original, element_config, config, settings, last_year)
+            )
         if not frames:
             return pl.DataFrame()
 

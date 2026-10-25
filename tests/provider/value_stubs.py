@@ -2083,7 +2083,9 @@ NO_STUB = {
         "holds text that is no number. The extremes of every daily, monthly, yearly, 10 minute and hourly element "
         "sampled (station 0-20000-0-11414, 2026-10-12) are readings (daily H tops at 100, SRA at 238.5 mm). The "
         "10 minute T, H, P and F of Cheb (0-20000-0-11406, 2024-01-01 to 2024-01-07, 4,036 rows) and the hourly Td, "
-        "SRA1H and P of January 2024 (2,235 rows) hold no value outside the physical range (2026-10-19)"
+        "SRA1H and P of January 2024 (2,235 rows) hold no value outside the physical range (2026-10-19). The hourly "
+        "P_hm (GH-3413) of 2025 of two stations (0-20000-0-11406, 11520; 17,520 rows, read 2026-10-25) has no empty "
+        "value and none outside 989 to 1045 hPa"
     ),
     "dwd/alerts": "no timeseries",
     "dwd/phenology": (

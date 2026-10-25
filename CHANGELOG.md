@@ -24,6 +24,9 @@ Types of changes:
   default) now routes through a proxy such as Traefik on this one, which sends traffic only to
   containers that are healthy or have no health state. `docker run --no-healthcheck` switches it
   off (GH-3346)
+- `chmi/observation` hourly has `pressure_air_sea_level` (CHMI's `P_hm`, the pressure reduced to
+  sea level, published for 2018 to 2025 and on): another quantity than the station-level
+  `pressure_air_site`, not a rename of it. The pressure tendency `ppp` is not read (GH-3413)
 
 ### Changed
 
@@ -43,6 +46,14 @@ Types of changes:
   needs the new one. The hourly elevation of UKW00015033 now follows the daily one (47.9 to 49.1 m)
   when both resolutions are requested. One table serves both lists and turns a row only while it
   lists the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
+
+### Fixed
+
+- `chmi/observation` hourly `pressure_air_site` returned no rows from 2025 on without a word:
+  CHMI publishes that station pressure (`P`) for 2018 to 2024 only. A window that reaches past 2024
+  now answers with the warning `parameter-ended` saying so (and pointing to `pressure_air_sea_level`
+  and the `10_minutes` resolution, which still publishes it), and the files that do not exist are
+  no longer asked for (GH-3413)
 
 ## [0.174.0] - 2026-10-24
 

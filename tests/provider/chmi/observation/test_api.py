@@ -25,6 +25,7 @@ from wetterdienst.provider.chmi.observation.parser import (
 )
 from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 CHEB = "0-20000-0-11406"
 UTC = ZoneInfo("UTC")
@@ -450,6 +451,18 @@ def test_chmi_observation_values_hourly() -> None:
     assert _value_of(df, "temperature_dew_point_2m", when) == pytest.approx(-3.9)
     assert _value_of(df, "pressure_air_site", when) == pytest.approx(975.8)
     assert _value_of(df, "precipitation_amount", when) == pytest.approx(0.0)
+    assert _value_of(df, "pressure_air_sea_level", when) == pytest.approx(1037.7)
+
+
+@pytest.mark.remote
+def test_chmi_observation_values_hourly_after_2024_have_the_sea_level_pressure_only() -> None:
+    """CHMI publishes no hourly station pressure P from 2025 on, and P_hm in every year (GH-3413)."""
+    begin_response()
+    df = _values("hourly", dt.datetime(2025, 1, 1, tzinfo=UTC), dt.datetime(2025, 1, 1, 1, tzinfo=UTC))
+    when = dt.datetime(2025, 1, 1, tzinfo=UTC)
+    assert _value_of(df, "pressure_air_sea_level", when) == pytest.approx(1028.6)
+    assert "pressure_air_site" not in df["parameter"].unique().to_list()
+    assert [warning["code"] for warning in recorded_warnings()] == ["parameter-ended"]
 
 
 @pytest.mark.remote
