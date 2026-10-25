@@ -20,11 +20,18 @@ Types of changes:
 
 - `[Docker]` The app image has a `HEALTHCHECK`: it asks the page at `/` on the server's own port
   every 30 s, which does not ask the backend and is outside the rate limit, so `docker ps` shows
-  `healthy` or `unhealthy` for the app alone (GH-3346)
+  `healthy` or `unhealthy` for the app alone. A platform without a health check of its own routes
+  through a proxy such as Traefik on this one. `docker run --no-healthcheck` switches it off
+  (GH-3346)
 - `[Legal]` A privacy policy (Datenschutzerklärung) at `/datenschutz`, also served at `/privacy`
   and linked in the footer next to the legal notice. It is in German, the binding text, for the
   German locales and in English for every other language, and names the logs, the cookie and
   local storage, and the third parties the map and the About page load images from (GH-3402)
+
+### Changed
+
+- `[Build]` `compose.yml` publishes the app on `127.0.0.1:4000`, no longer on every interface; set
+  `WETTERDIENST_BIND_HOST=0.0.0.0` to open it to the network (GH-3096)
 
 ## [0.35.0] - 2026-10-24
 

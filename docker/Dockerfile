@@ -108,19 +108,23 @@ WORKDIR /home/wetterdienst
 # Expose port 7890
 EXPOSE 7890
 
-# `/health` answers as long as the server does and reads nothing else, from any Host (GH-3346). The
-# probe asks the port the server listens on, whatever `--listen` gave it (Coolify starts it on 3000):
-# it reads the listening TCP sockets of the container (state 0A in /proc/net/tcp and tcp6, the port
-# is hex), tries them from the lowest port up, and is healthy when `/health` answers on any of them,
-# so a socket of Chromium or another process that is no HTTP server is skipped. It needs only sh
-# (dash), cat, sort, printf and curl. A cold start imports the dependencies, which took 9 s once on a
-# laptop and 1.5 s after, so --start-period leaves a slow disk or a small CPU six times that before
-# a failure counts.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD for port in $(cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | \
-        while read -r _ address _ state _; do \
-            [ "$state" = 0A ] && printf '%d\n' "0x${address##*:}"; \
-        done | sort -nu); do \
+# `/health` answers as long as the server does and reads nothing else, from any Host (GH-3346). A platform
+# that defines a health check of its own replaces this one; where it defines none (Coolify's default), this
+# is what a proxy such as Traefik routes by: it sends traffic to containers that are healthy or have no
+# health state. The probe asks the port the server listens on (Coolify starts it on 3000, the image on
+# 7890), for a server on all interfaces or on loopback: it reads the listening TCP sockets of the
+# container (state 0A in /proc/net/tcp and tcp6, the port is hex), tries them from the lowest port up,
+# and is healthy when `/health` answers on any of them, so a socket of Chromium or another process that
+# is no HTTP server is skipped. A server bound to one container address is not reached as `localhost`,
+# and a container that shares the network namespace of the host or of another container (--network
+# host) lists the sockets of others: the probe is for a container that runs one server. awk (mawk of
+# Debian), sh (dash), sort, printf and curl are what it needs. A cold start imports the dependencies,
+# which took 9 s once on a laptop and 1.5 s after, so --start-period leaves a slow disk or a small CPU
+# six times that before a failure counts, and --start-interval (Docker 25 and later) asks every second
+# until the first answer.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --start-interval=1s --retries=3 \
+    CMD for port in $(awk '$4=="0A"{print $2}' /proc/net/tcp /proc/net/tcp6 2>/dev/null | \
+        while read -r address; do printf '%d\n' "0x${address##*:}"; done | sort -nu); do \
         curl --fail --silent --max-time 3 --output /dev/null "http://localhost:$port/health" && exit 0; \
     done; exit 1
 

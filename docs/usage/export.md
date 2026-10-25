@@ -29,7 +29,6 @@ with the list kept as a list, JSON having arrays of its own, rather than the res
 NetCDF writes its timestamps as CF units, Zarr as the nanoseconds since the epoch it reads back.
 
 ```python
-from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -48,7 +47,6 @@ this form passes it explicitly rather than taking the `fail` that `TimeseriesVal
 You could also first collect all data and then write it at once:
 
 ```python
-from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(
@@ -63,7 +61,6 @@ stations.values().all().to_target("influxdb://localhost/?database=dwd&table=weat
 You could also iterate over the stations and write them one by one:
 
 ```python
-from wetterdienst import Settings
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
 request = DwdObservationRequest(

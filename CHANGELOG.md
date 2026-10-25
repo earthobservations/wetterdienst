@@ -19,8 +19,25 @@ Types of changes:
 ### Added
 
 - `[Docker]` The backend image has a `HEALTHCHECK`: it asks `/health` on the port the server
-  listens on, whatever `--listen` gave it, every 30 s, gives the server 60 s to start before a
-  failure counts, and `docker ps` shows the container as `healthy` or `unhealthy` (GH-3346)
+  listens on (a server on all interfaces or on loopback), every 30 s, and `docker ps` shows the
+  container as `healthy` or `unhealthy`. A platform without a health check of its own (Coolify's
+  default) now routes through a proxy such as Traefik on this one, which sends traffic only to
+  containers that are healthy or have no health state. `docker run --no-healthcheck` switches it
+  off (GH-3346)
+
+### Changed
+
+- `compose.yml` publishes the ports of the backend (7890) and the app (4000) on `127.0.0.1`, no
+  longer on every interface of the host, so `docker compose up` is not reachable from the network.
+  To reach it from another machine, set `WETTERDIENST_BIND_HOST=0.0.0.0` (or a host address) in
+  the shell or in `.env`; a `compose.override.yml` that maps ports gives the address itself
+  (GH-3096)
+- **Breaking**: the `noaa/ghcn` hourly stations Chelveston (UKW00015015) and Huntington
+  (Alconbury, UKW00015033) are placed west of Greenwich, no longer 73 and 29 km east of it, where
+  `ghcnh-station-list.csv` has lost the sign of their longitude; a filter on the old position
+  needs the new one. The hourly elevation of UKW00015033 now follows the daily one (47.9 to 49.1 m)
+  when both resolutions are requested. One table serves both lists and turns a row only while it
+  lists the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
 
 ## [0.174.0] - 2026-10-24
 
