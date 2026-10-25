@@ -99,6 +99,14 @@ Types of changes:
 
 ### Security
 
+- The wheel and sdist of a release carry a PEP 740 attestation on PyPI, which
+  `pypi-attestations verify pypi` checks (GH-3346)
+- `[Docker]` The backend image carries a build provenance signed with the GitHub Actions identity
+  of the workflow through Sigstore, which `gh attestation verify
+  oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst`
+  checks, and an unsigned BuildKit provenance and SBOM per platform (the registry lists them as
+  `unknown/unknown` manifests). Releases before this one have none; see "Release provenance" in
+  `.github/SECURITY.md` (GH-3346)
 - The REST API and MCP server now write the text a request sent into their log on one line:
   control characters (a newline, an escape) in a refused value, a parameter, a station name or a
   path are logged as escape sequences such as `\n`. This holds for the messages of the loggers of
