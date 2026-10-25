@@ -45,7 +45,8 @@ request  ->  stations result  ->  values result
 
 Every result renders itself (a dictionary, JSON, GeoJSON, CSV, a chart) and writes itself to a file or a database, see
 [Python API](python-api.md#format) and [Export](export.md). The command line and the REST API are the same steps in
-one call: `stations` selects, `values` selects and reads.
+one call: `stations` selects, `values` selects and reads. How the classes behind these steps fit together is in the
+[Architecture](../contribution/architecture.md).
 
 ## Settings and options
 
