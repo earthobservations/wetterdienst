@@ -236,12 +236,12 @@ class ChmiObservationValues(TimeseriesValues):
             )
         return [df] if not df.is_empty() else []
 
-    def _warn_if_ended(self, parameter: ParameterModel, last_year: int) -> None:
+    def _warn_if_ended(self, parameter: ParameterModel, last_year: int, hint: str) -> None:
         """Tell, once for the request, that the window reaches years in which the source publishes no such element.
 
         The files of those years are not there, so the answer is empty for them, which without a word reads as a
-        station without readings. The hourly ``P`` ended with 2024 and ``P_hm`` took its place as another quantity
-        (GH-3413).
+        station without readings. The hourly ``P`` ended with 2024 (GH-3413); the ``hint`` of its entry in
+        ``LAST_YEAR`` says what the source publishes instead.
         """
         end = cast("dt.datetime", self.sr.end)
         if end.year <= last_year or (parameter.name_original, last_year) in self._ended_reported:
@@ -252,9 +252,7 @@ class ChmiObservationValues(TimeseriesValues):
             log,
             "parameter-ended",
             f"CHMI publishes no {resolution} {parameter.name} (element {parameter.name_original}) after {last_year}, "
-            f"so the window up to {end:%Y-%m-%d} has no values of it from {last_year + 1} on. The hourly files of "
-            f"{last_year + 1} and later hold the sea-level pressure (pressure_air_sea_level, element P_hm) and the "
-            f"pressure tendency (element ppp, not read); the 10_minutes resolution still publishes {parameter.name}.",
+            f"so the window up to {end:%Y-%m-%d} has no values of it from {last_year + 1} on. {hint}",
         )
 
     def _collect_station_parameter_or_dataset(
@@ -277,7 +275,8 @@ class ChmiObservationValues(TimeseriesValues):
         if config["layout"] == "subdaily" and (not self.sr.start or not self.sr.end):
             return pl.DataFrame()
 
-        # a dataset is collected as a whole, so the parameters asked for are what a warning is for
+        # a dataset is collected as a whole: the elements asked for are the ones downloaded and the ones a warning is
+        # for, and the core keeps the requested parameters of the frame in any case
         requested = {
             parameter.name_original
             for parameter in cast("list[ParameterModel]", self.sr.request.parameters)
@@ -286,11 +285,12 @@ class ChmiObservationValues(TimeseriesValues):
         frames: list[pl.DataFrame] = []
         for parameter in parameters:
             element_config = config["elements"].get(parameter.name_original)
-            if element_config is None:
+            if element_config is None or (requested and parameter.name_original not in requested):
                 continue
-            last_year = LAST_YEAR.get(dataset.resolution.name, {}).get(parameter.name_original)
-            if last_year is not None and parameter.name_original in requested:
-                self._warn_if_ended(parameter, last_year)
+            last_year = None
+            if ended := LAST_YEAR.get(dataset.resolution.name, {}).get(parameter.name_original):
+                last_year, hint = ended
+                self._warn_if_ended(parameter, last_year, hint)
             frames.extend(
                 self._collect_element(station_id, parameter.name_original, element_config, config, settings, last_year)
             )

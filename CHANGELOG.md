@@ -25,7 +25,7 @@ Types of changes:
   containers that are healthy or have no health state. `docker run --no-healthcheck` switches it
   off (GH-3346)
 - `chmi/observation` hourly has `pressure_air_sea_level` (CHMI's `P_hm`, the pressure reduced to
-  sea level, published for 2018 to 2025 and on): another quantity than the station-level
+  sea level, published for 2018 to 2025): another quantity than the station-level
   `pressure_air_site`, not a rename of it. The pressure tendency `ppp` is not read (GH-3413)
 
 ### Changed

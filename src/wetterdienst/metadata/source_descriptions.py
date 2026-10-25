@@ -376,8 +376,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "data", "P_hm"): (
             'Air pressure reduced to sea level, from the hourly SYNOP report ("Tlak vzduchu hl.m.": hl.m. is '
-            "hladina moře, sea level). The source states no method of the reduction. It is the separate quantity "
-            "to the station-level pressure P, which the source stopped publishing after 2024, and not its "
+            "hladina moře, sea level). The source states no method of the reduction. It is a separate quantity "
+            "from the station-level pressure P, which the source stopped publishing after 2024, and not its "
             "successor."
         ),
         ("hourly", "data", "SRA1H"): (

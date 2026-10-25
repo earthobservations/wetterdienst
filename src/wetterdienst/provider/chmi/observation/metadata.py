@@ -74,9 +74,20 @@ _HOURLY_PARAMETERS = [
 ]
 
 #: The last year the source publishes an element, by resolution and ``name_original``, for the elements it stopped
-#: publishing: a window that reaches past it is answered with a warning that says so, and its files of those years
-#: are not asked for. The hourly ``P`` ends with 2024.
-LAST_YEAR: dict[str, dict[str, int]] = {"hourly": {"P": 2024}}
+#: publishing, with what a caller is told to do instead: a window that reaches past it is answered with a warning that
+#: says so, and the files of those years are not asked for. The hourly ``P`` ends with 2024.
+LAST_YEAR: dict[str, dict[str, tuple[int, str]]] = {
+    "hourly": {
+        "P": (
+            2024,
+            (
+                "The hourly files of 2025 hold the sea-level pressure (pressure_air_sea_level, element P_hm) "
+                "and the pressure tendency (element ppp, not read); the 10_minutes resolution still publishes "
+                "pressure_air_site."
+            ),
+        )
+    }
+}
 
 
 def _resolution(name: str, parameters: list[dict], *, date_required: bool) -> dict:

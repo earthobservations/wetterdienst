@@ -26,7 +26,7 @@ and `hourly` resolutions store one CSV per station/element/month under a year su
 they require a date range. The 10-minute and hourly files only reach back to 2018.
 
 The hourly files are the SYNOP reports. CHMI publishes the station-level pressure `P` there for 2018
-to 2024 only; the files of 2025 and later hold the pressure reduced to sea level (`P_hm`, the
+to 2024 only; the files of 2025 hold the pressure reduced to sea level (`P_hm`, the
 parameter `pressure_air_sea_level`, which the older years hold too) and the three-hour pressure
 tendency `ppp` (not read). `P_hm` is another quantity than `P`, not its successor. A window that
 reaches past 2024 warns (`parameter-ended`) that the hourly `pressure_air_site` has no values from
