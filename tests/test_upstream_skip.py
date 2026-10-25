@@ -8,8 +8,10 @@ import socket
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientResponseError, ServerDisconnectedError
+from aiohttp import ClientResponseError, RequestInfo, ServerDisconnectedError
 from fsspec.exceptions import FSTimeoutError
+from multidict import CIMultiDict, CIMultiDictProxy
+from yarl import URL
 
 import wetterdienst.provider.rmi.observation.api as rmi_api
 from tests import conftest
@@ -36,6 +38,42 @@ def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> N
         raise error
 
 
+def _status_at(url: str, status: int) -> ClientResponseError:
+    """Build the error of a response with this status, with the request it was answered to."""
+    request_info = RequestInfo(url=URL(url), method="GET", headers=CIMultiDictProxy(CIMultiDict()), real_url=URL(url))
+    return ClientResponseError(request_info=request_info, history=(), status=status)
+
+
+_EA_STATIONS = "https://environment.data.gov.uk/hydrology/id/stations.json"
+
+
+def test_a_403_from_the_environment_agency_skips_the_test() -> None:
+    """Test that the key-less EA API refusing a runner is an outage, not a credential refused (GH-2522)."""
+    with pytest.raises(pytest.skip.Exception, match="upstream did not answer"), skip_if_upstream_unavailable():
+        raise _status_at(_EA_STATIONS, 403)
+
+
+def test_a_403_from_the_environment_agency_is_read_through_the_download_error() -> None:
+    """Test that the 403 is told behind the `DownloadError` that `File.raise_if_exception` raises for it."""
+    error = DownloadError(_EA_STATIONS, "403, message='Forbidden'")
+    error.__cause__ = _status_at(_EA_STATIONS, 403)
+    assert conftest._is_upstream_outage(error)  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(_status_at("https://opendata.aemet.es/opendata/api/x", 403), id="403 of another host"),
+        pytest.param(_status_at("https://environment.data.gov.uk.example.invalid/x", 403), id="403 of a lookalike"),
+        pytest.param(_status_at(_EA_STATIONS, 401), id="401 of the EA"),
+        pytest.param(_status_at(_EA_STATIONS, 404), id="404 of the EA"),
+    ],
+)
+def test_only_the_403_of_the_environment_agency_is_an_outage(error: Exception) -> None:
+    """Test that a 403 of any other host, and another 4xx of the EA, still fail the test."""
+    assert not conftest._is_upstream_outage(error)  # noqa: SLF001
+
+
 @pytest.mark.parametrize(
     "error",
     [
@@ -48,7 +86,7 @@ def test_a_request_upstream_did_not_answer_skips_the_test(error: Exception) -> N
             id="credential rejected",
         ),
         pytest.param(_response_error(401), id="401"),
-        pytest.param(_response_error(403), id="403"),
+        pytest.param(_response_error(403), id="403 of an unnamed host"),
         pytest.param(DownloadError("https://example.invalid/file", "refused"), id="download error without a cause"),
     ],
 )
