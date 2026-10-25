@@ -211,7 +211,9 @@ what the answer is missing:
   (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
   `null` because the source wrote a marker for a missing value: with `drop_nulls` they are not in the
-  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker) and
+  answer, and this counts them; without it the `raw:` token of their `quality_flags` keeps the marker),
+  `parameter-ended` (the window reaches years in which the source no longer publishes a parameter, such as
+  the hourly `pressure_air_site` of `chmi/observation` after 2024, so it has no values for them) and
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment). Codes are added as
   more are told; a client reads the ones it knows.
 - **`api_version`** is the version of the API (`/api/version`), and **`schema_version`** that of this
