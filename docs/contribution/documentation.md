@@ -63,19 +63,32 @@ builds the pages with warnings as errors, so a broken link or an unreadable dire
 
 Read the Docs does not fail a build for a warning, and myst-nb shows a failed cell and goes on, so a cell that raised
 `MissingDependencyError` was published until somebody read the page. `docs/_ext/notebook_errors.py` closes that. The
-notebooks run with `nb_execution_allow_errors`, so that every cell runs, and the extension records the exception of each
-error output and judges them when the build is done:
+notebooks run with `nb_execution_allow_errors`, so that every cell runs, and the extension reads the error outputs of
+each executed notebook (the cells that hide their output included) and judges them when the build is done:
 
-- `NoInternetError` and `DownloadError` (and subclasses of them) mean that the provider did not answer. That is a
-  warning (`wetterdienst.outage`, which `suppress_warnings` can silence), the page shows the traceback, and the build
-  goes on. The errors after it on the same page are not judged, since the cell that failed left its names undefined.
-- Any other exception fails the build (`Sphinx error!`) after all pages are written, naming each page and line.
+- A provider that did not answer is a warning (`wetterdienst.outage`, which `suppress_warnings` can silence): the page
+  shows the traceback and the build goes on. What counts is the rule of `skip_if_upstream_unavailable` in
+  `tests/conftest.py`: a `NoInternetError` whose connection timed out, was refused or reset or had no route, and a
+  `DownloadError` caused by a timeout, a dropped connection, a body cut short or a 5xx. A 404 or another 4xx is the
+  provider answering, and a name that does not resolve is what a decommissioned host looks like, so those fail, and so
+  does a `DownloadError` of any other cause (TLS, a refused redirect). `tests/test_docs_notebook_errors.py` holds the
+  two to the same answer.
+- A cell that is interrupted by `nb_execution_timeout` is a warning too: a slow provider must not fail the build. A
+  hang in our own code looks the same and is not told apart, so read the warning.
+- A `NameError` after one of these on the same page is the cell that failed leaving a name undefined, and is not
+  judged. Any other error after it is.
+- Any other exception fails the build (the exit status is 1) after all pages are written, with an error naming each
+  page and line. The built page is stale until it is read again: after a change of code, build with `-E` or run
+  `poe "docs:clean"` first.
 - A cell that is meant to fail carries the tag `raises-exception` (`:tags: [raises-exception]` under the directive) and
-  is not recorded. A sample that shows a failure is better caught in a `try` block.
+  is not looked at. A sample that shows a failure is better caught in a `try` block.
 
-A build with `-D nb_execution_mode=off`, as `docs.yml` runs it, executes no cell, so it neither needs the network nor
-is it checked by this: `tests/test_docs_notebook_errors.py` holds the check, offline. A cell that runs into the
-timeout (`nb_execution_timeout`) is still only myst-nb's warning, not a failure.
+A build with `-D nb_execution_mode=off`, as `docs.yml` runs it, executes no cell, so it neither needs the network nor is
+it checked by this. The notebook is judged as myst-nb hands it on, after it ran or was restored from its cache; with
+`nb_execution_mode=cache` the notebook of a page with a failed cell was not stored (myst-nb 1.4, jupyter-cache), so it
+runs again, and Read the Docs builds with the default `auto` anyway. A page that is executed inline
+(`nb_execution_mode=inline`) is not checked. `docs.yml` runs `tests/test_docs_notebook_errors.py` with the docs group,
+which is where the glue to myst-nb and Sphinx is held; elsewhere the tests of the glue are skipped.
 
 ## Building
 

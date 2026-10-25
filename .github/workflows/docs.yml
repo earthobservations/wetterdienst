@@ -10,6 +10,7 @@ on:
     branches: [ main ]
     paths:
       - 'docs/**'
+      - 'tests/test_docs_notebook_errors.py'
       - 'README.md'
       - 'CHANGELOG.md'
       - 'LICENSE.md'
@@ -21,6 +22,7 @@ on:
     branches: [ main ]
     paths:
       - 'docs/**'
+      - 'tests/test_docs_notebook_errors.py'
       - 'README.md'
       - 'CHANGELOG.md'
       - 'LICENSE.md'
@@ -64,6 +66,10 @@ jobs:
 
       - name: Install project and the docs group
         run: uv sync --group docs
+
+      # the check that fails the Read the Docs build for a cell that failed, with the myst-nb and Sphinx it runs on
+      - name: Test the check of the notebook cells
+        run: uv run --group docs pytest tests/test_docs_notebook_errors.py
 
       - name: Build
         run: uv run --group docs sphinx-build --builder html --fail-on-warning --keep-going -D nb_execution_mode=off docs docs/_build/html
