@@ -43,10 +43,12 @@ Images up to 0.158.0 listened on 3000 instead: a deployment that mapped `3000:30
 `3000:7890` to keep its host port (or move to `7890:7890`), and a health check or proxy that asks the
 container for port 3000 asks for 7890. The [MCP server](mcp.md) is served next to it, at `/mcp/v1`.
 
-The image has a `HEALTHCHECK` that asks `/health` on port 7890 every 30 seconds, and `docker ps` shows
-the container as `healthy` or `unhealthy`. A container started with a `--listen` on another port is
-reported unhealthy; give it a check of its own (`docker run --health-cmd`) or switch the image's off
-(`--no-healthcheck`).
+The image has a `HEALTHCHECK` that asks `/health` every 30 seconds, and `docker ps` shows the
+container as `healthy` or `unhealthy`. The probe follows the port the server listens on, whatever
+`--listen` gave it (7890 by default, 3000 where a start command says so): it looks for the
+listening TCP sockets of the container and is healthy when `/health` answers on one of them. It
+does not replace the health check of a platform such as Coolify, which has its own, and it asks
+nothing of the settings of the container. `--no-healthcheck` switches it off.
 
 The app has an image of its own, `ghcr.io/earthobservations/wetterdienst-app`, see [Web app](app.md#run-your-own).
 

@@ -108,12 +108,21 @@ WORKDIR /home/wetterdienst
 # Expose port 7890
 EXPOSE 7890
 
-# `/health` answers as long as the server does and reads nothing else, from any Host (GH-3346). A cold
-# start imports the dependencies, which took 9 s once on a laptop and 1.5 s after, so --start-period
-# leaves a slow disk or a small CPU six times that before a failure counts. The check asks port 7890:
-# a container started with another `--listen` is reported unhealthy unless it sets its own check.
+# `/health` answers as long as the server does and reads nothing else, from any Host (GH-3346). The
+# probe asks the port the server listens on, whatever `--listen` gave it (Coolify starts it on 3000):
+# it reads the listening TCP sockets of the container (state 0A in /proc/net/tcp and tcp6, the port
+# is hex), tries them from the lowest port up, and is healthy when `/health` answers on any of them,
+# so a socket of Chromium or another process that is no HTTP server is skipped. It needs only sh
+# (dash), cat, sort, printf and curl. A cold start imports the dependencies, which took 9 s once on a
+# laptop and 1.5 s after, so --start-period leaves a slow disk or a small CPU six times that before
+# a failure counts.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD ["curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:7890/health"]
+    CMD for port in $(cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | \
+        while read -r _ address _ state _; do \
+            [ "$state" = 0A ] && printf '%d\n' "0x${address##*:}"; \
+        done | sort -nu); do \
+        curl --fail --silent --max-time 3 --output /dev/null "http://localhost:$port/health" && exit 0; \
+    done; exit 1
 
 # Default command: start restapi on port 7890
 CMD ["wetterdienst", "restapi", "--listen", "0.0.0.0:7890"]
