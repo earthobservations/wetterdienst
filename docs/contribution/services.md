@@ -5,7 +5,7 @@ already existing services - mostly governmental services. To simplify the implem
 data models, enumerations and classes that should be used in order to adapt whatever API is offered by a service to the
 general scheme of wetterdienst with some handful of attributes to define each API and streamline internal workflows. The
 following paragraphs describe how we can/may/should implement a new weather service in wetterdienst as far as our own
-experience goes. We'll give examples based on the `DwdObservationRequest` implementation.
+experience goes. We'll give examples based on the `DwdObservationRequest` implementation. How the pieces fit together is in the [Architecture](architecture.md).
 
 
 ## Step 1: Metadata
