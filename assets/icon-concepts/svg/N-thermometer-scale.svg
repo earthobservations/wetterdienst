@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<rect width="512" height="512" rx="112" fill="#0B1A33"/>
+<defs><clipPath id="thN"><rect x="188" y="64" width="80" height="300" rx="40"/><circle cx="228" cy="388" r="64"/></clipPath></defs>
+<rect x="164" y="40" width="128" height="320" rx="64" fill="#FFFFFF"/><circle cx="228" cy="388" r="88" fill="#FFFFFF"/>
+<g clip-path="url(#thN)"><rect x="150" y="64.0" width="150" height="49.5" fill="#1B3F8F"/><rect x="150" y="112.5" width="150" height="49.5" fill="#2E6FD1"/><rect x="150" y="161.0" width="150" height="49.5" fill="#5FA8E8"/><rect x="150" y="209.5" width="150" height="49.5" fill="#BFE0F7"/><rect x="150" y="258.0" width="150" height="49.5" fill="#FFD3B8"/><rect x="150" y="306.5" width="150" height="49.5" fill="#FF8A5B"/><rect x="150" y="355.0" width="150" height="49.5" fill="#E8383A"/><rect x="150" y="403.5" width="150" height="49.5" fill="#9E1027"/></g>
+<g stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"><path d="M336 84H420"/><path d="M336 148H390"/><path d="M336 212H420"/><path d="M336 276H390"/></g>
+</svg>

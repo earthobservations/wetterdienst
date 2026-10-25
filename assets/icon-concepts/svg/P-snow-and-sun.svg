@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs><clipPath id="spP"><rect width="512" height="512" rx="112"/></clipPath></defs>
+<g clip-path="url(#spP)">
+<rect width="512" height="512" fill="#2E6FD1"/><polygon points="512,0 512,512 0,512" fill="#FFC93C"/>
+<path d="M512 0L0 512" stroke="#FFFFFF" stroke-width="16"/></g>
+<g stroke="#FFFFFF" stroke-width="32" stroke-linecap="round" fill="none"><path d="M158 158L158.0 258.0"/><path d="M158 158L71.4 208.0"/><path d="M158 158L71.4 108.0"/><path d="M158 158L158.0 58.0"/><path d="M158 158L244.6 108.0"/><path d="M158 158L244.6 208.0"/></g>
+<circle cx="354" cy="354" r="62" fill="#F0543C"/><g stroke="#F0543C" stroke-width="28" stroke-linecap="round"><path d="M442.7 390.7L450.1 393.8"/><path d="M390.7 442.7L393.8 450.1"/><path d="M317.3 442.7L314.2 450.1"/><path d="M265.3 390.7L257.9 393.8"/><path d="M265.3 317.3L257.9 314.2"/><path d="M317.3 265.3L314.2 257.9"/><path d="M390.7 265.3L393.8 257.9"/><path d="M442.7 317.3L450.1 314.2"/></g>
+</svg>
