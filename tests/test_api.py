@@ -19,7 +19,7 @@ import polars as pl
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from tests.conftest import BUFR_AVAILABLE
+from tests.conftest import BUFR_AVAILABLE, FROST_RESOLVER_ON_MACOS
 from wetterdienst import Settings
 from wetterdienst.api import Wetterdienst
 from wetterdienst.exceptions import ApiNotFoundError, MissingDependencyError
@@ -1034,6 +1034,7 @@ def test_api_eaufrance_hubeau(default_settings: Settings) -> None:
 
 
 @pytest.mark.remote
+@FROST_RESOLVER_ON_MACOS
 @pytest.mark.skipif(
     not MetnoFrostRequest.is_configured(),
     reason="MET Norway Frost credentials not set — provide WD_AUTH__METNO_FROST=<client_id>",
