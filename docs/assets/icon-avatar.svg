@@ -2,7 +2,7 @@
 <rect width="512" height="512" fill="#17335F"/>
 <g transform="translate(51.2 51.2) scale(0.8)">
 <g transform="translate(48 48)"><rect width="184" height="184" rx="58" fill="#FFC93C"/><circle cx="92" cy="92" r="40" fill="#0B1A33"/><path d="M152.0 92.0L166.0 92.0M134.4 134.4L144.3 144.3M92.0 152.0L92.0 166.0M49.6 134.4L39.7 144.3M32.0 92.0L18.0 92.0M49.6 49.6L39.7 39.7M92.0 32.0L92.0 18.0M134.4 49.6L144.3 39.7" stroke="#0B1A33" stroke-width="20" stroke-linecap="round"/></g>
-<g transform="translate(280 48)"><rect width="184" height="184" rx="58" fill="#2E6FD1"/><path d="M92 30C92 30 144 94 144 122A52 52 0 0 1 40 122C40 94 92 30 92 30Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="round"/></g>
+<g transform="translate(280 48)"><rect width="184" height="184" rx="58" fill="#2E6FD1"/><g fill="#FFFFFF" transform="rotate(15 92 92)"><rect x="31" y="36" width="30" height="84" rx="15"/><rect x="77" y="66" width="30" height="84" rx="15"/><rect x="123" y="36" width="30" height="84" rx="15"/></g></g>
 <g transform="translate(48 280)"><rect width="184" height="184" rx="58" fill="#2BB3A3"/><g fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"><path d="M34 76H112a22 22 0 1 0 -22 -22"/><path d="M34 120H120a22 22 0 1 1 -22 22"/></g></g>
 <g transform="translate(280 280)"><rect width="184" height="184" rx="58" fill="#F0543C"/><rect x="70" y="28" width="44" height="104" rx="22" fill="#FFFFFF"/><circle cx="92" cy="136" r="36" fill="#FFFFFF"/></g>
 </g>
