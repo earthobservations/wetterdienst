@@ -9,13 +9,14 @@ without it (`docs.yml` runs the file with it).
 
 from __future__ import annotations
 
+import errno
 import importlib.util
 import io
 import json
 import socket
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -25,6 +26,9 @@ from fsspec.exceptions import FSTimeoutError
 from tests import conftest
 from wetterdienst.exceptions import DownloadError, NoInternetError, UpstreamError
 from wetterdienst.util.network import _download_error
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _EXT = Path(__file__).resolve().parents[1] / "docs" / "_ext"
 _SPEC = importlib.util.spec_from_file_location("notebook_errors", _EXT / "notebook_errors.py")
@@ -58,23 +62,31 @@ def _outage(docname: str = "usage/page", line: int = 1) -> notebook_errors.Error
     return _error("NoInternetError", _NO_INTERNET, cause=_REFUSED, docname=docname, line=line)
 
 
+_DIRECT = "\nThe above exception was the direct cause of the following exception:\n\n"
+_HANDLING = "\nDuring handling of the above exception, another exception occurred:\n\n"
+
+
+def _part(name: str, message: str) -> str:
+    return (
+        f"\x1b[0;31m{name:<42}\x1b[0m Traceback (most recent call last)\n"
+        "\x1b[0;32m----> 1\x1b[0m \x1b[43mraise\x1b[49m\n\n"
+        f"\x1b[0;31m{name}\x1b[0m: {message}"
+    )
+
+
 def _traceback(ename: str, evalue: str, cause: tuple[str, str] | None = None) -> list[str]:
     """Write a traceback as IPython does, with colours: the name above the frames, the name and message below."""
-
-    def part(name: str, message: str) -> str:
-        return (
-            f"\x1b[0;31m{name:<42}\x1b[0m Traceback (most recent call last)\n"
-            "\x1b[0;32m----> 1\x1b[0m \x1b[43mraise\x1b[49m\n\n"
-            f"\x1b[0;31m{name}\x1b[0m: {message}"
-        )
-
     if cause is None:
-        return [part(ename, evalue)]
-    return [
-        part(*cause),
-        "\nThe above exception was the direct cause of the following exception:\n\n",
-        part(ename, evalue),
-    ]
+        return [_part(ename, evalue)]
+    return [_part(*cause), _DIRECT, _part(ename, evalue)]
+
+
+def _chain(*links: tuple[str, str], separators: tuple[str, ...]) -> list[str]:
+    """Write a traceback of a chain of exceptions, the first of which is the innermost."""
+    parts = [_part(*links[0])]
+    for link, separator in zip(links[1:], separators, strict=True):
+        parts += [separator, _part(*link)]
+    return parts
 
 
 # --- the judgement ---------------------------------------------------------------------------------------------
@@ -92,6 +104,19 @@ def _traceback(ename: str, evalue: str, cause: tuple[str, str] | None = None) ->
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("FSTimeoutError", "")), id="timeout"),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("ServerDisconnectedError", "x")), id="dropped"),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("ClientPayloadError", "x")), id="cut short"),
+        pytest.param(
+            _error("NoInternetError", _NO_INTERNET, cause=("OSError", "[WinError 121] The semaphore timeout period")),
+            id="windows semaphore timeout",
+        ),
+        pytest.param(
+            _error(
+                "NoInternetError", _NO_INTERNET, cause=("OSError", "Multiple exceptions: [Errno 61] a, [Errno 61] b")
+            ),
+            id="refused on every address",
+        ),
+        pytest.param(_error("TimeoutError", ""), id="bare timeout"),
+        pytest.param(_error("ClientResponseError", "503, message='Service Unavailable'"), id="bare 503"),
+        pytest.param(_error("ServerDisconnectedError", "Server disconnected"), id="bare dropped connection"),
     ],
 )
 def test_a_provider_that_did_not_answer_is_a_warning_and_not_a_failure(error: notebook_errors.ErrorOutput) -> None:
@@ -105,7 +130,22 @@ def test_a_provider_that_did_not_answer_is_a_warning_and_not_a_failure(error: no
     "error",
     [
         pytest.param(_error("NoInternetError", _NO_INTERNET, cause=_GAIERROR), id="name does not resolve"),
+        pytest.param(
+            _error("NoInternetError", _NO_INTERNET, cause=("gaierror", f"[Errno {errno.ECONNREFUSED}] by its class")),
+            id="name that does not resolve with the errno of a refusal",
+        ),
         pytest.param(_error("NoInternetError", _NO_INTERNET), id="no cause"),
+        pytest.param(
+            _error("NoInternetError", "boom", cause=_REFUSED), id="not the message of the library (no internet)"
+        ),
+        pytest.param(_error("NotANoInternetError", _NO_INTERNET, cause=_REFUSED), id="name that contains no internet"),
+        pytest.param(
+            _error(
+                "NoInternetError", _NO_INTERNET, cause=("OSError", "Multiple exceptions: [Errno 61] a, [Errno 13] b")
+            ),
+            id="refused on one address and not allowed on another",
+        ),
+        pytest.param(_error("ClientResponseError", "404, message='Not Found'"), id="bare 404"),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("ClientResponseError", "404, message='x'")), id="404"),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("ClientResponseError", "429, message='x'")), id="429"),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("FileNotFoundError", "")), id="file not found"),
@@ -214,7 +254,7 @@ def test_a_cell_tagged_raises_exception_is_not_collected() -> None:
 def test_the_interrupt_of_the_execution_timeout_is_told_from_one_the_page_raises() -> None:
     """A notebook that ran into the timeout holds the `KeyboardInterrupt` of its cell; otherwise it is a failure."""
     notebook = _notebook(_error_cell("KeyboardInterrupt"))
-    (timed_out,) = notebook_errors.error_outputs("usage/page", notebook, lambda index: index, "CellTimeoutError")
+    (timed_out,) = notebook_errors.error_outputs("usage/page", notebook, lambda index: index, timed_out=True)
     (raised,) = notebook_errors.error_outputs("usage/page", notebook, lambda index: index)
     assert notebook_errors.judge([timed_out]).timeouts == [timed_out]
     assert notebook_errors.judge([raised]).failures == [raised]
@@ -223,20 +263,45 @@ def test_the_interrupt_of_the_execution_timeout_is_told_from_one_the_page_raises
 def test_a_timeout_without_the_interrupt_of_a_cell_is_still_a_timeout() -> None:
     """A kernel that does not write the interrupt back leaves only the error of the notebook."""
     (timed_out,) = notebook_errors.error_outputs(
-        "usage/page", _notebook({"outputs": []}), lambda index: index, "CellTimeoutError"
+        "usage/page", _notebook({"outputs": []}), lambda index: index, timed_out=True
     )
     assert notebook_errors.judge([timed_out]).timeouts == [timed_out]
 
 
-def test_a_notebook_that_stopped_for_another_reason_fails_the_build() -> None:
-    """A kernel that died leaves no cell to blame."""
-    (error,) = notebook_errors.error_outputs(
-        "usage/page", _notebook({"outputs": []}), lambda index: index, "DeadKernelError"
+def _cause_of(ename: str, evalue: str, traceback: list[str]) -> tuple[str, str] | None:
+    return notebook_errors.direct_cause(traceback, ename, evalue)
+
+
+def test_only_the_exception_a_cell_was_raised_from_is_its_cause() -> None:
+    """The chain is read from its end, and `raise ... from` is the sentence directly above the last exception."""
+    link = ("DownloadError", _DOWNLOAD)
+    timeout = ("TimeoutError", "")
+    value = ("ValueError", "x")
+    assert _cause_of(*link, _chain(timeout, link, separators=(_DIRECT,))) == timeout
+    # raised while another was handled: no `__cause__`
+    assert _cause_of(*link, _chain(timeout, link, separators=(_HANDLING,))) is None
+    # the cause of the last one is the one next to it, whatever the chain before it
+    assert _cause_of(*link, _chain(timeout, value, link, separators=(_DIRECT, _DIRECT))) == value
+    assert _cause_of(*link, _chain(timeout, value, link, separators=(_DIRECT, _HANDLING))) is None
+    assert _cause_of(*link, _chain(value, timeout, link, separators=(_HANDLING, _DIRECT))) == timeout
+    assert _cause_of(*link, _chain(link, separators=())) is None
+
+
+def test_text_in_the_message_does_not_pass_for_the_structure_of_a_chain() -> None:
+    """A message that holds the sentence and a header of a traceback is the end of the last exception, not a cause."""
+    forged = (
+        "Failed to download https://example.invalid/x: oops\nThe above exception was the direct cause of the following"
+        " exception:\n\nTimeoutError   Traceback (most recent call last)\nTimeoutError: "
     )
+    assert _cause_of("DownloadError", forged, [_part("DownloadError", forged)]) is None
+    error = _error("DownloadError", forged, cause=_cause_of("DownloadError", forged, [_part("DownloadError", forged)]))
     assert notebook_errors.judge([error]).failures == [error]
-    assert not notebook_errors.error_outputs(
-        "usage/page", _notebook({"outputs": []}), lambda index: index, "CellExecutionError"
-    )
+
+
+def test_a_traceback_that_does_not_end_with_the_error_has_no_cause() -> None:
+    """What cannot be tied to the error output is not read."""
+    assert _cause_of("DownloadError", _DOWNLOAD, _traceback("DownloadError", "another message", _REFUSED)) is None
+    assert _cause_of("DownloadError", _DOWNLOAD, []) is None
 
 
 # --- the same rule as the tests ----------------------------------------------------------------------------------
@@ -264,7 +329,72 @@ def _no_internet(cause: BaseException | None) -> NoInternetError:
     return error
 
 
+_URL = "https://example.invalid/x"
+
+
+def _caught(function: Callable[[], None]) -> Exception:
+    try:
+        function()
+    except Exception as error:  # noqa: BLE001
+        return error
+    msg = "nothing was raised"
+    raise AssertionError(msg)
+
+
+def _download_in_the_handler_of_a_caused_error() -> None:
+    try:
+        try:
+            raise TimeoutError  # noqa: TRY301
+        except TimeoutError as timeout:
+            raise ValueError("x") from timeout  # noqa: EM101
+    except ValueError:
+        raise _download_error(TimeoutError(), _URL)  # noqa: B904
+
+
+def _download_in_the_handler_of_a_timeout() -> None:
+    try:
+        raise TimeoutError  # noqa: TRY301
+    except TimeoutError:
+        raise _download_error(TimeoutError(), _URL)  # noqa: B904
+
+
+def _download_from_an_error_from_a_timeout() -> None:
+    try:
+        try:
+            raise TimeoutError  # noqa: TRY301
+        except TimeoutError as timeout:
+            raise ValueError("x") from timeout  # noqa: EM101
+    except ValueError as error:
+        raise _download_error(error, _URL) from error
+
+
+def _download_from_a_timeout_raised_while_handling() -> None:
+    try:
+        try:
+            raise ValueError("x")  # noqa: EM101, TRY301
+        except ValueError:
+            raise TimeoutError  # noqa: B904
+    except TimeoutError as timeout:
+        raise _download_error(timeout, _URL) from timeout
+
+
+_FORGED = (
+    "oops\nThe above exception was the direct cause of the following exception:\n\n"
+    "TimeoutError   Traceback (most recent call last)\nTimeoutError: "
+)
+
 _PINNED = [
+    pytest.param(_caught(_download_in_the_handler_of_a_caused_error), id="raised while handling a caused error"),
+    pytest.param(_caught(_download_in_the_handler_of_a_timeout), id="raised while handling a timeout"),
+    pytest.param(_caught(_download_from_an_error_from_a_timeout), id="from an error from a timeout"),
+    pytest.param(_caught(_download_from_a_timeout_raised_while_handling), id="from a timeout raised while handling"),
+    pytest.param(DownloadError(_URL, _FORGED), id="reason that forges a chain"),
+    pytest.param(TimeoutError(), id="bare timeout"),
+    pytest.param(FSTimeoutError(), id="bare fs timeout"),
+    pytest.param(_response_error(503), id="bare 503"),
+    pytest.param(_response_error(404), id="bare 404"),
+    pytest.param(ServerDisconnectedError("Server disconnected"), id="bare dropped connection"),
+    pytest.param(_no_internet(OSError("Multiple exceptions: [Errno 61] a, [Errno 13] b")), id="mixed errnos"),
     pytest.param(_no_internet(socket.gaierror(8, "nodename nor servname provided, or not known")), id="gaierror"),
     pytest.param(_no_internet(ConnectionRefusedError(61, "Connect call failed")), id="refused"),
     pytest.param(_no_internet(ConnectionResetError(54, "reset")), id="reset"),
@@ -310,7 +440,9 @@ def test_the_extension_tells_an_outage_as_the_tests_do(error: Exception, monkeyp
 
 
 def _write_project(root: Path, pages: dict[str, list[dict[str, Any]]]) -> Path:
-    """Write a project of notebooks that come with the outputs of the cells, and need no kernel."""
+    """Write a project of notebooks that come with the outputs of the cells, and need no kernel, into `root/src`."""
+    root = root / "src"  # myst-nb writes beside the sources, and a second build would read what it wrote
+    root.mkdir()
     (root / "conf.py").write_text(
         f"import sys\nsys.path.insert(0, {str(_EXT)!r})\n"
         "extensions = ['myst_nb', 'notebook_errors']\n"
@@ -351,7 +483,7 @@ def _cell(ename: str, evalue: str = "", cause: tuple[str, str] | None = None, **
     return {"outputs": [output], "metadata": metadata}
 
 
-def _build(root: Path, *, parallel: int = 1) -> tuple[int, str]:
+def _build(root: Path, *, parallel: int = 1, fresh: bool = True) -> tuple[int, str]:
     pytest.importorskip("myst_nb")
     pytest.importorskip("nbformat")
     from sphinx.application import Sphinx  # noqa: PLC0415
@@ -360,12 +492,12 @@ def _build(root: Path, *, parallel: int = 1) -> tuple[int, str]:
     app = Sphinx(
         str(root),
         str(root),
-        str(root / "_build"),
-        str(root / "_doctrees"),
+        str(root.parent / "_build"),
+        str(root.parent / "_doctrees"),
         "html",
         status=None,
         warning=warning,
-        freshenv=True,
+        freshenv=fresh,
         parallel=parallel,
     )
     app.build()
@@ -383,6 +515,7 @@ def test_a_provider_that_did_not_answer_is_a_warning_in_the_build(tmp_path: Path
     assert status == 0
     assert "page, line" in warnings
     assert "[wetterdienst.outage]" in warnings
+    assert "1 NameError(s) after a cell that did not finish on the same page, not judged" in warnings
 
 
 def test_any_other_error_fails_the_build(tmp_path: Path) -> None:
@@ -437,7 +570,7 @@ def test_a_build_that_did_not_finish_is_not_judged(tmp_path: Path, monkeypatch: 
     root = _write_project(tmp_path, {"page": [_cell("ValueError", "a real bug")]})
     warning = io.StringIO()
     app = Sphinx(
-        str(root), str(root), str(root / "_build"), str(root / "_doctrees"), "html",
+        str(root), str(root), str(root.parent / "_build"), str(root.parent / "_doctrees"), "html",
         status=None, warning=warning, freshenv=True,
     )  # fmt: skip
     with pytest.raises(RuntimeError):
@@ -457,3 +590,52 @@ def test_myst_nb_is_not_patched_twice() -> None:
     notebook_errors.record_error_outputs()
     assert NotebookClientBase.__enter__ is patched
     assert patched.records_errors
+
+
+def test_the_errors_of_a_page_that_is_gone_are_gone(tmp_path: Path) -> None:
+    """The environment keeps the errors of the pages from one build to the next, and forgets those of a removed page."""
+    root = _write_project(tmp_path, {"broken": [_cell("ValueError", "a real bug")], "fine": [_OUTAGE_CELL]})
+    status, _ = _build(root)
+    assert status == 1
+
+    (root / "broken.ipynb").unlink()
+    (root / "index.md").write_text("# Scratch\n\n```{toctree}\nfine\n```\n", encoding="utf8")
+    status, warnings = _build(root, fresh=False)
+    assert status == 0, warnings
+
+
+# --- a kernel ----------------------------------------------------------------------------------------------------
+
+
+def _run_notebook(root: Path, source: str, *, timeout: int = 30) -> tuple[int, str]:
+    """Execute a page with a kernel, as Read the Docs does."""
+    pytest.importorskip("ipykernel")
+    root = root / "src"
+    root.mkdir()
+    (root / "conf.py").write_text(
+        f"import sys\nsys.path.insert(0, {str(_EXT)!r})\n"
+        "extensions = ['myst_nb', 'notebook_errors']\n"
+        f"nb_execution_mode = 'force'\nnb_execution_allow_errors = True\nnb_execution_timeout = {timeout}\n"
+        "suppress_warnings = ['myst-nb.lexer']\n",
+        encoding="utf8",
+    )
+    (root / "index.md").write_text(
+        "---\nfile_format: mystnb\nkernelspec: {name: python3, display_name: python3, language: python}\n---\n"
+        f"# Page\n\n```{{code-cell}} ipython3\n{source}\n```\n",
+        encoding="utf8",
+    )
+    return _build(root)
+
+
+def test_a_cell_that_raises_in_a_kernel_fails_the_build(tmp_path: Path) -> None:
+    """The notebook comes back from the kernel with the error output, which the extension finds."""
+    status, warnings = _run_notebook(tmp_path, 'raise ValueError("a real bug")')
+    assert status == 1
+    assert "ValueError: a real bug" in warnings
+
+
+def test_a_cell_that_runs_into_the_execution_timeout_is_a_warning(tmp_path: Path) -> None:
+    """The kernel is interrupted, and the interrupt is told from one the page raises."""
+    status, warnings = _run_notebook(tmp_path, "import time\ntime.sleep(30)", timeout=1)
+    assert status == 0
+    assert "nb_execution_timeout" in warnings

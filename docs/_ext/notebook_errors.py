@@ -8,12 +8,14 @@ myst-nb has no setting between "a cell that fails is shown and the build goes on
 setting between: the notebooks run with `nb_execution_allow_errors`, the error outputs of every executed notebook
 are collected as myst-nb hands the notebook on (whatever the cell hides of its output), and when the build is done
 
-- a provider that did not answer is a warning (`wetterdienst.outage`), and the page shows its traceback. That is the
-  rule of `skip_if_upstream_unavailable` in `tests/conftest.py`, read off the traceback of the notebook: a
-  `NoInternetError` whose connection timed out, was refused, reset or had no route, and a `DownloadError` caused by a
-  timeout, a dropped connection, a body cut short or a 5xx. A 4xx or a 404 is the provider answering, a name that does
-  not resolve is what a decommissioned host looks like, and `DownloadError` for another cause (a TLS failure, a
-  refused redirect or link) fails the build;
+- a provider that did not answer is a warning (`wetterdienst.outage`), and the page shows its traceback. That mirrors
+  the main cases of `skip_if_upstream_unavailable` in `tests/conftest.py`, read off the traceback of the notebook: a
+  `NoInternetError` whose connection timed out, was refused, reset or had no route, and a `DownloadError` (or the bare
+  failure) caused by a timeout, a dropped connection, a body cut short or a 5xx. A 4xx or a 404 is the provider
+  answering, a name that does not resolve is what a decommissioned host looks like, and `DownloadError` for another
+  cause (a TLS failure, a refused redirect or link) fails the build. It is stricter than the tests where it cannot
+  see: a `DownloadError` caused by a `NoInternetError`, and the 5xx that AEMET reports in the envelope of a 200; and
+  it does not ask whether the machine has a network (`_runner_has_network`);
 - a cell that was interrupted by `nb_execution_timeout` is a warning too (`wetterdienst.outage`): the provider was
   slow. A hang in our own code looks the same, and is not told apart;
 - a `NameError` after one of these on the same page is a consequence of the cell that failed, and not judged;
@@ -32,6 +34,7 @@ import dataclasses as dc
 import errno
 import functools
 import re
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 from wetterdienst.exceptions import DownloadError, NoInternetError
@@ -57,6 +60,10 @@ WINDOWS_SEMAPHORE_TIMEOUT = 121
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _DIRECT_CAUSE = "The above exception was the direct cause of the following exception:"
+_SEPARATOR = re.compile(
+    rf"^({re.escape(_DIRECT_CAUSE)}|During handling of the above exception, another exception occurred:)[ \t]*$",
+    re.MULTILINE,
+)
 _HEADER = re.compile(r"^(\w+)\s+Traceback \(most recent call last\)\s*$", re.MULTILINE)
 _ERRNO = re.compile(r"\[Errno (-?\d+)\]")
 _STATUS = re.compile(r"^(\d{3})\b")
@@ -105,23 +112,34 @@ def _subclass_names(root: type[Exception]) -> frozenset[str]:
     return frozenset(names)
 
 
-def direct_cause(traceback: list[str]) -> tuple[str, str] | None:
+def direct_cause(traceback: list[str], ename: str, evalue: str) -> tuple[str, str] | None:
     """Read the exception that the last one of a traceback was raised from, as IPython writes it, if any.
 
     The error output of a notebook has only the name and the message of the exception that was raised; the rest of
     its chain is in the traceback, where each exception opens with its name above the frames and ends with its
-    name and message, and the one that caused the next is told so before it.
+    name and message, and the one that caused the next is told so before it. A chain joins its exceptions with one
+    of two sentences, and only "the direct cause" is `raise ... from`: the other is an exception raised while another
+    was handled, which `__cause__` is not.
+
+    The last exception is taken off the end first, by the name and the message the error output has, so that text in
+    its message cannot pass for the structure of the chain; what is left is read from its end. Without that end, no
+    cause is told.
     """
-    text = _ANSI.sub("", "\n".join(traceback))
-    parts = text.split(_DIRECT_CAUSE)
-    if len(parts) < 2:  # noqa: PLR2004
+    text = _ANSI.sub("", "\n".join(traceback)).rstrip()
+    last = f"{ename}: {evalue}".rstrip() if evalue else ename
+    if not text.endswith(last):
         return None
-    cause = parts[-2]
-    headers = list(_HEADER.finditer(cause))
-    if not headers:
+    text = text[: -len(last)]
+    separators = list(_SEPARATOR.finditer(text))
+    if not separators or separators[-1].group(1) != _DIRECT_CAUSE:
         return None
-    name = headers[-1].group(1)
-    messages = re.findall(rf"^(?:[\w.]+\.)?{name}(?:: ?(.*))?$", cause[headers[-1].end() :], re.MULTILINE)
+    begin = separators[-2].end() if len(separators) > 1 else 0
+    cause = text[begin : separators[-1].start()]
+    header = _HEADER.search(cause)
+    if header is None:
+        return None
+    name = header.group(1)
+    messages = re.findall(rf"^(?:[\w.]+\.)?{name}(?:: ?(.*))?$", cause[header.end() :], re.MULTILINE)
     return name, (messages[-1] if messages else "")
 
 
@@ -157,10 +175,11 @@ def _host_did_not_answer(cause: tuple[str, str] | None) -> bool:
 
     if issubclass(failure, socket.gaierror):
         return False
-    found = _ERRNO.search(message)
+    # aiohappyeyeballs joins the errors of every address it tried into one message: all of them must be unanswered
+    found = {int(number) for number in _ERRNO.findall(message)}
     return (
         issubclass(failure, (TimeoutError, ConnectionError))
-        or (found is not None and int(found.group(1)) in UNANSWERED_ERRNOS)
+        or (bool(found) and found <= UNANSWERED_ERRNOS)
         or f"[WinError {WINDOWS_SEMAPHORE_TIMEOUT}]" in message
     )
 
@@ -189,7 +208,7 @@ def _download_failed_in_a_blip(cause: tuple[str, str] | None) -> bool:
         return False
     if issubclass(failure, ClientResponseError):
         status = _STATUS.match(message)
-        return status is not None and int(status.group(1)) >= 500  # noqa: PLR2004
+        return status is not None and int(status.group(1)) >= HTTPStatus.INTERNAL_SERVER_ERROR
     return issubclass(failure, (ClientConnectionError, ClientPayloadError, FSTimeoutError, TimeoutError))
 
 
@@ -203,7 +222,8 @@ def is_outage(error: ErrorOutput) -> bool:
         return error.evalue.startswith("No internet connection: could not reach ") and _host_did_not_answer(error.cause)
     if error.ename in _subclass_names(DownloadError):
         return error.evalue.startswith("Failed to download ") and _download_failed_in_a_blip(error.cause)
-    return False
+    # a failure that reaches the cell without the wrapper of the library, as `_is_upstream_outage` takes it
+    return _download_failed_in_a_blip((error.ename, error.evalue))
 
 
 def judge(errors: list[ErrorOutput]) -> Verdict:
@@ -230,9 +250,10 @@ def judge(errors: list[ErrorOutput]) -> Verdict:
 
 def error_outputs(
     docname: str,
-    notebook: Any,
+    notebook: Any,  # noqa: ANN401
     cell_line: Callable[[int], int],
-    execution_error: str | None = None,  # noqa: ANN401
+    *,
+    timed_out: bool = False,
 ) -> list[ErrorOutput]:
     """Collect the error outputs of an executed notebook.
 
@@ -240,11 +261,10 @@ def error_outputs(
         docname: The page the notebook is.
         notebook: The notebook, with the outputs it has after it ran.
         cell_line: Gives the line of a cell in the page.
-        execution_error: The class name of the error that stopped the notebook as a whole, if one did (`exec_metadata`
-            of myst-nb): a cell that runs into the timeout stops it, and its output is a `KeyboardInterrupt`.
+        timed_out: Whether the notebook ran into the execution timeout (`exec_metadata` of myst-nb has
+            `CellTimeoutError`), which stops it, and leaves the output of the cell it interrupted a `KeyboardInterrupt`.
 
     """
-    timed_out_notebook = execution_error == TIMEOUT
     found = []
     for index, cell in enumerate(notebook.get("cells", [])):
         if cell.get("cell_type") != "code" or EXPECTED_FAILURE_TAG in cell.get("metadata", {}).get("tags", []):
@@ -253,21 +273,19 @@ def error_outputs(
             if output.get("output_type") != "error":
                 continue
             ename = output.get("ename", "")
+            evalue = output.get("evalue", "")
             found.append(
                 ErrorOutput(
                     docname=docname,
                     line=cell_line(index),
                     ename=ename,
-                    evalue=output.get("evalue", ""),
-                    cause=direct_cause(output.get("traceback", [])),
-                    timed_out=timed_out_notebook and ename == "KeyboardInterrupt",
+                    evalue=evalue,
+                    cause=direct_cause(output.get("traceback", []), ename, evalue),
+                    timed_out=timed_out and ename == "KeyboardInterrupt",
                 )
             )
-    if timed_out_notebook and not any(error.timed_out for error in found):
+    if timed_out and not any(error.timed_out for error in found):
         found.append(ErrorOutput(docname, 0, TIMEOUT, "a cell ran into the execution timeout", timed_out=True))
-    # the notebook stopped for another reason than a cell that raised, a kernel that died for one
-    elif execution_error and not timed_out_notebook and execution_error != "CellExecutionError":
-        found.append(ErrorOutput(docname, 0, execution_error, "the notebook did not finish executing"))
     return found
 
 
@@ -306,7 +324,7 @@ def record_error_outputs() -> None:
                 app.env.docname,
                 client.notebook,
                 client.cell_line,
-                metadata["error"] if metadata else None,
+                timed_out=bool(metadata) and metadata["error"] == TIMEOUT,
             )
         return client
 

@@ -11,6 +11,7 @@ on:
     paths:
       - 'docs/**'
       - 'tests/test_docs_notebook_errors.py'
+      - 'tests/conftest.py'
       - 'README.md'
       - 'CHANGELOG.md'
       - 'LICENSE.md'
@@ -23,6 +24,7 @@ on:
     paths:
       - 'docs/**'
       - 'tests/test_docs_notebook_errors.py'
+      - 'tests/conftest.py'
       - 'README.md'
       - 'CHANGELOG.md'
       - 'LICENSE.md'

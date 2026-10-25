@@ -70,12 +70,17 @@ notebooks run with `nb_execution_allow_errors`, so that every cell runs, and the
 each executed notebook (the cells that hide their output included) and judges them when the build is done:
 
 - A provider that did not answer is a warning (`wetterdienst.outage`, which `suppress_warnings` can silence): the page
-  shows the traceback and the build goes on. What counts is the rule of `skip_if_upstream_unavailable` in
-  `tests/conftest.py`: a `NoInternetError` whose connection timed out, was refused or reset or had no route, and a
-  `DownloadError` caused by a timeout, a dropped connection, a body cut short or a 5xx. A 404 or another 4xx is the
-  provider answering, and a name that does not resolve is what a decommissioned host looks like, so those fail, and so
-  does a `DownloadError` of any other cause (TLS, a refused redirect). `tests/test_docs_notebook_errors.py` holds the
-  two to the same answer.
+  shows the traceback and the build goes on. That mirrors the main cases of `skip_if_upstream_unavailable` in
+  `tests/conftest.py`, read off the traceback of the notebook: a `NoInternetError` whose connection timed out, was
+  refused or reset or had no route, and a `DownloadError` (or the bare failure) caused by a timeout, a dropped
+  connection, a body cut short or a 5xx. A 404 or another 4xx is the provider answering, and a name that does not
+  resolve is what a decommissioned host looks like, so those fail, and so does a `DownloadError` of any other cause
+  (TLS, a refused redirect) and one that was raised while another error was handled rather than from it. The
+  differences: the extension fails on a `DownloadError` caused by a `NoInternetError` and on the 5xx that AEMET
+  reports in the envelope of a 200, which it cannot see; it does not ask whether the machine has a network
+  (`_runner_has_network`); and it counts a connection refused on every address it tried (localhost on IPv4 and IPv6)
+  as refused, where the tests do not. `tests/test_docs_notebook_errors.py` holds the two to the same answer over real
+  exceptions, and runs when `tests/conftest.py` changes.
 - A cell that is interrupted by `nb_execution_timeout` is a warning too: a slow provider must not fail the build. A
   hang in our own code looks the same and is not told apart, so read the warning.
 - A `NameError` after one of these on the same page is the cell that failed leaving a name undefined, and is not
@@ -87,11 +92,14 @@ each executed notebook (the cells that hide their output included) and judges th
   is not looked at. A sample that shows a failure is better caught in a `try` block.
 
 A build with `-D nb_execution_mode=off`, as `docs.yml` runs it, executes no cell, so it neither needs the network nor is
-it checked by this. The notebook is judged as myst-nb hands it on, after it ran or was restored from its cache; with
-`nb_execution_mode=cache` the notebook of a page with a failed cell was not stored (myst-nb 1.4, jupyter-cache), so it
-runs again, and Read the Docs builds with the default `auto` anyway. A page that is executed inline
-(`nb_execution_mode=inline`) is not checked. `docs.yml` runs `tests/test_docs_notebook_errors.py` with the docs group,
-which is where the glue to myst-nb and Sphinx is held; elsewhere the tests of the glue are skipped.
+it checked by this. A page that is executed inline (`nb_execution_mode=inline`) is not checked either, and a kernel that
+dies crashes the build (exit status 2) instead of being judged. Read the Docs builds with the default `auto`, which
+executes the notebooks every time. With `nb_execution_mode=cache`, jupyter-cache stores a notebook together with its
+error outputs (only a notebook that ran into the timeout is not stored): the traceback of an outage stays on the page,
+and an error that came from library code keeps failing the build after the fix, until the cache is cleared
+(delete the `.jupyter_cache` directory beside the build directory). `docs.yml` runs
+`tests/test_docs_notebook_errors.py` with the docs group, which is where the glue to myst-nb and Sphinx is held;
+elsewhere those tests are skipped.
 
 ## Building
 
