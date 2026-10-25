@@ -283,6 +283,24 @@ const STATES: State[] = [
     path: '/meteogram?station=01001',
     reach: async (page, locale) => {
       await expect(plotly(page)).toBeVisible()
+      await page.getByRole('radio', { name: message(locale, 'meteogram.chart.viewTable'), exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    page: 'meteogram',
+    state: 'table-view-linked',
+    path: '/meteogram?station=01001&view=table',
+    reach: async (page) => {
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    page: 'widget',
+    state: 'table-shown',
+    path: '/widget?station=01001',
+    reach: async (page, locale) => {
+      await expect(plotly(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -660,13 +678,13 @@ test.describe('chart controls by keyboard', () => {
     await expect(buttons.first()).toBeFocused()
   })
 
-  // what the stripes and the forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  // what the stripes and the widget's forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
   for (const { page: name, path, ready } of [
     { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
       await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
       await expect(plotly(page)).toBeVisible()
     } },
-    { page: 'meteogram', path: '/meteogram?station=01001', ready: async (page: Page) => {
+    { page: 'widget', path: '/widget?station=01001', ready: async (page: Page) => {
       await expect(plotly(page)).toBeVisible()
     } },
   ]) {
@@ -706,6 +724,59 @@ test.describe('chart controls by keyboard', () => {
       await expect(page.getByRole('table')).toHaveCount(0)
     })
   }
+
+  // the forecast's table is a view of its own, chosen by a radio group that the arrow keys move along
+  // (WCAG 1.1.1, 1.3.1, 2.1.1, 4.1.2)
+  test('the forecast of the meteogram page has its values as a view of its own, chosen and read by keys', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/meteogram?station=01001', variant)
+    await expect(plotly(page)).toBeVisible()
+
+    // the chart is described by a sentence that exists, and there is no table until the view is chosen
+    const figure = page.getByRole('figure')
+    const described = (await figure.getAttribute('aria-describedby'))!
+    await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
+    await expect(page.getByRole('table')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toHaveCount(0)
+
+    const group = page.getByRole('radiogroup', { name: message('en', 'meteogram.chart.viewLabel'), exact: true })
+    const chart = group.getByRole('radio', { name: message('en', 'meteogram.chart.viewChart'), exact: true })
+    const compact = group.getByRole('radio', { name: message('en', 'meteogram.chart.viewCompact'), exact: true })
+    const tableView = group.getByRole('radio', { name: message('en', 'meteogram.chart.viewTable'), exact: true })
+    await expect(chart).toBeChecked()
+
+    // the group is one stop; the arrow keys choose and move the focus
+    await chart.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(compact).toBeChecked()
+    await expect(compact).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(tableView).toBeChecked()
+    await expect(tableView).toBeFocused()
+    await expect(page).toHaveURL(/[?&]view=table/)
+
+    // the table has no chart over it, and the headers and rows a screen reader reads
+    await expect(page.getByRole('figure')).toHaveCount(0)
+    const table = page.getByRole('table')
+    await expect(table).toBeVisible()
+    await expect(table.getByRole('rowheader').first()).toHaveText(/\S/)
+    expect(await table.getByRole('row').count()).toBeGreaterThan(10)
+
+    // the box that scrolls takes the focus, so that the keys scroll it
+    const region = page.getByRole('region', { name: /^Forecast chart for / })
+    await region.focus()
+    await expect(region).toBeFocused()
+    const before = await region.evaluate(node => node.scrollTop)
+    await page.keyboard.press('PageDown')
+    await expect.poll(() => region.evaluate(node => node.scrollTop)).toBeGreaterThan(before)
+
+    // and back to the chart by keys
+    await tableView.focus()
+    await page.keyboard.press('Home')
+    await expect(chart).toBeChecked()
+    await expect(plotly(page)).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+  })
 
   // Plotly's hover label comes with the pointer and goes with it; Escape takes it away without moving the
   // pointer, until the pointer moves on (WCAG 1.4.13). Hoverable it cannot be, see utils/chart-hover.ts.

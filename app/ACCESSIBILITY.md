@@ -11,7 +11,7 @@ it, what was checked by hand, and what is known not to conform.
 
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
-  stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
+  stations, a drawn chart (explorer, stripes, meteogram, widget), the table of the stripes' values opened, the meteogram's table view (chosen and linked) and its compact day cards, the widget's table opened, an open
   menu or popover, and an error notice.
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
@@ -39,7 +39,7 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
 it back; `chart controls by keyboard`: Plotly's modebar, and the table of values that stands for the stripes
-and the meteogram, opened, reached and scrolled by keys; and Plotly's hover label and the names of its
+and the widget's forecast, opened, reached and scrolled by keys, and the meteogram's view control (a radio group moved by the arrow keys, which opens the table view), reached and scrolled by keys; and Plotly's hover label and the names of its
 modebar buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
 
@@ -146,7 +146,7 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 | Criterion | Result |
 | --- | --- |
 | 1.1.1, 1.3.1 Text alternative of the climate stripes | **Was failing**: a `figure` with a name and nothing of what it shows. The figure is described (`aria-describedby`) by a sentence, the span of the years with the lowest and the highest value, and a "Show as table" button below it opens a table of every year drawn with its value and its class (the fifth of the range between the lowest and the highest year that gives its colour, named for temperature or precipitation). |
-| 1.1.1, 1.3.1 Text alternative of the meteogram (also the widget) | **Was failing**: the same. The figure is described by the span of the forecast and its temperatures, and "Show as table" opens the values of the series the shown panels plot (as far as the horizon chosen reaches), one row for each time, in the station's time zone. The compact view is day cards with their own text (the weekday, the temperatures, the rain), and has no table. |
+| 1.1.1, 1.3.1 Text alternative of the meteogram (also the widget) | **Was failing**: the same. The figure is described by the span of the forecast and its temperatures (`aria-describedby`), and says that the values are in the table view. On the meteogram page the table is a view of its own, chosen with the radio group "View" (Chart, Compact, Table; the arrow keys, Home and End move along it) and linked as `?view=table`: the values of the series the shown panels plot (as far as the horizon chosen reaches), one row for each time, in the station's time zone, with a caption, `scope` headers, a header row and a time column that stay in view, and a scroll box that takes the focus. The widget has no control, and keeps "Show as table" below its chart. The compact view is day cards with their own text (the weekday, the temperatures, the rain), and has no table. |
 | 2.1.1 Plotly's modebar (explorer, stripes) | Not failing in the Plotly the app ships (3.7.0): the hand audit recorded `a` elements without `href`, but its buttons are native `button`s with an `aria-label`, in the tab order, operated by Enter and Space, and the toggles (zoom, pan) say so by their `active` class. The meteogram draws none. Tested (`chart controls by keyboard`), so an upgrade that changes it fails. |
 | 1.1.1 Text alternative of the meteogram's compact day cards | **Was failing**: the weather of a day was an emoji, and a drop before the rain's amount, with no text. Both symbols are hidden from assistive technology (`aria-hidden`); the card holds the words for the weather, visually hidden (`meteogram.chart.weather.*`: thunderstorm, rain, snow, sleet, drizzle, fog, windy, dust or sand storm, blowing snow, cloudy, partly cloudy, sunny), in the language of the page, and "Precipitation:" before the amount. The name is held to the WMO's present-weather table: every code 0 to 99 has its kind in `tests/unit/weather-kind.test.ts`, and a code that names no weather the card can (haze, hail, a funnel cloud) is judged from the cloud cover and the rain. Tested for weather codes and for the cloud-cover heuristic, and in all eleven languages. |
 | 1.4.13 Content on hover or focus, Plotly's hover label and the names of its modebar buttons | **Was failing**: nothing dismissed them. With the pointer over a chart, Escape hides the label (and the names of the modebar's buttons) until the pointer moves (`utils/chart-hover.ts`, `main.css`); the label stays while the pointer rests (persistent). Escape is not consumed, so it still closes a dialog. Tested (`chart-hover.test.ts`; in a browser, `chart controls by keyboard`). Hoverable: not met, see below. No hover of a chart starts with the focus, so that case does not arise. |
@@ -160,7 +160,7 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
   `plotly_hover`/`plotly_unhover` events only choose and report the point). Replacing it with an element of
   the app's own that can be hovered would be a tooltip for three charts (positioning, touch, the unified
   forecast label with its day bands) for the sake of a pointer on a label whose values are in the table that
-  stands for the chart ("Show as table": forecast, stripes, explorer), so the table is what the criterion's
+  stands for the chart (the table view of the forecast, "Show as table": stripes, explorer, widget), so the table is what the criterion's
   intent (a reader who magnifies the screen can reach what the label says) is met by. Not met to the letter.
 - **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
   hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
