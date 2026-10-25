@@ -39,8 +39,9 @@ workflows of this repository (`release.yml`, `docker-publish.yml`, `docker-publi
 releases made before it was added.
 
 - **PyPI.** Each wheel and sdist carries a [PEP 740](https://peps.python.org/pep-0740/) publish attestation, signed
-  with the identity of the trusted-publisher job of `release.yml` through Sigstore. PyPI shows it on the file's page and serves it at
-  `https://pypi.org/integrity/wetterdienst/<version>/<file>/provenance`. To check a file against this repository:
+  with the identity of the trusted-publisher job of `release.yml` through Sigstore. PyPI shows it on the file's page
+  and serves it at `https://pypi.org/integrity/wetterdienst/<version>/<file>/provenance`. To check a file against
+  this repository:
 
   ```bash
   uvx pypi-attestations verify pypi --repository https://github.com/earthobservations/wetterdienst \

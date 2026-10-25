@@ -26,7 +26,8 @@ docker pull ghcr.io/earthobservations/wetterdienst
 ### Verify the image
 
 The manifest list of a release has a build provenance, signed with the GitHub Actions identity of the workflow that
-pushed it through Sigstore, and each platform has a BuildKit provenance and an SBOM (releases built after they were introduced):
+pushed it through Sigstore, and each platform has a BuildKit provenance and an SBOM (releases built after they were
+introduced):
 
 ```bash
 gh attestation verify oci://ghcr.io/earthobservations/wetterdienst:<version> --repo earthobservations/wetterdienst

@@ -283,8 +283,8 @@ The files the release commit of the last 0.x release touched, plus the 1.0 ones.
   changelog"): what 1.0.0 promises and links Compatibility, which breaking changes since 0.139.0 need action and the
   link to Migrating, the two shims (removed in 0.173.0, so among them), that the app is 0.x and paired (step 6).
 - [ ] `gh release create v1.0.0 --title "v1.0.0" --notes-file <scratch file>`. The published release starts
-  `.github/workflows/release.yml` (build, then the PyPA publish action by trusted publishing, which uploads a PEP 740 attestation with each
-  file).
+  `.github/workflows/release.yml` (build, then the PyPA publish action by trusted publishing, which uploads a
+  PEP 740 attestation with each file).
 - [ ] `release.yml` finished: `pip index versions wetterdienst` (or the PyPI page) lists 1.0.0; in a fresh
   environment `uvx --from wetterdienst==1.0.0 wetterdienst --version` prints 1.0.0 and `wetterdienst info` runs.
 - [ ] The PyPI files are attested: `uvx pypi-attestations verify pypi --repository
@@ -345,6 +345,8 @@ released after step 3, never in the same PR as the backend.
   attaches `app-vX.Y.Z.tar.gz`). The notes say it is paired with backend 1.0.0.
 - [ ] `ghcr.io/earthobservations/wetterdienst-app:X.Y.Z` and `:X.Y` exist, and `compose.yml --profile full` (or the
   `docker run` pair in `docs/usage/app.md`) starts the two images against each other.
+- [ ] The app image is attested: `gh attestation verify oci://ghcr.io/earthobservations/wetterdienst-app:X.Y.Z
+  --repo earthobservations/wetterdienst` succeeds.
 - [ ] Railway deploys from `main` by itself (see "Railway Deployment"); check that `https://wetterdienst.eobs.org`
   shows the backend 1.0.0 in its footer.
 
