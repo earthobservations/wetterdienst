@@ -50,9 +50,22 @@ The app has an image of its own, `ghcr.io/earthobservations/wetterdienst-app`, s
 `compose.yml` of the repository builds the development images. `docker compose --profile backend up`
 serves the API on <http://localhost:7890>, `--profile app up` the app on <http://localhost:4000>, and
 `--profile full up` both, the app asking the backend at `http://backend:7890/api` on the compose network
-(`NUXT_PUBLIC_API_BASE`). The host ports are the container's own, 7890 and 4000. To publish one on
-another host port, give it in a `compose.override.yml` (`ports: !override ["3000:7890"]`) rather than
-in `compose.yml`.
+(`NUXT_PUBLIC_API_BASE`). The host ports are the container's own, 7890 and 4000.
+
+Both ports are published on `127.0.0.1` only, so the API and the app (a development server with
+Nuxt DevTools) answer on the machine that runs compose and not on its network. To reach them from
+another machine, set `WETTERDIENST_BIND_HOST` to the address to listen on, in the shell or in the
+`.env` of the repository (`WETTERDIENST_BIND_HOST=0.0.0.0` is every interface; the default is
+`127.0.0.1`):
+
+```bash
+WETTERDIENST_BIND_HOST=0.0.0.0 docker compose --profile full up
+```
+
+The services reach each other by name on the compose network, which this does not change. To publish
+one on another host port, give it in a `compose.override.yml`
+(`ports: !override ["127.0.0.1:3000:7890"]`, without the address it is published on every interface)
+rather than in `compose.yml`.
 
 ## User and cache
 

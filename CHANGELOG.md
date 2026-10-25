@@ -18,6 +18,11 @@ Types of changes:
 
 ### Changed
 
+- `compose.yml` publishes the ports of the backend (7890) and the app (4000) on `127.0.0.1`, no
+  longer on every interface of the host, so `docker compose up` is not reachable from the network.
+  To reach it from another machine, set `WETTERDIENST_BIND_HOST=0.0.0.0` (or a host address) in
+  the shell or in `.env`; a `compose.override.yml` that maps ports gives the address itself
+  (GH-3096)
 - **Breaking**: the `noaa/ghcn` hourly stations Chelveston (UKW00015015) and Huntington
   (Alconbury, UKW00015033) are placed west of Greenwich, no longer 73 and 29 km east of it, where
   `ghcnh-station-list.csv` has lost the sign of their longitude; a filter on the old position
