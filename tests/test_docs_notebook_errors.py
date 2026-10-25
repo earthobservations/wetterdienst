@@ -38,8 +38,8 @@ notebook_errors = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = notebook_errors  # a dataclass looks its module up, and so does Sphinx
 _SPEC.loader.exec_module(notebook_errors)
 
-_GAIERROR = ("gaierror", "[Errno 8] nodename nor servname provided, or not known")
-_REFUSED = ("ConnectionRefusedError", "[Errno 61] Connect call failed ('127.0.0.1', 1)")
+_GAIERROR = ("gaierror", f"[Errno {socket.EAI_NONAME}] nodename nor servname provided, or not known")
+_REFUSED = ("ConnectionRefusedError", f"[Errno {errno.ECONNREFUSED}] Connect call failed ('127.0.0.1', 1)")
 _NO_INTERNET = "No internet connection: could not reach https://example.invalid/x (Cannot connect to host)"
 _DOWNLOAD = "Failed to download https://example.invalid/x: 503, message='Service Unavailable'"
 
@@ -98,7 +98,10 @@ def _chain(*links: tuple[str, str], separators: tuple[str, ...]) -> list[str]:
         pytest.param(_error("NoInternetError", _NO_INTERNET, cause=_REFUSED), id="refused"),
         pytest.param(_error("NoInternetError", _NO_INTERNET, cause=("TimeoutError", "")), id="timed out"),
         pytest.param(
-            _error("NoInternetError", _NO_INTERNET, cause=("OSError", "[Errno 65] No route to host")), id="route"
+            _error(
+                "NoInternetError", _NO_INTERNET, cause=("OSError", f"[Errno {errno.EHOSTUNREACH}] No route to host")
+            ),
+            id="route",
         ),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("ClientResponseError", "503, message='x'")), id="503"),
         pytest.param(_error("DownloadError", _DOWNLOAD, cause=("FSTimeoutError", "")), id="timeout"),
@@ -110,7 +113,12 @@ def _chain(*links: tuple[str, str], separators: tuple[str, ...]) -> list[str]:
         ),
         pytest.param(
             _error(
-                "NoInternetError", _NO_INTERNET, cause=("OSError", "Multiple exceptions: [Errno 61] a, [Errno 61] b")
+                "NoInternetError",
+                _NO_INTERNET,
+                cause=(
+                    "OSError",
+                    f"Multiple exceptions: [Errno {errno.ECONNREFUSED}] a, [Errno {errno.ECONNREFUSED}] b",
+                ),
             ),
             id="refused on every address",
         ),
@@ -141,7 +149,9 @@ def test_a_provider_that_did_not_answer_is_a_warning_and_not_a_failure(error: no
         pytest.param(_error("NotANoInternetError", _NO_INTERNET, cause=_REFUSED), id="name that contains no internet"),
         pytest.param(
             _error(
-                "NoInternetError", _NO_INTERNET, cause=("OSError", "Multiple exceptions: [Errno 61] a, [Errno 13] b")
+                "NoInternetError",
+                _NO_INTERNET,
+                cause=("OSError", f"Multiple exceptions: [Errno {errno.ECONNREFUSED}] a, [Errno {errno.EACCES}] b"),
             ),
             id="refused on one address and not allowed on another",
         ),
@@ -394,14 +404,19 @@ _PINNED = [
     pytest.param(_response_error(503), id="bare 503"),
     pytest.param(_response_error(404), id="bare 404"),
     pytest.param(ServerDisconnectedError("Server disconnected"), id="bare dropped connection"),
-    pytest.param(_no_internet(OSError("Multiple exceptions: [Errno 61] a, [Errno 13] b")), id="mixed errnos"),
-    pytest.param(_no_internet(socket.gaierror(8, "nodename nor servname provided, or not known")), id="gaierror"),
-    pytest.param(_no_internet(ConnectionRefusedError(61, "Connect call failed")), id="refused"),
-    pytest.param(_no_internet(ConnectionResetError(54, "reset")), id="reset"),
+    pytest.param(
+        _no_internet(OSError(f"Multiple exceptions: [Errno {errno.ECONNREFUSED}] a, [Errno {errno.EACCES}] b")),
+        id="mixed errnos",
+    ),
+    pytest.param(
+        _no_internet(socket.gaierror(socket.EAI_NONAME, "nodename nor servname provided, or not known")), id="gaierror"
+    ),
+    pytest.param(_no_internet(ConnectionRefusedError(errno.ECONNREFUSED, "Connect call failed")), id="refused"),
+    pytest.param(_no_internet(ConnectionResetError(errno.ECONNRESET, "reset")), id="reset"),
     pytest.param(_no_internet(TimeoutError()), id="timeout"),
-    pytest.param(_no_internet(OSError(65, "No route to host")), id="no route"),
-    pytest.param(_no_internet(OSError(101, "Network is unreachable")), id="no network"),
-    pytest.param(_no_internet(OSError(13, "Permission denied")), id="another OSError"),
+    pytest.param(_no_internet(OSError(errno.EHOSTUNREACH, "No route to host")), id="no route"),
+    pytest.param(_no_internet(OSError(errno.ENETUNREACH, "Network is unreachable")), id="no network"),
+    pytest.param(_no_internet(OSError(errno.EACCES, "Permission denied")), id="another OSError"),
     pytest.param(_no_internet(None), id="no cause"),
     pytest.param(_download(FSTimeoutError()), id="fs timeout"),
     pytest.param(_download(TimeoutError()), id="timeout of the download"),
