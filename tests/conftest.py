@@ -20,6 +20,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import pytest
+from aiohttp import ClientResponseError
 
 from wetterdienst import Info, Options, Settings
 from wetterdienst.exceptions import DownloadError, NoInternetError
@@ -126,6 +127,19 @@ def _host_did_not_answer(failure: BaseException | None) -> bool:
     )
 
 
+#: Hosts whose 403 is an outage and not a credential refused: the Environment Agency's hydrology API needs no key,
+#: and answers some requests from the runners' address ranges with a 403 (the EA hydrology tests on CI, GH-2522). A
+#: 403 from any other host still fails the test, a rejected key (AEMET) among them.
+_FORBIDDEN_IS_OUTAGE_HOSTS = frozenset({"environment.data.gov.uk"})
+
+
+def _is_forbidden_by_outage_host(failure: BaseException) -> bool:
+    """Say whether a failure is a 403 from a host of `_FORBIDDEN_IS_OUTAGE_HOSTS`."""
+    if not isinstance(failure, ClientResponseError) or failure.status != HTTPStatus.FORBIDDEN:
+        return False
+    return getattr(getattr(failure.request_info, "url", None), "host", None) in _FORBIDDEN_IS_OUTAGE_HOSTS
+
+
 def _host_of(failure: NoInternetError) -> str | None:
     """Name the host a `NoInternetError` could not reach, from the URL its message gives."""
     found = re.search(r"could not reach (\S+)", str(failure))
@@ -143,7 +157,10 @@ def _is_upstream_outage(error: Exception, unresolved_hosts: Collection[str] = ()
         )
         return unanswered and _runner_has_network()
     return isinstance(failure, Exception) and (
-        _worth_retrying(failure) or _is_server_fault(failure) or isinstance(failure, UpstreamMaintenanceError)
+        _worth_retrying(failure)
+        or _is_server_fault(failure)
+        or isinstance(failure, UpstreamMaintenanceError)
+        or _is_forbidden_by_outage_host(failure)
     )
 
 
@@ -160,6 +177,8 @@ def skip_if_upstream_unavailable(*, unresolved_hosts: Collection[str] = ()) -> G
       5xx -- which `download_file` asks twice, so a request made through it is skipped on only after
       its second attempt failed as well;
     - a 5xx that arrives as the status of an envelope rather than of the response (AEMET);
+    - a 403 from a host of `_FORBIDDEN_IS_OUTAGE_HOSTS` (the Environment Agency, which needs no key and refuses some
+      runners, GH-2522);
     - a redirect to the maintenance page of a platform (`UpstreamMaintenanceError`: data.gouv.fr answers every
       request of its maintenance windows with a redirect to `sorry.data.gouv.fr`, GH-3400), which is not asked again;
     - a `NoInternetError` whose connection timed out, was refused, reset or aborted, or had no route (a
@@ -171,8 +190,8 @@ def skip_if_upstream_unavailable(*, unresolved_hosts: Collection[str] = ()) -> G
 
     - a 4xx. A 404 is upstream answering and the likelier cause is a URL built wrong, which is what
       such a test is there to catch; a 400 or a 429 the same. A 401 or a 403 is a credential
-      refused, and a `CredentialRejectedError` is a CI configuration failure that has to stay red
-      (a rejected AEMET key).
+      refused (except the 403 of the hosts named above), and a `CredentialRejectedError` is a CI
+      configuration failure that has to stay red (a rejected AEMET key).
     - a name that does not resolve (`socket.gaierror`): a decommissioned or misspelt host looks just
       like it, and a test that never reaches its host proves nothing, so it fails. Except for a host
       named in ``unresolved_hosts``, whose name a runner's resolver is known to fail on while it
