@@ -4,6 +4,8 @@
 
 # Wetterdienst - Open weather data for humans
 
+<!-- docs-start -->
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/hohenpeissenberg_warming_stripes.png" alt="Warming stripes for Hohenpeißenberg, Germany: one stripe per year from 1781 to 2025, blue for cold years and red for warm ones" width="880" height="440"/>
   <br/>

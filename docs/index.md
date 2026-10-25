@@ -2,7 +2,7 @@
 
 ```{include} ../README.md
 :relative-docs: docs/
-:start-line: 1
+:start-after: <!-- docs-start -->
 ```
 
 ```{toctree}
