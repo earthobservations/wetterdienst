@@ -28,8 +28,8 @@ value a code or its data rules out a bearing; a 0 that may be north is always th
 | a no-direction code: a code of a variable or indeterminate direction | null, with the code | DWD observation `990`, KNMI `990`, Météo-France observation `999` and daily `400`, Météo-France synop `400`, AEMET daily `99` (calm or variable), NOAA GHCN hourly `999`, NWS `VRB` (null from the source) |
 | a no-direction code: a 0 the source names a code | null, `raw:0`, whatever the speed | DWD observation hourly `wind_synoptic` (the sheet's "Windrichtung uml.,windstill DD=00", a variable or calm wind), IPMA (the point 0 of eight, "no direction", where north is 1 or 9) |
 | a no-direction code: a 0 that is neither a calm nor north | null, `raw:0`, whatever the speed | DWD observation hourly `urban_wind`: 1,288 zeros in 295,005 hours, never beside a speed of 0, and the six 10 minute directions of such an hour are spread over the compass (GH-2809); north is written 360 |
-| north | 360, as written; a 0 beside a wind that blows stays 0 | all |
-| a direction on a scale of points | read in degrees: DWD subdaily (32 points, 11.25 degrees each), IPMA (8 points, 45 degrees) | DWD subdaily, IPMA |
+| north | 360, as written; a 0 beside a wind that blows stays 0 | all; IPMA's codes 1 and 9 for north are read as 360 |
+| a direction on a scale of points | read in degrees: DWD subdaily (32 points, 11.25 degrees each), IPMA (8 points, 45 degrees, north 360) | DWD subdaily, IPMA |
 | a direction in tens of degrees | read in degrees | AEMET daily, ECCC |
 
 KNMI's hourly direction `DD` is the mean of the last 10 minutes of the hour ("0=windstil"), and the speed of those

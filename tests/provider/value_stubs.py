@@ -246,6 +246,9 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
         # code 0 is "sem rumo" (no direction), which the feed writes as the integer 0 (checked on the live feed), also
         # beside a wind that blows, as here
         "2026-10-10T14:00": {"1200579": {**reading, "idDireccVento": 0}},
+        # codes 1 and 9 are north, which is 360 (GH-3135), never the 0 of a calm
+        "2026-10-10T15:00": {"1200579": {**reading, "idDireccVento": 1}},
+        "2026-10-10T16:00": {"1200579": {**reading, "idDireccVento": 9}},
     }
     serve(
         monkeypatch,
@@ -255,7 +258,7 @@ def _ipma(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFr
     request = IpmaObservationRequest(
         parameters=[("hourly", "data")],
         start=_day(2026, 10, 10, 11),
-        end=_day(2026, 10, 10, 14),
+        end=_day(2026, 10, 10, 16),
         settings=_settings(),
         options=_options(drop_nulls),
     )

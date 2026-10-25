@@ -3312,8 +3312,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "idDireccVento"): (
             'Class of the predominant wind direction recorded at 10 m height ("classe do rumo do vento"): 0 no '
             "direction, 1 or 9 north, 2 north-east, 3 east, 4 south-east, 5 south, 6 south-west, 7 west, 8 north-west, "
-            "returned as degrees (0 to 315). The code 0 (sem rumo) is returned as null, whether the wind blows or not. "
-            "The source states no period."
+            "returned as degrees (45 to 360, north being 360 as for every provider, never 0). The code 0 (sem rumo) "
+            "is returned as null, whether the wind blows or not. The source states no period."
         ),
         ("hourly", "data", "intensidadeVento"): (
             "Wind speed recorded at 10 m height. The source states no statistic and no period."
