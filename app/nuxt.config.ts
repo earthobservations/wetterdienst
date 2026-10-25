@@ -16,6 +16,13 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Wetterdienst',
+      // the icon of the tab and the home screen (GH-3431): the SVG for current browsers, the 32 px ICO for the
+      // ones that ask for `/favicon.ico` and crawlers, the PNG for iOS. All three are files of `public/`.
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
+        { rel: 'icon', href: '/favicon.ico', sizes: '32x32' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
     },
   },
 

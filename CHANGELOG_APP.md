@@ -30,6 +30,10 @@ Types of changes:
 
 ### Changed
 
+- The app has a new icon: four weather tiles (sun, rain, wind, temperature). It is the tab icon
+  (`/icon.svg`, with a 32 px `/favicon.ico` for browsers that ask for that), the iOS home-screen
+  icon (`/apple-touch-icon.png`) and the logo in the header and the widget. `/favicon.ico` is a
+  real ICO now, no PNG under that name (GH-3431)
 - The backend URL is private runtime config now, so no page carries it any more. Set it with
   `NUXT_API_BASE` (the compose file and the docs do); the old `NUXT_PUBLIC_API_BASE` is read
   while `NUXT_API_BASE` is not set, so a deployment keeps working until it is renamed (GH-3096)
