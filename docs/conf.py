@@ -31,6 +31,7 @@ extensions = [
     "autodoc2",
     "sphinx_copybutton",
     "parameter_glossary",
+    "notebook_errors",
 ]
 
 # -- MyST / MyST-NB configuration --------------------------------------------
@@ -50,6 +51,9 @@ myst_heading_anchors = 3
 # time to fetch from the upstream weather services (default is 30s).
 nb_execution_timeout = 120
 nb_execution_show_tb = True
+# Every cell runs; `notebook_errors` (docs/_ext) then fails the build for a cell that failed unless the provider did
+# not answer. `nb_execution_raise_on_error` would stop at the first failed cell, an outage too.
+nb_execution_allow_errors = True
 
 autodoc2_packages = [
     {
