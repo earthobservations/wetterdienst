@@ -61,13 +61,25 @@ describe('security headers', () => {
     expect(scripts).toContain('\'wasm-unsafe-eval\'')
   })
 
-  it('lets the browser call its own origin, not the backend whose address is read when the app is built', async () => {
+  it('lets the browser call its own origin, not the backend whose address is read when the server starts', async () => {
+    // the variable and its deprecated name alike: neither one changes what the page may call
     vi.stubEnv('NUXT_API_BASE', 'http://backend.internal:7890/api')
+    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://old-backend.internal:7890/api')
     const config = await loadConfig()
     const connect = policyOf(config)['connect-src']!
 
     expect(connect).toContain('\'self\'')
     expect(connect.join(' ')).not.toContain('backend.internal')
+    vi.unstubAllEnvs()
+  })
+
+  it('keeps the backend URL out of the public runtime config, which every page carries (GH-3096)', async () => {
+    vi.stubEnv('NUXT_PUBLIC_API_BASE', 'http://old-backend.internal:7890/api')
+    const config = await loadConfig()
+
+    expect(config.runtimeConfig.public?.apiBase).toBeUndefined()
+    expect(JSON.stringify(config.runtimeConfig.public ?? {})).not.toContain('backend')
+    expect(config.runtimeConfig.apiBase).toBe('')
     vi.unstubAllEnvs()
   })
 

@@ -47,8 +47,9 @@ docker run -d --network wetterdienst --name app --publish=4000:4000 \
 ```
 
 The app is then at <http://localhost:4000>. `NUXT_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
-app's server reaches it: only the server reads it (no page carries it), the browser only talks to the app, which proxies `/api`, the
-interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md) `/mcp/v1` to the backend.
+app's server reaches it: only the server reads it (no page carries it), the browser only talks to the app, which
+proxies `/api`, the interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md)
+`/mcp/v1` to the backend.
 The image of the backend listens on port 7890, see [Docker](docker.md). Every other option below is an environment
 variable too, read when the server starts: no rebuild.
 
