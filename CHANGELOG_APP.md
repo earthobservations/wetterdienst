@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-25
+
 ### Added
 
 - `[Docker]` The app image has a `HEALTHCHECK`: it asks the page at `/` on the server's own port
@@ -44,6 +46,13 @@ Types of changes:
 - `NUXT_PUBLIC_API_BASE`: the server logs one warning when it starts with it set, and a future
   release stops reading it. Rename it to `NUXT_API_BASE`, the value stays the same (GH-3096)
 
+### Security
+
+- `[Docker]` The app image carries a build provenance signed with the GitHub Actions identity of
+  the workflow through Sigstore, from this release on: `gh attestation verify
+  oci://ghcr.io/earthobservations/wetterdienst-app:<version> --repo earthobservations/wetterdienst`
+  checks it. An unsigned BuildKit provenance and an SBOM per platform come with it (GH-3346)
+
 ## [0.35.0] - 2026-10-24
 
 ### Fixed
@@ -55,10 +64,6 @@ Types of changes:
 
 ### Security
 
-- `[Docker]` The app image carries a build provenance signed with the GitHub Actions identity of
-  the workflow through Sigstore, from this release on: `gh attestation verify
-  oci://ghcr.io/earthobservations/wetterdienst-app:<version> --repo earthobservations/wetterdienst`
-  checks it. An unsigned BuildKit provenance and an SBOM per platform come with it (GH-3346)
 - `[Build]` No install script of a dependency runs any more (`allowBuilds` in
   `pnpm-workspace.yaml`, replacing `dangerouslyAllowAllBuilds`): a new dependency that has one fails
   `pnpm install` until it is listed there. pnpm is pinned to 11.22.0 with its hash
@@ -1579,7 +1584,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.36.0...HEAD
+[0.36.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.35.0...app-v0.36.0
 [0.35.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.34.0...app-v0.35.0
 [0.34.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.33.0...app-v0.34.0
 [0.33.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.32.0...app-v0.33.0
