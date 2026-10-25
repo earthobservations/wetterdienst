@@ -71,11 +71,6 @@ _STEP_BY_RESOLUTION = {
 #: no answer, a refused key.
 _UNANSWERED = (NoInternetError, DownloadError, CredentialRejectedError)
 
-#: The hosts besides KNMI's own that the pre-signed link of a file leads to: the S3 bucket of its datasets, which signs
-#: the link (`X-Amz-Signature`); `knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com` when read (2026-10-24, host
-#: only). `*` stands for one label (GH-3339).
-_DOWNLOAD_HOSTS = ("knmi-kdp-datasets-*.s3.*.amazonaws.com",)
-
 _NON_RETRYABLE_STATUSES = {400, 401, 403, 404}
 _RETRY_WAIT_INITIAL_SECONDS = 2
 _RETRY_WAIT_MAX_SECONDS = 15
@@ -270,8 +265,9 @@ def _fetch_netcdf(dataset_name: str, version: str, filename: str, settings: Sett
     if not download_url:
         return Exception(f"KNMI resolve response for {filename} did not contain a temporaryDownloadUrl")
     try:
-        # the link is the resolve answer's to name: fetched at KNMI's own host or the store it signs for (GH-3339)
-        download_url = fetchable_link(download_url, _BASE_URL, allow=_DOWNLOAD_HOSTS)
+        # the link is the resolve answer's to name: fetched at the hosts of KNMI, its API and the store that signs
+        # the link (`PROVIDER_HOSTS`, GH-3339)
+        download_url = fetchable_link(download_url, _BASE_URL)
     except DownloadError as refused:
         # the resolve answer is cached for minutes, and would hand out the same link again
         drop_cached_file(

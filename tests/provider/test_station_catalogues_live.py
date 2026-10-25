@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.conftest import FROST_RESOLVER_ON_MACOS
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_covered, assert_sound
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
@@ -119,6 +120,8 @@ def _cases() -> list[object]:
                 datasets = resolution.datasets if key in _EVERY_DATASET else resolution.datasets[:1]
                 for dataset in datasets:
                     marks = [pytest.mark.skipif(unconfigured, reason=f"{key} needs its credential")]
+                    if key == "metno/frost":
+                        marks.append(FROST_RESOLVER_ON_MACOS)
                     cases.append(
                         pytest.param(
                             provider,

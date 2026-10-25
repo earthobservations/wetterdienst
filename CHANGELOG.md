@@ -44,6 +44,15 @@ Types of changes:
   when both resolutions are requested. One table serves both lists and turns a row only while it
   lists the position that was checked, so a list NOAA corrects is read as it is (GH-3384)
 
+### Security
+
+- Follow-up and redirect URLs are limited to the provider's own hosts: a redirect, and a link an
+  answer names (next page, `datos`, asset, measure), is followed only to a host that the provider
+  lists (its API and the store of its files). A link is fetched over `https` only; a session
+  without a credential may still follow an `http` hop of a redirect among those hosts. Any other
+  host, one under the provider's own domain included, is refused with a `DownloadError` that
+  names the host and the provider; 0.174.0 held them to the provider's registered domain (GH-3339)
+
 ## [0.174.0] - 2026-10-24
 
 ### Changed

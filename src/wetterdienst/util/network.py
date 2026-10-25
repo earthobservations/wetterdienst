@@ -21,7 +21,7 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Iterable, Iterator, MutableMapping
+from collections.abc import AsyncIterator, Callable, Iterator, MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -60,6 +60,7 @@ from wetterdienst.util.listing_cache import (
     make_private_dir,
     remove_diskcache_leftovers,
 )
+from wetterdienst.util.provider_hosts import clean_host, hosts_of_provider, provider_of
 
 if TYPE_CHECKING:
     from types import SimpleNamespace
@@ -342,11 +343,6 @@ _REGISTRY_LABELS = frozenset(
 )
 
 
-def _clean_host(host: str | None) -> str:
-    """Give a host name in the form it is compared in: lower case, without the root dot."""
-    return (host or "").lower().rstrip(".")
-
-
 def _is_ip_address(host: str) -> bool:
     try:
         ipaddress.ip_address(host)
@@ -366,7 +362,7 @@ def _host_family(host: str) -> str:
     An address, a name with a single label (`localhost`, a name on the internal network) and a name under a shared
     domain (`_SHARED_DOMAINS`) is its own family: nothing else is related to it.
     """
-    host = _clean_host(host)
+    host = clean_host(host)
     labels = host.split(".")
     if _is_ip_address(host) or len(labels) < 2 or host.endswith(tuple(f".{domain}" for domain in _SHARED_DOMAINS)):
         return host
@@ -376,60 +372,65 @@ def _host_family(host: str) -> str:
 
 def _same_family(host: str, other: str) -> bool:
     """Tell whether two hosts are one and the same, or two names under one registered domain."""
-    return _clean_host(host) == _clean_host(other) or _host_family(host) == _host_family(other)
+    return clean_host(host) == clean_host(other) or _host_family(host) == _host_family(other)
 
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
-def _host_listed(host: str, entry: str) -> bool:
-    """Tell whether a host is one an allow-list entry names.
+def _in_scope(host: str, start: str | None) -> bool:
+    """Tell whether a request that starts at a host may be led to another host (a link or a redirect).
 
-    `*` in a label stands for characters of that label, and a leading `*.` for one or more labels.
+    Where the start is a host of a provider (`PROVIDER_HOSTS`), the hosts of that provider are the bound, and no
+    other host is in it, a sibling name under the same domain included. Any other start, a host the library does not
+    know (a test server, an address a caller fetches by hand), is held to its registered domain.
     """
-    entry = _clean_host(entry)
-    leading = entry.startswith("*.")
-    pattern = re.escape(entry.removeprefix("*.")).replace(r"\*", "[^.]+")
-    return re.fullmatch((r"(?:[^.]+\.)+" if leading else "") + pattern, host) is not None
+    hosts = hosts_of_provider(start)
+    if hosts is None:
+        return _same_family(host, start or "")
+    return clean_host(host) in hosts
+
+
+def _bound_of(start: str | None) -> str:
+    """Name what a request that starts at a host is held to, for a refusal: `the hosts of nws`, `the domain of x.fr`."""
+    provider = provider_of(start)
+    return f"the domain of {_host_family(start or '')}" if provider is None else f"the hosts of {provider}"
 
 
 def _link_refused(link: str, why: str) -> DownloadError:
     return DownloadError(_without_url_secrets(link), f"the link was not fetched, as it {why}")
 
 
-def fetchable_link(link: str, base: str, *, allow: Iterable[str] = ()) -> str:
+def fetchable_link(link: str, base: str) -> str:
     """Give the address to fetch for a link that an answer of the provider names, or refuse it.
 
     A provider that follows a link out of its upstream's answer (the next page of a result, the address of the
-    data, an asset) fetches whatever the answer says, unless it asks here first. A link is fetched when it names
+    data, an asset) fetches whatever the answer says, unless it asks here first. A link is fetched when it names a
+    host of the provider that `base`, the address the provider asked, is one of (`PROVIDER_HOSTS`: the API and the
+    store its files are served from), on the port of `base` or the default one. A `base` that no provider lists
+    allows the registered domain of its host.
 
-    - a host of the family of `base`, the address the provider asked: the same name or one under the same
-      registered domain, on the port of `base` or the default one; or
-    - a host of `allow`, over https and on the default port, for a provider whose links lead to a host of
-      another family. An entry is a host name, in which `*` stands for the characters of one label and
-      a leading `*.` for one or more labels (`*.s3.*.amazonaws.com`).
-
-    Anything else is refused: another scheme than http(s), user information, an address or a name on an
-    internal network where `base` is not one. A link to `http` under an `https` base is returned as `https`, which
-    is how the upstream's own links are written where it terminates TLS elsewhere.
+    Anything else is refused: another scheme than http(s), user information, another port, an address or a name on
+    an internal network where `base` is not one, and every other host. A link to `http` under an `https` base is
+    returned as `https`, which is how the upstream's own links are written where it terminates TLS elsewhere.
 
     Args:
         link: The address the answer names.
         base: The address of the request that the answer came for.
-        allow: The hosts besides the family of `base` that the provider's links lead to, narrowly.
 
     Returns:
         The address to fetch.
 
     Raises:
-        DownloadError: If the link is refused, naming it without its query. It is the failure of the file the
-            link stands for, as the provider raises any other, and is never retried.
+        DownloadError: If the link is refused, naming it without its query and the provider whose hosts it is not
+            one of. It is the failure of the file the link stands for, as the provider raises any other, and is
+            never retried.
 
     """
     try:
         parts = urlsplit(link)
         base_parts = urlsplit(base)
-        host = _clean_host(parts.hostname)
+        host = clean_host(parts.hostname)
         port = parts.port
     except ValueError:
         raise _link_refused(link, "does not read as an address") from None
@@ -437,25 +438,20 @@ def fetchable_link(link: str, base: str, *, allow: Iterable[str] = ()) -> str:
         raise _link_refused(link, "is no http(s) address")
     if "@" in parts.netloc:
         raise _link_refused(link, "carries user information")
-    if _same_family(host, _clean_host(base_parts.hostname)):
-        scheme = "https" if base_parts.scheme == "https" else parts.scheme
-        on_default = port in {None, _DEFAULT_PORTS[scheme]} and base_parts.port in {
-            None,
-            _DEFAULT_PORTS[base_parts.scheme],
-        }
-        if not (on_default or port == base_parts.port):
-            raise _link_refused(link, "names another port")
-        return link if scheme == parts.scheme else urlunsplit(parts._replace(scheme=scheme))
-    for entry in allow:
-        if _host_listed(host, entry):
-            if parts.scheme != "https" or port not in {None, 443}:
-                raise _link_refused(link, "is not an https address on the default port")
-            return link
-    raise _link_refused(link, "leads to another host than the provider's")
+    if not _in_scope(host, base_parts.hostname):
+        raise _link_refused(link, f"leads to {host}, which is outside {_bound_of(base_parts.hostname)}")
+    scheme = "https" if base_parts.scheme == "https" else parts.scheme
+    on_default = port in {None, _DEFAULT_PORTS[scheme]} and base_parts.port in {
+        None,
+        _DEFAULT_PORTS[base_parts.scheme],
+    }
+    if not (on_default or port == base_parts.port):
+        raise _link_refused(link, "names another port")
+    return link if scheme == parts.scheme else urlunsplit(parts._replace(scheme=scheme))
 
 
 class RedirectRefusedError(ClientError):
-    """A redirect that was not followed, as it left the host family of the request or stepped down to http."""
+    """A redirect that was not followed, as it left the hosts of the request's provider or stepped down to http."""
 
 
 class DownloadRefusedError(ClientError):
@@ -578,16 +574,18 @@ _REDIRECT_DROPPED_HEADERS = frozenset({"cookie"})
 def _check_redirect(
     response: ClientResponse, headers: MutableMapping[str, str], first_url: str, *, allow_downgrade: bool = False
 ) -> None:
-    """Refuse a redirect that leaves the family of the first request, or steps down to http with a credential.
+    """Refuse a redirect that leaves the hosts of the first request's provider, or steps down to http with a credential.
 
     Called for each redirect, with the headers aiohttp is about to send next. Where the origin changes (host, port
-    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`). The first request's host
-    family is the bound: a redirect that ends elsewhere is refused, so an upstream cannot lead the client to a host of
-    its choosing (an internal one among them). A step from https to http is refused unless `allow_downgrade`, which a
-    session sets only when it holds no credential of any kind (`_session_is_keyless`), and in any case for a request
-    whose headers carry one: a public file is reached over an `http` hop by some chains (data.gouv.fr answers one on
-    GitHub's runners, GH-3398), and the hop is followed within the family as the lesser harm. Its answer is not
-    protected on the way, as the rest of the chain is. The refused hop is named by its host, never by its query.
+    or scheme), no credential header goes with it, whatever its name (`_CREDENTIAL_HEADERS`). The hosts of the provider
+    that the first request's host is one of (`PROVIDER_HOSTS`) are the bound, those of its registered domain where no
+    provider lists the host (`_in_scope`): a redirect that ends elsewhere is refused, so an upstream cannot lead the
+    client to a host of its choosing (an internal one among them). A step from https to http is refused unless
+    `allow_downgrade`, which a session sets only when it holds no credential of any kind (`_session_is_keyless`), and
+    in any case for a request whose headers carry one: a public file is reached over an `http` hop by some chains
+    (data.gouv.fr answers one on GitHub's runners, GH-3398), and the hop is followed within the bound as the lesser
+    harm. Its answer is not protected on the way, as the rest of the chain is. The refused hop is named by its host,
+    never by its query.
     """
     location = response.headers.get("Location") or response.headers.get("URI")
     if not location:
@@ -602,15 +600,16 @@ def _check_redirect(
         return  # aiohttp refuses what is no address
     if target.scheme not in {"http", "https"} or not target_host:
         return  # aiohttp refuses what is no http(s) address
-    if not _same_family(urlsplit(first_url).hostname or "", target_host):
-        msg = f"a redirect to another host ({_clean_host(target_host)}) was not followed"
+    start = urlsplit(first_url).hostname
+    if not _in_scope(target_host, start):
+        msg = f"a redirect to another host ({clean_host(target_host)}) outside {_bound_of(start)} was not followed"
         raise RedirectRefusedError(msg)
     credentials = [name for name in headers if str(name).lower() in _CREDENTIAL_HEADERS | _REDIRECT_DROPPED_HEADERS]
     if here.scheme == "https" and target.scheme == "http" and (credentials or not allow_downgrade):
-        msg = f"a redirect from https to http ({_clean_host(target_host)}) was not followed"
+        msg = f"a redirect from https to http ({clean_host(target_host)}) was not followed"
         raise RedirectRefusedError(msg)
-    origin = (target.scheme, _clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
-    if origin != (here.scheme, _clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
+    origin = (target.scheme, clean_host(target_host), target_port or _DEFAULT_PORTS[target.scheme])
+    if origin != (here.scheme, clean_host(here.hostname), here.port or _DEFAULT_PORTS[here.scheme]):
         for name in credentials:
             if name in headers:  # a header that is there twice goes with its first removal
                 del headers[name]

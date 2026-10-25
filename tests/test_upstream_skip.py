@@ -354,6 +354,125 @@ def test_a_connection_failure_that_is_not_an_unanswered_host_fails_the_test(
         raise _no_internet(cause)
 
 
+def _no_internet_at(host: str, cause: OSError | None) -> NoInternetError:
+    error = NoInternetError(
+        f"No internet connection: could not reach https://{host}/sources/v0.jsonld (Cannot connect)"
+    )
+    error.__cause__ = cause
+    return error
+
+
+_FROST = "frost.met.no"
+_API = "api.met.no"
+_UNRESOLVED = socket.gaierror(8, "nodename nor servname provided, or not known")
+
+
+def test_a_name_that_does_not_resolve_skips_when_the_host_is_named_and_the_runner_has_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a host named in `unresolved_hosts` skips on a failed lookup, as frost.met.no on macOS (GH-3252)."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    with (
+        pytest.raises(pytest.skip.Exception, match="upstream did not answer"),
+        skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)),
+    ):
+        raise _no_internet_at(_FROST, _UNRESOLVED)
+
+
+def test_a_failed_lookup_through_a_download_error_skips_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the named host is told through a `DownloadError` as well, the way the cause is read for any outage."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    download_error = DownloadError("https://frost.met.no/sources/v0.jsonld", "no connection")
+    download_error.__cause__ = _no_internet_at("frost.met.no", _UNRESOLVED)
+    with (
+        pytest.raises(pytest.skip.Exception, match="upstream did not answer"),
+        skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)),
+    ):
+        raise download_error
+
+
+def test_a_name_that_does_not_resolve_still_fails_for_any_other_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that naming one host leaves a dead or misspelt other one red, and the unnamed default as well."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: True)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)):
+        raise _no_internet_at(_API, _UNRESOLVED)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable():
+        raise _no_internet_at(_FROST, _UNRESOLVED)
+
+
+def test_a_named_host_that_does_not_resolve_fails_on_a_runner_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a runner that lost its network is no resolver quirk of one host: the test stays red (GH-2640)."""
+    monkeypatch.setattr(conftest, "_runner_has_network", lambda: False)
+    with pytest.raises(NoInternetError), skip_if_upstream_unavailable(unresolved_hosts=("frost.met.no",)):
+        raise _no_internet_at(_FROST, _UNRESOLVED)
+
+
+def test_a_resolver_marker_applies_to_the_platform_it_names(pytester: pytest.Pytester) -> None:
+    """Test that `resolver_fails` hands the hosts on its platform, and none on another."""
+    pytester.makepyfile(
+        test_markers="""
+        import sys
+        import pytest
+
+        @pytest.mark.resolver_fails("frost.met.no", platform=sys.platform)
+        def test_here(): ...
+
+        @pytest.mark.resolver_fails("frost.met.no", platform="not-" + sys.platform)
+        def test_elsewhere(): ...
+
+        @pytest.mark.resolver_fails("api.met.no")
+        def test_everywhere(): ...
+        """
+    )
+    items = pytester.getitems(pytester.path / "test_markers.py")
+    assert {item.name: conftest._unresolved_hosts_of(item) for item in items} == {  # noqa: SLF001
+        "test_here": ("frost.met.no",),
+        "test_elsewhere": (),
+        "test_everywhere": ("api.met.no",),
+    }
+
+
+def test_a_remote_test_with_a_resolver_marker_skips_on_its_failed_lookup(
+    pytester: pytest.Pytester,
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the hook hands the marker's hosts to the helper: the named host skips, another and an unmarked fail."""
+    result = _run_remote_tests(
+        pytester,
+        pytestconfig,
+        monkeypatch,
+        """
+        import socket
+        import pytest
+        from tests import conftest
+        from wetterdienst.exceptions import NoInternetError
+
+        conftest._runner_has_network = lambda: True
+
+        def lookup_failed(host):
+            error = NoInternetError(f"No internet connection: could not reach https://{host}/x (Cannot connect)")
+            error.__cause__ = socket.gaierror(8, "nodename nor servname provided, or not known")
+            return error
+
+        @pytest.mark.remote
+        @pytest.mark.resolver_fails("frost.met.no")
+        def test_named():
+            raise lookup_failed("frost.met.no")
+
+        @pytest.mark.remote
+        @pytest.mark.resolver_fails("frost.met.no")
+        def test_other_host():
+            raise lookup_failed("api.met.no")
+
+        @pytest.mark.remote
+        def test_unmarked():
+            raise lookup_failed("frost.met.no")
+        """,
+    )
+    result.assert_outcomes(skipped=1, failed=2)
+
+
 def test_the_connectivity_probe_is_true_if_any_host_takes_a_connection(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that the probe tries each host, and is false only when none can be connected to."""
     tried: list[tuple[str, int]] = []

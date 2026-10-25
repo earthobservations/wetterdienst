@@ -488,6 +488,7 @@ log_format = "%(asctime)-15s.%(msecs)03d [%(name)-35s] %(levelname)-8s: %(messag
 log_level = "DEBUG"
 markers = [
     "remote: Tests accessing the internet.",
+    "resolver_fails: Hosts a runner's resolver fails to resolve (host, ..., platform=): a remote test skips on them.",
     "slow: Slow tests.",
     "sql: All tests related to SQL.",
     "explorer: All tests related to the explorer UI.",
@@ -519,8 +520,3 @@ omit = [
 # Cooldown: ignore releases younger than this, so freshly published (and possibly
 # yanked or broken) versions never enter the lockfile.
 exclude-newer = "3 days"
-# pypdf 6.21.2 fixes GHSA-6c7f-9265-g8fw, GHSA-gmh7-3g9r-mjh5 and GHSA-jr96-gvgh-j3r4 and was
-# published 2026-10-21T16:44Z, inside the cooldown. This line lets the lock take it. Delete it from
-# 2026-10-25, when the release is three days old: left in, it holds pypdf back at the cutoff below
-# and no newer release enters the lock.
-exclude-newer-package = { pypdf = "2026-10-21T17:00:00Z" }

@@ -1317,3 +1317,32 @@ def test_aemet_fetch_datos_does_not_ask_again_for_anything_but_a_refused_key(mon
         asked = _serve_in_turn(monkeypatch, file)
         assert isinstance(_fetch(), Exception)
         assert asked == [_ENDPOINT], file
+
+
+@pytest.mark.parametrize(
+    ("datos", "asked_as"),
+    [
+        pytest.param(_DATOS, _DATOS, id="its own host"),
+        pytest.param(
+            "http://opendata.aemet.es/opendata/sh/0123abc", "https://opendata.aemet.es/opendata/sh/0123abc", id="http"
+        ),
+        pytest.param("https://www.aemet.es/x", None, id="another host of the domain of aemet"),
+        pytest.param("https://opendata.aemet.es.example.org/x", None, id="a host that starts like its own"),
+        pytest.param("http://192.0.2.1/latest/meta-data/iam", None, id="an internal address"),
+    ],
+)
+def test_aemet_fetch_datos_asks_the_datos_link_only_at_the_host_of_aemet(
+    monkeypatch: pytest.MonkeyPatch, datos: str, asked_as: str | None
+) -> None:
+    """The "datos" link is the envelope's to name: asked at opendata.aemet.es over https and at no other (GH-3339)."""
+    asked = _serve_envelope_and_datos(
+        monkeypatch, _envelope(200, datos=datos), File(url=datos, content=BytesIO(b"[]"), status=200)
+    )
+    result = _fetch()
+    if asked_as is None:
+        assert isinstance(result, DownloadError)
+        assert "the link was not fetched" in str(result)
+        assert asked == [_ENDPOINT]
+    else:
+        assert result == b"[]"
+        assert asked == [_ENDPOINT, asked_as]
