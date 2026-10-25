@@ -40,7 +40,7 @@ services:
       - HOST=0.0.0.0
       - PORT=4000
       - CI=true
-      - NUXT_PUBLIC_API_BASE=http://backend:7890/api
+      - NUXT_API_BASE=http://backend:7890/api
     ports:
       # a dev server with Nuxt DevTools: on this machine only, see the backend
       - "${WETTERDIENST_BIND_HOST:-127.0.0.1}:4000:4000"

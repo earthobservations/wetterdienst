@@ -1,3 +1,5 @@
+import { useApiBase } from './apiBase'
+
 // Shared handler that proxies the app's `/mcp` and `/mcp/v1` (and any sub-path) through to the backend's MCP
 // endpoint so it is reachable on the app origin (e.g. https://wetterdienst.eobs.org/mcp/v1).
 //
@@ -20,9 +22,7 @@ const PAYLOAD_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 export function mcpProxyHandler() {
   return defineEventHandler(async (event) => {
-    const {
-      public: { apiBase },
-    } = useRuntimeConfig()
+    const apiBase = useApiBase()
     // Forward faithfully to the backend origin, preserving the incoming path and query string so that
     // the exact `/mcp`, `/mcp/v1` (and a later `/mcp/v2`), a trailing slash, and any future sub-path all reach the backend as-is.
     const target = `${new URL(apiBase).origin}${event.path}`

@@ -9,7 +9,7 @@ async function proxyOutcome(failure: unknown, requestId?: string) {
   const setResponseHeader = vi.fn()
   const sendProxy = vi.fn().mockRejectedValue(failure)
   vi.stubGlobal('defineEventHandler', (handler: unknown) => handler)
-  vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBase: BACKEND } }))
+  vi.stubGlobal('useRuntimeConfig', () => ({ apiBase: BACKEND }))
   vi.stubGlobal('getQuery', () => ({}))
   vi.stubGlobal('getRequestHeader', (_event: unknown, name: string) => name === 'x-request-id' ? requestId : undefined)
   vi.stubGlobal('sendProxy', sendProxy)

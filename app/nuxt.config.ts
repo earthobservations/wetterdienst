@@ -100,10 +100,10 @@ export default defineNuxtConfig({
     // The origins whose pages may read the app's answers, a list separated by commas (`NUXT_CORS_ALLOWED_ORIGINS`):
     // none, so only the app's own page does (GH-3095). `server/middleware/cors.ts`.
     corsAllowedOrigins: '',
-    public: {
-      // Allow overriding the backend API base via environment (NUXT_PUBLIC_API_BASE or API_BASE)
-      apiBase: 'http://localhost:7890/api',
-    },
+    // The backend's `/api` URL, which the app's proxies call (`server/utils/apiBase.ts`). Private, so no page
+    // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
+    // if that is set (deprecated), else `http://localhost:7890/api`.
+    apiBase: '',
   },
 
   vite: {

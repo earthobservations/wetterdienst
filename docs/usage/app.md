@@ -42,15 +42,22 @@ of their own so that the app can reach the backend by its name:
 docker network create wetterdienst
 docker run -d --network wetterdienst --name backend ghcr.io/earthobservations/wetterdienst
 docker run -d --network wetterdienst --name app --publish=4000:4000 \
-    --env NUXT_PUBLIC_API_BASE=http://backend:7890/api \
+    --env NUXT_API_BASE=http://backend:7890/api \
     ghcr.io/earthobservations/wetterdienst-app
 ```
 
-The app is then at <http://localhost:4000>. `NUXT_PUBLIC_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
-app's server reaches it: only the server reads it, the browser only talks to the app, which proxies `/api`, the
-interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md) `/mcp/v1` to the backend.
+The app is then at <http://localhost:4000>. `NUXT_API_BASE` is the backend's `/api` (or `/api/v1`) URL, as the
+app's server reaches it: only the server reads it (no page carries it), the browser only talks to the app, which
+proxies `/api`, the interactive API reference at `/docs` and `/openapi.json`, and the [MCP endpoint](mcp.md)
+`/mcp/v1` to the backend.
 The image of the backend listens on port 7890, see [Docker](docker.md). Every other option below is an environment
 variable too, read when the server starts: no rebuild.
+
+```{note}
+`NUXT_API_BASE` was `NUXT_PUBLIC_API_BASE` before the backend URL became private. The old name is still read when
+`NUXT_API_BASE` is not set, and the server logs a warning when it starts; it will be removed in a future release.
+Rename the variable in your deployment, the value stays the same.
+```
 
 From a checkout of the repository, Docker Compose builds both and reloads them when the sources change:
 
@@ -73,7 +80,7 @@ pnpm install
 pnpm dev    # port 4000 on localhost, looking for the backend at http://localhost:7890/api
 ```
 
-The app looks for the backend at `http://localhost:7890/api` unless `NUXT_PUBLIC_API_BASE` says otherwise.
+The app looks for the backend at `http://localhost:7890/api` unless `NUXT_API_BASE` says otherwise.
 The development server (with Nuxt DevTools) listens on `localhost`; `HOST=0.0.0.0 pnpm dev` opens it to the network.
 
 The app is released on its own, with its own [changelog](https://github.com/earthobservations/wetterdienst/blob/main/CHANGELOG_APP.md),
