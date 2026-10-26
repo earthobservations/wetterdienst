@@ -297,5 +297,9 @@ def test_the_hubeau_referential_has_every_station_in_an_area_once_swapped() -> N
     swapped = api._swap_misplaced_positions(stations)  # noqa: SLF001
 
     assert swapped.height > 1000
-    outside = swapped.filter(~api._in_an_area(pl.col("latitude"), pl.col("longitude")))  # noqa: SLF001
+    # a station without a position is in no area either, which a filter on the area alone would drop, not report: a
+    # referential that renames or empties its position fields must fail here
+    assert swapped.select(pl.col("latitude", "longitude").is_null().sum()).row(0) == (0, 0)
+    in_an_area = api._in_an_area(pl.col("latitude"), pl.col("longitude")).fill_null(value=False)  # noqa: SLF001
+    outside = swapped.filter(~in_an_area)
     assert set(outside["station_id"]) <= {"J543211003"}, outside

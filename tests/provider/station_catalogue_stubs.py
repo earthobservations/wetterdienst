@@ -1374,7 +1374,11 @@ def _hubeau(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
             *((44.633866, 2.028415), 0.22918, 2, "2021-07-01", "LOT"),
         ),
         station(
-            *("Y0214011", "Y021401101", "Le Tech [Source Sainte Cécile - Ravin Sainte Cécile - Affluent du Tech]"),
+            *(
+                "Y0214011",
+                "Y021401101",
+                "Le Tech [Source Sainte Cécile - Ravin Sainte Cécile - Affluent du Tech] au Tech - Tech Sainte cécile",
+            ),
             *((42.4174, 2.557169), 621.559, 3, "2008-10-20", "PYRENEES-ORIENTALES"),
         ),
         station(
@@ -1419,7 +1423,7 @@ HUBEAU_EXPECTED = {
     "O831000201": {"latitude": 44.633866, "longitude": 2.028415},
     "Y021401101": {"latitude": 42.4174, "longitude": 2.557169},
     # and the stations it left alone: Mayotte, which is in its area as the source writes it (swapped it would be in
-    # the Atlantic off Brittany), and the Blavet, which is in no area either way
+    # the Atlantic off the Gironde), and the Blavet, which is in no area either way
     "3013000101": {"latitude": -12.800646373, "longitude": 45.205680635},
     "J543211003": {"latitude": 35.108562837, "longitude": 0.840483401},
 }

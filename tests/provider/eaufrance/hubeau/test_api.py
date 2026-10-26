@@ -742,12 +742,20 @@ def test_the_swapped_position_of_an_area_is_in_none(area: str) -> None:
     """Test that a station in an area cannot be taken for a swapped one: its swapped position is in no area.
 
     The rule leaves a position in an area alone whatever its swapped one is; this holds the boxes to being apart enough
-    that a swapped station is not in one of them either, which would make it a correct one.
+    that a swapped station is not in one of them either, which would make it a correct one. The box of the swapped
+    positions of an area (its latitudes as longitudes and the other way round) shares no point with any area: the
+    intervals of each axis are tested, closed as the rule is, so the whole box is held and not some points of it.
     """
     south, north, west, east = api._AREAS[area]  # noqa: SLF001
-    corners = [(south, west), (south, east), (north, west), (north, east), ((south + north) / 2, (west + east) / 2)]
+    swapped_south, swapped_north, swapped_west, swapped_east = west, east, south, north
 
-    swapped = [(longitude, latitude) for latitude, longitude in corners]
+    overlapping = [
+        other
+        for other, (other_south, other_north, other_west, other_east) in api._AREAS.items()  # noqa: SLF001
+        if swapped_south <= other_north
+        and other_south <= swapped_north
+        and swapped_west <= other_east
+        and other_west <= swapped_east
+    ]
 
-    in_an_area = _positions(*swapped).select(api._in_an_area(pl.col("latitude"), pl.col("longitude")))  # noqa: SLF001
-    assert not in_an_area.to_series().any(), area
+    assert not overlapping, f"the swapped positions of {area} overlap {overlapping}"
