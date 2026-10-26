@@ -2792,12 +2792,14 @@ _REFUSING_URL = "http://127.0.0.1:1/file"
 
 
 def _blobs(tmp_path: Path) -> list[str]:
-    """Name the files the five-minute cache under ``tmp_path`` holds, its metadata and marker aside."""
+    """Name the files the five-minute cache under ``tmp_path`` holds, its metadata, marker and dates (`.lm`) aside."""
     filesystem = NetworkFilesystemManager.get(
         cache_dir=tmp_path, cache_expiry=CacheExpiry.FIVE_MINUTES, cache_disable=False
     )
     return sorted(
-        path.name for path in Path(filesystem.storage[-1]).iterdir() if path.name not in {"cache", ".last-used"}
+        path.name
+        for path in Path(filesystem.storage[-1]).iterdir()
+        if path.name not in {"cache", ".last-used"} and path.suffix != ".lm"
     )
 
 
@@ -3101,8 +3103,8 @@ def _caching_over_slow_remote(storage: Path) -> tuple[network._LockedWholeFileCa
 
 
 def _stray_files(storage: Path) -> list[str]:
-    """Name what the cache directory holds besides its metadata file."""
-    return sorted(path.name for path in storage.iterdir() if path.name != "cache")
+    """Name what the cache directory holds besides its metadata file and the dates kept beside the blobs (`.lm`)."""
+    return sorted(path.name for path in storage.iterdir() if path.name != "cache" and path.suffix != ".lm")
 
 
 def test_a_fetch_in_flight_never_shows_a_half_written_blob(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

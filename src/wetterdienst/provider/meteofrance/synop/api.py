@@ -8,7 +8,6 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 from zoneinfo import ZoneInfo
 
@@ -28,7 +27,7 @@ from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteofrance.synop.metadata import MeteoFranceSynopMetadata
 from wetterdienst.util.archive import gunzip
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import cached_copy_is_held, download_file
 
 if TYPE_CHECKING:
     from wetterdienst.model.metadata import DatasetModel, ParameterModel
@@ -48,10 +47,6 @@ _SYNOP_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/OBS/SYNOP/sy
 _SYNOP_STATIONS_ENDPOINT = "https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/OBS/SYNOP/postes_synop.geojson"
 # earliest year for which a yearly archive is published
 _SYNOP_ARCHIVE_START_YEAR = 1996
-# the years before this one are cached for good, and the library kept no date with a copy before this day (the
-# `Last-Modified` of a download, GH-2567): a copy made earlier is downloaded once more, which dates it, where it would
-# never be dated otherwise. One time only: the new copy is later than this
-_COPIES_WITHOUT_A_DATE_BEFORE = datetime(2026, 10, 27, tzinfo=ZoneInfo("UTC")).timestamp()
 
 # codes the source writes in place of a number (GH-2674); the file defines neither, they are read off the data:
 # `-0.1` in the precipitation columns is a trace (WMO element 013011 has a reference value of -1 at scale 1), some rain
@@ -154,28 +149,46 @@ _SYNOP_CSV_SCHEMA = {
 def _download_year(year: int, current_year: int, settings: Settings) -> File:
     """Download the file of a year; a finished year cached before dates were kept is fetched once more (GH-2567).
 
-    Where that fetch fails (offline, the host down) the copy that is held is served as it was, with no date, and not an
-    error: the years before this one never change, and nobody who has them cached is to lose them for a date.
+    The finished years are cached for good and are rewritten rarely, so a copy made by a version that did not keep the
+    `Last-Modified` of a download would never have a date: it is fetched once more, which dates it (a few to some
+    twenty megabytes a year, once), in one attempt. Where that fails, whatever the status, the copy that is held is read
+    as it was, with no date and with a warning that says so, and not an error: nobody who has the years cached is to
+    lose them for a date. Where no copy is held there is nothing to fetch once more, and the year is downloaded as any.
     """
+    url = _SYNOP_ENDPOINT.format(year=year)
     ttl = CacheExpiry.FIVE_MINUTES if year == current_year else CacheExpiry.INFINITE
 
-    def fetch(refetch_before: float | None = None) -> File:
+    def fetch(*, once_more: bool = False) -> File:
         return download_file(
-            url=_SYNOP_ENDPOINT.format(year=year),
+            url=url,
             cache_dir=settings.cache_dir,
             ttl=ttl,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
-            refetch_before=refetch_before,
+            attempts=1 if once_more else 2,
+            refetch_undated=once_more,
         )
 
-    if year == current_year:
+    held = cached_copy_is_held(
+        url,
+        settings.cache_dir,
+        ttl,
+        settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    if year == current_year or not held:
         return fetch()
-    file = fetch(_COPIES_WITHOUT_A_DATE_BEFORE)
-    if isinstance(file.content, Exception) and file.status != HTTPStatus.NOT_FOUND:
-        return fetch()
-    return file
+    file = fetch(once_more=True)
+    if not isinstance(file.content, Exception):
+        return file
+    copy = fetch()
+    if not isinstance(copy.content, Exception):
+        log.warning(
+            f"{url} could not be downloaded again to date it ({file.content!r}): the copy held is read, with no date"
+        )
+    return copy
 
 
 class MeteoFranceSynopValues(TimeseriesValues):

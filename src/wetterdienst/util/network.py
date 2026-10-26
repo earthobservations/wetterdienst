@@ -1442,8 +1442,10 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
     disk's own fields, so the date of a copy fetched anew over an expired one would be the old copy's. A file of its own
     is replaced whole, with the blob it describes. It says which blob that is: the size and the modification time of
     the file as it was written (a rename keeps both), so that a blob another process put there since, or a copy cached
-    before dates were kept, is a blob it does not describe. No date, or none the file could be written for, leaves no
-    sidecar, and the copy has no date. Never raises: a date lost is a null, not a failed download.
+    before dates were kept, is a blob it does not describe. A fetch whose response gave no date writes the record with
+    a null date: the copy has no date, and the record says it was made by a version that kept them
+    (`_has_sidecar_record`), which is what tells it from a copy made before. Never raises: a date lost is a null, not a
+    failed download.
 
     Written under the lock of the cache directory and only if the blob is still the file `written` describes: of two
     fetches that replace the blob one after the other, the one that comes later may write its sidecar first, and the
@@ -1456,11 +1458,8 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
             current = blob.stat()
             if (current.st_size, current.st_mtime_ns) != (written.st_size, written.st_mtime_ns):
                 return
-            if last_modified is None:
-                sidecar.unlink(missing_ok=True)
-                return
             record = {
-                "last_modified": last_modified.isoformat(),
+                "last_modified": None if last_modified is None else last_modified.isoformat(),
                 "size": written.st_size,
                 "mtime_ns": written.st_mtime_ns,
             }
@@ -1473,17 +1472,31 @@ def _write_sidecar(blob: Path, last_modified: dt.datetime | None, written: os.st
             temp.unlink(missing_ok=True)
 
 
-def _read_sidecar(blob: Path) -> dt.datetime | None:
-    """Read the date a cached blob came with: `None` for a blob with no sidecar, or one it does not describe."""
+def _sidecar_record(blob: Path) -> dict | None:
+    """Read the record kept beside a cached blob: `None` for a blob with no sidecar, or one it does not describe."""
     try:
         record = json.loads(_sidecar_of(blob).read_text(encoding="utf-8"))
         written = blob.stat()
         if record["size"] != written.st_size or record["mtime_ns"] != written.st_mtime_ns:
             return None
-        value = dt.datetime.fromisoformat(record["last_modified"])
     except (OSError, ValueError, KeyError, TypeError):
         return None
-    return value.astimezone(dt.UTC) if value.tzinfo is not None else None
+    return record
+
+
+def _has_sidecar_record(blob: Path) -> bool:
+    """Tell whether the blob was cached by a version that kept dates: a record of it, with a date or without one."""
+    return _sidecar_record(blob) is not None
+
+
+def _read_sidecar(blob: Path) -> dt.datetime | None:
+    """Read the date a cached blob came with: `None` for a blob with no sidecar, or one it does not describe."""
+    record = _sidecar_record(blob)
+    try:
+        value = dt.datetime.fromisoformat(record["last_modified"]) if record else None
+    except (ValueError, KeyError, TypeError):
+        return None
+    return value.astimezone(dt.UTC) if value is not None and value.tzinfo is not None else None
 
 
 def _drop_orphaned_sidecars(directory: Path) -> None:
@@ -1582,9 +1595,14 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         # the time (as `time.time()` has it) before which a copy is no longer the file: a copy made earlier is fetched
         # again, and is replaced only once the new one is whole, so that a fetch that fails leaves it where it was
         refetch_before = kwargs.pop("refetch_before", None)
+        # a copy that no version which kept dates made (it has no record of one, not even of a missing date) is fetched
+        # again, once: the new one has the record
+        refetch_undated = kwargs.pop("refetch_undated", False)
         path = self._strip_protocol(path)
         cached = self._check_file(path)
         if cached and refetch_before is not None and cached[0]["time"] < refetch_before:
+            cached = False
+        if cached and refetch_undated and not _has_sidecar_record(Path(cached[1])):
             cached = False
         # where the date of what is read is left for `download_file` (`_take_last_modified`): on the filesystem this
         # one wraps, because an attribute of this one is not found where `__getattribute__` answers for the wrapped
@@ -2194,6 +2212,7 @@ def download_file(
     attempts: int = 2,
     max_bytes: int | None = None,
     refetch_before: float | None = None,
+    refetch_undated: bool = False,
 ) -> File:
     """Download a specified file from the server.
 
@@ -2218,6 +2237,9 @@ def download_file(
         refetch_before: A time, as `time.time()` has it, before which a copy held in the cache is fetched again, for a
             file that is known to have changed since. The copy stays where it is until the new one has arrived, so a
             download that fails is a failure and the copy is still held for a call without this to be served from.
+        refetch_undated: Whether a copy that no version which kept the date of a download (`File.last_modified`) made is
+            fetched again, once. Such a copy has no record of its date beside it, not even of a missing one, where a
+            copy made since has one, so the new copy is held for good. Held in the same way as for `refetch_before`.
 
     Returns:
         A BytesIO object containing the downloaded file.
@@ -2262,8 +2284,10 @@ def download_file(
                     # exception escaping here carries a traceback whose frame holds `client_kwargs`
                     # -- the Authorization header -- which is exactly what the handler below drops
                     held = getattr(filesystem, "_check_file", lambda _url: False)(url)
-                    served_from_cache = bool(held) and not (
-                        refetch_before is not None and held[0]["time"] < refetch_before
+                    served_from_cache = (
+                        bool(held)
+                        and not (refetch_before is not None and held[0]["time"] < refetch_before)
+                        and not (refetch_undated and not _has_sidecar_record(Path(held[1])))
                     )
                     # said after the probe rather than before it, because before it this could only
                     # guess -- and it guessed "Downloading" for every cache hit, which is the one
@@ -2276,6 +2300,8 @@ def download_file(
                     fetch_kwargs: dict[str, float] = {} if max_bytes is None else {"max_bytes": max_bytes}
                     if refetch_before is not None and isinstance(filesystem, WholeFileCacheFileSystem):
                         fetch_kwargs["refetch_before"] = refetch_before
+                    if refetch_undated and isinstance(filesystem, WholeFileCacheFileSystem):
+                        fetch_kwargs["refetch_undated"] = True
                     payload = filesystem.cat_file(url, **fetch_kwargs)
                     _refuse_unannounced_compression(url, payload)
                 except Exception as e:  # noqa: BLE001 -- re-raised, never swallowed
@@ -2354,6 +2380,33 @@ def _failed_file(url: str, error: Exception, *, sent_credentials: bool = False) 
         log.info(f"Failed to download file {shown}.")
         return File(url=url, content=_without_credentials(error, sent_credentials=sent_credentials), status=408)
     return None
+
+
+def cached_copy_is_held(
+    url: str,
+    cache_dir: Path,
+    ttl: CacheExpiry = CacheExpiry.NO_CACHE,
+    client_kwargs: dict | None = None,
+    *,
+    cache_disable: bool = False,
+    use_certifi: bool = False,
+) -> bool:
+    """Tell whether the cache holds a copy of a url that a download with these arguments would serve.
+
+    Takes the arguments the download was made with, because they name the cache it went to. False where nothing is
+    cached (`NO_CACHE`, `cache_disable`) and where the cache cannot be read: never raises.
+    """
+    try:
+        filesystem = NetworkFilesystemManager.get(
+            cache_dir=cache_dir,
+            cache_expiry=ttl,
+            client_kwargs=client_kwargs,
+            cache_disable=cache_disable,
+            use_certifi=use_certifi,
+        )
+        return isinstance(filesystem, WholeFileCacheFileSystem) and bool(filesystem._check_file(url))  # noqa: SLF001
+    except Exception:  # noqa: BLE001 -- best effort, a copy not seen is a download made
+        return False
 
 
 def drop_cached_file(

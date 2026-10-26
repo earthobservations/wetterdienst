@@ -11,6 +11,7 @@ from __future__ import annotations
 import bz2
 import datetime as dt
 import gzip
+import logging
 import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -22,6 +23,7 @@ import pytest
 from tests.provider.dwd.mosmix.test_api_data import _stub_mosmix_stations
 from tests.provider.value_stubs import stations_result
 from wetterdienst import Options, Settings
+from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.period import Period
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.observation import download as dwd_observation_download
@@ -412,64 +414,114 @@ def test_dwd_derived_the_period_that_has_the_rows_dates_the_answer(monkeypatch: 
     assert result.data_updated_at == NEWER
 
 
-def test_meteofrance_synop_a_finished_year_cached_before_dates_were_kept_is_fetched_once_more(
+def _synop_year_stub(
     monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A finished year is cached for good, so a copy of it with no date is fetched again; the current year is not."""
-    asked: list[tuple[str, float | None]] = []
-    year = dt.datetime.now(UTC).year
-
-    def download_file(*, url: str, refetch_before: float | None = None, **_: object) -> File:
-        asked.append((url.rsplit("/", 1)[-1], refetch_before))
-        return File(
-            url=url,
-            content=BytesIO(_synop_file(("07005", f"{url[-11:-7]}-01-01T18:00:00Z"))),
-            status=200,
-            last_modified=OLD,
-        )
-
-    monkeypatch.setattr(synop_api, "download_file", download_file)
-    request = MeteoFranceSynopRequest(
-        parameters=[("subdaily", "data", "temperature_air_2m")],
-        start=dt.datetime(year - 1, 1, 1, tzinfo=UTC),
-        end=dt.datetime(year, 1, 2, tzinfo=UTC),
-        settings=Settings(cache_disable=True),
-    )
-
-    stations_result(request, "subdaily", "data", "07005").values().all()
-
-    assert asked == [
-        (f"synop_{year - 1}.csv.gz", synop_api._COPIES_WITHOUT_A_DATE_BEFORE),  # noqa: SLF001
-        (f"synop_{year}.csv.gz", None),
-    ]
-
-
-def test_meteofrance_synop_a_finished_year_that_cannot_be_fetched_again_is_read_from_the_copy_held(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Where the one more fetch fails the held copy is read as it is, with no date, and not an error."""
+    *,
+    held: bool,
+    once_more: File | None = None,
+) -> list[tuple[str, int, bool]]:
+    """Stand in for the downloads of the years and the cache, and give the calls made: file, attempts, undated."""
+    calls: list[tuple[str, int, bool]] = []
     year = dt.datetime.now(UTC).year - 1
-    asked: list[float | None] = []
 
-    def download_file(*, url: str, refetch_before: float | None = None, **_: object) -> File:
-        asked.append(refetch_before)
-        if refetch_before is not None:
-            return File(url=url, content=ConnectionError("down"), status=503)
-        return File(url=url, content=BytesIO(_synop_file(("07005", f"{year}-01-01T18:00:00Z"))), status=200)
+    def download_file(*, url: str, attempts: int = 2, refetch_undated: bool = False, **_: object) -> File:
+        calls.append((url.rsplit("/", 1)[-1], attempts, refetch_undated))
+        if refetch_undated and once_more is not None:
+            return once_more
+        content = BytesIO(_synop_file(("07005", f"{url[-11:-7]}-01-01T18:00:00Z")))
+        return File(url=url, content=content, status=200, last_modified=OLD if not refetch_undated else NEW)
 
     monkeypatch.setattr(synop_api, "download_file", download_file)
+    monkeypatch.setattr(synop_api, "cached_copy_is_held", lambda *_a, **_k: held)
+    assert year > 1996
+    return calls
+
+
+def _synop_values_of_the_year_before(*, current: bool = False) -> object:
+    year = dt.datetime.now(UTC).year - (0 if current else 1)
     request = MeteoFranceSynopRequest(
         parameters=[("subdaily", "data", "temperature_air_2m")],
         start=dt.datetime(year, 1, 1, tzinfo=UTC),
         end=dt.datetime(year, 1, 2, tzinfo=UTC),
         settings=Settings(cache_disable=True),
     )
+    return stations_result(request, "subdaily", "data", "07005").values().all()
 
-    result = stations_result(request, "subdaily", "data", "07005").values().all()
+
+def test_meteofrance_synop_a_finished_year_held_is_fetched_once_more_in_one_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A copy held may have been made before dates were kept: the one more fetch dates it, and asks once."""
+    year = dt.datetime.now(UTC).year - 1
+    calls = _synop_year_stub(monkeypatch, held=True)
+
+    result = _synop_values_of_the_year_before()
+
+    assert calls == [(f"synop_{year}.csv.gz", 1, True)]
+    assert result.data_updated_at == NEW
+
+
+def test_meteofrance_synop_the_current_year_and_a_year_not_held_are_downloaded_as_any(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """There is nothing to fetch once more where no copy is held, and the current year is held for 5 minutes only."""
+    year = dt.datetime.now(UTC).year
+    calls = _synop_year_stub(monkeypatch, held=True)
+    _synop_values_of_the_year_before(current=True)
+    assert calls == [(f"synop_{year}.csv.gz", 2, False)]
+
+    calls = _synop_year_stub(monkeypatch, held=False)
+    _synop_values_of_the_year_before()
+    assert calls == [(f"synop_{year - 1}.csv.gz", 2, False)]
+
+
+@pytest.mark.parametrize("status", [404, 503])
+def test_meteofrance_synop_a_year_held_that_cannot_be_fetched_again_is_read_undated_with_a_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, status: int
+) -> None:
+    """Whatever the one more fetch is answered, a 404 too, the held copy is read, with no date and a warning."""
+    year = dt.datetime.now(UTC).year - 1
+    failed = File(url="https://example.invalid/x", content=ConnectionError("down"), status=status)
+    calls = _synop_year_stub(monkeypatch, held=True, once_more=failed)
+    original = synop_api.download_file
+
+    def download_file(**kwargs: object) -> File:
+        file = original(**kwargs)
+        # the held copy, read from the cache with no date
+        if not kwargs.get("refetch_undated") and not isinstance(file.content, Exception):
+            file.last_modified = None
+        return file
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.meteofrance.synop.api"):
+        result = _synop_values_of_the_year_before()
 
     assert not result.df.is_empty()
     assert result.data_updated_at is None
-    assert asked == [synop_api._COPIES_WITHOUT_A_DATE_BEFORE, None]  # noqa: SLF001
+    assert calls == [(f"synop_{year}.csv.gz", 1, True), (f"synop_{year}.csv.gz", 2, False)]
+    assert "the copy held is read, with no date" in caplog.text
+
+
+def test_meteofrance_synop_a_year_not_held_that_cannot_be_downloaded_is_asked_for_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no copy held a 503 is not asked for a second time through the one more fetch: the error is the answer."""
+    year = dt.datetime.now(UTC).year - 1
+    calls: list[int] = []
+
+    def download_file(*, url: str, attempts: int = 2, **_: object) -> File:
+        calls.append(attempts)
+        return File(url=url, content=ConnectionError("down"), status=503)
+
+    monkeypatch.setattr(synop_api, "download_file", download_file)
+    monkeypatch.setattr(synop_api, "cached_copy_is_held", lambda *_a, **_k: False)
+
+    with pytest.raises(DownloadError):
+        _synop_values_of_the_year_before()
+
+    assert calls == [2]
+    assert year
 
 
 # --- one offline read of every network that dates what it reads: the registry of `tests/ui` runs them ---------

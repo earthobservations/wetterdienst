@@ -20,6 +20,7 @@ from wetterdienst.util.network import (
     _read_sidecar,
     _remember_last_modified,
     _write_sidecar,
+    cached_copy_is_held,
     download_file,
     download_files,
 )
@@ -429,6 +430,61 @@ def test_a_copy_fetched_again_before_a_time_has_the_new_date_and_a_failed_refetc
     assert after.cached_at > first.cached_at
 
 
+def test_a_copy_without_a_record_of_its_date_is_fetched_once_more_and_one_with_a_record_never(
+    source: ThreadingHTTPServer, tmp_path: Path
+) -> None:
+    """The copy of a version that kept no dates is told by having no record at all: one fetch more, whatever the time.
+
+    A server that sends no date leaves a record of that too, so the copies it gave are not fetched again and again.
+    """
+    source.last_modified = None
+    url = _url(source)
+
+    def read() -> object:
+        return download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_undated=True)
+
+    # a copy made by this version, the server having sent no date: a record with a null date
+    first = read()
+    again = [read() for _ in range(3)]
+    assert (first.from_cache, [file.from_cache for file in again]) == (False, [True, True, True])
+    assert source.requests == ["/file.txt"]
+    (sidecar,) = tmp_path.rglob("*.lm")
+    assert json.loads(sidecar.read_text(encoding="utf-8"))["last_modified"] is None
+
+    # a copy made by the version before: no record at all
+    sidecar.unlink()
+    refetched = read()
+    after = [read() for _ in range(3)]
+
+    assert refetched.from_cache is False
+    assert [file.from_cache for file in after] == [True, True, True]
+    assert source.requests == ["/file.txt", "/file.txt"]
+    assert len(list(tmp_path.rglob("*.lm"))) == 1
+
+
+def test_a_copy_with_a_date_is_not_fetched_once_more_for_it(source: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """A copy that has its date, the one fetch more having given it, is held as any."""
+    url = _url(source)
+    download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE)
+    held = download_file(url, cache_dir=tmp_path, ttl=CacheExpiry.INFINITE, refetch_undated=True)
+
+    assert held.from_cache is True
+    assert held.last_modified == _utc(FIRST)
+    assert source.requests == ["/file.txt"]
+
+
+def test_a_copy_held_is_told_from_one_that_is_not(source: ThreadingHTTPServer, tmp_path: Path) -> None:
+    """`cached_copy_is_held` says whether a download with these arguments would be served from the cache."""
+    url = _url(source)
+    held = {"cache_dir": tmp_path, "ttl": CacheExpiry.ONE_HOUR}
+
+    assert cached_copy_is_held(url, **held) is False
+    download_file(url, **held)
+    assert cached_copy_is_held(url, **held) is True
+    assert cached_copy_is_held(url, tmp_path, CacheExpiry.NO_CACHE) is False
+    assert cached_copy_is_held(url, tmp_path, CacheExpiry.ONE_HOUR, cache_disable=True) is False
+
+
 @pytest.mark.parametrize("later_first", [True, False])
 def test_a_sidecar_of_a_fetch_whose_blob_was_replaced_since_is_not_written(
     tmp_path: Path, *, later_first: bool
@@ -436,7 +492,8 @@ def test_a_sidecar_of_a_fetch_whose_blob_was_replaced_since_is_not_written(
     """Two fetches replace one blob in turn: the sidecar of the one that is no longer the blob never covers the other.
 
     A replaces the blob, B replaces it, and then the sidecars are written, in either order: only the one of B (the blob
-    now) is kept. Without the check the sidecar of A, written last, gave blob B the date of A.
+    now) is kept. Without the check the sidecar of A, written last, replaces that of B, and blob B then reads no date at
+    all: a date is lost, none is wrong, as the sidecar says which blob it is of.
     """
     blob = tmp_path / "blob"
     stat_of_a = _replace(blob, b"the body of A")

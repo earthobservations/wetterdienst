@@ -26,8 +26,9 @@ stale once that has passed: the download error is raised.
 
 The answers of `synop` report the `Last-Modified` of the year files whose rows the answer keeps, which is when
 Météo-France last wrote them. A finished year cached before the library kept that date is downloaded once more, which
-dates it (a few megabytes to some twenty per year; if the host does not answer the copy that is held is read, with no
-date).
+dates it, in one attempt (a few megabytes to some twenty per year). If the host does not answer, the copy that is held
+is read with no date and a warning says so. A copy made since is not downloaded again, whether the file had a date or
+not.
 
 ```{toctree}
 :hidden:
