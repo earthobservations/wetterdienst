@@ -9,9 +9,9 @@ import logging
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, NotRequired, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator, with_config
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator, model_validator, with_config
 from pydantic_extra_types.timezone_name import (
     TimeZoneName,  # noqa: TC002, needs to stay here for pydantic model to work
 )
@@ -59,6 +59,42 @@ TimeseriesKind = Literal["observation", "forecast", "derived"]
 #: warnings of `dwd`). Which one decides where a network can be requested: see `Wetterdienst.discover()`.
 NetworkKind = Literal["observation", "forecast", "derived", "radar", "alerts"]
 
+#: the continents a network can have stations on (Europe and Asia are two, as the station lists treat them)
+Continent = Literal["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"]
+
+#: how far a network reaches: `global`, `continental` (one continent, and no single country), `national` (one country,
+#: with its territories) or `regional` (two to four continents, not the world); see `ExtentModel`
+ExtentScope = Literal["global", "continental", "national", "regional"]
+
+#: the box of the Earth, `[west, south, east, north]`, which the bbox of a global network is
+WORLD_BBOX = (-180.0, -90.0, 180.0, 90.0)
+
+
+# what a member of the extent says, in the schema of `/api/coverage` and `/api/providers` alike
+_SCOPE = (
+    "How far the network reaches: `global`, `continental` (one continent, no single country), `national` (one country, "
+    "with its territories) or `regional` (two to four continents, not the world)."
+)
+_CONTINENTS = "The continents the network has stations on."
+_COUNTRIES = (
+    "ISO 3166-1 alpha-2 codes of the countries the network is bound to: its one country for `national` (an overseas "
+    "territory counts for its sovereign), empty otherwise."
+)
+_BBOX = (
+    "`[west, south, east, north]` in degrees, around every station of the network (the Earth for `global`). It does "
+    "not cross the antimeridian: a network with stations on both sides of it has the wide box."
+)
+
+
+@with_config(ConfigDict(extra="forbid"))
+class CoverageExtent(TypedDict):
+    """Where the stations of a network are, which the country of its provider does not say."""
+
+    scope: Annotated[ExtentScope, Field(description=_SCOPE)]
+    continents: Annotated[list[Continent], Field(description=_CONTINENTS)]
+    countries: Annotated[list[str], Field(description=_COUNTRIES)]
+    bbox: Annotated[list[float], Field(description=_BBOX)]
+
 
 # What `Wetterdienst.discover()` and `TimeseriesRequest.discover()` answer, and the REST API's
 # `/api/coverage` describes: the tests check a real answer of every provider against these, and
@@ -77,6 +113,8 @@ class CoverageNetwork(TypedDict):
     # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
     # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
     kind: NetworkKind
+    # where the stations of the network are, not where its provider is (GH-3456)
+    extent: CoverageExtent
     url: str
     auth: bool
     configured: bool
@@ -532,6 +570,77 @@ class LicenseModel(BaseModel):
 _COUNTRY_CODE = re.compile(r"[A-Z]{2}")
 
 
+# Where the stations of a network are (GH-3456). The `country` of a provider is the country of the agency that runs it
+# and says nothing of that: the forecast lists of `dwd/mosmix` have stations on every continent. A network declares
+# its extent once, in its metadata, and the tests hold the declaration to its station list (the box contains every
+# station, is no wider than the stations by more than `EXTENT_SLACK`, each continent has a station, a global network
+# has stations on five). `continents` are the ones with stations as the list says them (`north_america` for Greenland
+# and the Caribbean, `oceania` for Guam and Polynesia), and for a global network all that have any.
+class ExtentModel(BaseModel):
+    """Where the stations of a network are, which the country of its provider does not say."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: ExtentScope = Field(description=_SCOPE)
+    continents: list[Continent] = Field(min_length=1, description=_CONTINENTS)
+    countries: list[str] = Field(description=_COUNTRIES)
+    bbox: list[float] = Field(min_length=4, max_length=4, description=_BBOX)
+
+    @field_validator("continents")
+    @classmethod
+    def _validate_continents(cls, value: list[Continent]) -> list[Continent]:
+        """Refuse a continent named twice."""
+        if len(set(value)) != len(value):
+            msg = f"continents names a continent twice: {value}"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("countries")
+    @classmethod
+    def _validate_countries(cls, value: list[str]) -> list[str]:
+        """Refuse a code that is no two capital letters, and a country named twice."""
+        for code in value:
+            if not _COUNTRY_CODE.fullmatch(code):
+                msg = f"{code!r} is no ISO 3166-1 alpha-2 code: two capital letters"
+                raise ValueError(msg)
+        if len(set(value)) != len(value):
+            msg = f"countries names a country twice: {value}"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("bbox")
+    @classmethod
+    def _validate_bbox(cls, value: list[float]) -> list[float]:
+        """Refuse a box that is not `[west, south, east, north]` on Earth, with the west not east of the east."""
+        west, south, east, north = value
+        if not (-180 <= west <= east <= 180 and -90 <= south <= north <= 90):
+            msg = f"bbox {value} is no [west, south, east, north] on Earth, with west <= east and south <= north"
+            raise ValueError(msg)
+        return value
+
+    @model_validator(mode="after")
+    def _validate_scope(self) -> ExtentModel:
+        """Hold the scope to what it says of the countries, continents and box."""
+        problems = []
+        if self.scope == "national" and len(self.countries) != 1:
+            problems.append("a national network names its one country")
+        if self.scope == "global":
+            if self.countries:
+                problems.append("a global network is bound to no country")
+            if tuple(self.bbox) != WORLD_BBOX:
+                problems.append(f"a global network has the box of the Earth {list(WORLD_BBOX)}")
+            if len(self.continents) < 5:
+                problems.append("a global network has stations on at least five continents")
+        if self.scope == "continental" and (len(self.continents) != 1 or len(self.countries) == 1):
+            problems.append("a continental network has one continent and no single country")
+        if self.scope == "regional" and (not 2 <= len(self.continents) <= 4 or len(self.countries) == 1):
+            problems.append("a regional network has two to four continents and no single country")
+        if problems:
+            msg = f"extent {self.scope!r}: {'; '.join(problems)}"
+            raise ValueError(msg)
+        return self
+
+
 @dataclass(frozen=True)
 class ProviderTerms:
     """What a network without a metadata model says of its provider: the same fields a `MetadataModel` has for it.
@@ -549,6 +658,7 @@ class ProviderTerms:
     license: LicenseModel | None
     attribution: str | None
     url: str
+    extent: ExtentModel
 
 
 CC_BY_4_0 = LicenseModel(
@@ -599,6 +709,9 @@ class MetadataModel(BaseModel):
     attribution: str | None
     url: str
     kind: TimeseriesKind
+    #: where the stations of the network are, which is no statement about the provider's `country` (a declaration
+    #: has to give it, so that a new network cannot leave the question out)
+    extent: ExtentModel
     timezone: TimeZoneName
     auth: bool = False
     resolutions: list[ResolutionModel]
@@ -611,6 +724,14 @@ class MetadataModel(BaseModel):
             msg = f"{value!r} is no ISO 3166-1 alpha-2 code: two capital letters, or null for several countries"
             raise ValueError(msg)
         return value
+
+    @model_validator(mode="after")
+    def _validate_extent_country(self) -> MetadataModel:
+        """Hold a national network to the country of its provider, which is the one the extent names."""
+        if self.extent.scope == "national" and self.extent.countries != [self.country_code]:
+            msg = f"a national extent names {self.extent.countries}, the country of the provider is {self.country_code}"
+            raise ValueError(msg)
+        return self
 
     def model_post_init(self, _context: object, /) -> None:
         """Tell each resolution which declaration it belongs to."""

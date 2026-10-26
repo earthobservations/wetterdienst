@@ -17,6 +17,12 @@ _MeteoFranceSynopMetadataSpec = {
     "attribution": "© Météo-France",
     "url": "https://meteo.data.gouv.fr/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe", "north_america", "south_america", "africa", "oceania", "antarctica"],
+        "countries": ["FR"],
+        "bbox": [-179.0, -67.0, 167.0, 52.0],
+    },
     "timezone": "Europe/Paris",
     "resolutions": [
         {

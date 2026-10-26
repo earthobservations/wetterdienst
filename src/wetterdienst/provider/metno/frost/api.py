@@ -55,6 +55,12 @@ _MetnoFrostMetadataSpec = {
     "attribution": "Data from MET Norway",
     "url": "https://frost.met.no",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "countries": ["NO"],
+        "bbox": [-10.0, 57.0, 32.0, 81.0],
+    },
     "timezone": "Europe/Oslo",
     "auth": True,
     "resolutions": [

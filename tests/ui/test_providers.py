@@ -67,7 +67,14 @@ def test_a_country_has_one_code_and_a_code_one_country() -> None:
 )
 def test_the_country_code_is_an_alpha_2_code_or_null_for_several_countries(code: str | None, *, valid: bool) -> None:
     """A malformed code is refused when the declaration is built, not found in an answer; null is the multinational."""
+    # an extent that is no one country's, so that the country of the provider is not the one it names
     declared = _timeseries_metadata()[0][2].model_dump()
+    declared["extent"] = {
+        **declared["extent"],
+        "scope": "regional",
+        "continents": ["europe", "africa"],
+        "countries": [],
+    }
     if valid:
         assert MetadataModel.model_validate({**declared, "country_code": code}).country_code == code
     else:
@@ -285,3 +292,64 @@ def test_the_warning_of_a_network_that_cannot_be_imported_leaves_the_path_of_the
     assert any("dwd/road" in message for message in messages)
     # a module that is missing is named, as that is for the caller to tell the operator
     assert any("dwd/mosmix" in message and "'pdbufr'" in message for message in messages)
+
+
+def test_a_network_says_where_its_stations_are(client: TestClient) -> None:
+    """Each network of the answer has its extent, which the `country` of its provider does not say (GH-3456)."""
+    body = client.get("/api/providers").json()
+
+    extents = {
+        f"{provider['provider']}/{network['network']}": network["extent"]
+        for provider in body["providers"]
+        for network in provider["networks"]
+    }
+    assert len(extents) == body["metadata"]["counts"]["networks"]
+    assert all(set(extent) == {"scope", "continents", "countries", "bbox"} for extent in extents.values())
+    # DWD is German, and so is its observation network; its forecast lists are the world's
+    assert extents["dwd/observation"]["scope"] == "national"
+    assert extents["dwd/observation"]["countries"] == ["DE"]
+    assert extents["dwd/mosmix"]["scope"] == "global"
+    assert extents["dwd/mosmix"]["countries"] == []
+    assert extents["dwd/mosmix"]["bbox"] == [-180.0, -90.0, 180.0, 90.0]
+    assert {"north_america", "south_america", "africa", "asia", "oceania"} <= set(extents["dwd/mosmix"]["continents"])
+
+
+def test_the_coverage_of_every_network_says_where_its_stations_are(client: TestClient) -> None:
+    """`/api/coverage` lists the extent of a network as `/api/providers` does."""
+    providers = client.get("/api/providers").json()["providers"]
+    coverage = client.get("/api/coverage").json()
+
+    for provider in providers:
+        for network in provider["networks"]:
+            assert coverage[provider["provider"]][network["network"]]["extent"] == network["extent"]
+
+
+def test_the_command_line_says_where_the_stations_are(client: TestClient) -> None:
+    """`wetterdienst about providers` and `wetterdienst about coverage` have the extent the REST API has."""
+    rest = client.get("/api/providers", params={"provider": "dwd"}).json()
+    result = CliRunner().invoke(cli, ["about", "providers", "--provider=dwd"])
+    assert result.exit_code == 0, result.output
+    extents = {n["network"]: n["extent"] for n in json.loads(result.stdout)["providers"][0]["networks"]}
+    assert extents == {n["network"]: n["extent"] for n in rest["providers"][0]["networks"]}
+
+    result = CliRunner().invoke(cli, ["about", "coverage"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["dwd"]["mosmix"]["extent"]["scope"] == "global"
+
+
+def test_the_mcp_tool_has_the_extent() -> None:
+    """The tool `providers` answers the extent."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def call() -> dict[str, Any]:
+        async with Client(build_mcp_server(restapi.app)) as client:
+            return (await client.call_tool("providers", {"provider": "dwd"})).structured_content or {}
+
+    networks = {n["network"]: n for n in asyncio.run(call())["providers"][0]["networks"]}
+    assert networks["mosmix"]["extent"]["scope"] == "global"
+    assert networks["observation"]["extent"]["countries"] == ["DE"]

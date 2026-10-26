@@ -32,6 +32,8 @@ import polars as pl
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
+    from wetterdienst.model.metadata import ExtentModel
+
 # (south, north, west, east) in degrees, generous: the rule catches a station in another country, not a station near
 # the border. A provider is left out where its catalogue is not one country's: the global lists (MOSMIX, DMO, SYNOP,
 # GHCN, POI), Hubeau with its overseas departments, the NWS with its Pacific and Caribbean territories
@@ -56,6 +58,25 @@ COUNTRY_BBOX: dict[str, tuple[float, float, float, float]] = {
     "smhi/observation": (55.0, 69.1, 10.9, 24.2),
     "wsv/pegel": (47.2, 55.1, 5.8, 15.1),
 }
+
+# the boxes of the continents, `(south, north, west, east)`, coarse and generous where two meet (Russia is in the
+# one of Europe and the one of Asia, the Arabian coast in the one of Africa and of Asia): a station that is in one of
+# them is counted for it. They tell a network that has stations on five continents from one that has them on two, not
+# which continent a station on a border is on
+CONTINENT_BOXES: dict[str, tuple[tuple[float, float, float, float], ...]] = {
+    "africa": ((-35.0, 37.5, -20.0, 34.0), (-35.0, 12.0, 34.0, 52.0), (-26.0, -12.0, 52.0, 58.0)),
+    "antarctica": ((-90.0, -60.0, -180.0, 180.0),),
+    "asia": ((12.0, 82.0, 34.0, 180.0), (-11.0, 12.0, 52.0, 180.0)),
+    "europe": ((34.0, 82.0, -32.0, 60.0),),
+    "north_america": ((7.0, 84.0, -170.0, -50.0), (59.0, 84.0, -73.0, -10.0)),
+    "oceania": ((-48.0, 0.0, 110.0, 180.0), (-30.0, 30.0, -180.0, -130.0), (-48.0, -30.0, -180.0, -170.0)),
+    "south_america": ((-57.0, 13.0, -82.0, -34.0),),
+}
+# how many degrees the declared box of a network may reach beyond the box of its stations, on each side: a box of the
+# whole Earth for a network of one country is no extent
+EXTENT_SLACK = 5.0
+# the stations a continent needs for a global network to count it
+GLOBAL_STATIONS_PER_CONTINENT = 3
 
 # the lowest and the highest dry land on Earth: the Dead Sea shore and Mount Everest
 ELEVATION_RANGE = (-430.0, 8849.0)
@@ -389,6 +410,76 @@ def assert_sound(
     assert not df.is_empty(), f"{catalogue}: the catalogue is empty, so no rule was applied"
     left, stale = unaccepted(check_catalogue(df, catalogue, bbox=bbox, now=now), accepted)
     _assert_none_left(left, stale if fail_on_stale else [], catalogue, limit)
+
+
+def continent_counts(df: pl.DataFrame) -> dict[str, int]:
+    """Count the stations of a catalogue in the box of each continent (`CONTINENT_BOXES`), a station in two for both."""
+    counts = {}
+    for continent, boxes in CONTINENT_BOXES.items():
+        in_a_box = pl.any_horizontal(
+            pl.col("latitude").is_between(south, north) & pl.col("longitude").is_between(west, east)
+            for south, north, west, east in boxes
+        )
+        counts[continent] = df.filter(in_a_box).height
+    return counts
+
+
+def check_extent(df: pl.DataFrame, network: str, extent: ExtentModel, *, whole: bool = False) -> list[str]:
+    """Hold the stations of a network to the extent its metadata declares, and say what they break (GH-3456).
+
+    Every station has to be in the declared box, which the extent of a dataset that is a part of the network (the
+    European list of `dwd/dmo`) does as well as the whole. With `whole`, the stations of all the datasets of the
+    network, the rest is held too: the box is no more than `EXTENT_SLACK` degrees wider than the stations on each
+    side, each continent it names has a station, and a global network has `GLOBAL_STATIONS_PER_CONTINENT` or more on
+    five continents.
+    """
+    stations = df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
+    if stations.is_empty():
+        return [f"{network}: the catalogue has no station with a position, so no extent was checked"]
+    west, south, east, north = extent.bbox
+    outside = stations.filter(
+        ~(pl.col("latitude").is_between(south, north) & pl.col("longitude").is_between(west, east))
+    )
+    problems = [
+        f"{network}: station {row['station_id']} at ({row['latitude']}, {row['longitude']}) is outside the extent "
+        f"[west {west}, south {south}, east {east}, north {north}]"
+        for row in outside.head(5).iter_rows(named=True)
+    ]
+    if outside.height > 5:
+        problems.append(f"{network}: ... and {outside.height - 5} more stations outside the extent")
+    if not whole:
+        return problems
+    held = (
+        stations["longitude"].min(),
+        stations["latitude"].min(),
+        stations["longitude"].max(),
+        stations["latitude"].max(),
+    )
+    if extent.scope != "global":
+        sides = ("west", "south", "east", "north")
+        slack = (held[0] - west, held[1] - south, east - held[2], north - held[3])
+        problems += [
+            f"{network}: the extent reaches {amount:.1f} degrees {side} of its stations, more than {EXTENT_SLACK}"
+            for side, amount in zip(sides, slack, strict=True)
+            if amount > EXTENT_SLACK
+        ]
+    counts = continent_counts(stations)
+    problems += [
+        f"{network}: the extent names {continent}, and no station is in its box"
+        for continent in extent.continents
+        if not counts[continent]
+    ]
+    if extent.scope == "global":
+        reached = [continent for continent, count in counts.items() if count >= GLOBAL_STATIONS_PER_CONTINENT]
+        if len(reached) < 5:
+            problems.append(f"{network}: a global network has stations on {len(reached)} continents ({reached})")
+    return problems
+
+
+def assert_in_extent(df: pl.DataFrame, network: str, extent: ExtentModel, *, whole: bool = False) -> None:
+    """Raise an `AssertionError` that lists what the stations of a network break of the extent it declares."""
+    problems = check_extent(df, network, extent, whole=whole)
+    assert not problems, "\n".join(problems)
 
 
 def _assert_none_left(left: list[Violation], stale: list[Accepted], catalogue: str, limit: int) -> None:

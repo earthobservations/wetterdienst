@@ -10,6 +10,12 @@ from wetterdienst.provider.dwd.metadata import _METADATA
 _DwdMosmixMetadataSpec = {
     **_METADATA,
     "kind": "forecast",
+    "extent": {
+        "scope": "global",
+        "continents": ["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"],
+        "countries": [],
+        "bbox": [-180.0, -90.0, 180.0, 90.0],
+    },
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

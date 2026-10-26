@@ -304,6 +304,12 @@ _HubeauMetadataSpec = {
     "attribution": "Eaufrance",
     "url": "https://www.eaufrance.fr/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe", "north_america", "south_america", "africa", "oceania"],
+        "countries": ["FR"],
+        "bbox": [-62.0, -23.0, 169.0, 52.0],
+    },
     "timezone": "Europe/Paris",
     "resolutions": [
         {

@@ -455,10 +455,23 @@ export interface ProviderResolution {
   datasets: ProviderDataset[]
 }
 
+/** Where the stations of a network are, which the country of its provider does not say */
+export interface NetworkExtent {
+  /** `national`: one country, with its territories; `regional`: two to four continents, not the world */
+  scope: 'global' | 'continental' | 'national' | 'regional'
+  continents: Array<'africa' | 'antarctica' | 'asia' | 'europe' | 'north_america' | 'oceania' | 'south_america'>
+  /** ISO 3166-1 alpha-2 codes: the one country of a `national` network, else empty */
+  countries: string[]
+  /** `[west, south, east, north]` in degrees, around every station; not across the antimeridian */
+  bbox: [number, number, number, number]
+}
+
 /** A network of a provider, as `GET /api/providers` lists it: standalone ones (`radar`, `alerts`) have no resolutions */
 export interface ProviderNetwork {
   network: string
   kind: NetworkKind
+  /** Absent from a backend that predates it */
+  extent?: NetworkExtent
   /** Where the provider publishes the data of the network */
   url: string
   copyright: string

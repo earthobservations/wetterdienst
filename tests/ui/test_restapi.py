@@ -8543,12 +8543,22 @@ def test_coverage_schema_in_openapi(client: TestClient) -> None:
         return set(components[name]["properties"]), set(components[name].get("required", []))
 
     # no `valid`: whether the credentials are accepted is `/api/auth`'s to tell, one network at a time (GH-2641)
-    network = {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
+    network = {"name_short", "country", "kind", "extent", "url", "auth", "configured", "date_required"}
     assert shape("CoverageNetwork") == (network, network)
     properties = components["CoverageNetwork"]["properties"]
     # never null: a network that cannot be imported on the server is not listed (GH-2801)
     assert properties["name_short"] == {"type": "string", "title": "Name Short"}
     assert properties["kind"]["enum"] == list(get_args(NetworkKind))
+    # where the stations are, not where the provider is (GH-3456)
+    assert properties["extent"] == {"$ref": "#/components/schemas/CoverageExtent"}
+    extent = {"scope", "continents", "countries", "bbox"}
+    assert shape("CoverageExtent") == (extent, extent)
+    assert components["CoverageExtent"]["properties"]["scope"]["enum"] == [
+        "global",
+        "continental",
+        "national",
+        "regional",
+    ]
     assert shape("CoverageResolution") == ({"description", "datasets"}, {"description", "datasets"})
     assert shape("CoverageDataset") == ({"description", "parameters"}, {"description", "parameters"})
     # lead_times is `dwd/dmo`'s alone: sent there, absent elsewhere

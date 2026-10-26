@@ -21,6 +21,12 @@ _KnmiObservationMetadataSpec = {
     "attribution": "© KNMI",
     "url": "https://dataplatform.knmi.nl/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe", "north_america"],
+        "countries": ["NL"],
+        "bbox": [-69.0, 12.0, 8.0, 54.0],
+    },
     "timezone": "Europe/Amsterdam",
     "auth": True,
     "resolutions": [

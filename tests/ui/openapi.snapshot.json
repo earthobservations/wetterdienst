@@ -4426,6 +4426,64 @@
         "title": "CoverageDataset",
         "description": "A dataset of a resolution."
       },
+      "CoverageExtent": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "continental",
+              "national",
+              "regional"
+            ],
+            "title": "Scope",
+            "description": "How far the network reaches: `global`, `continental` (one continent, no single country), `national` (one country, with its territories) or `regional` (two to four continents, not the world)."
+          },
+          "continents": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "africa",
+                "antarctica",
+                "asia",
+                "europe",
+                "north_america",
+                "oceania",
+                "south_america"
+              ]
+            },
+            "type": "array",
+            "title": "Continents",
+            "description": "The continents the network has stations on."
+          },
+          "countries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Countries",
+            "description": "ISO 3166-1 alpha-2 codes of the countries the network is bound to: its one country for `national` (an overseas territory counts for its sovereign), empty otherwise."
+          },
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Bbox",
+            "description": "`[west, south, east, north]` in degrees, around every station of the network (the Earth for `global`). It does not cross the antimeridian: a network with stations on both sides of it has the wide box."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scope",
+          "continents",
+          "countries",
+          "bbox"
+        ],
+        "title": "CoverageExtent",
+        "description": "Where the stations of a network are, which the country of its provider does not say."
+      },
       "CoverageNetwork": {
         "properties": {
           "name_short": {
@@ -4446,6 +4504,9 @@
               "alerts"
             ],
             "title": "Kind"
+          },
+          "extent": {
+            "$ref": "#/components/schemas/CoverageExtent"
           },
           "url": {
             "type": "string",
@@ -4470,6 +4531,7 @@
           "name_short",
           "country",
           "kind",
+          "extent",
           "url",
           "auth",
           "configured",
@@ -4619,6 +4681,67 @@
         "type": "object",
         "title": "Crs",
         "description": "The reference system of the positions in the answer."
+      },
+      "ExtentModel": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "continental",
+              "national",
+              "regional"
+            ],
+            "title": "Scope",
+            "description": "How far the network reaches: `global`, `continental` (one continent, no single country), `national` (one country, with its territories) or `regional` (two to four continents, not the world)."
+          },
+          "continents": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "africa",
+                "antarctica",
+                "asia",
+                "europe",
+                "north_america",
+                "oceania",
+                "south_america"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Continents",
+            "description": "The continents the network has stations on."
+          },
+          "countries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Countries",
+            "description": "ISO 3166-1 alpha-2 codes of the countries the network is bound to: its one country for `national` (an overseas territory counts for its sovereign), empty otherwise."
+          },
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bbox",
+            "description": "`[west, south, east, north]` in degrees, around every station of the network (the Earth for `global`). It does not cross the antimeridian: a network with stations on both sides of it has the wide box."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scope",
+          "continents",
+          "countries",
+          "bbox"
+        ],
+        "title": "ExtentModel",
+        "description": "Where the stations of a network are, which the country of its provider does not say."
       },
       "GlossaryEntry": {
         "properties": {
@@ -5122,6 +5245,10 @@
             "title": "Kind",
             "description": "`observation`, `forecast` or `derived` for a network with stations and values; `radar` and `alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list."
           },
+          "extent": {
+            "$ref": "#/components/schemas/ExtentModel",
+            "description": "Where the stations of the network are, which the `country` of its provider does not say."
+          },
           "url": {
             "type": "string",
             "title": "Url",
@@ -5159,6 +5286,7 @@
         "required": [
           "network",
           "kind",
+          "extent",
           "url",
           "copyright",
           "auth",

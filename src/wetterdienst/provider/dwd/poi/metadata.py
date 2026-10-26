@@ -59,6 +59,12 @@ _DwdPoiMetadataSpec = {
     "attribution": _METADATA["attribution"],
     "url": "https://opendata.dwd.de/weather/weather_reports/poi/",
     "kind": "observation",
+    "extent": {
+        "scope": "regional",
+        "continents": ["europe", "asia", "africa", "north_america"],
+        "countries": [],
+        "bbox": [-32.0, 27.0, 129.0, 79.0],
+    },
     "timezone": "Europe/Berlin",
     "resolutions": [
         {

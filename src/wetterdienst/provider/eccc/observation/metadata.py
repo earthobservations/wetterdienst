@@ -21,6 +21,12 @@ _EcccObservationMetadataSpec = {
     "attribution": "based on Environment and Climate Change Canada data",
     "url": "https://climate.weather.gc.ca/climate_data/bulk_data_e.html",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["north_america"],
+        "countries": ["CA"],
+        "bbox": [-142.0, 41.0, -52.0, 84.0],
+    },
     "timezone": "UTC",
     "resolutions": [
         {

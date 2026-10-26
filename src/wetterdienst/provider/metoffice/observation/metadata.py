@@ -148,6 +148,12 @@ _MetOfficeObservationMetadataSpec = {
     ),
     "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "countries": ["GB"],
+        "bbox": [-9.0, 49.0, 2.5, 61.0],
+    },
     "timezone": "Europe/London",
     "auth": True,
     "resolutions": [

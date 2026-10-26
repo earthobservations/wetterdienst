@@ -47,6 +47,12 @@ _MISSING = (
 _ImgwHydrologyMetadataSpec = {
     **_METADATA,
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "countries": ["PL"],
+        "bbox": [14.1, 49.0, 24.2, 54.9],
+    },
     "timezone": "Europe/Warsaw",
     "resolutions": [
         {

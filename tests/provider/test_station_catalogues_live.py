@@ -23,10 +23,17 @@ The networks that are held in their stub only, and those that cannot be held, ar
 
 from __future__ import annotations
 
+import polars as pl
 import pytest
 
 from tests.conftest import FROST_RESOLVER_ON_MACOS
-from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, assert_covered, assert_sound
+from tests.provider.station_catalogue import (
+    COUNTRY_BBOX,
+    Accepted,
+    assert_covered,
+    assert_in_extent,
+    assert_sound,
+)
 from tests.provider.station_catalogue_stubs import (
     CHMI_NAME,
     DWD_NAMES,
@@ -140,7 +147,8 @@ def _cases() -> list[object]:
 def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str, dataset: str) -> None:
     """Hold the whole live station list to the rules, naming the provider, station and rule that fails."""
     key = f"{provider}/{network}"
-    stations = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)]).all().df
+    request = Wetterdienst.resolve(provider, network)(parameters=[(resolution, dataset)])
+    stations = request.all().df
     assert_sound(
         stations,
         f"{key} {resolution}/{dataset}",
@@ -148,6 +156,41 @@ def test_a_live_catalogue_is_sound(provider: str, network: str, resolution: str,
         accepted=ACCEPTED.get(key, ()),
         fail_on_stale=False,
     )
+    # every station is in the box the network declares as its extent (GH-3456), a dataset that is a part of the
+    # network (the European list of `dwd/dmo`) as well as the whole
+    assert_in_extent(stations, f"{key} {resolution}/{dataset}", request.metadata.extent)
+
+
+def _extent_cases() -> list[object]:
+    """Give each network of `_cases` once, with the datasets held for it, to check its extent against the whole."""
+    datasets: dict[str, list[tuple[str, str]]] = {}
+    marks: dict[str, list[object]] = {}
+    for case in _cases():
+        provider, network, resolution, dataset = case.values  # ty: ignore[unresolved-attribute]
+        key = f"{provider}/{network}"
+        marks[key] = list(case.marks)  # ty: ignore[unresolved-attribute]
+        if resolution:
+            datasets.setdefault(key, []).append((resolution, dataset))
+    return [pytest.param(key, held, marks=marks[key], id=key) for key, held in datasets.items()]
+
+
+@pytest.mark.remote
+@pytest.mark.parametrize(("key", "held"), _extent_cases())
+def test_a_live_network_has_the_extent_it_declares(key: str, held: list[tuple[str, str]]) -> None:
+    """Hold the stations of all the datasets of a network to the extent it declares (GH-3456).
+
+    The box is no wider than the stations, each continent it names has a station, and a global network has stations
+    on five of them. The extent is of the network, so the lists of its datasets are held together: `dwd/dmo` is
+    global by its `icon` list and its `icon_eu` list is Europe. The box of a catalogue held to `COUNTRY_BBOX` is the
+    country's, which the stations need not fill: `EXTENT_SLACK` is the room the box may have on each side.
+    """
+    provider, network = key.split("/")
+    api = Wetterdienst.resolve(provider, network)
+    stations = pl.concat(
+        [api(parameters=[parameter]).all().df.select("station_id", "latitude", "longitude") for parameter in held],
+        how="vertical_relaxed",
+    )
+    assert_in_extent(stations, key, api.metadata.extent, whole=True)
 
 
 def _coverage_cases() -> list[object]:

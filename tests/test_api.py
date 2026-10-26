@@ -511,6 +511,7 @@ def _minimal_metadata() -> dict:
         "attribution": None,
         "url": "https://example.com",
         "kind": "observation",
+        "extent": {"scope": "national", "continents": ["europe"], "countries": ["DE"], "bbox": [5.8, 47.2, 15.1, 55.1]},
         "timezone": "Europe/Berlin",
         "resolutions": [
             {
@@ -1385,6 +1386,12 @@ def test_a_parameter_nothing_describes_reads_the_canonical_description() -> None
             "attribution": None,
             "url": "https://example.org",
             "kind": "observation",
+            "extent": {
+                "scope": "continental",
+                "continents": ["europe"],
+                "countries": [],
+                "bbox": [0.0, 40.0, 10.0, 50.0],
+            },
             "timezone": "UTC",
             "resolutions": [{"name": "daily", "name_original": "daily", "datasets": [dataset]}],
         }
@@ -1625,6 +1632,7 @@ def test_discover_lists_metoffice_as_needing_a_credential(monkeypatch: pytest.Mo
         "name_short": "MetOffice",
         "country": "United Kingdom",
         "kind": "observation",
+        "extent": {"scope": "national", "continents": ["europe"], "countries": ["GB"], "bbox": [-9.0, 49.0, 2.5, 61.0]},
         "url": "https://catalogue.ceda.ac.uk/uuid/dbd451271eb04662beade68da43546e1/",
         "auth": True,
         "configured": False,
@@ -1652,7 +1660,17 @@ def test_discover_says_what_every_network_is() -> None:
         for network in networks:
             entry = discovered[provider][network]
             api = resolve_network(provider, network)
-            assert set(entry) == {"name_short", "country", "kind", "url", "auth", "configured", "date_required"}
+            assert set(entry) == {
+                "name_short",
+                "country",
+                "kind",
+                "extent",
+                "url",
+                "auth",
+                "configured",
+                "date_required",
+            }
+            assert set(entry["extent"]) == {"scope", "continents", "countries", "bbox"}, f"{provider}/{network}"
             assert entry["name_short"], f"{provider}/{network}"
             assert entry["country"], f"{provider}/{network}"
             assert entry["url"].startswith("https://"), f"{provider}/{network}"

@@ -421,6 +421,7 @@ The list downloads nothing, so it answers at once. Each network of each provider
 | `country` | the country of the provider, `Germany` |
 | `url` | where the provider publishes the data |
 | `kind` | what the network is, see below |
+| `extent` | where the stations of the network are: `scope`, `continents`, `countries` and `bbox`, see [Extent](#providers) |
 | `auth` | whether the network needs credentials |
 | `configured` | whether the server has them |
 | `date_required` | whether a dataset of the network needs the request to name `start` and `end` |
@@ -455,10 +456,31 @@ ask the same question and give the same answer.
 What each provider is, for a page that lists them or a client that has to credit the data: the names it goes
 by (`name_short` for a chip beside a flag, `name_english`, `name_local`), its country (`country_code` is the ISO 3166-1 alpha-2 code, null for a provider of several countries), the
 terms it publishes its data under (`license`, as in the `metadata` of a data answer) and the credit line
-(`attribution`), and its networks with their `kind`, source `url`, whether they need credentials (`auth`) and
+(`attribution`), and its networks with their `kind`, `extent`, source `url`, whether they need credentials (`auth`) and
 the resolutions and datasets they offer, with how many parameters each has. Nothing is downloaded and no
 credential is read, so it answers at once: `coverage` lists the parameters of a network and `auth` checks
 whether its credentials are accepted. `dwd/radar` and `dwd/alerts` are listed without resolutions.
+
+#### Extent
+
+The `country` of a provider is the country of the agency that runs it, which says nothing of where its networks have
+stations: DWD is German, and the forecast lists of `dwd/mosmix` and `dwd/dmo` have stations on every continent. The
+`extent` of each network says where its stations are, in the answers of `providers` and of `coverage` alike:
+
+| Member | |
+| --- | --- |
+| `scope` | `global` (no limit to a place), `continental` (one continent, no single country), `national` (one country, with its territories) or `regional` (two to four continents, not the world) |
+| `continents` | the continents the network has stations on: `africa`, `antarctica`, `asia`, `europe`, `north_america`, `oceania`, `south_america`. Greenland and the Caribbean are `north_america`; Guam and Polynesia `oceania` |
+| `countries` | the ISO 3166-1 alpha-2 codes of the countries the network is bound to: its one country for `national` (an overseas territory counts for its sovereign: Réunion is `FR`), empty otherwise |
+| `bbox` | `[west, south, east, north]` in degrees, around every station of the network, the Earth for `global`. It does not cross the antimeridian: a network with stations on both sides of it (Alaska and Guam) has the wide box |
+
+It is declared once, in the metadata of the network, and held to the station list by the tests: every station of the
+list is in the `bbox`, the `bbox` is no more than 5 degrees wider than the stations on any side, each continent it names
+has a station and a global network has stations on five. A network whose list is not read by the tests (those that need
+credentials, and `dwd/radar` and `dwd/alerts`, which have no stations) declares it from the provider's documentation.
+`extent` is the extent of the network and not of a dataset: `dwd/dmo` is global by its `icon` dataset, whose list has
+stations on every continent, and its `icon_eu` dataset is Europe. The extent does not change what a request answers:
+`stations` still lists what the network has.
 
 ```bash
 # Every provider, sorted by name.

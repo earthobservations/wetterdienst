@@ -21,6 +21,12 @@ _NoaaGhcnMetadataSpec = {
     "attribution": "NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network",
     "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/",
     "kind": "observation",
+    "extent": {
+        "scope": "global",
+        "continents": ["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"],
+        "countries": [],
+        "bbox": [-180.0, -90.0, 180.0, 90.0],
+    },
     "timezone": "America/New_York",
     "resolutions": [
         {

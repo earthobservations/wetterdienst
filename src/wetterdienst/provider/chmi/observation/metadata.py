@@ -121,6 +121,12 @@ _ChmiObservationMetadataSpec = {
     "attribution": "Český hydrometeorologický ústav (ČHMÚ)",
     "url": "https://opendata.chmi.cz/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "countries": ["CZ"],
+        "bbox": [12.0, 48.5, 18.9, 51.1],
+    },
     "timezone": "Europe/Prague",
     "resolutions": [
         _resolution("10_minutes", _MINUTE_10_PARAMETERS, date_required=True),

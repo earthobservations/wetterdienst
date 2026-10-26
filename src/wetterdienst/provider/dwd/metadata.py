@@ -18,3 +18,12 @@ _METADATA: dict[str, Any] = {
     "attribution": "Source: Deutscher Wetterdienst",
     "url": "https://opendata.dwd.de/climate_environment/CDC/",
 }
+
+# where the stations of a German network are: the box the station catalogue rules hold them to (`COUNTRY_BBOX` of
+# `tests/provider/station_catalogue.py`)
+EXTENT_GERMANY: dict[str, Any] = {
+    "scope": "national",
+    "continents": ["europe"],
+    "countries": ["DE"],
+    "bbox": [5.8, 47.2, 15.1, 55.1],
+}

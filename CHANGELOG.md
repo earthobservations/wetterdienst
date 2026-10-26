@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- Each network of `GET /api/providers` and `GET /api/coverage` (and `wetterdienst about providers`
+  and `about coverage`, the MCP tools `providers` and `coverage`, `Wetterdienst.discover()`) has an
+  `extent`, where its stations are, which the `country` of its provider does not say: `scope`
+  (`global`, `continental`, `national`, `regional`), `continents`, `countries` (ISO 3166-1 alpha-2,
+  the one country of a national network) and `bbox` (`[west, south, east, north]`). `dwd/mosmix`,
+  `dwd/dmo` and `noaa/ghcn` are global, `dwd/observation` is national (`DE`), `dwd/poi` is regional.
+  Every network declares it in its metadata, and the station-catalogue tests hold it to the lists.
+  An additive member; a provider's `country` and `country_code` are unchanged (GH-3456)
 - The `metadata` block of every data answer has `data_updated_at`, when the source says its data
   was last updated (UTC; `null` where it states none), with the `X-Wetterdienst-Data-Updated-At`
   header where it is set. The values, interpolation and summary results have `data_updated_at`, and

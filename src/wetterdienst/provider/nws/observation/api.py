@@ -73,6 +73,12 @@ _NwsObservationMetadataSpec = {
     "attribution": None,
     "url": "https://api.weather.gov/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["north_america", "oceania"],
+        "countries": ["US"],
+        "bbox": [-178.0, -15.0, 180.0, 72.0],
+    },
     "timezone": "America/New_York",
     "resolutions": [
         {

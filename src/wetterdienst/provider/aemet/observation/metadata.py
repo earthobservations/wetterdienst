@@ -75,6 +75,12 @@ _AemetObservationMetadataSpec = {
     "attribution": "Source: AEMET",
     "url": "https://opendata.aemet.es/",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe", "africa"],
+        "countries": ["ES"],
+        "bbox": [-19.0, 27.0, 5.0, 44.0],
+    },
     "timezone": "Europe/Madrid",
     "auth": True,
     "resolutions": [

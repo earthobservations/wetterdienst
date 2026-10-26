@@ -21,6 +21,12 @@ _SmhiObservationMetadataSpec = {
     "attribution": "© SMHI",
     "url": "https://www.smhi.se/data/sok-oppna-data-i-utforskaren",
     "kind": "observation",
+    "extent": {
+        "scope": "national",
+        "continents": ["europe"],
+        "countries": ["SE"],
+        "bbox": [10.9, 55.0, 24.2, 69.1],
+    },
     "timezone": "Europe/Stockholm",
     "resolutions": [
         {

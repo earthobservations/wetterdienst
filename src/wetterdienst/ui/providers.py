@@ -17,7 +17,11 @@ from typing import TYPE_CHECKING, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from wetterdienst.api import Wetterdienst
-from wetterdienst.model.metadata import LicenseModel, NetworkKind  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.model.metadata import (  # noqa: TC001, needed at runtime by pydantic
+    ExtentModel,
+    LicenseModel,
+    NetworkKind,
+)
 from wetterdienst.ui.response_metadata import CatalogueMetadata, catalogue_metadata
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.response_warnings import warn_response
@@ -55,6 +59,9 @@ class ProviderNetwork(BaseModel):
     kind: NetworkKind = Field(
         description="`observation`, `forecast` or `derived` for a network with stations and values; `radar` and "
         "`alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list.",
+    )
+    extent: ExtentModel = Field(
+        description="Where the stations of the network are, which the `country` of its provider does not say.",
     )
     url: str = Field(description="Where the provider publishes the data of the network.")
     copyright: str
@@ -108,6 +115,7 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
                 ProviderNetwork(
                     network=network,
                     kind=cast("NetworkKind", standalone.listing["kind"]),
+                    extent=terms.extent,
                     url=terms.url,
                     copyright=terms.copyright,
                     auth=False,
@@ -141,6 +149,7 @@ def _network(provider: str, network: str) -> tuple[ProviderNetwork, MetadataMode
         ProviderNetwork(
             network=network,
             kind=metadata.kind,
+            extent=metadata.extent,
             url=metadata.url,
             copyright=metadata.copyright,
             auth=metadata.auth,
