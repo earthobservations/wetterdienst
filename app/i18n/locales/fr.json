@@ -427,6 +427,12 @@
     "openFull": "Ouvrir la prévision complète",
     "poweredBy": "Propulsé par Wetterdienst · DWD MOSMIX"
   },
+  "notFound": {
+    "title": "Page introuvable",
+    "text": "Il n'y a pas de page à cette adresse. Vérifie l'adresse ou pars de la page d'accueil.",
+    "home": "Aller à la page d'accueil",
+    "back": "Retour"
+  },
   "stripes": {
     "title": "Bandes climatiques",
     "subtitle": "Visualise les tendances climatiques à long terme avec des bandes de réchauffement/refroidissement",

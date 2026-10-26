@@ -100,11 +100,23 @@ test.describe('a page framed by another origin', () => {
 })
 
 test.describe('the error page', () => {
-  test('is Nuxt\'s own for an unknown address, where the page is not framed', async ({ page }) => {
+  test('is the app\'s own for an unknown address, where the page is not framed, and breaks no part of the policy (GH-3453)', async ({ page }) => {
+    // Nuxt's page for a 404 injects an inline script for its back button, which the policy refuses
+    const violations: string[] = []
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (event) => {
+        const w = window as unknown as { __csp?: string[] }
+        ;(w.__csp ??= []).push(`${event.violatedDirective}: ${event.sample}`)
+      })
+    })
     await page.goto('/nonexistent')
 
     await expect(page.getByText('404').first()).toBeVisible()
-    await expect(page.getByText('Page not found').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Go to the home page' })).toHaveAttribute('href', '/')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    violations.push(...await page.evaluate(() => (window as unknown as { __csp?: string[] }).__csp ?? []))
+    expect(violations).toEqual([])
   })
 })
 
