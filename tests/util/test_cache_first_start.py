@@ -147,6 +147,30 @@ def test_a_sweep_collects_the_files_no_row_names_that_are_older_than_the_expiry(
     assert (storage / ".last-used").is_file()
 
 
+def test_a_stalled_fetch_is_older_than_a_short_ttl_and_is_not_taken_from_under_it(tmp_path: Path) -> None:
+    """The file of a fetch in flight moves when bytes arrive, so with a TTL of seconds it is older than the expiry.
+
+    Another process's sweep keeps what is younger than an hour whatever the TTL, and takes what is older.
+    """
+    storage = tmp_path / "fsspec" / "v2-ttl-FIVE_SECONDS"
+    storage.mkdir(parents=True)
+    stalled = storage / "a-blob.0123456789abcdef.tmp"
+    orphan = storage / "an-orphan"
+    abandoned = storage / "a-blob.fedcba9876543210.tmp"
+    for path in (stalled, orphan, abandoned):
+        path.write_bytes(b"payload")
+    _aged(stalled, 60)  # older than the TTL, younger than the floor
+    _aged(orphan, 60)
+    _aged(abandoned, 7200)
+    first = _LockedWholeFileCacheFileSystem(fs=MemoryFileSystem(), cache_storage=str(storage), expiry_time=5)
+
+    first.clear_expired_cache(expiry_time=5)
+
+    assert stalled.is_file()
+    assert orphan.is_file()
+    assert not abandoned.exists()
+
+
 def test_a_blob_that_cannot_be_removed_does_not_stop_the_sweep(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Windows refuses to remove a file that is open: the metadata is saved by then, and the rest still goes."""
     storage = tmp_path / "fsspec" / "v2-ttl-ONE_HOUR"
@@ -180,11 +204,11 @@ def test_a_blob_that_cannot_be_removed_does_not_stop_the_sweep(tmp_path: Path, m
 )
 @pytest.mark.cflake
 def test_processes_that_start_together_on_an_empty_directory_neither_crash_nor_leave_it(tmp_path: Path) -> None:
-    """Six fresh processes at a barrier, the same twelve urls: no `FileExistsError`, no process cut off from the others.
+    """Six fresh processes at a barrier, the same twelve urls: no process raises, none goes private.
 
-    `python -m tests.util.cache_first_start_stress ROUNDS` runs more of them and counts the rounds. A copy that
-    two processes both fetch because both missed at the same moment is not a failure of this test; one that a sweep
-    removed is, and that is what `fallbacks` and the crashes carry.
+    It counts crashes (`FileExistsError` and the like) and fallbacks, not misses: `python -m
+    tests.util.cache_first_start_stress ROUNDS` runs more rounds and counts the misses too, which are rows lost to
+    another process's save (GH-3485) and not a thing the sweep decides.
     """
     found = run_round(tmp_path, processes=6)
 

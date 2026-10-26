@@ -1226,10 +1226,9 @@ def _sweep_expired_blobs(
     * **The directory is marked swept before the attempt, not after.** `clear_expired` raises
       for a half-written entry -- exactly the case worth surviving -- and a sweep retried on
       every `register` would fail every download for this TTL rather than the one that met it.
-    * **Nothing is downloading into this directory while it runs**, which is what `clear_expired`
-      needs: it works from the snapshot its filesystem loaded and saves that snapshot back, so a
-      sweep beside a `download_files` thread pool would drop rows its siblings had just written and
-      orphan their blobs -- the leak this exists to close.
+    * **Nothing is downloading into this directory while it runs**, which is what the sweep
+      needs: a sweep beside a `download_files` thread pool could drop rows its siblings had just
+      written and orphan their blobs -- the leak this exists to close.
 
       What guarantees that is `_swept_dirs`, not the lock: this runs on the first `register` for a
       path, and until that returns no filesystem for the directory exists for anything to download
@@ -1238,10 +1237,10 @@ def _sweep_expired_blobs(
       a `PermissionError` for the builder rather than the harmless POSIX unlink. So a sweep that is
       ever re-armed after the first one needs a new answer to the first question, and the lock alone
       will not give it one. A download takes it for each load and save of the metadata, which keeps
-      the two from overlapping, but when something has expired `clear_expired` saves the snapshot
-      without merging the file at that moment -- so a sweep taking its turn after a sibling's save
-      still writes over the rows that save added (the lock is per process; across processes it
-      stays open: GH-3485).
+      the two from overlapping, and the sweep reads the file again under the same hold
+      (`_refresh_metadata`), so the rows a sibling *thread* saved are merged in before it writes.
+      What stays open is another *process* saving between that read and the write, whose row is
+      lost: the lock is per process (GH-3485).
 
     Args:
         filesystem: The caching filesystem that owns this directory.
@@ -1517,12 +1516,14 @@ def _remove_unclaimed_files(directory: Path, rows: dict[str, Any], older_than: f
 
     What a sweep that removed the whole directory used to collect: a blob whose row another process's save dropped, the
     `<blob>.<uuid>.tmp` of a fetch that was killed, a `cache-<random>` of a save that was. Left alone are the metadata
-    file, the marker, the blobs rows name and their sidecars. A copy being fetched, or fetched just now, is younger than
-    the expiry, so it is never taken. A removal that fails is skipped (Windows refuses one on a file that is open).
+    file, the marker, the blobs rows name and their sidecars. Not older than `older_than` or an hour, whichever is
+    longer: the file of a fetch in flight moves only when bytes arrive, so a stalled one is older than a short TTL (or a
+    timeout longer than it) and another process's sweep must not take it from under the fetch. A removal that fails is
+    skipped (Windows refuses one on a file that is open).
     """
     named = {str(detail["fn"]) for detail in rows.values() if isinstance(detail, dict) and "fn" in detail}
     kept = {"cache", _CACHE_USE_MARKER}
-    cutoff = time.time() - older_than
+    cutoff = time.time() - max(older_than, _SUPERSEDED_GRACE_SECONDS)
     try:
         entries = list(directory.iterdir())
     except OSError:
@@ -1681,8 +1682,8 @@ class _LockedWholeFileCacheFileSystem(WholeFileCacheFileSystem):
         back empty, which fsspec's does not do because it removes the directory.
 
         That removal was also the only thing that collected the files no row names (a blob whose row was lost, the
-        `<blob>.<uuid>.tmp` of a fetch that was killed), so those are collected here: the ones older than the expiry,
-        which a copy being fetched or just fetched never is.
+        `<blob>.<uuid>.tmp` of a fetch that was killed), so those are collected here: the ones older than the expiry
+        and than an hour (`_remove_unclaimed_files`), which keeps the file of a fetch that is stalled but not dead.
 
         Writing the file back after an expiry is still a read-merge-write that is not safe against another process
         writing at that moment: a row it adds in between is lost (GH-3485).
