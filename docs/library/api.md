@@ -1,6 +1,47 @@
 # API
 
+## AEMET
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.aemet.observation.api.AemetObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## CHMI
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.chmi.observation.api.ChmiObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## DMI
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.dmi.observation.api.DmiObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## DWD
+
+### Alerts
+
+```{autodoc2-object} wetterdienst.provider.dwd.alerts.api.DwdWeatherAlertRequest
+render_plugin = "myst"
+no_index = true
+```
+
+### Derived
+
+```{autodoc2-object} wetterdienst.provider.dwd.derived.api.DwdDerivedRequest
+render_plugin = "myst"
+no_index = true
+```
 
 ### DMO
 
@@ -23,6 +64,20 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### Phenology
+
+```{autodoc2-object} wetterdienst.provider.dwd.phenology.api.DwdPhenologyRequest
+render_plugin = "myst"
+no_index = true
+```
+
+### POI
+
+```{autodoc2-object} wetterdienst.provider.dwd.poi.api.DwdPoiRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ### Radar
 
 ```{autodoc2-object} wetterdienst.provider.dwd.radar.api.DwdRadarValues
@@ -33,6 +88,13 @@ no_index = true
 ### Road
 
 ```{autodoc2-object} wetterdienst.provider.dwd.road.api.DwdRoadRequest
+render_plugin = "myst"
+no_index = true
+```
+
+### SWSMOS
+
+```{autodoc2-object} wetterdienst.provider.dwd.swsmos.api.DwdSwsmosRequest
 render_plugin = "myst"
 no_index = true
 ```
@@ -64,6 +126,15 @@ render_plugin = "myst"
 no_index = true
 ```
 
+## FMI
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.fmi.observation.api.FmiObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## Geosphere
 
 ### Observation
@@ -85,6 +156,33 @@ no_index = true
 ### Meteorology
 
 ```{autodoc2-object} wetterdienst.provider.imgw.meteorology.api.ImgwMeteorologyRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## IPMA
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.ipma.observation.api.IpmaObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## KNMI
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.knmi.observation.api.KnmiObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## LHMT
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.lhmt.observation.api.LhmtObservationRequest
 render_plugin = "myst"
 no_index = true
 ```
@@ -123,6 +221,15 @@ render_plugin = "myst"
 no_index = true
 ```
 
+## Met Office
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.metoffice.observation.api.MetOfficeObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## NOAA
 
 ### GHCN
@@ -141,9 +248,27 @@ render_plugin = "myst"
 no_index = true
 ```
 
-## WSV
+## RMI
 
 ### Observation
+
+```{autodoc2-object} wetterdienst.provider.rmi.observation.api.RmiObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## SMHI
+
+### Observation
+
+```{autodoc2-object} wetterdienst.provider.smhi.observation.api.SmhiObservationRequest
+render_plugin = "myst"
+no_index = true
+```
+
+## WSV
+
+### Pegel
 
 ```{autodoc2-object} wetterdienst.provider.wsv.pegel.api.WsvPegelRequest
 render_plugin = "myst"
